@@ -2108,6 +2108,12 @@ input:focus {
   margin: calc(-1 * var(--sp-4)) 0 var(--sp-7);
 }
 
+.wk-autosave-note {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  margin: calc(-1 * var(--sp-4)) 0 var(--sp-7);
+}
+
 .wk-title.has-error {
   border-color: var(--c-accent);
 }
