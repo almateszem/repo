@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 import {
   getCollection, getWeightLog, getSnapshot,
   addWeightEntry, getNutritionTotals, addNutritionEntry,
-  getWorkouts, addWorkout,
+  getWorkouts, addWorkout, getWorkoutDraft, saveWorkoutDraft,
 } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -83,6 +83,9 @@ app.get('/api/nutrition', (req, res) => res.json(getNutritionTotals(today())));
 // Mentett edzések (legújabb elöl)
 app.get('/api/workouts', (req, res) => res.json(getWorkouts()));
 
+// Az épp szerkesztett edzés piszkozata ({ name, exercises }) vagy null
+app.get('/api/workout-draft', (req, res) => res.json(getWorkoutDraft()));
+
 // Teljes adat-pillanatkép — a beállítások „Adatok exportálása" gombjához
 app.get('/api/export', (req, res) => res.json(getSnapshot()));
 
@@ -144,6 +147,19 @@ app.post('/api/workouts', (req, res) => {
     return res.status(400).json({ error: 'Az edzésnek legalább egy érvényes gyakorlatot kell tartalmaznia.' });
   }
   res.status(201).json(addWorkout(name, today(), exercises));
+});
+
+/** Piszkozat automatikus mentése minden változtatáskor. Törzs: { name, exercises }.
+    A végleges mentéssel szemben a név itt üres is lehet (még nem kötelező),
+    és az üres gyakorlatlista is érvényes. */
+app.put('/api/workout-draft', (req, res) => {
+  const name = String(req.body?.name ?? '').trim().slice(0, 60);
+  const raw = req.body?.exercises;
+  const exercises = Array.isArray(raw) && raw.length === 0 ? [] : normalizeExercises(raw);
+  if (!exercises) {
+    return res.status(400).json({ error: 'Érvénytelen piszkozat-szerkezet.' });
+  }
+  res.json(saveWorkoutDraft(name, exercises));
 });
 
 /* ======================================================================

@@ -204,9 +204,6 @@ export const data = {
     { text: 'Kovács Bence módosította a szombati edzésed', time: '2 napja', cat: 'planChange' },
     { text: 'Emlékeztető: töltsd ki a regenerációs naplót', time: '3 napja', cat: 'reminder' },
   ],
-  /* A napi táplálkozási összesítő KIINDULÓ értéke (mintha korábban már evett
-     volna ma). A tényleges összesítő = ez + a nutrition_log naplózott ételei. */
-  nutritionBase: { intake: 2050, protein: 168, carbs: 210, fat: 64 },
   /* Az edző által kitűzött napi táplálkozási cél. */
   nutritionGoal: { calories: 2900, protein: 170 },
 };

@@ -53,6 +53,12 @@ db.exec(`
     exercises  TEXT NOT NULL,          -- JSON: [{ name, pr, sets: [{ reps, weight, rpe, done }] }]
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+  CREATE TABLE IF NOT EXISTS workout_draft (
+    id         INTEGER PRIMARY KEY CHECK (id = 1),  -- mindig egyetlen sor: az épp szerkesztett edzés
+    name       TEXT NOT NULL,
+    exercises  TEXT NOT NULL,          -- JSON, a workouts.exercises-szel azonos alak
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
 `);
 
 /* ---- Seed ----
@@ -65,6 +71,10 @@ const insertCollection = db.prepare('INSERT OR REPLACE INTO collections (key, va
 for (const [key, value] of Object.entries(seed)) {
   insertCollection.run(key, JSON.stringify(value));
 }
+// A data.js-ből időközben eltávolított kulcsok a meglévő DB-kből is tűnjenek el.
+const seedKeys = Object.keys(seed);
+db.prepare(`DELETE FROM collections WHERE key NOT IN (${seedKeys.map(() => '?').join(', ')})`)
+  .run(...seedKeys);
 console.log('SQLite kész →', DB_PATH);
 
 /* ---- Olvasás ---- */
@@ -85,11 +95,10 @@ export function getNutritionLog() {
   return db.prepare('SELECT id, name, kcal, protein, carbs, fat, date FROM nutrition_log ORDER BY id').all();
 }
 
-/** A napi táplálkozási összesítő egy adott napra: a kiinduló alap + az AZNAP
-    naplózott ételek összege, valamint az edző által kitűzött napi cél
-    (a felület a célhoz méri a bevitelt). */
+/** A napi táplálkozási összesítő egy adott napra: az AZNAP naplózott ételek
+    összege, valamint az edző által kitűzött napi cél (a felület a célhoz
+    méri a bevitelt). */
 export function getNutritionTotals(date) {
-  const base = getCollection('nutritionBase') || { intake: 0, protein: 0, carbs: 0, fat: 0 };
   const sum = db.prepare(`
     SELECT COALESCE(SUM(kcal), 0)    AS intake,
            COALESCE(SUM(protein), 0) AS protein,
@@ -98,13 +107,13 @@ export function getNutritionTotals(date) {
     FROM nutrition_log
     WHERE date = ?
   `).get(date);
-  return {
-    intake:  base.intake  + sum.intake,
-    protein: base.protein + sum.protein,
-    carbs:   base.carbs   + sum.carbs,
-    fat:     base.fat     + sum.fat,
-    goal:    getCollection('nutritionGoal') || { calories: 0, protein: 0 },
-  };
+  return { ...sum, goal: getCollection('nutritionGoal') || { calories: 0, protein: 0 } };
+}
+
+/** Az épp szerkesztett edzés piszkozata ({ name, exercises }) vagy null. */
+export function getWorkoutDraft() {
+  const row = db.prepare('SELECT name, exercises FROM workout_draft WHERE id = 1').get();
+  return row ? { name: row.name, exercises: JSON.parse(row.exercises) } : null;
 }
 
 /** A mentett edzések, legújabb elöl (a gyakorlatok JSON-ból visszafejtve). */
@@ -122,6 +131,7 @@ export function getSnapshot() {
   snapshot.weightLog = getWeightLog();
   snapshot.nutritionLog = getNutritionLog();
   snapshot.workouts = getWorkouts();
+  snapshot.workoutDraft = getWorkoutDraft();
   return snapshot;
 }
 
@@ -140,6 +150,16 @@ export function addNutritionEntry(food, date) {
               VALUES (?, ?, ?, ?, ?, ?)`)
     .run(food.name, food.kcal, food.protein, food.carbs, food.fat, date);
   return getNutritionTotals(date);
+}
+
+/** A piszkozat felülírása (mindig az 1-es sor) — minden változtatásnál hívjuk. */
+export function saveWorkoutDraft(name, exercises) {
+  db.prepare(`INSERT INTO workout_draft (id, name, exercises, updated_at)
+              VALUES (1, ?, ?, datetime('now'))
+              ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name, exercises = excluded.exercises, updated_at = excluded.updated_at`)
+    .run(name, JSON.stringify(exercises));
+  return { name, exercises };
 }
 
 /** Edzés mentése; visszaadja a létrejött { id, name, date, exercises } sort. */

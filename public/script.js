@@ -39,20 +39,22 @@
     return res.json();
   }
 
-  /** POST egy JSON-végpontra. Hiba esetén a szerver `error` üzenetét dobja,
-      ha van, különben a HTTP-státuszt. A választ JSON-ként adja vissza. */
-  async function postJson(path, body) {
+  /** JSON-törzsű kérés (POST/PUT) egy végpontra. Hiba esetén a szerver `error`
+      üzenetét dobja, ha van, különben a HTTP-státuszt. A választ JSON-ként adja vissza. */
+  async function sendJson(method, path, body) {
     const res = await fetch(path, {
-      method: 'POST',
+      method,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
     if (!res.ok) {
       const detail = await res.json().catch(() => null);
-      throw new Error(detail?.error || `POST ${path} → ${res.status}`);
+      throw new Error(detail?.error || `${method} ${path} → ${res.status}`);
     }
     return res.json();
   }
+  const postJson = (path, body) => sendJson('POST', path, body);
+  const putJson = (path, body) => sendJson('PUT', path, body);
 
   /** GET-cache a csak-olvasható referencia-végpontokhoz: több modul kéri
       ugyanazt induláskor, elég egyszer letölteni. (Az athletes-nél tartalmi
@@ -94,6 +96,9 @@
     getWorkouts:       () => getJson('/api/workouts'),
     // Edzés mentése — a szerver visszaadja a mentett { id, name, date, exercises }-t
     saveWorkout:       (name, exercises) => postJson('/api/workouts', { name, exercises }),
+    // Az épp szerkesztett edzés piszkozata — betöltéskor visszaáll, minden változtatás menti
+    getWorkoutDraft:   () => getJson('/api/workout-draft'),
+    saveWorkoutDraft:  (name, exercises) => putJson('/api/workout-draft', { name, exercises }),
     // Teljes adat-pillanatkép a beállítások exportjához
     exportAll:         () => getJson('/api/export'),
   };
@@ -1070,12 +1075,66 @@
     // A "+ szett" / "+ gyakorlat" gombok alapértelmezett szettje — egyszer lekérve
     const defaultSet = await api.getDefaultSet();
 
+    /** Az edzés aktuális állapota a DOM-ból (gyakorlatok + szettek + „kész" jelölés). */
+    const readCurrentWorkout = () => $$('.wk-exercise', page).map((card) => ({
+      name: $('.wk-exercise-name', card).textContent.trim(),
+      pr: !$('.wk-pr', card).hidden,
+      sets: $$('.wk-set-list .wk-set-row', card).map((row) => ({
+        reps: $('.wk-set-reps', row).textContent.trim(),
+        weight: $('.wk-set-weight', row).textContent.trim(),
+        rpe: $('.wk-set-rpe', row).textContent.trim(),
+        done: $('.wk-set-check', row).getAttribute('aria-pressed') === 'true',
+      })),
+    }));
+
+    /* ---- Automatikus mentés ----
+       Minden változtatás után rövid szünettel (debounce) a szerverre PUT-oljuk
+       a piszkozatot, így az állapot újratöltés/leállás után is megmarad.
+       Lapelrejtéskor (bezárás, tab-váltás) a függő mentést azonnal elküldjük
+       keepalive-kéréssel, hogy az utolsó változtatás se vesszen el. */
+    const AUTOSAVE_DEBOUNCE_MS = 500;
+    let autosaveTimer = null;
+    const autosave = () => {
+      clearTimeout(autosaveTimer);
+      autosaveTimer = setTimeout(async () => {
+        autosaveTimer = null;
+        try {
+          await api.saveWorkoutDraft(titleInput.value.trim(), readCurrentWorkout());
+        } catch (err) {
+          console.error('Automatikus mentés sikertelen:', err);
+        }
+      }, AUTOSAVE_DEBOUNCE_MS);
+    };
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'hidden' || autosaveTimer === null) return;
+      clearTimeout(autosaveTimer);
+      autosaveTimer = null;
+      fetch('/api/workout-draft', {
+        method: 'PUT',
+        keepalive: true,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: titleInput.value.trim(), exercises: readCurrentWorkout() }),
+      }).catch(() => {});
+    });
+
+    // Mentett piszkozat visszatöltése: a seed-gyakorlatok és a dashboard-ból
+    // beállított cím helyére az utoljára szerkesztett állapot kerül.
+    // (A renderWorkout/renderDashboard már lefutott — ez felülírja őket.)
+    const draft = await api.getWorkoutDraft();
+    if (draft) {
+      titleInput.value = draft.name;
+      const list = $('[data-list="exercises"]');
+      list.replaceChildren();
+      draft.exercises.forEach((exercise) => list.appendChild(renderExercise(exercise)));
+    }
+
     // Delegált kattintáskezelés — a dinamikusan hozzáadott sorokra is érvényes.
     page.addEventListener('click', (event) => {
       const check = event.target.closest('.wk-set-check');
       if (check) {
         const pressed = check.getAttribute('aria-pressed') === 'true';
         check.setAttribute('aria-pressed', String(!pressed));
+        autosave();
         return;
       }
 
@@ -1089,6 +1148,7 @@
       if (addSetBtn) {
         const setList = $('.wk-set-list', addSetBtn.closest('.wk-exercise'));
         setList.appendChild(renderSetRow({ ...defaultSet }, setList.children.length));
+        autosave();
         return;
       }
     });
@@ -1096,13 +1156,15 @@
     $('[data-action="add-exercise"]').addEventListener('click', () => {
       const list = $('[data-list="exercises"]');
       list.appendChild(renderExercise({ name: 'Új gyakorlat', pr: false, sets: [{ ...defaultSet }] }));
+      autosave();
       showToast('Gyakorlat hozzáadva · demo');
     });
 
-    // Gépelésre a hibaállapot azonnal eltűnik
+    // Gépelésre a hibaállapot azonnal eltűnik; a nevet is automatikusan mentjük
     titleInput.addEventListener('input', () => {
       titleInput.classList.remove('has-error');
       titleError.hidden = true;
+      autosave();
     });
 
     /** Közös név-validáció: a mentés és a befejezés is megköveteli az edzésnevet. */
@@ -1114,18 +1176,6 @@
       showToast('Adj nevet az edzésnek', 'error');
       return false;
     };
-
-    /** Az edzés aktuális állapota a DOM-ból (gyakorlatok + szettek + „kész" jelölés). */
-    const readCurrentWorkout = () => $$('.wk-exercise', page).map((card) => ({
-      name: $('.wk-exercise-name', card).textContent.trim(),
-      pr: !$('.wk-pr', card).hidden,
-      sets: $$('.wk-set-list .wk-set-row', card).map((row) => ({
-        reps: $('.wk-set-reps', row).textContent.trim(),
-        weight: $('.wk-set-weight', row).textContent.trim(),
-        rpe: $('.wk-set-rpe', row).textContent.trim(),
-        done: $('.wk-set-check', row).getAttribute('aria-pressed') === 'true',
-      })),
-    }));
 
     // Mentés — validáció, szerverre mentés, siker-visszajelzés + megjelenés a listában
     const saveBtn = $('[data-action="save-workout"]');
