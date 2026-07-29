@@ -1,0 +1,158 @@
+/**
+ * FitTrack Pro — Express szerver
+ * ------------------------------
+ * Egyetlen origin: ugyanez a szerver szolgálja ki a statikus frontendet
+ * (a public/ mappából) ÉS a REST API-t (/api/*). Így nincs CORS, és egyetlen
+ * `npm start` elindítja az egészet.
+ *
+ * Az adat a SQLite adatbázisból jön (server/db.js) — a végpontok azt olvassák/
+ * írják, a frontend `api` rétege pedig ezeket a végpontokat hívja.
+ */
+import express from 'express';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import {
+  getCollection, getWeightLog, getSnapshot,
+  addWeightEntry, getNutritionTotals, addNutritionEntry,
+  getWorkouts, addWorkout,
+} from './db.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PUBLIC_DIR = path.join(__dirname, '..', 'public'); // a statikus frontend mappája
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.use(express.json()); // a POST/PUT végpontokhoz (JSON törzs olvasása)
+
+/** A mai dátum HELYI idő szerint, a frontend által várt formátumban
+    (pl. "2026.07.26"). Nem toISOString: az UTC-t adna, és éjfél után
+    előző napi dátumot könyvelne. */
+const today = () => {
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${now.getFullYear()}.${pad(now.getMonth() + 1)}.${pad(now.getDate())}`;
+};
+
+/* ======================================================================
+   API — az adat-seam szerver-oldali vége.
+   A frontend `api.getX()` metódusai ezeket a végpontokat hívják. Az olvasó-
+   végpontok egy-egy collections-kulcsot adnak vissza; az útvonal → kulcs
+   megfeleltetés egy helyen, hogy a lista könnyen bővíthető legyen.
+   (A weight-log NEM itt van: saját táblából, dedikált route-tal jön.)
+   ====================================================================== */
+const READ_ENDPOINTS = {
+  '/api/user': 'user',
+  '/api/charts': 'charts',
+  '/api/exercises': 'exercises',
+  '/api/history': 'history',
+  '/api/foods': 'foods',
+  '/api/plans': 'plans',
+  '/api/athletes': 'athletes',
+  '/api/prs': 'prs',
+  '/api/notifications': 'notifications',
+  '/api/default-set': 'defaultSet',
+  '/api/athlete-replies': 'athleteReplies',
+  '/api/coach-notes': 'coachNotes',
+  '/api/coach-replies': 'coachReplies',
+};
+
+for (const [route, key] of Object.entries(READ_ENDPOINTS)) {
+  app.get(route, (req, res) => res.json(getCollection(key)));
+}
+
+// Áttekintő — a napi kalória/fehérje statot a táplálkozási naplóból számoljuk,
+// hogy a dashboard és a Táplálkozás oldal ugyanazt az adatot mutassa.
+app.get('/api/dashboard', (req, res) => {
+  const dashboard = getCollection('dashboard');
+  const totals = getNutritionTotals(today());
+  dashboard.dailyStats = {
+    calories: Math.round(totals.intake),
+    caloriesTarget: totals.goal.calories,
+    protein: Math.round(totals.protein),
+  };
+  res.json(dashboard);
+});
+
+// Testsúly-napló — a valódi weight_log táblából
+app.get('/api/weight-log', (req, res) => res.json(getWeightLog()));
+
+// Napi táplálkozási összesítő (alap + a MAI naplózott ételek)
+app.get('/api/nutrition', (req, res) => res.json(getNutritionTotals(today())));
+
+// Mentett edzések (legújabb elöl)
+app.get('/api/workouts', (req, res) => res.json(getWorkouts()));
+
+// Teljes adat-pillanatkép — a beállítások „Adatok exportálása" gombjához
+app.get('/api/export', (req, res) => res.json(getSnapshot()));
+
+/* ======================================================================
+   Write-végpontok (POST) — a SQLite adatbázist módosítják (perzisztens).
+   ====================================================================== */
+
+/** Új testsúly-bejegyzés. Törzs: { kg }. A dátumot a szerver adja. */
+app.post('/api/weight-log', (req, res) => {
+  const kg = Number(req.body?.kg);
+  if (!Number.isFinite(kg) || kg < 30 || kg > 300) {
+    return res.status(400).json({ error: 'Érvénytelen testsúly — 30 és 300 kg között adható meg.' });
+  }
+  res.status(201).json(addWeightEntry(kg, today()));
+});
+
+/** Étel naplózása. Törzs: { name }. A szerver a foods-ból keresi ki a makrókat
+    (a kliens értékeiben nem bízunk), és a frissített napi összesítőt adja vissza. */
+app.post('/api/nutrition/log', (req, res) => {
+  const name = String(req.body?.name ?? '');
+  const food = (getCollection('foods') || []).find((f) => f.name === name);
+  if (!food) {
+    return res.status(400).json({ error: 'Ismeretlen étel — csak a listában szereplő adható a naplóhoz.' });
+  }
+  res.status(201).json(addNutritionEntry(food, today()));
+});
+
+/** A beküldött gyakorlat-lista mezőnkénti normalizálása. A kliens a DOM-ból
+    olvassa az értékeket, ezért itt kényszerítjük ki az elvárt alakot;
+    érvénytelen szerkezetre null-t ad (→ 400-as válasz). */
+function normalizeExercises(raw) {
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+  const exercises = [];
+  for (const entry of raw) {
+    const name = String(entry?.name ?? '').trim().slice(0, 60);
+    if (!name || !Array.isArray(entry?.sets)) return null;
+    exercises.push({
+      name,
+      pr: Boolean(entry.pr),
+      sets: entry.sets.map((set) => ({
+        reps: String(set?.reps ?? '').slice(0, 20),
+        weight: String(set?.weight ?? '').slice(0, 20),
+        rpe: String(set?.rpe ?? '').slice(0, 10),
+        done: Boolean(set?.done),
+      })),
+    });
+  }
+  return exercises;
+}
+
+/** Edzés mentése. Törzs: { name, exercises }. A dátumot a szerver adja. */
+app.post('/api/workouts', (req, res) => {
+  const name = String(req.body?.name ?? '').trim();
+  if (!name || name.length > 60) {
+    return res.status(400).json({ error: 'Az edzés neve kötelező (legfeljebb 60 karakter).' });
+  }
+  const exercises = normalizeExercises(req.body?.exercises);
+  if (!exercises) {
+    return res.status(400).json({ error: 'Az edzésnek legalább egy érvényes gyakorlatot kell tartalmaznia.' });
+  }
+  res.status(201).json(addWorkout(name, today(), exercises));
+});
+
+/* ======================================================================
+   Statikus frontend — az API-útvonalak UTÁN, kizárólag a public/ mappából.
+   A szerver-belső (kód, DB-fájl, node_modules) így eleve nem érhető el
+   http-n, nem kell hozzá tiltólista.
+   ====================================================================== */
+app.use(express.static(PUBLIC_DIR));
+
+app.listen(PORT, () => {
+  console.log(`FitTrack Pro szerver fut: http://localhost:${PORT}`);
+});

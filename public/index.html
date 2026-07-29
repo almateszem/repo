@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="FitTrack Pro — edző–kliens edzésmenedzsment platform (interaktív demo)">
+  <meta name="theme-color" content="#0d0d0f">
+  <title>FitTrack Pro</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💪</text></svg>">
+  <link rel="stylesheet" href="style.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+
+  <!-- Közös SVG-ikonok — a use-hivatkozások innen klónoznak -->
+  <svg style="display:none" aria-hidden="true">
+    <symbol id="icon-user" viewBox="0 0 24 24"><path d="M12 12c2.7 0 4.9-2.2 4.9-4.9S14.7 2.2 12 2.2 7.1 4.4 7.1 7.1 9.3 12 12 12zm0 2.4c-3.3 0-9.8 1.6-9.8 4.9v1.2c0 .7.5 1.2 1.2 1.2h17.2c.7 0 1.2-.5 1.2-1.2v-1.2c0-3.3-6.5-4.9-9.8-4.9z"/></symbol>
+  </svg>
+
+  <a class="skip-link" href="#app-main">Ugrás a tartalomhoz</a>
+
+  <!-- Desktop side navigation (mobile/tablet uses the nav ring instead — see CSS breakpoints) -->
+  <nav class="side-nav" aria-label="Fő navigáció">
+    <div class="side-nav-brand">FitTrack Pro</div>
+    <ul class="side-nav-list">
+      <li><a class="side-nav-link" href="#dashboard" aria-current="page">Áttekintés</a></li>
+      <li><a class="side-nav-link" href="#coach">Edző</a></li>
+      <li><a class="side-nav-link" href="#plans">Tervek</a></li>
+      <li><a class="side-nav-link" href="#workout">Edzés</a></li>
+      <li><a class="side-nav-link" href="#nutrition">Táplálkozás</a></li>
+    </ul>
+  </nav>
+
+  <div class="app-content">
+    <main class="app-main" id="app-main">
+      <h1 class="sr-only">FitTrack Pro</h1>
+
+      <!-- ================================================================
+           Dashboard — áttekintés (readiness, recovery, statisztikák, streak)
+           ================================================================ -->
+      <section class="app-page dashboard" data-page="dashboard" aria-labelledby="title-dashboard">
+        <h2 class="sr-only" id="title-dashboard">Áttekintés</h2>
+
+        <header class="db-header">
+          <div class="db-profile">
+            <button class="db-avatar" type="button" data-action="notifications" title="Értesítések"
+                    aria-label="Értesítések" aria-haspopup="true" aria-expanded="false">
+              <svg class="db-avatar-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-user"/></svg>
+              <span class="db-badge" data-notif-badge>6</span>
+            </button>
+            <span class="db-username"></span>
+          </div>
+
+          <!-- Értesítés-panel (az avatarra kattintva nyílik, a script.js tölti fel) -->
+          <div class="notif-panel" data-notif-panel aria-label="Értesítések" hidden>
+            <div class="notif-head">
+              <span class="notif-title">Értesítések</span>
+              <button class="notif-clear" type="button" data-action="clear-notifications">Összes olvasott</button>
+            </div>
+            <ul class="notif-list" data-list="notifications"></ul>
+            <p class="notif-empty" hidden>Nincs új értesítésed 🎉</p>
+          </div>
+
+          <button class="db-settings" type="button" aria-label="Beállítások" title="Beállítások" data-action="settings">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6a.5.5 0 0 0 .1-.6l-2-3.5a.5.5 0 0 0-.6-.2l-2.5 1a7.4 7.4 0 0 0-1.7-1l-.4-2.6a.5.5 0 0 0-.5-.4h-4a.5.5 0 0 0-.5.4l-.4 2.6a7.4 7.4 0 0 0-1.7 1l-2.5-1a.5.5 0 0 0-.6.2l-2 3.5a.5.5 0 0 0 .1.6L4.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6a.5.5 0 0 0-.1.6l2 3.5c.1.2.4.3.6.2l2.5-1a7.4 7.4 0 0 0 1.7 1l.4 2.6c0 .2.3.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.6a7.4 7.4 0 0 0 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5a.5.5 0 0 0-.1-.6L19.4 13zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z"/></svg>
+          </button>
+        </header>
+
+        <section class="db-readiness" aria-label="Készenléti állapot">
+          <div class="db-readiness-text">
+            <span class="db-label">Készenléti állapot</span>
+            <span class="db-percent"><span class="db-percent-num">0</span><span class="db-percent-sign">%</span></span>
+          </div>
+          <div class="db-ring" role="img" aria-label="Készenléti állapot">
+            <svg viewBox="0 0 100 100">
+              <circle class="db-ring-bg" cx="50" cy="50" r="42"></circle>
+              <circle class="db-ring-fg" cx="50" cy="50" r="42"></circle>
+            </svg>
+          </div>
+        </section>
+
+        <section class="db-recovery" aria-label="Regeneráció">
+          <div class="db-recovery-item">
+            <span class="db-recovery-label">Alvás</span>
+            <span class="db-recovery-value" data-recovery="sleep"></span>
+          </div>
+          <div class="db-recovery-item">
+            <span class="db-recovery-label">Fáradtság</span>
+            <span class="db-recovery-value" data-recovery="fatigue"></span>
+          </div>
+          <div class="db-recovery-item">
+            <span class="db-recovery-label">Izomláz</span>
+            <span class="db-recovery-value" data-recovery="soreness"></span>
+          </div>
+        </section>
+
+        <section class="db-stats" aria-label="Napi statisztikák">
+          <div class="db-stat">
+            <span class="db-stat-label">Kalória</span>
+            <span class="db-stat-value"><span data-daily="calories"></span><span class="db-stat-unit" data-daily="caloriesTarget"></span></span>
+          </div>
+          <div class="db-stat">
+            <span class="db-stat-label">Fehérje</span>
+            <span class="db-stat-value"><span data-daily="protein"></span><span class="db-stat-unit">g</span></span>
+          </div>
+          <div class="db-stat">
+            <span class="db-stat-label">Testsúly Δ</span>
+            <span class="db-stat-value"><span data-stat="weightDelta">0</span><span class="db-stat-unit">kg</span></span>
+          </div>
+          <div class="db-stat">
+            <span class="db-stat-label">Sorozat</span>
+            <span class="db-stat-value"><span data-stat="streak">0</span><span class="db-stat-unit">nap</span></span>
+          </div>
+        </section>
+
+        <div class="chart db-chart" role="img" aria-label="Heti kalóriabevitel alakulása" data-chart="weeklyCalories">
+          <div class="chart-bars" aria-hidden="true"></div>
+          <div class="chart-axis" aria-hidden="true"></div>
+        </div>
+
+        <section class="db-weight" aria-labelledby="title-weight">
+          <h3 class="db-weight-title" id="title-weight">Testsúly alakulása — 12 hét</h3>
+          <div class="chart db-weight-chart" role="img" aria-label="Testsúly alakulása az elmúlt 12 hétben"
+               data-chart="bodyWeight">
+            <div class="chart-bars" aria-hidden="true"></div>
+            <div class="chart-axis" aria-hidden="true"></div>
+          </div>
+
+          <!-- Testsúly rögzítése — a bejegyzés a chartra kerül és a Δ statot frissíti -->
+          <form class="db-weight-form" data-form="weight-log">
+            <div class="db-weight-input-col">
+              <label class="field-label" for="weight-input">Mai testsúly</label>
+              <div class="db-weight-input-wrap">
+                <input class="db-weight-input" id="weight-input" type="number" min="30" max="300" step="0.1"
+                       inputmode="decimal" placeholder="pl. 82.5" autocomplete="off">
+                <span class="db-weight-unit" aria-hidden="true">kg</span>
+              </div>
+            </div>
+            <button class="db-weight-save" type="submit">Rögzítés</button>
+          </form>
+          <p class="db-weight-last" data-weight-last hidden></p>
+        </section>
+
+        <p class="db-quote" data-db-quote>A folyamatosság veri<br>a tökéletességet.</p>
+
+        <button class="db-cta" type="button" data-action="open-workout">
+          <span data-workout-name></span>
+          <span class="db-cta-arrow" aria-hidden="true">→</span>
+        </button>
+      </section>
+
+      <!-- ================================================================
+           Workout Logger + Technique Video Log — edzésnapló
+           (a gyakorlatkártyákat a script.js tölti fel az API-ból)
+           ================================================================ -->
+      <section class="app-page wk-page" data-page="workout" aria-labelledby="title-workout" hidden>
+        <h2 class="sr-only" id="title-workout">Edzésnapló</h2>
+
+        <header class="wk-header">
+          <label class="sr-only" for="workout-name">Edzés neve</label>
+          <input class="wk-title" id="workout-name" maxlength="60"
+                 aria-describedby="workout-name-error">
+          <button class="wk-save" type="button" data-action="save-workout">Mentés</button>
+        </header>
+        <p class="wk-error" id="workout-name-error" hidden>Adj nevet az edzésnek a mentéshez.</p>
+
+        <div class="wk-list" data-list="exercises"></div>
+
+        <button class="wk-add-exercise" type="button" data-action="add-exercise">+ Gyakorlat hozzáadása</button>
+
+        <!-- Elsődleges lezáró művelet — az összegző oldalra visz (#summary) -->
+        <button class="wk-finish" type="button" data-action="finish-workout">
+          <span>Edzés befejezése</span>
+          <span class="wk-finish-arrow" aria-hidden="true">→</span>
+        </button>
+
+        <section class="wk-progress" aria-labelledby="title-progress">
+          <h3 class="wk-progress-title" id="title-progress">Fejlődés — Fekvenyomás</h3>
+          <div class="chart" role="img" aria-label="Fekvenyomás fejlődése" data-chart="benchProgress">
+            <div class="chart-bars" aria-hidden="true"></div>
+            <div class="chart-axis" aria-hidden="true"></div>
+          </div>
+          <ul class="wk-history" data-list="history"></ul>
+        </section>
+
+        <section class="wk-compare" aria-labelledby="title-compare">
+          <div class="wk-compare-head">
+            <h3 class="wk-progress-title" id="title-compare">Heti volumen — összehasonlítás</h3>
+            <div class="wk-toggle" role="group" aria-label="Időszak kiválasztása">
+              <button class="wk-toggle-btn" type="button" data-period="volumeThisWeek" aria-pressed="true">Ez a hét</button>
+              <button class="wk-toggle-btn" type="button" data-period="volumeLastWeek" aria-pressed="false">Múlt hét</button>
+            </div>
+          </div>
+          <div class="chart" role="img" aria-label="Heti edzésvolumen naponta — ez a hét" data-chart="volumeThisWeek">
+            <div class="chart-bars" aria-hidden="true"></div>
+            <div class="chart-axis" aria-hidden="true"></div>
+          </div>
+          <div class="wk-compare-days" aria-hidden="true">
+            <span>H</span><span>K</span><span>Sze</span><span>Cs</span><span>P</span><span>Szo</span><span>V</span>
+          </div>
+          <p class="wk-compare-note">Összvolumen:
+            <strong><span data-compare-total></span> t</strong> ·
+            <span data-compare-note></span></p>
+        </section>
+
+        <section class="wk-prs" aria-labelledby="title-prs">
+          <h3 class="wk-progress-title" id="title-prs">Korábbi rekordok</h3>
+          <ul class="wk-pr-list" data-list="prs"></ul>
+        </section>
+      </section>
+
+      <!-- ================================================================
+           Nutrition Tracker — táplálkozás
+           (az étel-listát a script.js tölti fel, a kereső élőben szűr)
+           ================================================================ -->
+      <section class="app-page nu-page" data-page="nutrition" aria-labelledby="title-nutrition" hidden>
+        <h2 class="sr-only" id="title-nutrition">Táplálkozás</h2>
+
+        <header class="nu-summary" aria-label="Napi kalória-összesítő">
+          <div class="nu-summary-item">
+            <span class="nu-summary-value"><span data-stat="intake"></span><span class="nu-summary-unit">kcal</span></span>
+            <span class="nu-summary-label">Bevitel</span>
+          </div>
+          <span class="nu-summary-divider" aria-hidden="true">/</span>
+          <div class="nu-summary-item">
+            <span class="nu-summary-value"><span data-goal="calories"></span><span class="nu-summary-unit">kcal</span></span>
+            <span class="nu-summary-label">Cél</span>
+          </div>
+        </header>
+
+        <div class="nu-macros" aria-label="Makrotápanyagok">
+          <div class="nu-macro"><span class="nu-macro-label">Fehérje</span><span class="nu-macro-value"><span data-stat="protein"></span><span class="nu-macro-unit">g</span></span></div>
+          <div class="nu-macro"><span class="nu-macro-label">Szénhidrát</span><span class="nu-macro-value"><span data-stat="carbs"></span><span class="nu-macro-unit">g</span></span></div>
+          <div class="nu-macro"><span class="nu-macro-label">Zsír</span><span class="nu-macro-value"><span data-stat="fat"></span><span class="nu-macro-unit">g</span></span></div>
+        </div>
+
+        <p class="nu-coach-goal"><strong>Edző célja:</strong> <span data-nu-goal-text></span></p>
+
+        <div class="nu-search">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4a6 6 0 1 0 3.8 10.6l5 5 1.4-1.4-5-5A6 6 0 0 0 10 4zm0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8z"/></svg>
+          <label class="sr-only" for="food-search">Étel keresése</label>
+          <input type="search" id="food-search" placeholder="Étel keresése…" autocomplete="off">
+        </div>
+
+        <ul class="nu-food-list" data-list="foods"></ul>
+        <p class="nu-empty" hidden>Nincs találat a keresésre.</p>
+      </section>
+
+      <!-- ================================================================
+           Plans — kiosztott edzéstervek
+           (a kártyákat a script.js tölti fel az API-ból)
+           ================================================================ -->
+      <section class="app-page pl-page" data-page="plans" aria-labelledby="title-plans" hidden>
+        <header class="pl-header"><h2 id="title-plans">Edzésterveid</h2></header>
+        <ul class="pl-list" data-list="plans"></ul>
+      </section>
+
+      <!-- ================================================================
+           Edző oldal — szerepkör-alapú felületek
+           (kliens nézet: chat a saját edzővel; edzői nézet: sportoló-
+           menedzser. Mindkét szerepkörnél a váltógomb dönt, a script.js
+           a szerver user-adata + prefs alapján kapcsolja a nézeteket.)
+           ================================================================ -->
+      <section class="app-page co-page" data-page="coach" aria-labelledby="title-coach" hidden>
+        <h2 class="sr-only" id="title-coach">Edző</h2>
+
+        <!-- Nézetváltó — csak akkor látszik, ha mindkét szerepkör aktív -->
+        <div class="co-toggle" role="group" aria-label="Edző-nézet kiválasztása" data-coach-toggle hidden>
+          <button class="co-toggle-btn" type="button" data-coach-view="client" aria-pressed="true">Edződ</button>
+          <button class="co-toggle-btn" type="button" data-coach-view="manager" aria-pressed="false">Edzetteim</button>
+        </div>
+
+        <!-- Üres állapot — ha se edződ nincs, se nem edzel senkit -->
+        <p class="co-empty" data-coach-empty hidden>Jelenleg nincs kapcsolt edződ, és sportolókat sem edzel.
+          A beállításokban (fogaskerék az áttekintésen) bekapcsolhatod bármelyik szerepkört — utána itt
+          jelenik meg a hozzá tartozó felület.</p>
+
+        <!-- Kliens nézet: üzenetváltás a saját edzővel (script.js tölti fel) -->
+        <div class="co-view" data-view="client" hidden>
+          <header class="co-coach-head">
+            <span class="co-coach-avatar" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><use href="#icon-user"/></svg>
+            </span>
+            <div class="co-coach-ident">
+              <h3 class="co-coach-name">Kovács Bence</h3>
+              <span class="co-coach-role">Edződ · erő- és kondicionáló specialista</span>
+            </div>
+            <span class="co-coach-status"><span class="co-coach-status-dot" aria-hidden="true"></span>Elérhető</span>
+          </header>
+
+          <div class="co-msg-feed co-client-feed" data-client-feed aria-label="Üzenetváltás az edződdel"></div>
+          <form class="co-composer" data-form="coach-message">
+            <label class="sr-only" for="coach-message">Üzenet az edzőnek</label>
+            <input type="text" id="coach-message" placeholder="Írj az edződnek…" required maxlength="280" autocomplete="off">
+            <button type="submit" aria-label="Küldés">→</button>
+          </form>
+        </div>
+
+        <!-- Edzői nézet: sportoló-menedzser (script.js tölti fel) -->
+        <div class="co-view" data-view="manager" hidden>
+          <header class="co-header">
+            <h3 class="co-title">Edzői panel</h3>
+            <p class="co-subtitle">Heti áttekintés · <span data-athlete-count>0</span> aktív sportoló</p>
+          </header>
+
+          <!-- Állapot-sáv: riasztás-összegzés vagy "minden rendben" (script.js tölti fel) -->
+          <section class="co-banner" data-banner aria-live="polite" aria-label="Sportolók állapota">
+            <div class="co-banner-head">
+              <span class="co-banner-icon" aria-hidden="true"></span>
+              <h4 class="co-banner-title"></h4>
+            </div>
+            <ul class="co-banner-list" data-list="alerts"></ul>
+            <p class="co-banner-ok-text" hidden>Minden sportolód a terv szerint halad — nincs sürgős teendőd.</p>
+          </section>
+
+          <div class="co-grid" data-list="athletes"></div>
+        </div>
+      </section>
+
+      <!-- ================================================================
+           Edzés-összegző — az „Edzés befejezése" gomb célja (#summary).
+           Flow-oldal: nincs a side-navban, a nav gyűrűn és a gyors-
+           billentyűk között sem; az értékeit a script.js számolja az
+           edzésnapló élő DOM-állapotából.
+           ================================================================ -->
+      <section class="app-page su-page" data-page="summary" aria-labelledby="title-summary" hidden>
+        <header class="su-header">
+          <span class="su-kicker">Edzés befejezve</span>
+          <h2 class="su-title" id="title-summary" data-su-name>Edzés</h2>
+          <p class="su-quote" data-su-quote>Szép munka — minden szett számít!</p>
+        </header>
+
+        <p class="su-pr" data-su-pr hidden>
+          <span class="wk-pr" aria-hidden="true">PR</span>
+          Új rekord született ezen az edzésen — gratulálunk! 🎉
+        </p>
+
+        <div class="su-stats" aria-label="Edzés-összegzés">
+          <div class="su-stat" style="--i:0">
+            <span class="su-stat-value"><span data-su-sets-done>0</span><span class="su-stat-unit">/<span data-su-sets-total>0</span></span></span>
+            <span class="su-stat-label">Teljesített szett</span>
+          </div>
+          <div class="su-stat" style="--i:1">
+            <span class="su-stat-value"><span data-su-volume>0</span><span class="su-stat-unit">t</span></span>
+            <span class="su-stat-label">Becsült volumen</span>
+          </div>
+          <div class="su-stat" style="--i:2">
+            <span class="su-stat-value"><span data-su-duration>0</span><span class="su-stat-unit">perc</span></span>
+            <span class="su-stat-label">Időtartam</span>
+          </div>
+        </div>
+
+        <div class="su-actions">
+          <button class="su-cta" type="button" data-action="summary-dashboard">
+            <span>Vissza az áttekintéshez</span>
+            <span class="su-cta-arrow" aria-hidden="true">→</span>
+          </button>
+          <a class="su-back" href="#workout">Vissza az edzéshez</a>
+        </div>
+      </section>
+    </main>
+
+    <!-- Mobile/tablet nav ring (desktop uses the side navigation instead) -->
+    <div class="nav-ring-fade" aria-hidden="true"></div>
+    <div class="nav-ring-wrap">
+      <span class="nl nl--up" aria-hidden="true">↑ Edző</span>
+      <span class="nl nl--dn" aria-hidden="true">↓ Tervek</span>
+      <span class="nl nl--lt" aria-hidden="true">← Edzés</span>
+      <span class="nl nl--rt" aria-hidden="true">Tápl. →</span>
+      <div class="nav-knob" id="navKnob" role="button" tabindex="0"
+           aria-label="Navigáció: húzd a kívánt irányba, vagy koppints az áttekintéshez"></div>
+    </div>
+    <p class="nav-hint" aria-hidden="true">← Húzd bármelyik irányba →</p>
+  </div>
+
+  <!-- ================================================================
+       Technique Video Log modal
+       ================================================================ -->
+  <div class="video-modal" id="videoModal" aria-hidden="true">
+    <div class="video-modal-backdrop" data-close-modal></div>
+    <div class="video-modal-card" role="dialog" aria-modal="true" aria-labelledby="videoModalTitle">
+      <div class="video-modal-head">
+        <h3 id="videoModalTitle">Technika videó — <span class="video-modal-exercise">Fekvenyomás</span></h3>
+        <button class="video-modal-close" type="button" data-close-modal aria-label="Bezárás">✕</button>
+      </div>
+      <div class="video-modal-player" role="img" aria-label="Videó előnézet (demo)">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+      </div>
+      <p class="video-modal-comment"><strong>Edző megjegyzése:</strong> „A könyök zárása pontosabb lehet, figyelj a lassú excentrikus fázisra.”</p>
+      <div class="video-modal-history">
+        <span class="video-modal-history-label">Korábbi videók</span>
+        <div class="video-modal-thumbs" aria-hidden="true">
+          <span class="video-thumb"></span>
+          <span class="video-thumb"></span>
+          <span class="video-thumb"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       Beállítások modal (a dashboard fogaskerék ikonja nyitja)
+       ================================================================ -->
+  <div class="settings-modal" id="settingsModal" aria-hidden="true">
+    <div class="settings-modal-backdrop" data-close-modal></div>
+    <div class="settings-modal-card" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle">
+      <div class="settings-modal-head">
+        <h3 id="settingsModalTitle">Beállítások</h3>
+        <button class="settings-modal-close" type="button" data-close-modal aria-label="Bezárás">✕</button>
+      </div>
+
+      <section class="st-section" aria-labelledby="st-title-profile">
+        <h4 class="st-section-title" id="st-title-profile">Profil</h4>
+        <div class="st-profile">
+          <span class="st-avatar" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><use href="#icon-user"/></svg>
+          </span>
+          <div class="st-field">
+            <label class="st-label" for="st-display-name">Megjelenített név</label>
+            <input class="st-input" id="st-display-name" type="text" maxlength="24" autocomplete="off">
+          </div>
+        </div>
+      </section>
+
+      <section class="st-section" aria-labelledby="st-title-notifs">
+        <h4 class="st-section-title" id="st-title-notifs">Értesítések</h4>
+        <ul class="st-toggle-list" data-list="settings-toggles"></ul>
+      </section>
+
+      <section class="st-section" aria-labelledby="st-title-roles">
+        <h4 class="st-section-title" id="st-title-roles">Szerepkörök · demo</h4>
+        <ul class="st-toggle-list" data-list="settings-roles"></ul>
+        <p class="st-section-hint">Az Edző oldal felülete a szerepkörök szerint változik.</p>
+      </section>
+
+      <section class="st-section" aria-labelledby="st-title-data">
+        <h4 class="st-section-title" id="st-title-data">Adatok</h4>
+        <button class="st-export" type="button" data-action="export-data">Adatok exportálása (JSON)</button>
+      </section>
+
+      <div class="settings-modal-actions">
+        <button class="st-save" type="button" data-action="save-settings">Mentés</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       Sportoló részletmodál (az edzői panel kártyái nyitják,
+       a tartalmát a script.js tölti fel az aktuális sportoló adataiból)
+       ================================================================ -->
+  <div class="athlete-modal" id="athleteModal" aria-hidden="true">
+    <div class="athlete-modal-backdrop" data-close-modal></div>
+    <div class="athlete-modal-card" role="dialog" aria-modal="true" aria-labelledby="athleteModalTitle">
+      <div class="athlete-modal-head">
+        <div class="co-modal-ident">
+          <span class="co-modal-badge" aria-hidden="true">
+            <span class="co-modal-rating">0</span>
+            <span class="co-modal-tag"></span>
+          </span>
+          <div class="co-modal-titles">
+            <h3 id="athleteModalTitle">Sportoló</h3>
+            <span class="co-modal-tier"></span>
+          </div>
+        </div>
+        <button class="athlete-modal-close" type="button" data-close-modal aria-label="Bezárás">✕</button>
+      </div>
+
+      <p class="co-modal-alert" data-modal-alert hidden></p>
+
+      <dl class="co-modal-stats" data-modal-stats></dl>
+
+      <section class="co-modal-activity" aria-labelledby="co-modal-activity-title">
+        <h4 class="co-modal-section-title" id="co-modal-activity-title">Legutóbbi aktivitás</h4>
+        <ul class="co-modal-activity-list" data-modal-activity></ul>
+      </section>
+
+      <div class="co-modal-actions">
+        <button class="co-action" type="button" data-action="edit-plan">Terv szerkesztése</button>
+        <button class="co-action" type="button" data-action="edit-workout">Edzés szerkesztése</button>
+        <button class="co-action co-action--primary" type="button" data-action="message"
+                aria-expanded="false" aria-controls="athleteMsgSection">Üzenet</button>
+      </div>
+
+      <!-- Üzenetváltás — az „Üzenet" gomb nyitja, a hírfolyam a tpl-coach-note-ból épül -->
+      <section class="co-msg" id="athleteMsgSection" data-msg-section aria-label="Üzenetváltás a sportolóval" hidden>
+        <div class="co-msg-feed" data-msg-feed></div>
+        <form class="co-composer" data-form="athlete-message">
+          <label class="sr-only" for="athlete-message">Üzenet a sportolónak</label>
+          <input type="text" id="athlete-message" placeholder="Üzenet a sportolónak…" required maxlength="280" autocomplete="off">
+          <button type="submit" aria-label="Küldés">→</button>
+        </form>
+      </section>
+    </div>
+  </div>
+
+  <!-- Toast notifications (a script.js tölti fel) -->
+  <div class="toast-region" role="status" aria-live="polite"></div>
+
+  <!-- ================================================================
+       Templates — ismétlődő listaelemek markupja (a script.js klónozza)
+       ================================================================ -->
+  <template id="tpl-exercise">
+    <article class="wk-exercise">
+      <header class="wk-exercise-head">
+        <h3 class="wk-exercise-name"></h3>
+        <span class="wk-pr" hidden>PR</span>
+        <button class="wk-video-btn" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h11a2 2 0 0 1 2 2v2.2l4-2.4v10.4l-4-2.4V17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/></svg>
+        </button>
+      </header>
+      <div class="wk-set-row wk-set-row--head" aria-hidden="true">
+        <span>Szett</span><span>Ism.</span><span>Súly</span><span>RPE</span><span></span>
+      </div>
+      <div class="wk-set-list"></div>
+      <button class="wk-add-set" type="button">+ Szett hozzáadása</button>
+    </article>
+  </template>
+
+  <template id="tpl-set-row">
+    <div class="wk-set-row">
+      <span class="wk-set-num"></span>
+      <span class="wk-chip wk-set-reps"></span>
+      <span class="wk-chip wk-set-weight"></span>
+      <span class="wk-chip wk-set-rpe"></span>
+      <button class="wk-set-check" type="button" aria-pressed="false" aria-label="Szett teljesítve"></button>
+    </div>
+  </template>
+
+  <template id="tpl-food">
+    <li class="nu-food">
+      <div class="nu-food-info">
+        <span class="nu-food-name"><span class="nu-food-kcal"></span></span>
+        <span class="nu-food-macros"></span>
+      </div>
+      <button class="nu-food-add" type="button">→</button>
+    </li>
+  </template>
+
+  <template id="tpl-plan">
+    <li class="pl-card">
+      <div class="pl-card-info">
+        <span class="pl-card-name"></span>
+        <span class="pl-card-meta"></span>
+        <div class="pl-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+          <span class="pl-progress-fill"></span>
+        </div>
+      </div>
+      <button class="pl-card-open" type="button">→</button>
+    </li>
+  </template>
+
+  <template id="tpl-coach-note">
+    <article class="co-note">
+      <span class="co-note-meta"></span>
+      <p class="co-note-text"></p>
+    </article>
+  </template>
+
+  <template id="tpl-athlete-card">
+    <button class="co-card" type="button" aria-haspopup="dialog">
+      <span class="co-card-top" aria-hidden="true">
+        <span class="co-card-rating">0</span>
+        <span class="co-card-tag"></span>
+      </span>
+      <span class="co-card-alert" aria-hidden="true" hidden>!</span>
+      <span class="co-card-avatar" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><use href="#icon-user"/></svg>
+      </span>
+      <span class="co-card-name"></span>
+      <span class="co-card-stats"></span>
+    </button>
+  </template>
+
+  <template id="tpl-setting-toggle">
+    <li class="st-toggle">
+      <span class="st-toggle-label"></span>
+      <button class="st-switch" type="button" role="switch" aria-checked="true"></button>
+    </li>
+  </template>
+
+  <template id="tpl-pr">
+    <li class="wk-pr-item">
+      <span class="wk-pr">PR</span>
+      <div class="wk-pr-info">
+        <span class="wk-pr-exercise"></span>
+        <span class="wk-pr-detail"></span>
+      </div>
+      <span class="wk-pr-date"></span>
+    </li>
+  </template>
+
+
+</body>
+</html>

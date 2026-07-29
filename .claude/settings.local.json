@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(node --check \"C:\\\\Users\\\\Admin\\\\Downloads\\\\Új mappa \\(2\\)-20260709T084737Z-3-001\\\\Új mappa \\(2\\)\\\\script.js\"; echo \"exit: $LASTEXITCODE\")"
+    ]
+  }
+}

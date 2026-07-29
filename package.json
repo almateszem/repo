@@ -1,0 +1,17 @@
+{
+  "name": "fittrack-pro",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "FitTrack Pro — edző–kliens edzésmenedzsment demo + Express backend",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server/server.js",
+    "dev": "node --watch --disable-warning=ExperimentalWarning server/server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  }
+}

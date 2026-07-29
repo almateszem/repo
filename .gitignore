@@ -1,0 +1,11 @@
+# Függőségek
+node_modules/
+
+# SQLite adatbázis (a szerver seedeli/generálja — nem verziókövetett)
+server/fittrack.db
+server/fittrack.db-journal
+server/fittrack.db-wal
+server/fittrack.db-shm
+
+# Logok
+*.log
