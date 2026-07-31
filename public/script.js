@@ -74,7 +74,8 @@
 
   const api = {
     getUser:           () => getJsonCached('/api/user'),
-    getDashboard:      () => getJsonCached('/api/dashboard'),
+    // Nem cache-elt: a dailyStats a naplózással és a nap váltásával változik
+    getDashboard:      () => getJson('/api/dashboard'),
     getCharts:         () => getJsonCached('/api/charts'),
     getExercises:      () => getJsonCached('/api/exercises'),
     getHistory:        () => getJsonCached('/api/history'),
@@ -84,6 +85,7 @@
     getPrs:            () => getJsonCached('/api/prs'),
     getNotifications:  () => getJsonCached('/api/notifications'),
     getDefaultSet:     () => getJsonCached('/api/default-set'),
+    getExerciseCatalog: () => getJsonCached('/api/exercise-catalog'),
     getAthleteReplies: () => getJsonCached('/api/athlete-replies'),
     getCoachNotes:     () => getJsonCached('/api/coach-notes'),
     getCoachReplies:   () => getJsonCached('/api/coach-replies'),
@@ -99,6 +101,8 @@
     // Az épp szerkesztett edzés piszkozata — betöltéskor visszaáll, minden változtatás menti
     getWorkoutDraft:   () => getJson('/api/workout-draft'),
     saveWorkoutDraft:  (name, exercises) => putJson('/api/workout-draft', { name, exercises }),
+    // Edzésterv mentése (terv-építő) — a szerver visszaadja a mentett tervet
+    savePlan:          (name, exercises) => postJson('/api/plans', { name, exercises }),
     // Teljes adat-pillanatkép a beállítások exportjához
     exportAll:         () => getJson('/api/export'),
   };
@@ -114,10 +118,12 @@
   ];
 
   /** Az oldalak, a nav gyűrű irányai és a gyorsbillentyűk megfeleltetése.
-      A 'summary' flow-oldal: a hash-router ismeri, de szándékosan nincs a
-      nav gyűrű irányai és a gyorsbillentyűk között (az „Edzés befejezése"
-      gomb visz oda). */
-  const PAGES = ['dashboard', 'workout', 'nutrition', 'plans', 'coach', 'summary'];
+      A 'summary', a 'plan-builder' és az 'exercise-picker' flow-oldalak:
+      a hash-router ismeri őket, de szándékosan nincsenek a nav gyűrű irányai
+      és a gyorsbillentyűk között (az „Edzés befejezése", az „+ Új terv",
+      ill. a „+ Gyakorlat hozzáadása" gomb visz oda). */
+  const PAGES = ['dashboard', 'workout', 'nutrition', 'plans', 'coach', 'summary', 'plan-builder', 'exercise-picker'];
+  const FLOW_PAGES = ['summary', 'plan-builder', 'exercise-picker']; // friss megnyitáskor nem állnak vissza
   const DIR_TO_PAGE = {
     up: 'coach', down: 'plans', left: 'workout', right: 'nutrition',
     home: 'dashboard',
@@ -182,6 +188,29 @@
     },
   };
 
+  /** Napváltás-figyelő: percenként (és amikor a fül újra láthatóvá válik)
+      ellenőrzi a helyi dátumot; éjfél után lefuttatja a feliratkozott
+      frissítőket. Így a napi kalória/fehérje számlálók nulláról indulnak
+      akkor is, ha az app napokon át nyitva marad, újratöltés nélkül. */
+  const dayChangeListeners = [];
+  const onDayChange = (listener) => dayChangeListeners.push(listener);
+  function startDayWatcher() {
+    let currentDay = new Date().toDateString();
+    const check = () => {
+      const day = new Date().toDateString();
+      if (day === currentDay) return;
+      currentDay = day;
+      dayChangeListeners.forEach((listener) => {
+        Promise.resolve().then(listener)
+          .catch((err) => console.error('Napváltás-frissítési hiba:', err));
+      });
+    };
+    setInterval(check, 60 * 1000);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') check();
+    });
+  }
+
   /* ======================================================================
      3. Toast értesítések
      ====================================================================== */
@@ -226,7 +255,15 @@
     summary() {
       renderSummary(); // az edzésnapló élő DOM-állapotából számol + felpörgeti a számokat
     },
+    'exercise-picker'() {
+      // A setupWorkout tölti fel (ott él az edzés állapota); megjelenéskor
+      // frissíti az edzésnevet és a hozzáadás-gombok állapotát.
+      refreshExercisePicker?.();
+    },
   };
+
+  /** A gyakorlat-választó frissítője — a setupWorkout állítja be. */
+  let refreshExercisePicker = null;
 
   /** A sportoló-kártyák pontszámainak felpörgetése (oldal- és nézetváltáskor). */
   function animateCoachRatings() {
@@ -249,8 +286,8 @@
       if (target === name) link.setAttribute('aria-current', 'page');
       else link.removeAttribute('aria-current');
     });
-    // Az összegző flow-oldal nem "utolsó oldal" — friss megnyitáskor nem áll vissza
-    if (name !== 'summary') prefs.set('lastPage', name);
+    // A flow-oldalak nem számítanak "utolsó oldalnak" — friss megnyitáskor nem állnak vissza
+    if (!FLOW_PAGES.includes(name)) prefs.set('lastPage', name);
     pageEffects[name]?.();
   }
 
@@ -390,6 +427,23 @@
     });
   }
 
+  /** Az áttekintő napi statjainak (kalória/fehérje) kiírása. */
+  function renderDailyStats(dailyStats) {
+    const setText = (selector, value) => { const el = $(selector); if (el) el.textContent = value; };
+    setText('[data-daily="calories"]', dailyStats.calories);
+    setText('[data-daily="caloriesTarget"]', '/' + dailyStats.caloriesTarget);
+    setText('[data-daily="protein"]', dailyStats.protein);
+  }
+
+  /** Csak a napi statok újralekérése — étel-naplózás és napváltás után, hogy az
+      áttekintő számai a friss szerver-állapotot mutassák a többi dashboard-elem
+      (pl. az edzésnév-mező) újrarenderelése nélkül. */
+  async function refreshDailyStats() {
+    const { dailyStats } = await api.getDashboard();
+    if (dashboardData) dashboardData.dailyStats = dailyStats;
+    renderDailyStats(dailyStats);
+  }
+
   /** Az áttekintő (dashboard) DB-vezérelt feltöltése: sorozat, regeneráció,
       napi statok, aktuális edzésnév, és a készenlét + sorozat alapján
       kontextusfüggő idézet (a statikus motivációs szöveg helyett). */
@@ -401,9 +455,7 @@
 
     // Sorozat + napi statok
     setText('[data-stat="streak"]', streak);
-    setText('[data-daily="calories"]', dailyStats.calories);
-    setText('[data-daily="caloriesTarget"]', '/' + dailyStats.caloriesTarget);
-    setText('[data-daily="protein"]', dailyStats.protein);
+    renderDailyStats(dailyStats);
 
     // Regeneráció
     setText('[data-recovery="sleep"]', recovery.sleep);
@@ -444,7 +496,7 @@
     return row;
   }
 
-  function renderExercise(exercise) {
+  function renderExercise(exercise, { withAddSet = false } = {}) {
     const card = cloneTemplate('tpl-exercise');
     $('.wk-exercise-name', card).textContent = exercise.name;
     $('.wk-pr', card).hidden = !exercise.pr;
@@ -456,6 +508,15 @@
 
     const setList = $('.wk-set-list', card);
     exercise.sets.forEach((set, index) => setList.appendChild(renderSetRow(set, index)));
+
+    // A terv-építő kártyáin van „+ Szett" gomb; az edzésnaplóéin nincs
+    if (withAddSet) {
+      const addSetBtn = document.createElement('button');
+      addSetBtn.type = 'button';
+      addSetBtn.className = 'wk-add-set';
+      addSetBtn.textContent = '+ Szett hozzáadása';
+      card.appendChild(addSetBtn);
+    }
     return card;
   }
 
@@ -515,25 +576,28 @@
     });
   }
 
+  /** Egy terv-kártya ({ name, meta, progress }) felépítése a Tervek listájához. */
+  function planCardEl(plan) {
+    const card = cloneTemplate('tpl-plan');
+    $('.pl-card-name', card).textContent = plan.name;
+    $('.pl-card-meta', card).textContent = plan.meta;
+
+    const progress = $('.pl-progress', card);
+    progress.setAttribute('aria-valuenow', String(plan.progress));
+    progress.setAttribute('aria-label', `${plan.name} — ${plan.progress}% teljesítve`);
+    $('.pl-progress-fill', card).style.width = plan.progress + '%';
+
+    const openBtn = $('.pl-card-open', card);
+    openBtn.dataset.plan = plan.name;
+    openBtn.title = 'Terv megnyitása';
+    openBtn.setAttribute('aria-label', `${plan.name} megnyitása`);
+    return card;
+  }
+
   async function renderPlans() {
     const plans = await api.getPlans();
     const list = $('[data-list="plans"]');
-    plans.forEach((plan) => {
-      const card = cloneTemplate('tpl-plan');
-      $('.pl-card-name', card).textContent = plan.name;
-      $('.pl-card-meta', card).textContent = plan.meta;
-
-      const progress = $('.pl-progress', card);
-      progress.setAttribute('aria-valuenow', String(plan.progress));
-      progress.setAttribute('aria-label', `${plan.name} — ${plan.progress}% teljesítve`);
-      $('.pl-progress-fill', card).style.width = plan.progress + '%';
-
-      const openBtn = $('.pl-card-open', card);
-      openBtn.dataset.plan = plan.name;
-      openBtn.title = 'Terv megnyitása';
-      openBtn.setAttribute('aria-label', `${plan.name} megnyitása`);
-      list.appendChild(card);
-    });
+    plans.forEach((plan) => list.appendChild(planCardEl(plan)));
   }
 
   /** Egy üzenet-buborék (a sportoló-modál chat-szimulációja használja). */
@@ -1072,9 +1136,6 @@
     const titleInput = $('#workout-name');
     const titleError = $('#workout-name-error');
 
-    // A "+ szett" / "+ gyakorlat" gombok alapértelmezett szettje — egyszer lekérve
-    const defaultSet = await api.getDefaultSet();
-
     /** Az edzés aktuális állapota a DOM-ból (gyakorlatok + szettek + „kész" jelölés). */
     const readCurrentWorkout = () => $$('.wk-exercise', page).map((card) => ({
       name: $('.wk-exercise-name', card).textContent.trim(),
@@ -1143,21 +1204,6 @@
         videoModal.open(videoBtn.dataset.exercise);
         return;
       }
-
-      const addSetBtn = event.target.closest('.wk-add-set');
-      if (addSetBtn) {
-        const setList = $('.wk-set-list', addSetBtn.closest('.wk-exercise'));
-        setList.appendChild(renderSetRow({ ...defaultSet }, setList.children.length));
-        autosave();
-        return;
-      }
-    });
-
-    $('[data-action="add-exercise"]').addEventListener('click', () => {
-      const list = $('[data-list="exercises"]');
-      list.appendChild(renderExercise({ name: 'Új gyakorlat', pr: false, sets: [{ ...defaultSet }] }));
-      autosave();
-      showToast('Gyakorlat hozzáadva · demo');
     });
 
     // Gépelésre a hibaállapot azonnal eltűnik; a nevet is automatikusan mentjük
@@ -1214,6 +1260,205 @@
     });
   }
 
+  /** A gyakorlat-választó flow-oldal: katalógus a szerverről, kereső + izom-
+      csoport chipek, a → gomb a készülő tervhez adja a gyakorlatot (alap
+      szettekkel), a ✓ eltávolítja onnan. A terv DOM-listáját és a változás-
+      jelzőt a setupPlanBuilder adja át — a két oldal ugyanazt szerkeszti. */
+  async function setupExercisePicker({ targetList, nameInput, defaultSet, onChange }) {
+    const catalog = await api.getExerciseCatalog();
+    const pickerPage = $('[data-page="exercise-picker"]');
+    const list = $('[data-list="picker-catalog"]');
+    const chipWrap = $('[data-list="picker-chips"]');
+    const searchInput = $('#exercise-search');
+    const countEl = $('[data-picker-count]');
+    const emptyState = $('.ep-empty', pickerPage);
+
+    // A kártyák egyszer épülnek fel; a szűrés csak elrejt/megmutat
+    catalog.forEach((entry) => {
+      const item = cloneTemplate('tpl-picker-item');
+      item.dataset.name = entry.name;
+      item.dataset.group = entry.group;
+      item.dataset.search = entry.name.toLowerCase();
+      $('.ep-item-name', item).textContent = entry.name;
+      $('.ep-item-tag', item).textContent = entry.tag;
+      $('.ep-item-muscles', item).textContent = entry.muscles;
+      list.appendChild(item);
+    });
+
+    // Szűrő-chipek a katalógus csoportjaiból (+ Mind)
+    let activeGroup = 'Mind';
+    ['Mind', ...new Set(catalog.map((entry) => entry.group))].forEach((group) => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'ep-chip';
+      chip.textContent = group;
+      chip.setAttribute('aria-pressed', String(group === activeGroup));
+      chip.addEventListener('click', () => {
+        activeGroup = group;
+        $$('.ep-chip', chipWrap).forEach((c) => c.setAttribute('aria-pressed', String(c === chip)));
+        refresh();
+      });
+      chipWrap.appendChild(chip);
+    });
+
+    /** A készülő tervben lévő gyakorlat-nevek — ehhez igazodik a ✓/→ állapot. */
+    const namesInPlan = () =>
+      new Set($$('.wk-exercise-name', targetList).map((el) => el.textContent.trim()));
+
+    /** Szűrés + a fejléc és a gombállapotok szinkronja a terv állapotával. */
+    const refresh = () => {
+      $('[data-picker-workout]').textContent = nameInput.value.trim() || 'Névtelen';
+      const query = searchInput.value.trim().toLowerCase();
+      const added = namesInPlan();
+      let visibleCount = 0;
+      $$('.ep-item', list).forEach((item) => {
+        const matches = (activeGroup === 'Mind' || item.dataset.group === activeGroup)
+          && item.dataset.search.includes(query);
+        item.hidden = !matches;
+        if (matches) visibleCount += 1;
+
+        const inPlan = added.has(item.dataset.name);
+        const toggle = $('.ep-item-toggle', item);
+        toggle.setAttribute('aria-pressed', String(inPlan));
+        toggle.textContent = inPlan ? '✓' : '→';
+        toggle.setAttribute('aria-label', inPlan
+          ? `${item.dataset.name} eltávolítása a tervből`
+          : `${item.dataset.name} hozzáadása a tervhez`);
+      });
+      countEl.textContent = visibleCount;
+      emptyState.hidden = visibleCount > 0;
+    };
+
+    searchInput.addEventListener('input', refresh);
+
+    // Hozzáadás/eltávolítás: közvetlenül a terv-építő DOM-ját módosítja
+    list.addEventListener('click', (event) => {
+      const toggle = event.target.closest('.ep-item-toggle');
+      if (!toggle) return;
+
+      const name = toggle.closest('.ep-item').dataset.name;
+      const existing = $$('.wk-exercise', targetList)
+        .find((card) => $('.wk-exercise-name', card).textContent.trim() === name);
+      if (existing) {
+        existing.remove();
+        showToast(`${name} eltávolítva a tervből`);
+      } else {
+        targetList.appendChild(renderExercise({
+          name,
+          pr: false,
+          sets: [{ ...defaultSet }, { ...defaultSet }, { ...defaultSet }],
+        }, { withAddSet: true }));
+        showToast(`${name} hozzáadva a tervhez`);
+      }
+      onChange();
+      refresh();
+    });
+
+    $('[data-action="picker-back"]').addEventListener('click', () => navigate('plan-builder'));
+
+    refreshExercisePicker = refresh;
+    refresh();
+  }
+
+  /** A terv-építő flow-oldal (a Tervek „+ Új terv" gombja hozza be): terv neve
+      + élő összegző, gyakorlatkártyák „+ Szett" gombbal, a „+ Gyakorlat
+      hozzáadása" a választóra visz. A Mentés a szerverre menti a tervet, ami
+      azonnal megjelenik a Tervek listája élén. */
+  async function setupPlanBuilder() {
+    const page = $('[data-page="plan-builder"]');
+    const nameInput = $('#plan-name');
+    const nameError = $('#plan-name-error');
+    const summaryLine = $('[data-pb-summary]');
+    const list = $('[data-list="builder-exercises"]', page);
+    const defaultSet = await api.getDefaultSet();
+
+    /** A készülő terv a DOM-ból (a napló-olvasóval azonos alak). */
+    const readPlan = () => $$('.wk-exercise', page).map((card) => ({
+      name: $('.wk-exercise-name', card).textContent.trim(),
+      pr: false,
+      sets: $$('.wk-set-list .wk-set-row', card).map((row) => ({
+        reps: $('.wk-set-reps', row).textContent.trim(),
+        weight: $('.wk-set-weight', row).textContent.trim(),
+        rpe: $('.wk-set-rpe', row).textContent.trim(),
+        done: false,
+      })),
+    }));
+
+    /** Élő összegző: „3 gyakorlat · 8 szett · ~64 perc" (szettenként ~8 perc). */
+    const updateSummary = () => {
+      const exercises = readPlan();
+      const totalSets = exercises.reduce((sum, exercise) => sum + exercise.sets.length, 0);
+      const minutes = Math.max(10, totalSets * 8);
+      summaryLine.textContent = exercises.length === 0
+        ? 'Még nincs gyakorlat — adj hozzá a lenti gombbal.'
+        : `${exercises.length} gyakorlat · ${totalSets} szett · ~${minutes} perc`;
+    };
+    updateSummary();
+
+    // „+ Szett hozzáadása" a kártyákon (delegálva, az újakra is érvényes)
+    list.addEventListener('click', (event) => {
+      const addSetBtn = event.target.closest('.wk-add-set');
+      if (!addSetBtn) return;
+      const setList = $('.wk-set-list', addSetBtn.closest('.wk-exercise'));
+      setList.appendChild(renderSetRow({ ...defaultSet }, setList.children.length));
+      updateSummary();
+    });
+
+    $('[data-action="builder-add-exercise"]').addEventListener('click', () => navigate('exercise-picker'));
+    $('[data-action="builder-back"]').addEventListener('click', () => navigate('plans'));
+
+    nameInput.addEventListener('input', () => {
+      nameInput.classList.remove('has-error');
+      nameError.hidden = true;
+    });
+
+    // Mentés — validáció, szerverre mentés, a terv-kártya azonnal a lista élére
+    // kerül, a builder kiürül, és a Tervek oldal jön vissza
+    const saveBtn = $('[data-action="save-plan"]');
+    saveBtn.addEventListener('click', async () => {
+      if (saveBtn.disabled) return;
+      const name = nameInput.value.trim();
+      if (!name) {
+        nameInput.classList.add('has-error');
+        nameError.hidden = false;
+        nameInput.focus();
+        showToast('Adj nevet a tervnek', 'error');
+        return;
+      }
+      const exercises = readPlan();
+      if (exercises.length === 0) {
+        showToast('Adj legalább egy gyakorlatot a tervhez', 'error');
+        return;
+      }
+
+      saveBtn.disabled = true;
+      try {
+        const saved = await api.savePlan(name, exercises);
+        const plansList = $('[data-list="plans"]');
+        plansList.insertBefore(planCardEl({
+          name: saved.name,
+          meta: `Saját terv · ${saved.exercises.length} gyakorlat · ${saved.date}`,
+          progress: 0,
+        }), plansList.firstChild);
+
+        // Üres builder a következő tervhez
+        list.replaceChildren();
+        nameInput.value = 'Új terv';
+        updateSummary();
+
+        showToast('Terv elmentve');
+        navigate('plans');
+      } catch (err) {
+        console.error(err);
+        showToast(err.message || 'Nem sikerült menteni a tervet', 'error');
+      } finally {
+        saveBtn.disabled = false;
+      }
+    });
+
+    await setupExercisePicker({ targetList: list, nameInput, defaultSet, onChange: updateSummary });
+  }
+
   /** Összegző oldal: a fő gomb zárja a kört az áttekintés felé
       (a „Vissza az edzéshez" link sima #workout hash-hivatkozás). */
   function setupSummary() {
@@ -1260,8 +1505,20 @@
 
     // A napi összesítő a szerverről (alap + naplózott ételek) — újratöltés után
     // is a valós állapotot mutatja. A lokális másolat a POST-válaszokkal frissül.
-    let totals = await api.getNutrition();
-    STAT_KEYS.forEach((key) => { $(`[data-stat="${key}"]`).textContent = formatNumber(totals[key]); });
+    let totals = null;
+    const applyTotals = (next, { animateFrom = null } = {}) => {
+      totals = next;
+      STAT_KEYS.forEach((key) => {
+        const el = $(`[data-stat="${key}"]`);
+        if (animateFrom) animateNumber(el, totals[key], { from: animateFrom[key], duration: 600 });
+        else el.textContent = formatNumber(totals[key]);
+      });
+    };
+    applyTotals(await api.getNutrition());
+
+    // Éjfél után a napi összesítő nulláról indul (a szerver mindig az aznapi
+    // bejegyzéseket összegzi — csak újra le kell kérni).
+    onDayChange(async () => applyTotals(await api.getNutrition()));
 
     // A napi cél a szerverről (Cél kcal + edző célja szöveg)
     const goalCalEl = $('[data-goal="calories"]');
@@ -1292,10 +1549,9 @@
 
       try {
         const previous = totals;
-        totals = await api.addNutritionEntry(food.name);
-        STAT_KEYS.forEach((key) => {
-          animateNumber($(`[data-stat="${key}"]`), totals[key], { from: previous[key], duration: 600 });
-        });
+        applyTotals(await api.addNutritionEntry(food.name), { animateFrom: previous });
+        // Az áttekintő kalória-statja is kövesse a naplózást (közös forrás a szerveren)
+        refreshDailyStats().catch(console.error);
         showToast(`${food.name} hozzáadva a naplóhoz · +${food.kcal} kcal`);
       } catch (err) {
         console.error(err);
@@ -1311,6 +1567,9 @@
       showToast(`„${openBtn.dataset.plan}” megnyitva`);
       navigate('workout');
     });
+
+    // Új terv készítése — a terv-építő flow-oldalra visz
+    $('[data-action="new-plan"]').addEventListener('click', () => navigate('plan-builder'));
   }
 
   /** Közös chat-szimuláció: saját üzenet azonnal megjelenik, majd „gépel…”
@@ -1637,12 +1896,18 @@
     await safe(setupWeeklyCompare);
     await safe(setupNutrition);
     setupPlans();
+    await safe(setupPlanBuilder);
     await safe(() => setupCoach(athleteModal));
     setupSummary();
     setupShortcuts();
     setupConnectivity();
 
     setupNavRing($('#navKnob'), (dir) => navigate(DIR_TO_PAGE[dir] ?? 'dashboard'));
+
+    // Napváltás-figyelő: éjfél után az áttekintő napi statjai is nullázódnak
+    // (a táplálkozás-oldali frissítő a setupNutrition-ben iratkozik fel).
+    onDayChange(refreshDailyStats);
+    startDayWatcher();
 
     if (hadError) {
       showToast('Nem minden adat töltődött be — próbáld frissíteni az oldalt', 'error');

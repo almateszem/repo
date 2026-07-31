@@ -15,6 +15,7 @@ import {
   getCollection, getWeightLog, getSnapshot,
   addWeightEntry, getNutritionTotals, addNutritionEntry,
   getWorkouts, addWorkout, getWorkoutDraft, saveWorkoutDraft,
+  getUserPlans, addPlan,
 } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -47,11 +48,11 @@ const READ_ENDPOINTS = {
   '/api/exercises': 'exercises',
   '/api/history': 'history',
   '/api/foods': 'foods',
-  '/api/plans': 'plans',
   '/api/athletes': 'athletes',
   '/api/prs': 'prs',
   '/api/notifications': 'notifications',
   '/api/default-set': 'defaultSet',
+  '/api/exercise-catalog': 'exerciseCatalog',
   '/api/athlete-replies': 'athleteReplies',
   '/api/coach-notes': 'coachNotes',
   '/api/coach-replies': 'coachReplies',
@@ -72,6 +73,17 @@ app.get('/api/dashboard', (req, res) => {
     protein: Math.round(totals.protein),
   };
   res.json(dashboard);
+});
+
+// Tervek — a saját (terv-építőben mentett) tervek elöl, utána a kiosztott
+// seed-tervek. A kártya-alak (name/meta/progress) itt áll össze egy helyen.
+app.get('/api/plans', (req, res) => {
+  const own = getUserPlans().map((plan) => ({
+    name: plan.name,
+    meta: `Saját terv · ${plan.exercises.length} gyakorlat · ${plan.date}`,
+    progress: 0,
+  }));
+  res.json([...own, ...(getCollection('plans') || [])]);
 });
 
 // Testsúly-napló — a valódi weight_log táblából
@@ -135,6 +147,19 @@ function normalizeExercises(raw) {
   }
   return exercises;
 }
+
+/** Edzésterv mentése (terv-építő). Törzs: { name, exercises }. A dátumot a szerver adja. */
+app.post('/api/plans', (req, res) => {
+  const name = String(req.body?.name ?? '').trim();
+  if (!name || name.length > 60) {
+    return res.status(400).json({ error: 'A terv neve kötelező (legfeljebb 60 karakter).' });
+  }
+  const exercises = normalizeExercises(req.body?.exercises);
+  if (!exercises) {
+    return res.status(400).json({ error: 'A tervnek legalább egy érvényes gyakorlatot kell tartalmaznia.' });
+  }
+  res.status(201).json(addPlan(name, today(), exercises));
+});
 
 /** Edzés mentése. Törzs: { name, exercises }. A dátumot a szerver adja. */
 app.post('/api/workouts', (req, res) => {
