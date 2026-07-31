@@ -167,8 +167,6 @@
 
         <div class="wk-list" data-list="exercises"></div>
 
-        <button class="wk-add-exercise" type="button" data-action="add-exercise">+ Gyakorlat hozzáadása</button>
-
         <!-- Elsődleges lezáró művelet — az összegző oldalra visz (#summary) -->
         <button class="wk-finish" type="button" data-action="finish-workout">
           <span>Edzés befejezése</span>
@@ -208,6 +206,61 @@
           <h3 class="wk-progress-title" id="title-prs">Korábbi rekordok</h3>
           <ul class="wk-pr-list" data-list="prs"></ul>
         </section>
+      </section>
+
+      <!-- ================================================================
+           Plan Builder — új edzésterv készítése (flow-oldal)
+           A Tervek oldal „+ Új terv" gombja hozza be; a hash-router ismeri,
+           de a nav gyűrűben és a gyorsbillentyűk között nincs. A gyakorlat-
+           kártyák az edzésnapló sablonját használják (+ Szett gombbal), a
+           Mentés a szerverre menti a tervet, ami a Tervek listájára kerül.
+           ================================================================ -->
+      <section class="app-page pb-page" data-page="plan-builder" aria-labelledby="title-builder" hidden>
+        <header class="pb-header">
+          <button class="ep-back" type="button" data-action="builder-back" aria-label="Vissza a tervekhez">←</button>
+          <label class="sr-only" for="plan-name">Terv neve</label>
+          <input class="wk-title" id="plan-name" maxlength="60" value="Új terv"
+                 aria-describedby="plan-name-error">
+          <button class="wk-save" type="button" data-action="save-plan">Mentés</button>
+        </header>
+        <h2 class="sr-only" id="title-builder">Új edzésterv készítése</h2>
+        <p class="wk-error" id="plan-name-error" hidden>Adj nevet a tervnek a mentéshez.</p>
+        <p class="pb-summary" data-pb-summary aria-live="polite"></p>
+
+        <div class="wk-list" data-list="builder-exercises"></div>
+
+        <!-- A gyakorlat-választó flow-oldalra visz (#exercise-picker) -->
+        <button class="wk-add-exercise" type="button" data-action="builder-add-exercise">+ Gyakorlat hozzáadása</button>
+      </section>
+
+      <!-- ================================================================
+           Exercise Picker — gyakorlat hozzáadása (flow-oldal)
+           A terv-építő „+ Gyakorlat hozzáadása" gombja hozza be; a hash-router
+           ismeri, de a nav gyűrűben és a gyorsbillentyűk között nincs — a ←
+           gomb visz vissza a terv-építőhöz. A katalógust a script.js tölti
+           fel az API-ból, a kereső és a chipek élőben szűrnek.
+           ================================================================ -->
+      <section class="app-page ep-page" data-page="exercise-picker" aria-labelledby="title-picker" hidden>
+        <header class="ep-header">
+          <button class="ep-back" type="button" data-action="picker-back" aria-label="Vissza a terv-építőhöz">←</button>
+          <div class="ep-header-text">
+            <h2 class="ep-title" id="title-picker">Gyakorlat hozzáadása</h2>
+            <p class="ep-subtitle"><span data-picker-workout>Új terv</span> tervhez</p>
+          </div>
+        </header>
+
+        <div class="nu-search">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4a6 6 0 1 0 3.8 10.6l5 5 1.4-1.4-5-5A6 6 0 0 0 10 4zm0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8z"/></svg>
+          <label class="sr-only" for="exercise-search">Keresés a gyakorlatok között</label>
+          <input type="search" id="exercise-search" placeholder="Keresés a gyakorlatok között…" autocomplete="off">
+        </div>
+
+        <div class="ep-chips" data-list="picker-chips" role="group" aria-label="Szűrés izomcsoportra"></div>
+
+        <p class="ep-count" aria-live="polite">Találatok · <span data-picker-count>0</span></p>
+
+        <div class="ep-list" data-list="picker-catalog"></div>
+        <p class="ep-empty" hidden>Nincs találat a keresésre.</p>
       </section>
 
       <!-- ================================================================
@@ -252,7 +305,11 @@
            (a kártyákat a script.js tölti fel az API-ból)
            ================================================================ -->
       <section class="app-page pl-page" data-page="plans" aria-labelledby="title-plans" hidden>
-        <header class="pl-header"><h2 id="title-plans">Edzésterveid</h2></header>
+        <header class="pl-header">
+          <h2 id="title-plans">Edzésterveid</h2>
+          <!-- A terv-építő flow-oldalra visz (#plan-builder) -->
+          <button class="pl-new" type="button" data-action="new-plan">+ Új terv</button>
+        </header>
         <ul class="pl-list" data-list="plans"></ul>
       </section>
 
@@ -513,7 +570,6 @@
         <span>Szett</span><span>Ism.</span><span>Súly</span><span>RPE</span><span></span>
       </div>
       <div class="wk-set-list"></div>
-      <button class="wk-add-set" type="button">+ Szett hozzáadása</button>
     </article>
   </template>
 
@@ -525,6 +581,16 @@
       <span class="wk-chip wk-set-rpe"></span>
       <button class="wk-set-check" type="button" aria-pressed="false" aria-label="Szett teljesítve"></button>
     </div>
+  </template>
+
+  <template id="tpl-picker-item">
+    <article class="ep-item">
+      <div class="ep-item-info">
+        <h3 class="ep-item-name"></h3>
+        <p class="ep-item-meta"><span class="ep-item-tag"></span><span class="ep-item-muscles"></span></p>
+      </div>
+      <button class="ep-item-toggle" type="button" aria-pressed="false"></button>
+    </article>
   </template>
 
   <template id="tpl-food">

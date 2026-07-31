@@ -53,6 +53,13 @@ db.exec(`
     exercises  TEXT NOT NULL,          -- JSON: [{ name, pr, sets: [{ reps, weight, rpe, done }] }]
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+  CREATE TABLE IF NOT EXISTS plans (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    name       TEXT NOT NULL,
+    date       TEXT NOT NULL,
+    exercises  TEXT NOT NULL,          -- JSON, a workouts.exercises-szel azonos alak
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
   CREATE TABLE IF NOT EXISTS workout_draft (
     id         INTEGER PRIMARY KEY CHECK (id = 1),  -- mindig egyetlen sor: az épp szerkesztett edzés
     name       TEXT NOT NULL,
@@ -110,6 +117,12 @@ export function getNutritionTotals(date) {
   return { ...sum, goal: getCollection('nutritionGoal') || { calories: 0, protein: 0 } };
 }
 
+/** A felhasználó által készített edzéstervek, legújabb elöl. */
+export function getUserPlans() {
+  return db.prepare('SELECT id, name, date, exercises FROM plans ORDER BY id DESC').all()
+    .map((row) => ({ id: row.id, name: row.name, date: row.date, exercises: JSON.parse(row.exercises) }));
+}
+
 /** Az épp szerkesztett edzés piszkozata ({ name, exercises }) vagy null. */
 export function getWorkoutDraft() {
   const row = db.prepare('SELECT name, exercises FROM workout_draft WHERE id = 1').get();
@@ -132,6 +145,7 @@ export function getSnapshot() {
   snapshot.nutritionLog = getNutritionLog();
   snapshot.workouts = getWorkouts();
   snapshot.workoutDraft = getWorkoutDraft();
+  snapshot.userPlans = getUserPlans();
   return snapshot;
 }
 
@@ -165,6 +179,13 @@ export function saveWorkoutDraft(name, exercises) {
 /** Edzés mentése; visszaadja a létrejött { id, name, date, exercises } sort. */
 export function addWorkout(name, date, exercises) {
   const { lastInsertRowid } = db.prepare('INSERT INTO workouts (name, date, exercises) VALUES (?, ?, ?)')
+    .run(name, date, JSON.stringify(exercises));
+  return { id: Number(lastInsertRowid), name, date, exercises };
+}
+
+/** Edzésterv mentése; visszaadja a létrejött { id, name, date, exercises } sort. */
+export function addPlan(name, date, exercises) {
+  const { lastInsertRowid } = db.prepare('INSERT INTO plans (name, date, exercises) VALUES (?, ?, ?)')
     .run(name, date, JSON.stringify(exercises));
   return { id: Number(lastInsertRowid), name, date, exercises };
 }

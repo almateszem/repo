@@ -76,6 +76,24 @@ export const data = {
     },
   ],
   defaultSet: { reps: '12 rep', weight: '60% TM', rpe: '–', done: false },
+  /* A gyakorlat-választó (edzésépítő) katalógusa. A group a szűrő-chipek
+     alapja — a chipek listája ebből áll össze, új csoport felvételéhez elég
+     ide új gyakorlatot írni. */
+  exerciseCatalog: [
+    { name: 'Fekvenyomás', tag: 'Összetett', muscles: 'Mell · Tricepsz', group: 'Mell' },
+    { name: 'Ferde fekvenyomás', tag: 'Összetett', muscles: 'Felső mell', group: 'Mell' },
+    { name: 'Tolódzkodás', tag: 'Összetett', muscles: 'Mell · Tricepsz', group: 'Mell' },
+    { name: 'Kábeles keresztezés', tag: 'Izolációs', muscles: 'Mell', group: 'Mell' },
+    { name: 'Gépi mellnyomás', tag: 'Izolációs', muscles: 'Mell', group: 'Mell' },
+    { name: 'Húzódzkodás', tag: 'Összetett', muscles: 'Hát · Bicepsz', group: 'Hát' },
+    { name: 'Ülő evezés', tag: 'Összetett', muscles: 'Hát', group: 'Hát' },
+    { name: 'Széles lehúzás', tag: 'Izolációs', muscles: 'Széles hát', group: 'Hát' },
+    { name: 'Vállból nyomás', tag: 'Összetett', muscles: 'Váll', group: 'Váll' },
+    { name: 'Oldalemelés', tag: 'Izolációs', muscles: 'Váll', group: 'Váll' },
+    { name: 'Guggolás', tag: 'Összetett', muscles: 'Comb · Far', group: 'Láb' },
+    { name: 'Kitörés', tag: 'Összetett', muscles: 'Comb · Far', group: 'Láb' },
+    { name: 'Lábtolás', tag: 'Izolációs', muscles: 'Comb', group: 'Láb' },
+  ],
   history: [
     { date: '2026.06.29', detail: '3×20 @ 65% TM', rpe: 'RPE 8' },
     { date: '2026.06.22', detail: '3×18 @ 62% TM', rpe: 'RPE 7' },

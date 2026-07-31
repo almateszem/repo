@@ -995,10 +995,34 @@ input:focus {
 /* ==========================================================================
    9. Tervek
    ========================================================================== */
+.pl-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-5);
+}
+
 .pl-header h2 {
   font-size: var(--fs-3xl);
   font-weight: 800;
   margin: 0 0 var(--sp-9);
+}
+
+/* „+ Új terv" — a terv-építő flow-oldalra visz */
+.pl-new {
+  flex-shrink: 0;
+  background: var(--c-paper);
+  color: var(--c-ink);
+  border: none;
+  border-radius: var(--r-md);
+  padding: var(--sp-4) var(--sp-8);
+  font-size: var(--fs-md);
+  font-weight: 700;
+  transition: background var(--t-fast);
+}
+
+.pl-new:hover {
+  background: var(--c-paper-bright);
 }
 
 .pl-list {
@@ -2655,6 +2679,201 @@ input:focus {
 
 .co-modal-stat {
   min-width: 0;
+}
+
+/* ==========================================================================
+   22. Terv-építő flow-oldal (pb-*) — új edzésterv készítése a Tervek oldalról.
+       Az edzésnapló elemeit használja újra (wk-title, wk-save, wk-list,
+       wk-add-exercise); a gyakorlatkártyákon itt nincs videó gomb és
+       „kész" pipa — a terv sablon, nem naplóbejegyzés.
+   ========================================================================== */
+.pb-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+  margin-bottom: var(--sp-10);
+}
+
+/* Élő összegző a fejléc alatt: „3 gyakorlat · 8 szett · ~64 perc" */
+.pb-summary {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--fg-60);
+  margin: calc(-1 * var(--sp-4)) 0 var(--sp-7);
+}
+
+/* A tervben a szett csak sablon: a napló-kártya videó gombja és
+   teljesítés-pipája itt nem értelmezett */
+.pb-page .wk-video-btn {
+  display: none;
+}
+
+.pb-page .wk-set-check {
+  visibility: hidden;
+}
+
+/* ==========================================================================
+   23. Gyakorlat-választó flow-oldal (ep-*) — a terv-építő „Gyakorlat
+       hozzáadása" nézete: fejléc vissza-gombbal, kereső (a nu-search-öt
+       használja), szűrő-chipek, katalógus-kártyák hozzáadás-gombbal
+   ========================================================================== */
+.ep-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+  margin-bottom: var(--sp-8);
+}
+
+.ep-back {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--r-full);
+  background: none;
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+  font-size: var(--fs-2xl);
+  line-height: 1;
+  transition: border-color var(--t-fast), color var(--t-fast);
+}
+
+.ep-back:hover {
+  border-color: var(--fg-40);
+  color: var(--fg-100);
+}
+
+.ep-title {
+  margin: 0;
+  font-size: var(--fs-4xl);
+  font-weight: 700;
+  letter-spacing: -.01em;
+}
+
+.ep-subtitle {
+  margin: var(--sp-1) 0 0;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.ep-chips {
+  display: flex;
+  gap: var(--sp-3);
+  overflow-x: auto;
+  padding-bottom: var(--sp-1);
+  margin-bottom: var(--sp-6);
+}
+
+.ep-chip {
+  flex-shrink: 0;
+  background: none;
+  border: 1px solid var(--border-strong);
+  color: var(--fg-60);
+  border-radius: 999px;
+  padding: var(--sp-3) var(--sp-7);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  white-space: nowrap;
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+}
+
+.ep-chip:hover {
+  border-color: var(--fg-40);
+  color: var(--text-secondary);
+}
+
+.ep-chip[aria-pressed="true"] {
+  background: var(--c-paper);
+  border-color: var(--c-paper);
+  color: var(--c-ink);
+}
+
+.ep-count {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0 0 var(--sp-5);
+}
+
+.ep-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.ep-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-xl);
+  padding: var(--sp-6);
+}
+
+.ep-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.ep-item-name {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+
+.ep-item-meta {
+  margin: var(--sp-3) 0 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.ep-item-tag {
+  background: var(--surface-input);
+  border: 1px solid var(--border-card);
+  color: var(--fg-60);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border-radius: var(--r-xs);
+}
+
+/* Hozzáadás-gomb: → alapban, ✓ ha a gyakorlat már benne van az edzésben */
+.ep-item-toggle {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--r-full);
+  background: none;
+  border: 1px solid var(--fg-20);
+  color: var(--text-secondary);
+  font-size: var(--fs-xl);
+  line-height: 1;
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+}
+
+.ep-item-toggle:hover {
+  border-color: var(--fg-40);
+}
+
+.ep-item-toggle[aria-pressed="true"] {
+  background: var(--c-paper);
+  border-color: var(--c-paper);
+  color: var(--c-ink);
+}
+
+.ep-empty {
+  color: var(--text-muted);
+  font-size: var(--fs-base);
+  text-align: center;
+  padding: var(--sp-9) 0;
 }
 
 .co-modal-stat dt {
