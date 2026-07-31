@@ -58,15 +58,27 @@ db.exec(`
     name       TEXT NOT NULL,
     date       TEXT NOT NULL,
     exercises  TEXT NOT NULL,          -- JSON, a workouts.exercises-szel azonos alak
+    days       TEXT NOT NULL DEFAULT '[]',  -- JSON: hétnap-indexek (0 = hétfő), amikor a terv az Edzés oldalra töltődik
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
   CREATE TABLE IF NOT EXISTS workout_draft (
     id         INTEGER PRIMARY KEY CHECK (id = 1),  -- mindig egyetlen sor: az épp szerkesztett edzés
     name       TEXT NOT NULL,
     exercises  TEXT NOT NULL,          -- JSON, a workouts.exercises-szel azonos alak
+    date       TEXT NOT NULL DEFAULT '',            -- a mentés HELYI napja — ebből tudni, friss-e a piszkozat
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 `);
+
+/* ---- Migrációk ----
+   A CREATE TABLE IF NOT EXISTS a meglévő táblákat nem bővíti — az utólag
+   bevezetett oszlopokat itt pótoljuk a régebbi DB-fájlokon. */
+function ensureColumn(table, column, ddl) {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (!columns.some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+}
+ensureColumn('plans', 'days', "days TEXT NOT NULL DEFAULT '[]'");
+ensureColumn('workout_draft', 'date', "date TEXT NOT NULL DEFAULT ''");
 
 /* ---- Seed ----
    Kollekciók: a data.js-ből szinkronizálva minden indításkor (INSERT OR
@@ -119,14 +131,23 @@ export function getNutritionTotals(date) {
 
 /** A felhasználó által készített edzéstervek, legújabb elöl. */
 export function getUserPlans() {
-  return db.prepare('SELECT id, name, date, exercises FROM plans ORDER BY id DESC').all()
-    .map((row) => ({ id: row.id, name: row.name, date: row.date, exercises: JSON.parse(row.exercises) }));
+  return db.prepare('SELECT id, name, date, exercises, days FROM plans ORDER BY id DESC').all()
+    .map((row) => ({
+      id: row.id, name: row.name, date: row.date,
+      exercises: JSON.parse(row.exercises), days: JSON.parse(row.days),
+    }));
 }
 
-/** Az épp szerkesztett edzés piszkozata ({ name, exercises }) vagy null. */
+/** A megadott hétnapra (0 = hétfő) ütemezett terv, vagy null. Ha több terv is
+    ugyanarra a napra szól, a legutóbb létrehozott nyer. */
+export function getPlanForDay(dayIndex) {
+  return getUserPlans().find((plan) => plan.days.includes(dayIndex)) || null;
+}
+
+/** Az épp szerkesztett edzés piszkozata ({ name, exercises, date }) vagy null. */
 export function getWorkoutDraft() {
-  const row = db.prepare('SELECT name, exercises FROM workout_draft WHERE id = 1').get();
-  return row ? { name: row.name, exercises: JSON.parse(row.exercises) } : null;
+  const row = db.prepare('SELECT name, exercises, date FROM workout_draft WHERE id = 1').get();
+  return row ? { name: row.name, exercises: JSON.parse(row.exercises), date: row.date } : null;
 }
 
 /** A mentett edzések, legújabb elöl (a gyakorlatok JSON-ból visszafejtve). */
@@ -166,13 +187,16 @@ export function addNutritionEntry(food, date) {
   return getNutritionTotals(date);
 }
 
-/** A piszkozat felülírása (mindig az 1-es sor) — minden változtatásnál hívjuk. */
-export function saveWorkoutDraft(name, exercises) {
-  db.prepare(`INSERT INTO workout_draft (id, name, exercises, updated_at)
-              VALUES (1, ?, ?, datetime('now'))
+/** A piszkozat felülírása (mindig az 1-es sor) — minden változtatásnál hívjuk.
+    A date a szerver helyi napja: ebből dönti el a /api/workout-template, hogy
+    a piszkozat aznapi-e, vagy jöhet helyette a napra ütemezett terv. */
+export function saveWorkoutDraft(name, exercises, date) {
+  db.prepare(`INSERT INTO workout_draft (id, name, exercises, date, updated_at)
+              VALUES (1, ?, ?, ?, datetime('now'))
               ON CONFLICT(id) DO UPDATE SET
-                name = excluded.name, exercises = excluded.exercises, updated_at = excluded.updated_at`)
-    .run(name, JSON.stringify(exercises));
+                name = excluded.name, exercises = excluded.exercises,
+                date = excluded.date, updated_at = excluded.updated_at`)
+    .run(name, JSON.stringify(exercises), date);
   return { name, exercises };
 }
 
@@ -183,9 +207,19 @@ export function addWorkout(name, date, exercises) {
   return { id: Number(lastInsertRowid), name, date, exercises };
 }
 
-/** Edzésterv mentése; visszaadja a létrejött { id, name, date, exercises } sort. */
-export function addPlan(name, date, exercises) {
-  const { lastInsertRowid } = db.prepare('INSERT INTO plans (name, date, exercises) VALUES (?, ?, ?)')
-    .run(name, date, JSON.stringify(exercises));
-  return { id: Number(lastInsertRowid), name, date, exercises };
+/** Edzésterv mentése; visszaadja a létrejött { id, name, date, exercises, days } sort. */
+export function addPlan(name, date, exercises, days) {
+  const { lastInsertRowid } = db.prepare('INSERT INTO plans (name, date, exercises, days) VALUES (?, ?, ?, ?)')
+    .run(name, date, JSON.stringify(exercises), JSON.stringify(days));
+  return { id: Number(lastInsertRowid), name, date, exercises, days };
+}
+
+/** Meglévő terv felülírása (név, gyakorlatok, napok — a létrehozás dátuma marad).
+    A frissített sort adja vissza, vagy null-t, ha nincs ilyen id. */
+export function updatePlan(id, name, exercises, days) {
+  const { changes } = db.prepare('UPDATE plans SET name = ?, exercises = ?, days = ? WHERE id = ?')
+    .run(name, JSON.stringify(exercises), JSON.stringify(days), id);
+  if (changes === 0) return null;
+  const row = db.prepare('SELECT id, name, date, exercises, days FROM plans WHERE id = ?').get(id);
+  return { ...row, exercises: JSON.parse(row.exercises), days: JSON.parse(row.days) };
 }

@@ -227,6 +227,13 @@
         <p class="wk-error" id="plan-name-error" hidden>Adj nevet a tervnek a mentéshez.</p>
         <p class="pb-summary" data-pb-summary aria-live="polite"></p>
 
+        <!-- Hétnap-ütemezés: a kijelölt napokon a terv az Edzés oldalra töltődik -->
+        <div class="pb-days">
+          <span class="pb-days-label" id="pb-days-label">Automatikus beállítás az Edzés oldalon:</span>
+          <div class="pb-days-chips" data-list="builder-days" role="group" aria-labelledby="pb-days-label"></div>
+          <p class="pb-days-hint">A kijelölt napokon ez a terv töltődik be az edzésnaplóba (a megkezdett mai edzést nem írja felül).</p>
+        </div>
+
         <div class="wk-list" data-list="builder-exercises"></div>
 
         <!-- A gyakorlat-választó flow-oldalra visz (#exercise-picker) -->
@@ -612,6 +619,10 @@
           <span class="pl-progress-fill"></span>
         </div>
       </div>
+      <!-- Szerkesztés — csak a saját (terv-építős) terveken látszik -->
+      <button class="pl-card-edit" type="button" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10.5-10.5a2 2 0 0 0 0-2.8l-1.2-1.2a2 2 0 0 0-2.8 0L4 16v4zm13.8-13.8 1.4 1.4"/></svg>
+      </button>
       <button class="pl-card-open" type="button">→</button>
     </li>
   </template>

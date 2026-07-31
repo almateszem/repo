@@ -80,7 +80,8 @@
     getExercises:      () => getJsonCached('/api/exercises'),
     getHistory:        () => getJsonCached('/api/history'),
     getFoods:          () => getJsonCached('/api/foods'),
-    getPlans:          () => getJsonCached('/api/plans'),
+    // Nem cache-elt: a saját tervek mentés/szerkesztés után változnak
+    getPlans:          () => getJson('/api/plans'),
     getAthletes:       () => getJsonCached('/api/athletes'),
     getPrs:            () => getJsonCached('/api/prs'),
     getNotifications:  () => getJsonCached('/api/notifications'),
@@ -101,8 +102,11 @@
     // Az épp szerkesztett edzés piszkozata — betöltéskor visszaáll, minden változtatás menti
     getWorkoutDraft:   () => getJson('/api/workout-draft'),
     saveWorkoutDraft:  (name, exercises) => putJson('/api/workout-draft', { name, exercises }),
-    // Edzésterv mentése (terv-építő) — a szerver visszaadja a mentett tervet
-    savePlan:          (name, exercises) => postJson('/api/plans', { name, exercises }),
+    // Edzésterv mentése/szerkesztése (terv-építő) — a szerver a mentett tervet adja vissza
+    savePlan:          (name, exercises, days) => postJson('/api/plans', { name, exercises, days }),
+    updatePlan:        (id, name, exercises, days) => putJson(`/api/plans/${id}`, { name, exercises, days }),
+    // Az Edzés oldal induló tartalma: aznapi piszkozat / napra ütemezett terv / null
+    getWorkoutTemplate: () => getJson('/api/workout-template'),
     // Teljes adat-pillanatkép a beállítások exportjához
     exportAll:         () => getJson('/api/export'),
   };
@@ -576,7 +580,8 @@
     });
   }
 
-  /** Egy terv-kártya ({ name, meta, progress }) felépítése a Tervek listájához. */
+  /** Egy terv-kártya ({ name, meta, progress, own?, id? }) felépítése a Tervek
+      listájához. A szerkesztés gomb csak a saját (terv-építős) terveken látszik. */
   function planCardEl(plan) {
     const card = cloneTemplate('tpl-plan');
     $('.pl-card-name', card).textContent = plan.name;
@@ -587,17 +592,35 @@
     progress.setAttribute('aria-label', `${plan.name} — ${plan.progress}% teljesítve`);
     $('.pl-progress-fill', card).style.width = plan.progress + '%';
 
+    const editBtn = $('.pl-card-edit', card);
+    if (plan.own) {
+      editBtn.hidden = false;
+      editBtn.dataset.planId = plan.id;
+      editBtn.title = 'Terv szerkesztése';
+      editBtn.setAttribute('aria-label', `${plan.name} szerkesztése`);
+    }
+
     const openBtn = $('.pl-card-open', card);
     openBtn.dataset.plan = plan.name;
-    openBtn.title = 'Terv megnyitása';
-    openBtn.setAttribute('aria-label', `${plan.name} megnyitása`);
+    openBtn.title = 'Terv betöltése az edzésnaplóba';
+    openBtn.setAttribute('aria-label', `${plan.name} betöltése az edzésnaplóba`);
     return card;
   }
 
+  /** A legutóbb lekért tervlista — a nyíl- és a szerkesztés gomb ebből veszi
+      a terv adatait (a kártyák dataset.planIndex-e ide mutat). */
+  let plansData = [];
+
+  /** Újrahívható: mentés/szerkesztés után frissen húzza le és építi újra a listát. */
   async function renderPlans() {
-    const plans = await api.getPlans();
+    plansData = await api.getPlans();
     const list = $('[data-list="plans"]');
-    plans.forEach((plan) => list.appendChild(planCardEl(plan)));
+    list.replaceChildren();
+    plansData.forEach((plan, index) => {
+      const card = planCardEl(plan);
+      card.dataset.planIndex = index;
+      list.appendChild(card);
+    });
   }
 
   /** Egy üzenet-buborék (a sportoló-modál chat-szimulációja használja). */
@@ -1178,15 +1201,17 @@
       }).catch(() => {});
     });
 
-    // Mentett piszkozat visszatöltése: a seed-gyakorlatok és a dashboard-ból
-    // beállított cím helyére az utoljára szerkesztett állapot kerül.
-    // (A renderWorkout/renderDashboard már lefutott — ez felülírja őket.)
-    const draft = await api.getWorkoutDraft();
-    if (draft) {
-      titleInput.value = draft.name;
+    // Az induló tartalom a szervertől: aznapi piszkozat, vagy — új napon —
+    // a mai hétnapra ütemezett terv; a seed-gyakorlatok és a dashboard-ból
+    // beállított cím helyére ez kerül. (A renderWorkout/renderDashboard már
+    // lefutott — ez felülírja őket.) Ha nincs egyik sem, marad a seed.
+    const template = await api.getWorkoutTemplate();
+    if (template) {
+      titleInput.value = template.name;
       const list = $('[data-list="exercises"]');
       list.replaceChildren();
-      draft.exercises.forEach((exercise) => list.appendChild(renderExercise(exercise)));
+      template.exercises.forEach((exercise) => list.appendChild(renderExercise(exercise)));
+      if (template.source === 'plan') showToast(`Mai terv betöltve: ${template.name}`);
     }
 
     // Delegált kattintáskezelés — a dinamikusan hozzáadott sorokra is érvényes.
@@ -1258,6 +1283,21 @@
       showToast('Edzés befejezve · összegzés');
       navigate('summary');
     });
+
+    /** Terv betöltése az edzésnaplóba (a Tervek nyíl-gombja hívja): a cím és
+        a gyakorlatok cserélődnek, és az állapot azonnal piszkozatként mentődik
+        — így újratöltés után is a betöltött terv marad az edzésnaplóban. */
+    const loadPlan = (plan) => {
+      titleInput.value = plan.name;
+      titleInput.classList.remove('has-error');
+      titleError.hidden = true;
+      const list = $('[data-list="exercises"]', page);
+      list.replaceChildren();
+      plan.exercises.forEach((exercise) => list.appendChild(renderExercise(exercise)));
+      autosave();
+    };
+
+    return { loadPlan };
   }
 
   /** A gyakorlat-választó flow-oldal: katalógus a szerverről, kereső + izom-
@@ -1360,10 +1400,11 @@
     refresh();
   }
 
-  /** A terv-építő flow-oldal (a Tervek „+ Új terv" gombja hozza be): terv neve
-      + élő összegző, gyakorlatkártyák „+ Szett" gombbal, a „+ Gyakorlat
-      hozzáadása" a választóra visz. A Mentés a szerverre menti a tervet, ami
-      azonnal megjelenik a Tervek listája élén. */
+  /** A terv-építő flow-oldal (a Tervek „+ Új terv" és szerkesztés gombja hozza
+      be): terv neve + élő összegző, hétnap-ütemezés chipek, gyakorlatkártyák
+      „+ Szett" gombbal, a „+ Gyakorlat hozzáadása" a választóra visz. A Mentés
+      új tervet hoz létre vagy a szerkesztettet írja felül, majd frissíti a
+      Tervek listáját. Vezérlőt ad vissza: { startNew, loadPlan }. */
   async function setupPlanBuilder() {
     const page = $('[data-page="plan-builder"]');
     const nameInput = $('#plan-name');
@@ -1371,6 +1412,33 @@
     const summaryLine = $('[data-pb-summary]');
     const list = $('[data-list="builder-exercises"]', page);
     const defaultSet = await api.getDefaultSet();
+
+    // A szerkesztett terv id-ja — null, amíg új terv készül
+    let editingId = null;
+
+    // Hétnap-chipek (0 = hétfő) — a kijelölt napokon a terv az Edzés oldalra töltődik
+    const DAY_LABELS = ['H', 'K', 'Sze', 'Cs', 'P', 'Szo', 'V'];
+    const DAY_NAMES = ['hétfő', 'kedd', 'szerda', 'csütörtök', 'péntek', 'szombat', 'vasárnap'];
+    const daysWrap = $('[data-list="builder-days"]', page);
+    DAY_LABELS.forEach((label, index) => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'pb-day';
+      chip.textContent = label;
+      chip.dataset.day = index;
+      chip.setAttribute('aria-pressed', 'false');
+      chip.setAttribute('aria-label', DAY_NAMES[index]);
+      chip.addEventListener('click', () => {
+        chip.setAttribute('aria-pressed', String(chip.getAttribute('aria-pressed') !== 'true'));
+      });
+      daysWrap.appendChild(chip);
+    });
+    const readDays = () => $$('.pb-day', daysWrap)
+      .filter((chip) => chip.getAttribute('aria-pressed') === 'true')
+      .map((chip) => Number(chip.dataset.day));
+    const setDays = (days) => $$('.pb-day', daysWrap).forEach((chip) => {
+      chip.setAttribute('aria-pressed', String(days.includes(Number(chip.dataset.day))));
+    });
 
     /** A készülő terv a DOM-ból (a napló-olvasóval azonos alak). */
     const readPlan = () => $$('.wk-exercise', page).map((card) => ({
@@ -1412,8 +1480,33 @@
       nameError.hidden = true;
     });
 
-    // Mentés — validáció, szerverre mentés, a terv-kártya azonnal a lista élére
-    // kerül, a builder kiürül, és a Tervek oldal jön vissza
+    /** Üres builder egy új tervhez. */
+    const startNew = () => {
+      editingId = null;
+      nameInput.value = 'Új terv';
+      nameInput.classList.remove('has-error');
+      nameError.hidden = true;
+      setDays([]);
+      list.replaceChildren();
+      updateSummary();
+    };
+
+    /** Meglévő terv betöltése szerkesztésre (a Tervek szerkesztés gombja hívja). */
+    const loadPlan = (plan) => {
+      editingId = plan.id;
+      nameInput.value = plan.name;
+      nameInput.classList.remove('has-error');
+      nameError.hidden = true;
+      setDays(plan.days || []);
+      list.replaceChildren();
+      plan.exercises.forEach((exercise) => {
+        list.appendChild(renderExercise(exercise, { withAddSet: true }));
+      });
+      updateSummary();
+    };
+
+    // Mentés — validáció után új terv jön létre, vagy a szerkesztett íródik
+    // felül; a Tervek listája frissül, és a Tervek oldal jön vissza
     const saveBtn = $('[data-action="save-plan"]');
     saveBtn.addEventListener('click', async () => {
       if (saveBtn.disabled) return;
@@ -1433,20 +1526,13 @@
 
       saveBtn.disabled = true;
       try {
-        const saved = await api.savePlan(name, exercises);
-        const plansList = $('[data-list="plans"]');
-        plansList.insertBefore(planCardEl({
-          name: saved.name,
-          meta: `Saját terv · ${saved.exercises.length} gyakorlat · ${saved.date}`,
-          progress: 0,
-        }), plansList.firstChild);
+        const days = readDays();
+        if (editingId) await api.updatePlan(editingId, name, exercises, days);
+        else await api.savePlan(name, exercises, days);
+        await renderPlans(); // friss lista a szerverről (saját tervek elöl)
 
-        // Üres builder a következő tervhez
-        list.replaceChildren();
-        nameInput.value = 'Új terv';
-        updateSummary();
-
-        showToast('Terv elmentve');
+        showToast(editingId ? 'Terv frissítve' : 'Terv elmentve');
+        startNew();
         navigate('plans');
       } catch (err) {
         console.error(err);
@@ -1457,6 +1543,8 @@
     });
 
     await setupExercisePicker({ targetList: list, nameInput, defaultSet, onChange: updateSummary });
+
+    return { startNew, loadPlan };
   }
 
   /** Összegző oldal: a fő gomb zárja a kört az áttekintés felé
@@ -1560,16 +1648,35 @@
     });
   }
 
-  function setupPlans() {
+  /** A Tervek oldal interakciói. A planBuilder és a workout a megfelelő setup
+      függvények vezérlői — hiba esetén (safe-ből null) a gombok nem visznek át. */
+  function setupPlans(planBuilder, workout) {
     $('[data-list="plans"]').addEventListener('click', (event) => {
+      // Szerkesztés — a saját terv a terv-építőbe töltődik
+      const editBtn = event.target.closest('.pl-card-edit');
+      if (editBtn) {
+        const plan = plansData.find((p) => p.id === Number(editBtn.dataset.planId));
+        if (!plan || !planBuilder) return;
+        planBuilder.loadPlan(plan);
+        navigate('plan-builder');
+        return;
+      }
+
+      // Nyíl — a terv (név + gyakorlatok) betöltődik az edzésnaplóba
       const openBtn = event.target.closest('.pl-card-open');
       if (!openBtn) return;
-      showToast(`„${openBtn.dataset.plan}” megnyitva`);
+      const plan = plansData[Number(openBtn.closest('.pl-card').dataset.planIndex)];
+      if (!plan?.exercises || !workout) return;
+      workout.loadPlan(plan);
+      showToast(`„${plan.name}” betöltve az edzésnaplóba`);
       navigate('workout');
     });
 
-    // Új terv készítése — a terv-építő flow-oldalra visz
-    $('[data-action="new-plan"]').addEventListener('click', () => navigate('plan-builder'));
+    // Új terv készítése — üres terv-építővel
+    $('[data-action="new-plan"]').addEventListener('click', () => {
+      planBuilder?.startNew();
+      navigate('plan-builder');
+    });
   }
 
   /** Közös chat-szimuláció: saját üzenet azonnal megjelenik, majd „gépel…”
@@ -1892,11 +1999,11 @@
     const athleteModal = await safe(setupAthleteModal);
     setupDashboard(settingsModal);
     await safe(setupWeightLog);
-    await safe(() => setupWorkout(videoModal));
+    const workout = await safe(() => setupWorkout(videoModal));
     await safe(setupWeeklyCompare);
     await safe(setupNutrition);
-    setupPlans();
-    await safe(setupPlanBuilder);
+    const planBuilder = await safe(setupPlanBuilder);
+    setupPlans(planBuilder, workout);
     await safe(() => setupCoach(athleteModal));
     setupSummary();
     setupShortcuts();

@@ -1093,6 +1093,36 @@ input:focus {
   background: var(--fg-15);
 }
 
+/* Szerkesztés gomb — csak a saját terveken (a terv-építőbe tölti a tervet) */
+.pl-card-edit {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--border-strong);
+  background: none;
+  color: var(--fg-70);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color var(--t-fast), color var(--t-fast);
+}
+
+.pl-card-edit:hover {
+  border-color: var(--fg-40);
+  color: var(--fg-100);
+}
+
+.pl-card-edit svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 /* ==========================================================================
    10. Edzői panel — állapot-sáv, sportoló-kártyák, üzenet-buborékok
    ========================================================================== */
@@ -2700,6 +2730,54 @@ input:focus {
   font-weight: 600;
   color: var(--fg-60);
   margin: calc(-1 * var(--sp-4)) 0 var(--sp-7);
+}
+
+/* Hétnap-ütemezés: a kijelölt napokon a terv az Edzés oldalra töltődik */
+.pb-days {
+  margin-bottom: var(--sp-8);
+}
+
+.pb-days-label {
+  display: block;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: var(--sp-3);
+}
+
+.pb-days-chips {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.pb-day {
+  min-width: 40px;
+  background: none;
+  border: 1px solid var(--border-strong);
+  color: var(--fg-60);
+  border-radius: var(--r-md);
+  padding: var(--sp-3) var(--sp-4);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+}
+
+.pb-day:hover {
+  border-color: var(--fg-40);
+  color: var(--text-secondary);
+}
+
+.pb-day[aria-pressed="true"] {
+  background: var(--c-paper);
+  border-color: var(--c-paper);
+  color: var(--c-ink);
+}
+
+.pb-days-hint {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  margin: var(--sp-3) 0 0;
 }
 
 /* A tervben a szett csak sablon: a napló-kártya videó gombja és

@@ -15,7 +15,7 @@ import {
   getCollection, getWeightLog, getSnapshot,
   addWeightEntry, getNutritionTotals, addNutritionEntry,
   getWorkouts, addWorkout, getWorkoutDraft, saveWorkoutDraft,
-  getUserPlans, addPlan,
+  getUserPlans, addPlan, updatePlan, getPlanForDay,
 } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -34,6 +34,19 @@ const today = () => {
   const pad = (n) => String(n).padStart(2, '0');
   return `${now.getFullYear()}.${pad(now.getMonth() + 1)}.${pad(now.getDate())}`;
 };
+
+/** A mai hétnap indexe, hétfőtől számolva (0 = hétfő … 6 = vasárnap). */
+const todayWeekday = () => (new Date().getDay() + 6) % 7;
+
+/** A tervek hétnap-címkéi — a kártya-metában és a kliens chipjein is ez a sorrend. */
+const DAY_LABELS = ['H', 'K', 'Sze', 'Cs', 'P', 'Szo', 'V'];
+
+/** A beküldött hétnap-lista normalizálása: egyedi, rendezett 0–6 indexek. */
+const normalizeDays = (raw) => (Array.isArray(raw) ? raw : [])
+  .map(Number)
+  .filter((d) => Number.isInteger(d) && d >= 0 && d <= 6)
+  .filter((d, i, arr) => arr.indexOf(d) === i)
+  .sort((a, b) => a - b);
 
 /* ======================================================================
    API — az adat-seam szerver-oldali vége.
@@ -76,14 +89,44 @@ app.get('/api/dashboard', (req, res) => {
 });
 
 // Tervek — a saját (terv-építőben mentett) tervek elöl, utána a kiosztott
-// seed-tervek. A kártya-alak (name/meta/progress) itt áll össze egy helyen.
+// seed-tervek. A kártya-alak (name/meta/progress) itt áll össze egy helyen;
+// a saját terveknél az id/exercises/days a kliens szerkesztő-gombjához kell.
 app.get('/api/plans', (req, res) => {
-  const own = getUserPlans().map((plan) => ({
-    name: plan.name,
-    meta: `Saját terv · ${plan.exercises.length} gyakorlat · ${plan.date}`,
-    progress: 0,
-  }));
+  const own = getUserPlans().map((plan) => {
+    const daysLabel = plan.days.length
+      ? ` · ${plan.days.map((d) => DAY_LABELS[d]).join(', ')}`
+      : '';
+    return {
+      id: plan.id,
+      name: plan.name,
+      meta: `Saját terv · ${plan.exercises.length} gyakorlat${daysLabel}`,
+      progress: 0,
+      own: true,
+      exercises: plan.exercises,
+      days: plan.days,
+    };
+  });
   res.json([...own, ...(getCollection('plans') || [])]);
+});
+
+// Az Edzés oldal induló tartalma, prioritás szerint: aznapi piszkozat →
+// a mai hétnapra ütemezett terv → korábbi (nem mai) piszkozat → null
+// (ilyenkor a kliens a seed-gyakorlatokat mutatja). Így éjfél után a napra
+// beállított terv automatikusan az edzésnaplóba töltődik, de egy megkezdett
+// mai edzést sosem ír felül.
+app.get('/api/workout-template', (req, res) => {
+  const draft = getWorkoutDraft();
+  if (draft && draft.date === today()) {
+    return res.json({ source: 'draft', name: draft.name, exercises: draft.exercises });
+  }
+  const plan = getPlanForDay(todayWeekday());
+  if (plan) {
+    return res.json({ source: 'plan', name: plan.name, exercises: plan.exercises });
+  }
+  if (draft) {
+    return res.json({ source: 'draft', name: draft.name, exercises: draft.exercises });
+  }
+  res.json(null);
 });
 
 // Testsúly-napló — a valódi weight_log táblából
@@ -148,17 +191,35 @@ function normalizeExercises(raw) {
   return exercises;
 }
 
-/** Edzésterv mentése (terv-építő). Törzs: { name, exercises }. A dátumot a szerver adja. */
-app.post('/api/plans', (req, res) => {
-  const name = String(req.body?.name ?? '').trim();
+/** A terv-törzs (name/exercises/days) közös validálása. Hibánál { error }-t ad. */
+function parsePlanBody(body) {
+  const name = String(body?.name ?? '').trim();
   if (!name || name.length > 60) {
-    return res.status(400).json({ error: 'A terv neve kötelező (legfeljebb 60 karakter).' });
+    return { error: 'A terv neve kötelező (legfeljebb 60 karakter).' };
   }
-  const exercises = normalizeExercises(req.body?.exercises);
+  const exercises = normalizeExercises(body?.exercises);
   if (!exercises) {
-    return res.status(400).json({ error: 'A tervnek legalább egy érvényes gyakorlatot kell tartalmaznia.' });
+    return { error: 'A tervnek legalább egy érvényes gyakorlatot kell tartalmaznia.' };
   }
-  res.status(201).json(addPlan(name, today(), exercises));
+  return { name, exercises, days: normalizeDays(body?.days) };
+}
+
+/** Edzésterv mentése (terv-építő). Törzs: { name, exercises, days }. A dátumot a szerver adja. */
+app.post('/api/plans', (req, res) => {
+  const plan = parsePlanBody(req.body);
+  if (plan.error) return res.status(400).json({ error: plan.error });
+  res.status(201).json(addPlan(plan.name, today(), plan.exercises, plan.days));
+});
+
+/** Meglévő terv szerkesztése. Törzs: { name, exercises, days }. */
+app.put('/api/plans/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) return res.status(400).json({ error: 'Érvénytelen terv-azonosító.' });
+  const plan = parsePlanBody(req.body);
+  if (plan.error) return res.status(400).json({ error: plan.error });
+  const updated = updatePlan(id, plan.name, plan.exercises, plan.days);
+  if (!updated) return res.status(404).json({ error: 'Nincs ilyen terv — lehet, hogy időközben törölték.' });
+  res.json(updated);
 });
 
 /** Edzés mentése. Törzs: { name, exercises }. A dátumot a szerver adja. */
@@ -184,7 +245,7 @@ app.put('/api/workout-draft', (req, res) => {
   if (!exercises) {
     return res.status(400).json({ error: 'Érvénytelen piszkozat-szerkezet.' });
   }
-  res.json(saveWorkoutDraft(name, exercises));
+  res.json(saveWorkoutDraft(name, exercises, today()));
 });
 
 /* ======================================================================
