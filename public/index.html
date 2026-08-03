@@ -584,19 +584,22 @@
         </button>
       </header>
       <div class="wk-set-row wk-set-row--head" aria-hidden="true">
-        <span>Szett</span><span>Ism.</span><span>Súly</span><span>RPE</span><span></span>
+        <span>Szett</span><span>Ism.</span><span>Súly</span><span>RPE</span><span></span><span></span>
       </div>
       <div class="wk-set-list"></div>
     </article>
   </template>
 
+  <!-- A maxlength-ek a szerver-oldali normalizálás korlátaihoz igazodnak
+       (server.js → normalizeExercises: reps/weight 20, rpe 10 karakter). -->
   <template id="tpl-set-row">
     <div class="wk-set-row">
       <span class="wk-set-num"></span>
-      <span class="wk-chip wk-set-reps"></span>
-      <span class="wk-chip wk-set-weight"></span>
-      <span class="wk-chip wk-set-rpe"></span>
+      <input class="wk-chip wk-set-reps" type="text" maxlength="20" autocomplete="off" enterkeyhint="done">
+      <input class="wk-chip wk-set-weight" type="text" maxlength="20" autocomplete="off" enterkeyhint="done">
+      <input class="wk-chip wk-set-rpe" type="text" maxlength="10" autocomplete="off" enterkeyhint="done">
       <button class="wk-set-check" type="button" aria-pressed="false" aria-label="Szett teljesítve"></button>
+      <button class="wk-set-remove" type="button" title="Szett törlése" aria-label="Szett törlése">✕</button>
     </div>
   </template>
 

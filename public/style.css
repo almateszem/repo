@@ -702,9 +702,12 @@ input:focus {
   fill: currentColor;
 }
 
+/* Minden sor önálló grid — a fejléc és az értéksorok csak akkor fedik egymást,
+   ha a fix oszlopok szélessége azonos. Az első oszlop a „Szett" fejléc-
+   felirathoz igazodik (a sorszám maga keskenyebb lenne). */
 .wk-set-row {
   display: grid;
-  grid-template-columns: 20px 1fr 1fr 40px 28px;
+  grid-template-columns: 34px 1fr 1fr 46px 28px 22px;
   align-items: center;
   gap: var(--sp-3);
   padding: var(--sp-2) 0;
@@ -727,6 +730,45 @@ input:focus {
   padding: var(--sp-2) var(--sp-3);
   text-align: center;
   white-space: nowrap;
+}
+
+/* A szett-értékek szerkeszthető mezők — a chip-kinézetet megtartva. Az
+   átlátszó keret mindig ott van, hogy fókuszban ne ugorjon a sor. */
+input.wk-chip {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid transparent;
+  color: var(--text-primary);
+  font-size: var(--fs-sm);
+  transition: background var(--t-fast), border-color var(--t-fast);
+}
+
+input.wk-chip:hover {
+  background: var(--surface-hover);
+}
+
+input.wk-chip:focus {
+  background: var(--surface-hover);
+  border-color: var(--fg-40);
+}
+
+.wk-set-remove {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: var(--r-full);
+  background: none;
+  color: var(--fg-40);
+  font-size: var(--fs-2xs);
+  line-height: 1;
+  justify-self: center;
+  transition: color var(--t-fast), background var(--t-fast);
+}
+
+.wk-set-remove:hover {
+  color: var(--c-accent);
+  background: var(--surface-hover);
 }
 
 .wk-set-check {
