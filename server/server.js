@@ -57,12 +57,8 @@ const normalizeDays = (raw) => (Array.isArray(raw) ? raw : [])
    ====================================================================== */
 const READ_ENDPOINTS = {
   '/api/user': 'user',
-  '/api/charts': 'charts',
-  '/api/exercises': 'exercises',
-  '/api/history': 'history',
   '/api/foods': 'foods',
   '/api/athletes': 'athletes',
-  '/api/prs': 'prs',
   '/api/notifications': 'notifications',
   '/api/default-set': 'defaultSet',
   '/api/exercise-catalog': 'exerciseCatalog',
@@ -75,8 +71,29 @@ for (const [route, key] of Object.entries(READ_ENDPOINTS)) {
   app.get(route, (req, res) => res.json(getCollection(key)));
 }
 
+/** Az Edzés oldal induló tartalma, prioritás szerint: aznapi piszkozat →
+    a mai hétnapra ütemezett terv → korábbi (nem mai) piszkozat → null
+    (ilyenkor a kliens üres edzésnaplót mutat). Így éjfél után a napra
+    beállított terv automatikusan az edzésnaplóba töltődik, de egy megkezdett
+    mai edzést sosem ír felül. A dashboard edzésneve is ebből jön. */
+function workoutTemplate() {
+  const draft = getWorkoutDraft();
+  if (draft && draft.date === today()) {
+    return { source: 'draft', name: draft.name, exercises: draft.exercises };
+  }
+  const plan = getPlanForDay(todayWeekday());
+  if (plan) {
+    return { source: 'plan', name: plan.name, exercises: plan.exercises };
+  }
+  if (draft) {
+    return { source: 'draft', name: draft.name, exercises: draft.exercises };
+  }
+  return null;
+}
+
 // Áttekintő — a napi kalória/fehérje statot a táplálkozási naplóból számoljuk,
-// hogy a dashboard és a Táplálkozás oldal ugyanazt az adatot mutassa.
+// hogy a dashboard és a Táplálkozás oldal ugyanazt az adatot mutassa; az
+// aktuális edzésnév az edzésnapló induló tartalmából jön (vagy null).
 app.get('/api/dashboard', (req, res) => {
   const dashboard = getCollection('dashboard');
   const totals = getNutritionTotals(today());
@@ -85,14 +102,31 @@ app.get('/api/dashboard', (req, res) => {
     caloriesTarget: totals.goal.calories,
     protein: Math.round(totals.protein),
   };
+  dashboard.workoutName = workoutTemplate()?.name?.trim() || null;
   res.json(dashboard);
 });
 
-// Tervek — a saját (terv-építőben mentett) tervek elöl, utána a kiosztott
-// seed-tervek. A kártya-alak (name/meta/progress) itt áll össze egy helyen;
-// a saját terveknél az id/exercises/days a kliens szerkesztő-gombjához kell.
+// Tervek — a felhasználó saját (terv-építőben mentett) tervei, legújabb elöl.
+// A kártya-alak (name/meta/progress) itt áll össze egy helyen; az id/exercises/
+// days a kliens szerkesztő-gombjához kell. A progress a MAI teljesítést méri:
+// a terv nevével ma mentett edzés = 100%, különben — ha a terv épp az edzés-
+// naplóban van (aznapi piszkozat) — a pipált szettek aránya; máskülönben 0.
 app.get('/api/plans', (req, res) => {
-  const own = getUserPlans().map((plan) => {
+  const todayDate = today();
+  const draft = getWorkoutDraft();
+  const savedToday = new Set(
+    getWorkouts().filter((w) => w.date === todayDate).map((w) => w.name),
+  );
+  const progressFor = (plan) => {
+    if (savedToday.has(plan.name)) return 100;
+    if (draft && draft.date === todayDate && draft.name === plan.name) {
+      const sets = draft.exercises.flatMap((exercise) => exercise.sets);
+      const done = sets.filter((set) => set.done).length;
+      return sets.length ? Math.round((done / sets.length) * 100) : 0;
+    }
+    return 0;
+  };
+  res.json(getUserPlans().map((plan) => {
     const daysLabel = plan.days.length
       ? ` · ${plan.days.map((d) => DAY_LABELS[d]).join(', ')}`
       : '';
@@ -100,34 +134,96 @@ app.get('/api/plans', (req, res) => {
       id: plan.id,
       name: plan.name,
       meta: `Saját terv · ${plan.exercises.length} gyakorlat${daysLabel}`,
-      progress: 0,
+      progress: progressFor(plan),
       own: true,
       exercises: plan.exercises,
       days: plan.days,
     };
-  });
-  res.json([...own, ...(getCollection('plans') || [])]);
+  }));
 });
 
-// Az Edzés oldal induló tartalma, prioritás szerint: aznapi piszkozat →
-// a mai hétnapra ütemezett terv → korábbi (nem mai) piszkozat → null
-// (ilyenkor a kliens a seed-gyakorlatokat mutatja). Így éjfél után a napra
-// beállított terv automatikusan az edzésnaplóba töltődik, de egy megkezdett
-// mai edzést sosem ír felül.
-app.get('/api/workout-template', (req, res) => {
-  const draft = getWorkoutDraft();
-  if (draft && draft.date === today()) {
-    return res.json({ source: 'draft', name: draft.name, exercises: draft.exercises });
+app.get('/api/workout-template', (req, res) => res.json(workoutTemplate()));
+
+// Korábbi rekordok — a mentett edzések PR-ral megjelölt gyakorlataiból
+// (legújabb elöl). A detail az első teljesített (vagy első) szett összegzése.
+app.get('/api/prs', (req, res) => {
+  const prs = [];
+  for (const workout of getWorkouts()) {
+    for (const exercise of workout.exercises) {
+      if (!exercise.pr) continue;
+      const set = exercise.sets.find((s) => s.done) || exercise.sets[0];
+      prs.push({
+        exercise: exercise.name,
+        detail: set ? `${set.reps} @ ${set.weight}` : workout.name,
+        date: workout.date,
+      });
+    }
   }
-  const plan = getPlanForDay(todayWeekday());
-  if (plan) {
-    return res.json({ source: 'plan', name: plan.name, exercises: plan.exercises });
-  }
-  if (draft) {
-    return res.json({ source: 'draft', name: draft.name, exercises: draft.exercises });
-  }
-  res.json(null);
+  res.json(prs.slice(0, 6));
 });
+
+/** "ÉÉÉÉ.HH.NN" → helyi Date (a mentett edzések dátum-formátuma). */
+const parseDate = (str) => {
+  const [year, month, day] = str.split('.').map(Number);
+  return new Date(year, month - 1, day);
+};
+
+/** Az adott nap hetének hétfője, helyi éjfélre normalizálva (timestamp). */
+const mondayOf = (date) => {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d.getTime();
+};
+
+/** Heti volumen-összehasonlítás a mentett edzésekből: teljesített szettek
+    naponta, erre és a múlt hétre. A két hét közös skálán van, hogy a
+    váltógombbal az oszlopok összevethetők legyenek. */
+function volumeCharts() {
+  const thisMonday = mondayOf(new Date());
+  const lastMonday = thisMonday - 7 * 24 * 60 * 60 * 1000;
+  const thisWeek = Array(7).fill(0);
+  const lastWeek = Array(7).fill(0);
+
+  for (const workout of getWorkouts()) {
+    const date = parseDate(workout.date);
+    const monday = mondayOf(date);
+    const bucket = monday === thisMonday ? thisWeek : monday === lastMonday ? lastWeek : null;
+    if (!bucket) continue;
+    bucket[(date.getDay() + 6) % 7] += workout.exercises
+      .flatMap((exercise) => exercise.sets)
+      .filter((set) => set.done).length;
+  }
+
+  const scale = Math.max(4, Math.ceil(Math.max(...thisWeek, ...lastWeek) / 4) * 4);
+  const axis = [scale, (scale / 4) * 3, scale / 2, scale / 4].map(String);
+  const heights = (week) => week.map((count) => Math.max(4, Math.round((count / scale) * 100)));
+  const totalThis = thisWeek.reduce((a, b) => a + b, 0);
+  const totalLast = lastWeek.reduce((a, b) => a + b, 0);
+  const delta = totalThis - totalLast;
+
+  return {
+    volumeThisWeek: {
+      heights: heights(thisWeek),
+      axis,
+      total: totalThis,
+      note: delta === 0
+        ? 'ugyanannyi, mint a múlt héten'
+        : `${delta > 0 ? '+' : ''}${delta} szett a múlt héthez képest`,
+      ariaLabel: 'Teljesített szettek naponta — ez a hét',
+    },
+    volumeLastWeek: {
+      heights: heights(lastWeek),
+      axis,
+      total: totalLast,
+      note: 'a múlt hét összes teljesített szettje',
+      ariaLabel: 'Teljesített szettek naponta — múlt hét',
+    },
+  };
+}
+
+// Chartok — a seed-görbék mellé a szerver számolja a heti volumen-
+// összehasonlítást a mentett edzésekből.
+app.get('/api/charts', (req, res) => res.json({ ...getCollection('charts'), ...volumeCharts() }));
 
 // Testsúly-napló — a valódi weight_log táblából
 app.get('/api/weight-log', (req, res) => res.json(getWeightLog()));

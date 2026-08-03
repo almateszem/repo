@@ -659,6 +659,24 @@ input:focus {
   border-radius: var(--r-xs);
 }
 
+/* Kapcsolható PR-jelölés az edzésnapló kártyáin: lenyomva a jelvény-kinézet,
+   kikapcsolva halvány körvonalas gomb */
+.wk-pr-toggle {
+  border: 1px solid transparent;
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+}
+
+.wk-pr-toggle[aria-pressed="false"] {
+  background: none;
+  border-color: var(--border-strong);
+  color: var(--fg-45);
+}
+
+.wk-pr-toggle[aria-pressed="false"]:hover {
+  border-color: var(--fg-40);
+  color: var(--fg-70);
+}
+
 .wk-video-btn {
   background: none;
   border: 1px solid var(--border-strong);
@@ -761,6 +779,17 @@ input:focus {
   font-weight: 700;
   margin-bottom: var(--sp-12);
   transition: border-color var(--t-fast), color var(--t-fast);
+}
+
+/* Üres állapotok — az edzésnapló, a listák és a Tervek oldal közös stílusa */
+.wk-empty,
+.wk-list-empty,
+.pl-empty {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  text-align: center;
+  padding: var(--sp-7) var(--sp-5);
+  margin: 0 0 var(--sp-5);
 }
 
 .wk-progress-title {
@@ -3267,7 +3296,7 @@ input:focus {
 
 .su-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: var(--sp-5);
   margin-bottom: var(--sp-13);
 }

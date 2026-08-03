@@ -160,12 +160,18 @@
           <label class="sr-only" for="workout-name">Edzés neve</label>
           <input class="wk-title" id="workout-name" maxlength="60"
                  aria-describedby="workout-name-error">
-          <button class="wk-save" type="button" data-action="save-workout">Mentés</button>
         </header>
-        <p class="wk-error" id="workout-name-error" hidden>Adj nevet az edzésnek a mentéshez.</p>
-        <p class="wk-autosave-note">A módosítások automatikusan mentődnek — a Mentés a Korábbi edzésekhez naplózza az edzést.</p>
+        <p class="wk-error" id="workout-name-error" hidden>Adj nevet az edzésnek a befejezéshez.</p>
+        <p class="wk-autosave-note">A módosítások automatikusan mentődnek — az Edzés befejezése naplózza az edzést a Korábbi edzésekhez.</p>
 
         <div class="wk-list" data-list="exercises"></div>
+
+        <!-- Üres állapot — ha nincs se aznapi piszkozat, se mára ütemezett terv -->
+        <p class="wk-empty" data-workout-empty hidden>Nincs betöltött edzés — tölts be egy tervet
+          a Tervek oldalról, vagy adj hozzá gyakorlatot a lenti gombbal.</p>
+
+        <!-- A gyakorlat-választó flow-oldalra visz (#exercise-picker), az edzésnaplót célozva -->
+        <button class="wk-add-exercise" type="button" data-action="workout-add-exercise">+ Gyakorlat hozzáadása</button>
 
         <!-- Elsődleges lezáró művelet — az összegző oldalra visz (#summary) -->
         <button class="wk-finish" type="button" data-action="finish-workout">
@@ -180,6 +186,8 @@
             <div class="chart-axis" aria-hidden="true"></div>
           </div>
           <ul class="wk-history" data-list="history"></ul>
+          <p class="wk-list-empty" data-history-empty hidden>Még nincs mentett edzésed —
+            az első Mentés után itt jelenik meg.</p>
         </section>
 
         <section class="wk-compare" aria-labelledby="title-compare">
@@ -198,13 +206,15 @@
             <span>H</span><span>K</span><span>Sze</span><span>Cs</span><span>P</span><span>Szo</span><span>V</span>
           </div>
           <p class="wk-compare-note">Összvolumen:
-            <strong><span data-compare-total></span> t</strong> ·
+            <strong><span data-compare-total></span> szett</strong> ·
             <span data-compare-note></span></p>
         </section>
 
         <section class="wk-prs" aria-labelledby="title-prs">
           <h3 class="wk-progress-title" id="title-prs">Korábbi rekordok</h3>
           <ul class="wk-pr-list" data-list="prs"></ul>
+          <p class="wk-list-empty" data-prs-empty hidden>Még nincs rögzített rekordod —
+            jelöld meg a gyakorlatot a PR gombbal az edzésnaplóban, és mentsd az edzést.</p>
         </section>
       </section>
 
@@ -252,7 +262,7 @@
           <button class="ep-back" type="button" data-action="picker-back" aria-label="Vissza a terv-építőhöz">←</button>
           <div class="ep-header-text">
             <h2 class="ep-title" id="title-picker">Gyakorlat hozzáadása</h2>
-            <p class="ep-subtitle"><span data-picker-workout>Új terv</span> tervhez</p>
+            <p class="ep-subtitle"><span data-picker-workout>Új terv</span> <span data-picker-noun>tervhez</span></p>
           </div>
         </header>
 
@@ -318,6 +328,8 @@
           <button class="pl-new" type="button" data-action="new-plan">+ Új terv</button>
         </header>
         <ul class="pl-list" data-list="plans"></ul>
+        <p class="pl-empty" data-plans-empty hidden>Még nincs edzésterved —
+          készíts egyet a „+ Új terv” gombbal.</p>
       </section>
 
       <!-- ================================================================
@@ -406,10 +418,6 @@
             <span class="su-stat-label">Teljesített szett</span>
           </div>
           <div class="su-stat" style="--i:1">
-            <span class="su-stat-value"><span data-su-volume>0</span><span class="su-stat-unit">t</span></span>
-            <span class="su-stat-label">Becsült volumen</span>
-          </div>
-          <div class="su-stat" style="--i:2">
             <span class="su-stat-value"><span data-su-duration>0</span><span class="su-stat-unit">perc</span></span>
             <span class="su-stat-label">Időtartam</span>
           </div>
@@ -568,7 +576,9 @@
     <article class="wk-exercise">
       <header class="wk-exercise-head">
         <h3 class="wk-exercise-name"></h3>
-        <span class="wk-pr" hidden>PR</span>
+        <!-- Az edzésnaplóban kapcsolható PR-jelölés; a terv-építőben rejtett -->
+        <button class="wk-pr wk-pr-toggle" type="button" aria-pressed="false"
+                title="Rekord (PR) jelölése" hidden>PR</button>
         <button class="wk-video-btn" type="button">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h11a2 2 0 0 1 2 2v2.2l4-2.4v10.4l-4-2.4V17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/></svg>
         </button>
