@@ -23,58 +23,17 @@ export const data = {
       heights: [34, 33, 38, 42, 40, 47, 52, 50, 58, 64, 70, 76],
       axis: ['86 kg', '84 kg', '82 kg', '80 kg'],
     },
-    /* Heti volumen-összehasonlítás — a workout oldal váltógombja e kettő
-       között váltogat (total: tonna, note: a felirat a diagram alatt). */
-    volumeThisWeek: {
-      heights: [74, 8, 90, 8, 82, 58, 8],
-      axis: ['8 t', '6 t', '4 t', '2 t'],
-      total: 24.8,
-      note: '+8% a múlt héthez képest',
-      ariaLabel: 'Heti edzésvolumen naponta — ez a hét',
-    },
-    volumeLastWeek: {
-      heights: [66, 8, 78, 8, 74, 52, 8],
-      axis: ['8 t', '6 t', '4 t', '2 t'],
-      total: 22.9,
-      note: 'a múlt hét összvolumene',
-      ariaLabel: 'Heti edzésvolumen naponta — múlt hét',
-    },
+    /* A heti volumen-összehasonlítást (volumeThisWeek/volumeLastWeek) a szerver
+       számolja a mentett edzésekből (GET /api/charts) — itt nincs seed-adata. */
   },
-  /* Az áttekintő (dashboard) adatai. A dailyStats (kalória/fehérje) NINCS itt:
-     azt a szerver számolja a táplálkozási naplóból (GET /api/dashboard),
-     hogy a dashboard és a Táplálkozás oldal ugyanazt mutassa. */
+  /* Az áttekintő (dashboard) adatai. A dailyStats (kalória/fehérje) és a
+     workoutName NINCS itt: azt a szerver számolja a táplálkozási naplóból,
+     ill. az aznapi piszkozatból/tervből (GET /api/dashboard). */
   dashboard: {
     readiness: 52,
     streak: 25,
     recovery: { sleep: '7.5 óra', fatigue: 'Közepes', soreness: 'Enyhe' },
-    workoutName: 'Mell hétfő',
   },
-  exercises: [
-    {
-      name: 'Fekvenyomás',
-      pr: true,
-      sets: [
-        { reps: '20 rep', weight: '65% TM', rpe: '8', done: true },
-        { reps: '20 rep', weight: '65% TM', rpe: '8.5', done: true },
-        { reps: '18 rep', weight: '70% TM', rpe: '9', done: false },
-      ],
-    },
-    {
-      name: 'Guggolás',
-      pr: false,
-      sets: [
-        { reps: '15 rep', weight: '60% TM', rpe: '7', done: true },
-        { reps: '15 rep', weight: '60% TM', rpe: '7.5', done: false },
-      ],
-    },
-    {
-      name: 'Vállból nyomás',
-      pr: false,
-      sets: [
-        { reps: '12 rep', weight: '55% TM', rpe: '7', done: false },
-      ],
-    },
-  ],
   defaultSet: { reps: '12 rep', weight: '60% TM', rpe: '–', done: false },
   /* A gyakorlat-választó (edzésépítő) katalógusa. A group a szűrő-chipek
      alapja — a chipek listája ebből áll össze, új csoport felvételéhez elég
@@ -94,19 +53,6 @@ export const data = {
     { name: 'Kitörés', tag: 'Összetett', muscles: 'Comb · Far', group: 'Láb' },
     { name: 'Lábtolás', tag: 'Izolációs', muscles: 'Comb', group: 'Láb' },
   ],
-  history: [
-    { date: '2026.06.29', detail: '3×20 @ 65% TM', rpe: 'RPE 8' },
-    { date: '2026.06.22', detail: '3×18 @ 62% TM', rpe: 'RPE 7' },
-    { date: '2026.06.15', detail: '3×18 @ 60% TM', rpe: 'RPE 7' },
-  ],
-  prs: [
-    { exercise: 'Fekvenyomás', result: '110 kg × 1', delta: '+2.5 kg', date: '2026.06.29' },
-    { exercise: 'Guggolás', result: '150 kg × 1', delta: '+5 kg', date: '2026.06.12' },
-    { exercise: 'Felhúzás', result: '185 kg × 1', delta: '+5 kg', date: '2026.05.28' },
-    { exercise: 'Vállból nyomás', result: '62.5 kg × 1', delta: '+2.5 kg', date: '2026.05.09' },
-    { exercise: 'Fekvenyomás', result: '107.5 kg × 1', delta: '+2.5 kg', date: '2026.04.20' },
-    { exercise: 'Guggolás', result: '145 kg × 1', delta: '+5 kg', date: '2026.04.03' },
-  ],
   foods: [
     { name: 'Csirkemell', kcal: 200, protein: 20, carbs: 0, fat: 4, per: '100 g' },
     { name: 'Rizs (főtt)', kcal: 130, protein: 3, carbs: 28, fat: 0, per: '100 g' },
@@ -115,67 +61,6 @@ export const data = {
     { name: 'Túró (sovány)', kcal: 98, protein: 18, carbs: 4, fat: 0.5, per: '100 g' },
     { name: 'Lazac', kcal: 208, protein: 20, carbs: 0, fat: 13, per: '100 g' },
     { name: 'Banán', kcal: 89, protein: 1, carbs: 23, fat: 0.3, per: '100 g' },
-  ],
-  /* A kiosztott tervek gyakorlatai a workouts.exercises-szel azonos alakúak —
-     a Tervek nyíl-gombja így bármelyik tervet be tudja tölteni az edzésnaplóba. */
-  plans: [
-    {
-      name: 'Tömegnövelő 4 napos', meta: 'Kiosztva: Kovács Bence · 4 hét', progress: 62,
-      exercises: [
-        { name: 'Fekvenyomás', pr: false, sets: [
-          { reps: '12 rep', weight: '70% TM', rpe: '7', done: false },
-          { reps: '12 rep', weight: '70% TM', rpe: '8', done: false },
-          { reps: '10 rep', weight: '75% TM', rpe: '8.5', done: false },
-        ] },
-        { name: 'Ferde fekvenyomás', pr: false, sets: [
-          { reps: '12 rep', weight: '65% TM', rpe: '7', done: false },
-          { reps: '10 rep', weight: '70% TM', rpe: '8', done: false },
-        ] },
-        { name: 'Ülő evezés', pr: false, sets: [
-          { reps: '12 rep', weight: '70% TM', rpe: '7', done: false },
-          { reps: '12 rep', weight: '70% TM', rpe: '8', done: false },
-        ] },
-        { name: 'Guggolás', pr: false, sets: [
-          { reps: '10 rep', weight: '70% TM', rpe: '8', done: false },
-          { reps: '10 rep', weight: '70% TM', rpe: '8', done: false },
-          { reps: '8 rep', weight: '75% TM', rpe: '9', done: false },
-        ] },
-      ],
-    },
-    {
-      name: 'Erőnléti alapok', meta: 'Kiosztva: Kovács Bence · 6 hét', progress: 100,
-      exercises: [
-        { name: 'Guggolás', pr: false, sets: [
-          { reps: '5 rep', weight: '80% TM', rpe: '8', done: false },
-          { reps: '5 rep', weight: '80% TM', rpe: '8', done: false },
-          { reps: '5 rep', weight: '80% TM', rpe: '8.5', done: false },
-        ] },
-        { name: 'Fekvenyomás', pr: false, sets: [
-          { reps: '5 rep', weight: '80% TM', rpe: '8', done: false },
-          { reps: '5 rep', weight: '80% TM', rpe: '8.5', done: false },
-        ] },
-        { name: 'Húzódzkodás', pr: false, sets: [
-          { reps: '8 rep', weight: 'saját súly', rpe: '8', done: false },
-          { reps: '8 rep', weight: 'saját súly', rpe: '9', done: false },
-        ] },
-      ],
-    },
-    {
-      name: 'Deload hét', meta: 'Kiosztva: Kovács Bence · 1 hét', progress: 15,
-      exercises: [
-        { name: 'Guggolás', pr: false, sets: [
-          { reps: '10 rep', weight: '50% TM', rpe: '5', done: false },
-          { reps: '10 rep', weight: '50% TM', rpe: '5', done: false },
-        ] },
-        { name: 'Fekvenyomás', pr: false, sets: [
-          { reps: '10 rep', weight: '50% TM', rpe: '5', done: false },
-          { reps: '10 rep', weight: '50% TM', rpe: '5', done: false },
-        ] },
-        { name: 'Oldalemelés', pr: false, sets: [
-          { reps: '15 rep', weight: 'könnyű', rpe: '5', done: false },
-        ] },
-      ],
-    },
   ],
   /* Az edzői panel sportolói. Az összpontszám a readiness és az adherence
      átlaga; az alert mező (ha van) az állapot-sáv riasztásait hajtja. */

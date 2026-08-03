@@ -77,13 +77,12 @@
     // Nem cache-elt: a dailyStats a naplózással és a nap váltásával változik
     getDashboard:      () => getJson('/api/dashboard'),
     getCharts:         () => getJsonCached('/api/charts'),
-    getExercises:      () => getJsonCached('/api/exercises'),
-    getHistory:        () => getJsonCached('/api/history'),
     getFoods:          () => getJsonCached('/api/foods'),
     // Nem cache-elt: a saját tervek mentés/szerkesztés után változnak
     getPlans:          () => getJson('/api/plans'),
     getAthletes:       () => getJsonCached('/api/athletes'),
-    getPrs:            () => getJsonCached('/api/prs'),
+    // Nem cache-elt: a PR-lista a mentett edzésekből épül, mentés után frissül
+    getPrs:            () => getJson('/api/prs'),
     getNotifications:  () => getJsonCached('/api/notifications'),
     getDefaultSet:     () => getJsonCached('/api/default-set'),
     getExerciseCatalog: () => getJsonCached('/api/exercise-catalog'),
@@ -259,9 +258,13 @@
     summary() {
       renderSummary(); // az edzésnapló élő DOM-állapotából számol + felpörgeti a számokat
     },
+    plans() {
+      // A terv-kártyák progress-e a mai pipált szetteket követi — megnyitáskor frissül
+      renderPlans().catch((err) => console.error('Tervek frissítési hiba:', err));
+    },
     'exercise-picker'() {
-      // A setupWorkout tölti fel (ott él az edzés állapota); megjelenéskor
-      // frissíti az edzésnevet és a hozzáadás-gombok állapotát.
+      // A setupExercisePicker tölti fel; megjelenéskor frissíti a cél nevét
+      // és a hozzáadás-gombok állapotát az aktuális cél-lista szerint.
       refreshExercisePicker?.();
     },
   };
@@ -474,10 +477,12 @@
       ring.setAttribute('aria-label', `${readiness} százalék készenlét`);
     }
 
-    // Aktuális edzés neve: áttekintő CTA + az edzésnapló címének alapértéke
-    setText('[data-workout-name]', workoutName);
+    // Aktuális edzés neve (aznapi piszkozat vagy a mára ütemezett terv a
+    // szerverről; null, ha nincs egyik sem): áttekintő CTA + az edzésnapló
+    // címének alapértéke
+    setText('[data-workout-name]', workoutName || 'Kezdj új edzést');
     const titleInput = $('#workout-name');
-    if (titleInput) titleInput.value = workoutName;
+    if (titleInput) titleInput.value = workoutName || '';
 
     // Kontextusfüggő idézet
     const quoteEl = $('[data-db-quote]');
@@ -500,10 +505,15 @@
     return row;
   }
 
-  function renderExercise(exercise, { withAddSet = false } = {}) {
+  function renderExercise(exercise, { withAddSet = false, prToggle = false } = {}) {
     const card = cloneTemplate('tpl-exercise');
     $('.wk-exercise-name', card).textContent = exercise.name;
-    $('.wk-pr', card).hidden = !exercise.pr;
+
+    // Az edzésnapló kártyáin a PR-jelvény kapcsolható gomb; a terv-építőben
+    // rejtve marad (a tervekben nincs PR-jelölés).
+    const prBtn = $('.wk-pr', card);
+    prBtn.hidden = !prToggle;
+    prBtn.setAttribute('aria-pressed', String(Boolean(exercise.pr)));
 
     const videoBtn = $('.wk-video-btn', card);
     videoBtn.dataset.exercise = exercise.name;
@@ -544,18 +554,20 @@
     return { date: workout.date, detail: workout.name, rpe: `${done}/${sets.length} szett` };
   }
 
+  /** A „Korábbi edzések" üres-állapota csak addig látszik, amíg nincs mentett edzés. */
+  const syncHistoryEmpty = () => {
+    $('[data-history-empty]').hidden = $('[data-list="history"]').children.length > 0;
+  };
+
+  /** A „Korábbi edzések" lista a mentett edzésekből (legújabb elöl).
+      Az edzésnapló tartalmát nem ez tölti: azt a setupWorkout kéri le
+      (aznapi piszkozat vagy a mára ütemezett terv). */
   async function renderWorkout() {
-    const [exercises, historyEntries, savedWorkouts] = await Promise.all([
-      api.getExercises(), api.getHistory(), api.getWorkouts(),
-    ]);
-
-    const list = $('[data-list="exercises"]');
-    exercises.forEach((exercise) => list.appendChild(renderExercise(exercise)));
-
-    // A „Korábbi edzések" élén a mentett edzések (legújabb elöl), utána a seed-előzmény
+    const savedWorkouts = await api.getWorkouts();
     const history = $('[data-list="history"]');
+    history.replaceChildren();
     savedWorkouts.forEach((workout) => history.appendChild(historyEntryEl(workoutHistoryEntry(workout))));
-    historyEntries.forEach((entry) => history.appendChild(historyEntryEl(entry)));
+    syncHistoryEmpty();
   }
 
   async function renderFoods() {
@@ -611,7 +623,9 @@
       a terv adatait (a kártyák dataset.planIndex-e ide mutat). */
   let plansData = [];
 
-  /** Újrahívható: mentés/szerkesztés után frissen húzza le és építi újra a listát. */
+  /** Újrahívható: mentés/szerkesztés után és a Tervek oldal megnyitásakor
+      frissen húzza le és építi újra a listát (a progress a mai teljesítést
+      követi, ezért minden megjelenéskor érdemes újrakérni). */
   async function renderPlans() {
     plansData = await api.getPlans();
     const list = $('[data-list="plans"]');
@@ -621,6 +635,7 @@
       card.dataset.planIndex = index;
       list.appendChild(card);
     });
+    $('[data-plans-empty]').hidden = plansData.length > 0;
   }
 
   /** Egy üzenet-buborék (a sportoló-modál chat-szimulációja használja). */
@@ -736,27 +751,43 @@
     athletes.forEach((athlete, index) => grid.appendChild(renderAthleteCard(athlete, index)));
   }
 
-  /** Korábbi rekordok (PR) listája a workout oldalon. */
+  /** Korábbi rekordok (PR) listája a workout oldalon — a mentett edzések
+      PR-jelölt gyakorlataiból (a szerver állítja össze). Újrahívható:
+      edzés-mentés után frissen húzza le a listát. */
   async function renderPrs() {
     const prs = await api.getPrs();
     const list = $('[data-list="prs"]');
+    list.replaceChildren();
     prs.forEach((pr, index) => {
       const item = cloneTemplate('tpl-pr');
       item.style.setProperty('--i', index);
       $('.wk-pr-exercise', item).textContent = pr.exercise;
-      $('.wk-pr-detail', item).textContent = `${pr.result} · ${pr.delta}`;
+      $('.wk-pr-detail', item).textContent = pr.detail;
       $('.wk-pr-date', item).textContent = pr.date;
       list.appendChild(item);
     });
+    $('[data-prs-empty]').hidden = prs.length > 0;
   }
 
   /* ---- Edzés-összegző (summary) ----
-     Az értékek az edzésnapló élő DOM-állapotából jönnek (pipált szettek),
-     a volumen és az időtartam demo-becslés. Mély-linkkel (#summary) is
-     működik: ilyenkor az aktuális naplóállapotot összegzi. */
-  const SUMMARY_VOLUME_PER_SET_T = 0.62; // becsült tonna / teljesített szett (demo)
-  const SUMMARY_BASE_MINUTES = 12;       // bemelegítés (demo)
-  const SUMMARY_MINUTES_PER_SET = 4;     // becsült perc / teljesített szett (demo)
+     Az értékek az edzésnapló élő DOM-állapotából jönnek (pipált szettek);
+     az időtartam az edzés tényleges kezdete (az első aznap kipipált szett)
+     óta eltelt idő. Mély-linkkel (#summary) is működik: ilyenkor az aktuális
+     naplóállapotot összegzi. */
+
+  /** Az edzés kezdetének rögzítése (prefs): az aznapi első szett-pipa indítja.
+      Terv-betöltéskor nullázódik — onnan új edzés számít. */
+  const WORKOUT_START_KEY = 'workoutStart';
+  const markWorkoutStarted = () => {
+    const day = new Date().toDateString();
+    const start = prefs.get(WORKOUT_START_KEY, null);
+    if (!start || start.day !== day) prefs.set(WORKOUT_START_KEY, { day, ts: Date.now() });
+  };
+  const workoutMinutes = () => {
+    const start = prefs.get(WORKOUT_START_KEY, null);
+    if (!start || start.day !== new Date().toDateString()) return 0;
+    return Math.max(1, Math.round((Date.now() - start.ts) / 60000));
+  };
 
   const SUMMARY_QUOTES = [
     'Erős voltál ma — a következő edzés még jobb lesz!',
@@ -770,9 +801,9 @@
     const workoutPage = $('[data-page="workout"]');
     const checks = $$('.wk-set-list .wk-set-check', workoutPage);
     const done = checks.filter((check) => check.getAttribute('aria-pressed') === 'true').length;
-    const volume = Math.round(done * SUMMARY_VOLUME_PER_SET_T * 10) / 10;
-    const minutes = done === 0 ? 0 : SUMMARY_BASE_MINUTES + done * SUMMARY_MINUTES_PER_SET;
-    const hasPr = $$('.wk-exercise-head .wk-pr', workoutPage).some((el) => !el.hidden);
+    const minutes = done === 0 ? 0 : workoutMinutes();
+    const hasPr = $$('.wk-exercise-head .wk-pr', workoutPage)
+      .some((el) => el.getAttribute('aria-pressed') === 'true');
 
     $('[data-su-name]').textContent = $('#workout-name').value.trim() || 'Edzés';
     $('[data-su-pr]').hidden = !hasPr;
@@ -781,7 +812,6 @@
     summaryQuoteIndex += 1; // minden megnyitásra másik motivációs sor jut
 
     animateNumber($('[data-su-sets-done]'), done, { from: 0, duration: 700 });
-    animateNumber($('[data-su-volume]'), volume, { from: 0, duration: 800 });
     animateNumber($('[data-su-duration]'), minutes, { from: 0, duration: 800 });
   }
 
@@ -1154,15 +1184,19 @@
     sync(); // a szerverről betöltött bejegyzések megjelenítése
   }
 
-  async function setupWorkout(videoModal) {
+  async function setupWorkout(videoModal, picker) {
     const page = $('[data-page="workout"]');
     const titleInput = $('#workout-name');
     const titleError = $('#workout-name-error');
+    const list = $('[data-list="exercises"]', page);
+
+    /** Az üres állapot csak addig látszik, amíg nincs gyakorlat a naplóban. */
+    const syncEmpty = () => { $('[data-workout-empty]').hidden = list.children.length > 0; };
 
     /** Az edzés aktuális állapota a DOM-ból (gyakorlatok + szettek + „kész" jelölés). */
     const readCurrentWorkout = () => $$('.wk-exercise', page).map((card) => ({
       name: $('.wk-exercise-name', card).textContent.trim(),
-      pr: !$('.wk-pr', card).hidden,
+      pr: $('.wk-pr', card).getAttribute('aria-pressed') === 'true',
       sets: $$('.wk-set-list .wk-set-row', card).map((row) => ({
         reps: $('.wk-set-reps', row).textContent.trim(),
         weight: $('.wk-set-weight', row).textContent.trim(),
@@ -1178,7 +1212,11 @@
        keepalive-kéréssel, hogy az utolsó változtatás se vesszen el. */
     const AUTOSAVE_DEBOUNCE_MS = 500;
     let autosaveTimer = null;
+    // Az „Edzés befejezése" duplikált naplózás elleni jelzője: minden
+    // változtatás visszabillenti, sikeres naplózás állítja.
+    let savedSinceLastChange = false;
     const autosave = () => {
+      savedSinceLastChange = false;
       clearTimeout(autosaveTimer);
       autosaveTimer = setTimeout(async () => {
         autosaveTimer = null;
@@ -1202,17 +1240,18 @@
     });
 
     // Az induló tartalom a szervertől: aznapi piszkozat, vagy — új napon —
-    // a mai hétnapra ütemezett terv; a seed-gyakorlatok és a dashboard-ból
-    // beállított cím helyére ez kerül. (A renderWorkout/renderDashboard már
-    // lefutott — ez felülírja őket.) Ha nincs egyik sem, marad a seed.
+    // a mai hétnapra ütemezett terv. Ha nincs egyik sem, a napló üres, és az
+    // üres állapot hívja a Tervek oldalt / a gyakorlat-hozzáadást.
     const template = await api.getWorkoutTemplate();
     if (template) {
       titleInput.value = template.name;
-      const list = $('[data-list="exercises"]');
       list.replaceChildren();
-      template.exercises.forEach((exercise) => list.appendChild(renderExercise(exercise)));
+      template.exercises.forEach((exercise) => {
+        list.appendChild(renderExercise(exercise, { prToggle: true }));
+      });
       if (template.source === 'plan') showToast(`Mai terv betöltve: ${template.name}`);
     }
+    syncEmpty();
 
     // Delegált kattintáskezelés — a dinamikusan hozzáadott sorokra is érvényes.
     page.addEventListener('click', (event) => {
@@ -1220,6 +1259,16 @@
       if (check) {
         const pressed = check.getAttribute('aria-pressed') === 'true';
         check.setAttribute('aria-pressed', String(!pressed));
+        if (!pressed) markWorkoutStarted(); // az első pipa indítja az edzés-órát
+        autosave();
+        return;
+      }
+
+      // PR-jelölés kapcsolása a gyakorlaton — a piszkozattal együtt mentődik
+      const prBtn = event.target.closest('.wk-pr-toggle');
+      if (prBtn) {
+        const pressed = prBtn.getAttribute('aria-pressed') === 'true';
+        prBtn.setAttribute('aria-pressed', String(!pressed));
         autosave();
         return;
       }
@@ -1229,6 +1278,25 @@
         videoModal.open(videoBtn.dataset.exercise);
         return;
       }
+    });
+
+    // Gyakorlat hozzáadása közvetlenül az edzésnaplóhoz — a közös gyakorlat-
+    // választó az edzésnapló listáját célozza, és minden változást ment.
+    $('[data-action="workout-add-exercise"]').addEventListener('click', () => {
+      picker?.use({
+        targetList: list,
+        nameInput: titleInput,
+        backPage: 'workout',
+        backLabel: 'Vissza az edzésnaplóhoz',
+        subtitleNoun: 'edzéshez',
+        toastTarget: 'az edzéshez',
+        exerciseOptions: { prToggle: true },
+        onChange: () => {
+          syncEmpty();
+          autosave();
+        },
+      });
+      navigate('exercise-picker');
     });
 
     // Gépelésre a hibaállapot azonnal eltűnik; a nevet is automatikusan mentjük
@@ -1248,40 +1316,37 @@
       return false;
     };
 
-    // Mentés — validáció, szerverre mentés, siker-visszajelzés + megjelenés a listában
-    const saveBtn = $('[data-action="save-workout"]');
-    const SUCCESS_FLASH_MS = 1100;
-    saveBtn.addEventListener('click', async () => {
-      if (saveBtn.disabled) return;
+    // Edzés befejezése — validáció után a szerverre naplózza az edzést
+    // (Korábbi edzések + PR-lista), majd az összegző oldalra visz. Ha az
+    // utolsó változtatás óta már naplózva lett (pl. az összegzőről visszalépve
+    // újra megnyomják), nem ment duplán, csak továbbnavigál.
+    const finishBtn = $('[data-action="finish-workout"]');
+    finishBtn.addEventListener('click', async () => {
+      if (finishBtn.disabled) return;
       if (!validateWorkoutName()) return;
+      if (savedSinceLastChange) {
+        navigate('summary');
+        return;
+      }
 
-      const originalLabel = saveBtn.textContent;
-      saveBtn.disabled = true;
-      saveBtn.textContent = 'Mentés…';
+      finishBtn.disabled = true;
       try {
         const saved = await api.saveWorkout(titleInput.value.trim(), readCurrentWorkout());
-        saveBtn.textContent = '✓ Elmentve';
-        showToast('Edzés elmentve');
-        // A mentett edzés azonnal megjelenik a „Korábbi edzések" tetején
+        savedSinceLastChange = true;
+        // A naplózott edzés azonnal megjelenik a „Korábbi edzések" tetején,
+        // és a PR-lista is frissül (a PR-jelölt gyakorlatok bekerülnek)
         const history = $('[data-list="history"]');
         history.insertBefore(historyEntryEl(workoutHistoryEntry(saved)), history.firstChild);
-        setTimeout(() => {
-          saveBtn.disabled = false;
-          saveBtn.textContent = originalLabel;
-        }, SUCCESS_FLASH_MS);
+        syncHistoryEmpty();
+        renderPrs().catch(console.error);
+        showToast('Edzés befejezve és naplózva');
+        navigate('summary');
       } catch (err) {
         console.error(err);
         showToast(err.message || 'Nem sikerült menteni az edzést', 'error');
-        saveBtn.disabled = false;
-        saveBtn.textContent = originalLabel;
+      } finally {
+        finishBtn.disabled = false;
       }
-    });
-
-    // Edzés befejezése — validáció után az összegző oldalra visz (flow-lezárás)
-    $('[data-action="finish-workout"]').addEventListener('click', () => {
-      if (!validateWorkoutName()) return;
-      showToast('Edzés befejezve · összegzés');
-      navigate('summary');
     });
 
     /** Terv betöltése az edzésnaplóba (a Tervek nyíl-gombja hívja): a cím és
@@ -1291,9 +1356,12 @@
       titleInput.value = plan.name;
       titleInput.classList.remove('has-error');
       titleError.hidden = true;
-      const list = $('[data-list="exercises"]', page);
       list.replaceChildren();
-      plan.exercises.forEach((exercise) => list.appendChild(renderExercise(exercise)));
+      plan.exercises.forEach((exercise) => {
+        list.appendChild(renderExercise(exercise, { prToggle: true }));
+      });
+      syncEmpty();
+      prefs.set(WORKOUT_START_KEY, null); // friss edzés — az óra az első pipával indul újra
       autosave();
     };
 
@@ -1301,17 +1369,26 @@
   }
 
   /** A gyakorlat-választó flow-oldal: katalógus a szerverről, kereső + izom-
-      csoport chipek, a → gomb a készülő tervhez adja a gyakorlatot (alap
-      szettekkel), a ✓ eltávolítja onnan. A terv DOM-listáját és a változás-
-      jelzőt a setupPlanBuilder adja át — a két oldal ugyanazt szerkeszti. */
-  async function setupExercisePicker({ targetList, nameInput, defaultSet, onChange }) {
-    const catalog = await api.getExerciseCatalog();
+      csoport chipek, a → gomb a cél-listához adja a gyakorlatot (alap
+      szettekkel), a ✓ eltávolítja onnan. A cél (a terv-építő VAGY az
+      edzésnapló listája) egy use(context)-tel váltható vezérlőn át áll be —
+      a hívó (setupPlanBuilder / setupWorkout) adja meg, mielőtt idenavigál. */
+  async function setupExercisePicker() {
+    const [catalog, defaultSet] = await Promise.all([
+      api.getExerciseCatalog(), api.getDefaultSet(),
+    ]);
     const pickerPage = $('[data-page="exercise-picker"]');
     const list = $('[data-list="picker-catalog"]');
     const chipWrap = $('[data-list="picker-chips"]');
     const searchInput = $('#exercise-search');
     const countEl = $('[data-picker-count]');
     const emptyState = $('.ep-empty', pickerPage);
+    const backBtn = $('[data-action="picker-back"]');
+    const nounEl = $('[data-picker-noun]');
+
+    /** Az aktuális cél: { targetList, nameInput, backPage, backLabel,
+        subtitleNoun, toastTarget, exerciseOptions, onChange }. */
+    let context = null;
 
     // A kártyák egyszer épülnek fel; a szűrés csak elrejt/megmutat
     catalog.forEach((entry) => {
@@ -1341,15 +1418,16 @@
       chipWrap.appendChild(chip);
     });
 
-    /** A készülő tervben lévő gyakorlat-nevek — ehhez igazodik a ✓/→ állapot. */
-    const namesInPlan = () =>
-      new Set($$('.wk-exercise-name', targetList).map((el) => el.textContent.trim()));
+    /** A cél-listában lévő gyakorlat-nevek — ehhez igazodik a ✓/→ állapot. */
+    const namesInTarget = () =>
+      new Set($$('.wk-exercise-name', context.targetList).map((el) => el.textContent.trim()));
 
-    /** Szűrés + a fejléc és a gombállapotok szinkronja a terv állapotával. */
+    /** Szűrés + a fejléc és a gombállapotok szinkronja a cél állapotával. */
     const refresh = () => {
-      $('[data-picker-workout]').textContent = nameInput.value.trim() || 'Névtelen';
+      if (!context) return; // mély-linkkel, cél nélkül megnyitva nincs mit szinkronizálni
+      $('[data-picker-workout]').textContent = context.nameInput.value.trim() || 'Névtelen';
       const query = searchInput.value.trim().toLowerCase();
-      const added = namesInPlan();
+      const added = namesInTarget();
       let visibleCount = 0;
       $$('.ep-item', list).forEach((item) => {
         const matches = (activeGroup === 'Mind' || item.dataset.group === activeGroup)
@@ -1357,13 +1435,13 @@
         item.hidden = !matches;
         if (matches) visibleCount += 1;
 
-        const inPlan = added.has(item.dataset.name);
+        const inTarget = added.has(item.dataset.name);
         const toggle = $('.ep-item-toggle', item);
-        toggle.setAttribute('aria-pressed', String(inPlan));
-        toggle.textContent = inPlan ? '✓' : '→';
-        toggle.setAttribute('aria-label', inPlan
-          ? `${item.dataset.name} eltávolítása a tervből`
-          : `${item.dataset.name} hozzáadása a tervhez`);
+        toggle.setAttribute('aria-pressed', String(inTarget));
+        toggle.textContent = inTarget ? '✓' : '→';
+        toggle.setAttribute('aria-label', inTarget
+          ? `${item.dataset.name} eltávolítása`
+          : `${item.dataset.name} hozzáadása ${context.toastTarget}`);
       });
       countEl.textContent = visibleCount;
       emptyState.hidden = visibleCount > 0;
@@ -1371,41 +1449,51 @@
 
     searchInput.addEventListener('input', refresh);
 
-    // Hozzáadás/eltávolítás: közvetlenül a terv-építő DOM-ját módosítja
+    // Hozzáadás/eltávolítás: közvetlenül a cél-lista DOM-ját módosítja
     list.addEventListener('click', (event) => {
       const toggle = event.target.closest('.ep-item-toggle');
-      if (!toggle) return;
+      if (!toggle || !context) return;
 
       const name = toggle.closest('.ep-item').dataset.name;
-      const existing = $$('.wk-exercise', targetList)
+      const existing = $$('.wk-exercise', context.targetList)
         .find((card) => $('.wk-exercise-name', card).textContent.trim() === name);
       if (existing) {
         existing.remove();
-        showToast(`${name} eltávolítva a tervből`);
+        showToast(`${name} eltávolítva`);
       } else {
-        targetList.appendChild(renderExercise({
+        context.targetList.appendChild(renderExercise({
           name,
           pr: false,
           sets: [{ ...defaultSet }, { ...defaultSet }, { ...defaultSet }],
-        }, { withAddSet: true }));
-        showToast(`${name} hozzáadva a tervhez`);
+        }, context.exerciseOptions));
+        showToast(`${name} hozzáadva ${context.toastTarget}`);
       }
-      onChange();
+      context.onChange();
       refresh();
     });
 
-    $('[data-action="picker-back"]').addEventListener('click', () => navigate('plan-builder'));
+    backBtn.addEventListener('click', () => navigate(context?.backPage || 'plans'));
 
     refreshExercisePicker = refresh;
-    refresh();
+
+    /** A cél átállítása — a hívó ezt hívja, mielőtt a választóra navigál. */
+    const use = (next) => {
+      context = next;
+      backBtn.setAttribute('aria-label', context.backLabel);
+      nounEl.textContent = context.subtitleNoun;
+      refresh();
+    };
+
+    return { use };
   }
 
   /** A terv-építő flow-oldal (a Tervek „+ Új terv" és szerkesztés gombja hozza
       be): terv neve + élő összegző, hétnap-ütemezés chipek, gyakorlatkártyák
-      „+ Szett" gombbal, a „+ Gyakorlat hozzáadása" a választóra visz. A Mentés
-      új tervet hoz létre vagy a szerkesztettet írja felül, majd frissíti a
-      Tervek listáját. Vezérlőt ad vissza: { startNew, loadPlan }. */
-  async function setupPlanBuilder() {
+      „+ Szett" gombbal, a „+ Gyakorlat hozzáadása" a közös választóra visz
+      (a terv-építő listáját célozva). A Mentés új tervet hoz létre vagy a
+      szerkesztettet írja felül, majd frissíti a Tervek listáját.
+      Vezérlőt ad vissza: { startNew, loadPlan }. */
+  async function setupPlanBuilder(picker) {
     const page = $('[data-page="plan-builder"]');
     const nameInput = $('#plan-name');
     const nameError = $('#plan-name-error');
@@ -1472,7 +1560,20 @@
       updateSummary();
     });
 
-    $('[data-action="builder-add-exercise"]').addEventListener('click', () => navigate('exercise-picker'));
+    // A közös gyakorlat-választó a terv-építő listáját célozza
+    $('[data-action="builder-add-exercise"]').addEventListener('click', () => {
+      picker?.use({
+        targetList: list,
+        nameInput,
+        backPage: 'plan-builder',
+        backLabel: 'Vissza a terv-építőhöz',
+        subtitleNoun: 'tervhez',
+        toastTarget: 'a tervhez',
+        exerciseOptions: { withAddSet: true },
+        onChange: updateSummary,
+      });
+      navigate('exercise-picker');
+    });
     $('[data-action="builder-back"]').addEventListener('click', () => navigate('plans'));
 
     nameInput.addEventListener('input', () => {
@@ -1542,8 +1643,6 @@
       }
     });
 
-    await setupExercisePicker({ targetList: list, nameInput, defaultSet, onChange: updateSummary });
-
     return { startNew, loadPlan };
   }
 
@@ -1567,6 +1666,7 @@
     // Kezdeti (ez a hét) összesítő a felületre — így nincs beégetett placeholder
     totalEl.textContent = formatNumber(charts.volumeThisWeek.total);
     noteEl.textContent = charts.volumeThisWeek.note;
+    chart.setAttribute('aria-label', charts.volumeThisWeek.ariaLabel);
 
     section.addEventListener('click', (event) => {
       const btn = event.target.closest('.wk-toggle-btn');
@@ -1999,10 +2099,12 @@
     const athleteModal = await safe(setupAthleteModal);
     setupDashboard(settingsModal);
     await safe(setupWeightLog);
-    const workout = await safe(() => setupWorkout(videoModal));
+    // A közös gyakorlat-választó — az edzésnapló és a terv-építő is ezt célozza át
+    const picker = await safe(setupExercisePicker);
+    const workout = await safe(() => setupWorkout(videoModal, picker));
     await safe(setupWeeklyCompare);
     await safe(setupNutrition);
-    const planBuilder = await safe(setupPlanBuilder);
+    const planBuilder = await safe(() => setupPlanBuilder(picker));
     setupPlans(planBuilder, workout);
     await safe(() => setupCoach(athleteModal));
     setupSummary();
