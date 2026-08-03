@@ -495,14 +495,80 @@
     }
   }
 
+  /* ---- Szett-sorok ----
+     Az ism./súly/RPE szabad szöveges mező (a szerver is stringként tárolja:
+     „12 rep", „60% TM", „–"), így a felhasználó edzés közben és a terv-
+     építőben is átírhatja őket. A sorszám és a mezők akadálymentes címkéi a
+     sor pozíciójából jönnek — törlés/hozzáadás után újra kell számozni. */
+
+  const SET_FIELDS = [
+    ['.wk-set-reps', 'reps', 'ismétlés'],
+    ['.wk-set-weight', 'weight', 'súly'],
+    ['.wk-set-rpe', 'rpe', 'RPE'],
+  ];
+
+  /** Egy sor sorszámának és címkéinek beállítása a lista-pozíció szerint. */
+  function numberSetRow(row, index) {
+    $('.wk-set-num', row).textContent = index + 1;
+    SET_FIELDS.forEach(([selector, , label]) => {
+      $(selector, row).setAttribute('aria-label', `${index + 1}. szett — ${label}`);
+    });
+    $('.wk-set-check', row).setAttribute('aria-label', `${index + 1}. szett teljesítve`);
+    $('.wk-set-remove', row).setAttribute('aria-label', `${index + 1}. szett törlése`);
+  }
+
+  /** Egy gyakorlat szett-listájának újraszámozása (törlés/hozzáadás után). */
+  const renumberSets = (setList) =>
+    $$('.wk-set-row', setList).forEach((row, index) => numberSetRow(row, index));
+
+  /** Egy szett-sor kiolvasása a mezőkből (a napló és a terv-építő is ezt hívja). */
+  const readSetRow = (row) => {
+    const set = { done: $('.wk-set-check', row).getAttribute('aria-pressed') === 'true' };
+    SET_FIELDS.forEach(([selector, key]) => { set[key] = $(selector, row).value.trim(); });
+    return set;
+  };
+
   function renderSetRow(set, index) {
     const row = cloneTemplate('tpl-set-row');
-    $('.wk-set-num', row).textContent = index + 1;
-    $('.wk-set-reps', row).textContent = set.reps;
-    $('.wk-set-weight', row).textContent = set.weight;
-    $('.wk-set-rpe', row).textContent = set.rpe;
+    SET_FIELDS.forEach(([selector, key]) => { $(selector, row).value = set[key]; });
     $('.wk-set-check', row).setAttribute('aria-pressed', String(set.done));
+    numberSetRow(row, index);
     return row;
+  }
+
+  /** Az új szett értékei: az adott gyakorlat utolsó szettje (így ismétlődő
+      szetteknél nem kell újragépelni), üres listánál a szerver alap-szettje. */
+  function nextSetValues(setList, defaultSet) {
+    const last = setList.lastElementChild;
+    return last ? { ...readSetRow(last), done: false } : { ...defaultSet, done: false };
+  }
+
+  /** „+ Szett hozzáadása" delegált kezelése. Igazzal tér vissza, ha a
+      kattintás ehhez a gombhoz tartozott (a hívó ilyenkor ne fusson tovább). */
+  function handleAddSetClick(event, defaultSet, onChange) {
+    const addBtn = event.target.closest('.wk-add-set');
+    if (!addBtn) return false;
+    const setList = $('.wk-set-list', addBtn.closest('.wk-exercise'));
+    setList.appendChild(renderSetRow(nextSetValues(setList, defaultSet), setList.children.length));
+    onChange();
+    return true;
+  }
+
+  /** Szett törlése (✕) delegált kezelése. Az utolsó szettet nem engedi
+      törölni: gyakorlatot a gyakorlat-választóból lehet kivenni. */
+  function handleRemoveSetClick(event, onChange) {
+    const removeBtn = event.target.closest('.wk-set-remove');
+    if (!removeBtn) return false;
+    const row = removeBtn.closest('.wk-set-row');
+    const setList = row.parentElement;
+    if (setList.children.length <= 1) {
+      showToast('Az utolsó szett nem törölhető — a gyakorlatot a gyakorlat-választóból veheted ki', 'error');
+      return true;
+    }
+    row.remove();
+    renumberSets(setList);
+    onChange();
+    return true;
   }
 
   function renderExercise(exercise, { withAddSet = false, prToggle = false } = {}) {
@@ -523,7 +589,7 @@
     const setList = $('.wk-set-list', card);
     exercise.sets.forEach((set, index) => setList.appendChild(renderSetRow(set, index)));
 
-    // A terv-építő kártyáin van „+ Szett" gomb; az edzésnaplóéin nincs
+    // „+ Szett" gomb — az edzésnapló és a terv-építő kártyáin egyaránt
     if (withAddSet) {
       const addSetBtn = document.createElement('button');
       addSetBtn.type = 'button';
@@ -1193,16 +1259,17 @@
     /** Az üres állapot csak addig látszik, amíg nincs gyakorlat a naplóban. */
     const syncEmpty = () => { $('[data-workout-empty]').hidden = list.children.length > 0; };
 
+    // Az új szettek alapértékei (ha egy gyakorlatnak még nincs szettje)
+    const defaultSet = await api.getDefaultSet();
+
+    // A napló kártyái: kapcsolható PR-jelvény és „+ Szett" gomb
+    const exerciseOptions = { prToggle: true, withAddSet: true };
+
     /** Az edzés aktuális állapota a DOM-ból (gyakorlatok + szettek + „kész" jelölés). */
     const readCurrentWorkout = () => $$('.wk-exercise', page).map((card) => ({
       name: $('.wk-exercise-name', card).textContent.trim(),
       pr: $('.wk-pr', card).getAttribute('aria-pressed') === 'true',
-      sets: $$('.wk-set-list .wk-set-row', card).map((row) => ({
-        reps: $('.wk-set-reps', row).textContent.trim(),
-        weight: $('.wk-set-weight', row).textContent.trim(),
-        rpe: $('.wk-set-rpe', row).textContent.trim(),
-        done: $('.wk-set-check', row).getAttribute('aria-pressed') === 'true',
-      })),
+      sets: $$('.wk-set-list .wk-set-row', card).map(readSetRow),
     }));
 
     /* ---- Automatikus mentés ----
@@ -1247,14 +1314,25 @@
       titleInput.value = template.name;
       list.replaceChildren();
       template.exercises.forEach((exercise) => {
-        list.appendChild(renderExercise(exercise, { prToggle: true }));
+        list.appendChild(renderExercise(exercise, exerciseOptions));
       });
       if (template.source === 'plan') showToast(`Mai terv betöltve: ${template.name}`);
     }
     syncEmpty();
 
+    // Az ism./súly/RPE mezők átírása is változtatás — a piszkozattal mentődik.
+    // (Az edzésnév saját input-figyelője a hibaállapotot is kezeli, ezért az
+    //  nem itt, hanem külön fut.)
+    page.addEventListener('input', (event) => {
+      if (event.target.matches('.wk-chip')) autosave();
+    });
+
     // Delegált kattintáskezelés — a dinamikusan hozzáadott sorokra is érvényes.
     page.addEventListener('click', (event) => {
+      // Szett hozzáadása / törlése a gyakorlat-kártyákon
+      if (handleAddSetClick(event, defaultSet, autosave)) return;
+      if (handleRemoveSetClick(event, autosave)) return;
+
       const check = event.target.closest('.wk-set-check');
       if (check) {
         const pressed = check.getAttribute('aria-pressed') === 'true';
@@ -1290,7 +1368,7 @@
         backLabel: 'Vissza az edzésnaplóhoz',
         subtitleNoun: 'edzéshez',
         toastTarget: 'az edzéshez',
-        exerciseOptions: { prToggle: true },
+        exerciseOptions,
         onChange: () => {
           syncEmpty();
           autosave();
@@ -1358,7 +1436,7 @@
       titleError.hidden = true;
       list.replaceChildren();
       plan.exercises.forEach((exercise) => {
-        list.appendChild(renderExercise(exercise, { prToggle: true }));
+        list.appendChild(renderExercise(exercise, exerciseOptions));
       });
       syncEmpty();
       prefs.set(WORKOUT_START_KEY, null); // friss edzés — az óra az első pipával indul újra
@@ -1528,16 +1606,13 @@
       chip.setAttribute('aria-pressed', String(days.includes(Number(chip.dataset.day))));
     });
 
-    /** A készülő terv a DOM-ból (a napló-olvasóval azonos alak). */
+    /** A készülő terv a DOM-ból (a napló-olvasóval azonos alak). A tervben a
+        szettek mindig teljesítetlenek — a „kész" jelölés az edzésnaplóé. */
     const readPlan = () => $$('.wk-exercise', page).map((card) => ({
       name: $('.wk-exercise-name', card).textContent.trim(),
       pr: false,
-      sets: $$('.wk-set-list .wk-set-row', card).map((row) => ({
-        reps: $('.wk-set-reps', row).textContent.trim(),
-        weight: $('.wk-set-weight', row).textContent.trim(),
-        rpe: $('.wk-set-rpe', row).textContent.trim(),
-        done: false,
-      })),
+      sets: $$('.wk-set-list .wk-set-row', card)
+        .map((row) => ({ ...readSetRow(row), done: false })),
     }));
 
     /** Élő összegző: „3 gyakorlat · 8 szett · ~64 perc" (szettenként ~8 perc). */
@@ -1551,13 +1626,10 @@
     };
     updateSummary();
 
-    // „+ Szett hozzáadása" a kártyákon (delegálva, az újakra is érvényes)
+    // Szett hozzáadása / törlése a kártyákon (delegálva, az újakra is érvényes)
     list.addEventListener('click', (event) => {
-      const addSetBtn = event.target.closest('.wk-add-set');
-      if (!addSetBtn) return;
-      const setList = $('.wk-set-list', addSetBtn.closest('.wk-exercise'));
-      setList.appendChild(renderSetRow({ ...defaultSet }, setList.children.length));
-      updateSummary();
+      if (handleAddSetClick(event, defaultSet, updateSummary)) return;
+      handleRemoveSetClick(event, updateSummary);
     });
 
     // A közös gyakorlat-választó a terv-építő listáját célozza
