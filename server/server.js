@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 import {
   getCollection, getWeightLog, getSnapshot,
   addWeightEntry, getNutritionTotals, addNutritionEntry,
-  getWorkouts, addWorkout, getWorkoutDraft, saveWorkoutDraft,
+  getWorkouts, addWorkout, getWorkoutDraft, saveWorkoutDraft, clearWorkoutDraft,
   getUserPlans, addPlan, updatePlan, getPlanForDay,
 } from './db.js';
 
@@ -79,17 +79,21 @@ for (const [route, key] of Object.entries(READ_ENDPOINTS)) {
 function workoutTemplate() {
   const draft = getWorkoutDraft();
   if (draft && draft.date === today()) {
-    return { source: 'draft', name: draft.name, exercises: draft.exercises };
+    return { source: 'draft', name: draft.name, exercises: draft.exercises, planId: draft.planId };
   }
   const plan = getPlanForDay(todayWeekday());
   if (plan) {
-    return { source: 'plan', name: plan.name, exercises: plan.exercises };
+    return { source: 'plan', name: plan.name, exercises: plan.exercises, planId: plan.id };
   }
   if (draft) {
-    return { source: 'draft', name: draft.name, exercises: draft.exercises };
+    return { source: 'draft', name: draft.name, exercises: draft.exercises, planId: draft.planId };
   }
   return null;
 }
+
+/** A törzsben érkező terv-azonosító — hiányzó/érvénytelen értékre null
+    (szabad edzés, nem tervből indult). */
+const parsePlanId = (raw) => (Number.isInteger(raw) && raw > 0 ? raw : null);
 
 // Áttekintő — a napi kalória/fehérje statot a táplálkozási naplóból számoljuk,
 // hogy a dashboard és a Táplálkozás oldal ugyanazt az adatot mutassa; az
@@ -97,6 +101,7 @@ function workoutTemplate() {
 app.get('/api/dashboard', (req, res) => {
   const dashboard = getCollection('dashboard');
   const totals = getNutritionTotals(today());
+  Object.assign(dashboard, trainingStats()); // sorozat + készenlét a mentett edzésekből
   dashboard.dailyStats = {
     calories: Math.round(totals.intake),
     caloriesTarget: totals.goal.calories,
@@ -114,12 +119,18 @@ app.get('/api/dashboard', (req, res) => {
 app.get('/api/plans', (req, res) => {
   const todayDate = today();
   const draft = getWorkoutDraft();
-  const savedToday = new Set(
-    getWorkouts().filter((w) => w.date === todayDate).map((w) => w.name),
-  );
+  const workoutsToday = getWorkouts().filter((w) => w.date === todayDate);
+  // Azonosító szerint párosítunk, névre csak a plan_id oszlop előtt mentett
+  // (régi) edzéseknél esünk vissza — két azonos nevű terv így nem osztozik
+  // egymás haladásán.
+  const savedPlanIds = new Set(workoutsToday.map((w) => w.planId).filter((id) => id != null));
+  const savedLegacyNames = new Set(workoutsToday.filter((w) => w.planId == null).map((w) => w.name));
+  const draftMatches = (plan) => draft && draft.date === todayDate
+    && (draft.planId != null ? draft.planId === plan.id : draft.name === plan.name);
+
   const progressFor = (plan) => {
-    if (savedToday.has(plan.name)) return 100;
-    if (draft && draft.date === todayDate && draft.name === plan.name) {
+    if (savedPlanIds.has(plan.id) || savedLegacyNames.has(plan.name)) return 100;
+    if (draftMatches(plan)) {
       const sets = draft.exercises.flatMap((exercise) => exercise.sets);
       const done = sets.filter((set) => set.done).length;
       return sets.length ? Math.round((done / sets.length) * 100) : 0;
@@ -151,10 +162,11 @@ app.get('/api/prs', (req, res) => {
   for (const workout of getWorkouts()) {
     for (const exercise of workout.exercises) {
       if (!exercise.pr) continue;
+      // A mértékegység már nem az értékben van (szám-mezők), ezért itt tesszük hozzá
       const set = exercise.sets.find((s) => s.done) || exercise.sets[0];
       prs.push({
         exercise: exercise.name,
-        detail: set ? `${set.reps} @ ${set.weight}` : workout.name,
+        detail: set ? `${set.reps} ism. @ ${set.weight} kg` : workout.name,
         date: workout.date,
       });
     }
@@ -167,6 +179,51 @@ const parseDate = (str) => {
   const [year, month, day] = str.split('.').map(Number);
   return new Date(year, month - 1, day);
 };
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** Egy "ÉÉÉÉ.HH.NN" dátum helyi éjfélre normalizált timestampje — így két nap
+    akkor és csak akkor egyezik, ha ugyanaz a naptári nap. */
+const dayKey = (str) => {
+  const d = parseDate(str);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+};
+
+/** Az áttekintő két fő száma a MENTETT EDZÉSEKBŐL számolva (korábban fix
+    seed-értékek voltak, és sosem mozdultak):
+
+    - sorozat: hány napja edzel megszakítás nélkül. A mai naptól számol
+      visszafelé; ha ma még nem volt edzés, tegnaptól — így a sorozat nem
+      törik meg attól, hogy a mai edzés még előtted áll.
+    - készenlét: a friss edzésterhelés csökkenti, a pihenőnap visszaépíti.
+      Az elmúlt 3 nap teljesített szettjeit súlyozzuk (ma teljes súllyal,
+      minél régebbi, annál kevésbé), és ezt vonjuk le a 100%-ból. Két pihenő-
+      nap után magától visszaáll 100%-ra. */
+function trainingStats() {
+  const workouts = getWorkouts();
+  const todayKey = dayKey(today());
+  const trainedDays = new Set(workouts.map((w) => dayKey(w.date)));
+
+  let streak = 0;
+  let cursor = trainedDays.has(todayKey) ? todayKey : todayKey - DAY_MS;
+  while (trainedDays.has(cursor)) {
+    streak += 1;
+    cursor -= DAY_MS;
+  }
+
+  const LOAD_WEIGHTS = [1, 0.6, 0.3]; // ma, tegnap, tegnapelőtt
+  let load = 0;
+  for (const workout of workouts) {
+    const daysAgo = Math.round((todayKey - dayKey(workout.date)) / DAY_MS);
+    if (daysAgo < 0 || daysAgo >= LOAD_WEIGHTS.length) continue;
+    const doneSets = workout.exercises
+      .flatMap((exercise) => exercise.sets || [])
+      .filter((set) => set.done).length;
+    load += doneSets * LOAD_WEIGHTS[daysAgo];
+  }
+
+  return { streak, readiness: Math.max(30, Math.min(100, Math.round(100 - load * 2.5))) };
+}
 
 /** Az adott nap hetének hétfője, helyi éjfélre normalizálva (timestamp). */
 const mondayOf = (date) => {
@@ -272,7 +329,9 @@ function normalizeExercises(raw) {
   const exercises = [];
   for (const entry of raw) {
     const name = String(entry?.name ?? '').trim().slice(0, 60);
-    if (!name || !Array.isArray(entry?.sets)) return null;
+    // Szett nélküli gyakorlat nem értelmes: a felületen üres kártyaként
+    // jelenne meg, és a haladás-számításokból is kilógna.
+    if (!name || !Array.isArray(entry?.sets) || entry.sets.length === 0) return null;
     exercises.push({
       name,
       pr: Boolean(entry.pr),
@@ -328,7 +387,7 @@ app.post('/api/workouts', (req, res) => {
   if (!exercises) {
     return res.status(400).json({ error: 'Az edzésnek legalább egy érvényes gyakorlatot kell tartalmaznia.' });
   }
-  res.status(201).json(addWorkout(name, today(), exercises));
+  res.status(201).json(addWorkout(name, today(), exercises, parsePlanId(req.body?.planId)));
 });
 
 /** Piszkozat automatikus mentése minden változtatáskor. Törzs: { name, exercises }.
@@ -341,7 +400,21 @@ app.put('/api/workout-draft', (req, res) => {
   if (!exercises) {
     return res.status(400).json({ error: 'Érvénytelen piszkozat-szerkezet.' });
   }
-  res.json(saveWorkoutDraft(name, exercises, today()));
+  res.json(saveWorkoutDraft(name, exercises, today(), parsePlanId(req.body?.planId)));
+});
+
+/** A piszkozat törlése — az edzés lezárása után hívja a kliens. Így ugyanaznap
+    új edzés kezdhető, és a napra ütemezett terv is újra betöltődhet. */
+app.delete('/api/workout-draft', (req, res) => {
+  clearWorkoutDraft();
+  res.status(204).end();
+});
+
+/* Ismeretlen API-útvonal: JSON-hibát adunk, nem az express.static HTML-es
+   404-ét — így a kliens hibakezelése (ami JSON `error` mezőt olvas) értelmes
+   üzenetet kap elgépelt vagy megszűnt végpont esetén is. */
+app.use('/api', (req, res) => {
+  res.status(404).json({ error: `Nincs ilyen végpont: ${req.method} /api${req.path}` });
 });
 
 /* ======================================================================
