@@ -26,15 +26,18 @@ export const data = {
     /* A heti volumen-összehasonlítást (volumeThisWeek/volumeLastWeek) a szerver
        számolja a mentett edzésekből (GET /api/charts) — itt nincs seed-adata. */
   },
-  /* Az áttekintő (dashboard) adatai. A dailyStats (kalória/fehérje) és a
-     workoutName NINCS itt: azt a szerver számolja a táplálkozási naplóból,
-     ill. az aznapi piszkozatból/tervből (GET /api/dashboard). */
+  /* Az áttekintő (dashboard) adatai. Csak a regenerációs sorok jönnek innen —
+     ezekhez nincs valódi adatforrás (alvás/fáradtság/izomláz mérés), ezért
+     maradnak demo-értékek. A készenlét, a sorozat, a dailyStats (kalória/
+     fehérje) és az aktuális edzés neve NINCS itt: azokat a szerver számolja
+     a mentett edzésekből, a táplálkozási naplóból, ill. az aznapi
+     piszkozatból/tervből (GET /api/dashboard). */
   dashboard: {
-    readiness: 52,
-    streak: 25,
     recovery: { sleep: '7.5 óra', fatigue: 'Közepes', soreness: 'Enyhe' },
   },
-  defaultSet: { reps: '12 rep', weight: '60% TM', rpe: '–', done: false },
+  /* Az új szettek alapértékei. Tiszta számok: az ismétlés és az RPE darab,
+     a súly kilogramm — a felület szám-mezőkkel szerkeszti őket. */
+  defaultSet: { reps: '10', weight: '60', rpe: '8', done: false },
   /* A gyakorlat-választó (edzésépítő) katalógusa. A group a szűrő-chipek
      alapja — a chipek listája ebből áll össze, új csoport felvételéhez elég
      ide új gyakorlatot írni. */

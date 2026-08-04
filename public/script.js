@@ -56,6 +56,12 @@
   const postJson = (path, body) => sendJson('POST', path, body);
   const putJson = (path, body) => sendJson('PUT', path, body);
 
+  /** Törlő kérés — a válasz üres (204), ezért nem próbáljuk JSON-ként olvasni. */
+  async function del(path) {
+    const res = await fetch(path, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`DELETE ${path} → ${res.status}`);
+  }
+
   /** GET-cache a csak-olvasható referencia-végpontokhoz: több modul kéri
       ugyanazt induláskor, elég egyszer letölteni. (Az athletes-nél tartalmi
       szerepe is van: a kártyák és a részletmodál így ugyanazokon az
@@ -72,11 +78,19 @@
     return referenceCache.get(path);
   }
 
+  /** Egy cache-elt végpont eldobása, hogy a következő lekérés friss adatot
+      hozzon. A /api/charts részben SZÁMÍTOTT adat (heti volumen a mentett
+      edzésekből), ezért edzés naplózása után érvényteleníteni kell — enélkül
+      a volumen-diagram a munkamenet végéig a betöltéskori értéket mutatná. */
+  const invalidateCache = (path) => referenceCache.delete(path);
+
   const api = {
     getUser:           () => getJsonCached('/api/user'),
     // Nem cache-elt: a dailyStats a naplózással és a nap váltásával változik
     getDashboard:      () => getJson('/api/dashboard'),
     getCharts:         () => getJsonCached('/api/charts'),
+    // Friss chart-adat a cache megkerülésével (edzés naplózása után)
+    refreshCharts:     () => { invalidateCache('/api/charts'); return getJsonCached('/api/charts'); },
     getFoods:          () => getJsonCached('/api/foods'),
     // Nem cache-elt: a saját tervek mentés/szerkesztés után változnak
     getPlans:          () => getJson('/api/plans'),
@@ -96,11 +110,15 @@
     // Étel naplózása név alapján — a szerver a frissített napi összesítőt adja vissza
     addNutritionEntry: (name) => postJson('/api/nutrition/log', { name }),
     getWorkouts:       () => getJson('/api/workouts'),
-    // Edzés mentése — a szerver visszaadja a mentett { id, name, date, exercises }-t
-    saveWorkout:       (name, exercises) => postJson('/api/workouts', { name, exercises }),
+    // Edzés mentése — a szerver visszaadja a mentett { id, name, date, exercises }-t.
+    // A planId azt rögzíti, melyik tervből indult az edzés (a Tervek oldali
+    // haladás ebből párosít, nem névegyezésből).
+    saveWorkout:       (name, exercises, planId) => postJson('/api/workouts', { name, exercises, planId }),
     // Az épp szerkesztett edzés piszkozata — betöltéskor visszaáll, minden változtatás menti
     getWorkoutDraft:   () => getJson('/api/workout-draft'),
-    saveWorkoutDraft:  (name, exercises) => putJson('/api/workout-draft', { name, exercises }),
+    saveWorkoutDraft:  (name, exercises, planId) => putJson('/api/workout-draft', { name, exercises, planId }),
+    // Az edzés lezárása után a piszkozat törlődik — új edzés kezdhető ugyanaznap
+    clearWorkoutDraft: () => del('/api/workout-draft'),
     // Edzésterv mentése/szerkesztése (terv-építő) — a szerver a mentett tervet adja vissza
     savePlan:          (name, exercises, days) => postJson('/api/plans', { name, exercises, days }),
     updatePlan:        (id, name, exercises, days) => putJson(`/api/plans/${id}`, { name, exercises, days }),
@@ -271,6 +289,10 @@
 
   /** A gyakorlat-választó frissítője — a setupWorkout állítja be. */
   let refreshExercisePicker = null;
+
+  /** A heti volumen-diagram frissítője — a setupWeeklyCompare állítja be.
+      Az edzés lezárása hívja, hogy a friss szettek azonnal látszódjanak. */
+  let refreshVolumeChart = null;
 
   /** A sportoló-kártyák pontszámainak felpörgetése (oldal- és nézetváltáskor). */
   function animateCoachRatings() {
@@ -484,28 +506,45 @@
     const titleInput = $('#workout-name');
     if (titleInput) titleInput.value = workoutName || '';
 
-    // Kontextusfüggő idézet
+    // Kontextusfüggő idézet. Két sorból épül (a sortörés a tördelés miatt
+    // szándékos) — a szöveget textContent-tel írjuk ki, nem innerHTML-lel,
+    // hogy az adatból származó rész se kerülhessen soha HTML-ként a lapra.
     const quoteEl = $('[data-db-quote]');
     if (quoteEl) {
-      quoteEl.innerHTML = readiness >= 85
-        ? `${streak} napos sorozatban vagy, és a tested is készen áll —<br>ma mehet a nehezebb edzés.`
+      const [first, second] = readiness >= 85
+        ? [`${streak} napos sorozatban vagy, és a tested is készen áll —`, 'ma mehet a nehezebb edzés.']
         : readiness >= 65
-        ? `${streak} napos sorozat — tartsd a lendületet,<br>de figyelj a regenerációra is.`
-        : 'A tested pihenést kér —<br>ma inkább könnyebb edzés jöhet.';
+          ? [`${streak} napos sorozat — tartsd a lendületet,`, 'de figyelj a regenerációra is.']
+          : ['A tested pihenést kér —', 'ma inkább könnyebb edzés jöhet.'];
+      quoteEl.replaceChildren(
+        document.createTextNode(first),
+        document.createElement('br'),
+        document.createTextNode(second),
+      );
     }
   }
 
   /* ---- Szett-sorok ----
-     Az ism./súly/RPE szabad szöveges mező (a szerver is stringként tárolja:
-     „12 rep", „60% TM", „–"), így a felhasználó edzés közben és a terv-
-     építőben is átírhatja őket. A sorszám és a mezők akadálymentes címkéi a
-     sor pozíciójából jönnek — törlés/hozzáadás után újra kell számozni. */
+     Az ism./súly/RPE szám-mező: az ismétlés és a súly léptetőgombokkal, az
+     RPE sima mezőként. A mértékegység a fejlécben van, nem az értékben —
+     korábban bele kellett gépelni („12 rep", „60% TM"), ami mobilon
+     kényelmetlen volt és a szöveges billentyűzetet hozta fel. A sorszám és a
+     mezők címkéi a sor pozíciójából jönnek, ezért törlés/hozzáadás után
+     újraszámozunk. */
 
   const SET_FIELDS = [
     ['.wk-set-reps', 'reps', 'ismétlés'],
-    ['.wk-set-weight', 'weight', 'súly'],
+    ['.wk-set-weight', 'weight', 'súly kilogrammban'],
     ['.wk-set-rpe', 'rpe', 'RPE'],
   ];
+
+  /** Szám-mezőbe tölthető érték. A régi, mértékegységgel együtt tárolt
+      bejegyzésekből („12 rep", „60% TM", „–") kinyeri a számot — a szerver
+      induláskor migrálja az adatbázist, ez a kliens-oldali védőháló. */
+  function numericValue(raw) {
+    const match = String(raw ?? '').replace(',', '.').match(/\d+(\.\d+)?/);
+    return match ? match[0] : '';
+  }
 
   /** Egy sor sorszámának és címkéinek beállítása a lista-pozíció szerint. */
   function numberSetRow(row, index) {
@@ -528,12 +567,42 @@
     return set;
   };
 
+  /** A megjelenített felhasználónév: a saját (localStorage) név, különben a
+      szerveré. Külön renderelő, mert korábban csak a beállítások modal
+      felépítése írta ki — ha az a lépés elhasalt, a név helye üresen maradt. */
+  async function renderUserName() {
+    const el = $('.db-username');
+    if (!el) return;
+    const user = await api.getUser();
+    el.textContent = prefs.get('displayName', user.name);
+  }
+
   function renderSetRow(set, index) {
     const row = cloneTemplate('tpl-set-row');
-    SET_FIELDS.forEach(([selector, key]) => { $(selector, row).value = set[key]; });
+    SET_FIELDS.forEach(([selector, key]) => { $(selector, row).value = numericValue(set[key]); });
     $('.wk-set-check', row).setAttribute('aria-pressed', String(set.done));
     numberSetRow(row, index);
     return row;
+  }
+
+  /** Léptetőgomb (−/+): a lépésközt az input `step` attribútuma adja
+      (1 ismétlés, 2.5 kg = a legkisebb tárcsapár). Az érték a min/max közé
+      szorul, és `input` eseményt váltunk ki, hogy az arra kötött automatikus
+      mentés is lefusson. Igazzal tér vissza, ha ő kezelte a kattintást. */
+  function handleStepClick(event) {
+    const stepBtn = event.target.closest('.wk-num-step');
+    if (!stepBtn) return false;
+
+    const input = $('.wk-num-input', stepBtn.parentElement);
+    const step = Number(input.step) || 1;
+    const min = input.min === '' ? -Infinity : Number(input.min);
+    const max = input.max === '' ? Infinity : Number(input.max);
+    const current = Number(input.value);
+    const next = (Number.isFinite(current) ? current : 0) + Number(stepBtn.dataset.dir) * step;
+
+    input.value = formatNumber(Math.min(Math.max(next, min), max));
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    return true;
   }
 
   /** Az új szett értékei: az adott gyakorlat utolsó szettje (így ismétlődő
@@ -639,6 +708,7 @@
   async function renderFoods() {
     const foods = await api.getFoods();
     const list = $('[data-list="foods"]');
+    list.replaceChildren(); // újrahíváskor se duplázódjon a lista
     foods.forEach((food) => {
       const item = cloneTemplate('tpl-food');
       item.dataset.foodName = food.name.toLowerCase(); // a kereső erre szűr, nem a teljes szövegre
@@ -814,6 +884,7 @@
     }
 
     const grid = $('[data-list="athletes"]');
+    grid.replaceChildren(); // újrahíváskor se duplázódjanak a kártyák
     athletes.forEach((athlete, index) => grid.appendChild(renderAthleteCard(athlete, index)));
   }
 
@@ -849,10 +920,20 @@
     const start = prefs.get(WORKOUT_START_KEY, null);
     if (!start || start.day !== day) prefs.set(WORKOUT_START_KEY, { day, ts: Date.now() });
   };
+
+  /** Egy edzés reális felső határa — ennél régebbi kezdés elfelejtett
+      (nem lezárt) edzésre utal, nem a mostanira. */
+  const MAX_WORKOUT_HOURS = 8;
+
+  /** Az edzés kezdete óta eltelt percek. A kezdés időbélyegéből számol, nem a
+      naptári napból: így az éjfélen átnyúló edzés is a valós hosszát mutatja
+      (korábban ilyenkor 0 percet írt ki). */
   const workoutMinutes = () => {
     const start = prefs.get(WORKOUT_START_KEY, null);
-    if (!start || start.day !== new Date().toDateString()) return 0;
-    return Math.max(1, Math.round((Date.now() - start.ts) / 60000));
+    if (!start) return 0;
+    const elapsedMinutes = Math.round((Date.now() - start.ts) / 60000);
+    if (elapsedMinutes > MAX_WORKOUT_HOURS * 60) return 0;
+    return Math.max(1, elapsedMinutes);
   };
 
   const SUMMARY_QUOTES = [
@@ -863,22 +944,41 @@
   ];
   let summaryQuoteIndex = Math.floor(Math.random() * SUMMARY_QUOTES.length);
 
-  function renderSummary() {
+  /** Az utoljára lezárt edzés összegzése. Az „Edzés befejezése" a naplót
+      lezárja és kiüríti, ezért az összegző értékeit a lezárás pillanatában
+      rögzítjük — az élő DOM-ból már nem lennének kiolvashatók. */
+  let lastSummary = null;
+
+  /** Az edzésnapló pillanatnyi állapotának összegzése (a lezáráskor és a
+      mély-linkkel megnyitott összegzőnél is ez számol). */
+  function summarizeWorkout() {
     const workoutPage = $('[data-page="workout"]');
     const checks = $$('.wk-set-list .wk-set-check', workoutPage);
     const done = checks.filter((check) => check.getAttribute('aria-pressed') === 'true').length;
-    const minutes = done === 0 ? 0 : workoutMinutes();
-    const hasPr = $$('.wk-exercise-head .wk-pr', workoutPage)
-      .some((el) => el.getAttribute('aria-pressed') === 'true');
+    return {
+      name: $('#workout-name').value.trim() || 'Edzés',
+      done,
+      total: checks.length,
+      minutes: done === 0 ? 0 : workoutMinutes(),
+      hasPr: $$('.wk-exercise-head .wk-pr', workoutPage)
+        .some((el) => el.getAttribute('aria-pressed') === 'true'),
+    };
+  }
 
-    $('[data-su-name]').textContent = $('#workout-name').value.trim() || 'Edzés';
-    $('[data-su-pr]').hidden = !hasPr;
-    $('[data-su-sets-total]').textContent = String(checks.length);
+  const setLastSummary = (summary) => { lastSummary = summary; };
+
+  function renderSummary() {
+    // Lezárás után a rögzített pillanatkép, egyébként az élő naplóállapot
+    const summary = lastSummary ?? summarizeWorkout();
+
+    $('[data-su-name]').textContent = summary.name;
+    $('[data-su-pr]').hidden = !summary.hasPr;
+    $('[data-su-sets-total]').textContent = String(summary.total);
     $('[data-su-quote]').textContent = SUMMARY_QUOTES[summaryQuoteIndex % SUMMARY_QUOTES.length];
     summaryQuoteIndex += 1; // minden megnyitásra másik motivációs sor jut
 
-    animateNumber($('[data-su-sets-done]'), done, { from: 0, duration: 700 });
-    animateNumber($('[data-su-duration]'), minutes, { from: 0, duration: 800 });
+    animateNumber($('[data-su-sets-done]'), summary.done, { from: 0, duration: 700 });
+    animateNumber($('[data-su-duration]'), summary.minutes, { from: 0, duration: 800 });
   }
 
   /* ======================================================================
@@ -983,9 +1083,7 @@
 
     // A szerepkör-kapcsolók alapállapotát a felhasználó adja meg (egyszer lekérve)
     const user = await api.getUser();
-
-    // A megjelenített név: a mentett (localStorage) név, különben a szerveré
-    usernameEl.textContent = prefs.get('displayName', user.name);
+    // A név kiírását a renderUserName végzi — ez a modal csak szerkeszti
 
     // Kapcsoló-sorok a kategóriákból (template-klónozással)
     NOTIF_CATEGORIES.forEach(({ key, label }) => {
@@ -1061,24 +1159,32 @@
       showToast('Adatok exportálva · demo');
     });
 
-    const save = () => {
+    /* A név — a kapcsolókhoz hasonlóan — azonnal érvényesül gépelés közben,
+       így a „Mentés" gomb nem hazudik olyan műveletet, ami valójában már
+       megtörtént (a kapcsolók eddig is azonnal hatottak). Kiürített mezőnél
+       a szerver szerinti névre esünk vissza, nem a korábbi egyéni névre —
+       korábban ez némán, visszajelzés nélkül maradt a régin. */
+    const applyName = () => {
       const name = nameInput.value.trim();
-      if (name) {
-        usernameEl.textContent = name;
-        prefs.set('displayName', name);
-      }
-      showToast('Beállítások elmentve · demo');
-      controller.close();
+      if (name) prefs.set('displayName', name);
+      else prefs.set('displayName', undefined);
+      usernameEl.textContent = name || user.name;
     };
 
-    $('[data-action="save-settings"]').addEventListener('click', save);
+    nameInput.addEventListener('input', applyName);
     nameInput.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') save();
+      if (event.key === 'Enter') controller.close();
+    });
+
+    $('[data-action="save-settings"]').addEventListener('click', () => {
+      applyName();
+      controller.close();
     });
 
     return {
       open() {
-        nameInput.value = prefs.get('displayName', usernameEl.textContent);
+        nameInput.value = prefs.get('displayName', '') || '';
+        nameInput.placeholder = user.name;
         syncToggles();
         syncRoleToggles();
         controller.open();
@@ -1182,18 +1288,36 @@
 
   /* ---- Testsúly rögzítése (dashboard) ----
      A bejegyzések a szerverre mentődnek (POST /api/weight-log) és onnan
-     töltődnek be; minden új érték a 12 hetes chart végére kerül és a
-     "Testsúly Δ" statot frissíti. */
-  const WEIGHT_CHART_MIN_KG = 80;   // a chart alja — a tengelyfeliratok (80–86 kg) skálájával azonos
-  const WEIGHT_CHART_MAX_KG = 86;   // a chart teteje
-  const WEIGHT_CHART_BARS = 12;     // legfeljebb ennyi oszlop látszik
-  const WEIGHT_DEMO_LAST_KG = 84.6; // az utolsó mock-oszlop (76%) súlya — az első bejegyzés Δ-jához
-
-  const weightToHeight = (kg) => Math.min(Math.max(
-    (kg - WEIGHT_CHART_MIN_KG) / (WEIGHT_CHART_MAX_KG - WEIGHT_CHART_MIN_KG) * 100, 6), 100);
+     töltődnek be. Amint van saját bejegyzés, a diagram KIZÁRÓLAG azokat
+     mutatja, a skálát pedig a tényleges értékekhez igazítjuk — a korábbi
+     80–86 kg-os fix skálán minden ezen kívüli testsúly a diagram aljára
+     lapult, a tengelyfeliratok pedig hazudtak. A seed-görbe csak addig
+     látszik, amíg nincs egyetlen valódi bejegyzés sem. */
+  const WEIGHT_CHART_BARS = 12;      // legfeljebb ennyi oszlop látszik
+  const WEIGHT_CHART_MIN_SPAN = 2;   // kg — ekkora sávot mindenképp lefed a skála
 
   /** A testsúly Δ előjelesen olvasható (+1.2 / -0.8), a 0 előjel nélkül. */
   const formatDelta = (value) => (value > 0 ? '+' : '') + formatNumber(value);
+
+  /** Diagram-adat a testsúly-bejegyzésekből: a skála alja/teteje a tényleges
+      minimum/maximum köré feszül (kis ráhagyással), a tengelyfeliratok pedig
+      ebből a skálából állnak elő — nem beégetett értékek. */
+  function weightChartData(log) {
+    const kgs = log.slice(-WEIGHT_CHART_BARS).map((entry) => entry.kg);
+    const min = Math.min(...kgs);
+    const max = Math.max(...kgs);
+    // Fél kilós rácsra kerekített skála, legalább MIN_SPAN széles
+    const padding = Math.max((max - min) * 0.25, (WEIGHT_CHART_MIN_SPAN - (max - min)) / 2, 0.25);
+    const low = Math.floor((min - padding) * 2) / 2;
+    const high = Math.ceil((max + padding) * 2) / 2;
+    const span = high - low;
+
+    return {
+      heights: kgs.map((kg) => Math.min(Math.max((kg - low) / span * 100, 6), 100)),
+      // Négy felirat felülről lefelé, ahogy a seed-charton is
+      axis: [0, 1, 2, 3].map((i) => `${formatNumber(high - (span / 3) * i)} kg`),
+    };
+  }
 
   async function setupWeightLog() {
     const form = $('[data-form="weight-log"]');
@@ -1202,26 +1326,30 @@
     const chart = $('[data-chart="bodyWeight"]');
     const deltaEl = $('[data-stat="weightDelta"]');
 
-    // A testsúly-diagram alapgörbéje — egyszer lekérve, a bejegyzések ehhez fűződnek
-    const bodyWeightChart = (await api.getCharts()).bodyWeight;
+    // A Δ statot kísérő „kg" mértékegység — egyetlen bejegyzésnél elrejtjük
+    const deltaUnitEl = deltaEl.parentElement && $('.db-stat-unit', deltaEl.parentElement);
 
     // A bejegyzések a szerverről jönnek; a lokális másolat a friss válaszokkal frissül
     let log = await api.getWeightLog();
 
     const sync = ({ animateDelta = false } = {}) => {
-      if (log.length === 0) return;
+      if (log.length === 0) return; // marad a seed-görbe, amíg nincs saját adat
 
-      renderChart(chart, {
-        ...bodyWeightChart,
-        heights: [...bodyWeightChart.heights, ...log.map((e) => weightToHeight(e.kg))]
-          .slice(-WEIGHT_CHART_BARS),
-      });
+      renderChart(chart, weightChartData(log));
 
       const latest = log[log.length - 1];
-      const previous = log.length > 1 ? log[log.length - 2].kg : WEIGHT_DEMO_LAST_KG;
-      const delta = latest.kg - previous;
-      if (animateDelta) animateNumber(deltaEl, delta, { duration: 600, format: formatDelta });
-      else deltaEl.textContent = formatDelta(delta);
+      // Δ csak akkor értelmes, ha van mihez viszonyítani. Korábban az első
+      // bejegyzés egy beégetett demo-testsúlyhoz (84.6 kg) mérte magát, és
+      // ezért teljesen valótlan változást mutatott.
+      if (log.length > 1) {
+        const delta = latest.kg - log[log.length - 2].kg;
+        if (animateDelta) animateNumber(deltaEl, delta, { duration: 600, format: formatDelta });
+        else deltaEl.textContent = formatDelta(delta);
+        if (deltaUnitEl) deltaUnitEl.hidden = false;
+      } else {
+        deltaEl.textContent = '–';
+        if (deltaUnitEl) deltaUnitEl.hidden = true;
+      }
 
       lastEl.hidden = false;
       lastEl.textContent = `Utolsó bejegyzés: ${formatNumber(latest.kg)} kg · ${latest.date}`;
@@ -1265,6 +1393,10 @@
     // A napló kártyái: kapcsolható PR-jelvény és „+ Szett" gomb
     const exerciseOptions = { prToggle: true, withAddSet: true };
 
+    // Melyik tervből indult az aktuális edzés (null = szabad edzés). A Tervek
+    // oldali haladás ebből párosít, nem a terv nevéből.
+    let currentPlanId = null;
+
     /** Az edzés aktuális állapota a DOM-ból (gyakorlatok + szettek + „kész" jelölés). */
     const readCurrentWorkout = () => $$('.wk-exercise', page).map((card) => ({
       name: $('.wk-exercise-name', card).textContent.trim(),
@@ -1279,16 +1411,15 @@
        keepalive-kéréssel, hogy az utolsó változtatás se vesszen el. */
     const AUTOSAVE_DEBOUNCE_MS = 500;
     let autosaveTimer = null;
-    // Az „Edzés befejezése" duplikált naplózás elleni jelzője: minden
-    // változtatás visszabillenti, sikeres naplózás állítja.
-    let savedSinceLastChange = false;
     const autosave = () => {
-      savedSinceLastChange = false;
+      // Bármilyen változtatás után újra él az edzés: az összegző megint az
+      // aktuális naplóállapotot mutassa, ne a legutóbbi lezárás pillanatképét.
+      setLastSummary(null);
       clearTimeout(autosaveTimer);
       autosaveTimer = setTimeout(async () => {
         autosaveTimer = null;
         try {
-          await api.saveWorkoutDraft(titleInput.value.trim(), readCurrentWorkout());
+          await api.saveWorkoutDraft(titleInput.value.trim(), readCurrentWorkout(), currentPlanId);
         } catch (err) {
           console.error('Automatikus mentés sikertelen:', err);
         }
@@ -1302,34 +1433,58 @@
         method: 'PUT',
         keepalive: true,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: titleInput.value.trim(), exercises: readCurrentWorkout() }),
+        body: JSON.stringify({
+          name: titleInput.value.trim(),
+          exercises: readCurrentWorkout(),
+          planId: currentPlanId,
+        }),
       }).catch(() => {});
     });
 
-    // Az induló tartalom a szervertől: aznapi piszkozat, vagy — új napon —
-    // a mai hétnapra ütemezett terv. Ha nincs egyik sem, a napló üres, és az
-    // üres állapot hívja a Tervek oldalt / a gyakorlat-hozzáadást.
-    const template = await api.getWorkoutTemplate();
-    if (template) {
+    /** A szervertől kapott induló tartalom betöltése a naplóba. */
+    const applyTemplate = (template) => {
+      if (!template) return;
+      currentPlanId = template.planId ?? null;
       titleInput.value = template.name;
       list.replaceChildren();
       template.exercises.forEach((exercise) => {
         list.appendChild(renderExercise(exercise, exerciseOptions));
       });
       if (template.source === 'plan') showToast(`Mai terv betöltve: ${template.name}`);
-    }
+      syncEmpty();
+    };
+
+    // Az induló tartalom a szervertől: aznapi piszkozat, vagy — új napon —
+    // a mai hétnapra ütemezett terv. Ha nincs egyik sem, a napló üres, és az
+    // üres állapot hívja a Tervek oldalt / a gyakorlat-hozzáadást.
+    applyTemplate(await api.getWorkoutTemplate());
     syncEmpty();
+
+    /* Napváltás éjfélkor: ilyenkor a MAI napra ütemezett terv válik érvényessé.
+       Ha a naplóban még nincs megkezdett munka, csendben átváltunk rá; ha van,
+       nem írjuk felül a félkész edzést — csak jelezzük, mi a teendő. Enélkül
+       a napokon át nyitva hagyott app a tegnapi edzést mutatta tovább. */
+    onDayChange(async () => {
+      const hasProgress = $$('.wk-set-check', page)
+        .some((check) => check.getAttribute('aria-pressed') === 'true');
+      if (hasProgress) {
+        showToast('Új nap kezdődött — zárd le az edzést, hogy a mai terv betölthesse magát');
+        return;
+      }
+      applyTemplate(await api.getWorkoutTemplate());
+    });
 
     // Az ism./súly/RPE mezők átírása is változtatás — a piszkozattal mentődik.
     // (Az edzésnév saját input-figyelője a hibaállapotot is kezeli, ezért az
     //  nem itt, hanem külön fut.)
     page.addEventListener('input', (event) => {
-      if (event.target.matches('.wk-chip')) autosave();
+      if (event.target.matches('.wk-num-input')) autosave();
     });
 
     // Delegált kattintáskezelés — a dinamikusan hozzáadott sorokra is érvényes.
     page.addEventListener('click', (event) => {
-      // Szett hozzáadása / törlése a gyakorlat-kártyákon
+      // Szett-értékek léptetése, illetve szett hozzáadása / törlése
+      if (handleStepClick(event)) return; // a kiváltott input esemény menti
       if (handleAddSetClick(event, defaultSet, autosave)) return;
       if (handleRemoveSetClick(event, autosave)) return;
 
@@ -1394,29 +1549,50 @@
       return false;
     };
 
-    // Edzés befejezése — validáció után a szerverre naplózza az edzést
-    // (Korábbi edzések + PR-lista), majd az összegző oldalra visz. Ha az
-    // utolsó változtatás óta már naplózva lett (pl. az összegzőről visszalépve
-    // újra megnyomják), nem ment duplán, csak továbbnavigál.
+    /* Edzés befejezése — az edzés LEZÁRÁSA: naplózás után a piszkozat törlődik
+       és a napló kiürül, így ugyanaznap új edzés kezdhető, a lezárt edzés pedig
+       nem naplózható másodszor is (korábban egy apró módosítás után az újbóli
+       befejezés duplikált bejegyzést hozott létre). Amit a felhasználó csinált,
+       azt az összegző és a „Korábbi edzések" őrzi meg. */
     const finishBtn = $('[data-action="finish-workout"]');
     finishBtn.addEventListener('click', async () => {
       if (finishBtn.disabled) return;
       if (!validateWorkoutName()) return;
-      if (savedSinceLastChange) {
-        navigate('summary');
+      if (list.children.length === 0) {
+        showToast('Adj legalább egy gyakorlatot az edzéshez', 'error');
         return;
       }
 
       finishBtn.disabled = true;
       try {
-        const saved = await api.saveWorkout(titleInput.value.trim(), readCurrentWorkout());
-        savedSinceLastChange = true;
+        // Az összegző értékeit még a kiürítés előtt rögzítjük
+        const summary = summarizeWorkout();
+        const saved = await api.saveWorkout(titleInput.value.trim(), readCurrentWorkout(), currentPlanId);
+
+        // A függőben lévő automatikus mentés már nem kell — különben
+        // visszaírná a most törölt piszkozatot
+        clearTimeout(autosaveTimer);
+        autosaveTimer = null;
+        await api.clearWorkoutDraft().catch((err) => {
+          console.error('A piszkozat törlése sikertelen:', err);
+        });
+
+        // A napló kiürítése (programozott változás — nem indít automatikus mentést)
+        list.replaceChildren();
+        titleInput.value = '';
+        currentPlanId = null;
+        prefs.set(WORKOUT_START_KEY, null); // az edzés-óra a következő első pipával indul
+        syncEmpty();
+        setLastSummary(summary);
+
         // A naplózott edzés azonnal megjelenik a „Korábbi edzések" tetején,
-        // és a PR-lista is frissül (a PR-jelölt gyakorlatok bekerülnek)
+        // a PR-lista, a heti volumen és az áttekintő számai is frissülnek
         const history = $('[data-list="history"]');
         history.insertBefore(historyEntryEl(workoutHistoryEntry(saved)), history.firstChild);
         syncHistoryEmpty();
         renderPrs().catch(console.error);
+        refreshVolumeChart?.().catch(console.error);
+        renderDashboard().catch(console.error);
         showToast('Edzés befejezve és naplózva');
         navigate('summary');
       } catch (err) {
@@ -1431,6 +1607,7 @@
         a gyakorlatok cserélődnek, és az állapot azonnal piszkozatként mentődik
         — így újratöltés után is a betöltött terv marad az edzésnaplóban. */
     const loadPlan = (plan) => {
+      currentPlanId = plan.id ?? null;
       titleInput.value = plan.name;
       titleInput.classList.remove('has-error');
       titleError.hidden = true;
@@ -1536,6 +1713,15 @@
       const existing = $$('.wk-exercise', context.targetList)
         .find((card) => $('.wk-exercise-name', card).textContent.trim() === name);
       if (existing) {
+        // Az edzésnaplóban a gyakorlattal együtt a már kipipált szettek is
+        // elvesznének — ilyenkor rákérdezünk. Frissen hozzáadott (még nem
+        // teljesített) gyakorlatnál marad az azonnali eltávolítás.
+        const doneSets = $$('.wk-set-check', existing)
+          .filter((check) => check.getAttribute('aria-pressed') === 'true').length;
+        if (doneSets > 0 && !window.confirm(
+          `A(z) „${name}" gyakorlaton ${doneSets} teljesített szett van. Az eltávolítással ezek elvesznek. Biztosan eltávolítod?`)) {
+          return;
+        }
         existing.remove();
         showToast(`${name} eltávolítva`);
       } else {
@@ -1626,8 +1812,9 @@
     };
     updateSummary();
 
-    // Szett hozzáadása / törlése a kártyákon (delegálva, az újakra is érvényes)
+    // Szett-értékek léptetése, hozzáadás/törlés (delegálva, az újakra is érvényes)
     list.addEventListener('click', (event) => {
+      if (handleStepClick(event)) return;
       if (handleAddSetClick(event, defaultSet, updateSummary)) return;
       handleRemoveSetClick(event, updateSummary);
     });
@@ -1725,20 +1912,36 @@
   }
 
   /** Heti volumen-összehasonlítás: a váltógomb újrarendereli a chartot
-      (a bar-in animáció újraindul), az összvolumen felpörög az új értékre. */
+      (a bar-in animáció újraindul), az összvolumen felpörög az új értékre.
+      A `refresh()` friss adatot húz le a szerverről — az edzés lezárása ezt
+      hívja, hogy a most naplózott szettek azonnal megjelenjenek. */
   async function setupWeeklyCompare() {
     const section = $('.wk-compare');
     const chart = $('[data-chart]', section);
     const totalEl = $('[data-compare-total]');
     const noteEl = $('[data-compare-note]');
 
-    // A két hét adata (volumeThisWeek / volumeLastWeek) — egyszer lekérve
-    const charts = await api.getCharts();
+    // A két hét adata (volumeThisWeek / volumeLastWeek)
+    let charts = await api.getCharts();
+
+    /** Az éppen kiválasztott időszak kulcsa (a váltógombokból). */
+    const activePeriod = () =>
+      $$('.wk-toggle-btn', section).find((b) => b.getAttribute('aria-pressed') === 'true')
+        ?.dataset.period || 'volumeThisWeek';
+
+    const applyPeriod = (period, { animate = false } = {}) => {
+      const data = charts[period];
+      if (!data) return;
+      chart.dataset.chart = period;
+      chart.setAttribute('aria-label', data.ariaLabel);
+      renderChart(chart, data);
+      if (animate) animateNumber(totalEl, data.total, { duration: 600 });
+      else totalEl.textContent = formatNumber(data.total);
+      noteEl.textContent = data.note;
+    };
 
     // Kezdeti (ez a hét) összesítő a felületre — így nincs beégetett placeholder
-    totalEl.textContent = formatNumber(charts.volumeThisWeek.total);
-    noteEl.textContent = charts.volumeThisWeek.note;
-    chart.setAttribute('aria-label', charts.volumeThisWeek.ariaLabel);
+    applyPeriod('volumeThisWeek');
 
     section.addEventListener('click', (event) => {
       const btn = event.target.closest('.wk-toggle-btn');
@@ -1747,14 +1950,13 @@
       $$('.wk-toggle-btn', section).forEach((b) => {
         b.setAttribute('aria-pressed', String(b === btn));
       });
-
-      const data = charts[btn.dataset.period];
-      chart.dataset.chart = btn.dataset.period;
-      chart.setAttribute('aria-label', data.ariaLabel);
-      renderChart(chart, data);
-      animateNumber(totalEl, data.total, { duration: 600 });
-      noteEl.textContent = data.note;
+      applyPeriod(btn.dataset.period, { animate: true });
     });
+
+    refreshVolumeChart = async () => {
+      charts = await api.refreshCharts();
+      applyPeriod(activePeriod(), { animate: true });
+    };
   }
 
   async function setupNutrition() {
@@ -2108,10 +2310,16 @@
     return { apply };
   }
 
-  /** Gyorsbillentyűk: 1–5 oldalváltás (gépelés közben inaktív). */
+  /** Gyorsbillentyűk: 1–5 oldalváltás. Gépelés közben és nyitott modal
+      mellett inaktív — utóbbi nélkül a háttérben lévő oldal átváltott,
+      miközben az ablak nyitva maradt előtte. */
+  const isModalOpen = () =>
+    Boolean($('.video-modal.is-open, .settings-modal.is-open, .athlete-modal.is-open'));
+
   function setupShortcuts() {
     document.addEventListener('keydown', (event) => {
       if (event.metaKey || event.ctrlKey || event.altKey) return;
+      if (isModalOpen()) return;
       if (event.target instanceof Element
         && event.target.matches('input, textarea, select, [contenteditable]')) return;
       const page = KEY_TO_PAGE[event.key];
@@ -2149,6 +2357,7 @@
     await Promise.all([
       safe(renderCharts),
       safe(renderDashboard),
+      safe(renderUserName),
       safe(renderWorkout),
       safe(renderPrs),
       safe(renderFoods),

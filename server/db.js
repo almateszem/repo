@@ -51,6 +51,7 @@ db.exec(`
     name       TEXT NOT NULL,
     date       TEXT NOT NULL,
     exercises  TEXT NOT NULL,          -- JSON: [{ name, pr, sets: [{ reps, weight, rpe, done }] }]
+    plan_id    INTEGER,                -- melyik tervből indult (NULL, ha szabad edzés)
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
   CREATE TABLE IF NOT EXISTS plans (
@@ -66,6 +67,7 @@ db.exec(`
     name       TEXT NOT NULL,
     exercises  TEXT NOT NULL,          -- JSON, a workouts.exercises-szel azonos alak
     date       TEXT NOT NULL DEFAULT '',            -- a mentés HELYI napja — ebből tudni, friss-e a piszkozat
+    plan_id    INTEGER,                             -- melyik tervből indult (NULL, ha szabad edzés)
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
 `);
@@ -79,6 +81,43 @@ function ensureColumn(table, column, ddl) {
 }
 ensureColumn('plans', 'days', "days TEXT NOT NULL DEFAULT '[]'");
 ensureColumn('workout_draft', 'date', "date TEXT NOT NULL DEFAULT ''");
+ensureColumn('workouts', 'plan_id', 'plan_id INTEGER');
+ensureColumn('workout_draft', 'plan_id', 'plan_id INTEGER');
+
+/* A szett-értékek korábban mértékegységgel együtt, szabad szövegként voltak
+   tárolva („12 rep", „60% TM", „–"). A felület már szám-mezőkkel szerkeszti
+   őket, ezért a meglévő sorokból kinyerjük a puszta számot. A művelet
+   idempotens (számból ugyanaz a szám lesz), és csak a ténylegesen változó
+   sorokat írja vissza, így minden induláskor nyugodtan lefuthat. */
+const firstNumber = (raw) => {
+  const match = String(raw ?? '').replace(',', '.').match(/\d+(\.\d+)?/);
+  return match ? match[0] : '';
+};
+
+function migrateSetValuesToNumbers(table) {
+  const rows = db.prepare(`SELECT id, exercises FROM ${table}`).all();
+  const update = db.prepare(`UPDATE ${table} SET exercises = ? WHERE id = ?`);
+  for (const row of rows) {
+    let exercises;
+    try { exercises = JSON.parse(row.exercises); } catch { continue; }
+    if (!Array.isArray(exercises)) continue;
+
+    let changed = false;
+    for (const exercise of exercises) {
+      for (const set of exercise?.sets ?? []) {
+        for (const key of ['reps', 'weight', 'rpe']) {
+          const next = firstNumber(set[key]);
+          if (set[key] !== next) {
+            set[key] = next;
+            changed = true;
+          }
+        }
+      }
+    }
+    if (changed) update.run(JSON.stringify(exercises), row.id);
+  }
+}
+['plans', 'workouts', 'workout_draft'].forEach(migrateSetValuesToNumbers);
 
 /* ---- Seed ----
    Kollekciók: a data.js-ből szinkronizálva minden indításkor (INSERT OR
@@ -144,16 +183,22 @@ export function getPlanForDay(dayIndex) {
   return getUserPlans().find((plan) => plan.days.includes(dayIndex)) || null;
 }
 
-/** Az épp szerkesztett edzés piszkozata ({ name, exercises, date }) vagy null. */
+/** Az épp szerkesztett edzés piszkozata ({ name, exercises, date, planId })
+    vagy null. A planId mutatja, melyik tervből indult az edzés. */
 export function getWorkoutDraft() {
-  const row = db.prepare('SELECT name, exercises, date FROM workout_draft WHERE id = 1').get();
-  return row ? { name: row.name, exercises: JSON.parse(row.exercises), date: row.date } : null;
+  const row = db.prepare('SELECT name, exercises, date, plan_id FROM workout_draft WHERE id = 1').get();
+  return row
+    ? { name: row.name, exercises: JSON.parse(row.exercises), date: row.date, planId: row.plan_id }
+    : null;
 }
 
 /** A mentett edzések, legújabb elöl (a gyakorlatok JSON-ból visszafejtve). */
 export function getWorkouts() {
-  return db.prepare('SELECT id, name, date, exercises FROM workouts ORDER BY id DESC').all()
-    .map((row) => ({ id: row.id, name: row.name, date: row.date, exercises: JSON.parse(row.exercises) }));
+  return db.prepare('SELECT id, name, date, exercises, plan_id FROM workouts ORDER BY id DESC').all()
+    .map((row) => ({
+      id: row.id, name: row.name, date: row.date,
+      exercises: JSON.parse(row.exercises), planId: row.plan_id,
+    }));
 }
 
 /** Teljes pillanatkép a beállítások exportjához (minden kollekció + naplók). */
@@ -190,21 +235,30 @@ export function addNutritionEntry(food, date) {
 /** A piszkozat felülírása (mindig az 1-es sor) — minden változtatásnál hívjuk.
     A date a szerver helyi napja: ebből dönti el a /api/workout-template, hogy
     a piszkozat aznapi-e, vagy jöhet helyette a napra ütemezett terv. */
-export function saveWorkoutDraft(name, exercises, date) {
-  db.prepare(`INSERT INTO workout_draft (id, name, exercises, date, updated_at)
-              VALUES (1, ?, ?, ?, datetime('now'))
+export function saveWorkoutDraft(name, exercises, date, planId = null) {
+  db.prepare(`INSERT INTO workout_draft (id, name, exercises, date, plan_id, updated_at)
+              VALUES (1, ?, ?, ?, ?, datetime('now'))
               ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name, exercises = excluded.exercises,
-                date = excluded.date, updated_at = excluded.updated_at`)
-    .run(name, JSON.stringify(exercises), date);
-  return { name, exercises };
+                date = excluded.date, plan_id = excluded.plan_id,
+                updated_at = excluded.updated_at`)
+    .run(name, JSON.stringify(exercises), date, planId);
+  return { name, exercises, planId };
 }
 
-/** Edzés mentése; visszaadja a létrejött { id, name, date, exercises } sort. */
-export function addWorkout(name, date, exercises) {
-  const { lastInsertRowid } = db.prepare('INSERT INTO workouts (name, date, exercises) VALUES (?, ?, ?)')
-    .run(name, date, JSON.stringify(exercises));
-  return { id: Number(lastInsertRowid), name, date, exercises };
+/** A piszkozat törlése — az „Edzés befejezése" hívja, miután az edzés bekerült
+    a naplóba. Így ugyanaznap új edzés kezdhető, a lezárt edzés nem ragad az
+    Edzés oldalon, és nem lehet másodszor is (duplikátumként) lenaplózni. */
+export function clearWorkoutDraft() {
+  db.prepare('DELETE FROM workout_draft WHERE id = 1').run();
+}
+
+/** Edzés mentése; visszaadja a létrejött { id, name, date, exercises, planId } sort. */
+export function addWorkout(name, date, exercises, planId = null) {
+  const { lastInsertRowid } = db
+    .prepare('INSERT INTO workouts (name, date, exercises, plan_id) VALUES (?, ?, ?, ?)')
+    .run(name, date, JSON.stringify(exercises), planId);
+  return { id: Number(lastInsertRowid), name, date, exercises, planId };
 }
 
 /** Edzésterv mentése; visszaadja a létrejött { id, name, date, exercises, days } sort. */
