@@ -13,6 +13,7 @@ ami ettől a verziótól érhető el.
 npm install
 npm start          # http://localhost:3000
 npm run dev        # ugyanaz, fájlfigyeléssel (node --watch)
+npm test           # a Recovery Engine unit-tesztjei (node --test, nulla függőség)
 ```
 
 Környezeti változók:
@@ -38,6 +39,9 @@ server/
   server.js      Express: /api/* végpontok + a public/ kiszolgálása
   db.js          SQLite adatréteg — az egyetlen modul, ami a tárolást ismeri
   data.js        seed / referencia-adat (ételek, gyakorlat-katalógus, sportolók)
+  recovery.js    Recovery Engine — a készenlét-számítás (tiszta függvények, DB nélkül)
+  recovery.test.js  a motor unit-tesztjei (npm test)
+  muscles.js     izomcsoport-taxonómia + gyakorlat → izom leképezés
   fittrack.db    az adatbázisfájl (nem verziókövetett, a szerver hozza létre)
 ```
 
@@ -63,6 +67,56 @@ seed nem írja felül.
 - **Migrációk.** A séma bővítései a `db.js` `ensureColumn` hívásaival futnak le a
   meglévő adatbázisfájlokon is, tehát nem kell törölni a `fittrack.db`-t.
 
+## Recovery Engine — a készenléti állapot
+
+A Regeneráció oldal (`#recovery`) a napi check-inből és az edzésnaplóból számol
+egy 0–100-as készenléti pontszámot, és ebből konkrét edzésdöntéseket vezet le.
+A számítás teljes egészében a `server/recovery.js`-ben van, amely **nem ismeri az
+adatbázist** — mindent paraméterként kap, ezért unit-tesztelhető (`npm test`).
+
+**A képlet** súlyozott átlag, de csak a *jelen lévő* komponensekre:
+
+| Komponens | Súly | Miből |
+| --- | --- | --- |
+| Alvás | 0.25 | időtartam (trapéz-görbe) + minőség, 3 napos alvásadósság-levonással |
+| Izom-regeneráció | 0.15 | a kilenc izomcsoport „soft-min" átlaga |
+| Energiaszint | 0.15 | check-in, 1–5 |
+| Stressz-regeneráció | 0.10 | check-in, 1–5 (fordítva) |
+| Edzésterhelés | 0.15 | exponenciálisan csillapított tonnatömeg (τ = 3 nap) |
+| Táplálkozás | 0.05 | a **tegnapi** kalória/fehérje a célhoz mérve + hidratáció |
+
+Ami nincs kitöltve, az nem nullaként számít bele: a súlya arányosan újraoszlik a
+többi komponens között. Ezért **hiányzó adattól a pontszám nem torzul**, csak a
+megbízhatósága csökken — amit a felület külön kiír.
+
+**HRV/pulzus szándékosan nincs a képletben.** Az eredeti terv 0.15-öt szánt rá,
+de az alkalmazásnak nincs pulzusadat-forrása (nincs okosóra-integráció), kitalált
+értéket pedig nem teszünk a képletbe. A súlya ugyanazzal a mechanizmussal oszlik
+szét, mint bármelyik ki nem töltött mezőé.
+
+**Amit még számol:**
+
+- **Izomcsoportonkénti regeneráció** kilenc csoportra. A károsodás mérőszáma nem
+  a tonnatömeg, hanem a bukáshoz közeli szettek száma — a tonnatömeg lokálisan
+  félrevezet (egy nehéz 5×5 guggolás kevesebb tonnát ad, mint egy könnyű,
+  sok ismétléses lábtolás, miközben sokkal jobban lever). A csillapítás
+  csoportonként eltér: kis izmok τ = 1.5 nap, nagy tolók/húzók 2.2, a
+  hamstring/farizom/törzs 3.0 nap.
+- **CNS-becslés**: az axiális összetett emelések, a magas RPE-s szettek és a
+  PR-próbálkozások költsége, lassabb csillapítással (τ = 3.5 nap), az alvással
+  szorozva.
+- **Gyakorlat-specifikus ajánlás**: izom-readiness + CNS + frissesség alapján
+  konkrét súly- és volumen-javaslat (a fő emelésekhez egyetlen naplózott alkalom
+  is elég, a többihez három kell).
+- **Sapkák**: 7/10 feletti fájdalom letiltja az érintett izmot terhelő
+  gyakorlatokat, és a teljes pontszámot is korlátozza — ezt egy súlyozott átlag
+  elmosná.
+
+**Adatigény.** Ami nem számolható, az nem jelenik meg kitalált számként. A
+személyre szabott (saját előzményhez mért) referenciához 14 nap edzés-előzmény és
+7 check-in kell; addig testsúlyra skálázott általános referenciával fut, és a
+felület `Tájékoztató` / `Közepes` / `Megbízható` jelzéssel kiírja, mire épül a szám.
+
 ## Korlátok (demo)
 
 Ezek szándékos egyszerűsítések, nem hibák:
@@ -71,7 +125,10 @@ Ezek szándékos egyszerűsítések, nem hibák:
   ugyanazt az adatot látja és írja — lokális futtatásra készült.
 - **A dátumot a szerver helyi ideje adja.** Ha a szerver és a böngésző más
   időzónában van, a „mai nap" elcsúszhat.
-- **A regenerációs sorok** (alvás, fáradtság, izomláz) és az edzői panel
-  sportolói demo-adatok — nincs mögöttük valódi mérés. A készenlét, a sorozat, a
-  napi kalória/fehérje és a heti volumen viszont a tényleges adatból számolódik.
+- **Nincs pulzus/HRV adatforrás.** Nincs okosóra-integráció, ezért a Recovery
+  Engine hat komponensből számol, nem hétből (lásd fentebb).
+- **Az edzői panel sportolói demo-adatok** — az ő `readiness` értékük fix szám a
+  `data.js`-ben, nem a Recovery Engine számolja (nincs mögöttük edzésnapló). A
+  saját készenlét, a regenerációs sorok, a sorozat, a napi kalória/fehérje és a
+  heti volumen viszont mind a tényleges adatból számolódik.
 - **Az edző-chat válaszai szimuláltak**, előre megírt sorokból forognak körbe.

@@ -16,7 +16,12 @@ import {
   addWeightEntry, getNutritionTotals, addNutritionEntry,
   getWorkouts, addWorkout, getWorkoutDraft, saveWorkoutDraft, clearWorkoutDraft,
   getUserPlans, addPlan, updatePlan, getPlanForDay,
+  getCheckin, getCheckins, saveCheckin,
 } from './db.js';
+// A készenlét-motor és a közös dátum-segédek. A dátumkezelés szándékosan egy
+// helyen (recovery.js) lakik, hogy a szerver és a motor sose csússzon el.
+import { computeReadiness, parseDate, dayKey, DAY_MS } from './recovery.js';
+import { MUSCLE_KEYS } from './muscles.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public'); // a statikus frontend mappája
@@ -29,10 +34,18 @@ app.use(express.json()); // a POST/PUT végpontokhoz (JSON törzs olvasása)
 /** A mai dátum HELYI idő szerint, a frontend által várt formátumban
     (pl. "2026.07.26"). Nem toISOString: az UTC-t adna, és éjfél után
     előző napi dátumot könyvelne. */
-const today = () => {
-  const now = new Date();
+const formatDate = (date) => {
   const pad = (n) => String(n).padStart(2, '0');
-  return `${now.getFullYear()}.${pad(now.getMonth() + 1)}.${pad(now.getDate())}`;
+  return `${date.getFullYear()}.${pad(date.getMonth() + 1)}.${pad(date.getDate())}`;
+};
+
+const today = () => formatDate(new Date());
+
+/** Egy "ÉÉÉÉ.HH.NN" dátum eltolása napokkal (negatív = visszafelé). */
+const shiftDate = (dateStr, days) => {
+  const date = parseDate(dateStr);
+  date.setDate(date.getDate() + days);
+  return formatDate(date);
 };
 
 /** A mai hétnap indexe, hétfőtől számolva (0 = hétfő … 6 = vasárnap). */
@@ -95,13 +108,22 @@ function workoutTemplate() {
     (szabad edzés, nem tervből indult). */
 const parsePlanId = (raw) => (Number.isInteger(raw) && raw > 0 ? raw : null);
 
-// Áttekintő — a napi kalória/fehérje statot a táplálkozási naplóból számoljuk,
-// hogy a dashboard és a Táplálkozás oldal ugyanazt az adatot mutassa; az
-// aktuális edzésnév az edzésnapló induló tartalmából jön (vagy null).
+// Áttekintő — minden mezője számolt érték. A készenlét és a regenerációs sorok
+// a Recovery Engine-ből, a napi kalória/fehérje a táplálkozási naplóból (hogy
+// a dashboard és a Táplálkozás oldal ugyanazt mutassa), az aktuális edzésnév
+// az edzésnapló induló tartalmából (vagy null).
 app.get('/api/dashboard', (req, res) => {
-  const dashboard = getCollection('dashboard');
+  const dashboard = getCollection('dashboard') || {};
   const totals = getNutritionTotals(today());
-  Object.assign(dashboard, trainingStats()); // sorozat + készenlét a mentett edzésekből
+  const readiness = readinessReport();
+
+  dashboard.streak = trainingStreak();
+  dashboard.readiness = readiness.overall;
+  dashboard.recovery = readiness.recovery;
+  // A készenlét-kártya feliratához: mennyire megbízható a szám, és van-e
+  // egyáltalán mai check-in (ha nincs, a felület kitöltésre hív).
+  dashboard.readinessConfidence = readiness.confidence;
+  dashboard.checkinPresent = readiness.checkin.present;
   dashboard.dailyStats = {
     calories: Math.round(totals.intake),
     caloriesTarget: totals.goal.calories,
@@ -109,6 +131,88 @@ app.get('/api/dashboard', (req, res) => {
   };
   dashboard.workoutName = workoutTemplate()?.name?.trim() || null;
   res.json(dashboard);
+});
+
+/* ======================================================================
+   Recovery Engine — készenléti riport és napi check-in
+   ====================================================================== */
+
+// A teljes riport: összesített készenlét, komponens-bontás, izomcsoportok,
+// CNS, gyakorlat-ajánlások, megbízhatóság.
+app.get('/api/readiness', (req, res) => res.json(readinessReport()));
+
+// A mai check-in (vagy null, ha még nem töltötted ki)
+app.get('/api/checkin', (req, res) => res.json(getCheckin(today())));
+
+/** Egy opcionális szám-mező beolvasása tartomány-ellenőrzéssel.
+    Üres/hiányzó érték → null (a motor ezt „nem adta meg"-ként kezeli, nem
+    nullaként). Érvénytelen vagy tartományon kívüli érték → hiba. */
+function readOptionalNumber(raw, { min, max, integer = false }) {
+  if (raw === null || raw === undefined || raw === '') return { value: null };
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < min || value > max) {
+    return { error: `Az érték ${min} és ${max} között adható meg.` };
+  }
+  return { value: integer ? Math.round(value) : value };
+}
+
+/** A check-in szám-mezői: [törzs-kulcs, tartomány, emberi név]. */
+const CHECKIN_FIELDS = [
+  ['sleepHours', { min: 0, max: 24 }, 'alvás időtartam'],
+  ['sleepQuality', { min: 1, max: 5, integer: true }, 'alvásminőség'],
+  ['energy', { min: 1, max: 5, integer: true }, 'energiaszint'],
+  ['stress', { min: 1, max: 5, integer: true }, 'stresszszint'],
+  ['mood', { min: 1, max: 5, integer: true }, 'közérzet'],
+  ['hydration', { min: 0, max: 15 }, 'folyadékbevitel'],
+];
+
+/** Izomcsoportonkénti térkép (izomláz 0–5, fájdalom 0–10) normalizálása:
+    csak ismert izomkulcs és érvényes szám marad benne. A fájdalomnál a
+    'general' kulcs is engedett (általános, nem csoporthoz kötött fájdalom). */
+function normalizeMuscleMap(raw, max, allowGeneral = false) {
+  const clean = {};
+  if (!raw || typeof raw !== 'object') return clean;
+  for (const [key, rawValue] of Object.entries(raw)) {
+    if (!MUSCLE_KEYS.includes(key) && !(allowGeneral && key === 'general')) continue;
+    const value = Number(rawValue);
+    if (!Number.isFinite(value) || value < 0 || value > max) continue;
+    clean[key] = Math.round(value);
+  }
+  return clean;
+}
+
+/** A mai check-in mentése/felülírása. Minden mező opcionális — a felület a
+    gyors (5 mezős) és a részletes kitöltést is ide küldi, és a nap folyamán
+    bármikor pontosítható. A dátumot a szerver adja.
+    A testsúly NEM ide kerül: ha a törzsben jön, a meglévő testsúly-naplóba
+    írjuk, hogy egyetlen forrás maradjon (és a dashboard grafikonja frissüljön). */
+app.put('/api/checkin', (req, res) => {
+  const body = req.body ?? {};
+  const fields = {};
+
+  for (const [key, range, label] of CHECKIN_FIELDS) {
+    const parsed = readOptionalNumber(body[key], range);
+    if (parsed.error) return res.status(400).json({ error: `${label}: ${parsed.error}` });
+    fields[key] = parsed.value;
+  }
+  fields.soreness = normalizeMuscleMap(body.soreness, 5);
+  fields.pain = normalizeMuscleMap(body.pain, 10, true);
+
+  // Opcionális testsúly — a meglévő weight_log táblába, ugyanazzal a
+  // validálással, mint a /api/weight-log végponton.
+  let weightEntry = null;
+  if (body.weightKg !== null && body.weightKg !== undefined && body.weightKg !== '') {
+    const kg = Number(body.weightKg);
+    if (!Number.isFinite(kg) || kg < 30 || kg > 300) {
+      return res.status(400).json({ error: 'Érvénytelen testsúly — 30 és 300 kg között adható meg.' });
+    }
+    weightEntry = addWeightEntry(kg, today());
+  }
+
+  const checkin = saveCheckin(today(), fields);
+  // Rögtön a friss riportot is visszaadjuk, hogy a kliensnek ne kelljen
+  // külön kérnie — a mentés után azonnal frissülhet a gyűrű.
+  res.json({ checkin, weightEntry, readiness: readinessReport() });
 });
 
 // Tervek — a felhasználó saját (terv-építőben mentett) tervei, legújabb elöl.
@@ -174,35 +278,12 @@ app.get('/api/prs', (req, res) => {
   res.json(prs.slice(0, 6));
 });
 
-/** "ÉÉÉÉ.HH.NN" → helyi Date (a mentett edzések dátum-formátuma). */
-const parseDate = (str) => {
-  const [year, month, day] = str.split('.').map(Number);
-  return new Date(year, month - 1, day);
-};
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-/** Egy "ÉÉÉÉ.HH.NN" dátum helyi éjfélre normalizált timestampje — így két nap
-    akkor és csak akkor egyezik, ha ugyanaz a naptári nap. */
-const dayKey = (str) => {
-  const d = parseDate(str);
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-};
-
-/** Az áttekintő két fő száma a MENTETT EDZÉSEKBŐL számolva (korábban fix
-    seed-értékek voltak, és sosem mozdultak):
-
-    - sorozat: hány napja edzel megszakítás nélkül. A mai naptól számol
-      visszafelé; ha ma még nem volt edzés, tegnaptól — így a sorozat nem
-      törik meg attól, hogy a mai edzés még előtted áll.
-    - készenlét: a friss edzésterhelés csökkenti, a pihenőnap visszaépíti.
-      Az elmúlt 3 nap teljesített szettjeit súlyozzuk (ma teljes súllyal,
-      minél régebbi, annál kevésbé), és ezt vonjuk le a 100%-ból. Két pihenő-
-      nap után magától visszaáll 100%-ra. */
-function trainingStats() {
-  const workouts = getWorkouts();
+/** Hány napja edzel megszakítás nélkül. A mai naptól számol visszafelé; ha ma
+    még nem volt edzés, tegnaptól — így a sorozat nem törik meg attól, hogy a
+    mai edzés még előtted áll. */
+function trainingStreak() {
+  const trainedDays = new Set(getWorkouts().map((w) => dayKey(w.date)));
   const todayKey = dayKey(today());
-  const trainedDays = new Set(workouts.map((w) => dayKey(w.date)));
 
   let streak = 0;
   let cursor = trainedDays.has(todayKey) ? todayKey : todayKey - DAY_MS;
@@ -210,19 +291,27 @@ function trainingStats() {
     streak += 1;
     cursor -= DAY_MS;
   }
+  return streak;
+}
 
-  const LOAD_WEIGHTS = [1, 0.6, 0.3]; // ma, tegnap, tegnapelőtt
-  let load = 0;
-  for (const workout of workouts) {
-    const daysAgo = Math.round((todayKey - dayKey(workout.date)) / DAY_MS);
-    if (daysAgo < 0 || daysAgo >= LOAD_WEIGHTS.length) continue;
-    const doneSets = workout.exercises
-      .flatMap((exercise) => exercise.sets || [])
-      .filter((set) => set.done).length;
-    load += doneSets * LOAD_WEIGHTS[daysAgo];
-  }
-
-  return { streak, readiness: Math.max(30, Math.min(100, Math.round(100 - load * 2.5))) };
+/** A teljes készenléti riport összeállítása. Az adatgyűjtés itt van, a
+    SZÁMÍTÁS a recovery.js-ben — az a modul nem ismeri az adatbázist, ezért
+    külön tesztelhető (server/recovery.test.js). */
+function readinessReport() {
+  const todayDate = today();
+  return computeReadiness({
+    checkins: getCheckins(60),
+    workouts: getWorkouts(),
+    // A motor a tegnapi bevitelt preferálja (reggel a mai még előtted van),
+    // és a maira esik vissza, ha tegnapról nincs naplózás.
+    nutrition: {
+      today: getNutritionTotals(todayDate),
+      yesterday: getNutritionTotals(shiftDate(todayDate, -1)),
+    },
+    weightLog: getWeightLog(),
+    catalog: getCollection('exerciseCatalog') || [],
+    today: todayDate,
+  });
 }
 
 /** Az adott nap hetének hétfője, helyi éjfélre normalizálva (timestamp). */

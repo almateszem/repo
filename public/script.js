@@ -126,6 +126,12 @@
     getWorkoutTemplate: () => getJson('/api/workout-template'),
     // Teljes adat-pillanatkép a beállítások exportjához
     exportAll:         () => getJson('/api/export'),
+    // Recovery Engine — egyik sem cache-elt: naponta (és minden check-in,
+    // ill. edzés-mentés után) változnak.
+    getReadiness:      () => getJson('/api/readiness'),
+    getCheckin:        () => getJson('/api/checkin'),
+    // A mentés a friss riportot is visszaadja, hogy a felület egy körből frissüljön
+    saveCheckin:       (fields) => putJson('/api/checkin', fields),
   };
 
   /** Értesítés-kategóriák a beállítások modal kapcsolóihoz (notification.cat). */
@@ -143,14 +149,16 @@
       a hash-router ismeri őket, de szándékosan nincsenek a nav gyűrű irányai
       és a gyorsbillentyűk között (az „Edzés befejezése", az „+ Új terv",
       ill. a „+ Gyakorlat hozzáadása" gomb visz oda). */
-  const PAGES = ['dashboard', 'workout', 'nutrition', 'plans', 'coach', 'summary', 'plan-builder', 'exercise-picker'];
+  const PAGES = ['dashboard', 'recovery', 'workout', 'nutrition', 'plans', 'coach', 'summary', 'plan-builder', 'exercise-picker'];
   const FLOW_PAGES = ['summary', 'plan-builder', 'exercise-picker']; // friss megnyitáskor nem állnak vissza
   const DIR_TO_PAGE = {
     up: 'coach', down: 'plans', left: 'workout', right: 'nutrition',
     home: 'dashboard',
   };
-  // A gyorsbillentyűk a desktop side-nav sorrendjét követik
-  const KEY_TO_PAGE = { 1: 'dashboard', 2: 'coach', 3: 'plans', 4: 'workout', 5: 'nutrition' };
+  // A gyorsbillentyűk a desktop side-nav sorrendjét követik.
+  // A Regeneráció oldal szándékosan nincs a nav gyűrű négy iránya között —
+  // mobilon az áttekintő készenlét-kártyája visz oda (lásd .db-readiness).
+  const KEY_TO_PAGE = { 1: 'dashboard', 2: 'recovery', 3: 'coach', 4: 'plans', 5: 'workout', 6: 'nutrition' };
 
   /* ======================================================================
      2. Segédfüggvények
@@ -280,6 +288,11 @@
       // A terv-kártyák progress-e a mai pipált szetteket követi — megnyitáskor frissül
       renderPlans().catch((err) => console.error('Tervek frissítési hiba:', err));
     },
+    recovery() {
+      // A készenlét az edzés naplózásával is változik, ezért minden
+      // megnyitáskor újraszámoltatjuk a szerverrel.
+      refreshRecovery?.().catch((err) => console.error('Regeneráció frissítési hiba:', err));
+    },
     'exercise-picker'() {
       // A setupExercisePicker tölti fel; megjelenéskor frissíti a cél nevét
       // és a hozzáadás-gombok állapotát az aktuális cél-lista szerint.
@@ -289,6 +302,10 @@
 
   /** A gyakorlat-választó frissítője — a setupWorkout állítja be. */
   let refreshExercisePicker = null;
+
+  /** A Regeneráció oldal frissítője — a setupRecovery állítja be. Az oldal
+      megnyitása és az edzés lezárása is hívja. */
+  let refreshRecovery = null;
 
   /** A heti volumen-diagram frissítője — a setupWeeklyCompare állítja be.
       Az edzés lezárása hívja, hogy a friss szettek azonnal látszódjanak. */
@@ -492,12 +509,22 @@
     setText('[data-recovery="soreness"]', recovery.soreness);
 
     // Készenlét: a gyűrű kitöltését és feliratát itt, a szám animálását a
-    // pageEffects végzi (a --readiness változót a CSS stroke-dashoffset használja)
-    const ring = $('.db-ring');
+    // pageEffects végzi (a --readiness változót a CSS stroke-dashoffset használja).
+    // A szelektor szándékosan a kártyára szűkít: a Regeneráció oldalon is van
+    // egy .db-ring, azt a renderRecovery kezeli.
+    const ring = $('.db-readiness .db-ring');
     if (ring) {
       ring.style.setProperty('--readiness', readiness);
       ring.setAttribute('aria-label', `${readiness} százalék készenlét`);
     }
+
+    // A kártya alsó sora megmondja, mire épül a szám — a Recovery Engine
+    // enélkül csak egy önmagát magyarázó szám lenne.
+    setText('[data-readiness-note]', dashboardData.checkinPresent
+      ? (dashboardData.readinessConfidence === 'high'
+        ? 'a saját előzményedhez mérve'
+        : 'részben általános referenciával')
+      : 'töltsd ki a napi check-int →');
 
     // Aktuális edzés neve (aznapi piszkozat vagy a mára ütemezett terv a
     // szerverről; null, ha nincs egyik sem): áttekintő CTA + az edzésnapló
@@ -981,6 +1008,187 @@
     animateNumber($('[data-su-duration]'), summary.minutes, { from: 0, duration: 800 });
   }
 
+  /* ---- Regeneráció (Recovery Engine) ---- */
+
+  /** A kilenc izomcsoport kulcsa és magyar címkéje — a szerver
+      MUSCLE_GROUPS-ával azonos sorrendben (server/muscles.js). A check-in
+      izomláz- és fájdalom-mezői ebből épülnek. */
+  const MUSCLE_GROUPS = [
+    ['chest', 'Mell'], ['back', 'Hát'], ['shoulders', 'Váll'], ['arms', 'Karok'],
+    ['quads', 'Quadriceps'], ['hamstrings', 'Hamstring'], ['glutes', 'Farizom'],
+    ['calves', 'Vádli'], ['core', 'Törzs'],
+  ];
+
+  /** A gyors check-in 1–5-ös skálái: [mező-név, címke, [1-es végpont, 5-ös végpont]]. */
+  const CHECKIN_SCALES = [
+    ['sleepQuality', 'Alvásminőség', ['nagyon rossz', 'kiváló']],
+    ['energy', 'Energiaszint', ['kimerült', 'tele energiával']],
+    ['stress', 'Stresszszint', ['nyugodt', 'nagyon feszült']],
+  ];
+
+  /** A részletes blokk közérzet-skálája (ugyanaz a komponens). */
+  const MOOD_SCALE = ['mood', 'Közérzet', ['beteg vagyok', 'remekül']];
+
+  /** Készenlét-sáv → állapot-kulcs. A CSS ebből színez (ok / warn / bad). */
+  const readinessTone = (value) => (value >= 80 ? 'ok' : value >= 60 ? 'warn' : 'bad');
+
+  const CONFIDENCE_LABELS = { high: 'Megbízható', medium: 'Közepes', low: 'Tájékoztató' };
+
+  /**
+   * Egy 0–5 vagy 1–5 skála felépítése chip-csoportként. Az érték az
+   * aria-pressed attribútumban él (a terv-építő nap-chipjeivel azonos minta),
+   * így nincs a DOM mellett külön állapot, amit szinkronban kéne tartani.
+   * A `null` érték érvényes: azt jelenti, hogy a felhasználó nem adta meg —
+   * a motor ilyenkor újraosztja a súlyt.
+   */
+  function buildScale({ name, label, min, max, hint }) {
+    const scale = cloneTemplate('tpl-scale');
+    scale.dataset.field = name;
+    $('.rc-scale-label', scale).textContent = label;
+    $('.rc-scale-hint', scale).textContent = hint ?? '';
+
+    const chips = $('.rc-scale-chips', scale);
+    chips.setAttribute('aria-label', label);
+    for (let value = min; value <= max; value += 1) {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'rc-chip';
+      chip.textContent = String(value);
+      chip.dataset.value = String(value);
+      chip.setAttribute('aria-pressed', 'false');
+      chip.setAttribute('aria-label', `${label}: ${value}`);
+      chip.addEventListener('click', () => {
+        // Az aktív chip újbóli megnyomása törli a választást — így egy
+        // véletlen kattintás visszavonható „nem adtam meg" állapotra.
+        const active = chip.getAttribute('aria-pressed') === 'true';
+        $$('.rc-chip', chips).forEach((c) => c.setAttribute('aria-pressed', 'false'));
+        chip.setAttribute('aria-pressed', String(!active));
+      });
+      chips.appendChild(chip);
+    }
+    return scale;
+  }
+
+  /** Egy chip-skála aktuális értéke, vagy null, ha nincs kiválasztva. */
+  const readScale = (scaleEl) => {
+    const active = $('.rc-chip[aria-pressed="true"]', scaleEl);
+    return active ? Number(active.dataset.value) : null;
+  };
+
+  /** Egy chip-skála beállítása (null → semmi sincs kiválasztva). */
+  const writeScale = (scaleEl, value) => {
+    $$('.rc-chip', scaleEl).forEach((chip) => {
+      chip.setAttribute('aria-pressed', String(value !== null && value !== undefined && Number(chip.dataset.value) === Number(value)));
+    });
+  };
+
+  /** Egy 0–100 érték kiírása sávra: szélesség, ARIA és állapot-szín. */
+  function fillBar(barEl, value, label) {
+    barEl.setAttribute('aria-valuenow', String(value));
+    barEl.setAttribute('aria-label', `${label} — ${value}%`);
+    barEl.dataset.tone = readinessTone(value);
+    $('.pl-progress-fill', barEl).style.width = `${value}%`;
+  }
+
+  /** A készenléti riport kirajzolása. A `report` a GET /api/readiness válasza. */
+  function renderRecovery(report) {
+    const page = $('[data-page="recovery"]');
+    if (!page || !report) return;
+
+    // — Összesített pontszám + gyűrű —
+    const overall = report.overall ?? 0;
+    const ring = $('[data-rc-ring]');
+    ring.style.setProperty('--readiness', overall);
+    ring.dataset.tone = readinessTone(overall);
+    ring.setAttribute('aria-label', `${overall} pont készenlét`);
+    $('.rc-score-num').textContent = String(overall);
+
+    $('[data-rc-verdict]').textContent = overall >= 85
+      ? 'Készen állsz — ma mehet a nehezebb edzés.'
+      : overall >= 70
+        ? 'Rendben vagy — tartsd a tervezett terhelést.'
+        : overall >= 55
+          ? 'Fáradt vagy — érdemes visszavenni a volumenből.'
+          : 'A tested pihenést kér — ma inkább könnyű nap.';
+
+    // — Megbízhatóság —
+    const badge = $('[data-rc-confidence-badge]');
+    badge.textContent = CONFIDENCE_LABELS[report.confidence] ?? report.confidence;
+    badge.dataset.level = report.confidence;
+    $('[data-rc-confidence-text]').textContent = report.confidenceNote ?? '';
+
+    // — Sapkák (fájdalom, betegség) —
+    const caps = $('[data-list="rc-caps"]');
+    caps.replaceChildren();
+    report.caps.forEach((text) => {
+      const item = document.createElement('li');
+      item.className = 'rc-cap';
+      item.textContent = text;
+      caps.appendChild(item);
+    });
+    caps.hidden = report.caps.length === 0;
+
+    // — Komponens-bontás —
+    const components = $('[data-list="rc-components"]');
+    components.replaceChildren();
+    report.components.forEach((component, index) => {
+      const row = cloneTemplate('tpl-rc-component');
+      row.style.setProperty('--i', index);
+      row.classList.toggle('rc-component--absent', !component.present);
+      $('.rc-component-label', row).textContent = component.label;
+      $('.rc-component-weight', row).textContent = component.present ? `${component.weight}%` : 'nincs adat';
+      $('.rc-component-value', row).textContent = component.present ? `${component.score}` : '—';
+      fillBar($('.rc-bar', row), component.present ? component.score : 0, component.label);
+      components.appendChild(row);
+    });
+
+    // — CNS —
+    $('[data-rc-cns]').textContent = String(report.cns.readiness);
+    $('[data-rc-cns-note]').textContent = report.cns.readiness >= 80
+      ? 'Friss idegrendszer — a nehéz, alacsony ismétléses munka rendben van.'
+      : report.cns.readiness >= 60
+        ? 'Enyhén terhelt — kerüld a maximum-közeli szetteket.'
+        : 'Terhelt idegrendszer — nehéz guggolás, felhúzás és PR-próbálkozás ma nem javasolt.';
+
+    // — Izomcsoportok —
+    const muscles = $('[data-list="rc-muscles"]');
+    muscles.replaceChildren();
+    report.muscles.forEach((muscle, index) => {
+      const row = cloneTemplate('tpl-rc-muscle');
+      row.style.setProperty('--i', index);
+      $('.rc-muscle-label', row).textContent = muscle.label;
+      $('.rc-muscle-value', row).textContent = `${muscle.readiness}%`;
+      fillBar($('.rc-bar', row), muscle.readiness, muscle.label);
+
+      // A meta-sor megmondja, mire épül a becslés — a szám így nem varázslat
+      const meta = [];
+      if (muscle.lastLoadedDaysAgo !== null) {
+        meta.push(muscle.lastLoadedDaysAgo === 0 ? 'ma terhelted' : `${muscle.lastLoadedDaysAgo} napja terhelted`);
+      }
+      if (muscle.soreness !== null) meta.push(`izomláz ${muscle.soreness}/5`);
+      if (muscle.pain !== null && muscle.pain > 0) meta.push(`fájdalom ${muscle.pain}/10`);
+      $('.rc-muscle-meta', row).textContent = meta.join(' · ');
+      muscles.appendChild(row);
+    });
+
+    // — Gyakorlat-ajánlások —
+    const lifts = $('[data-list="rc-lifts"]');
+    lifts.replaceChildren();
+    report.exercises.forEach((lift, index) => {
+      const item = cloneTemplate('tpl-rc-lift');
+      item.style.setProperty('--i', index);
+      item.dataset.verdict = lift.verdict;
+      $('.rc-lift-name', item).textContent = lift.name;
+      $('.rc-lift-score', item).textContent = `${lift.readiness}%`;
+      $('.rc-lift-score', item).dataset.tone = readinessTone(lift.readiness);
+      $('.rc-lift-text', item).textContent = lift.text;
+      $('[data-lift-load]', item).textContent = lift.loadDelta;
+      $('[data-lift-volume]', item).textContent = lift.volumeDelta;
+      lifts.appendChild(item);
+    });
+    $('[data-rc-lifts-empty]').hidden = report.exercises.length > 0;
+  }
+
   /* ======================================================================
      7. Interakciók
      ====================================================================== */
@@ -1378,6 +1586,132 @@
     sync(); // a szerverről betöltött bejegyzések megjelenítése
   }
 
+  /** A Regeneráció oldal: a napi check-in űrlap felépítése és mentése, majd a
+      készenléti riport kirajzolása. A számítás teljes egészében a szerveren
+      (server/recovery.js) fut — a kliens csak beküld és megjelenít. */
+  async function setupRecovery() {
+    const page = $('[data-page="recovery"]');
+    if (!page) return;
+
+    const form = $('[data-form="checkin"]', page);
+    const stateEl = $('[data-checkin-state]', page);
+    const scalesWrap = $('[data-list="checkin-scales"]', page);
+    const sorenessWrap = $('[data-list="checkin-soreness"]', page);
+    const painWrap = $('[data-list="checkin-pain"]', page);
+    const sleepInput = $('#checkin-sleep');
+    const hydrationInput = $('#checkin-hydration');
+    const weightInput = $('#checkin-weight');
+
+    // — Az űrlap dinamikus részei —
+    CHECKIN_SCALES.forEach(([name, label, [low, high]]) => {
+      scalesWrap.appendChild(buildScale({ name, label, min: 1, max: 5, hint: `1 = ${low} · 5 = ${high}` }));
+    });
+    MUSCLE_GROUPS.forEach(([key, label]) => {
+      sorenessWrap.appendChild(buildScale({ name: `soreness.${key}`, label, min: 0, max: 5 }));
+      painWrap.appendChild(buildScale({ name: `pain.${key}`, label, min: 0, max: 10 }));
+    });
+    painWrap.appendChild(buildScale({ name: 'pain.general', label: 'Általános fájdalom', min: 0, max: 10 }));
+    {
+      const [name, label, [low, high]] = MOOD_SCALE;
+      $('.rc-extra-fields', page).before(buildScale({ name, label, min: 1, max: 5, hint: `1 = ${low} · 5 = ${high}` }));
+    }
+
+    /** Egy skála a mező-neve alapján. */
+    const scaleFor = (name) => $(`.rc-scale[data-field="${name}"]`, page);
+
+    /** Az űrlap kitöltése a szerverről kapott check-inből (vagy ürítése). */
+    const fillForm = (checkin) => {
+      const numberOrEmpty = (value) => (value === null || value === undefined ? '' : String(value));
+      sleepInput.value = numberOrEmpty(checkin?.sleepHours);
+      hydrationInput.value = numberOrEmpty(checkin?.hydration);
+      weightInput.value = ''; // a testsúlyt nem töltjük vissza: új mérés, nem szerkesztés
+
+      [...CHECKIN_SCALES, MOOD_SCALE].forEach(([name]) => writeScale(scaleFor(name), checkin?.[name] ?? null));
+      MUSCLE_GROUPS.forEach(([key]) => {
+        writeScale(scaleFor(`soreness.${key}`), checkin?.soreness?.[key] ?? null);
+        writeScale(scaleFor(`pain.${key}`), checkin?.pain?.[key] ?? null);
+      });
+      writeScale(scaleFor('pain.general'), checkin?.pain?.general ?? null);
+
+      stateEl.textContent = checkin ? 'ma már kitöltötted — módosítható' : 'ma még nincs kitöltve';
+      stateEl.dataset.filled = String(Boolean(checkin));
+    };
+
+    /** Az űrlap beolvasása a PUT /api/checkin törzsévé. Az üres mezők null-ként
+        mennek: a motor a „nem adta meg" esetet nem nullaként, hanem
+        súly-újraosztással kezeli. */
+    const readForm = () => {
+      const numberOrNull = (input) => (input.value.trim() === '' ? null : Number(input.value));
+      const body = {
+        sleepHours: numberOrNull(sleepInput),
+        hydration: numberOrNull(hydrationInput),
+        weightKg: numberOrNull(weightInput),
+        soreness: {},
+        pain: {},
+      };
+      [...CHECKIN_SCALES, MOOD_SCALE].forEach(([name]) => { body[name] = readScale(scaleFor(name)); });
+      MUSCLE_GROUPS.forEach(([key]) => {
+        const soreness = readScale(scaleFor(`soreness.${key}`));
+        if (soreness !== null) body.soreness[key] = soreness;
+        const pain = readScale(scaleFor(`pain.${key}`));
+        if (pain !== null) body.pain[key] = pain;
+      });
+      const generalPain = readScale(scaleFor('pain.general'));
+      if (generalPain !== null) body.pain.general = generalPain;
+      return body;
+    };
+
+    // A ± léptetőgombok ugyanúgy működnek, mint az edzésnaplóban
+    form.addEventListener('click', (event) => { handleStepClick(event); });
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const body = readForm();
+
+      // Kliens-oldali előellenőrzés a beszédesebb hibaüzenetért; a szerver
+      // ugyanezt újra elvégzi (a kliens értékeiben nem bízunk).
+      if (body.sleepHours !== null && (!Number.isFinite(body.sleepHours) || body.sleepHours < 0 || body.sleepHours > 24)) {
+        showToast('Az alvás időtartama 0 és 24 óra között adható meg', 'error');
+        sleepInput.focus();
+        return;
+      }
+      if (body.weightKg !== null && (!Number.isFinite(body.weightKg) || body.weightKg < 30 || body.weightKg > 300)) {
+        showToast('Adj meg érvényes testsúlyt (30–300 kg)', 'error');
+        weightInput.focus();
+        return;
+      }
+
+      const submit = $('.rc-save', form);
+      submit.disabled = true;
+      try {
+        // A válasz a friss riportot is tartalmazza — nem kell külön lekérni
+        const { checkin, weightEntry, readiness } = await api.saveCheckin(body);
+        fillForm(checkin);
+        renderRecovery(readiness);
+        showToast(weightEntry
+          ? `Check-in mentve · testsúly ${formatNumber(weightEntry.kg)} kg`
+          : 'Check-in mentve');
+        // Az áttekintő készenlét-gyűrűje ugyanebből a motorból jön
+        renderDashboard().catch((err) => console.error('Áttekintő frissítési hiba:', err));
+      } catch (err) {
+        console.error(err);
+        showToast(err.message || 'Nem sikerült menteni a check-int', 'error');
+      } finally {
+        submit.disabled = false;
+      }
+    });
+
+    /** Friss riport + check-in a szerverről. A pageEffects és az edzés
+        lezárása is ezt hívja. */
+    refreshRecovery = async () => {
+      const [report, checkin] = await Promise.all([api.getReadiness(), api.getCheckin()]);
+      fillForm(checkin);
+      renderRecovery(report);
+    };
+
+    await refreshRecovery();
+  }
+
   async function setupWorkout(videoModal, picker) {
     const page = $('[data-page="workout"]');
     const titleInput = $('#workout-name');
@@ -1593,6 +1927,9 @@
         renderPrs().catch(console.error);
         refreshVolumeChart?.().catch(console.error);
         renderDashboard().catch(console.error);
+        // A friss edzés azonnal beépül a készenlét-becslésbe (izomcsoportok,
+        // CNS, gyakorlat-ajánlások) — nem kell megvárni a következő betöltést
+        refreshRecovery?.().catch(console.error);
         showToast('Edzés befejezve és naplózva');
         navigate('summary');
       } catch (err) {
@@ -2380,6 +2717,7 @@
     const athleteModal = await safe(setupAthleteModal);
     setupDashboard(settingsModal);
     await safe(setupWeightLog);
+    await safe(setupRecovery);
     // A közös gyakorlat-választó — az edzésnapló és a terv-építő is ezt célozza át
     const picker = await safe(setupExercisePicker);
     const workout = await safe(() => setupWorkout(videoModal, picker));

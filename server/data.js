@@ -26,35 +26,117 @@ export const data = {
     /* A heti volumen-összehasonlítást (volumeThisWeek/volumeLastWeek) a szerver
        számolja a mentett edzésekből (GET /api/charts) — itt nincs seed-adata. */
   },
-  /* Az áttekintő (dashboard) adatai. Csak a regenerációs sorok jönnek innen —
-     ezekhez nincs valódi adatforrás (alvás/fáradtság/izomláz mérés), ezért
-     maradnak demo-értékek. A készenlét, a sorozat, a dailyStats (kalória/
-     fehérje) és az aktuális edzés neve NINCS itt: azokat a szerver számolja
-     a mentett edzésekből, a táplálkozási naplóból, ill. az aznapi
-     piszkozatból/tervből (GET /api/dashboard). */
-  dashboard: {
-    recovery: { sleep: '7.5 óra', fatigue: 'Közepes', soreness: 'Enyhe' },
-  },
+  /* Az áttekintő (dashboard) adatai. Itt már NINCS semmi: a készenlét, a
+     regenerációs sorok (alvás/fáradtság/izomláz), a sorozat, a dailyStats
+     (kalória/fehérje) és az aktuális edzés neve mind számolt érték — a
+     Recovery Engine (server/recovery.js), a napi check-in, a mentett edzések,
+     a táplálkozási napló, ill. az aznapi piszkozat/terv adja őket
+     (GET /api/dashboard). A kulcs azért marad, hogy a végpont mindig
+     objektumot kapjon, amire ráolvaszthatja a számolt mezőket. */
+  dashboard: {},
   /* Az új szettek alapértékei. Tiszta számok: az ismétlés és az RPE darab,
      a súly kilogramm — a felület szám-mezőkkel szerkeszti őket. */
   defaultSet: { reps: '10', weight: '60', rpe: '8', done: false },
   /* A gyakorlat-választó (edzésépítő) katalógusa. A group a szűrő-chipek
-     alapja — a chipek listája ebből áll össze, új csoport felvételéhez elég
-     ide új gyakorlatot írni. */
+     alapja — a chipek listája ebből áll össze (a katalógus sorrendjében),
+     ezért szándékosan DURVA: hat csoport, hogy a chip-sor rövid maradjon.
+     A finom felbontás a `load` mezőben van: melyik izomcsoportot mennyire
+     terheli a gyakorlat (a súlyok összege 1). Ezt a Recovery Engine használja
+     az izomcsoportonkénti regeneráció becsléséhez — a kulcsok a
+     server/muscles.js MUSCLE_GROUPS kulcsai. Kézzel beírt (katalóguson kívüli)
+     gyakorlatnevekre a muscles.js kulcsszavas becslése ugrik be. */
   exerciseCatalog: [
-    { name: 'Fekvenyomás', tag: 'Összetett', muscles: 'Mell · Tricepsz', group: 'Mell' },
-    { name: 'Ferde fekvenyomás', tag: 'Összetett', muscles: 'Felső mell', group: 'Mell' },
-    { name: 'Tolódzkodás', tag: 'Összetett', muscles: 'Mell · Tricepsz', group: 'Mell' },
-    { name: 'Kábeles keresztezés', tag: 'Izolációs', muscles: 'Mell', group: 'Mell' },
-    { name: 'Gépi mellnyomás', tag: 'Izolációs', muscles: 'Mell', group: 'Mell' },
-    { name: 'Húzódzkodás', tag: 'Összetett', muscles: 'Hát · Bicepsz', group: 'Hát' },
-    { name: 'Ülő evezés', tag: 'Összetett', muscles: 'Hát', group: 'Hát' },
-    { name: 'Széles lehúzás', tag: 'Izolációs', muscles: 'Széles hát', group: 'Hát' },
-    { name: 'Vállból nyomás', tag: 'Összetett', muscles: 'Váll', group: 'Váll' },
-    { name: 'Oldalemelés', tag: 'Izolációs', muscles: 'Váll', group: 'Váll' },
-    { name: 'Guggolás', tag: 'Összetett', muscles: 'Comb · Far', group: 'Láb' },
-    { name: 'Kitörés', tag: 'Összetett', muscles: 'Comb · Far', group: 'Láb' },
-    { name: 'Lábtolás', tag: 'Izolációs', muscles: 'Comb', group: 'Láb' },
+    // — Mell —
+    { name: 'Fekvenyomás', tag: 'Összetett', muscles: 'Mell · Tricepsz', group: 'Mell',
+      load: { chest: 0.6, shoulders: 0.15, arms: 0.25 } },
+    { name: 'Ferde fekvenyomás', tag: 'Összetett', muscles: 'Felső mell', group: 'Mell',
+      load: { chest: 0.65, shoulders: 0.2, arms: 0.15 } },
+    { name: 'Tolódzkodás', tag: 'Összetett', muscles: 'Mell · Tricepsz', group: 'Mell',
+      load: { chest: 0.5, arms: 0.35, shoulders: 0.15 } },
+    { name: 'Kábeles keresztezés', tag: 'Izolációs', muscles: 'Mell', group: 'Mell',
+      load: { chest: 0.9, shoulders: 0.1 } },
+    { name: 'Gépi mellnyomás', tag: 'Izolációs', muscles: 'Mell', group: 'Mell',
+      load: { chest: 0.75, arms: 0.15, shoulders: 0.1 } },
+    { name: 'Fekvőtámasz', tag: 'Összetett', muscles: 'Mell · Tricepsz', group: 'Mell',
+      load: { chest: 0.55, arms: 0.25, shoulders: 0.15, core: 0.05 } },
+
+    // — Hát —
+    { name: 'Húzódzkodás', tag: 'Összetett', muscles: 'Hát · Bicepsz', group: 'Hát',
+      load: { back: 0.7, arms: 0.25, core: 0.05 } },
+    { name: 'Ülő evezés', tag: 'Összetett', muscles: 'Hát', group: 'Hát',
+      load: { back: 0.7, arms: 0.2, shoulders: 0.1 } },
+    { name: 'Hajolt evezés', tag: 'Összetett', muscles: 'Hát · Törzs', group: 'Hát',
+      load: { back: 0.6, arms: 0.15, shoulders: 0.1, core: 0.15 } },
+    { name: 'Széles lehúzás', tag: 'Izolációs', muscles: 'Széles hát', group: 'Hát',
+      load: { back: 0.75, arms: 0.25 } },
+    { name: 'Felhúzás', tag: 'Összetett', muscles: 'Hát · Hamstring · Far', group: 'Hát',
+      load: { back: 0.35, hamstrings: 0.3, glutes: 0.25, core: 0.1 } },
+    { name: 'Román felhúzás', tag: 'Összetett', muscles: 'Hamstring · Far', group: 'Hát',
+      load: { hamstrings: 0.5, glutes: 0.3, back: 0.15, core: 0.05 } },
+    { name: 'Hiperextenzió', tag: 'Izolációs', muscles: 'Deréktáj · Far', group: 'Hát',
+      load: { back: 0.4, hamstrings: 0.3, glutes: 0.3 } },
+    { name: 'Vállvonogatás', tag: 'Izolációs', muscles: 'Csuklyás', group: 'Hát',
+      load: { back: 0.6, shoulders: 0.4 } },
+
+    // — Váll —
+    { name: 'Vállból nyomás', tag: 'Összetett', muscles: 'Váll · Tricepsz', group: 'Váll',
+      load: { shoulders: 0.65, arms: 0.25, core: 0.1 } },
+    { name: 'Arnold nyomás', tag: 'Összetett', muscles: 'Váll', group: 'Váll',
+      load: { shoulders: 0.7, arms: 0.2, core: 0.1 } },
+    { name: 'Oldalemelés', tag: 'Izolációs', muscles: 'Váll', group: 'Váll',
+      load: { shoulders: 1 } },
+    { name: 'Hátsó vállemelés', tag: 'Izolációs', muscles: 'Hátsó váll', group: 'Váll',
+      load: { shoulders: 0.7, back: 0.3 } },
+    { name: 'Face pull', tag: 'Izolációs', muscles: 'Hátsó váll · Hát', group: 'Váll',
+      load: { shoulders: 0.6, back: 0.4 } },
+
+    // — Kar —
+    { name: 'Bicepsz hajlítás', tag: 'Izolációs', muscles: 'Bicepsz', group: 'Kar',
+      load: { arms: 1 } },
+    { name: 'Kalapács hajlítás', tag: 'Izolációs', muscles: 'Bicepsz · Alkar', group: 'Kar',
+      load: { arms: 1 } },
+    { name: 'Tricepsz nyújtás', tag: 'Izolációs', muscles: 'Tricepsz', group: 'Kar',
+      load: { arms: 1 } },
+    { name: 'Homlok nyomás', tag: 'Izolációs', muscles: 'Tricepsz', group: 'Kar',
+      load: { arms: 1 } },
+    { name: 'Szűk fekvenyomás', tag: 'Összetett', muscles: 'Tricepsz · Mell', group: 'Kar',
+      load: { arms: 0.5, chest: 0.4, shoulders: 0.1 } },
+    { name: 'Alkar hajlítás', tag: 'Izolációs', muscles: 'Alkar', group: 'Kar',
+      load: { arms: 1 } },
+
+    // — Láb —
+    { name: 'Guggolás', tag: 'Összetett', muscles: 'Comb · Far', group: 'Láb',
+      load: { quads: 0.55, glutes: 0.25, core: 0.2 } },
+    { name: 'Első guggolás', tag: 'Összetett', muscles: 'Comb · Törzs', group: 'Láb',
+      load: { quads: 0.6, glutes: 0.2, core: 0.2 } },
+    { name: 'Kitörés', tag: 'Összetett', muscles: 'Comb · Far', group: 'Láb',
+      load: { quads: 0.45, glutes: 0.35, hamstrings: 0.1, core: 0.1 } },
+    { name: 'Bolgár kitörés', tag: 'Összetett', muscles: 'Comb · Far', group: 'Láb',
+      load: { quads: 0.4, glutes: 0.4, hamstrings: 0.1, core: 0.1 } },
+    { name: 'Lábtolás', tag: 'Izolációs', muscles: 'Comb', group: 'Láb',
+      load: { quads: 0.7, glutes: 0.3 } },
+    { name: 'Combnyújtás', tag: 'Izolációs', muscles: 'Quadriceps', group: 'Láb',
+      load: { quads: 1 } },
+    { name: 'Combhajlítás', tag: 'Izolációs', muscles: 'Hamstring', group: 'Láb',
+      load: { hamstrings: 1 } },
+    { name: 'Csípőtolás', tag: 'Összetett', muscles: 'Farizom', group: 'Láb',
+      load: { glutes: 0.7, hamstrings: 0.25, core: 0.05 } },
+    { name: 'Vádliemelés', tag: 'Izolációs', muscles: 'Vádli', group: 'Láb',
+      load: { calves: 1 } },
+    { name: 'Ülő vádliemelés', tag: 'Izolációs', muscles: 'Vádli', group: 'Láb',
+      load: { calves: 1 } },
+
+    // — Törzs —
+    { name: 'Plank', tag: 'Izolációs', muscles: 'Törzs', group: 'Törzs',
+      load: { core: 1 } },
+    { name: 'Hasprés', tag: 'Izolációs', muscles: 'Hasizom', group: 'Törzs',
+      load: { core: 1 } },
+    { name: 'Fekvő lábemelés', tag: 'Izolációs', muscles: 'Alsó hasizom', group: 'Törzs',
+      load: { core: 1 } },
+    { name: 'Orosz csavarás', tag: 'Izolációs', muscles: 'Ferde hasizom', group: 'Törzs',
+      load: { core: 0.85, arms: 0.15 } },
+    { name: 'Farmer séta', tag: 'Összetett', muscles: 'Törzs · Alkar', group: 'Törzs',
+      load: { core: 0.6, arms: 0.25, back: 0.15 } },
   ],
   foods: [
     { name: 'Csirkemell', kcal: 200, protein: 20, carbs: 0, fat: 4, per: '100 g' },

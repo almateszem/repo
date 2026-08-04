@@ -24,6 +24,7 @@
     <div class="side-nav-brand">FitTrack Pro</div>
     <ul class="side-nav-list">
       <li><a class="side-nav-link" href="#dashboard" aria-current="page">Áttekintés</a></li>
+      <li><a class="side-nav-link" href="#recovery">Regeneráció</a></li>
       <li><a class="side-nav-link" href="#coach">Edző</a></li>
       <li><a class="side-nav-link" href="#plans">Tervek</a></li>
       <li><a class="side-nav-link" href="#workout">Edzés</a></li>
@@ -66,10 +67,14 @@
           </button>
         </header>
 
-        <section class="db-readiness" aria-label="Készenléti állapot">
+        <!-- A kártya egésze átvisz a Regeneráció oldalra. Ez a mobil belépési
+             pontja is: a nav gyűrűnek csak négy iránya van, a Regeneráció
+             oldal így innen (és a side-navból) érhető el. -->
+        <a class="db-readiness" href="#recovery" aria-label="Készenléti állapot — részletek a Regeneráció oldalon">
           <div class="db-readiness-text">
             <span class="db-label">Készenléti állapot</span>
             <span class="db-percent"><span class="db-percent-num">0</span><span class="db-percent-sign">%</span></span>
+            <span class="db-readiness-note" data-readiness-note></span>
           </div>
           <div class="db-ring" role="img" aria-label="Készenléti állapot">
             <svg viewBox="0 0 100 100">
@@ -77,7 +82,7 @@
               <circle class="db-ring-fg" cx="50" cy="50" r="42"></circle>
             </svg>
           </div>
-        </section>
+        </a>
 
         <section class="db-recovery" aria-label="Regeneráció">
           <div class="db-recovery-item">
@@ -431,6 +436,139 @@
           <a class="su-back" href="#workout">Vissza az edzéshez</a>
         </div>
       </section>
+
+      <!-- ================================================================
+           Regeneráció — a Recovery Engine felülete. A napi check-in, az
+           összesített készenlét komponens-bontással, izomcsoportonkénti
+           regeneráció, CNS-becslés és a gyakorlat-specifikus ajánlások.
+           Minden érték a szerverről jön (GET /api/readiness); ami nem
+           számolható, az nem jelenik meg kitalált számként.
+           ================================================================ -->
+      <section class="app-page rc-page" data-page="recovery" aria-labelledby="title-recovery" hidden>
+        <header class="rc-header">
+          <h2 class="rc-title" id="title-recovery">Regeneráció</h2>
+          <p class="rc-subtitle">A mai készenléted és amit kezdeni érdemes vele</p>
+        </header>
+
+        <!-- Összesített készenlét -->
+        <section class="rc-score" aria-labelledby="title-rc-score">
+          <div class="rc-score-text">
+            <h3 class="db-label" id="title-rc-score">Mai készenlét</h3>
+            <span class="db-percent"><span class="rc-score-num">0</span><span class="db-percent-sign">/100</span></span>
+            <span class="rc-verdict" data-rc-verdict></span>
+          </div>
+          <div class="db-ring rc-ring" role="img" aria-label="Mai készenlét" data-rc-ring>
+            <svg viewBox="0 0 100 100">
+              <circle class="db-ring-bg" cx="50" cy="50" r="42"></circle>
+              <circle class="db-ring-fg" cx="50" cy="50" r="42"></circle>
+            </svg>
+          </div>
+        </section>
+
+        <!-- Megbízhatóság + a sapkák indoklása. Ez a felület őszinteség-sávja:
+             kimondja, mire épül a szám és mi hiányzik hozzá. -->
+        <p class="rc-confidence" data-rc-confidence>
+          <span class="rc-confidence-badge" data-rc-confidence-badge></span>
+          <span data-rc-confidence-text></span>
+        </p>
+        <ul class="rc-caps" data-list="rc-caps" hidden></ul>
+
+        <!-- Napi check-in — kétszintű: gyors blokk + kinyitható részletes -->
+        <form class="rc-checkin" data-form="checkin" aria-labelledby="title-checkin">
+          <div class="rc-checkin-head">
+            <h3 class="rc-section-title" id="title-checkin">Napi check-in</h3>
+            <span class="rc-checkin-state" data-checkin-state></span>
+          </div>
+
+          <div class="rc-field">
+            <label class="field-label" for="checkin-sleep">Mennyit aludtál?</label>
+            <span class="wk-num rc-num">
+              <button class="wk-num-step" type="button" data-dir="-1" tabindex="-1" aria-hidden="true">−</button>
+              <input class="wk-num-input" id="checkin-sleep" name="sleepHours" type="number"
+                     inputmode="decimal" min="0" max="24" step="0.5" placeholder="pl. 7.5" autocomplete="off">
+              <button class="wk-num-step" type="button" data-dir="1" tabindex="-1" aria-hidden="true">+</button>
+            </span>
+            <span class="rc-field-unit">óra</span>
+          </div>
+
+          <!-- Az 1–5 skálákat a script.js építi fel chip-csoportként (a terv-
+               építő nap-chipjeivel azonos aria-pressed mintával). -->
+          <div class="rc-scales" data-list="checkin-scales"></div>
+
+          <details class="rc-details">
+            <summary class="rc-details-summary">Részletes kitöltés — izomláz, fájdalom, közérzet</summary>
+
+            <div class="rc-details-body">
+              <p class="rc-hint">Az izomcsoportonkénti izomláz (0 = semmi, 5 = nagyon erős) pontosítja
+                a csoportonkénti becslést. Amit kihagysz, annak a súlya újraoszlik.</p>
+              <div class="rc-muscle-inputs" data-list="checkin-soreness"></div>
+
+              <p class="rc-hint">Fájdalom vagy sérülés (0–10). A 7 feletti érték letiltja az érintett
+                izomcsoportot terhelő gyakorlatokat.</p>
+              <div class="rc-pain-inputs" data-list="checkin-pain"></div>
+
+              <div class="rc-extra-fields">
+                <div class="rc-field">
+                  <label class="field-label" for="checkin-hydration">Folyadék</label>
+                  <span class="wk-num rc-num">
+                    <button class="wk-num-step" type="button" data-dir="-1" tabindex="-1" aria-hidden="true">−</button>
+                    <input class="wk-num-input" id="checkin-hydration" name="hydration" type="number"
+                           inputmode="decimal" min="0" max="15" step="0.25" placeholder="pl. 3" autocomplete="off">
+                    <button class="wk-num-step" type="button" data-dir="1" tabindex="-1" aria-hidden="true">+</button>
+                  </span>
+                  <span class="rc-field-unit">liter</span>
+                </div>
+                <div class="rc-field">
+                  <label class="field-label" for="checkin-weight">Testsúly</label>
+                  <span class="wk-num rc-num">
+                    <button class="wk-num-step" type="button" data-dir="-1" tabindex="-1" aria-hidden="true">−</button>
+                    <input class="wk-num-input" id="checkin-weight" name="weightKg" type="number"
+                           inputmode="decimal" min="30" max="300" step="0.1" placeholder="pl. 82.5" autocomplete="off">
+                    <button class="wk-num-step" type="button" data-dir="1" tabindex="-1" aria-hidden="true">+</button>
+                  </span>
+                  <span class="rc-field-unit">kg</span>
+                </div>
+              </div>
+              <p class="rc-hint">A testsúly a testsúly-naplóba is bekerül — nem kell külön rögzítened.</p>
+            </div>
+          </details>
+
+          <button class="rc-save" type="submit">Check-in mentése</button>
+        </form>
+
+        <!-- Komponens-bontás: miből jött ki a pontszám -->
+        <section class="rc-card" aria-labelledby="title-rc-components">
+          <h3 class="rc-section-title" id="title-rc-components">Miből jön a pontszám</h3>
+          <ul class="rc-components" data-list="rc-components"></ul>
+          <p class="rc-hint">A HRV/pulzus komponens nincs a képletben: az alkalmazásnak nincs
+            pulzusadat-forrása, kitalált értéket pedig nem teszünk bele. A súlya arányosan
+            szétoszlik a többi komponens között — ahogy minden ki nem töltött mezőé is.</p>
+        </section>
+
+        <!-- CNS -->
+        <section class="rc-card rc-cns" aria-labelledby="title-rc-cns">
+          <div class="rc-cns-text">
+            <h3 class="rc-section-title" id="title-rc-cns">Idegrendszer (CNS)</h3>
+            <p class="rc-cns-note" data-rc-cns-note></p>
+          </div>
+          <span class="rc-cns-value"><span data-rc-cns>—</span><span class="rc-unit">%</span></span>
+        </section>
+
+        <!-- Izomcsoportok -->
+        <section class="rc-card" aria-labelledby="title-rc-muscles">
+          <h3 class="rc-section-title" id="title-rc-muscles">Izomcsoportok</h3>
+          <ul class="rc-muscles" data-list="rc-muscles"></ul>
+        </section>
+
+        <!-- Gyakorlat-ajánlások -->
+        <section class="rc-card" aria-labelledby="title-rc-lifts">
+          <h3 class="rc-section-title" id="title-rc-lifts">Mai ajánlások</h3>
+          <ul class="rc-lifts" data-list="rc-lifts"></ul>
+          <p class="rc-empty" data-rc-lifts-empty hidden>Még nincs elég naplózott edzés a gyakorlat-
+            specifikus becsléshez. A fő emelésekhez (fekvenyomás, guggolás, felhúzás) egyetlen
+            naplózott alkalom is elég, a többihez három kell.</p>
+        </section>
+      </section>
     </main>
 
     <!-- Mobile/tablet nav ring (desktop uses the side navigation instead) -->
@@ -694,6 +832,57 @@
     </li>
   </template>
 
+  <!-- Regeneráció-oldali sablonok -->
+
+  <!-- Egy 0–5 vagy 1–5 skála chip-csoportként. A választott érték az
+       aria-pressed attribútumban él (ugyanaz a minta, mint a terv-építő
+       nap-chipjeinél) — nincs külön állapot a DOM mellett. -->
+  <template id="tpl-scale">
+    <div class="rc-scale">
+      <span class="rc-scale-label field-label"></span>
+      <div class="rc-scale-chips" role="group"></div>
+      <span class="rc-scale-hint"></span>
+    </div>
+  </template>
+
+  <!-- Komponens-sor: mennyit ad a pontszámhoz és milyen súllyal -->
+  <template id="tpl-rc-component">
+    <li class="rc-component">
+      <span class="rc-component-label"></span>
+      <span class="rc-component-weight"></span>
+      <div class="pl-progress rc-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+        <div class="pl-progress-fill"></div>
+      </div>
+      <span class="rc-component-value"></span>
+    </li>
+  </template>
+
+  <!-- Izomcsoport-sor -->
+  <template id="tpl-rc-muscle">
+    <li class="rc-muscle">
+      <span class="rc-muscle-label"></span>
+      <div class="pl-progress rc-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+        <div class="pl-progress-fill"></div>
+      </div>
+      <span class="rc-muscle-value"></span>
+      <span class="rc-muscle-meta"></span>
+    </li>
+  </template>
+
+  <!-- Gyakorlat-ajánlás -->
+  <template id="tpl-rc-lift">
+    <li class="rc-lift">
+      <div class="rc-lift-head">
+        <span class="rc-lift-name"></span>
+        <span class="rc-lift-score"></span>
+      </div>
+      <p class="rc-lift-text"></p>
+      <div class="rc-lift-deltas">
+        <span class="rc-lift-delta"><span class="rc-lift-delta-label">Súly</span><span data-lift-load></span></span>
+        <span class="rc-lift-delta"><span class="rc-lift-delta-label">Volumen</span><span data-lift-volume></span></span>
+      </div>
+    </li>
+  </template>
 
 </body>
 </html>
