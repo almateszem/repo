@@ -70,6 +70,22 @@ db.exec(`
     plan_id    INTEGER,                             -- melyik tervből indult (NULL, ha szabad edzés)
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+  -- Napi regenerációs check-in: naponta egy sor, a dátum a kulcs.
+  -- MINDEN mérőszám-oszlop NULL-ozható, és ez lényeges: a Recovery Engine a
+  -- „nem adta meg" és a „nulla" esetet külön kezeli — a hiányzó mezők súlya
+  -- arányosan újraoszlik a képletben, nem nullaként számít bele.
+  CREATE TABLE IF NOT EXISTS checkins (
+    date          TEXT PRIMARY KEY,     -- "ÉÉÉÉ.HH.NN", a szerver helyi napja
+    sleep_hours   REAL,                 -- alvás időtartama órában
+    sleep_quality INTEGER,              -- 1–5
+    energy        INTEGER,              -- 1–5
+    stress        INTEGER,              -- 1–5 (magasabb = rosszabb)
+    mood          INTEGER,              -- 1–5 közérzet
+    hydration     REAL,                 -- liter
+    soreness      TEXT NOT NULL DEFAULT '{}',  -- JSON: { chest: 0..5, … } izomcsoportonként
+    pain          TEXT NOT NULL DEFAULT '{}',  -- JSON: { general: 0..10, quads: 0..10, … }
+    updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+  );
 `);
 
 /* ---- Migrációk ----
@@ -168,6 +184,60 @@ export function getNutritionTotals(date) {
   return { ...sum, goal: getCollection('nutritionGoal') || { calories: 0, protein: 0 } };
 }
 
+/** Egy DB-sor → a Recovery Engine által várt check-in alak (JSON-mezők
+    visszafejtve, a hiányzó értékek null-ok maradnak). */
+const toCheckin = (row) => (row ? {
+  date: row.date,
+  sleepHours: row.sleep_hours,
+  sleepQuality: row.sleep_quality,
+  energy: row.energy,
+  stress: row.stress,
+  mood: row.mood,
+  hydration: row.hydration,
+  soreness: JSON.parse(row.soreness || '{}'),
+  pain: JSON.parse(row.pain || '{}'),
+} : null);
+
+const CHECKIN_COLUMNS = `date, sleep_hours, sleep_quality, energy, stress, mood,
+                         hydration, soreness, pain`;
+
+/** Egy adott nap check-inje, vagy null. */
+export function getCheckin(date) {
+  return toCheckin(db.prepare(`SELECT ${CHECKIN_COLUMNS} FROM checkins WHERE date = ?`).get(date));
+}
+
+/** A legutóbbi `limit` check-in, legújabb elöl. A motor ebből számolja az
+    alvásadósságot és a becslés megbízhatóságát. */
+export function getCheckins(limit = 60) {
+  return db.prepare(`SELECT ${CHECKIN_COLUMNS} FROM checkins ORDER BY date DESC LIMIT ?`)
+    .all(limit)
+    .map(toCheckin);
+}
+
+/** Egy nap check-injének mentése/felülírása. A megadott mezők közül csak az
+    érvényeseket írjuk; a hiányzók NULL-ként maradnak (ld. a tábla kommentjét).
+    Ismételt mentéskor a sor frissül — a felület így szerkeszthetőként kezeli
+    az aznapi check-int. Visszaadja a mentett sort. */
+export function saveCheckin(date, fields) {
+  db.prepare(`
+    INSERT INTO checkins (date, sleep_hours, sleep_quality, energy, stress, mood,
+                          hydration, soreness, pain, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+    ON CONFLICT(date) DO UPDATE SET
+      sleep_hours = excluded.sleep_hours, sleep_quality = excluded.sleep_quality,
+      energy      = excluded.energy,      stress        = excluded.stress,
+      mood        = excluded.mood,        hydration     = excluded.hydration,
+      soreness    = excluded.soreness,    pain          = excluded.pain,
+      updated_at  = excluded.updated_at
+  `).run(
+    date,
+    fields.sleepHours, fields.sleepQuality, fields.energy, fields.stress,
+    fields.mood, fields.hydration,
+    JSON.stringify(fields.soreness ?? {}), JSON.stringify(fields.pain ?? {}),
+  );
+  return getCheckin(date);
+}
+
 /** A felhasználó által készített edzéstervek, legújabb elöl. */
 export function getUserPlans() {
   return db.prepare('SELECT id, name, date, exercises, days FROM plans ORDER BY id DESC').all()
@@ -212,6 +282,7 @@ export function getSnapshot() {
   snapshot.workouts = getWorkouts();
   snapshot.workoutDraft = getWorkoutDraft();
   snapshot.userPlans = getUserPlans();
+  snapshot.checkins = getCheckins(1000);
   return snapshot;
 }
 
