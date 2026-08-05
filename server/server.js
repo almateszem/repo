@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 import {
   getCollection, getWeightLog, getSnapshot,
   addWeightEntry, getNutritionTotals, addNutritionEntry,
+  getNutritionLogForDate, deleteNutritionEntry,
   getWorkouts, addWorkout, getWorkoutDraft, saveWorkoutDraft, clearWorkoutDraft,
   getUserPlans, addPlan, updatePlan, getPlanForDay,
   getCheckin, getCheckins, saveCheckin,
@@ -377,6 +378,9 @@ app.get('/api/weight-log', (req, res) => res.json(getWeightLog()));
 // Napi táplálkozási összesítő (alap + a MAI naplózott ételek)
 app.get('/api/nutrition', (req, res) => res.json(getNutritionTotals(today())));
 
+// A MAI naplózott ételek tételesen — a Táplálkozás oldal „Mai napló" listájához
+app.get('/api/nutrition/log', (req, res) => res.json(getNutritionLogForDate(today())));
+
 // Mentett edzések (legújabb elöl)
 app.get('/api/workouts', (req, res) => res.json(getWorkouts()));
 
@@ -400,7 +404,8 @@ app.post('/api/weight-log', (req, res) => {
 });
 
 /** Étel naplózása. Törzs: { name }. A szerver a foods-ból keresi ki a makrókat
-    (a kliens értékeiben nem bízunk), és a frissített napi összesítőt adja vissza. */
+    (a kliens értékeiben nem bízunk). A válasz { entry, totals }: a létrejött
+    bejegyzés (a mai napló listájához, id-vel a törléshez) és a friss összesítő. */
 app.post('/api/nutrition/log', (req, res) => {
   const name = String(req.body?.name ?? '');
   const food = (getCollection('foods') || []).find((f) => f.name === name);
@@ -408,6 +413,20 @@ app.post('/api/nutrition/log', (req, res) => {
     return res.status(400).json({ error: 'Ismeretlen étel — csak a listában szereplő adható a naplóhoz.' });
   }
   res.status(201).json(addNutritionEntry(food, today()));
+});
+
+/** Naplóbejegyzés törlése (visszavonás). Csak a mai bejegyzés törölhető;
+    a válasz a frissített napi összesítő. */
+app.delete('/api/nutrition/log/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: 'Érvénytelen bejegyzés-azonosító.' });
+  }
+  const totals = deleteNutritionEntry(id, today());
+  if (!totals) {
+    return res.status(404).json({ error: 'Ez a bejegyzés nem törölhető — csak a mai napló módosítható.' });
+  }
+  res.json(totals);
 });
 
 /** A beküldött gyakorlat-lista mezőnkénti normalizálása. A kliens a DOM-ból

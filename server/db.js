@@ -169,6 +169,14 @@ export function getNutritionLog() {
   return db.prepare('SELECT id, name, kcal, protein, carbs, fat, date FROM nutrition_log ORDER BY id').all();
 }
 
+/** Egy adott nap naplózott ételei, rögzítési sorrendben. A Táplálkozás oldal
+    mai naplója ebből épül — enélkül a felhasználó csak összesítést látott, és
+    egy téves koppintást nem tudott visszavonni. */
+export function getNutritionLogForDate(date) {
+  return db.prepare(`SELECT id, name, kcal, protein, carbs, fat, date
+                     FROM nutrition_log WHERE date = ? ORDER BY id`).all(date);
+}
+
 /** A napi táplálkozási összesítő egy adott napra: az AZNAP naplózott ételek
     összege, valamint az edző által kitűzött napi cél (a felület a célhoz
     méri a bevitelt). */
@@ -297,10 +305,22 @@ export function addWeightEntry(kg, date) {
 /** Étel naplózása (a makrók a szerver-oldali food objektumból). Visszaadja a
     frissített napi összesítőt { intake, protein, carbs, fat }. */
 export function addNutritionEntry(food, date) {
-  db.prepare(`INSERT INTO nutrition_log (name, kcal, protein, carbs, fat, date)
-              VALUES (?, ?, ?, ?, ?, ?)`)
-    .run(food.name, food.kcal, food.protein, food.carbs, food.fat, date);
-  return getNutritionTotals(date);
+  const { lastInsertRowid } = db.prepare(
+    `INSERT INTO nutrition_log (name, kcal, protein, carbs, fat, date)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run(food.name, food.kcal, food.protein, food.carbs, food.fat, date);
+  const entry = db.prepare(`SELECT id, name, kcal, protein, carbs, fat, date
+                            FROM nutrition_log WHERE id = ?`).get(Number(lastInsertRowid));
+  return { entry, totals: getNutritionTotals(date) };
+}
+
+/** Egy naplóbejegyzés törlése (a Táplálkozás oldal ✕ gombja). Csak a MAI
+    bejegyzés törölhető: a korábbi napok összesítői már beépültek a
+    készenlét-számításba, azokat visszamenőleg nem írjuk át. Ismeretlen vagy
+    nem aznapi id-re null-t ad — a hívó ebből 404-et képez. */
+export function deleteNutritionEntry(id, date) {
+  const { changes } = db.prepare('DELETE FROM nutrition_log WHERE id = ? AND date = ?').run(id, date);
+  return changes > 0 ? getNutritionTotals(date) : null;
 }
 
 /** A piszkozat felülírása (mindig az 1-es sor) — minden változtatásnál hívjuk.

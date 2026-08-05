@@ -54,7 +54,17 @@ seed nem írja felül.
 ## Amit tudni érdemes
 
 - **Automatikus mentés.** Az edzésnapló minden változtatása fél másodperc múlva
-  piszkozatként a szerverre mentődik, így újratöltés után is megmarad.
+  piszkozatként a szerverre mentődik, így újratöltés után is megmarad. Az
+  edzésnév alatti sor mutatja az állapotot (*Mentés… / Mentve · 18:42 / nem
+  sikerült*); hiba esetén 3, 8 és 20 másodperc múlva automatikusan újrapróbálja,
+  és csak utána adja fel — a felhasználó soha nem hiszi tévesen mentettnek a
+  naplót.
+- **Táplálkozás — mai napló.** A bevitt tételek listája a napi összesítő alatt
+  látszik, bármelyik egy koppintással törölhető. Csak az aznapi bejegyzés
+  módosítható: a korábbi napok összesítői már beépültek a készenlét-számításba.
+- **Megerősítés adatvesztés előtt.** Ha egy terv betöltése megkezdett edzést
+  írna felül, vagy egy teljesített szetteket tartalmazó gyakorlatot vennél ki,
+  az app rákérdez (saját modállal, nem natív `confirm`-mal).
 - **Az „Edzés befejezése" lezárja az edzést**: a napló bekerül a Korábbi
   edzésekhez, a piszkozat törlődik, az Edzés oldal pedig üresen áll készen a
   következőre. Ugyanaznap így nyugodtan kezdhető második edzés is.
@@ -116,6 +126,26 @@ szét, mint bármelyik ki nem töltött mezőé.
 személyre szabott (saját előzményhez mért) referenciához 14 nap edzés-előzmény és
 7 check-in kell; addig testsúlyra skálázott általános referenciával fut, és a
 felület `Tájékoztató` / `Közepes` / `Megbízható` jelzéssel kiírja, mire épül a szám.
+
+## Felület — akadálymentesség és érintés
+
+A frontend néhány szabályt szándékosan tokenszinten tart be, hogy ne
+komponensenként kelljen újratárgyalni:
+
+- **Kontraszt.** A halvány szövegrétegek (`--text-muted`, `--text-faint`) a
+  `--c-bg` háttéren 5,3:1 és 6,3:1 — mindkettő WCAG AA fölött. Az ennél
+  halványabb fehér-alfák (`--fg-40` és lejjebb) **csak keretre és díszítésre**
+  használhatók, szövegre nem.
+- **Beviteli mezők betűmérete.** Minden `input` legalább `--fs-input` (16px):
+  ez alatt az iOS Safari fókuszkor ráközelít a lapra, és nem nagyít vissza.
+- **Érintési célterület.** A kis ikongombok a `.tap-target` osztályt kapják: egy
+  láthatatlan pszeudoelem 44×44px-re tágítja a találati felületet a vizuális
+  méret változtatása nélkül. Ahol két gomb közel ül, a `--tap` egyedileg
+  szűkíthető, hogy a felületek ne fedjenek át (lásd a szett-sor pipa/✕ párosát).
+- **Fókusz.** A `:focus-visible` keret minden interaktív elemen látszik; a
+  szövegmezők csak egérrel/érintéssel veszítik el (`:not(:focus-visible)`).
+- **Oldalváltás.** A router görgetést és fókuszt is átvisz az új oldal
+  címsorára. Ismeretlen hash (skip link, horgony) **nem** okoz oldalváltást.
 
 ## Korlátok (demo)
 

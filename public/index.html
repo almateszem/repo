@@ -44,7 +44,7 @@
 
         <header class="db-header">
           <div class="db-profile">
-            <button class="db-avatar" type="button" data-action="notifications" title="Értesítések"
+            <button class="db-avatar tap-target" type="button" data-action="notifications" title="Értesítések"
                     aria-label="Értesítések" aria-haspopup="true" aria-expanded="false">
               <svg class="db-avatar-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-user"/></svg>
               <span class="db-badge" data-notif-badge>6</span>
@@ -56,13 +56,13 @@
           <div class="notif-panel" data-notif-panel aria-label="Értesítések" hidden>
             <div class="notif-head">
               <span class="notif-title">Értesítések</span>
-              <button class="notif-clear" type="button" data-action="clear-notifications">Összes olvasott</button>
+              <button class="notif-clear tap-target" type="button" data-action="clear-notifications">Összes olvasott</button>
             </div>
             <ul class="notif-list" data-list="notifications"></ul>
             <p class="notif-empty" hidden>Nincs új értesítésed 🎉</p>
           </div>
 
-          <button class="db-settings" type="button" aria-label="Beállítások" title="Beállítások" data-action="settings">
+          <button class="db-settings tap-target" type="button" aria-label="Beállítások" title="Beállítások" data-action="settings">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6a.5.5 0 0 0 .1-.6l-2-3.5a.5.5 0 0 0-.6-.2l-2.5 1a7.4 7.4 0 0 0-1.7-1l-.4-2.6a.5.5 0 0 0-.5-.4h-4a.5.5 0 0 0-.5.4l-.4 2.6a7.4 7.4 0 0 0-1.7 1l-2.5-1a.5.5 0 0 0-.6.2l-2 3.5a.5.5 0 0 0 .1.6L4.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6a.5.5 0 0 0-.1.6l2 3.5c.1.2.4.3.6.2l2.5-1a7.4 7.4 0 0 0 1.7 1l.4 2.6c0 .2.3.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.6a7.4 7.4 0 0 0 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5a.5.5 0 0 0-.1-.6L19.4 13zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z"/></svg>
           </button>
         </header>
@@ -167,7 +167,13 @@
                  aria-describedby="workout-name-error">
         </header>
         <p class="wk-error" id="workout-name-error" hidden>Adj nevet az edzésnek a befejezéshez.</p>
-        <p class="wk-autosave-note">A módosítások automatikusan mentődnek — az Edzés befejezése naplózza az edzést a Korábbi edzésekhez.</p>
+        <!-- Automatikus mentés állapota. Élő régió: korábban csak egy statikus
+             ígéret állt itt, a mentés hibáját pedig semmi nem jelezte — a
+             felhasználó azt hitte, minden mentve van. -->
+        <p class="wk-autosave-note" data-autosave-status aria-live="polite" data-state="idle">
+          <span class="wk-autosave-dot" aria-hidden="true"></span>
+          <span data-autosave-text>A módosítások automatikusan mentődnek — az Edzés befejezése naplózza az edzést a Korábbi edzésekhez.</span>
+        </p>
 
         <div class="wk-list" data-list="exercises"></div>
 
@@ -232,7 +238,7 @@
            ================================================================ -->
       <section class="app-page pb-page" data-page="plan-builder" aria-labelledby="title-builder" hidden>
         <header class="pb-header">
-          <button class="ep-back" type="button" data-action="builder-back" aria-label="Vissza a tervekhez">←</button>
+          <button class="ep-back tap-target" type="button" data-action="builder-back" aria-label="Vissza a tervekhez">←</button>
           <label class="sr-only" for="plan-name">Terv neve</label>
           <input class="wk-title" id="plan-name" maxlength="60" value="Új terv"
                  aria-describedby="plan-name-error">
@@ -264,7 +270,7 @@
            ================================================================ -->
       <section class="app-page ep-page" data-page="exercise-picker" aria-labelledby="title-picker" hidden>
         <header class="ep-header">
-          <button class="ep-back" type="button" data-action="picker-back" aria-label="Vissza a terv-építőhöz">←</button>
+          <button class="ep-back tap-target" type="button" data-action="picker-back" aria-label="Vissza a terv-építőhöz">←</button>
           <div class="ep-header-text">
             <h2 class="ep-title" id="title-picker">Gyakorlat hozzáadása</h2>
             <p class="ep-subtitle"><span data-picker-workout>Új terv</span> <span data-picker-noun>tervhez</span></p>
@@ -311,6 +317,19 @@
         </div>
 
         <p class="nu-coach-goal"><strong>Edző célja:</strong> <span data-nu-goal-text></span></p>
+
+        <!-- Mai napló — a ténylegesen naplózott tételek, törlés-lehetőséggel.
+             Enélkül a felület csak összesített, és egy téves koppintás
+             visszavonhatatlan volt. -->
+        <section class="nu-log" aria-labelledby="title-nu-log">
+          <div class="nu-log-head">
+            <h3 class="nu-log-title" id="title-nu-log">Mai napló</h3>
+            <span class="nu-log-count" data-nu-log-count></span>
+          </div>
+          <ul class="nu-log-list" data-list="nutrition-log"></ul>
+          <p class="nu-log-empty" data-nu-log-empty hidden>Ma még nem naplóztál ételt —
+            a lenti listából egy koppintással hozzáadhatsz.</p>
+        </section>
 
         <div class="nu-search">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4a6 6 0 1 0 3.8 10.6l5 5 1.4-1.4-5-5A6 6 0 0 0 10 4zm0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8z"/></svg>
@@ -581,7 +600,8 @@
       <div class="nav-knob" id="navKnob" role="button" tabindex="0"
            aria-label="Navigáció: húzd a kívánt irányba, vagy koppints az áttekintéshez"></div>
     </div>
-    <p class="nav-hint" aria-hidden="true">← Húzd bármelyik irányba →</p>
+    <p class="nav-hint" aria-hidden="true"><span class="nav-hint-page" data-nav-current></span><span
+      data-nav-hint-tail> · húzd bármelyik irányba</span></p>
   </div>
 
   <!-- ================================================================
@@ -592,7 +612,7 @@
     <div class="video-modal-card" role="dialog" aria-modal="true" aria-labelledby="videoModalTitle">
       <div class="video-modal-head">
         <h3 id="videoModalTitle">Technika videó — <span class="video-modal-exercise">Fekvenyomás</span></h3>
-        <button class="video-modal-close" type="button" data-close-modal aria-label="Bezárás">✕</button>
+        <button class="video-modal-close tap-target" type="button" data-close-modal aria-label="Bezárás">✕</button>
       </div>
       <div class="video-modal-player" role="img" aria-label="Videó előnézet (demo)">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
@@ -617,7 +637,7 @@
     <div class="settings-modal-card" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle">
       <div class="settings-modal-head">
         <h3 id="settingsModalTitle">Beállítások</h3>
-        <button class="settings-modal-close" type="button" data-close-modal aria-label="Bezárás">✕</button>
+        <button class="settings-modal-close tap-target" type="button" data-close-modal aria-label="Bezárás">✕</button>
       </div>
 
       <section class="st-section" aria-labelledby="st-title-profile">
@@ -674,7 +694,7 @@
             <span class="co-modal-tier"></span>
           </div>
         </div>
-        <button class="athlete-modal-close" type="button" data-close-modal aria-label="Bezárás">✕</button>
+        <button class="athlete-modal-close tap-target" type="button" data-close-modal aria-label="Bezárás">✕</button>
       </div>
 
       <p class="co-modal-alert" data-modal-alert hidden></p>
@@ -705,8 +725,37 @@
     </div>
   </div>
 
+  <!-- ================================================================
+       Megerősítő ablak — adatvesztéssel járó műveletekhez (terv betöltése
+       megkezdett edzésre, teljesített szettes gyakorlat eltávolítása).
+       A natív window.confirm helyett: az app saját design-nyelvén szólal
+       meg, és a fókuszkezelése a többi modáléval azonos.
+       ================================================================ -->
+  <div class="confirm-modal" id="confirmModal" aria-hidden="true">
+    <div class="confirm-modal-backdrop" data-close-modal></div>
+    <div class="confirm-modal-card" role="alertdialog" aria-modal="true"
+         aria-labelledby="confirmModalTitle" aria-describedby="confirmModalText">
+      <div class="confirm-modal-head">
+        <h3 id="confirmModalTitle">Biztosan folytatod?</h3>
+        <button class="confirm-modal-close tap-target" type="button" data-close-modal aria-label="Mégse">✕</button>
+      </div>
+      <p class="confirm-modal-text" id="confirmModalText"></p>
+      <div class="confirm-modal-actions">
+        <button class="confirm-cancel" type="button" data-confirm-cancel>Mégse</button>
+        <button class="confirm-ok" type="button" data-confirm-ok>Folytatás</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast notifications (a script.js tölti fel) -->
   <div class="toast-region" role="status" aria-live="polite"></div>
+
+  <!-- Hibabejelentő élő régió. A hibaüzenet vizuálisan a fenti toast-stackben
+       jelenik meg, a képernyőolvasónak viszont ASSERTIVE-ként kell elhangzania
+       — a `polite` megvárja, míg a felolvasó befejezi, amit épp mond, és egy
+       sikertelen mentés hírét nem érdemes sorba állítani. A bejelentést így
+       szétválasztjuk a megjelenítéstől: nincs második, egymásra csúszó stack. -->
+  <div class="sr-only" role="alert" aria-live="assertive" data-error-announcer></div>
 
   <!-- ================================================================
        Templates — ismétlődő listaelemek markupja (a script.js klónozza)
@@ -716,14 +765,14 @@
       <header class="wk-exercise-head">
         <h3 class="wk-exercise-name"></h3>
         <!-- Az edzésnaplóban kapcsolható PR-jelölés; a terv-építőben rejtett -->
-        <button class="wk-pr wk-pr-toggle" type="button" aria-pressed="false"
+        <button class="wk-pr wk-pr-toggle tap-target" type="button" aria-pressed="false"
                 title="Rekord (PR) jelölése" hidden>PR</button>
-        <button class="wk-video-btn" type="button">
+        <button class="wk-video-btn tap-target" type="button">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h11a2 2 0 0 1 2 2v2.2l4-2.4v10.4l-4-2.4V17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/></svg>
         </button>
       </header>
       <div class="wk-set-row wk-set-row--head" aria-hidden="true">
-        <span>Szett</span><span>Ism.</span><span>Súly · kg</span><span>RPE</span><span></span><span></span>
+        <span>Szett</span><span>Ism.</span><span>Súly·kg</span><span>RPE</span><span></span><span></span>
       </div>
       <div class="wk-set-list"></div>
     </article>
@@ -750,8 +799,8 @@
       </span>
       <input class="wk-chip wk-num-input wk-set-rpe" type="number" inputmode="decimal"
              min="0" max="10" step="0.5" autocomplete="off" enterkeyhint="done">
-      <button class="wk-set-check" type="button" aria-pressed="false" aria-label="Szett teljesítve"></button>
-      <button class="wk-set-remove" type="button" title="Szett törlése" aria-label="Szett törlése">✕</button>
+      <button class="wk-set-check tap-target" type="button" aria-pressed="false" aria-label="Szett teljesítve"></button>
+      <button class="wk-set-remove tap-target" type="button" title="Szett törlése" aria-label="Szett törlése">✕</button>
     </div>
   </template>
 
@@ -761,8 +810,19 @@
         <h3 class="ep-item-name"></h3>
         <p class="ep-item-meta"><span class="ep-item-tag"></span><span class="ep-item-muscles"></span></p>
       </div>
-      <button class="ep-item-toggle" type="button" aria-pressed="false"></button>
+      <button class="ep-item-toggle tap-target" type="button" aria-pressed="false"></button>
     </article>
+  </template>
+
+  <template id="tpl-nutrition-entry">
+    <li class="nu-log-item">
+      <div class="nu-log-info">
+        <span class="nu-log-name"></span>
+        <span class="nu-log-macros"></span>
+      </div>
+      <span class="nu-log-kcal"></span>
+      <button class="nu-log-remove tap-target" type="button">✕</button>
+    </li>
   </template>
 
   <template id="tpl-food">
@@ -771,7 +831,7 @@
         <span class="nu-food-name"><span class="nu-food-kcal"></span></span>
         <span class="nu-food-macros"></span>
       </div>
-      <button class="nu-food-add" type="button">→</button>
+      <button class="nu-food-add tap-target" type="button">→</button>
     </li>
   </template>
 
@@ -785,10 +845,10 @@
         </div>
       </div>
       <!-- Szerkesztés — csak a saját (terv-építős) terveken látszik -->
-      <button class="pl-card-edit" type="button" hidden>
+      <button class="pl-card-edit tap-target" type="button" hidden>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10.5-10.5a2 2 0 0 0 0-2.8l-1.2-1.2a2 2 0 0 0-2.8 0L4 16v4zm13.8-13.8 1.4 1.4"/></svg>
       </button>
-      <button class="pl-card-open" type="button">→</button>
+      <button class="pl-card-open tap-target" type="button">→</button>
     </li>
   </template>
 
@@ -817,7 +877,7 @@
   <template id="tpl-setting-toggle">
     <li class="st-toggle">
       <span class="st-toggle-label"></span>
-      <button class="st-switch" type="button" role="switch" aria-checked="true"></button>
+      <button class="st-switch tap-target" type="button" role="switch" aria-checked="true"></button>
     </li>
   </template>
 

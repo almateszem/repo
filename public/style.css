@@ -4,7 +4,7 @@
    Tartalomjegyzék
      1.  Design tokenek (:root)
      2.  Base és reset
-     3.  Akadálymentességi segédosztályok
+     3.  Akadálymentességi segédosztályok (+ .tap-target: érintési célterület)
      4.  App layout és oldalváltás
      5.  Oszlopdiagram (megosztott komponens)
      6.  Dashboard (db-*)
@@ -15,6 +15,7 @@
     11.  Nav ring — mobil/tablet navigáció (nav-*, nl)
     12.  Side nav — desktop navigáció (side-nav-*)
     13.  Modálok — közös alap: technika videó + beállítások (video-modal-*, settings-modal-*)
+    13b. Megerősítő ablak — adatvesztéssel járó műveletekhez (confirm-modal-*)
     14.  Toast értesítések (toast-*)
     15.  Breakpointok: ≥1025px (sidebar), ≥1280px (széles dashboard grid)
     16.  Demo polish — mikro-animációk, értesítés-panel, állapotok
@@ -54,6 +55,7 @@
   --fg-75: rgba(255, 255, 255, .75);
   --fg-70: rgba(255, 255, 255, .7);
   --fg-60: rgba(255, 255, 255, .6);
+  --fg-55: rgba(255, 255, 255, .55);
   --fg-50: rgba(255, 255, 255, .5);
   --fg-45: rgba(255, 255, 255, .45);
   --fg-40: rgba(255, 255, 255, .4);
@@ -79,13 +81,16 @@
   --border-strong: var(--fg-15);
   --text-primary: var(--fg-100);
   --text-secondary: var(--fg-85);
+  /* A halvány szövegrétegek WCAG AA-ra hangolva a --c-bg (#0d0d0f) háttéren:
+     .5 → 5.35:1, .55 → 6.25:1. A korábbi --text-faint (.4) 3.8:1-et adott, és
+     éppen a legkisebb (10–11px-es) feliratokon ült — a legrosszabb párosítás. */
   --text-muted: var(--fg-50);
-  --text-faint: var(--fg-40);
+  --text-faint: var(--fg-55);
 
   /* Tipográfia */
   --font-base: system-ui, -apple-system, "Segoe UI", sans-serif;
-  --fs-2xs: 10px;
-  --fs-xs: 11px;
+  --fs-2xs: 11px; /* 10px volt — a kisbetűs feliratok a halvány színnel együtt olvashatatlanok voltak */
+  --fs-xs: 12px;
   --fs-sm: 12px;
   --fs-md: 13px;
   --fs-base: 14px;
@@ -148,13 +153,25 @@
   --z-modal: 100;
   --z-toast: 110;
 
+  /* Érintés — a minimális kényelmes célterület (WCAG 2.5.5 / iOS HIG).
+     A vizuális méretet nem növeljük vele: a .tap-target recept egy láthatatlan
+     pszeudoelemmel tágítja a találati felületet (lásd 2. szakasz). */
+  --tap-min: 44px;
+
+  /* A beviteli mezők betűmérete. 16px alatt az iOS Safari fókuszkor ráközelít
+     a lapra, és nem nagyít vissza — az edzésnaplóban minden szett-értéknél. */
+  --fs-input: 16px;
+
   /* Layout méretek */
   --page-max: 480px;
   --page-max-desktop: 640px;
   --page-max-wide: 760px;
   --dashboard-max-wide: 980px;
   --sidebar-width: 240px;
-  --nav-ring-clearance: 200px; /* alsó hely a fix nav gyűrűnek mobil nézetben */
+  /* Alsó hely a fix nav gyűrűnek mobil nézetben. 200px volt — egy 667px magas
+     telefonon a nézetablak 30%-a. A gyűrű lejjebb és laposabban ül (lásd 11.
+     szakasz), így 164px elég. */
+  --nav-ring-clearance: 164px;
 }
 
 /* ==========================================================================
@@ -166,6 +183,13 @@ html,
 body {
   margin: 0;
   min-height: 100%;
+}
+
+/* A felület sötét — ezt a böngészőnek is meg kell mondani, különben a natív
+   vezérlők (görgetősáv, a type=search törlő ✕-e, a szám-mezők belső részei,
+   az autofill háttere) világos rendszerstílussal renderelődnek a sötét lapon. */
+:root {
+  color-scheme: dark;
 }
 
 html {
@@ -188,6 +212,12 @@ input {
   font-family: inherit;
 }
 
+/* Minden beviteli mező legalább 16px — lásd --fs-input. A komponensek ennél
+   nagyobbat állíthatnak, kisebbet szándékosan nem. */
+input {
+  font-size: var(--fs-input);
+}
+
 button {
   cursor: pointer;
 }
@@ -203,8 +233,19 @@ button:disabled {
   outline-offset: 2px;
 }
 
-input:focus {
-  outline: none; /* a szövegmezők saját, láthatóan jelölt fókuszstílust kapnak */
+/* A szövegmezők egérrel/érintéssel nem kapnak keretet (a komponenseknek saját
+   fókuszjelzésük van), billentyűzettel viszont IGEN. Korábban itt sima
+   `input:focus { outline: none }` állt, ami magasabb specificitása miatt a
+   :focus-visible-t is elnyomta — a keresőn és a chat-mezőn (ahol a saját
+   jelzés csak 2% alfa-eltérés) így semmi nem mutatta a fókuszt. */
+input:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* A szűk mezőknél a keret befelé rajzolódik, hogy ne vágja el a szomszédját */
+.wk-num-input:focus-visible,
+input.wk-chip:focus-visible {
+  outline-offset: -2px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -251,6 +292,69 @@ input:focus {
   transform: none;
 }
 
+/* ---- Érintési célterület ----------------------------------------------
+   Az ikongombok vizuálisan kicsik (18–34px), de az ujjnak 44px kell. A méret
+   növelése szétverné a sűrű elrendezéseket (szett-sor, kártya-fejléc), ezért
+   egy láthatatlan, középre igazított pszeudoelem tágítja a találati felületet.
+   A gomb saját geometriája változatlan marad.
+
+   A --tap egyedileg hangolható ott, ahol két gomb közel ül egymáshoz: a
+   szomszédos célterületek NEM fedhetnek át (a szett-sorban a ✕ különben
+   elnyelné a pipa szélét — és a törlés visszavonhatatlan).
+   ------------------------------------------------------------------------ */
+.tap-target {
+  position: relative;
+}
+
+.tap-target::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(100%, var(--tap, var(--tap-min)));
+  height: max(100%, var(--tap, var(--tap-min)));
+  transform: translate(-50%, -50%);
+}
+
+/* Finom mutatóeszközön (egér) nincs szükség a tágításra, és a láthatatlan
+   felület ott inkább zavarna a szomszédos elemek hoverénél. */
+@media (hover: hover) and (pointer: fine) {
+  .tap-target::after {
+    display: none;
+  }
+}
+
+/* ---- Célterület-hangolás komponensenként ----
+   Ahol két .tap-target közel ül egymáshoz, a --tap-ot szűkítjük annyira, hogy
+   a felületek ne érjenek össze. A számok a köztük lévő gap-hez igazodnak. */
+
+/* A gyakorlat-fejlécben a PR-jelölő és a videó gomb 12px-re van egymástól:
+   2×5px kilógás fér el (lásd .wk-exercise-head gap). */
+.wk-pr-toggle,
+.wk-video-btn {
+  --tap: 40px;
+}
+
+/* ---- Ahol a valódi méret növelhető, ott azt növeljük (chipek, szegmentált
+       váltók, listasorok): pszeudoelemmel átfednének a szomszédaikkal. ---- */
+.rc-chip,
+.pb-day,
+.ep-chip,
+.wk-toggle-btn,
+.co-toggle-btn,
+.co-banner-item,
+.co-action,
+.rc-save,
+.st-export {
+  min-height: 44px;
+}
+
+/* A kör alakú ikongombok arányát nem törjük el min-height-tal — ők a
+   .tap-target pszeudoelemmel nőnek (lásd az index.html osztálylistáit). */
+.rc-chip {
+  min-width: 44px;
+}
+
 /* Látható mezőfelirat (placeholder helyett) — a tartalom nem tűnik el gépeléskor */
 .field-label {
   display: block;
@@ -268,6 +372,15 @@ input:focus {
   margin: 0 auto;
   padding: var(--sp-12) var(--sp-10) var(--nav-ring-clearance);
   animation: page-in var(--t-slow);
+}
+
+/* Kis telefonon minden vízszintes pixel a tartalomé — a 2×22px oldalmargó a
+   360px-es kijelző 12%-a, és pont a szett-sor mezőitől veszi el. */
+@media (max-width: 380px) {
+  .app-page {
+    padding-left: var(--sp-7);
+    padding-right: var(--sp-7);
+  }
 }
 
 /* A [hidden] attribútumnak akkor is nyernie kell, ha egy breakpoint
@@ -653,7 +766,7 @@ input:focus {
 .wk-exercise-head {
   display: flex;
   align-items: center;
-  gap: var(--sp-4);
+  gap: var(--sp-5); /* 12px — ennyi fér a PR- és a videógomb célterülete közé */
   margin-bottom: var(--sp-5);
 }
 
@@ -685,7 +798,7 @@ input:focus {
 .wk-pr-toggle[aria-pressed="false"] {
   background: none;
   border-color: var(--border-strong);
-  color: var(--fg-45);
+  color: var(--text-muted);
 }
 
 .wk-pr-toggle[aria-pressed="false"]:hover {
@@ -723,12 +836,36 @@ input:focus {
    felirathoz igazodik (a sorszám maga keskenyebb lenne). */
 .wk-set-row {
   display: grid;
-  grid-template-columns: 32px 1fr 1fr 44px 26px 20px;
+  grid-template-columns: 32px 1fr 1fr 46px 34px 26px;
   align-items: center;
   gap: var(--sp-2);
   padding: var(--sp-2) 0;
   font-size: var(--fs-sm);
   color: var(--text-secondary);
+}
+
+/* ---- Keskeny kijelző: a léptetők kiesnek, hogy az ÉRTÉK férjen ki ----
+   360px-es telefonon a hat oszlop és a két léptetőgomb-pár után az ismétlés-
+   és a súlymezőre 20-20px maradt — egy „102.5" bele sem fért. A léptetők
+   amúgy is redundánsak (aria-hidden, tabindex=-1): a szám-billentyűzet és a
+   fel/le nyíl ugyanezt tudja. Elhagyásukkal a két mező ~56px-re nő.
+
+   A határ 520px: efölött (nagy telefon fekvőben, tablet) a 480px-re kötött
+   oldalszélességen már kényelmesen elfér a léptetős változat is. */
+@media (max-width: 520px) {
+  .wk-set-row {
+    grid-template-columns: 26px 1fr 1fr 46px 40px 30px;
+  }
+
+  .wk-set-row .wk-num-step {
+    display: none;
+  }
+
+  /* A fejléc harmadik cellája („Súly·kg") a legszűkebb — itt nem kérünk
+     extra betűközt, hogy egy sorban maradjon. */
+  .wk-set-row--head {
+    letter-spacing: .02em;
+  }
 }
 
 .wk-set-row--head {
@@ -755,7 +892,7 @@ input.wk-chip {
   min-width: 0;
   border: 1px solid transparent;
   color: var(--text-primary);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-input);
   transition: background var(--t-fast), border-color var(--t-fast);
 }
 
@@ -794,8 +931,8 @@ input.wk-chip:focus {
 
 .wk-num-step {
   flex: 0 0 auto;
-  width: 20px;
-  height: 24px;
+  width: 24px;
+  height: 30px;
   padding: 0;
   border: none;
   border-radius: var(--r-2xs);
@@ -819,7 +956,9 @@ input.wk-chip:focus {
   border: none;
   background: none;
   color: var(--text-primary);
-  font-size: var(--fs-sm);
+  font-size: var(--fs-input); /* 16px — kisebbnél az iOS ráközelít a lapra */
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   text-align: center;
 }
 
@@ -841,16 +980,19 @@ input.wk-chip.wk-num-input {
 }
 
 .wk-set-remove {
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
   padding: 0;
   border: none;
   border-radius: var(--r-full);
   background: none;
-  color: var(--fg-40);
+  color: var(--text-muted);
   font-size: var(--fs-2xs);
   line-height: 1;
   justify-self: center;
+  /* Szűkebb célterület, mint a szomszédos pipáé: a két találati felület nem
+     fedhet át, mert a törlés visszavonhatatlan, a pipázás nem. */
+  --tap: 36px;
   transition: color var(--t-fast), background var(--t-fast);
 }
 
@@ -859,11 +1001,14 @@ input.wk-chip.wk-num-input {
   background: var(--surface-hover);
 }
 
+/* A napló legtöbbet nyomott gombja. Vizuálisan 24px (a sor sűrű marad), a
+   találati felülete viszont teljes 44px — korábban 18px volt, izzadt kézzel,
+   edzés közben. */
 .wk-set-check {
-  width: 18px;
-  height: 18px;
+  width: 24px;
+  height: 24px;
   border-radius: var(--r-full);
-  border: 2px solid var(--fg-30);
+  border: 2px solid var(--fg-40);
   background: none;
   justify-self: center;
   padding: 0;
@@ -949,7 +1094,7 @@ input.wk-chip.wk-num-input {
 }
 
 .wk-history-date {
-  color: var(--fg-45);
+  color: var(--text-muted);
   flex-shrink: 0;
 }
 
@@ -1043,6 +1188,107 @@ input.wk-chip.wk-num-input {
   margin: 0 0 var(--sp-9);
 }
 
+/* ---- Mai napló — a ténylegesen naplózott tételek, törléssel ----
+   A felület korábban csak összesített: nem lehetett megnézni, mit ettél, és
+   egy téves koppintás visszavonhatatlan volt. */
+.nu-log {
+  margin-bottom: var(--sp-9);
+}
+
+.nu-log-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+
+.nu-log-title {
+  margin: 0;
+  font-size: var(--fs-base);
+  font-weight: 700;
+}
+
+.nu-log-count {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.nu-log-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.nu-log-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  background: var(--surface-soft);
+  border-radius: var(--r-md);
+  padding: var(--sp-3) var(--sp-4);
+  animation: note-in .25s ease backwards;
+  animation-delay: calc(var(--i, 0) * 30ms);
+}
+
+.nu-log-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nu-log-name {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.nu-log-macros {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.nu-log-kcal {
+  flex-shrink: 0;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.nu-log-remove {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: var(--r-full);
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+  line-height: 1;
+  transition: color var(--t-fast), background var(--t-fast);
+}
+
+.nu-log-remove:hover {
+  color: var(--c-accent);
+  background: var(--surface-hover);
+}
+
+.nu-log-empty {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  text-align: center;
+  padding: var(--sp-6) var(--sp-5);
+  margin: 0;
+  border: 1px dashed var(--fg-15);
+  border-radius: var(--r-lg);
+}
+
 .nu-search {
   display: flex;
   align-items: center;
@@ -1071,7 +1317,7 @@ input.wk-chip.wk-num-input {
   background: none;
   border: none;
   color: var(--text-primary);
-  font-size: var(--fs-md);
+  font-size: var(--fs-input);
 }
 
 .nu-search input::placeholder {
@@ -1372,8 +1618,9 @@ input.wk-chip.wk-num-input {
 .co-banner-item {
   width: 100%;
   display: flex;
-  align-items: baseline;
-  gap: var(--sp-3);
+  align-items: center; /* a 44px-es minimum-magasságban a baseline felül ragadna */
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-3);
   text-align: left;
   background: var(--surface-soft);
   border: none;
@@ -1593,7 +1840,7 @@ input.wk-chip.wk-num-input {
   border-radius: var(--r-lg);
   padding: var(--sp-5) var(--sp-6);
   color: var(--text-primary);
-  font-size: var(--fs-md);
+  font-size: var(--fs-input);
   transition: background var(--t-fast);
 }
 
@@ -1641,11 +1888,11 @@ input.wk-chip.wk-num-input {
 
 .nav-ring-wrap {
   position: fixed;
-  bottom: 30px;
+  bottom: 18px; /* 30px volt — a gyűrű lejjebb ül, hogy kevesebb tartalmat takarjon */
   left: 50%;
   transform: translateX(-50%);
   width: 248px;
-  height: 150px;
+  height: 126px; /* 150px volt; a 62px-es gomb körül így is marad 32px a feliratokig */
   z-index: var(--z-nav-ring);
   pointer-events: none;
 }
@@ -1677,6 +1924,21 @@ input.wk-chip.wk-num-input {
   letter-spacing: .1em;
   text-transform: uppercase;
   white-space: nowrap;
+  transition: color var(--t-fast), opacity var(--t-fast);
+}
+
+/* „Itt vagy" — mobilon eddig SEMMI nem mutatta az aktív oldalt: az
+   aria-current csak a side-nav linkjeire kerül, azok viszont 1025px alatt
+   display:none-ok. A gyűrű annak az iránynak a feliratát emeli ki, amelyik az
+   aktuális oldalra mutat; a script.js állítja a data-current attribútumot. */
+.nl.is-current {
+  color: var(--text-primary);
+  font-weight: 800;
+}
+
+.nl.is-current::after {
+  content: " ·";
+  color: var(--c-ok);
 }
 
 .nl--up { top: 0; left: 50%; transform: translate(-50%, 0); }
@@ -1684,6 +1946,10 @@ input.wk-chip.wk-num-input {
 .nl--lt { left: 0; top: 50%; transform: translate(0, -50%); }
 .nl--rt { right: 0; top: 50%; transform: translate(0, -50%); }
 
+/* A hint-sor egyben az aktuális oldal neve is: „Áttekintés · húzd bármelyik
+   irányba". A négy iránycímke csak a szomszédokat mutatja, az Áttekintés és a
+   Regeneráció pedig egyáltalán nincs köztük — enélkül a felhasználó nem tudta
+   megmondani, hol van. */
 .nav-hint {
   position: fixed;
   left: 50%;
@@ -1691,12 +1957,17 @@ input.wk-chip.wk-num-input {
   transform: translateX(-50%);
   z-index: var(--z-nav-hint);
   margin: 0;
-  color: var(--fg-35);
+  color: var(--text-muted); /* --fg-35 volt: 3,2:1 — a lap legrosszabb kontrasztja */
   font-size: var(--fs-xs);
   letter-spacing: .08em;
   text-transform: uppercase;
   white-space: nowrap;
   pointer-events: none;
+}
+
+.nav-hint-page {
+  color: var(--text-primary);
+  font-weight: 700;
 }
 
 /* ==========================================================================
@@ -1711,7 +1982,8 @@ input.wk-chip.wk-num-input {
    ========================================================================== */
 .video-modal,
 .settings-modal,
-.athlete-modal {
+.athlete-modal,
+.confirm-modal {
   position: fixed;
   inset: 0;
   z-index: var(--z-modal);
@@ -1723,13 +1995,15 @@ input.wk-chip.wk-num-input {
 
 .video-modal.is-open,
 .settings-modal.is-open,
-.athlete-modal.is-open {
+.athlete-modal.is-open,
+.confirm-modal.is-open {
   display: flex;
 }
 
 .video-modal-backdrop,
 .settings-modal-backdrop,
-.athlete-modal-backdrop {
+.athlete-modal-backdrop,
+.confirm-modal-backdrop {
   position: absolute;
   inset: 0;
   background: var(--scrim-modal);
@@ -1740,7 +2014,8 @@ input.wk-chip.wk-num-input {
 
 .video-modal-card,
 .settings-modal-card,
-.athlete-modal-card {
+.athlete-modal-card,
+.confirm-modal-card {
   position: relative;
   width: 100%;
   max-width: 420px;
@@ -1767,7 +2042,8 @@ input.wk-chip.wk-num-input {
 
 .video-modal-head,
 .settings-modal-head,
-.athlete-modal-head {
+.athlete-modal-head,
+.confirm-modal-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -1777,7 +2053,8 @@ input.wk-chip.wk-num-input {
 
 .video-modal-head h3,
 .settings-modal-head h3,
-.athlete-modal-head h3 {
+.athlete-modal-head h3,
+.confirm-modal-head h3 {
   margin: 0;
   font-size: var(--fs-lg);
   font-weight: 700;
@@ -1785,7 +2062,8 @@ input.wk-chip.wk-num-input {
 
 .video-modal-close,
 .settings-modal-close,
-.athlete-modal-close {
+.athlete-modal-close,
+.confirm-modal-close {
   background: none;
   border: none;
   color: var(--fg-60);
@@ -1796,7 +2074,8 @@ input.wk-chip.wk-num-input {
 
 .video-modal-close:hover,
 .settings-modal-close:hover,
-.athlete-modal-close:hover {
+.athlete-modal-close:hover,
+.confirm-modal-close:hover {
   color: var(--fg-100);
 }
 
@@ -1843,6 +2122,62 @@ input.wk-chip.wk-num-input {
 }
 
 /* ==========================================================================
+   13b. Megerősítő ablak — adatvesztéssel járó műveletekhez
+   A közös modál-alapra épül (lásd fent); itt csak a szűkebb kártya és a
+   gombpár van. A megerősítő gomb hangsúlyos, de a színe a veszélyt jelzi:
+   a „Mégse" a semleges, könnyen elérhető választás.
+   ========================================================================== */
+.confirm-modal-card {
+  max-width: 400px;
+}
+
+.confirm-modal-text {
+  margin: 0 0 var(--sp-9);
+  font-size: var(--fs-md);
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.confirm-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--sp-4);
+}
+
+.confirm-cancel,
+.confirm-ok {
+  flex: 1 1 130px;
+  min-height: 44px;
+  border-radius: var(--r-md);
+  padding: var(--sp-4) var(--sp-7);
+  font-size: var(--fs-md);
+  font-weight: 700;
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+}
+
+.confirm-cancel {
+  background: var(--surface-input);
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+}
+
+.confirm-cancel:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.confirm-ok {
+  background: var(--c-accent);
+  border: 1px solid var(--c-accent);
+  color: var(--fg-100);
+}
+
+.confirm-ok:hover {
+  filter: brightness(1.1);
+}
+
+/* ==========================================================================
    14. Toast értesítések
    ========================================================================== */
 .toast-region {
@@ -1858,6 +2193,7 @@ input.wk-chip.wk-num-input {
   width: min(92vw, 360px);
   pointer-events: none;
 }
+
 
 .toast {
   background: var(--c-bg-raised);
@@ -1914,6 +2250,7 @@ input.wk-chip.wk-num-input {
     --fs-quote: 30px;
     --fs-metric: 22px;
     --fs-summary: 48px;
+    --fs-input: 17px;
   }
 
   body {
@@ -2249,7 +2586,7 @@ input.wk-chip.wk-num-input {
 
 .notif-time {
   display: block;
-  color: var(--fg-45);
+  color: var(--text-muted);
   font-size: var(--fs-2xs);
   margin-top: 2px;
 }
@@ -2324,10 +2661,56 @@ input.wk-chip.wk-num-input {
   margin: calc(-1 * var(--sp-4)) 0 var(--sp-7);
 }
 
+/* ---- Automatikus mentés állapota ----
+   Négy állapot egy soron: idle (mit csinál az app), saving, saved, error.
+   A pötty hordozza a színt, a szöveg a részletet — így a sor magassága nem
+   ugrál állapotváltáskor. */
 .wk-autosave-note {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
   font-size: var(--fs-sm);
   color: var(--text-muted);
   margin: calc(-1 * var(--sp-4)) 0 var(--sp-7);
+  transition: color var(--t-fast);
+}
+
+.wk-autosave-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: var(--r-full);
+  background: var(--fg-30);
+  transform: translateY(-1px);
+  transition: background var(--t-fast);
+}
+
+.wk-autosave-note[data-state="saving"] .wk-autosave-dot {
+  background: var(--fg-60);
+  animation: autosave-pulse 1s ease-in-out infinite;
+}
+
+.wk-autosave-note[data-state="saved"] {
+  color: var(--text-secondary);
+}
+
+.wk-autosave-note[data-state="saved"] .wk-autosave-dot {
+  background: var(--c-ok);
+}
+
+/* A hiba nem maradhat halvány szürke: ez az egyetlen jelzés arról, hogy a
+   napló NINCS elmentve. */
+.wk-autosave-note[data-state="error"] {
+  color: var(--c-accent);
+  font-weight: 600;
+}
+
+.wk-autosave-note[data-state="error"] .wk-autosave-dot {
+  background: var(--c-accent);
+}
+
+@keyframes autosave-pulse {
+  50% { opacity: .35; }
 }
 
 .wk-title.has-error {
@@ -2342,19 +2725,22 @@ input.wk-chip.wk-num-input {
 /* ---- Modal finom zárás ---- */
 .video-modal.is-closing,
 .settings-modal.is-closing,
-.athlete-modal.is-closing {
+.athlete-modal.is-closing,
+.confirm-modal.is-closing {
   display: flex;
 }
 
 .video-modal.is-closing .video-modal-card,
 .settings-modal.is-closing .settings-modal-card,
-.athlete-modal.is-closing .athlete-modal-card {
+.athlete-modal.is-closing .athlete-modal-card,
+.confirm-modal.is-closing .confirm-modal-card {
   animation: modal-out .18s ease both;
 }
 
 .video-modal.is-closing .video-modal-backdrop,
 .settings-modal.is-closing .settings-modal-backdrop,
-.athlete-modal.is-closing .athlete-modal-backdrop {
+.athlete-modal.is-closing .athlete-modal-backdrop,
+.confirm-modal.is-closing .confirm-modal-backdrop {
   animation: fade-out .18s ease both;
 }
 
@@ -2431,7 +2817,7 @@ input.wk-chip.wk-num-input {
   border-radius: var(--r-md);
   padding: var(--sp-3) var(--sp-5);
   color: var(--text-primary);
-  font-size: var(--fs-md);
+  font-size: var(--fs-input);
   transition: background var(--t-fast), border-color var(--t-fast);
 }
 
@@ -2607,7 +2993,7 @@ input.wk-chip.wk-num-input {
   border-radius: var(--r-md);
   padding: var(--sp-4) var(--sp-5);
   color: var(--text-primary);
-  font-size: var(--fs-base);
+  font-size: var(--fs-input);
   font-weight: 700;
   transition: background var(--t-fast), border-color var(--t-fast);
 }
@@ -2793,7 +3179,7 @@ input.wk-chip.wk-num-input {
 
 .wk-pr-date {
   font-size: var(--fs-xs);
-  color: var(--fg-45);
+  color: var(--text-muted);
   flex-shrink: 0;
 }
 
