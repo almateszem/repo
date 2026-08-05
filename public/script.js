@@ -107,8 +107,12 @@
     // Új testsúly-bejegyzés — a szerver visszaadja a létrejött { kg, date }-et
     addWeightEntry:    (kg) => postJson('/api/weight-log', { kg }),
     getNutrition:      () => getJson('/api/nutrition'),
-    // Étel naplózása név alapján — a szerver a frissített napi összesítőt adja vissza
+    // A mai naplózott tételek — a Táplálkozás oldal „Mai napló" listájához
+    getNutritionLog:   () => getJson('/api/nutrition/log'),
+    // Étel naplózása név alapján — a válasz { entry, totals }
     addNutritionEntry: (name) => postJson('/api/nutrition/log', { name }),
+    // Naplóbejegyzés visszavonása — a válasz a frissített napi összesítő
+    removeNutritionEntry: (id) => sendJson('DELETE', `/api/nutrition/log/${id}`),
     getWorkouts:       () => getJson('/api/workouts'),
     // Edzés mentése — a szerver visszaadja a mentett { id, name, date, exercises }-t.
     // A planId azt rögzíti, melyik tervből indult az edzés (a Tervek oldali
@@ -244,6 +248,9 @@
      3. Toast értesítések
      ====================================================================== */
   const TOAST_VISIBLE_MS = 2400;
+  /** A hiba tovább látszik: 2,4 mp alatt egy „nem sikerült menteni" el sem
+      olvasható, márpedig ebből tudja meg a felhasználó, hogy tennie kell valamit. */
+  const TOAST_ERROR_VISIBLE_MS = 5200;
 
   function showToast(message, variant = 'default') {
     const region = $('.toast-region');
@@ -252,12 +259,25 @@
     toast.textContent = message;
     region.appendChild(toast);
 
+    // A toast-régió `polite`: a képernyőolvasó megvárja vele, amit épp mond.
+    // Hibánál ez kevés, ezért a szöveget egy külön `assertive` régióba is
+    // kiírjuk — vizuálisan ott nincs semmi, csak a bejelentés történik meg.
+    if (variant === 'error') {
+      const announcer = $('[data-error-announcer]');
+      if (announcer) {
+        // Az azonos szöveg ismételt beírását a felolvasók elnyelik: előbb
+        // ürítjük, hogy két egyforma hiba is elhangozzon.
+        announcer.textContent = '';
+        setTimeout(() => { announcer.textContent = message; }, 60);
+      }
+    }
+
     setTimeout(() => {
       toast.classList.add('is-leaving');
       toast.addEventListener('animationend', () => toast.remove(), { once: true });
       // Tartalék, ha az animációk le vannak tiltva (prefers-reduced-motion):
       setTimeout(() => toast.remove(), 400);
-    }, TOAST_VISIBLE_MS);
+    }, variant === 'error' ? TOAST_ERROR_VISIBLE_MS : TOAST_VISIBLE_MS);
   }
 
   /* ======================================================================
@@ -318,12 +338,45 @@
     });
   }
 
+  /** Az aktuális oldal a hash-ből, vagy null, ha a hash nem oldalnév.
+      A null fontos: a `#app-main` (skip link), a `#title-…` horgonyok és a
+      régi/elgépelt linkek NEM oldalváltások. Korábban minden ismeretlen hash
+      'dashboard'-ra fordult, ezért az „Ugrás a tartalomhoz" link — pont az
+      akadálymentességi segédeszköz — bármelyik oldalról az Áttekintésre
+      dobta a felhasználót. */
   function pageFromHash() {
     const hash = location.hash.replace(/^#\/?/, '');
-    return PAGES.includes(hash) ? hash : 'dashboard';
+    return PAGES.includes(hash) ? hash : null;
+  }
+
+  /** Az oldalak emberi neve — a mobil nav-hint és a fókusz-bejelentés használja. */
+  const PAGE_TITLES = {
+    dashboard: 'Áttekintés', recovery: 'Regeneráció', workout: 'Edzés',
+    nutrition: 'Táplálkozás', plans: 'Tervek', coach: 'Edző',
+    summary: 'Edzés-összegző', 'plan-builder': 'Terv-építő',
+    'exercise-picker': 'Gyakorlat hozzáadása',
+  };
+
+  /** Az éppen látható oldal (a DOM az igazságforrás — a hash lehet horgony is). */
+  const currentPage = () => $('.app-page:not([hidden])')?.dataset.page ?? 'dashboard';
+
+  /** A mobil nav gyűrű „itt vagy" jelzése. A gyűrűnek négy iránya van, az
+      Áttekintés és a Regeneráció nincs köztük — ezért a hint-sor mindig
+      kiírja az oldal nevét, a négy címke közül pedig kiemeli az aktuálisat
+      (ha van ilyen). Enélkül mobilon semmi nem mutatta, hol vagy. */
+  function syncNavRingState(name) {
+    const label = $('[data-nav-current]');
+    if (label) label.textContent = PAGE_TITLES[name] ?? '';
+    $$('.nl').forEach((el) => {
+      const dir = el.className.match(/nl--(\w+)/)?.[1];
+      const dirKey = { up: 'up', dn: 'down', lt: 'left', rt: 'right' }[dir];
+      el.classList.toggle('is-current', DIR_TO_PAGE[dirKey] === name);
+    });
   }
 
   function showPage(name) {
+    const changed = currentPage() !== name;
+
     $$('.app-page').forEach((page) => {
       page.hidden = page.dataset.page !== name;
     });
@@ -332,6 +385,21 @@
       if (target === name) link.setAttribute('aria-current', 'page');
       else link.removeAttribute('aria-current');
     });
+    syncNavRingState(name);
+
+    /* Oldalváltáskor a görgetés és a fókusz is az új oldalra kerül. Korábban
+       egyik sem történt meg: a Regeneráció aljáról az Áttekintésre lépve a lap
+       közepén találtad magad, a képernyőolvasó fókusza pedig egy épp elrejtett
+       elemen maradt. */
+    if (changed) {
+      window.scrollTo({ top: 0, behavior: prefersReducedMotion ? 'auto' : 'smooth' });
+      const heading = $(`.app-page[data-page="${name}"] h2`);
+      if (heading) {
+        heading.setAttribute('tabindex', '-1');
+        heading.focus({ preventScroll: true });
+      }
+    }
+
     // A flow-oldalak nem számítanak "utolsó oldalnak" — friss megnyitáskor nem állnak vissza
     if (!FLOW_PAGES.includes(name)) prefs.set('lastPage', name);
     pageEffects[name]?.();
@@ -343,14 +411,20 @@
   }
 
   function setupRouter() {
-    window.addEventListener('hashchange', () => showPage(pageFromHash()));
+    // Csak a valódi oldalnevekre váltunk. Ismeretlen hash (skip link, horgony,
+    // elgépelt link) esetén az aktuális oldal marad — nem dobjuk vissza a
+    // felhasználót az Áttekintésre.
+    window.addEventListener('hashchange', () => {
+      const page = pageFromHash();
+      if (page) showPage(page);
+    });
 
     // Friss megnyitáskor (hash nélkül) az utoljára használt oldal áll vissza.
     const lastPage = prefs.get('lastPage');
     if (!location.hash && lastPage && PAGES.includes(lastPage) && lastPage !== 'dashboard') {
       location.hash = lastPage; // a hashchange handler jeleníti meg
     } else {
-      showPage(pageFromHash());
+      showPage(pageFromHash() ?? 'dashboard');
     }
   }
 
@@ -1257,6 +1331,53 @@
     return { open, close };
   }
 
+  /**
+   * Megerősítő ablak adatvesztéssel járó műveletekhez. A natív
+   * `window.confirm()` helyett: az app design-nyelvén szólal meg, és a
+   * fókuszkezelése a többi modáléval azonos (fókusz-csapda, Escape,
+   * visszaadott fókusz). Promise<boolean>-t ad — a hívó `await`-tel használja.
+   *
+   * A fókusz szándékosan a „Mégse" gombra kerül: a megerősítendő művelet
+   * visszafordíthatatlan, a véletlen Enter ne hajtsa végre.
+   */
+  function setupConfirmDialog() {
+    const modal = $('#confirmModal');
+    const controller = createModalController(modal);
+    const titleEl = $('#confirmModalTitle');
+    const textEl = $('#confirmModalText');
+    const okBtn = $('[data-confirm-ok]', modal);
+    const cancelBtn = $('[data-confirm-cancel]', modal);
+
+    let resolve = null;
+    /** Egyszer lezáró elsütés — a nyitva maradt ígéret hamissal zárul. */
+    const settle = (value) => {
+      const pending = resolve;
+      resolve = null;
+      controller.close();
+      pending?.(value);
+    };
+
+    okBtn.addEventListener('click', () => settle(true));
+    cancelBtn.addEventListener('click', () => settle(false));
+    // Bezárás (✕, backdrop) és Escape = elutasítás. A createModalController
+    // ezekre már zárja az ablakot; itt csak az ígéretet kell lezárni.
+    $$('[data-close-modal]', modal).forEach((el) => el.addEventListener('click', () => settle(false)));
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && modal.classList.contains('is-open')) settle(false);
+    });
+
+    return (message, { title = 'Biztosan folytatod?', confirmLabel = 'Folytatás' } = {}) =>
+      new Promise((res) => {
+        settle(false); // egyszerre csak egy kérdés áll fenn
+        resolve = res;
+        titleEl.textContent = title;
+        textEl.textContent = message;
+        okBtn.textContent = confirmLabel;
+        controller.open();
+        cancelBtn.focus();
+      });
+  }
+
   function setupVideoModal() {
     const modal = $('#videoModal');
     const exerciseLabel = $('.video-modal-exercise', modal);
@@ -1712,7 +1833,7 @@
     await refreshRecovery();
   }
 
-  async function setupWorkout(videoModal, picker) {
+  async function setupWorkout(videoModal, picker, confirmAction) {
     const page = $('[data-page="workout"]');
     const titleInput = $('#workout-name');
     const titleError = $('#workout-name-error');
@@ -1744,25 +1865,79 @@
        Lapelrejtéskor (bezárás, tab-váltás) a függő mentést azonnal elküldjük
        keepalive-kéréssel, hogy az utolsó változtatás se vesszen el. */
     const AUTOSAVE_DEBOUNCE_MS = 500;
+    /** Sikertelen mentés utáni újrapróbálkozások szünetei. A végén megáll: a
+        felhasználó ekkor már látja a hibaállapotot, és ő dönt. */
+    const AUTOSAVE_RETRY_MS = [3000, 8000, 20000];
+
+    const statusEl = $('[data-autosave-status]');
+    const statusTextEl = $('[data-autosave-text]');
+    const IDLE_TEXT = statusTextEl.textContent;
+
+    /** Az automatikus mentés állapota egy soron. Korábban itt csak egy statikus
+        ígéret állt („a módosítások automatikusan mentődnek"), a hiba pedig
+        kizárólag a konzolra ment — a felhasználó azt hitte, minden mentve van,
+        közben nem. */
+    const setStatus = (state, text) => {
+      statusEl.dataset.state = state;
+      statusTextEl.textContent = text;
+    };
+    const clockNow = () => new Date().toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' });
+
     let autosaveTimer = null;
+    let retryTimer = null;
+    let retryStep = 0;
+
+    const flush = async () => {
+      autosaveTimer = null;
+      retryTimer = null; // ha újrapróbálkozásból futunk, az az időzítő már elsült
+      setStatus('saving', 'Mentés…');
+      try {
+        await api.saveWorkoutDraft(titleInput.value.trim(), readCurrentWorkout(), currentPlanId);
+        retryStep = 0;
+        setStatus('saved', `Mentve · ${clockNow()}`);
+      } catch (err) {
+        console.error('Automatikus mentés sikertelen:', err);
+        const wait = AUTOSAVE_RETRY_MS[retryStep];
+        if (wait === undefined) {
+          setStatus('error', 'A napló nincs elmentve — ellenőrizd a kapcsolatot, majd módosíts valamit az újrapróbáláshoz.');
+          return;
+        }
+        retryStep += 1;
+        setStatus('error', `Nem sikerült menteni — újrapróbálkozás ${Math.round(wait / 1000)} mp múlva…`);
+        clearTimeout(retryTimer);
+        retryTimer = setTimeout(flush, wait);
+      }
+    };
+
     const autosave = () => {
       // Bármilyen változtatás után újra él az edzés: az összegző megint az
       // aktuális naplóállapotot mutassa, ne a legutóbbi lezárás pillanatképét.
       setLastSummary(null);
+      // Új változtatás → a hibás kör újraindul az elejéről
+      clearTimeout(retryTimer);
+      retryStep = 0;
       clearTimeout(autosaveTimer);
-      autosaveTimer = setTimeout(async () => {
-        autosaveTimer = null;
-        try {
-          await api.saveWorkoutDraft(titleInput.value.trim(), readCurrentWorkout(), currentPlanId);
-        } catch (err) {
-          console.error('Automatikus mentés sikertelen:', err);
-        }
-      }, AUTOSAVE_DEBOUNCE_MS);
+      autosaveTimer = setTimeout(flush, AUTOSAVE_DEBOUNCE_MS);
+    };
+
+    /** A függő mentés leállítása (az edzés lezárása hívja: a piszkozat törlése
+        után egy késleltetett mentés visszaírná a most lezárt edzést). */
+    const cancelAutosave = () => {
+      clearTimeout(autosaveTimer);
+      clearTimeout(retryTimer);
+      autosaveTimer = null;
+      retryTimer = null;
+      retryStep = 0;
+      setStatus('idle', IDLE_TEXT);
     };
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState !== 'hidden' || autosaveTimer === null) return;
+      // Függő mentés VAGY függő újrapróbálkozás esetén is küldünk: a
+      // lapelrejtés (bezárás, tab-váltás) az utolsó esély.
+      if (document.visibilityState !== 'hidden' || (autosaveTimer === null && retryTimer === null)) return;
       clearTimeout(autosaveTimer);
+      clearTimeout(retryTimer);
       autosaveTimer = null;
+      retryTimer = null;
       fetch('/api/workout-draft', {
         method: 'PUT',
         keepalive: true,
@@ -1903,10 +2078,9 @@
         const summary = summarizeWorkout();
         const saved = await api.saveWorkout(titleInput.value.trim(), readCurrentWorkout(), currentPlanId);
 
-        // A függőben lévő automatikus mentés már nem kell — különben
-        // visszaírná a most törölt piszkozatot
-        clearTimeout(autosaveTimer);
-        autosaveTimer = null;
+        // A függőben lévő automatikus mentés (és a hiba-újrapróbálkozás) már
+        // nem kell — különben visszaírná a most törölt piszkozatot
+        cancelAutosave();
         await api.clearWorkoutDraft().catch((err) => {
           console.error('A piszkozat törlése sikertelen:', err);
         });
@@ -1942,8 +2116,24 @@
 
     /** Terv betöltése az edzésnaplóba (a Tervek nyíl-gombja hívja): a cím és
         a gyakorlatok cserélődnek, és az állapot azonnal piszkozatként mentődik
-        — így újratöltés után is a betöltött terv marad az edzésnaplóban. */
-    const loadPlan = (plan) => {
+        — így újratöltés után is a betöltött terv marad az edzésnaplóban.
+
+        Ha a naplóban már van teljesített szett, előbb rákérdezünk: a betöltés
+        felülírja az egészet. Korábban ez a legpusztítóbb művelet volt az
+        appban, és épp ez futott végig kérdés nélkül — miközben egyetlen
+        gyakorlat eltávolításánál már volt megerősítés.
+        Hamissal tér vissza, ha a felhasználó meggondolta magát. */
+    const loadPlan = async (plan) => {
+      const doneSets = $$('.wk-set-check', page)
+        .filter((check) => check.getAttribute('aria-pressed') === 'true').length;
+      if (doneSets > 0) {
+        const ok = await confirmAction(
+          `A megkezdett edzésedben ${doneSets} teljesített szett van. A(z) „${plan.name}” betöltése ezeket felülírja.`,
+          { title: 'Felülírod a megkezdett edzést?', confirmLabel: 'Terv betöltése' },
+        );
+        if (!ok) return false;
+      }
+
       currentPlanId = plan.id ?? null;
       titleInput.value = plan.name;
       titleInput.classList.remove('has-error');
@@ -1955,6 +2145,7 @@
       syncEmpty();
       prefs.set(WORKOUT_START_KEY, null); // friss edzés — az óra az első pipával indul újra
       autosave();
+      return true;
     };
 
     return { loadPlan };
@@ -1965,7 +2156,7 @@
       szettekkel), a ✓ eltávolítja onnan. A cél (a terv-építő VAGY az
       edzésnapló listája) egy use(context)-tel váltható vezérlőn át áll be —
       a hívó (setupPlanBuilder / setupWorkout) adja meg, mielőtt idenavigál. */
-  async function setupExercisePicker() {
+  async function setupExercisePicker(confirmAction) {
     const [catalog, defaultSet] = await Promise.all([
       api.getExerciseCatalog(), api.getDefaultSet(),
     ]);
@@ -2042,7 +2233,7 @@
     searchInput.addEventListener('input', refresh);
 
     // Hozzáadás/eltávolítás: közvetlenül a cél-lista DOM-ját módosítja
-    list.addEventListener('click', (event) => {
+    list.addEventListener('click', async (event) => {
       const toggle = event.target.closest('.ep-item-toggle');
       if (!toggle || !context) return;
 
@@ -2055,9 +2246,12 @@
         // teljesített) gyakorlatnál marad az azonnali eltávolítás.
         const doneSets = $$('.wk-set-check', existing)
           .filter((check) => check.getAttribute('aria-pressed') === 'true').length;
-        if (doneSets > 0 && !window.confirm(
-          `A(z) „${name}" gyakorlaton ${doneSets} teljesített szett van. Az eltávolítással ezek elvesznek. Biztosan eltávolítod?`)) {
-          return;
+        if (doneSets > 0) {
+          const ok = await confirmAction(
+            `A(z) „${name}” gyakorlaton ${doneSets} teljesített szett van. Az eltávolítással ezek elvesznek.`,
+            { title: 'Eltávolítod a gyakorlatot?', confirmLabel: 'Eltávolítás' },
+          );
+          if (!ok) return;
         }
         existing.remove();
         showToast(`${name} eltávolítva`);
@@ -2300,6 +2494,9 @@
     const foods = await api.getFoods();
     const searchInput = $('#food-search');
     const emptyState = $('.nu-empty');
+    const logList = $('[data-list="nutrition-log"]');
+    const logEmpty = $('[data-nu-log-empty]');
+    const logCount = $('[data-nu-log-count]');
     const STAT_KEYS = ['intake', 'protein', 'carbs', 'fat'];
 
     // A napi összesítő a szerverről (alap + naplózott ételek) — újratöltés után
@@ -2315,9 +2512,70 @@
     };
     applyTotals(await api.getNutrition());
 
+    /* ---- Mai napló ----
+       A felület korábban csak összesített: nem lehetett megnézni, mit ettél
+       aznap, és egy téves koppintás visszavonhatatlan volt. A lista a
+       szerverről jön, a törlés a bejegyzés id-jével megy. */
+    let logEntries = [];
+
+    const renderLog = () => {
+      logList.replaceChildren();
+      logEntries.forEach((entry, index) => {
+        const item = cloneTemplate('tpl-nutrition-entry');
+        item.style.setProperty('--i', index);
+        $('.nu-log-name', item).textContent = entry.name;
+        $('.nu-log-macros', item).textContent =
+          `${formatNumber(entry.protein)} g F · ${formatNumber(entry.carbs)} g Cs · ${formatNumber(entry.fat)} g Zs`;
+        $('.nu-log-kcal', item).textContent = `${formatNumber(entry.kcal)} kcal`;
+
+        const removeBtn = $('.nu-log-remove', item);
+        removeBtn.dataset.entryId = entry.id;
+        removeBtn.title = 'Bejegyzés törlése';
+        removeBtn.setAttribute('aria-label', `${entry.name} törlése a mai naplóból`);
+        logList.appendChild(item);
+      });
+
+      logEmpty.hidden = logEntries.length > 0;
+      logCount.textContent = logEntries.length > 0
+        ? `${logEntries.length} tétel · ${formatNumber(logEntries.reduce((sum, e) => sum + e.kcal, 0))} kcal`
+        : '';
+    };
+
+    const reloadLog = async () => {
+      logEntries = await api.getNutritionLog();
+      renderLog();
+    };
+    await reloadLog();
+
+    // Törlés — a szerver a frissített összesítőt adja vissza, így egy körből
+    // frissül a napló, a makrók és az áttekintő kalória-statja is.
+    logList.addEventListener('click', async (event) => {
+      const removeBtn = event.target.closest('.nu-log-remove');
+      if (!removeBtn) return;
+      const id = Number(removeBtn.dataset.entryId);
+      const entry = logEntries.find((e) => e.id === id);
+
+      removeBtn.disabled = true;
+      try {
+        const previous = totals;
+        applyTotals(await api.removeNutritionEntry(id), { animateFrom: previous });
+        logEntries = logEntries.filter((e) => e.id !== id);
+        renderLog();
+        refreshDailyStats().catch(console.error);
+        showToast(entry ? `${entry.name} törölve a naplóból` : 'Bejegyzés törölve');
+      } catch (err) {
+        console.error(err);
+        removeBtn.disabled = false;
+        showToast(err.message || 'Nem sikerült törölni a bejegyzést', 'error');
+      }
+    });
+
     // Éjfél után a napi összesítő nulláról indul (a szerver mindig az aznapi
-    // bejegyzéseket összegzi — csak újra le kell kérni).
-    onDayChange(async () => applyTotals(await api.getNutrition()));
+    // bejegyzéseket összegzi — csak újra le kell kérni), és a napló is kiürül.
+    onDayChange(async () => {
+      applyTotals(await api.getNutrition());
+      await reloadLog();
+    });
 
     // A napi cél a szerverről (Cél kcal + edző célja szöveg)
     const goalCalEl = $('[data-goal="calories"]');
@@ -2348,7 +2606,12 @@
 
       try {
         const previous = totals;
-        applyTotals(await api.addNutritionEntry(food.name), { animateFrom: previous });
+        // A válasz a létrejött bejegyzést IS tartalmazza — így a mai napló
+        // listája újabb lekérés nélkül nő eggyel.
+        const { entry, totals: next } = await api.addNutritionEntry(food.name);
+        applyTotals(next, { animateFrom: previous });
+        logEntries = [...logEntries, entry];
+        renderLog();
         // Az áttekintő kalória-statja is kövesse a naplózást (közös forrás a szerveren)
         refreshDailyStats().catch(console.error);
         showToast(`${food.name} hozzáadva a naplóhoz · +${food.kcal} kcal`);
@@ -2373,14 +2636,18 @@
         return;
       }
 
-      // Nyíl — a terv (név + gyakorlatok) betöltődik az edzésnaplóba
+      // Nyíl — a terv (név + gyakorlatok) betöltődik az edzésnaplóba.
+      // A loadPlan megkérdezi a felhasználót, ha ezzel megkezdett edzést írna
+      // felül; hamis válasz esetén itt sem navigálunk és nem toastolunk.
       const openBtn = event.target.closest('.pl-card-open');
       if (!openBtn) return;
       const plan = plansData[Number(openBtn.closest('.pl-card').dataset.planIndex)];
       if (!plan?.exercises || !workout) return;
-      workout.loadPlan(plan);
-      showToast(`„${plan.name}” betöltve az edzésnaplóba`);
-      navigate('workout');
+      workout.loadPlan(plan).then((loaded) => {
+        if (!loaded) return;
+        showToast(`„${plan.name}” betöltve az edzésnaplóba`);
+        navigate('workout');
+      }).catch((err) => console.error('Terv betöltési hiba:', err));
     });
 
     // Új terv készítése — üres terv-építővel
@@ -2651,7 +2918,7 @@
       mellett inaktív — utóbbi nélkül a háttérben lévő oldal átváltott,
       miközben az ablak nyitva maradt előtte. */
   const isModalOpen = () =>
-    Boolean($('.video-modal.is-open, .settings-modal.is-open, .athlete-modal.is-open'));
+    Boolean($('.video-modal.is-open, .settings-modal.is-open, .athlete-modal.is-open, .confirm-modal.is-open'));
 
   function setupShortcuts() {
     document.addEventListener('keydown', (event) => {
@@ -2709,6 +2976,8 @@
     setupRouter();
 
     const videoModal = setupVideoModal();
+    // Megerősítő ablak — szinkron felépítésű, mert több setup is erre épül
+    const confirmAction = setupConfirmDialog();
     const notifPanel = await safe(setupNotifications);
     const settingsModal = await safe(() => setupSettingsModal({
       onRolesChange: () => coachSurfaces?.apply({ animate: true }),
@@ -2719,8 +2988,8 @@
     await safe(setupWeightLog);
     await safe(setupRecovery);
     // A közös gyakorlat-választó — az edzésnapló és a terv-építő is ezt célozza át
-    const picker = await safe(setupExercisePicker);
-    const workout = await safe(() => setupWorkout(videoModal, picker));
+    const picker = await safe(() => setupExercisePicker(confirmAction));
+    const workout = await safe(() => setupWorkout(videoModal, picker, confirmAction));
     await safe(setupWeeklyCompare);
     await safe(setupNutrition);
     const planBuilder = await safe(() => setupPlanBuilder(picker));
