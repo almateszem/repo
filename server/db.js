@@ -39,6 +39,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS nutrition_log (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     name       TEXT NOT NULL,
+    grams      REAL NOT NULL DEFAULT 100,  -- a naplózott adag; a makrók erre az adagra vonatkoznak
     kcal       REAL NOT NULL,
     protein    REAL NOT NULL,
     carbs      REAL NOT NULL,
@@ -99,6 +100,9 @@ ensureColumn('plans', 'days', "days TEXT NOT NULL DEFAULT '[]'");
 ensureColumn('workout_draft', 'date', "date TEXT NOT NULL DEFAULT ''");
 ensureColumn('workouts', 'plan_id', 'plan_id INTEGER');
 ensureColumn('workout_draft', 'plan_id', 'plan_id INTEGER');
+// A naplózás korábban fix 100 g-os adaggal ment — a régi sorok makrói tehát
+// 100 g-ra vonatkoznak, ezért a default érték helyes a meglévő adatokra is.
+ensureColumn('nutrition_log', 'grams', 'grams REAL NOT NULL DEFAULT 100');
 
 /* A szett-értékek korábban mértékegységgel együtt, szabad szövegként voltak
    tárolva („12 rep", „60% TM", „–"). A felület már szám-mezőkkel szerkeszti
@@ -166,14 +170,14 @@ export function getWeightLog() {
 
 /** A naplózott ételek, rögzítési sorrendben. */
 export function getNutritionLog() {
-  return db.prepare('SELECT id, name, kcal, protein, carbs, fat, date FROM nutrition_log ORDER BY id').all();
+  return db.prepare('SELECT id, name, grams, kcal, protein, carbs, fat, date FROM nutrition_log ORDER BY id').all();
 }
 
 /** Egy adott nap naplózott ételei, rögzítési sorrendben. A Táplálkozás oldal
     mai naplója ebből épül — enélkül a felhasználó csak összesítést látott, és
     egy téves koppintást nem tudott visszavonni. */
 export function getNutritionLogForDate(date) {
-  return db.prepare(`SELECT id, name, kcal, protein, carbs, fat, date
+  return db.prepare(`SELECT id, name, grams, kcal, protein, carbs, fat, date
                      FROM nutrition_log WHERE date = ? ORDER BY id`).all(date);
 }
 
@@ -302,14 +306,24 @@ export function addWeightEntry(kg, date) {
   return db.prepare('SELECT id, kg, date FROM weight_log WHERE id = ?').get(Number(lastInsertRowid));
 }
 
-/** Étel naplózása (a makrók a szerver-oldali food objektumból). Visszaadja a
-    frissített napi összesítőt { intake, protein, carbs, fat }. */
-export function addNutritionEntry(food, date) {
+/** Étel naplózása a megadott adaggal (a makrók a szerver-oldali food
+    objektumból, 100 g-ra vonatkozó alapértékekből átszámolva — a kliens által
+    küldött tápértékekben nem bízunk, csak az adag grammjában).
+    Visszaadja a létrejött bejegyzést és a frissített napi összesítőt. */
+export function addNutritionEntry(food, date, grams = 100) {
+  const factor = grams / 100;
+  // A kalória egész, a makrók egy tizedesre — így a napi összeg sem gyűjt
+  // lebegőpontos szemetet (pl. 0.30000000000000004 g zsír).
+  const round1 = (value) => Math.round(value * factor * 10) / 10;
+
   const { lastInsertRowid } = db.prepare(
-    `INSERT INTO nutrition_log (name, kcal, protein, carbs, fat, date)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-  ).run(food.name, food.kcal, food.protein, food.carbs, food.fat, date);
-  const entry = db.prepare(`SELECT id, name, kcal, protein, carbs, fat, date
+    `INSERT INTO nutrition_log (name, grams, kcal, protein, carbs, fat, date)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    food.name, grams, Math.round(food.kcal * factor),
+    round1(food.protein), round1(food.carbs), round1(food.fat), date,
+  );
+  const entry = db.prepare(`SELECT id, name, grams, kcal, protein, carbs, fat, date
                             FROM nutrition_log WHERE id = ?`).get(Number(lastInsertRowid));
   return { entry, totals: getNutritionTotals(date) };
 }
