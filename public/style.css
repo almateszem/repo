@@ -1983,6 +1983,7 @@ input.wk-chip.wk-num-input {
 .video-modal,
 .settings-modal,
 .athlete-modal,
+.food-modal,
 .confirm-modal {
   position: fixed;
   inset: 0;
@@ -1996,6 +1997,7 @@ input.wk-chip.wk-num-input {
 .video-modal.is-open,
 .settings-modal.is-open,
 .athlete-modal.is-open,
+.food-modal.is-open,
 .confirm-modal.is-open {
   display: flex;
 }
@@ -2003,6 +2005,7 @@ input.wk-chip.wk-num-input {
 .video-modal-backdrop,
 .settings-modal-backdrop,
 .athlete-modal-backdrop,
+.food-modal-backdrop,
 .confirm-modal-backdrop {
   position: absolute;
   inset: 0;
@@ -2015,6 +2018,7 @@ input.wk-chip.wk-num-input {
 .video-modal-card,
 .settings-modal-card,
 .athlete-modal-card,
+.food-modal-card,
 .confirm-modal-card {
   position: relative;
   width: 100%;
@@ -2043,6 +2047,7 @@ input.wk-chip.wk-num-input {
 .video-modal-head,
 .settings-modal-head,
 .athlete-modal-head,
+.food-modal-head,
 .confirm-modal-head {
   display: flex;
   align-items: flex-start;
@@ -2054,6 +2059,7 @@ input.wk-chip.wk-num-input {
 .video-modal-head h3,
 .settings-modal-head h3,
 .athlete-modal-head h3,
+.food-modal-head h3,
 .confirm-modal-head h3 {
   margin: 0;
   font-size: var(--fs-lg);
@@ -2063,6 +2069,7 @@ input.wk-chip.wk-num-input {
 .video-modal-close,
 .settings-modal-close,
 .athlete-modal-close,
+.food-modal-close,
 .confirm-modal-close {
   background: none;
   border: none;
@@ -2075,6 +2082,7 @@ input.wk-chip.wk-num-input {
 .video-modal-close:hover,
 .settings-modal-close:hover,
 .athlete-modal-close:hover,
+.food-modal-close:hover,
 .confirm-modal-close:hover {
   color: var(--fg-100);
 }
@@ -2726,6 +2734,7 @@ input.wk-chip.wk-num-input {
 .video-modal.is-closing,
 .settings-modal.is-closing,
 .athlete-modal.is-closing,
+.food-modal.is-closing,
 .confirm-modal.is-closing {
   display: flex;
 }
@@ -2733,6 +2742,7 @@ input.wk-chip.wk-num-input {
 .video-modal.is-closing .video-modal-card,
 .settings-modal.is-closing .settings-modal-card,
 .athlete-modal.is-closing .athlete-modal-card,
+.food-modal.is-closing .food-modal-card,
 .confirm-modal.is-closing .confirm-modal-card {
   animation: modal-out .18s ease both;
 }
@@ -2740,6 +2750,7 @@ input.wk-chip.wk-num-input {
 .video-modal.is-closing .video-modal-backdrop,
 .settings-modal.is-closing .settings-modal-backdrop,
 .athlete-modal.is-closing .athlete-modal-backdrop,
+.food-modal.is-closing .food-modal-backdrop,
 .confirm-modal.is-closing .confirm-modal-backdrop {
   animation: fade-out .18s ease both;
 }
@@ -4424,5 +4435,399 @@ input.wk-chip.wk-num-input {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
     gap: var(--sp-5) var(--sp-7);
+  }
+}
+
+/* ==========================================================================
+   24. Étel részlet-modál (fd-*) — adagválasztás naplózás előtt
+   A Táplálkozás oldal étel-kártyáinak nyila nyitja. A korábbi viselkedés fix
+   100 g-os adagot naplózott; itt a felhasználó a görgethető gramm-választóval
+   (vagy a gyorsgombokkal) állítja be a valódi adagot, és rögtön látja, mit
+   tesz hozzá a napi célhoz.
+   ========================================================================== */
+.food-modal-card {
+  max-width: 440px;
+  /* Az akció-sáv a kártya aljára tapad, ezért ott nem kell külön belső térköz */
+  padding-bottom: 0;
+}
+
+.fd-ident {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.food-modal-head h3 {
+  font-size: var(--fs-3xl);
+  font-weight: 800;
+}
+
+.fd-tag {
+  background: var(--surface-strong);
+  color: var(--text-secondary);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  padding: 3px var(--sp-3);
+  border-radius: var(--r-xs);
+}
+
+/* ---- Bélyegkép + a választott adagra átszámolt makrók ---- */
+.fd-hero {
+  display: flex;
+  gap: var(--sp-7);
+  align-items: stretch;
+  margin-bottom: var(--sp-9);
+}
+
+/* Az ételekhez nincs fotó az adatbázisban — a monogramos csempe tartja a
+   tervezett elrendezés arányait anélkül, hogy üres helyet hagyna. */
+.fd-photo {
+  flex: 0 0 42%;
+  aspect-ratio: 1;
+  /* A négyzetes arányt a nyújtás felülírná — a sor magasságát a csempe adja,
+     a makró-oszlop (és az elválasztó vonala) nyúlik hozzá. */
+  align-self: start;
+  border-radius: var(--r-3xl);
+  background:
+    radial-gradient(at 30% 20%, var(--fg-10), transparent 60%),
+    var(--surface-card);
+  border: 1px solid var(--border-card);
+  display: grid;
+  place-items: center;
+}
+
+.fd-photo-glyph {
+  font-size: var(--fs-5xl);
+  font-weight: 800;
+  color: var(--fg-25);
+  line-height: 1;
+}
+
+.fd-macros {
+  flex: 1;
+  min-width: 0;
+  border-left: 1px solid var(--fg-25);
+  padding-left: var(--sp-7);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: var(--sp-6);
+  text-align: right;
+}
+
+.fd-macro-value {
+  display: block;
+  font-size: var(--fs-4xl);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.fd-macro-unit {
+  font-size: .5em;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-left: 3px;
+}
+
+.fd-macro-label {
+  display: block;
+  font-size: var(--fs-2xs);
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-top: var(--sp-1);
+}
+
+.fd-portion {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+  letter-spacing: .03em;
+}
+
+/* ---- Napi cél ---- */
+.fd-goals {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  margin-bottom: var(--sp-9);
+}
+
+.fd-goal-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-2);
+}
+
+.fd-goal-label {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.fd-goal-value {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.fd-goal-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--fg-10);
+  overflow: hidden;
+}
+
+.fd-goal-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: var(--c-ok);
+  transition: width var(--t-slow);
+}
+
+.fd-goal-track--paper .fd-goal-fill {
+  background: var(--c-paper);
+}
+
+/* A célt túllépő rész figyelmeztet — a bevitel nem hiba, de látszódjon */
+.fd-goal-track.is-over .fd-goal-fill {
+  background: var(--c-accent);
+}
+
+.fd-goal-delta {
+  margin: 0;
+  font-size: var(--fs-2xs);
+  color: var(--text-faint);
+}
+
+/* ---- Gyors adag ---- */
+.fd-section-label {
+  display: block;
+  font-size: var(--fs-2xs);
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: var(--sp-5);
+}
+
+.fd-quick {
+  margin-bottom: var(--sp-9);
+}
+
+.fd-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+}
+
+.fd-chip {
+  background: var(--surface-input);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-full);
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  padding: var(--sp-2) var(--sp-6);
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+}
+
+.fd-chip:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.fd-chip[aria-pressed="true"] {
+  background: var(--c-paper);
+  border-color: var(--c-paper);
+  color: var(--c-ink);
+}
+
+/* ---- Ma ebből ---- */
+.fd-today {
+  margin-bottom: var(--sp-9);
+}
+
+.fd-today-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.fd-today-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-5);
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-lg);
+  padding: var(--sp-4) var(--sp-6);
+}
+
+.fd-today-meta {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+
+.fd-today-value {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.fd-today-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-5);
+  padding: var(--sp-3) var(--sp-6) 0;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.fd-today-total span:last-child {
+  font-size: var(--fs-md);
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+/* ---- Akció-sáv: a kártya aljára tapad, hogy görgetés közben is elérhető ---- */
+.fd-bar {
+  position: sticky;
+  bottom: 0;
+  margin: 0 calc(var(--sp-10) * -1); /* a kártya belső térközén túlnyúlva teljes szélességű */
+  padding: var(--sp-6) var(--sp-10) var(--sp-10);
+  background:
+    linear-gradient(to top, var(--c-bg-raised) 70%, transparent);
+}
+
+.fd-bar-inner {
+  background: var(--c-paper);
+  border-radius: var(--r-3xl);
+  padding: var(--sp-5) var(--sp-8);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  box-shadow: var(--shadow-modal);
+}
+
+.fd-add {
+  background: none;
+  border: none;
+  color: var(--c-ink);
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  padding: var(--sp-2) var(--sp-1);
+  transition: opacity var(--t-fast);
+}
+
+.fd-add:hover {
+  opacity: .6;
+}
+
+.fd-go {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  border-radius: var(--r-full);
+  border: 1.5px solid rgba(17, 17, 17, .55);
+  background: none;
+  color: var(--c-ink);
+  font-size: var(--fs-2xl);
+  display: grid;
+  place-items: center;
+  transition: background var(--t-fast);
+}
+
+.fd-go:hover {
+  background: rgba(17, 17, 17, .08);
+}
+
+/* ---- Görgethető gramm-választó ----
+   A tekerő magassága pontosan egy elem + a fölötte-alatta lévők fele, így a
+   kiválasztott érték mindig a középső keretben ül. A scroll-snap végzi a
+   beugratást, a JS csak leolvassa a legközelebbi elemet. */
+.fd-picker-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.fd-picker {
+  --fd-item-h: 24px;
+  width: 62px;
+  height: calc(var(--fd-item-h) * 4);
+  padding: calc(var(--fd-item-h) * 1.5) 0;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(transparent, #000 34%, #000 66%, transparent);
+  mask-image: linear-gradient(transparent, #000 34%, #000 66%, transparent);
+}
+
+.fd-picker::-webkit-scrollbar {
+  display: none;
+}
+
+.fd-picker:focus-visible {
+  outline: 2px solid rgba(17, 17, 17, .6);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+.fd-picker-option {
+  height: var(--fd-item-h);
+  line-height: var(--fd-item-h);
+  scroll-snap-align: center;
+  text-align: center;
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: rgba(17, 17, 17, .32);
+  transition: color var(--t-fast), font-size var(--t-fast);
+}
+
+.fd-picker-option.is-selected {
+  font-size: var(--fs-xl);
+  font-weight: 800;
+  color: var(--c-ink);
+}
+
+.fd-picker-frame {
+  position: absolute;
+  left: 0;
+  width: 62px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 26px;
+  border: 1.5px solid rgba(17, 17, 17, .45);
+  border-radius: var(--r-xs);
+  pointer-events: none;
+}
+
+.fd-picker-unit {
+  color: var(--c-ink);
+  font-size: var(--fs-xl);
+  font-weight: 700;
+}
+
+/* Mozgásérzékenység: a választó ne animáljon, csak ugorjon */
+@media (prefers-reduced-motion: reduce) {
+  .fd-picker-option,
+  .fd-goal-fill {
+    transition: none;
   }
 }

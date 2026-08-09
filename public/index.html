@@ -726,6 +726,100 @@
   </div>
 
   <!-- ================================================================
+       Étel részlet-modál (fd-*) — a Táplálkozás oldal étel-kártyáin lévő
+       nyíl nyitja. Itt választható meg az adag (görgethető gramm-választó
+       + gyorsgombok), a makrók és a napi célhoz mért hatás élőben követi.
+       A tartalmát a script.js tölti fel a kiválasztott ételből.
+       ================================================================ -->
+  <div class="food-modal" id="foodModal" aria-hidden="true">
+    <div class="food-modal-backdrop" data-close-modal></div>
+    <div class="food-modal-card" role="dialog" aria-modal="true" aria-labelledby="foodModalTitle">
+      <div class="food-modal-head">
+        <div class="fd-ident">
+          <h3 id="foodModalTitle" data-fd-name>Étel</h3>
+          <span class="fd-tag" data-fd-tag hidden></span>
+        </div>
+        <button class="food-modal-close tap-target" type="button" data-close-modal aria-label="Bezárás">✕</button>
+      </div>
+
+      <!-- Fejléc-blokk: bélyegkép + a VÁLASZTOTT adagra átszámolt makrók -->
+      <div class="fd-hero">
+        <div class="fd-photo" aria-hidden="true"><span class="fd-photo-glyph" data-fd-glyph></span></div>
+        <div class="fd-macros">
+          <div class="fd-macro">
+            <span class="fd-macro-value"><span data-fd-protein>0</span><span class="fd-macro-unit">g</span></span>
+            <span class="fd-macro-label">Fehérje</span>
+          </div>
+          <div class="fd-macro">
+            <span class="fd-macro-value"><span data-fd-carbs>0</span><span class="fd-macro-unit">g</span></span>
+            <span class="fd-macro-label">Szénhidrát</span>
+          </div>
+          <div class="fd-macro">
+            <span class="fd-macro-value"><span data-fd-kcal>0</span><span class="fd-macro-unit">kcal</span></span>
+            <span class="fd-macro-label">Kalória</span>
+          </div>
+          <p class="fd-portion"><span data-fd-portion>100</span> g adag</p>
+        </div>
+      </div>
+
+      <!-- Napi cél: hol tartana a bevitel ezzel az adaggal -->
+      <div class="fd-goals">
+        <div class="fd-goal">
+          <div class="fd-goal-head">
+            <span class="fd-goal-label">Kalória-cél</span>
+            <span class="fd-goal-value" data-fd-kcal-goal></span>
+          </div>
+          <div class="fd-goal-track" role="progressbar" aria-label="Kalória-cél az adaggal együtt"
+               aria-valuemin="0" aria-valuemax="100" data-fd-kcal-bar>
+            <span class="fd-goal-fill"></span>
+          </div>
+        </div>
+        <div class="fd-goal">
+          <div class="fd-goal-head">
+            <span class="fd-goal-label">Fehérje-cél</span>
+            <span class="fd-goal-value" data-fd-protein-goal></span>
+          </div>
+          <div class="fd-goal-track fd-goal-track--paper" role="progressbar" aria-label="Fehérje-cél az adaggal együtt"
+               aria-valuemin="0" aria-valuemax="100" data-fd-protein-bar>
+            <span class="fd-goal-fill"></span>
+          </div>
+        </div>
+        <p class="fd-goal-delta" data-fd-delta></p>
+      </div>
+
+      <div class="fd-quick">
+        <span class="fd-section-label" id="fd-quick-label">Gyors adag</span>
+        <div class="fd-chips" data-fd-chips role="group" aria-labelledby="fd-quick-label"></div>
+      </div>
+
+      <!-- Ma ebből — csak akkor látszik, ha ma már naplóztad ezt az ételt -->
+      <section class="fd-today" data-fd-today aria-labelledby="fd-today-label" hidden>
+        <span class="fd-section-label" id="fd-today-label">Ma ebből</span>
+        <ul class="fd-today-list" data-fd-today-list></ul>
+        <div class="fd-today-total">
+          <span>Összesen ma</span>
+          <span data-fd-today-total></span>
+        </div>
+      </section>
+
+      <!-- Akció-sáv: adag-választó és naplózás -->
+      <div class="fd-bar">
+        <div class="fd-bar-inner">
+          <button class="fd-add" type="button" data-fd-add>Hozzáadás</button>
+          <div class="fd-picker-wrap">
+            <div class="fd-picker" data-fd-picker tabindex="0" role="spinbutton"
+                 aria-label="Adag grammban" aria-valuemin="0" aria-valuemax="0" aria-valuenow="100"></div>
+            <span class="fd-picker-frame" aria-hidden="true"></span>
+            <span class="fd-picker-unit" aria-hidden="true">g</span>
+          </div>
+          <button class="fd-go tap-target" type="button" data-fd-add
+                  aria-label="Adag hozzáadása a naplóhoz">→</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================
        Megerősítő ablak — adatvesztéssel járó műveletekhez (terv betöltése
        megkezdett edzésre, teljesített szettes gyakorlat eltávolítása).
        A natív window.confirm helyett: az app saját design-nyelvén szólal
@@ -832,6 +926,14 @@
         <span class="nu-food-macros"></span>
       </div>
       <button class="nu-food-add tap-target" type="button">→</button>
+    </li>
+  </template>
+
+  <!-- Az étel részlet-modál „Ma ebből" listájának egy sora -->
+  <template id="tpl-fd-today-item">
+    <li class="fd-today-item">
+      <span class="fd-today-meta"></span>
+      <span class="fd-today-value"></span>
     </li>
   </template>
 

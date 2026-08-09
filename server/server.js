@@ -403,16 +403,27 @@ app.post('/api/weight-log', (req, res) => {
   res.status(201).json(addWeightEntry(kg, today()));
 });
 
-/** Étel naplózása. Törzs: { name }. A szerver a foods-ból keresi ki a makrókat
-    (a kliens értékeiben nem bízunk). A válasz { entry, totals }: a létrejött
-    bejegyzés (a mai napló listájához, id-vel a törléshez) és a friss összesítő. */
+/** Étel naplózása. Törzs: { name, grams }. A szerver a foods-ból keresi ki a
+    makrókat (a kliens értékeiben nem bízunk), és a megadott adagra számolja át
+    őket. A grams elhagyható — ilyenkor a korábbi viselkedés szerint 100 g.
+    A válasz { entry, totals }: a létrejött bejegyzés (a mai napló listájához,
+    id-vel a törléshez) és a friss összesítő. */
+const MAX_PORTION_GRAMS = 2000;
 app.post('/api/nutrition/log', (req, res) => {
   const name = String(req.body?.name ?? '');
   const food = (getCollection('foods') || []).find((f) => f.name === name);
   if (!food) {
     return res.status(400).json({ error: 'Ismeretlen étel — csak a listában szereplő adható a naplóhoz.' });
   }
-  res.status(201).json(addNutritionEntry(food, today()));
+
+  const grams = req.body?.grams === undefined ? 100 : Number(req.body.grams);
+  if (!Number.isFinite(grams) || grams < 1 || grams > MAX_PORTION_GRAMS) {
+    return res.status(400).json({
+      error: `Érvénytelen adag — 1 és ${MAX_PORTION_GRAMS} g között adható meg.`,
+    });
+  }
+
+  res.status(201).json(addNutritionEntry(food, today(), Math.round(grams)));
 });
 
 /** Naplóbejegyzés törlése (visszavonás). Csak a mai bejegyzés törölhető;
