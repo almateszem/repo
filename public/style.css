@@ -3448,6 +3448,25 @@ input.wk-chip.wk-num-input {
   border: 1px solid var(--border-card);
   border-radius: var(--r-xl);
   padding: var(--sp-6);
+
+  /* A katalógus 1400+ kártyából áll. A content-visibility a képernyőn kívüli
+     kártyák kirajzolását (elrendezés, festés) elhalasztja, amíg oda nem
+     görgetünk — a contain-intrinsic-size adja addig a becsült magasságot,
+     hogy a görgetősáv ne ugráljon. Ahol a böngésző nem ismeri, ott egyszerűen
+     a korábbi viselkedés marad. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 88px;
+}
+
+/* Gyakorlat-illusztráció. Fix méret, hogy a lista ne ugráljon, amíg a képek
+   lazy módon betöltenek; a világos háttér a gifek fehér hátterét folytatja. */
+.ep-item-thumb {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--r-md);
+  background: #fff;
+  object-fit: cover;
 }
 
 .ep-item-info {
@@ -3482,6 +3501,44 @@ input.wk-chip.wk-num-input {
   border-radius: var(--r-xs);
 }
 
+/* Kivitelezés-gomb. A kártya flex-sorában ül a hozzáadás-gomb előtt, a nyitott
+   lépéslista viszont teljes szélességben, alatta — ezért a kártya tördel. */
+.ep-item {
+  flex-wrap: wrap;
+}
+
+.ep-item-info-btn {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r-full);
+  background: none;
+  border: 1px solid var(--fg-20);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  line-height: 1;
+  transition: color var(--t-fast), border-color var(--t-fast);
+}
+
+.ep-item-info-btn:hover,
+.ep-item-info-btn[aria-expanded="true"] {
+  border-color: var(--fg-40);
+  color: var(--text-secondary);
+}
+
+.ep-item-steps {
+  flex-basis: 100%;
+  margin: var(--sp-5) 0 0;
+  padding-left: var(--sp-7);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
 /* Hozzáadás-gomb: → alapban, ✓ ha a gyakorlat már benne van az edzésben */
 .ep-item-toggle {
   flex-shrink: 0;
@@ -3504,6 +3561,18 @@ input.wk-chip.wk-num-input {
   background: var(--c-paper);
   border-color: var(--c-paper);
   color: var(--c-ink);
+}
+
+/* A média licence megköveteli a forrás megjelölését ott, ahol a kép látszik. */
+.ep-credit {
+  margin: var(--sp-6) 0 0;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.ep-credit a {
+  color: inherit;
 }
 
 .ep-empty {

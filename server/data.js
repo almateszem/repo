@@ -2,9 +2,16 @@
  * FitTrack Pro — seed / referencia-adat
  * -------------------------------------
  * A SQLite adatbázis (server/db.js) kiinduló tartalma: minden indításkor
- * innen szinkronizálódnak a csak-olvasható kollekciók (INSERT OR REPLACE),
- * így ez a fájl a referencia-adat egyetlen szerkesztési helye. A felhasználói
- * adatot tartó táblákat (weight_log, nutrition_log, workouts) nem érinti.
+ * innen szinkronizálódnak a csak-olvasható kollekciók (INSERT OR REPLACE).
+ * A felhasználói adatot tartó táblákat (weight_log, nutrition_log, workouts)
+ * nem érinti.
+ *
+ * A KÉT NAGY LISTA NEM ITT VAN. A gyakorlat- és az étel-katalógus saját
+ * forrásfájlban él a server/data/ alatt, és a server/data/catalog.js fésüli
+ * őket össze — a db.js azokat seedeli az `exerciseCatalog` és a `foods`
+ * kulcs alá. Néhány száz soros adatlistát nem kényelmes ebben a vegyes
+ * seed-fájlban tartani, és a generált gyakorlat-katalógust amúgy sem kézzel
+ * szerkesztjük.
  */
 
 export const data = {
@@ -37,116 +44,16 @@ export const data = {
   /* Az új szettek alapértékei. Tiszta számok: az ismétlés és az RPE darab,
      a súly kilogramm — a felület szám-mezőkkel szerkeszti őket. */
   defaultSet: { reps: '10', weight: '60', rpe: '8', done: false },
-  /* A gyakorlat-választó (edzésépítő) katalógusa. A group a szűrő-chipek
-     alapja — a chipek listája ebből áll össze (a katalógus sorrendjében),
-     ezért szándékosan DURVA: hat csoport, hogy a chip-sor rövid maradjon.
-     A finom felbontás a `load` mezőben van: melyik izomcsoportot mennyire
-     terheli a gyakorlat (a súlyok összege 1). Ezt a Recovery Engine használja
-     az izomcsoportonkénti regeneráció becsléséhez — a kulcsok a
-     server/muscles.js MUSCLE_GROUPS kulcsai. Kézzel beírt (katalóguson kívüli)
-     gyakorlatnevekre a muscles.js kulcsszavas becslése ugrik be. */
-  exerciseCatalog: [
-    // — Mell —
-    { name: 'Fekvenyomás', tag: 'Összetett', muscles: 'Mell · Tricepsz', group: 'Mell',
-      load: { chest: 0.6, shoulders: 0.15, arms: 0.25 } },
-    { name: 'Ferde fekvenyomás', tag: 'Összetett', muscles: 'Felső mell', group: 'Mell',
-      load: { chest: 0.65, shoulders: 0.2, arms: 0.15 } },
-    { name: 'Tolódzkodás', tag: 'Összetett', muscles: 'Mell · Tricepsz', group: 'Mell',
-      load: { chest: 0.5, arms: 0.35, shoulders: 0.15 } },
-    { name: 'Kábeles keresztezés', tag: 'Izolációs', muscles: 'Mell', group: 'Mell',
-      load: { chest: 0.9, shoulders: 0.1 } },
-    { name: 'Gépi mellnyomás', tag: 'Izolációs', muscles: 'Mell', group: 'Mell',
-      load: { chest: 0.75, arms: 0.15, shoulders: 0.1 } },
-    { name: 'Fekvőtámasz', tag: 'Összetett', muscles: 'Mell · Tricepsz', group: 'Mell',
-      load: { chest: 0.55, arms: 0.25, shoulders: 0.15, core: 0.05 } },
+  /* A gyakorlat-katalógus NEM itt él, hanem két külön forrásfájlban:
+     kézzel kurált gyakorlatok  → server/data/exercises.hu.js  (200 db)
+     a külső datasetből generált → server/data/exercises.exdb.js (1216 db)
+     A kettőt a server/data/catalog.js fésüli össze (kurált nyer névütközéskor),
+     és a db.js onnan seedeli az `exerciseCatalog` kollekciót. Több száz soros
+     adatlistának nincs helye ebben a vegyes seed-fájlban. */
 
-    // — Hát —
-    { name: 'Húzódzkodás', tag: 'Összetett', muscles: 'Hát · Bicepsz', group: 'Hát',
-      load: { back: 0.7, arms: 0.25, core: 0.05 } },
-    { name: 'Ülő evezés', tag: 'Összetett', muscles: 'Hát', group: 'Hát',
-      load: { back: 0.7, arms: 0.2, shoulders: 0.1 } },
-    { name: 'Hajolt evezés', tag: 'Összetett', muscles: 'Hát · Törzs', group: 'Hát',
-      load: { back: 0.6, arms: 0.15, shoulders: 0.1, core: 0.15 } },
-    { name: 'Széles lehúzás', tag: 'Izolációs', muscles: 'Széles hát', group: 'Hát',
-      load: { back: 0.75, arms: 0.25 } },
-    { name: 'Felhúzás', tag: 'Összetett', muscles: 'Hát · Hamstring · Far', group: 'Hát',
-      load: { back: 0.35, hamstrings: 0.3, glutes: 0.25, core: 0.1 } },
-    { name: 'Román felhúzás', tag: 'Összetett', muscles: 'Hamstring · Far', group: 'Hát',
-      load: { hamstrings: 0.5, glutes: 0.3, back: 0.15, core: 0.05 } },
-    { name: 'Hiperextenzió', tag: 'Izolációs', muscles: 'Deréktáj · Far', group: 'Hát',
-      load: { back: 0.4, hamstrings: 0.3, glutes: 0.3 } },
-    { name: 'Vállvonogatás', tag: 'Izolációs', muscles: 'Csuklyás', group: 'Hát',
-      load: { back: 0.6, shoulders: 0.4 } },
+  /* Az étel-katalógus sem itt él: server/data/foods.hu.js (437 étel,
+     kategóriákkal és reális adagokkal). Összeállítás: server/data/catalog.js. */
 
-    // — Váll —
-    { name: 'Vállból nyomás', tag: 'Összetett', muscles: 'Váll · Tricepsz', group: 'Váll',
-      load: { shoulders: 0.65, arms: 0.25, core: 0.1 } },
-    { name: 'Arnold nyomás', tag: 'Összetett', muscles: 'Váll', group: 'Váll',
-      load: { shoulders: 0.7, arms: 0.2, core: 0.1 } },
-    { name: 'Oldalemelés', tag: 'Izolációs', muscles: 'Váll', group: 'Váll',
-      load: { shoulders: 1 } },
-    { name: 'Hátsó vállemelés', tag: 'Izolációs', muscles: 'Hátsó váll', group: 'Váll',
-      load: { shoulders: 0.7, back: 0.3 } },
-    { name: 'Face pull', tag: 'Izolációs', muscles: 'Hátsó váll · Hát', group: 'Váll',
-      load: { shoulders: 0.6, back: 0.4 } },
-
-    // — Kar —
-    { name: 'Bicepsz hajlítás', tag: 'Izolációs', muscles: 'Bicepsz', group: 'Kar',
-      load: { arms: 1 } },
-    { name: 'Kalapács hajlítás', tag: 'Izolációs', muscles: 'Bicepsz · Alkar', group: 'Kar',
-      load: { arms: 1 } },
-    { name: 'Tricepsz nyújtás', tag: 'Izolációs', muscles: 'Tricepsz', group: 'Kar',
-      load: { arms: 1 } },
-    { name: 'Homlok nyomás', tag: 'Izolációs', muscles: 'Tricepsz', group: 'Kar',
-      load: { arms: 1 } },
-    { name: 'Szűk fekvenyomás', tag: 'Összetett', muscles: 'Tricepsz · Mell', group: 'Kar',
-      load: { arms: 0.5, chest: 0.4, shoulders: 0.1 } },
-    { name: 'Alkar hajlítás', tag: 'Izolációs', muscles: 'Alkar', group: 'Kar',
-      load: { arms: 1 } },
-
-    // — Láb —
-    { name: 'Guggolás', tag: 'Összetett', muscles: 'Comb · Far', group: 'Láb',
-      load: { quads: 0.55, glutes: 0.25, core: 0.2 } },
-    { name: 'Első guggolás', tag: 'Összetett', muscles: 'Comb · Törzs', group: 'Láb',
-      load: { quads: 0.6, glutes: 0.2, core: 0.2 } },
-    { name: 'Kitörés', tag: 'Összetett', muscles: 'Comb · Far', group: 'Láb',
-      load: { quads: 0.45, glutes: 0.35, hamstrings: 0.1, core: 0.1 } },
-    { name: 'Bolgár kitörés', tag: 'Összetett', muscles: 'Comb · Far', group: 'Láb',
-      load: { quads: 0.4, glutes: 0.4, hamstrings: 0.1, core: 0.1 } },
-    { name: 'Lábtolás', tag: 'Izolációs', muscles: 'Comb', group: 'Láb',
-      load: { quads: 0.7, glutes: 0.3 } },
-    { name: 'Combnyújtás', tag: 'Izolációs', muscles: 'Quadriceps', group: 'Láb',
-      load: { quads: 1 } },
-    { name: 'Combhajlítás', tag: 'Izolációs', muscles: 'Hamstring', group: 'Láb',
-      load: { hamstrings: 1 } },
-    { name: 'Csípőtolás', tag: 'Összetett', muscles: 'Farizom', group: 'Láb',
-      load: { glutes: 0.7, hamstrings: 0.25, core: 0.05 } },
-    { name: 'Vádliemelés', tag: 'Izolációs', muscles: 'Vádli', group: 'Láb',
-      load: { calves: 1 } },
-    { name: 'Ülő vádliemelés', tag: 'Izolációs', muscles: 'Vádli', group: 'Láb',
-      load: { calves: 1 } },
-
-    // — Törzs —
-    { name: 'Plank', tag: 'Izolációs', muscles: 'Törzs', group: 'Törzs',
-      load: { core: 1 } },
-    { name: 'Hasprés', tag: 'Izolációs', muscles: 'Hasizom', group: 'Törzs',
-      load: { core: 1 } },
-    { name: 'Fekvő lábemelés', tag: 'Izolációs', muscles: 'Alsó hasizom', group: 'Törzs',
-      load: { core: 1 } },
-    { name: 'Orosz csavarás', tag: 'Izolációs', muscles: 'Ferde hasizom', group: 'Törzs',
-      load: { core: 0.85, arms: 0.15 } },
-    { name: 'Farmer séta', tag: 'Összetett', muscles: 'Törzs · Alkar', group: 'Törzs',
-      load: { core: 0.6, arms: 0.25, back: 0.15 } },
-  ],
-  foods: [
-    { name: 'Csirkemell', kcal: 200, protein: 20, carbs: 0, fat: 4, per: '100 g' },
-    { name: 'Rizs (főtt)', kcal: 130, protein: 3, carbs: 28, fat: 0, per: '100 g' },
-    { name: 'Tojás', kcal: 155, protein: 13, carbs: 1, fat: 11, per: '100 g' },
-    { name: 'Zabpehely', kcal: 375, protein: 13, carbs: 66, fat: 7, per: '100 g' },
-    { name: 'Túró (sovány)', kcal: 98, protein: 18, carbs: 4, fat: 0.5, per: '100 g' },
-    { name: 'Lazac', kcal: 208, protein: 20, carbs: 0, fat: 13, per: '100 g' },
-    { name: 'Banán', kcal: 89, protein: 1, carbs: 23, fat: 0.3, per: '100 g' },
-  ],
   /* Az edzői panel sportolói. Az összpontszám a readiness és az adherence
      átlaga; az alert mező (ha van) az állapot-sáv riasztásait hajtja. */
   athletes: [

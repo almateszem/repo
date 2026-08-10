@@ -813,7 +813,10 @@
     list.replaceChildren(); // újrahíváskor se duplázódjon a lista
     foods.forEach((food) => {
       const item = cloneTemplate('tpl-food');
-      item.dataset.foodName = food.name.toLowerCase(); // a kereső erre szűr, nem a teljes szövegre
+      // A kereső erre szűr, nem a teljes szövegre. A kategória is bele megy:
+      // 437 étel közt a „tejtermék” vagy a „hüvelyes” beírása használhatóbb
+      // belépő, mint végiggörgetni a listát.
+      item.dataset.foodName = [food.name, food.group].filter(Boolean).join(' ').toLowerCase();
 
       // A kcal-jelvény a név span-jén belül ül, ezért a nevet elé szúrjuk be.
       const nameEl = $('.nu-food-name', item);
@@ -1462,16 +1465,28 @@
     picker.setAttribute('aria-valuemin', PORTION_MIN);
     picker.setAttribute('aria-valuemax', PORTION_MAX);
 
-    const chips = PORTION_QUICK.map((value) => {
-      const chip = document.createElement('button');
-      chip.className = 'fd-chip';
-      chip.type = 'button';
-      chip.textContent = `${value} g`;
-      chip.dataset.grams = value;
-      chip.setAttribute('aria-pressed', 'false');
-      return chip;
-    });
-    chipBox.append(...chips);
+    /* A gyors-adag chipek ÉTELENKÉNT épülnek újra. Az étel-katalógus reális
+       adagokat is tárol (`portions`: [['1 filé', 150], …]) — egy tojásnál a
+       „1 db · 55 g” sokkal használhatóbb gomb, mint a általános 30/50/100.
+       Ahol nincs megadva adag, marad a fix grammos sor. Az egység az ételtől
+       függ: az italoknál ml, hogy ne „500 g kóla” legyen. */
+    const renderChips = (current) => {
+      const unit = current?.unit || 'g';
+      const presets = current?.portions?.length
+        ? current.portions.map(([label, value]) => [`${label} · ${value} ${unit}`, value])
+        : PORTION_QUICK.map((value) => [`${value} ${unit}`, value]);
+
+      chipBox.replaceChildren(...presets.map(([label, value]) => {
+        const chip = document.createElement('button');
+        chip.className = 'fd-chip';
+        chip.type = 'button';
+        chip.textContent = label;
+        chip.dataset.grams = value;
+        chip.setAttribute('aria-pressed', 'false');
+        return chip;
+      }));
+    };
+    renderChips(null);
 
     /** A modál teljes tartalmának újraszámolása a kiválasztott adagra. */
     const render = () => {
@@ -1484,6 +1499,7 @@
       $('[data-fd-carbs]', modal).textContent = formatNumber(food.carbs * factor);
       $('[data-fd-kcal]', modal).textContent = String(addKcal);
       $('[data-fd-portion]', modal).textContent = String(grams);
+      $('[data-fd-unit]', modal).textContent = food.unit || 'g';
 
       // Napi cél: a sáv azt mutatja, hol tartana a bevitel EZZEL az adaggal
       const totals = context.totals;
@@ -1505,13 +1521,14 @@
       $('[data-fd-delta]', modal).textContent =
         `+${addKcal} kcal · +${formatNumber(addProtein)} g fehérje ezzel az adaggal`;
 
-      chips.forEach((chip) => {
+      $$('.fd-chip', chipBox).forEach((chip) => {
         chip.setAttribute('aria-pressed', String(Number(chip.dataset.grams) === grams));
       });
 
       const index = portionIndex(grams);
+      const unitWord = food.unit === 'ml' ? 'milliliter' : 'gramm';
       picker.setAttribute('aria-valuenow', grams);
-      picker.setAttribute('aria-valuetext', `${grams} gramm`);
+      picker.setAttribute('aria-valuetext', `${grams} ${unitWord}`);
       Array.from(picker.children).forEach((option, i) => {
         option.classList.toggle('is-selected', i === index);
       });
@@ -1599,7 +1616,10 @@
       open(nextFood, nextContext = {}) {
         food = nextFood;
         context = { totals: nextContext.totals ?? null, entries: nextContext.entries ?? [] };
-        grams = PORTION_DEFAULT;
+        // Kezdő adag: az étel első reális adagja, ha van ilyen (egy tojásnál
+        // az 55 g életszerűbb kiindulás, mint a fix 100 g).
+        grams = snapPortion(food.portions?.[0]?.[1] ?? PORTION_DEFAULT);
+        renderChips(food);
 
         $('[data-fd-name]', modal).textContent = food.name;
         $('[data-fd-glyph]', modal).textContent = food.name.trim().charAt(0).toUpperCase();
@@ -2391,6 +2411,78 @@
     return { loadPlan };
   }
 
+  /**
+   * A gyakorlat-kártya illusztrációja. A katalógus nagyobbik fele a külső
+   * datasetből jön, ahol minden gyakorlathoz tartozik egy álló thumbnail és
+   * egy animált gif (© Gym visual) — a kézzel kurált gyakorlatokhoz viszont
+   * nincs média, ezért a kép ilyenkor rejtve marad.
+   *
+   * Alapban a thumbnail látszik, és csak rámutatásra / fókuszra vált gifre.
+   * Ez szándékos: 1200+ egyszerre animáló gif a listában értelmetlenül
+   * pörgetné a CPU-t, a mozgás pedig zavaró. A csere csak akkor indul, ha a
+   * gif már betöltött, hogy ne villanjon üresre a kártya.
+   *
+   * Ha a média nincs letöltve (npm run exdb:media), a kép betöltése elhasal —
+   * ilyenkor elrejtjük, és a lista pontosan úgy néz ki, mint korábban.
+   */
+  function setupThumb(img, entry) {
+    if (!img || !entry.image) return;
+    img.src = `/exercises/${entry.image}`;
+    img.hidden = false;
+    img.addEventListener('error', () => { img.hidden = true; }, { once: true });
+    if (!entry.gif) return;
+
+    const still = img.src;
+    const animated = `/exercises/${entry.gif}`;
+    let preloaded = false;
+    const play = () => {
+      if (preloaded) { img.src = animated; return; }
+      const probe = new Image();
+      probe.addEventListener('load', () => { preloaded = true; img.src = animated; }, { once: true });
+      probe.src = animated;
+    };
+    const stop = () => { img.src = still; };
+
+    const card = img.closest('.ep-item');
+    card.addEventListener('pointerenter', play);
+    card.addEventListener('pointerleave', stop);
+    card.addEventListener('focusin', play);
+    card.addEventListener('focusout', stop);
+  }
+
+  /**
+   * A kártya kinyitható „kivitelezés” része. Csak azoknál a gyakorlatoknál
+   * van, amikhez van magyar lépéslista — a többinél a gomb rejtve marad, és
+   * a kártya pontosan úgy néz ki, mint eddig.
+   *
+   * A lépések a kártya megépítésekor bekerülnek a DOM-ba, de a lista `hidden`
+   * marad; a gomb csak átbillenti. Így nincs külön hálózati kérés, és a
+   * keresés/szűrés logikája sem változik.
+   */
+  function setupSteps(item, entry) {
+    if (!entry.steps?.length) return;
+
+    const button = $('.ep-item-info-btn', item);
+    const list = $('.ep-item-steps', item);
+    list.append(...entry.steps.map((step) => {
+      const li = document.createElement('li');
+      li.textContent = step;
+      return li;
+    }));
+
+    button.hidden = false;
+    button.setAttribute('aria-label', `${entry.name} — kivitelezés megjelenítése`);
+    button.addEventListener('click', () => {
+      const open = button.getAttribute('aria-expanded') === 'true';
+      button.setAttribute('aria-expanded', String(!open));
+      list.hidden = open;
+      button.setAttribute(
+        'aria-label',
+        `${entry.name} — kivitelezés ${open ? 'megjelenítése' : 'elrejtése'}`,
+      );
+    });
+  }
+
   /** A gyakorlat-választó flow-oldal: katalógus a szerverről, kereső + izom-
       csoport chipek, a → gomb a cél-listához adja a gyakorlatot (alap
       szettekkel), a ✓ eltávolítja onnan. A cél (a terv-építő VAGY az
@@ -2413,17 +2505,30 @@
         subtitleNoun, toastTarget, exerciseOptions, onChange }. */
     let context = null;
 
-    // A kártyák egyszer épülnek fel; a szűrés csak elrejt/megmutat
+    /* A kártyák egyszer épülnek fel; a szűrés csak elrejt/megmutat.
+       A katalógus 1400+ elemű, ezért a kártyák egy DocumentFragmentbe
+       készülnek el, és EGY beszúrással kerülnek a listába — így a böngésző
+       egyszer számol elrendezést, nem elemenként. A kártyák tényleges
+       kirajzolását a CSS `content-visibility: auto` halasztja a láthatóságig
+       (lásd .ep-item a style.css-ben). */
+    const fragment = document.createDocumentFragment();
     catalog.forEach((entry) => {
       const item = cloneTemplate('tpl-picker-item');
       item.dataset.name = entry.name;
       item.dataset.group = entry.group;
-      item.dataset.search = entry.name.toLowerCase();
+      // A keresés a felszerelésre is illeszkedjen: a katalógus nagy része a
+      // külső datasetből jön, ahol a variánsokat a felszerelés különbözteti
+      // meg — így a „kettlebell” beírásával azok is előjönnek, amiknek a
+      // magyar nevében a szó nem szerepel.
+      item.dataset.search = [entry.name, entry.equipment].filter(Boolean).join(' ').toLowerCase();
       $('.ep-item-name', item).textContent = entry.name;
       $('.ep-item-tag', item).textContent = entry.tag;
       $('.ep-item-muscles', item).textContent = entry.muscles;
-      list.appendChild(item);
+      setupThumb($('.ep-item-thumb', item), entry);
+      setupSteps(item, entry);
+      fragment.appendChild(item);
     });
+    list.appendChild(fragment);
 
     // Szűrő-chipek a katalógus csoportjaiból (+ Mind)
     let activeGroup = 'Mind';
@@ -2852,7 +2957,7 @@
       renderLog();
       // Az áttekintő kalória-statja is kövesse a naplózást (közös forrás a szerveren)
       refreshDailyStats().catch(console.error);
-      showToast(`${food.name} · ${formatNumber(grams)} g hozzáadva · +${formatNumber(entry.kcal)} kcal`);
+      showToast(`${food.name} · ${formatNumber(grams)} ${food.unit || 'g'} hozzáadva · +${formatNumber(entry.kcal)} kcal`);
     };
 
     // A kártya nyila az adagválasztó modált nyitja. Ha az (betöltési hiba

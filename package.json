@@ -10,7 +10,9 @@
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning server/server.js",
     "dev": "node --watch --disable-warning=ExperimentalWarning server/server.js",
-    "test": "node --test \"server/**/*.test.js\""
+    "test": "node --test \"server/**/*.test.js\"",
+    "exdb:build": "node scripts/build-exdb.js",
+    "exdb:media": "node scripts/fetch-exdb-media.js"
   },
   "dependencies": {
     "express": "^4.21.2"

@@ -289,6 +289,10 @@
 
         <div class="ep-list" data-list="picker-catalog"></div>
         <p class="ep-empty" hidden>Nincs találat a keresésre.</p>
+        <!-- A gyakorlat-illusztrációk licencfeltétele: a forrás megjelölése
+             kötelező mindenhol, ahol a média látszik. Lásd
+             public/exercises/ATTRIBUTION.txt és scripts/fetch-exdb-media.js. -->
+        <p class="ep-credit">Gyakorlat-illusztrációk: © <a href="https://gymvisual.com/" target="_blank" rel="noopener noreferrer">Gym visual</a></p>
       </section>
 
       <!-- ================================================================
@@ -758,7 +762,8 @@
             <span class="fd-macro-value"><span data-fd-kcal>0</span><span class="fd-macro-unit">kcal</span></span>
             <span class="fd-macro-label">Kalória</span>
           </div>
-          <p class="fd-portion"><span data-fd-portion>100</span> g adag</p>
+          <!-- Az egység ételfüggő (g vagy ml) — a script.js írja bele. -->
+          <p class="fd-portion"><span data-fd-portion>100</span> <span data-fd-unit>g</span> adag</p>
         </div>
       </div>
 
@@ -900,11 +905,21 @@
 
   <template id="tpl-picker-item">
     <article class="ep-item">
+      <!-- Illusztráció: alapban az álló thumbnail, rámutatásra/fókuszra az
+           animált gif (a script.js cseréli a src-t). Dekoratív, ezért alt=""
+           — a gyakorlatot a mellette lévő név azonosítja. A katalógus nagy,
+           ezért loading="lazy": a böngésző csak a látható kártyák képét tölti.
+           Ha a média nincs letöltve (npm run exdb:media), a kép elrejti magát. -->
+      <img class="ep-item-thumb" alt="" width="180" height="180" loading="lazy" decoding="async" hidden>
       <div class="ep-item-info">
         <h3 class="ep-item-name"></h3>
         <p class="ep-item-meta"><span class="ep-item-tag"></span><span class="ep-item-muscles"></span></p>
       </div>
+      <!-- Kivitelezés megnyitása. Csak ott jelenik meg, ahol van magyar
+           leírás (server/data/instructions.hu.js) — a script.js rejti el. -->
+      <button class="ep-item-info-btn tap-target" type="button" aria-expanded="false" hidden>?</button>
       <button class="ep-item-toggle tap-target" type="button" aria-pressed="false"></button>
+      <ol class="ep-item-steps" hidden></ol>
     </article>
   </template>
 
