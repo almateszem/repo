@@ -17,6 +17,7 @@ import { DatabaseSync } from 'node:sqlite';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { data as seed } from './data.js';
+import { buildExerciseCatalog, buildFoodCatalog } from './data/catalog.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Alapból server/fittrack.db; a FITTRACK_DB env-változóval felülírható (pl. teszthez).
@@ -145,12 +146,22 @@ function migrateSetValuesToNumbers(table) {
    írhatók a forrásból — így a data.js módosításai és a séma-bővítések maguktól
    érvényre jutnak a meglévő DB-ken is. A felhasználói adatot tartó táblákat
    (weight_log stb.) ez NEM érinti. */
+/* A két nagy referencia-lista nem a data.js-ben él, hanem saját forrásfájlban
+   (server/data/), és a catalog.js állítja össze őket — a gyakorlatoknál a
+   kurált + generált összefésülésével, az ételeknél a `per` címke képzésével.
+   A data.js így az marad, ami: rövid, vegyes seed-adat. */
+const collections = {
+  ...seed,
+  exerciseCatalog: buildExerciseCatalog(),
+  foods: buildFoodCatalog(),
+};
+
 const insertCollection = db.prepare('INSERT OR REPLACE INTO collections (key, value) VALUES (?, ?)');
-for (const [key, value] of Object.entries(seed)) {
+for (const [key, value] of Object.entries(collections)) {
   insertCollection.run(key, JSON.stringify(value));
 }
-// A data.js-ből időközben eltávolított kulcsok a meglévő DB-kből is tűnjenek el.
-const seedKeys = Object.keys(seed);
+// Az időközben eltávolított kulcsok a meglévő DB-kből is tűnjenek el.
+const seedKeys = Object.keys(collections);
 db.prepare(`DELETE FROM collections WHERE key NOT IN (${seedKeys.map(() => '?').join(', ')})`)
   .run(...seedKeys);
 console.log('SQLite kész →', DB_PATH);

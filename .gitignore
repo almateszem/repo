@@ -7,5 +7,13 @@ server/fittrack.db-journal
 server/fittrack.db-wal
 server/fittrack.db-shm
 
+# Külső gyakorlat-dataset munkakönyvtára (17 MB forrás-JSON + jelentés).
+# A scripts/build-exdb.js bármikor újra letölti — nem tartozik a repóba.
+server/data/.exdb/
+
+# Gyakorlat-média: © Gym visual, NEM a mi tartalmunk, ezért nem verziózzuk.
+# A scripts/fetch-exdb-media.js tölti le — lásd public/exercises/ATTRIBUTION.txt.
+public/exercises/
+
 # Logok
 *.log

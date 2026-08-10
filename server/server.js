@@ -81,8 +81,24 @@ const READ_ENDPOINTS = {
   '/api/coach-replies': 'coachReplies',
 };
 
+/* Mezőszűrés a válaszhoz. A kollekció a DB-ben TELJES marad (a Recovery
+   Engine szerver oldalon a `load` súlyokból dolgozik) — csak a hálózatra
+   nem küldjük ki azt, amire a felületnek nincs szüksége.
+   A gyakorlat-katalógus 1401 sor: a `load` és a `loadSource` elhagyása a
+   válasz negyedét lefaragja, és a kliens egyiket sem használja (a kártya a
+   névből, a címkéből, az izom-szövegből és a képből áll össze). */
+const RESPONSE_PROJECTIONS = {
+  exerciseCatalog: (catalog) => catalog.map(
+    ({ load, loadSource, extId, ...visible }) => visible,
+  ),
+};
+
 for (const [route, key] of Object.entries(READ_ENDPOINTS)) {
-  app.get(route, (req, res) => res.json(getCollection(key)));
+  app.get(route, (req, res) => {
+    const value = getCollection(key);
+    const project = RESPONSE_PROJECTIONS[key];
+    res.json(project && Array.isArray(value) ? project(value) : value);
+  });
 }
 
 /** Az Edzés oldal induló tartalma, prioritás szerint: aznapi piszkozat →

@@ -1,0 +1,106 @@
+FitTrack Pro — TEENDŐK ÉS OPTIMALIZÁCIÓK
+========================================
+Ide gyűjtjük, ami működik ugyan, de még javításra/optimalizálásra vár.
+Nem hibajegy-rendszer: rövid, cselekvésre kész sorok, prioritás szerint.
+
+Jelölések:   [ ] nyitott    [~] részben kész    [x] kész (a következő
+             takarításig marad itt, hogy lássuk, mi történt)
+
+Utolsó frissítés: 2026-08-10
+
+
+==========================================================================
+NYITOTT — döntést vagy külső lépést igényel
+==========================================================================
+
+[ ] Gym visual licenc tisztázása, MIELŐTT ez élesbe/nyilvánosra megy
+    EZT NEM LEHET KÓDBÓL MEGOLDANI — meg kell keresni a jogtulajdonost.
+    A gifek és képek NEM a miénk: © Gym visual. A repo klónozása nem ad
+    jogot rájuk. Feltételek: kizárólag 180×180, attribúcióval.
+    Saját/tanulós használatra rendben (az attribúció ki van téve a
+    választó alján), kereskedelmi felhasználáshoz saját engedély kell.
+    Részletek: public/exercises/ATTRIBUTION.txt
+    https://gymvisual.com/content/3-terms-and-conditions-of-use
+
+
+==========================================================================
+ADATMINŐSÉG — fokozatosan bővíthető, nincs határidő
+==========================================================================
+
+[~] Magyar lépésenkénti leírások — 64 / 1401 gyakorlat kész
+    A 200 kurált gyakorlatból a leggyakoribb 64-hez van kivitelezési
+    leírás (server/data/instructions.hu.js), és a választó kártyáján a
+    „?” gombbal nyílik ki. Aminek nincs, ott a gomb sem jelenik meg.
+    Bővítés: új kulcs a fájlba, a névnek PONTOSAN egyeznie kell a
+    katalógusbelivel — a catalog.js induláskor ellenőrzi és hangosan szól.
+    A generált 1200 gyakorlathoz nincs és valószínűleg nem is lesz: ott a
+    gif önmagában elmondja a mozgást.
+
+[~] 53 gyakorlat nem fordult le, ezért kimaradt a katalógusból
+    (Korábban 80 volt; a szótár bővítésével 1201 gyakorlat van bent.)
+    A maradék nagyrészt tulajdonnév és a forrás elgépelése — a 100%-ot
+    nem érdemes hajszolni.
+    Jelentés:  server/data/.exdb/report.txt
+    Bővítendő: server/data/exdb.names.hu.js → PHRASES
+    Utána:     npm run exdb:build
+
+[ ] A származtatott `load` súlyok felülvizsgálata a gyakori gyakorlatoknál
+    Az 1201 generált sor súlyai BECSLÉSEK (loadSource: 'derived'):
+    elsődleges izom 60%, másodlagosak osztoznak a 40%-on. A forrásban
+    nincs súlyozás, csak izomlista.
+    A 200 kurált gyakorlat súlyai viszont kézzel megadottak, és a
+    névütközésnél mindig azok nyernek — az alapgyakorlatok tehát rendben
+    vannak. Ez a tétel a ritkábban használt generált sorokra vonatkozik.
+
+[ ] Címke-heurisztika: néhány vitatható Összetett/Izolációs besorolás
+    A dataset nem tartalmaz `mechanic` mezőt, ezért a címkét névből +
+    terhelt izomcsoportok számából becsüljük. A nyújtó gyakorlatok azóta
+    külön „Nyújtás” címkét kapnak (50 db), a minták bővültek.
+    Hely: server/data/exdb.map.js → COMPOUND_PATTERNS / ISOLATION_PATTERNS
+    Kis hatású (csak a kártyán látszó címke), ráér.
+
+[ ] 128 kurált gyakorlathoz nincs illusztráció
+    A 200-ból 72-höz sikerült médiát párosítani a generált katalógusból
+    (névutótag + felszerelés-preferencia alapján). A többinek nincs
+    megfelelője a forrásban, vagy más néven szerepel.
+    Hely: scripts/build-exdb.js → matchCuratedBySuffix
+
+
+==========================================================================
+KÉSZ (a következő takarításig itt marad)
+==========================================================================
+
+[x] A média letöltése — 2448 fájl, 127 MB, hibátlanul
+    npm run exdb:media  (folytatható, a meglévőket átugorja)
+
+[x] exercises.hu.js bekötése kurált alapnak — 200 gyakorlat
+    A live katalógus most: 200 kurált + 1201 generált = 1401.
+    A kurált sorok átveszik a generált párjuk gifjét, de a saját `load`
+    súlyaikat megtartják.
+
+[x] foods.hu.js bekötése — 437 étel a korábbi 7 helyett
+    Ételenkénti reális adag-chipek (395 ételnél), ml-es egység az
+    italoknál, a kereső a kategóriára is illeszkedik.
+
+[x] data.js lefogyasztva: 253 → 154 sor
+    A két nagy lista saját forrásfájlba került, az összefésülést a
+    server/data/catalog.js végzi. Ez volt az eredeti kiindulópont: ne
+    legyen tele nyomva a data.js.
+
+[x] Induláskori validáció (a korábban csak dokumentált validateExercises)
+    Ismeretlen izomkulcs, 1-re nem összegző load, ismeretlen csoport,
+    duplikált név, elgépelt leírás-kulcs → hangos hiba induláskor.
+
+[x] /api/exercise-catalog payload: 389 KB → 302 KB
+    A `load`, `loadSource` és `extId` nem megy ki a hálózatra (a Recovery
+    Engine szerver oldalon a teljes adatot látja). A csökkenés a 64
+    leírás hozzáadása MELLETT jött össze.
+    Hely: server/server.js → RESPONSE_PROJECTIONS
+
+[x] Választó-render: DocumentFragment + content-visibility
+    1401 kártya egy beszúrással kerül a DOM-ba, a képernyőn kívüli
+    kártyák kirajzolása a görgetésig halasztva.
+
+[x] Variáns-duplikátumok kigyomlálása — 27 sor
+    A „(2. változat)” sorok, amiknek volt alapváltozata, kiestek; a
+    maradék 11-ről lekerült a félrevezető toldalék.
