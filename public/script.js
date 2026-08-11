@@ -150,12 +150,13 @@
   ];
 
   /** Az oldalak, a nav gyűrű irányai és a gyorsbillentyűk megfeleltetése.
-      A 'summary', a 'plan-builder' és az 'exercise-picker' flow-oldalak:
-      a hash-router ismeri őket, de szándékosan nincsenek a nav gyűrű irányai
-      és a gyorsbillentyűk között (az „Edzés befejezése", az „+ Új terv",
-      ill. a „+ Gyakorlat hozzáadása" gomb visz oda). */
-  const PAGES = ['dashboard', 'recovery', 'workout', 'nutrition', 'plans', 'coach', 'summary', 'plan-builder', 'exercise-picker'];
-  const FLOW_PAGES = ['summary', 'plan-builder', 'exercise-picker']; // friss megnyitáskor nem állnak vissza
+      A 'summary', a 'plan-builder', az 'exercise-picker' és a 'checkin'
+      flow-oldalak: a hash-router ismeri őket, de szándékosan nincsenek a nav
+      gyűrű irányai és a gyorsbillentyűk között (az „Edzés befejezése", az
+      „+ Új terv", a „+ Gyakorlat hozzáadása", ill. az áttekintő check-in
+      emlékeztetője és a Regeneráció oldal gombja visz oda). */
+  const PAGES = ['dashboard', 'recovery', 'workout', 'nutrition', 'plans', 'coach', 'summary', 'plan-builder', 'exercise-picker', 'checkin'];
+  const FLOW_PAGES = ['summary', 'plan-builder', 'exercise-picker', 'checkin']; // friss megnyitáskor nem állnak vissza
   const DIR_TO_PAGE = {
     up: 'coach', down: 'plans', left: 'workout', right: 'nutrition',
     home: 'dashboard',
@@ -319,6 +320,12 @@
       // és a hozzáadás-gombok állapotát az aktuális cél-lista szerint.
       refreshExercisePicker?.();
     },
+    checkin() {
+      // Friss riport (készenlét + a mai check-in értékei) minden megnyitáskor.
+      // A lépés-pozíció csak új munkamenetnél áll vissza — lásd
+      // refreshCheckinWizard.
+      refreshCheckinWizard?.().catch((err) => console.error('Check-in frissítési hiba:', err));
+    },
   };
 
   /** A gyakorlat-választó frissítője — a setupWorkout állítja be. */
@@ -331,6 +338,14 @@
   /** A heti volumen-diagram frissítője — a setupWeeklyCompare állítja be.
       Az edzés lezárása hívja, hogy a friss szettek azonnal látszódjanak. */
   let refreshVolumeChart = null;
+
+  /** A check-in varázsló frissítője — a setupCheckinWizard állítja be. */
+  let refreshCheckinWizard = null;
+
+  /** A mentett check-in kirajzolása a Regeneráció oldalra — a setupRecovery
+      állítja be. A hosszú űrlap ÉS a varázsló is ezt hívja mentés után, így
+      a két írási út nem sodródhat szét. */
+  let applyCheckinSaved = null;
 
   /** A sportoló-kártyák pontszámainak felpörgetése (oldal- és nézetváltáskor). */
   function animateCoachRatings() {
@@ -355,7 +370,7 @@
     dashboard: 'Áttekintés', recovery: 'Regeneráció', workout: 'Edzés',
     nutrition: 'Táplálkozás', plans: 'Tervek', coach: 'Edző',
     summary: 'Edzés-összegző', 'plan-builder': 'Terv-építő',
-    'exercise-picker': 'Gyakorlat hozzáadása',
+    'exercise-picker': 'Gyakorlat hozzáadása', checkin: 'Napi check-in',
   };
 
   /** Az éppen látható oldal (a DOM az igazságforrás — a hash lehet horgony is). */
@@ -566,13 +581,30 @@
     setText('[data-daily="protein"]', dailyStats.protein);
   }
 
-  /** Csak a napi statok újralekérése — étel-naplózás és napváltás után, hogy az
-      áttekintő számai a friss szerver-állapotot mutassák a többi dashboard-elem
-      (pl. az edzésnév-mező) újrarenderelése nélkül. */
+  /** A napi check-in emlékeztető ki/be kapcsolása az áttekintőn. A gomb csak
+      addig látszik, amíg a mai check-in hiányzik. A desktop rács is követi az
+      állapotot (data-checkin-pending): a gomb a jobb oszlopot tölti ki, ezért
+      a rejtésekor másik grid-template kell, különben ott üres hasáb maradna. */
+  function syncCheckinCta(checkinPresent) {
+    const cta = $('[data-checkin-cta]');
+    if (!cta) return;
+    cta.hidden = Boolean(checkinPresent);
+    $('.dashboard')?.setAttribute('data-checkin-pending', String(!checkinPresent));
+  }
+
+  /** Csak az áttekintő élő értékeinek újralekérése — étel-naplózás és napváltás
+      után, hogy a napi statok és a check-in emlékeztető a friss szerver-állapotot
+      mutassák a többi dashboard-elem (pl. az edzésnév-mező) újrarenderelése
+      nélkül. Éjfél után ez hozza vissza az emlékeztetőt: a szerver az új napra
+      számol, amire még nincs check-in. */
   async function refreshDailyStats() {
-    const { dailyStats } = await api.getDashboard();
-    if (dashboardData) dashboardData.dailyStats = dailyStats;
+    const { dailyStats, checkinPresent } = await api.getDashboard();
+    if (dashboardData) {
+      dashboardData.dailyStats = dailyStats;
+      dashboardData.checkinPresent = checkinPresent;
+    }
     renderDailyStats(dailyStats);
+    syncCheckinCta(checkinPresent);
   }
 
   /** Az áttekintő (dashboard) DB-vezérelt feltöltése: sorozat, regeneráció,
@@ -610,6 +642,10 @@
         ? 'a saját előzményedhez mérve'
         : 'részben általános referenciával')
       : 'töltsd ki a napi check-int →');
+
+    // A check-in emlékeztető gomb. A check-in mentése renderDashboard-ot hív,
+    // így a gomb azonnal eltűnik — újratöltés nélkül.
+    syncCheckinCta(dashboardData.checkinPresent);
 
     // Aktuális edzés neve (aznapi piszkozat vagy a mára ütemezett terv a
     // szerverről; null, ha nincs egyik sem): áttekintő CTA + az edzésnapló
@@ -1109,11 +1145,15 @@
     ['calves', 'Vádli'], ['core', 'Törzs'],
   ];
 
-  /** A gyors check-in 1–5-ös skálái: [mező-név, címke, [1-es végpont, 5-ös végpont]]. */
+  /** A gyors check-in 1–5-ös skálái:
+      [mező-név, rövid címke, [1-es végpont, 5-ös végpont], varázsló-kérdés].
+      A negyedik elem CSAK a lépésenkénti varázslónak kell (ott a kérdés a
+      képernyő címe); a Regeneráció oldal részletes űrlapja az első hármat
+      használja. Egy táblában tartjuk, hogy a két felület ne sodródjon szét. */
   const CHECKIN_SCALES = [
-    ['sleepQuality', 'Alvásminőség', ['nagyon rossz', 'kiváló']],
-    ['energy', 'Energiaszint', ['kimerült', 'tele energiával']],
-    ['stress', 'Stresszszint', ['nyugodt', 'nagyon feszült']],
+    ['sleepQuality', 'Alvásminőség', ['nagyon rossz', 'kiváló'], 'Milyen volt az alvásod?'],
+    ['energy', 'Energiaszint', ['kimerült', 'tele energiával'], 'Mennyi energiád van ma?'],
+    ['stress', 'Stresszszint', ['nyugodt', 'nagyon feszült'], 'Mennyire vagy feszült?'],
   ];
 
   /** A részletes blokk közérzet-skálája (ugyanaz a komponens). */
@@ -2039,6 +2079,12 @@
 
       stateEl.textContent = checkin ? 'ma már kitöltötted — módosítható' : 'ma még nincs kitöltve';
       stateEl.dataset.filled = String(Boolean(checkin));
+
+      // A varázslóra vivő gomb felirata is az aznapi állapotot tükrözi
+      const ctaTitle = $('[data-rc-checkin-cta-title]', page);
+      if (ctaTitle) {
+        ctaTitle.textContent = checkin ? 'Mai check-in módosítása' : 'Napi check-in kitöltése';
+      }
     };
 
     /** Az űrlap beolvasása a PUT /api/checkin törzsévé. Az üres mezők null-ként
@@ -2090,8 +2136,7 @@
       try {
         // A válasz a friss riportot is tartalmazza — nem kell külön lekérni
         const { checkin, weightEntry, readiness } = await api.saveCheckin(body);
-        fillForm(checkin);
-        renderRecovery(readiness);
+        applyCheckinSaved(checkin, readiness);
         showToast(weightEntry
           ? `Check-in mentve · testsúly ${formatNumber(weightEntry.kg)} kg`
           : 'Check-in mentve');
@@ -2105,6 +2150,14 @@
       }
     });
 
+    /** A mentett check-in kirajzolása. A részletes űrlap és a varázsló is ezt
+        hívja mentés után, hogy a Regeneráció oldal mindkét út után ugyanúgy
+        frissüljön (űrlap-értékek + riport-kártyák + készenlét-gyűrű). */
+    applyCheckinSaved = (checkin, readiness) => {
+      fillForm(checkin);
+      renderRecovery(readiness);
+    };
+
     /** Friss riport + check-in a szerverről. A pageEffects és az edzés
         lezárása is ezt hívja. */
     refreshRecovery = async () => {
@@ -2114,6 +2167,781 @@
     };
 
     await refreshRecovery();
+  }
+
+  /* ======================================================================
+     6b. Napi check-in varázsló (#checkin)
+     Egy kérdés / egy képernyő. Ugyanabba a check-in sorba ír, mint a
+     Regeneráció oldal részletes űrlapja — a kettő közti szerződést lásd a
+     `carried` mezőnél.
+     ====================================================================== */
+
+  /** A mindig jelen lévő lépések. A testtérképeket a kapu-válaszok fűzik be
+      (lásd ciStepOrder) — ezért nincs külön „ugorj ide" logika sehol. */
+  const CI_BASE_STEPS = ['intro', 'sleep', 'sleepq', 'energy', 'stress', 'soreGate'];
+
+  /** A skála-lépések kulcsa → a CHECKIN_SCALES mezőneve. */
+  const CI_SCALE_STEPS = { sleepq: 'sleepQuality', energy: 'energy', stress: 'stress' };
+
+  const CI_SLEEP_PRESETS = [6, 7, 7.5, 8, 8.5];
+  const CI_SLEEP_MIN = 3;
+  const CI_SLEEP_MAX = 12;
+
+  /**
+   * Testtérkép-régiók a 220×420-as rajzterületen: [izomkulcs, x, y, szélesség, magasság].
+   * A bal/jobb páros téglalapok SZÁNDÉKOSAN ugyanarra az izomkulcsra mutatnak:
+   * az adatmodell nem oldalfüggő (server/muscles.js), tehát a két téglalap egyetlen
+   * logikai vezérlő két fele. A két nézet uniója pontosan a kilenc MUSCLE_GROUPS
+   * kulcs — egyik csoport sem érhetetlen el.
+   */
+  const CI_BODY_REGIONS = {
+    front: [
+      ['shoulders', 24, 52, 42, 24], ['shoulders', 154, 52, 42, 24],
+      ['chest', 72, 56, 76, 42],
+      ['arms', 8, 82, 34, 100], ['arms', 178, 82, 34, 100],
+      ['core', 74, 102, 72, 72],
+      ['quads', 58, 182, 44, 98], ['quads', 118, 182, 44, 98],
+      ['calves', 60, 288, 40, 84], ['calves', 120, 288, 40, 84],
+    ],
+    back: [
+      ['shoulders', 24, 52, 42, 24], ['shoulders', 154, 52, 42, 24],
+      ['back', 72, 56, 76, 60],
+      ['arms', 8, 82, 34, 100], ['arms', 178, 82, 34, 100],
+      ['glutes', 66, 160, 88, 46],
+      ['hamstrings', 58, 212, 44, 70], ['hamstrings', 118, 212, 44, 70],
+      ['calves', 60, 288, 40, 84], ['calves', 120, 288, 40, 84],
+    ],
+  };
+
+  /** A két kapu-lépés szövegei és a hozzájuk tartozó állapot-kulcs. */
+  const CI_GATES = {
+    soreGate: {
+      key: 'sore', eyebrow: 'Részletes kitöltés', title: 'Van izomlázad valahol?',
+      sub: 'Az edzés utáni szokásos izommerevség. Ha nincs, kihagyjuk ezt a lépést.',
+      no: ['Nincs izomlázam', 'Ugorhatunk tovább'],
+      yes: ['Van, megjelölöm', 'Koppints az érintett izmokra'],
+    },
+    painGate: {
+      key: 'pain', eyebrow: 'Fájdalom · sérülés', title: 'Van éles fájdalmad vagy sérülésed?',
+      sub: 'Ez más, mint az izomláz. A 7-es vagy nagyobb érték letiltja az érintett izmot terhelő gyakorlatokat.',
+      no: ['Nincs, csak izomláz', 'Ugorhatunk az összegzésre'],
+      yes: ['Van fájdalom vagy sérülés', 'Jelöld be, hol érzed'],
+    },
+  };
+
+  /** A két testtérkép-mód. A `field` az answers-beli kulcs is egyben. */
+  const CI_MAP_MODES = {
+    soreness: {
+      field: 'soreness', max: 5, defaultValue: 3, noun: 'izomláz',
+      eyebrow: 'Részletes kitöltés', title: 'Hol van izomlázad?',
+      sub: 'Koppints egy izomra, majd csúsztasd fel/le az erősséghez. Amit kihagysz, az 0 marad.',
+      legend: '1 = alig érezhető · 5 = nagyon erős izomláz.',
+    },
+    painMap: {
+      field: 'pain', max: 10, defaultValue: 5, noun: 'fájdalom',
+      eyebrow: 'Fájdalom · sérülés', title: 'Hol fáj pontosan?',
+      sub: 'Koppints a fájó területre, majd csúsztasd fel/le az erősséghez (1–10).',
+      legend: '1 = enyhe · 10 = nagyon erős. A 7-es vagy nagyobb érték letiltja az izmot terhelő gyakorlatokat.',
+    },
+  };
+
+  /** Hány képernyő-pixel egy értéklépés húzáskor. */
+  const CI_DRAG_PX_PER_STEP = 14;
+  /** Automatikus továbblépés késleltetése koppintás után. */
+  const CI_ADVANCE_MS = 260;
+  const CI_PRESET_ADVANCE_MS = 140;
+  /** A motor 7-TŐL tiltja a gyakorlatokat (server/recovery.js:486), nem 7 fölött. */
+  const CI_PAIN_BLOCK = 7;
+
+  const CI_READINESS_VERDICTS = { ok: 'Jó készenlét', warn: 'Közepes', bad: 'Óvatosan ma' };
+
+  const ciMuscleLabel = (key) => MUSCLE_GROUPS.find(([k]) => k === key)?.[1] ?? key;
+  const ciClamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+  /** Csak a pozitív értékek — a 0 a részletes űrlapon érvényes „semmi", a
+      térképen viszont ez a NEM megjelölt állapot. */
+  function ciPickPositive(map, skipKey = null) {
+    const out = {};
+    for (const [key, value] of Object.entries(map ?? {})) {
+      if (key !== skipKey && Number(value) > 0) out[key] = Number(value);
+    }
+    return out;
+  }
+
+  /**
+   * A varázsló állapota.
+   *
+   * A `carried` a legfontosabb mező. A PUT /api/checkin TELJES SORT ír felül
+   * (server/db.js:249 — ON CONFLICT … SET minden oszlopra), és a törzsből
+   * hiányzó mezőből a server.js readOptionalNumber-e null-t csinál. A varázsló
+   * szándékosan nem kérdez közérzetet, folyadékot és általános fájdalmat —
+   * ezeket ezért betöltéskor ide tesszük el, és mentéskor VÁLTOZATLANUL
+   * visszaküldjük. Enélkül a részletes űrlapon aznap megadott értékek
+   * némán NULL-ra állnának.
+   *
+   * A testsúly SZÁNDÉKOSAN nincs itt: azt a szerver nem a checkins sorba,
+   * hanem a weight_log-ba írja, méghozzá sima INSERT-tel (server/db.js:316).
+   * Visszaküldve minden mentés új testsúly-bejegyzést szúrna be.
+   */
+  let ci = null;
+
+  const ciEmptyState = () => ({
+    step: 'intro',
+    sessionDate: null,   // a betöltés helyi napja — napváltáskor újraindul
+    loaded: false,       // lekértük-e már a mai állapotot a szervertől
+    saved: false,
+    readiness: null,     // a szerver riportja; helyi becslést NEM számolunk
+    hadCheckin: false,   // volt-e ma már check-in (az összegzésre ugráshoz)
+    dirty: false,        // változott-e valami a betöltött állapothoz képest
+    mapView: 'front',
+    gates: { sore: null, pain: null },
+    answers: {
+      sleepHours: null, sleepQuality: null, energy: null, stress: null,
+      soreness: {},      // { chest: 3, … } 1..5, csak a megjelöltek
+      pain: {},          // { back: 8, … }  1..10, 'general' NÉLKÜL
+    },
+    carried: { mood: null, hydration: null, painGeneral: null },
+  });
+
+  /** A lépések aktuális sorrendje. A kapuk maguk a sorrend: ha nincs izomláz,
+      a 'soreness' egyszerűen nincs a listában, és a sima „következő" a
+      fájdalom-kapun landol. */
+  function ciStepOrder() {
+    const steps = [...CI_BASE_STEPS];
+    if (ci.gates.sore === 'yes') steps.push('soreness');
+    steps.push('painGate');
+    if (ci.gates.pain === 'yes') steps.push('painMap');
+    steps.push('summary');
+    return steps;
+  }
+
+  /** A folyamatsávban számolt lépések (az intro és az összegzés nem kérdés). */
+  const ciCountedSteps = () => ciStepOrder().filter((s) => s !== 'intro' && s !== 'summary');
+
+  async function setupCheckinWizard() {
+    const page = $('[data-page="checkin"]');
+    if (!page) return;
+
+    const head = $('[data-ci-head]', page);
+    const body = $('[data-ci-body]', page);
+    const progress = $('[data-ci-progress]', page);
+    const stepLabel = $('[data-ci-step-label]', page);
+    const announce = $('[data-ci-announce]', page);
+
+    let advanceTimer = null;
+
+    const cancelAdvance = () => { clearTimeout(advanceTimer); advanceTimer = null; };
+
+    /** Automatikus továbblépés koppintás után. A hívók billentyűs aktiválásnál
+        (event.detail === 0) NEM hívják: a fókusz elrántása döntés közben rossz
+        élmény, ott a „Tovább" gomb a kiút. Csökkentett mozgás mellett nincs
+        várakozás — az animált átmenet úgyis el van némítva. */
+    function advanceSoon(delay) {
+      cancelAdvance();
+      if (prefersReducedMotion) { goNext(); return; }
+      advanceTimer = setTimeout(goNext, delay);
+    }
+
+    function setStep(name) {
+      cancelAdvance();
+      ci.step = name;
+      renderStep();
+    }
+
+    function goNext() {
+      const order = ciStepOrder();
+      const index = order.indexOf(ci.step);
+      setStep(order[Math.min(index + 1, order.length - 1)]);
+    }
+
+    function goBack() {
+      const order = ciStepOrder();
+      const index = order.indexOf(ci.step);
+      setStep(order[Math.max(index - 1, 0)]);
+    }
+
+    /* ---- Fejléc ---- */
+
+    function syncHead() {
+      const counted = ciCountedSteps();
+      const index = counted.indexOf(ci.step);
+      const total = counted.length;
+      head.hidden = ci.step === 'intro';
+
+      const percent = index >= 0 ? ((index + 1) / total) * 100 : (ci.step === 'summary' ? 100 : 0);
+      progress.style.width = percent + '%';
+      stepLabel.textContent = index >= 0 ? `${index + 1}/${total}` : '';
+      // A sáv és a „3/6" aria-hidden — a lépésszám itt hangzik el, egyszer.
+      announce.textContent = index >= 0 ? `${index + 1}. lépés a ${total}-ből` : '';
+    }
+
+    /* ---- Lépés-renderelés ---- */
+
+    const RENDERERS = {
+      intro: renderIntro,
+      sleep: renderSleep,
+      sleepq: () => renderScale('sleepq'),
+      energy: () => renderScale('energy'),
+      stress: () => renderScale('stress'),
+      soreGate: () => renderGate('soreGate'),
+      painGate: () => renderGate('painGate'),
+      soreness: () => renderMap('soreness'),
+      painMap: () => renderMap('painMap'),
+      summary: renderSummary,
+    };
+
+    function renderStep() {
+      const step = RENDERERS[ci.step]?.();
+      if (!step) return;
+      body.replaceChildren(step);
+      // A data-step újraírása indítja újra a belépő animációt.
+      body.dataset.step = ci.step;
+      syncHead();
+
+      const heading = $('h2', body);
+      if (heading) {
+        heading.setAttribute('tabindex', '-1');
+        heading.focus({ preventScroll: true });
+      }
+    }
+
+    const ciDateStr = () => new Date().toLocaleDateString('hu-HU', { month: 'long', day: 'numeric' });
+
+    function renderIntro() {
+      const step = cloneTemplate('tpl-ci-intro');
+      $('[data-ci-date]', step).textContent = ciDateStr();
+      // Félbehagyott munkamenetnél a „Kezdés" félrevezető lenne.
+      if (ci.hadCheckin) $('[data-ci-start-label]', step).textContent = 'Folytatás';
+      $('[data-action="checkin-next"]', step).addEventListener('click', () => goNext());
+      return step;
+    }
+
+    /* ---- Alvás ---- */
+
+    function renderSleep() {
+      const step = cloneTemplate('tpl-ci-sleep');
+      const input = $('#ci-sleep', step);
+      input.value = ci.answers.sleepHours ?? 7.5;
+
+      const presets = $('[data-ci-presets]', step);
+      const syncPresets = () => {
+        $$('button', presets).forEach((btn) => {
+          btn.setAttribute('aria-pressed', String(Number(btn.dataset.value) === Number(input.value)));
+        });
+      };
+
+      // A ± gombokat a megosztott handleStepClick kezeli (min/max/step onnan
+      // jön) — itt csak az utólagos szinkron kell.
+      step.addEventListener('click', (event) => {
+        if (!event.target.closest('.wk-num-step')) return;
+        cancelAdvance();
+        syncPresets();
+        commitSleep();
+      });
+      input.addEventListener('input', () => { syncPresets(); commitSleep(); });
+
+      CI_SLEEP_PRESETS.forEach((value) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ci-preset';
+        btn.dataset.value = String(value);
+        btn.textContent = formatNumber(value);
+        btn.setAttribute('aria-pressed', 'false');
+        btn.setAttribute('aria-label', `${formatNumber(value)} óra`);
+        btn.addEventListener('click', (event) => {
+          input.value = value;
+          syncPresets();
+          commitSleep();
+          // Billentyűs aktiválás (detail === 0) nem léptet magától.
+          if (event.detail !== 0) advanceSoon(CI_PRESET_ADVANCE_MS);
+        });
+        presets.appendChild(btn);
+      });
+      syncPresets();
+
+      $('[data-action="checkin-next"]', step).addEventListener('click', () => {
+        commitSleep();
+        goNext();
+      });
+
+      function commitSleep() {
+        const value = Number(input.value);
+        // A felhasználó látta a kiírt számot, tehát az a válasza — de a
+        // tartományon kívüli kézi bevitelt nem küldjük tovább.
+        ci.answers.sleepHours = Number.isFinite(value)
+          ? ciClamp(value, CI_SLEEP_MIN, CI_SLEEP_MAX)
+          : null;
+        ci.dirty = true;
+      }
+
+      return step;
+    }
+
+    /* ---- 1–5 skálák ---- */
+
+    function renderScale(stepName) {
+      const field = CI_SCALE_STEPS[stepName];
+      const [, , [low, high], question] = CHECKIN_SCALES.find(([name]) => name === field);
+
+      const step = cloneTemplate('tpl-ci-scale');
+      $('[data-ci-title]', step).textContent = question;
+      $('[data-ci-low]', step).textContent = `1 · ${low}`;
+      $('[data-ci-high]', step).textContent = `5 · ${high}`;
+
+      const group = $('[data-ci-scale]', step);
+      group.setAttribute('aria-label', question);
+      const nextBtn = $('[data-action="checkin-next"]', step);
+
+      const syncButtons = () => {
+        $$('button', group).forEach((btn) => {
+          btn.setAttribute('aria-pressed', String(Number(btn.dataset.value) === ci.answers[field]));
+        });
+        nextBtn.disabled = ci.answers[field] === null;
+      };
+
+      const choose = (value, { auto }) => {
+        ci.answers[field] = value;
+        ci.dirty = true;
+        syncButtons();
+        if (auto) advanceSoon(CI_ADVANCE_MS);
+      };
+
+      for (let value = 1; value <= 5; value += 1) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ci-scale-btn';
+        btn.dataset.value = String(value);
+        btn.textContent = String(value);
+        btn.setAttribute('aria-pressed', 'false');
+        btn.setAttribute('aria-label', `${value} — ${value === 1 ? low : value === 5 ? high : 'közepes'}`);
+        btn.addEventListener('click', (event) => choose(value, { auto: event.detail !== 0 }));
+        group.appendChild(btn);
+      }
+      syncButtons();
+
+      // Számbillentyűk: a setupShortcuts ezen az oldalon félreáll, itt viszont
+      // a válasz gyors útja (a designból hiányzó billentyűzet-affordancia).
+      step.addEventListener('keydown', (event) => {
+        const value = Number(event.key);
+        if (!Number.isInteger(value) || value < 1 || value > 5) return;
+        event.preventDefault();
+        choose(value, { auto: false });
+        nextBtn.focus();
+      });
+
+      nextBtn.addEventListener('click', () => goNext());
+      return step;
+    }
+
+    /* ---- Kapuk ---- */
+
+    function renderGate(stepName) {
+      const gate = CI_GATES[stepName];
+      const step = cloneTemplate('tpl-ci-gate');
+      $('[data-ci-eyebrow]', step).textContent = gate.eyebrow;
+      $('[data-ci-title]', step).textContent = gate.title;
+      $('[data-ci-sub]', step).textContent = gate.sub;
+
+      const wrap = $('[data-ci-gates]', step);
+      [['no', 'ok'], ['yes', 'accent']].forEach(([answer, tone]) => {
+        const [label, sub] = gate[answer];
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ci-gate';
+        btn.dataset.tone = tone;
+        btn.setAttribute('aria-pressed', String(ci.gates[gate.key] === answer));
+
+        const title = document.createElement('span');
+        title.className = 'ci-gate-label';
+        title.textContent = label;
+        const note = document.createElement('span');
+        note.className = 'ci-gate-sub';
+        note.textContent = sub;
+        btn.append(title, note);
+
+        btn.addEventListener('click', () => {
+          ci.gates[gate.key] = answer;
+          ci.dirty = true;
+          // A „nincs" válasz törli a korábban megjelölt értékeket is —
+          // különben egy meggondolt válasz némán hagyná bent őket.
+          if (answer === 'no') ci.answers[gate.key === 'sore' ? 'soreness' : 'pain'] = {};
+          // A sorrend most már tartalmazza (vagy nem) a térkép-lépést.
+          goNext();
+        });
+        wrap.appendChild(btn);
+      });
+      return step;
+    }
+
+    /* ---- Testtérkép ---- */
+
+    function renderMap(stepName) {
+      const mode = CI_MAP_MODES[stepName];
+      const store = () => ci.answers[mode.field];
+
+      const step = cloneTemplate('tpl-ci-map');
+      $('[data-ci-eyebrow]', step).textContent = mode.eyebrow;
+      $('[data-ci-title]', step).textContent = mode.title;
+      $('[data-ci-sub]', step).textContent = mode.sub;
+      $('[data-ci-legend]', step).textContent = mode.legend;
+
+      const map = $('[data-ci-map]', step);
+      const values = $('[data-ci-values]', step);
+
+      $$('.wk-toggle-btn', step).forEach((btn) => {
+        btn.setAttribute('aria-pressed', String(btn.dataset.view === ci.mapView));
+        btn.addEventListener('click', () => {
+          ci.mapView = btn.dataset.view;
+          renderStep(); // nézetváltás: teljes újrarajzolás rendben van
+        });
+      });
+
+      /** Egy izomcsoport minden (látható) téglalapjának frissítése. Húzás
+          közben CSAK ez fut — a lépés újrarenderelése megölné a pointer
+          capture-t, és a húzás némán megszakadna. */
+      function paintRegion(key) {
+        const value = store()[key];
+        const on = value > 0;
+        $$(`[data-region="${key}"]`, map).forEach((btn) => {
+          btn.textContent = on ? String(value) : '';
+          btn.setAttribute('aria-pressed', String(on));
+          btn.setAttribute('aria-label', on
+            ? `${ciMuscleLabel(key)} — ${mode.noun} ${value} / ${mode.max}`
+            : `${ciMuscleLabel(key)} — nincs megjelölve`);
+        });
+      }
+
+      function setValue(key, value) {
+        store()[key] = ciClamp(value, 1, mode.max);
+        ci.dirty = true;
+        paintRegion(key);
+        renderValueRows();
+      }
+
+      function clearValue(key) {
+        delete store()[key];
+        ci.dirty = true;
+        paintRegion(key);
+        renderValueRows();
+      }
+
+      CI_BODY_REGIONS[ci.mapView].forEach(([key, x, y, w, h], index) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ci-region';
+        btn.dataset.region = key;
+        btn.style.cssText = `left:${x}px;top:${y}px;width:${w}px;height:${h}px`;
+
+        // A tükör-párból csak az első kerül az akadálymentességi fába és a
+        // tab-sorrendbe: egy izomcsoport = egy vezérlő. (A pointer-események
+        // az aria-hidden ellenére is működnek a másikon.)
+        const isMirror = CI_BODY_REGIONS[ci.mapView]
+          .findIndex(([k]) => k === key) !== index;
+        if (isMirror) {
+          btn.setAttribute('aria-hidden', 'true');
+          btn.tabIndex = -1;
+        }
+
+        bindRegion(btn, key);
+        map.appendChild(btn);
+        paintRegion(key);
+      });
+
+      /** Pointer-húzás: lenyomásra kijelöl az alapértékkel, függőleges
+          mozgásra léptet, elmozdulás nélküli felengedés egy MÁR kijelölt
+          régión pedig töröl. */
+      function bindRegion(btn, key) {
+        let pointerId = null;
+        let startY = 0;
+        let startValue = 0;
+        let wasSelected = false;
+        let moved = false;
+
+        btn.addEventListener('pointerdown', (event) => {
+          if (pointerId !== null) return;
+          pointerId = event.pointerId;
+          wasSelected = store()[key] > 0;
+          startValue = wasSelected ? store()[key] : mode.defaultValue;
+          startY = event.clientY;
+          moved = false;
+          try { btn.setPointerCapture(pointerId); } catch { /* nem kritikus */ }
+          setValue(key, startValue);
+          event.preventDefault();
+        });
+
+        btn.addEventListener('pointermove', (event) => {
+          if (event.pointerId !== pointerId) return;
+          const delta = Math.round((startY - event.clientY) / CI_DRAG_PX_PER_STEP);
+          if (delta !== 0) moved = true;
+          setValue(key, startValue + delta);
+        });
+
+        const end = (event) => {
+          if (event.pointerId !== pointerId) return;
+          try { btn.releasePointerCapture(pointerId); } catch { /* már elengedve */ }
+          pointerId = null;
+          if (!moved && wasSelected) clearValue(key);
+        };
+        btn.addEventListener('pointerup', end);
+        btn.addEventListener('pointercancel', end);
+
+        // A húzás billentyűzetes tükre. Enélkül a lépés pointer nélkül
+        // teljesíthetetlen lenne.
+        btn.addEventListener('keydown', (event) => {
+          const current = store()[key] ?? 0;
+          if (event.key === 'ArrowUp' || event.key === 'ArrowRight') {
+            event.preventDefault();
+            setValue(key, current ? current + 1 : mode.defaultValue);
+          } else if (event.key === 'ArrowDown' || event.key === 'ArrowLeft') {
+            event.preventDefault();
+            if (current <= 1) clearValue(key); else setValue(key, current - 1);
+          } else if (event.key === 'Delete' || event.key === 'Backspace') {
+            event.preventDefault();
+            clearValue(key);
+          }
+        });
+        btn.addEventListener('click', (event) => {
+          // Billentyűs aktiválás: a pointerdown-ág nem futott le.
+          if (event.detail !== 0) return;
+          if (store()[key] > 0) clearValue(key); else setValue(key, mode.defaultValue);
+        });
+      }
+
+      /** A térkép alatti pontos-érték sorok. Ezek a KANONIKUS vezérlők:
+          a térképen húzni kell, itt billentyűzettel is választható az érték. */
+      function renderValueRows() {
+        const keys = Object.keys(store()).filter((key) => store()[key] > 0);
+        values.replaceChildren(...keys.map((key) => {
+          const row = cloneTemplate('tpl-ci-value-row');
+          $('[data-ci-name]', row).textContent = ciMuscleLabel(key);
+
+          const chips = $('[data-ci-chips]', row);
+          chips.setAttribute('aria-label', `${ciMuscleLabel(key)} — ${mode.noun} értéke`);
+          for (let value = 1; value <= mode.max; value += 1) {
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'rc-chip ci-chip';
+            if (mode.field === 'pain') chip.classList.add('ci-chip--pain');
+            chip.textContent = String(value);
+            chip.setAttribute('aria-pressed', String(store()[key] === value));
+            chip.setAttribute('aria-label', `${ciMuscleLabel(key)} — ${mode.noun} ${value}`);
+            chip.addEventListener('click', () => setValue(key, value));
+            chips.appendChild(chip);
+          }
+
+          const warn = $('[data-ci-warn]', row);
+          warn.hidden = !(mode.field === 'pain' && store()[key] >= CI_PAIN_BLOCK);
+          return row;
+        }));
+      }
+      renderValueRows();
+
+      $('[data-action="checkin-next"]', step).addEventListener('click', () => goNext());
+      return step;
+    }
+
+    /* ---- Összegzés ---- */
+
+    function renderSummary() {
+      const step = cloneTemplate('tpl-ci-summary');
+      $('[data-ci-date]', step).textContent = ciDateStr();
+
+      const { answers, carried } = ci;
+      const named = (map) => Object.keys(map).map((key) => ciMuscleLabel(key));
+
+      const painParts = Object.entries(answers.pain)
+        .map(([key, value]) => `${ciMuscleLabel(key)} ${value}`);
+      // Az általános fájdalmat a varázsló nem kérdezi, de ha a részletes űrlap
+      // megadta, kiírjuk — különben néma ellentmondás lenne a „nincs
+      // fájdalmam" válasszal.
+      if (carried.painGeneral !== null) painParts.push(`általános ${carried.painGeneral}`);
+
+      const rows = [
+        ['Alvás', answers.sleepHours === null ? '–' : `${formatNumber(answers.sleepHours)} óra`],
+        ['Alvásminőség', `${answers.sleepQuality ?? '–'} / 5`],
+        ['Energiaszint', `${answers.energy ?? '–'} / 5`],
+        ['Stresszszint', `${answers.stress ?? '–'} / 5`],
+        ['Izomláz', named(answers.soreness).join(', ') || 'Nincs'],
+        ['Fájdalom', painParts.join(', ') || 'Nincs'],
+      ];
+      // A varázslóból kimaradó, de eltárolt mezők — hogy látszódjon, mi megy
+      // vissza változatlanul.
+      if (carried.mood !== null) rows.push(['Közérzet', `${carried.mood} / 5`]);
+      if (carried.hydration !== null) rows.push(['Folyadék', `${formatNumber(carried.hydration)} liter`]);
+
+      const list = $('[data-ci-summary]', step);
+      list.replaceChildren(...rows.map(([label, value]) => {
+        const row = cloneTemplate('tpl-ci-summary-row');
+        $('.ci-summary-label', row).textContent = label;
+        $('.ci-summary-value', row).textContent = value;
+        return row;
+      }));
+
+      // A készenlét CSAK a szervertől jöhet. Amíg a friss válaszokat nem
+      // mentettük, nincs mit kiírni — kitalált számot nem teszünk a lapra.
+      const showScore = ci.readiness !== null && ci.hadCheckin && !ci.dirty;
+      renderReadiness(step, showScore ? ci.readiness.overall : null, { animate: false });
+
+      // Ebben a munkamenetben mentve → a gomb helyén a visszajelzés áll.
+      // Előre kitöltött, változatlan állapot → a pontszám már látszik, de a
+      // mentés elérhető marad (a részletes űrlap közben írhatott bele).
+      const saveBtn = $('[data-action="checkin-save"]', step);
+      saveBtn.hidden = ci.saved;
+      $('[data-ci-saved]', step).hidden = !ci.saved;
+      $('[data-ci-done-link]', step).hidden = !(ci.saved || showScore);
+
+      saveBtn.addEventListener('click', () => submit(saveBtn, step));
+      return step;
+    }
+
+    /** A készenlét-kártya kitöltése. `overall === null` → magyarázó sor a
+        szám helyett. */
+    function renderReadiness(step, overall, { animate }) {
+      const pending = $('[data-ci-pending]', step);
+      const scoreWrap = $('[data-ci-score-wrap]', step);
+      const barWrap = $('[data-ci-bar-wrap]', step);
+      const verdict = $('[data-ci-verdict]', step);
+
+      const known = overall !== null && overall !== undefined;
+      pending.hidden = known;
+      scoreWrap.hidden = !known;
+      barWrap.hidden = !known;
+      verdict.textContent = '';
+      if (!known) return;
+
+      const tone = readinessTone(overall);
+      const card = $('[data-ci-readiness]', step);
+      card.dataset.tone = tone;
+      verdict.textContent = CI_READINESS_VERDICTS[tone];
+      $('[data-ci-bar]', step).style.width = overall + '%';
+
+      const num = $('[data-ci-score]', step);
+      if (animate) animateNumber(num, overall, { from: 0, duration: 900 });
+      else num.textContent = String(overall);
+    }
+
+    /* ---- Mentés ---- */
+
+    /**
+     * A PUT /api/checkin törzse. Lásd a `carried` kommentjét: a végpont teljes
+     * sort cserél, ezért MINDEN mező szerepel — a nem kérdezettek változatlanul.
+     */
+    function buildBody() {
+      const { answers, carried } = ci;
+      return {
+        sleepHours: answers.sleepHours,
+        sleepQuality: answers.sleepQuality,
+        energy: answers.energy,
+        stress: answers.stress,
+        // Az izomláz és a fájdalom teljes cseréje SZÁNDÉKOS: a „nincs
+        // izomlázam" válasznak törölnie kell tudnia a korábbi értékeket.
+        soreness: { ...answers.soreness },
+        pain: {
+          ...answers.pain,
+          ...(carried.painGeneral !== null ? { general: carried.painGeneral } : {}),
+        },
+        mood: carried.mood,           // nem kérdezzük — vissza, különben NULL lesz
+        hydration: carried.hydration, // ugyanígy
+        // weightKg SZÁNDÉKOSAN kimarad: a szerver a weight_log-ba INSERT-eli
+        // (server/db.js:316), tehát visszaküldve minden mentés duplikált
+        // testsúly-sort írna.
+      };
+    }
+
+    async function submit(btn, step) {
+      btn.disabled = true;
+      try {
+        const { checkin, readiness } = await api.saveCheckin(buildBody());
+        ci.readiness = readiness;
+        ci.saved = true;
+        ci.dirty = false;
+        ci.hadCheckin = true;
+
+        // A Regeneráció oldal és az áttekintő ugyanebből a motorból él
+        applyCheckinSaved?.(checkin, readiness);
+        renderDashboard().catch((err) => console.error('Áttekintő frissítési hiba:', err));
+
+        renderReadiness(step, readiness.overall, { animate: true });
+        btn.hidden = true;
+        $('[data-ci-saved]', step).hidden = false;
+        $('[data-ci-done-link]', step).hidden = false;
+        showToast('Check-in mentve');
+      } catch (err) {
+        console.error(err);
+        showToast(err.message || 'Nem sikerült menteni a check-int', 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    /* ---- Betöltés ---- */
+
+    /**
+     * A mai állapot beolvasása. Egyetlen kérés elég: a riport az `overall`
+     * mellett a check-in nyers értékeit is visszaadja (`checkin.values`).
+     * `fresh` esetén a válaszok is felülíródnak; egyébként CSAK a hordozott
+     * mezők frissülnek, hogy a félbehagyott kitöltés ne vesszen el.
+     */
+    async function load({ fresh }) {
+      const report = await api.getReadiness();
+      const checkin = report.checkin.values;
+
+      ci.readiness = report;
+      ci.hadCheckin = report.checkin.present;
+      ci.carried = {
+        mood: checkin?.mood ?? null,
+        hydration: checkin?.hydration ?? null,
+        painGeneral: checkin?.pain?.general ?? null,
+      };
+      if (!fresh) return;
+
+      ci.answers = {
+        sleepHours: checkin?.sleepHours ?? null,
+        sleepQuality: checkin?.sleepQuality ?? null,
+        energy: checkin?.energy ?? null,
+        stress: checkin?.stress ?? null,
+        soreness: ciPickPositive(checkin?.soreness),
+        pain: ciPickPositive(checkin?.pain, 'general'),
+      };
+      // A kapukat a betöltött térképekből VEZETJÜK LE — ettől lép a vissza
+      // gomb a kitöltött összegzésről a helyes lépésekre.
+      ci.gates = {
+        sore: !checkin ? null : Object.keys(ci.answers.soreness).length ? 'yes' : 'no',
+        pain: !checkin ? null : Object.keys(ci.answers.pain).length ? 'yes' : 'no',
+      };
+      ci.dirty = false;
+      ci.saved = false;
+      ci.loaded = true;
+      ci.mapView = 'front';
+      // Ha ma már van check-in, egyből az összegzés — onnan a vissza gombbal
+      // bármelyik lépés módosítható.
+      ci.step = ci.hadCheckin ? 'summary' : 'intro';
+    }
+
+    /** Az oldal megnyitásakor fut. Új munkamenetet kezd, ha még nem töltöttünk
+        be (ide tartozik a setup-időben előre rajzolt intro is), ha közben napot
+        váltottunk, vagy ha az előzőt már elmentettük. Egyébként megőrzi a
+        félbehagyott kitöltés helyét, és csak a hordozott mezőket frissíti. */
+    refreshCheckinWizard = async () => {
+      const today = new Date().toDateString();
+      const fresh = ci === null || !ci.loaded || ci.sessionDate !== today || ci.saved;
+      if (fresh) ci = { ...ciEmptyState(), sessionDate: today };
+      await load({ fresh });
+      renderStep();
+    };
+
+    page.addEventListener('click', (event) => {
+      if (event.target.closest('[data-action="checkin-back"]')) goBack();
+    });
+
+    // Az intro már setup-időben felkerül: a showPage a pageEffects ELŐTT
+    // fókuszálja a lap első h2-jét, tehát az első megnyitáskor már kell lennie
+    // renderelt lépésnek.
+    ci = { ...ciEmptyState(), sessionDate: new Date().toDateString() };
+    renderStep();
+
+    // Napváltáskor a következő megnyitás tiszta lappal indul.
+    onDayChange(() => { ci = null; });
   }
 
   async function setupWorkout(videoModal, picker, confirmAction) {
@@ -3283,6 +4111,10 @@
       if (isModalOpen()) return;
       if (event.target instanceof Element
         && event.target.matches('input, textarea, select, [contenteditable]')) return;
+      // A check-in varázslóban az 1–5 a VÁLASZ, nem oldalváltás: a skálák és a
+      // testtérkép gombok (nem input-ok), így a fenti input-őr nem védi meg
+      // őket. A számbillentyűket ott a varázsló saját kezelője dolgozza fel.
+      if (currentPage() === 'checkin') return;
       const page = KEY_TO_PAGE[event.key];
       if (page) navigate(page);
     });
@@ -3344,6 +4176,9 @@
     setupDashboard(settingsModal);
     await safe(setupWeightLog);
     await safe(setupRecovery);
+    // A setupRecovery UTÁN: a varázsló mentése az ott beállított
+    // applyCheckinSaved-en keresztül frissíti a Regeneráció oldalt.
+    await safe(setupCheckinWizard);
     // A közös gyakorlat-választó — az edzésnapló és a terv-építő is ezt célozza át
     const picker = await safe(() => setupExercisePicker(confirmAction));
     const workout = await safe(() => setupWorkout(videoModal, picker, confirmAction));
@@ -3365,8 +4200,9 @@
 
     setupNavRing($('#navKnob'), (dir) => navigate(DIR_TO_PAGE[dir] ?? 'dashboard'));
 
-    // Napváltás-figyelő: éjfél után az áttekintő napi statjai is nullázódnak
-    // (a táplálkozás-oldali frissítő a setupNutrition-ben iratkozik fel).
+    // Napváltás-figyelő: éjfél után az áttekintő napi statjai nullázódnak, és
+    // a check-in emlékeztető is visszatér — az új napra még nincs check-in.
+    // (A táplálkozás-oldali frissítő a setupNutrition-ben iratkozik fel.)
     onDayChange(refreshDailyStats);
     startDayWatcher();
 

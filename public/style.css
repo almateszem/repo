@@ -26,6 +26,8 @@
          (co-toggle, co-view, co-coach-*, co-client-feed, co-empty)
     21.  Edzés-összegző oldal (su-*) + edzés-befejezés gomb (wk-finish)
     22.  Regeneráció — Recovery Engine oldal (rc-*)
+    24.  Étel részlet-modál (fd-*)
+    25.  Napi check-in varázsló (ci-*)
    ========================================================================== */
 
 /* ==========================================================================
@@ -361,7 +363,9 @@ input.wk-chip:focus-visible {
 .co-banner-item,
 .co-action,
 .rc-save,
-.st-export {
+.st-export,
+.ci-preset,
+.ci-primary {
   min-height: 44px;
 }
 
@@ -676,6 +680,52 @@ input.wk-chip:focus-visible {
   font-weight: 600;
   color: var(--text-muted);
   margin-left: 1px;
+}
+
+/* Napi check-in emlékeztető — a napi statok alatt (itt volt korábban a
+   kalória-diagram). Csak addig van a DOM-ban láthatóan, amíg a mai check-in
+   hiányzik; a script.js kapcsolja a `hidden` attribútummal. Az akcentus-keret
+   különbözteti meg a többi kártyától: ez teendő, nem állapot. */
+.db-checkin-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-6);
+  margin-bottom: var(--sp-10);
+  background: var(--surface-card);
+  border: 1px solid var(--c-accent);
+  border-radius: var(--r-2xl);
+  padding: var(--sp-7) var(--sp-8);
+  color: inherit;
+  text-decoration: none;
+  transition: background var(--t-fast);
+}
+
+.db-checkin-cta:hover {
+  background: var(--surface-hover);
+}
+
+.db-checkin-cta-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.db-checkin-cta-title {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+
+.db-checkin-cta-note {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.db-checkin-cta-arrow {
+  font-size: var(--fs-2xl);
+  color: var(--c-accent);
+  flex-shrink: 0;
 }
 
 .db-quote {
@@ -2338,37 +2388,56 @@ input.wk-chip.wk-num-input {
 
 /* ---- ≥1280px: a dashboard többkártyás griddé bővül ---- */
 @media (min-width: 1280px) {
-  .app-page:not(.dashboard) {
+  /* A check-in varázsló kimarad: szándékosan fix 460px-es, egy-kérdés-egy-
+     képernyő oszlop marad minden méreten (lásd 25. szakasz). */
+  .app-page:not(.dashboard):not(.ci-page) {
     max-width: var(--page-max-wide);
   }
 
+  /* Alapállapot: a mai check-in már megvan, az emlékeztető rejtett. A
+     regeneráció-sor ilyenkor teljes szélességű, az idézet és a CTA pedig
+     osztozik az utolsó soron. */
   .dashboard {
     max-width: var(--dashboard-max-wide);
     padding: var(--sp-16) var(--sp-15);
     display: grid;
     grid-template-columns: minmax(300px, 1fr) minmax(400px, 1.6fr);
-    /* Az idézet-sor (1fr) nyeli el a maradék helyet, így a CTA a chart
-       kártya aljához igazodik. */
-    grid-template-rows: auto auto auto 1fr auto auto;
+    grid-template-rows: auto auto auto auto auto;
     column-gap: var(--sp-14);
     row-gap: var(--sp-11);
     grid-template-areas:
       "head     head"
       "ready    stats"
-      "recovery chart"
-      "quote    chart"
-      "cta      chart"
+      "recovery recovery"
+      "quote    cta"
       "weight   weight";
   }
 
-  .db-header    { grid-area: head; }
-  .db-readiness { grid-area: ready; }
-  .db-recovery  { grid-area: recovery; }
-  .db-stats     { grid-area: stats; }
-  .db-chart     { grid-area: chart; }
-  .db-quote     { grid-area: quote; }
-  .db-cta       { grid-area: cta; }
-  .db-weight    { grid-area: weight; }
+  /* Amíg a mai check-in hiányzik, az emlékeztető tölti ki a jobb oszlopot.
+     A rács teljes template-et vált, nem csak elrejt egy elemet: egy rejtett
+     grid-elem sora ugyan összecsukódik, de a körülötte lévő két row-gap
+     megmaradna, és fantom rést hagyna a kártyák között.
+     Az idézet-sor (1fr) nyeli el a maradék helyet, így a CTA az emlékeztető
+     kártya aljához igazodik. */
+  .dashboard[data-checkin-pending="true"] {
+    grid-template-rows: auto auto auto 1fr auto auto;
+    grid-template-areas:
+      "head     head"
+      "ready    stats"
+      "recovery checkin"
+      "quote    checkin"
+      "cta      checkin"
+      "weight   weight";
+  }
+
+  .db-header      { grid-area: head; }
+  .db-readiness   { grid-area: ready; }
+  .db-recovery    { grid-area: recovery; }
+  .db-stats       { grid-area: stats; }
+  .db-checkin-cta { grid-area: checkin; }
+  .db-quote       { grid-area: quote; }
+  .db-cta         { grid-area: cta; }
+  .db-weight      { grid-area: weight; }
 
   /* A kártyák közti távot egységesen a grid gap adja — a mobil nézet
      margói itt kikapcsolnak, különben soronként elcsúsznak a kártyák. */
@@ -2376,17 +2445,18 @@ input.wk-chip.wk-num-input {
   .db-readiness,
   .db-recovery,
   .db-stats,
-  .db-chart,
+  .db-checkin-cta,
   .db-quote,
   .db-cta,
   .db-weight {
     margin: 0;
   }
 
+  /* A check-in emlékeztető szándékosan kimarad ebből a listából: saját
+     akcentus-kerete van, amit ez a szabály felülírna. */
   .db-readiness,
   .db-recovery,
   .db-stats,
-  .db-chart,
   .db-weight {
     background: var(--surface-card);
     border: 1px solid var(--border-card);
@@ -2436,20 +2506,25 @@ input.wk-chip.wk-num-input {
     font-size: var(--fs-4xl);
   }
 
-  .db-chart {
+  /* Az emlékeztető itt teljes magasságú kártya: a bal oszlop három sorával
+     szemben áll, ezért a tartalma függőlegesen középre kerül. */
+  .db-checkin-cta {
     height: 100%;
     min-height: 320px;
-    margin-bottom: 0;
-    padding: var(--sp-11) 60px var(--sp-11) var(--sp-11);
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: var(--sp-7);
+    padding: var(--sp-11);
+    border-radius: var(--r-3xl);
   }
 
-  /* A kártya-paddinget az abszolút pozicionált tengelynek is követnie kell,
-     különben a feliratok a kártya széléhez tapadnak és elcsúsznak az oszlopoktól. */
-  .db-chart .chart-axis {
-    top: var(--sp-11);
-    right: var(--sp-11);
-    bottom: var(--sp-11);
-    height: auto;
+  .db-checkin-cta-title {
+    font-size: var(--fs-3xl);
+  }
+
+  .db-checkin-cta-note {
+    font-size: var(--fs-sm);
   }
 
   .db-quote {
@@ -2459,7 +2534,15 @@ input.wk-chip.wk-num-input {
 
   .db-cta {
     max-width: 320px;
-    align-self: end; /* a chart kártya aljával zár egy vonalban */
+    align-self: center;
+    justify-self: end; /* az idézet mellett, a sor jobb szélén */
+  }
+
+  /* Emlékeztetővel a CTA visszakerül a bal oszlop aljára, és a jobb oldali
+     kártya aljával zár egy vonalban. */
+  .dashboard[data-checkin-pending="true"] .db-cta {
+    align-self: end;
+    justify-self: stretch;
   }
 }
 
@@ -3358,7 +3441,10 @@ input.wk-chip.wk-num-input {
   margin-bottom: var(--sp-8);
 }
 
-.ep-back {
+/* Kerek vissza gomb — a gyakorlat-választó, a terv-építő és a check-in
+   varázsló fejlécében ugyanaz. */
+.ep-back,
+.ci-back {
   flex-shrink: 0;
   width: 38px;
   height: 38px;
@@ -3371,7 +3457,8 @@ input.wk-chip.wk-num-input {
   transition: border-color var(--t-fast), color var(--t-fast);
 }
 
-.ep-back:hover {
+.ep-back:hover,
+.ci-back:hover {
   border-color: var(--fg-40);
   color: var(--fg-100);
 }
@@ -3980,10 +4067,12 @@ input.wk-chip.wk-num-input {
   line-height: 1.5;
 }
 
-/* ---- Közös kártya-recept (megegyezik a .db-recovery / .db-stats mintával) ---- */
+/* ---- Közös kártya-recept (megegyezik a .db-recovery / .db-stats mintával) ----
+   A check-in űrlapnál a kártya a lenyitható BURKOLÓ (.rc-checkin-advanced),
+   nem maga az űrlap: összecsukva is kártyaként kell látszania. */
 .rc-card,
 .rc-score,
-.rc-checkin {
+.rc-checkin-advanced {
   background: var(--surface-card);
   border: 1px solid var(--border-card);
   border-radius: var(--r-2xl);
@@ -4091,11 +4180,38 @@ input.wk-chip.wk-num-input {
   gap: var(--sp-6);
 }
 
-.rc-checkin-head {
+/* A varázslóra vivő gomb az áttekintő emlékeztetőjének receptjét használja
+   (.db-checkin-cta); itt csak a térköz tér el. */
+.rc-checkin-cta {
+  margin-bottom: var(--sp-6);
+}
+
+/* A „Részletes szerkesztés" nyitófeje. Az állapot-felirat itt ül, hogy
+   összecsukva is látszódjon, kitöltötted-e ma. */
+.rc-checkin-summary {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--sp-4);
+}
+
+/* A summary saját + / − jelet kap (lásd .rc-details-summary::before), ezért a
+   szövegblokk nem tapadhat rá. */
+.rc-checkin-summary .rc-section-title {
+  flex: 1;
+}
+
+/* Az űrlap csak nyitott állapotban látszik — a felső térközt a summary adja. */
+.rc-checkin-advanced[open] .rc-checkin {
+  padding-top: var(--sp-6);
+  margin-top: var(--sp-5);
+  border-top: 1px solid var(--border-card);
+}
+
+.rc-checkin-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
 }
 
 .rc-checkin-state {
@@ -4188,12 +4304,7 @@ input.wk-chip.wk-num-input {
   color: var(--c-ink);
 }
 
-/* ---- Részletes blokk ---- */
-
-.rc-details {
-  border-top: 1px solid var(--border-card);
-  padding-top: var(--sp-5);
-}
+/* ---- Lenyitható blokk-fej ---- */
 
 .rc-details-summary {
   cursor: pointer;
@@ -4215,15 +4326,8 @@ input.wk-chip.wk-num-input {
   color: var(--text-muted);
 }
 
-.rc-details[open] .rc-details-summary::before {
+details[open] > .rc-details-summary::before {
   content: '−';
-}
-
-.rc-details-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-6);
-  padding-top: var(--sp-6);
 }
 
 .rc-extra-fields {
@@ -4845,5 +4949,627 @@ input.wk-chip.wk-num-input {
   .fd-picker-option,
   .fd-goal-fill {
     transition: none;
+  }
+}
+
+/* ==========================================================================
+   25. Napi check-in varázsló (ci-*) — a #checkin flow-oldal
+   Egy kérdés / egy képernyő, fix 460px-es oszlop minden méreten.
+   Újrahasznált primitívek (nem írjuk újra őket):
+     · .wk-toggle / .wk-toggle-btn  — az Elöl/Hátul váltó
+     · .wk-num / .wk-num-step       — az alvás ± léptetője (a clamp onnan jön)
+     · .rc-chip                     — a térkép alatti pontos-érték chipek
+     · .ci-back                     — az .ep-back kerek gombjának listájában
+   ========================================================================== */
+
+/* A .app-page.ci-page (0-2-0) szándékos: a ≥1025px-es .app-page szabállyal
+   azonos specificitású, de később jön, így nem szélesedik ki. */
+.app-page.ci-page {
+  max-width: 460px;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  /* A varázsló saját kiemelt méretei. Az --fs-* tokenek ≥1025px-en egy
+     fokozatot lépnek, ami a fix szélességű oszlopban törné a nagy számot
+     és a nyitócímet — ezért ez a kettő nem token, hanem helyi clamp. */
+  --ci-fs-display: clamp(30px, 9vw, 36px);
+  --ci-fs-number: clamp(44px, 13vw, 56px);
+}
+
+/* ---- Fejléc: vissza gomb + folyamatsáv + lépésszám ---- */
+
+.ci-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+  margin-bottom: var(--sp-2);
+}
+
+.ci-progress {
+  flex: 1;
+  height: 6px;
+  border-radius: 20px;
+  background: var(--surface-strong);
+  overflow: hidden;
+}
+
+.ci-progress-fill {
+  height: 100%;
+  width: 0;
+  border-radius: 20px;
+  background: var(--c-paper);
+  transition: width var(--t-base);
+}
+
+.ci-step-label {
+  min-width: 34px;
+  text-align: right;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+/* ---- Lépés-keret ---- */
+
+.ci-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* A data-step értékét a script.js minden váltáskor újraírja — ettől indul
+   újra a belépő animáció. (Csökkentett mozgás mellett a 2. szakasz globális
+   kapcsolója némítja.) */
+.ci-body[data-step] {
+  animation: ci-step-in .3s var(--ease-spring);
+}
+
+@keyframes ci-step-in {
+  from { opacity: 0; transform: translateY(12px); }
+}
+
+.ci-step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* A nyitóképernyő függőlegesen középre rendezett */
+.ci-step--center {
+  justify-content: center;
+  gap: var(--sp-8);
+}
+
+/* A kérdés és a gomb közti rugalmas tér — ettől ül a válasz a képernyő
+   közepén, a továbblépés pedig mindig az alján. */
+.ci-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--sp-7);
+}
+
+.ci-head-block {
+  margin-top: var(--sp-3);
+}
+
+.ci-eyebrow {
+  margin: 0;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.ci-display {
+  margin: 0;
+  font-size: var(--ci-fs-display);
+  font-weight: 800;
+  line-height: 1.04;
+}
+
+.ci-question {
+  margin: var(--sp-3) 0 var(--sp-2);
+  font-size: var(--fs-5xl);
+  font-weight: 800;
+  line-height: 1.12;
+}
+
+/* A címsor fókusza programozott (tabindex=-1, lépésváltáskor) — a fókuszgyűrű
+   ott zavaró, a váltást a felirat és az élő régió amúgy is jelzi. */
+.ci-question:focus-visible,
+.ci-display:focus-visible {
+  outline: none;
+}
+
+.ci-sub {
+  margin: 0;
+  font-size: var(--fs-md);
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.ci-lead {
+  margin: 0;
+  font-size: var(--fs-lg);
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.ci-footnote {
+  margin: 0;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-faint);
+}
+
+/* ---- Elsődleges gomb (a .db-cta receptje) ---- */
+
+.ci-primary {
+  width: 100%;
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-7);
+  background: var(--c-paper);
+  color: var(--c-ink);
+  border: none;
+  border-radius: var(--r-lg);
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  transition: background var(--t-fast), transform var(--t-fast), opacity var(--t-fast);
+}
+
+.ci-primary:hover {
+  background: var(--c-paper-bright);
+}
+
+.ci-primary:active {
+  transform: translateY(1px);
+}
+
+.ci-primary:disabled {
+  opacity: .45;
+  transform: none;
+}
+
+.ci-exit {
+  align-self: center;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.ci-exit:hover {
+  color: var(--text-secondary);
+}
+
+/* ---- Alvás ---- */
+
+.ci-sleep-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+/* A megosztott .wk-num sávból itt két nagy körgomb és egy kiemelt szám lesz. */
+.ci-sleep-num {
+  gap: var(--sp-10);
+  background: none;
+  border: none;
+  padding: 0;
+}
+
+.ci-round-btn {
+  width: 62px;
+  height: 62px;
+  border-radius: var(--r-full);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-input);
+  color: var(--fg-85);
+  font-size: var(--fs-5xl);
+  font-weight: 700;
+  transition: border-color var(--t-fast), background var(--t-fast);
+}
+
+.ci-round-btn:hover {
+  border-color: var(--fg-40);
+  background: var(--surface-hover);
+}
+
+.ci-sleep-input {
+  width: 118px;
+  text-align: center;
+  background: none;
+  border: none;
+  font-size: var(--ci-fs-number);
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A böngésző saját fel/le nyilai fölöslegesek — a két körgomb ugyanaz. */
+.ci-sleep-input::-webkit-outer-spin-button,
+.ci-sleep-input::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.ci-sleep-input[type="number"] {
+  appearance: textfield;
+}
+
+.ci-sleep-unit {
+  font-size: var(--fs-xs);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.ci-presets {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-3);
+}
+
+.ci-preset {
+  min-width: 44px;
+  padding: 0 var(--sp-5);
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-input);
+  color: var(--fg-70);
+  font-size: var(--fs-base);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+}
+
+.ci-preset:hover {
+  border-color: var(--fg-40);
+}
+
+.ci-preset[aria-pressed="true"] {
+  background: var(--c-paper);
+  border-color: var(--c-paper);
+  color: var(--c-ink);
+}
+
+/* ---- 1–5 skálák ---- */
+
+.ci-scale {
+  display: flex;
+  gap: var(--sp-4);
+}
+
+.ci-scale-btn {
+  flex: 1;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-input);
+  color: var(--fg-70);
+  font-size: var(--fs-4xl);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+}
+
+.ci-scale-btn:hover {
+  border-color: var(--fg-40);
+}
+
+.ci-scale-btn[aria-pressed="true"] {
+  background: var(--c-paper);
+  border-color: var(--c-paper);
+  color: var(--c-ink);
+}
+
+.ci-scale-ends {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-5);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+/* ---- Kapuk (igen/nem választókártyák) ---- */
+
+.ci-gates {
+  gap: var(--sp-5);
+}
+
+.ci-gate {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  width: 100%;
+  padding: var(--sp-12) var(--sp-11);
+  border-radius: var(--r-2xl);
+  background: var(--surface-card);
+  color: var(--text-primary);
+  text-align: left;
+  transition: background var(--t-fast);
+}
+
+.ci-gate:hover {
+  background: var(--surface-hover);
+}
+
+.ci-gate[data-tone="ok"]     { border: 1px solid var(--c-ok); }
+.ci-gate[data-tone="accent"] { border: 1px solid var(--c-accent); }
+
+.ci-gate-label {
+  font-size: var(--fs-3xl);
+  font-weight: 800;
+}
+
+.ci-gate-sub {
+  font-size: var(--fs-base);
+  color: var(--text-muted);
+}
+
+/* ---- Testtérkép ---- */
+
+.ci-map-toggle {
+  max-width: 220px;
+  margin: var(--sp-6) auto var(--sp-1);
+}
+
+.ci-map {
+  position: relative;
+  width: 220px;
+  height: 420px;
+  margin: var(--sp-2) auto var(--sp-1);
+  flex-shrink: 0;
+}
+
+/* Csak jelzésértékű fej — a régiók fölött ad emberi arányt. */
+.ci-map-head {
+  position: absolute;
+  left: 88px;
+  top: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-full);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-card);
+}
+
+/*
+ * Egy izomcsoport téglalapja. A legkisebb régió 24px magas (váll) és 34px
+ * széles (kar) — a 44px-es érintési minimum alatt. ELFOGADOTT KIVÉTEL:
+ * anatómiai arányok miatt nem nőhet, .tap-target pszeudoelemmel pedig átfedné
+ * a szomszédait (pont az a hibamód, amit a 3. szakasz kommentje leír). Ezért
+ * a térkép alatti .ci-value-chips EGYENÉRTÉKŰ út, nem kijelző: ott minden
+ * érték 44px-es célterületen, billentyűzetről is elérhető.
+ *
+ * A touch-action: none nélkül a függőleges húzás görgetne, nem értéket állítana.
+ */
+.ci-region {
+  position: absolute;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-input);
+  color: var(--fg-40);
+  font-size: var(--fs-md);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  cursor: ns-resize;
+  touch-action: none;
+  user-select: none;
+  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+}
+
+.ci-region:hover {
+  border-color: var(--fg-40);
+}
+
+.ci-region[aria-pressed="true"] {
+  background: var(--c-accent);
+  border-color: var(--c-accent);
+  color: var(--fg-100);
+}
+
+.ci-values {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-3);
+}
+
+.ci-value-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+
+.ci-value-name {
+  flex: 0 0 88px;
+  font-size: var(--fs-md);
+  font-weight: 700;
+}
+
+.ci-value-chips {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+/* A fájdalom-skála akcentussal jelöl, hogy vizuálisan is elváljon az
+   izomláztól (más tartomány, más következmény). */
+.ci-chip--pain[aria-pressed="true"] {
+  background: var(--c-accent);
+  border-color: var(--c-accent);
+  color: var(--fg-100);
+}
+
+.ci-value-warn {
+  flex: 0 0 auto;
+  font-size: var(--fs-2xs);
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--c-accent);
+}
+
+.ci-legend {
+  margin: 0;
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+/* ---- Összegzés ---- */
+
+.ci-readiness {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  margin-top: var(--sp-7);
+  padding: var(--sp-8);
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-2xl);
+}
+
+.ci-readiness-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
+
+.ci-readiness-label {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.ci-readiness-verdict {
+  font-size: var(--fs-md);
+  font-weight: 700;
+}
+
+/* Mentés előtt ez áll a szám helyén: a pontszámot a szerver számolja, helyi
+   becslést nem íratunk ki. */
+.ci-readiness-pending {
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.ci-readiness-value {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--sp-1);
+}
+
+.ci-readiness-num {
+  font-size: 44px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.ci-readiness-sign {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  color: var(--text-muted);
+  padding-bottom: 5px;
+}
+
+.ci-readiness-bar {
+  height: 8px;
+  border-radius: 20px;
+  background: var(--surface-strong);
+  overflow: hidden;
+}
+
+.ci-readiness-fill {
+  height: 100%;
+  width: 0;
+  border-radius: 20px;
+  background: var(--c-paper);
+  transition: width var(--t-slow) var(--ease-spring);
+}
+
+/* A készenlét tónusa ugyanaz a három sáv, mint a Regeneráció oldalon
+   (readinessTone: 80 / 60). A középső sáv a semleges alapszínt tartja. */
+.ci-readiness[data-tone="ok"] .ci-readiness-verdict,
+.ci-readiness[data-tone="ok"] .ci-readiness-num   { color: var(--c-ok); }
+.ci-readiness[data-tone="ok"] .ci-readiness-fill  { background: var(--c-ok); }
+.ci-readiness[data-tone="bad"] .ci-readiness-verdict,
+.ci-readiness[data-tone="bad"] .ci-readiness-num  { color: var(--c-accent); }
+.ci-readiness[data-tone="bad"] .ci-readiness-fill { background: var(--c-accent); }
+
+.ci-summary {
+  margin: var(--sp-7) 0 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ci-summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-5);
+  padding: var(--sp-5) 2px;
+  border-bottom: 1px solid var(--border-card);
+}
+
+.ci-summary-label {
+  font-size: var(--fs-base);
+  color: var(--text-secondary);
+}
+
+.ci-summary-value {
+  margin: 0;
+  font-size: var(--fs-base);
+  font-weight: 700;
+  text-align: right;
+}
+
+.ci-summary-actions {
+  margin-top: auto;
+  padding-top: var(--sp-7);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+.ci-saved {
+  margin: 0;
+  padding: var(--sp-7);
+  border-radius: var(--r-lg);
+  background: var(--surface-card);
+  border: 1px solid var(--c-ok);
+  color: var(--c-ok);
+  font-size: var(--fs-lg);
+  font-weight: 800;
+  text-align: center;
+}
+
+/* ---- ≥1025px: a nav gyűrű eltűnik, az oszlop szélessége marad ---- */
+@media (min-width: 1025px) {
+  .app-page.ci-page {
+    padding: var(--sp-13) var(--sp-9);
+    /* Nagy képernyőn ne nyúljon szét az intro függőleges ritmusa. */
+    min-height: min(100dvh, 820px);
   }
 }
