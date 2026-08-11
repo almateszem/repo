@@ -2450,39 +2450,6 @@
     card.addEventListener('focusout', stop);
   }
 
-  /**
-   * A kártya kinyitható „kivitelezés” része. Csak azoknál a gyakorlatoknál
-   * van, amikhez van magyar lépéslista — a többinél a gomb rejtve marad, és
-   * a kártya pontosan úgy néz ki, mint eddig.
-   *
-   * A lépések a kártya megépítésekor bekerülnek a DOM-ba, de a lista `hidden`
-   * marad; a gomb csak átbillenti. Így nincs külön hálózati kérés, és a
-   * keresés/szűrés logikája sem változik.
-   */
-  function setupSteps(item, entry) {
-    if (!entry.steps?.length) return;
-
-    const button = $('.ep-item-info-btn', item);
-    const list = $('.ep-item-steps', item);
-    list.append(...entry.steps.map((step) => {
-      const li = document.createElement('li');
-      li.textContent = step;
-      return li;
-    }));
-
-    button.hidden = false;
-    button.setAttribute('aria-label', `${entry.name} — kivitelezés megjelenítése`);
-    button.addEventListener('click', () => {
-      const open = button.getAttribute('aria-expanded') === 'true';
-      button.setAttribute('aria-expanded', String(!open));
-      list.hidden = open;
-      button.setAttribute(
-        'aria-label',
-        `${entry.name} — kivitelezés ${open ? 'megjelenítése' : 'elrejtése'}`,
-      );
-    });
-  }
-
   /** A gyakorlat-választó flow-oldal: katalógus a szerverről, kereső + izom-
       csoport chipek, a → gomb a cél-listához adja a gyakorlatot (alap
       szettekkel), a ✓ eltávolítja onnan. A cél (a terv-építő VAGY az
@@ -2525,7 +2492,6 @@
       $('.ep-item-tag', item).textContent = entry.tag;
       $('.ep-item-muscles', item).textContent = entry.muscles;
       setupThumb($('.ep-item-thumb', item), entry);
-      setupSteps(item, entry);
       fragment.appendChild(item);
     });
     list.appendChild(fragment);
