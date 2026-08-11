@@ -27,14 +27,10 @@ NYITOTT — döntést vagy külső lépést igényel
 ADATMINŐSÉG — fokozatosan bővíthető, nincs határidő
 ==========================================================================
 
-[~] Magyar lépésenkénti leírások — 64 / 1401 gyakorlat kész
-    A 200 kurált gyakorlatból a leggyakoribb 64-hez van kivitelezési
-    leírás (server/data/instructions.hu.js), és a választó kártyáján a
-    „?” gombbal nyílik ki. Aminek nincs, ott a gomb sem jelenik meg.
-    Bővítés: új kulcs a fájlba, a névnek PONTOSAN egyeznie kell a
-    katalógusbelivel — a catalog.js induláskor ellenőrzi és hangosan szól.
-    A generált 1200 gyakorlathoz nincs és valószínűleg nem is lesz: ott a
-    gif önmagában elmondja a mozgást.
+[x] Magyar lépésenkénti leírások — eltávolítva
+    A választó kártyáján megjelenő kivitelezés-leírás ("?" gomb) zavarónak
+    bizonyult, ezért kikerült (server/data/instructions.hu.js törölve,
+    catalog.js és script.js már nem hivatkozik rá).
 
 [~] 53 gyakorlat nem fordult le, ezért kimaradt a katalógusból
     (Korábban 80 volt; a szótár bővítésével 1201 gyakorlat van bent.)

@@ -27,7 +27,6 @@
 import { exercises as curatedExercises, GROUPS } from './exercises.hu.js';
 import { exdbExercises, exdbMediaForCurated } from './exercises.exdb.js';
 import { foods as curatedFoods } from './foods.hu.js';
-import { instructionsHu } from './instructions.hu.js';
 import { MUSCLE_KEYS } from '../muscles.js';
 
 /**
@@ -98,35 +97,7 @@ export function buildExerciseCatalog() {
   });
 
   const taken = new Set(curated.map((entry) => entry.name.toLowerCase()));
-  const catalog = [...curated, ...generated.filter((entry) => !taken.has(entry.name.toLowerCase()))];
-  return attachInstructions(catalog);
-}
-
-/**
- * A magyar lépésenkénti leírások rákötése a katalógusra `steps` néven.
- *
- * A leírások kulcsa a gyakorlat neve, ezért egy elgépelt kulcs csendben
- * hatástalan maradna — a felületen egyszerűen nem jelenne meg a leírás, és
- * semmi nem szólna. Ezért itt ELLENŐRIZZÜK, hogy minden kulcshoz tartozik
- * katalógus-sor, és ha nem, induláskor elszállunk a konkrét névvel.
- */
-function attachInstructions(catalog) {
-  const byName = new Map(catalog.map((entry) => [entry.name, entry]));
-
-  for (const [name, steps] of Object.entries(instructionsHu)) {
-    const entry = byName.get(name);
-    if (!entry) {
-      throw new Error(
-        `instructions.hu.js → „${name}”: nincs ilyen nevű gyakorlat a katalógusban. `
-        + 'A kulcsnak pontosan egyeznie kell az exercises.hu.js névvel.',
-      );
-    }
-    if (!Array.isArray(steps) || !steps.length) {
-      throw new Error(`instructions.hu.js → „${name}”: üres lépéslista`);
-    }
-    entry.steps = steps;
-  }
-  return catalog;
+  return [...curated, ...generated.filter((entry) => !taken.has(entry.name.toLowerCase()))];
 }
 
 /**
