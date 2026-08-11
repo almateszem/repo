@@ -179,6 +179,22 @@
    ========================================================================== */
 * { box-sizing: border-box; }
 
+/* A [hidden] attribútum MINDIG rejtsen — ez a szabály egy egész hibaosztályt
+   zár le, ezért van rajta !important.
+   A böngésző alap-stíluslapján a [hidden] csak attribútum-erősségű, így
+   bármelyik osztály-szabály (`.valami { display: flex }`) megveri. A JS
+   viszont sok helyen az `el.hidden = true`-val szűr/rejt — ilyenkor az elem
+   „rejtettnek" számított a kódban, de látszott a képernyőn. Ez az appban
+   kilencszer sült el, változó súllyal: a gyakorlat-keresőnél a találatszám
+   frissült, de mind az 1401 kártya kint maradt; a regenerációs sapkáknál egy
+   üres doboz margója hagyott fantom rést.
+   A komponensenkénti felülírás helyett ezért itt egyszer, mindenkire.
+   Biztonságos: a lap sehol nem ad inline display-t, és minden korábbi
+   komponens-szabály is pontosan display: none-t állított. */
+[hidden] {
+  display: none !important;
+}
+
 html,
 body {
   margin: 0;
@@ -381,12 +397,6 @@ input.wk-chip:focus-visible {
     padding-left: var(--sp-7);
     padding-right: var(--sp-7);
   }
-}
-
-/* A [hidden] attribútumnak akkor is nyernie kell, ha egy breakpoint
-   display: grid-et állít az oldalra (lásd 1280px-es dashboard grid). */
-.app-page[hidden] {
-  display: none;
 }
 
 @keyframes page-in {
@@ -1344,11 +1354,6 @@ input.wk-chip.wk-num-input {
   padding: var(--sp-5) var(--sp-6);
 }
 
-/* A kereső hidden attribútummal szűr — ennek felül kell írnia a display: flex-et */
-.nu-food[hidden] {
-  display: none;
-}
-
 .nu-food-info {
   display: flex;
   flex-direction: column;
@@ -1742,10 +1747,6 @@ input.wk-chip.wk-num-input {
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.co-card-alert[hidden] {
-  display: none;
 }
 
 .co-card-avatar {
@@ -2607,10 +2608,6 @@ input.wk-chip.wk-num-input {
   margin: 0;
 }
 
-.db-badge[hidden] {
-  display: none;
-}
-
 .db-badge.is-pop {
   animation: badge-pop .3s ease;
 }
@@ -3458,15 +3455,6 @@ input.wk-chip.wk-num-input {
   contain-intrinsic-size: auto 88px;
 }
 
-/* A kereső és az izomcsoport-chipek hidden attribútummal szűrnek — ennek
-   felül kell írnia a fenti display: flex-et. A böngésző alap-stíluslapján a
-   [hidden] csak attribútum-erősségű, amit a .ep-item osztály-szabály
-   megver: enélkül a szűrés a találatszámot ugyan átírta, de a kártyák
-   maradtak a képernyőn. (Ugyanez a .nu-food-nál is meg van oldva.) */
-.ep-item[hidden] {
-  display: none;
-}
-
 /* Gyakorlat-illusztráció. Fix méret, hogy a lista ne ugráljon, amíg a képek
    lazy módon betöltenek; a világos háttér a gifek fehér hátterét folytatja. */
 .ep-item-thumb {
@@ -3649,10 +3637,6 @@ input.wk-chip.wk-num-input {
   padding-top: var(--sp-7);
 }
 
-.co-msg[hidden] {
-  display: none;
-}
-
 .co-msg-feed {
   display: flex;
   flex-direction: column;
@@ -3678,10 +3662,6 @@ input.wk-chip.wk-num-input {
 .co-toggle-btn {
   flex: 1;
   padding: var(--sp-3) var(--sp-5);
-}
-
-.co-view[hidden] {
-  display: none;
 }
 
 /* ---- Kliens nézet: edző-fejléc ---- */
@@ -3858,10 +3838,6 @@ input.wk-chip.wk-num-input {
   border-radius: var(--r-xl);
   padding: var(--sp-5) var(--sp-7);
   margin: 0 0 var(--sp-9);
-}
-
-.su-pr[hidden] {
-  display: none;
 }
 
 .su-stats {
@@ -4095,12 +4071,6 @@ input.wk-chip.wk-num-input {
   flex-direction: column;
   gap: var(--sp-2);
   margin-bottom: var(--sp-6);
-}
-
-/* Sapka nélkül a lista hidden attribútumot kap — ennek felül kell írnia a
-   fenti display: flex-et, különben a margó fantom rést hagy az oldalon. */
-.rc-caps[hidden] {
-  display: none;
 }
 
 .rc-cap {
