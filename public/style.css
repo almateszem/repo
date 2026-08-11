@@ -4097,6 +4097,12 @@ input.wk-chip.wk-num-input {
   margin-bottom: var(--sp-6);
 }
 
+/* Sapka nélkül a lista hidden attribútumot kap — ennek felül kell írnia a
+   fenti display: flex-et, különben a margó fantom rést hagy az oldalon. */
+.rc-caps[hidden] {
+  display: none;
+}
+
 .rc-cap {
   font-size: var(--fs-xs);
   line-height: 1.5;
