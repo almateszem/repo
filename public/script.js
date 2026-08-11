@@ -1307,7 +1307,10 @@
     };
 
     const close = () => {
-      if (!modal.classList.contains('is-open')) return;
+      // A második feltétel teszi ismételhetővé: a kiúszó animáció alatt az
+      // ablak még `is-open`, így egy közben érkező zárás (pl. gombnyomás ÉS
+      // oldalváltás együtt) egy második, árva időzítőt indítana.
+      if (!modal.classList.contains('is-open') || modal.classList.contains('is-closing')) return;
       if (prefersReducedMotion) {
         hide();
         return;
@@ -1317,6 +1320,12 @@
     };
 
     $$('[data-close-modal]', modal).forEach((el) => el.addEventListener('click', close));
+
+    /* Oldalváltás (a telefon vissza gombja, a nav gyűrű, egy gyorsbillentyű)
+       zárja az ablakot. Enélkül a modal az ÚJ oldal fölött maradt nyitva —
+       a felhasználó egy másik képernyőn találta magát egy odanem illő
+       ablakkal. Az értesítés-panel ugyanezt csinálja már. */
+    window.addEventListener('hashchange', close);
 
     document.addEventListener('keydown', (event) => {
       if (!modal.classList.contains('is-open')) return;
@@ -1383,6 +1392,10 @@
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape' && modal.classList.contains('is-open')) settle(false);
     });
+    /* Oldalváltás = elutasítás. A createModalController az ablakot már zárja,
+       de az ígéretet itt kell lezárni: enélkül az `await confirmAction(...)`
+       hívó (gyakorlat eltávolítása, terv betöltése) örökre függve maradna. */
+    window.addEventListener('hashchange', () => settle(false));
 
     return (message, { title = 'Biztosan folytatod?', confirmLabel = 'Folytatás' } = {}) =>
       new Promise((res) => {
