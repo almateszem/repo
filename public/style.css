@@ -3458,6 +3458,15 @@ input.wk-chip.wk-num-input {
   contain-intrinsic-size: auto 88px;
 }
 
+/* A kereső és az izomcsoport-chipek hidden attribútummal szűrnek — ennek
+   felül kell írnia a fenti display: flex-et. A böngésző alap-stíluslapján a
+   [hidden] csak attribútum-erősségű, amit a .ep-item osztály-szabály
+   megver: enélkül a szűrés a találatszámot ugyan átírta, de a kártyák
+   maradtak a képernyőn. (Ugyanez a .nu-food-nál is meg van oldva.) */
+.ep-item[hidden] {
+  display: none;
+}
+
 /* Gyakorlat-illusztráció. Fix méret, hogy a lista ne ugráljon, amíg a képek
    lazy módon betöltenek; a világos háttér a gifek fehér hátterét folytatja. */
 .ep-item-thumb {
