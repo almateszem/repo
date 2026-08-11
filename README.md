@@ -84,6 +84,27 @@ egy 0–100-as készenléti pontszámot, és ebből konkrét edzésdöntéseket 
 A számítás teljes egészében a `server/recovery.js`-ben van, amely **nem ismeri az
 adatbázist** — mindent paraméterként kap, ezért unit-tesztelhető (`npm test`).
 
+### A check-in két kitöltési útja
+
+A napi check-int két felület írja, **ugyanabba a sorba**:
+
+- **`#checkin` — a lépésenkénti varázsló, az elsődleges út.** Egy kérdés / egy
+  képernyő: alvás, alvásminőség, energia, stressz, majd két kapu (van-e izomláz,
+  ill. fájdalom) és a hozzájuk tartozó testtérkép. Szándékosan **nem** kérdez
+  közérzetet, folyadékot és testsúlyt.
+- **A Regeneráció oldal „Részletes szerkesztés" blokkja — a teljes űrlap.** Itt
+  minden mező elérhető egy képernyőn, a varázslóból kihagyottakkal együtt.
+
+**A két út közti szerződés — ez a legfontosabb tudnivaló a check-in körül.**
+A `PUT /api/checkin` **teljes sort cserél**, nem merge-öl (`saveCheckin`,
+`server/db.js`): a törzsből hiányzó mezőt a szerver `null`-ként írja be. A
+varázsló ezért megnyitáskor betölti a mai check-int, a nem kérdezett mezőket
+(`mood`, `hydration`, `pain.general`) eltárolja, és mentéskor **változatlanul
+visszaküldi** — enélkül némán felülírná, amit a részletes űrlapon adtál meg.
+Ellenkező irányban: a `weightKg`-ot a varázsló **nem** küldi vissza, mert az nem
+a check-in sorba, hanem sima `INSERT`-tel a `weight_log`-ba megy — minden
+újramentés duplikált testsúly-bejegyzést csinálna.
+
 **A képlet** súlyozott átlag, de csak a *jelen lévő* komponensekre:
 
 | Komponens | Súly | Miből |

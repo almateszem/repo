@@ -118,10 +118,21 @@
           </div>
         </section>
 
-        <div class="chart db-chart" role="img" aria-label="Heti kalóriabevitel alakulása" data-chart="weeklyCalories">
-          <div class="chart-bars" aria-hidden="true"></div>
-          <div class="chart-axis" aria-hidden="true"></div>
-        </div>
+        <!-- Napi check-in emlékeztető. Csak addig látszik, amíg a mai check-in
+             nincs kitöltve: a renderDashboard a szerver checkinPresent mezője
+             alapján rejti el, éjfél után pedig a napváltás-figyelő visszahozza.
+             Alapból rejtett, hogy a már kitöltött napokon se villanjon fel a
+             dashboard adatainak megérkezése előtt. Link, nem gomb: a hash-router
+             viszi a check-in varázslóra (#checkin), ugyanúgy, ahogy a
+             készenlét-kártya a Regeneráció oldalra. -->
+        <a class="db-checkin-cta" href="#checkin" data-checkin-cta hidden>
+          <span class="db-checkin-cta-text">
+            <span class="db-checkin-cta-title">Töltsd ki a napi check-int</span>
+            <span class="db-checkin-cta-note">Alvás, energia, izomláz — pár koppintás, és a
+              készenléti pontszámod a mai állapotodat mutatja.</span>
+          </span>
+          <span class="db-checkin-cta-arrow" aria-hidden="true">→</span>
+        </a>
 
         <section class="db-weight" aria-labelledby="title-weight">
           <h3 class="db-weight-title" id="title-weight">Testsúly alakulása — 12 hét</h3>
@@ -496,40 +507,63 @@
         </p>
         <ul class="rc-caps" data-list="rc-caps" hidden></ul>
 
-        <!-- Napi check-in — kétszintű: gyors blokk + kinyitható részletes -->
-        <form class="rc-checkin" data-form="checkin" aria-labelledby="title-checkin">
-          <div class="rc-checkin-head">
-            <h3 class="rc-section-title" id="title-checkin">Napi check-in</h3>
+        <!-- Napi check-in. Két út vezet ugyanabba a sorba:
+             · az elsődleges a lépésenkénti varázsló (#checkin) — gyors, de
+               szándékosan nem kérdez közérzetet, folyadékot és testsúlyt;
+             · a lenti „Részletes szerkesztés" a teljes űrlap, ezekkel együtt.
+             Mindkettő a PUT /api/checkin-re megy; a varázsló a nem kérdezett
+             mezőket változatlanul visszaküldi (lásd a `carried` kommentjét a
+             script.js-ben), hogy ne írja felül, amit itt adtál meg. -->
+        <a class="db-checkin-cta rc-checkin-cta" href="#checkin" data-rc-checkin-cta>
+          <span class="db-checkin-cta-text">
+            <span class="db-checkin-cta-title" data-rc-checkin-cta-title>Napi check-in kitöltése</span>
+            <span class="db-checkin-cta-note">Pár gyors kérdés, kevesebb mint egy perc — ebből
+              számol a mai készenléted.</span>
+          </span>
+          <span class="db-checkin-cta-arrow" aria-hidden="true">→</span>
+        </a>
+
+        <details class="rc-checkin-advanced">
+          <summary class="rc-details-summary rc-checkin-summary">
+            <span class="rc-section-title" id="title-checkin">Részletes szerkesztés</span>
+            <!-- Az állapot a summary-ban van, hogy összecsukva is látszódjon. -->
             <span class="rc-checkin-state" data-checkin-state></span>
-          </div>
+          </summary>
 
-          <div class="rc-field">
-            <label class="field-label" for="checkin-sleep">Mennyit aludtál?</label>
-            <span class="wk-num rc-num">
-              <button class="wk-num-step" type="button" data-dir="-1" tabindex="-1" aria-hidden="true">−</button>
-              <input class="wk-num-input" id="checkin-sleep" name="sleepHours" type="number"
-                     inputmode="decimal" min="0" max="24" step="0.5" placeholder="pl. 7.5" autocomplete="off">
-              <button class="wk-num-step" type="button" data-dir="1" tabindex="-1" aria-hidden="true">+</button>
-            </span>
-            <span class="rc-field-unit">óra</span>
-          </div>
+          <form class="rc-checkin" data-form="checkin" aria-labelledby="title-checkin">
+            <p class="rc-hint">Itt minden mező elérhető, egy képernyőn — a közérzet, a folyadék
+              és a testsúly is, amiket a varázsló nem kérdez.</p>
 
-          <!-- Az 1–5 skálákat a script.js építi fel chip-csoportként (a terv-
-               építő nap-chipjeivel azonos aria-pressed mintával). -->
-          <div class="rc-scales" data-list="checkin-scales"></div>
+            <div class="rc-field">
+              <label class="field-label" for="checkin-sleep">Mennyit aludtál?</label>
+              <span class="wk-num rc-num">
+                <button class="wk-num-step" type="button" data-dir="-1" tabindex="-1" aria-hidden="true">−</button>
+                <input class="wk-num-input" id="checkin-sleep" name="sleepHours" type="number"
+                       inputmode="decimal" min="0" max="24" step="0.5" placeholder="pl. 7.5" autocomplete="off">
+                <button class="wk-num-step" type="button" data-dir="1" tabindex="-1" aria-hidden="true">+</button>
+              </span>
+              <span class="rc-field-unit">óra</span>
+            </div>
 
-          <details class="rc-details">
-            <summary class="rc-details-summary">Részletes kitöltés — izomláz, fájdalom, közérzet</summary>
+            <!-- Az 1–5 skálákat a script.js építi fel chip-csoportként (a terv-
+                 építő nap-chipjeivel azonos aria-pressed mintával). -->
+            <div class="rc-scales" data-list="checkin-scales"></div>
 
-            <div class="rc-details-body">
+            <!-- A korábbi belső lenyitható réteg megszűnt: az egész űrlap már a
+                 „Részletes szerkesztés" blokkban van, egy második kattintás
+                 ugyanannak a tartalomnak a megnyitásához fölösleges volt. -->
+            <div class="rc-checkin-body">
               <p class="rc-hint">Az izomcsoportonkénti izomláz (0 = semmi, 5 = nagyon erős) pontosítja
                 a csoportonkénti becslést. Amit kihagysz, annak a súlya újraoszlik.</p>
               <div class="rc-muscle-inputs" data-list="checkin-soreness"></div>
 
-              <p class="rc-hint">Fájdalom vagy sérülés (0–10). A 7 feletti érték letiltja az érintett
-                izomcsoportot terhelő gyakorlatokat.</p>
+              <p class="rc-hint">Fájdalom vagy sérülés (0–10). A 7-es vagy nagyobb érték letiltja az
+                érintett izomcsoportot terhelő gyakorlatokat.</p>
               <div class="rc-pain-inputs" data-list="checkin-pain"></div>
 
+              <!-- A közérzet-skálát a script.js SZÚRJA BE közvetlenül e blokk
+                   elé (setupRecovery) — az .rc-extra-fields osztály ezért nem
+                   nevezhető át. -->
               <div class="rc-extra-fields">
                 <div class="rc-field">
                   <label class="field-label" for="checkin-hydration">Folyadék</label>
@@ -554,10 +588,10 @@
               </div>
               <p class="rc-hint">A testsúly a testsúly-naplóba is bekerül — nem kell külön rögzítened.</p>
             </div>
-          </details>
 
-          <button class="rc-save" type="submit">Check-in mentése</button>
-        </form>
+            <button class="rc-save" type="submit">Check-in mentése</button>
+          </form>
+        </details>
 
         <!-- Komponens-bontás: miből jött ki a pontszám -->
         <section class="rc-card" aria-labelledby="title-rc-components">
@@ -591,6 +625,36 @@
             specifikus becsléshez. A fő emelésekhez (fekvenyomás, guggolás, felhúzás) egyetlen
             naplózott alkalom is elég, a többihez három kell.</p>
         </section>
+      </section>
+
+      <!-- ================================================================
+           Napi check-in varázsló — flow-oldal (#checkin)
+           Egy kérdés / egy képernyő. A hash-router ismeri, de a nav gyűrűben
+           és a gyorsbillentyűk között nincs: az áttekintő check-in
+           emlékeztetője és a Regeneráció oldal gombja hozza ide.
+           A lépések törzsét a script.js rendereli a lap alján lévő tpl-ci-*
+           sablonokból — itt csak a keret statikus.
+           A varázsló szándékosan nem kérdez közérzetet, folyadékot és
+           testsúlyt; azok a Regeneráció oldal részletes űrlapján maradnak.
+           ================================================================ -->
+      <section class="app-page ci-page" data-page="checkin" aria-label="Napi check-in" hidden>
+        <!-- A fejléc az introt kivéve minden lépésen látszik. A folyamatsáv és
+             a „3/6" felirat aria-hidden: a lépésszámot a lap alján lévő élő
+             régió mondja ki egyszer, hogy ne hangozzon el kétszer. -->
+        <header class="ci-head" data-ci-head hidden>
+          <button class="ci-back tap-target" type="button" data-action="checkin-back"
+                  aria-label="Vissza az előző kérdéshez">←</button>
+          <div class="ci-progress" aria-hidden="true">
+            <div class="ci-progress-fill" data-ci-progress></div>
+          </div>
+          <span class="ci-step-label" data-ci-step-label aria-hidden="true"></span>
+        </header>
+
+        <!-- A data-step attribútum kulcsolja a lépés-animációt: a script.js
+             minden váltáskor újraírja, ezért a keyframe újraindul. -->
+        <div class="ci-body" data-ci-body data-step=""></div>
+
+        <p class="sr-only" role="status" aria-live="polite" data-ci-announce></p>
       </section>
     </main>
 
@@ -1055,6 +1119,166 @@
         <span class="rc-lift-delta"><span class="rc-lift-delta-label">Volumen</span><span data-lift-volume></span></span>
       </div>
     </li>
+  </template>
+
+  <!-- ====================================================================
+       Napi check-in varázsló sablonjai (#checkin)
+       Az egyszer előforduló szöveg itt él (mint minden más oldal szövege);
+       a példányonként változó szöveg a script.js egyetlen tábláiban
+       (CHECKIN_SCALES, CI_GATES, CI_MAP_MODES) — így a variánsok egymás
+       mellett olvashatók, nem majdnem-egyforma HTML-blokkokban.
+       ==================================================================== -->
+
+  <!-- Nyitóképernyő. h2, nem h1: a lap egyetlen h1-je az oldal tetején van. -->
+  <template id="tpl-ci-intro">
+    <div class="ci-step ci-step--center">
+      <p class="ci-eyebrow">Regeneráció · <span data-ci-date></span></p>
+      <h2 class="ci-display">Napi<br>regeneráció</h2>
+      <p class="ci-lead">Pár gyors kérdés, kevesebb mint egy perc. Koppints egy válaszra —
+        magától ugrik a következőre.</p>
+      <button class="ci-primary" type="button" data-action="checkin-next">
+        <span data-ci-start-label>Kezdés</span> <span aria-hidden="true">→</span>
+      </button>
+      <p class="ci-footnote">A folyamatosság veri a tökéletességet.</p>
+      <!-- Az intronak nincs vissza gombja; desktopon (nav gyűrű nélkül) enélkül
+           nem lenne kiút az oldalról. -->
+      <a class="ci-exit" href="#dashboard">Mégse</a>
+    </div>
+  </template>
+
+  <!-- Alvás. A ± léptető a megosztott .wk-num primitív, hogy a min/max/step
+       kezelése egy helyen maradjon (handleStepClick a script.js-ben). -->
+  <template id="tpl-ci-sleep">
+    <div class="ci-step">
+      <div class="ci-head-block">
+        <p class="ci-eyebrow">Napi check-in</p>
+        <h2 class="ci-question">Mennyit aludtál?</h2>
+        <p class="ci-sub">Az elmúlt éjszaka, órában.</p>
+      </div>
+      <div class="ci-stage">
+        <div class="ci-sleep-row">
+          <span class="wk-num ci-sleep-num">
+            <button class="wk-num-step ci-round-btn" type="button" data-dir="-1"
+                    aria-label="Kevesebb alvás">−</button>
+            <label class="sr-only" for="ci-sleep">Alvás órában</label>
+            <input class="wk-num-input ci-sleep-input" id="ci-sleep" type="number"
+                   inputmode="decimal" min="3" max="12" step="0.5" autocomplete="off">
+            <button class="wk-num-step ci-round-btn" type="button" data-dir="1"
+                    aria-label="Több alvás">+</button>
+          </span>
+          <span class="ci-sleep-unit" aria-hidden="true">óra</span>
+        </div>
+        <div class="ci-presets" role="group" aria-label="Gyakori alvásidők" data-ci-presets></div>
+      </div>
+      <button class="ci-primary" type="button" data-action="checkin-next">
+        Tovább <span aria-hidden="true">→</span>
+      </button>
+    </div>
+  </template>
+
+  <!-- 1–5 skála (alvásminőség / energia / stressz). A „Tovább" gomb a
+       billentyűzetes kiút: koppintásra az automatikus léptetés megelőzi. -->
+  <template id="tpl-ci-scale">
+    <div class="ci-step">
+      <div class="ci-head-block">
+        <p class="ci-eyebrow">Napi check-in</p>
+        <h2 class="ci-question" data-ci-title></h2>
+      </div>
+      <div class="ci-stage">
+        <div class="ci-scale" role="group" data-ci-scale></div>
+        <div class="ci-scale-ends">
+          <span data-ci-low></span><span data-ci-high></span>
+        </div>
+      </div>
+      <button class="ci-primary" type="button" data-action="checkin-next" disabled>
+        Tovább <span aria-hidden="true">→</span>
+      </button>
+    </div>
+  </template>
+
+  <!-- Kapu-lépés: két nagy választókártya (izomláz, ill. fájdalom). -->
+  <template id="tpl-ci-gate">
+    <div class="ci-step">
+      <div class="ci-head-block">
+        <p class="ci-eyebrow" data-ci-eyebrow></p>
+        <h2 class="ci-question" data-ci-title></h2>
+        <p class="ci-sub" data-ci-sub></p>
+      </div>
+      <div class="ci-stage ci-gates" data-ci-gates></div>
+    </div>
+  </template>
+
+  <!-- Testtérkép (izomláz 1–5 / fájdalom 1–10). A régiókat és az alattuk lévő
+       érték-sorokat a script.js szúrja be. -->
+  <template id="tpl-ci-map">
+    <div class="ci-step">
+      <div class="ci-head-block">
+        <p class="ci-eyebrow" data-ci-eyebrow></p>
+        <h2 class="ci-question" data-ci-title></h2>
+        <p class="ci-sub" data-ci-sub></p>
+      </div>
+      <div class="wk-toggle ci-map-toggle" role="group" aria-label="Testnézet">
+        <button class="wk-toggle-btn" type="button" data-view="front" aria-pressed="true">Elöl</button>
+        <button class="wk-toggle-btn" type="button" data-view="back" aria-pressed="false">Hátul</button>
+      </div>
+      <div class="ci-map" data-ci-map>
+        <span class="ci-map-head" aria-hidden="true"></span>
+      </div>
+      <div class="ci-values" data-ci-values></div>
+      <p class="ci-legend" data-ci-legend></p>
+      <button class="ci-primary" type="button" data-action="checkin-next">
+        Tovább <span aria-hidden="true">→</span>
+      </button>
+    </div>
+  </template>
+
+  <!-- Egy izomcsoport érték-sora a térkép alatt. Ez a KANONIKUS pontos-érték
+       vezérlő: a térképen húzni kell, itt billentyűzettel is választható. -->
+  <template id="tpl-ci-value-row">
+    <div class="ci-value-row">
+      <span class="ci-value-name" data-ci-name></span>
+      <div class="ci-value-chips" role="group" data-ci-chips></div>
+      <span class="ci-value-warn" data-ci-warn hidden>letiltva</span>
+    </div>
+  </template>
+
+  <!-- Összegzés. A készenlét-szám a SZERVERTŐL jön: mentés előtt szándékosan
+       nincs szám, csak a magyarázó sor (nem teszünk kitalált értéket a lapra). -->
+  <template id="tpl-ci-summary">
+    <div class="ci-step">
+      <div class="ci-head-block">
+        <p class="ci-eyebrow">Összegzés · <span data-ci-date></span></p>
+        <h2 class="ci-question">Szép munka! 💪</h2>
+      </div>
+      <div class="ci-readiness" data-ci-readiness>
+        <div class="ci-readiness-head">
+          <span class="ci-readiness-label">Készenlét</span>
+          <span class="ci-readiness-verdict" data-ci-verdict></span>
+        </div>
+        <p class="ci-readiness-pending" data-ci-pending>A készenléti pontszám a mentés után
+          számolódik ki.</p>
+        <div class="ci-readiness-value" data-ci-score-wrap hidden>
+          <span class="ci-readiness-num" data-ci-score>0</span><span class="ci-readiness-sign">%</span>
+        </div>
+        <div class="ci-readiness-bar" data-ci-bar-wrap hidden>
+          <div class="ci-readiness-fill" data-ci-bar></div>
+        </div>
+      </div>
+      <dl class="ci-summary" data-ci-summary></dl>
+      <div class="ci-summary-actions">
+        <button class="ci-primary" type="button" data-action="checkin-save">Mentés</button>
+        <p class="ci-saved" data-ci-saved hidden>Mentve ✓</p>
+        <a class="ci-exit" href="#recovery" data-ci-done-link hidden>Vissza a regenerációhoz</a>
+      </div>
+    </div>
+  </template>
+
+  <!-- Egy sor az összegzés listájában -->
+  <template id="tpl-ci-summary-row">
+    <div class="ci-summary-row">
+      <dt class="ci-summary-label"></dt>
+      <dd class="ci-summary-value"></dd>
+    </div>
   </template>
 
 </body>

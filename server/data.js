@@ -18,10 +18,9 @@ export const data = {
   /* A bejelentkezett felhasználó. A szerepkör-jelzők: van-e edzője, edz-e másokat. */
   user: { name: 'Németh Dávid', hasCoach: true, coachesAthletes: true },
   charts: {
-    weeklyCalories: {
-      heights: [22, 26, 24, 30, 34, 33, 40, 46, 50, 55, 60, 66, 72, 78, 84, 90, 96, 100],
-      axis: ['2200', '1650', '1100', '550'],
-    },
+    /* A `weeklyCalories` görbe megszűnt: a dashboardon a helyén a napi
+       check-in emlékeztető áll. Sosem a valódi táplálkozási naplóból jött,
+       csak egy beégetett, monoton emelkedő demo-görbe volt. */
     benchProgress: {
       heights: [30, 34, 38, 40, 46, 52, 58, 64, 70, 78, 86, 100],
       axis: ['110 kg', '90 kg', '70 kg', '50 kg'],
