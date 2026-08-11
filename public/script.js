@@ -420,6 +420,16 @@
       if (page) showPage(page);
     });
 
+    // A flow-oldalak (összegző / terv-építő / gyakorlat-választó) csak a
+    // saját indító gombjukon át nyílnak meg helyesen — az állítja be az
+    // előfeltételt (lastSummary / editingId / a választó `context`-je).
+    // Ha az app hidegen úgy indul, hogy a hash MÁR egy flow-oldalra mutat
+    // — pl. a telefon vissza gombja megölte, majd a rendszer a régi URL-lel
+    // állította vissza az oldalt —, ez az előfeltétel hiányzik: a
+    // gyakorlat-választón például a hozzáadás-gomb némán nem csinál semmit.
+    // Indításkor ezért úgy kezeljük ezt a hash-t, mintha üres lenne.
+    if (FLOW_PAGES.includes(pageFromHash())) location.hash = '';
+
     // Friss megnyitáskor (hash nélkül) az utoljára használt oldal áll vissza.
     const lastPage = prefs.get('lastPage');
     if (!location.hash && lastPage && PAGES.includes(lastPage) && lastPage !== 'dashboard') {
