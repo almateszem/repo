@@ -2526,18 +2526,20 @@
     const namesInTarget = () =>
       new Set($$('.wk-exercise-name', context.targetList).map((el) => el.textContent.trim()));
 
-    /** Szűrés + a fejléc és a gombállapotok szinkronja a cél állapotával. */
+    /** Szűrés + a fejléc és a gombállapotok szinkronja a cél állapotával.
+        A keresés/szűrés cél (context) nélkül is működik — csak a ✓/→
+        gombállapot múlik a célon, mert csak annak van mihez igazodnia. */
     const refresh = () => {
-      if (!context) return; // mély-linkkel, cél nélkül megnyitva nincs mit szinkronizálni
-      $('[data-picker-workout]').textContent = context.nameInput.value.trim() || 'Névtelen';
+      if (context) $('[data-picker-workout]').textContent = context.nameInput.value.trim() || 'Névtelen';
       const query = searchInput.value.trim().toLowerCase();
-      const added = namesInTarget();
+      const added = context ? namesInTarget() : null;
       let visibleCount = 0;
       $$('.ep-item', list).forEach((item) => {
         const matches = (activeGroup === 'Mind' || item.dataset.group === activeGroup)
           && item.dataset.search.includes(query);
         item.hidden = !matches;
         if (matches) visibleCount += 1;
+        if (!context) return;
 
         const inTarget = added.has(item.dataset.name);
         const toggle = $('.ep-item-toggle', item);
