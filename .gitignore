@@ -17,3 +17,7 @@ public/exercises/
 
 # Logok
 *.log
+
+# graphify kimenet: a tudásgráf (graph.json / graph.html / GRAPH_REPORT.md)
+# a kódból bármikor újraépíthető — `graphify update .` —, ezért nem verziózzuk.
+graphify-out/
