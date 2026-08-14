@@ -134,28 +134,10 @@
           <span class="db-checkin-cta-arrow" aria-hidden="true">→</span>
         </a>
 
-        <section class="db-weight" aria-labelledby="title-weight">
-          <h3 class="db-weight-title" id="title-weight">Testsúly alakulása — 12 hét</h3>
-          <div class="chart db-weight-chart" role="img" aria-label="Testsúly alakulása az elmúlt 12 hétben"
-               data-chart="bodyWeight">
-            <div class="chart-bars" aria-hidden="true"></div>
-            <div class="chart-axis" aria-hidden="true"></div>
-          </div>
-
-          <!-- Testsúly rögzítése — a bejegyzés a chartra kerül és a Δ statot frissíti -->
-          <form class="db-weight-form" data-form="weight-log">
-            <div class="db-weight-input-col">
-              <label class="field-label" for="weight-input">Mai testsúly</label>
-              <div class="db-weight-input-wrap">
-                <input class="db-weight-input" id="weight-input" type="number" min="30" max="300" step="0.1"
-                       inputmode="decimal" placeholder="pl. 82.5" autocomplete="off">
-                <span class="db-weight-unit" aria-hidden="true">kg</span>
-              </div>
-            </div>
-            <button class="db-weight-save" type="submit">Rögzítés</button>
-          </form>
-          <p class="db-weight-last" data-weight-last hidden></p>
-        </section>
+        <!-- A testsúly-görbe és a napi testsúly rögzítése a Regeneráció oldalra
+             költözött: a mérés a napi check-in része, a trend pedig ott
+             olvasható, ahol a többi regenerációs jel. Itt csak a Δ stat maradt,
+             a napi statok sorában. -->
 
         <p class="db-quote" data-db-quote>A folyamatosság veri<br>a tökéletességet.</p>
 
@@ -509,7 +491,8 @@
 
         <!-- Napi check-in. Két út vezet ugyanabba a sorba:
              · az elsődleges a lépésenkénti varázsló (#checkin) — gyors, de
-               szándékosan nem kérdez közérzetet, folyadékot és testsúlyt;
+               szándékosan nem kérdez közérzetet és folyadékot (a testsúlyt
+               igen: az a napi mérés helye);
              · a lenti „Részletes szerkesztés" a teljes űrlap, ezekkel együtt.
              Mindkettő a PUT /api/checkin-re megy; a varázsló a nem kérdezett
              mezőket változatlanul visszaküldi (lásd a `carried` kommentjét a
@@ -531,8 +514,8 @@
           </summary>
 
           <form class="rc-checkin" data-form="checkin" aria-labelledby="title-checkin">
-            <p class="rc-hint">Itt minden mező elérhető, egy képernyőn — a közérzet, a folyadék
-              és a testsúly is, amiket a varázsló nem kérdez.</p>
+            <p class="rc-hint">Itt minden mező elérhető, egy képernyőn — a közérzet és a
+              folyadék is, amiket a varázsló nem kérdez.</p>
 
             <div class="rc-field">
               <label class="field-label" for="checkin-sleep">Mennyit aludtál?</label>
@@ -586,12 +569,32 @@
                   <span class="rc-field-unit">kg</span>
                 </div>
               </div>
-              <p class="rc-hint">A testsúly a testsúly-naplóba is bekerül — nem kell külön rögzítened.</p>
+              <p class="rc-hint">A testsúly a testsúly-naplóba kerül, naponta egy bejegyzésként —
+                a mai értéket bármelyik mentés felülírja, nem duplázza.</p>
             </div>
 
             <button class="rc-save" type="submit">Check-in mentése</button>
           </form>
         </details>
+
+        <!-- Testsúly-trend. A dashboardról került ide, a check-in alá: a napi
+             testsúlyt a varázsló (és a részletes űrlap) kérdi, ez a kártya
+             pedig azt mutatja, mi lett belőle. A diagram a legutóbbi
+             bejegyzéseket rajzolja — amíg nincs saját adat, demo-görbe áll
+             itt, és ezt a lenti sor ki is mondja. -->
+        <section class="rc-card rc-weight" aria-labelledby="title-rc-weight">
+          <h3 class="rc-section-title" id="title-rc-weight">Testsúly alakulása</h3>
+          <div class="chart rc-weight-chart" role="img"
+               aria-label="Testsúly alakulása a legutóbbi bejegyzések alapján"
+               data-chart="bodyWeight">
+            <div class="chart-bars" aria-hidden="true"></div>
+            <div class="chart-axis" aria-hidden="true"></div>
+          </div>
+          <p class="rc-weight-last" data-weight-last hidden></p>
+          <p class="rc-hint" data-weight-empty hidden>Még nincs saját testsúly-bejegyzésed — a
+            fenti diagram demo-görbe. A napi check-in megkérdezi a testsúlyodat; az első
+            mérés után a saját adataid látszanak itt.</p>
+        </section>
 
         <!-- Komponens-bontás: miből jött ki a pontszám -->
         <section class="rc-card" aria-labelledby="title-rc-components">
@@ -634,8 +637,10 @@
            emlékeztetője és a Regeneráció oldal gombja hozza ide.
            A lépések törzsét a script.js rendereli a lap alján lévő tpl-ci-*
            sablonokból — itt csak a keret statikus.
-           A varázsló szándékosan nem kérdez közérzetet, folyadékot és
-           testsúlyt; azok a Regeneráció oldal részletes űrlapján maradnak.
+           A varázsló szándékosan nem kérdez közérzetet és folyadékot; azok a
+           Regeneráció oldal részletes űrlapján maradnak. A napi testsúly
+           viszont itt van: a dashboard külön rögzítő űrlapja helyett a
+           check-in kérdi meg (kihagyható lépés).
            ================================================================ -->
       <section class="app-page ci-page" data-page="checkin" aria-label="Napi check-in" hidden>
         <!-- A fejléc az introt kivéve minden lépésen látszik. A folyamatsáv és
@@ -1147,7 +1152,9 @@
   </template>
 
   <!-- Alvás. A ± léptető a megosztott .wk-num primitív, hogy a min/max/step
-       kezelése egy helyen maradjon (handleStepClick a script.js-ben). -->
+       kezelése egy helyen maradjon (handleStepClick a script.js-ben).
+       A .ci-num-* osztályok a nagy szám-beviteli lépések közös receptje —
+       az alvás és a testsúly lépés is ezt használja. -->
   <template id="tpl-ci-sleep">
     <div class="ci-step">
       <div class="ci-head-block">
@@ -1156,23 +1163,59 @@
         <p class="ci-sub">Az elmúlt éjszaka, órában.</p>
       </div>
       <div class="ci-stage">
-        <div class="ci-sleep-row">
-          <span class="wk-num ci-sleep-num">
+        <div class="ci-num-row">
+          <span class="wk-num ci-num-dial">
             <button class="wk-num-step ci-round-btn" type="button" data-dir="-1"
                     aria-label="Kevesebb alvás">−</button>
             <label class="sr-only" for="ci-sleep">Alvás órában</label>
-            <input class="wk-num-input ci-sleep-input" id="ci-sleep" type="number"
+            <input class="wk-num-input ci-num-input" id="ci-sleep" type="number"
                    inputmode="decimal" min="3" max="12" step="0.5" autocomplete="off">
             <button class="wk-num-step ci-round-btn" type="button" data-dir="1"
                     aria-label="Több alvás">+</button>
           </span>
-          <span class="ci-sleep-unit" aria-hidden="true">óra</span>
+          <span class="ci-num-unit" aria-hidden="true">óra</span>
         </div>
         <div class="ci-presets" role="group" aria-label="Gyakori alvásidők" data-ci-presets></div>
       </div>
       <button class="ci-primary" type="button" data-action="checkin-next">
         Tovább <span aria-hidden="true">→</span>
       </button>
+    </div>
+  </template>
+
+  <!-- Napi testsúly. A dashboard külön rögzítő űrlapja helyett ez a lépés írja
+       a testsúly-naplót (a PUT /api/checkin weightKg mezőjén keresztül).
+       Kihagyható: üres mező = ma nem mértél, ilyenkor nem születik bejegyzés.
+       A gyorsgombokat és a legutóbbi mérés sorát a script.js tölti fel. -->
+  <template id="tpl-ci-weight">
+    <div class="ci-step">
+      <div class="ci-head-block">
+        <p class="ci-eyebrow">Napi check-in</p>
+        <h2 class="ci-question">Mennyi a testsúlyod?</h2>
+        <p class="ci-sub">Reggel, étkezés előtt a legpontosabb. Ha ma nem mértél, hagyd üresen.</p>
+      </div>
+      <div class="ci-stage">
+        <div class="ci-num-row">
+          <span class="wk-num ci-num-dial">
+            <button class="wk-num-step ci-round-btn" type="button" data-dir="-1"
+                    aria-label="Kevesebb testsúly">−</button>
+            <label class="sr-only" for="ci-weight">Testsúly kilogrammban</label>
+            <input class="wk-num-input ci-num-input ci-num-input--wide" id="ci-weight" type="number"
+                   inputmode="decimal" min="30" max="300" step="0.1" placeholder="—"
+                   autocomplete="off">
+            <button class="wk-num-step ci-round-btn" type="button" data-dir="1"
+                    aria-label="Több testsúly">+</button>
+          </span>
+          <span class="ci-num-unit" aria-hidden="true">kg</span>
+        </div>
+        <div class="ci-presets" role="group" aria-label="Testsúly az utolsó méréshez képest"
+             data-ci-presets hidden></div>
+        <p class="ci-legend" data-ci-weight-note></p>
+      </div>
+      <button class="ci-primary" type="button" data-action="checkin-next">
+        Tovább <span aria-hidden="true">→</span>
+      </button>
+      <button class="ci-skip" type="button" data-ci-weight-skip>Ma nem mértem</button>
     </div>
   </template>
 
