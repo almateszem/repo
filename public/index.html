@@ -233,7 +233,7 @@
         </section>
 
         <section class="wk-prs" aria-labelledby="title-prs">
-          <h3 class="wk-progress-title" id="title-prs">Korábbi rekordok</h3>
+          <h3 class="wk-progress-title" id="title-prs">Rekordok</h3>
           <ul class="wk-pr-list" data-list="prs"></ul>
           <p class="wk-list-empty" data-prs-empty hidden>Még nincs rögzített rekordod —
             jelöld meg a gyakorlatot a PR gombbal az edzésnaplóban, és mentsd az edzést.</p>
@@ -698,6 +698,21 @@
   </div>
 
   <!-- ================================================================
+       Gyakorlat rekord-előzmény modal (a "Korábbi rekordok" listaelemre
+       kattintva nyílik, a tartalmát a script.js tölti fel)
+       ================================================================ -->
+  <div class="pr-modal" id="prModal" aria-hidden="true">
+    <div class="pr-modal-backdrop" data-close-modal></div>
+    <div class="pr-modal-card" role="dialog" aria-modal="true" aria-labelledby="prModalTitle">
+      <div class="pr-modal-head">
+        <h3 id="prModalTitle">Rekord-előzmény — <span class="pr-modal-exercise">Fekvenyomás</span></h3>
+        <button class="pr-modal-close tap-target" type="button" data-close-modal aria-label="Bezárás">✕</button>
+      </div>
+      <ul class="pr-modal-history" data-pr-history></ul>
+    </div>
+  </div>
+
+  <!-- ================================================================
        Beállítások modal (a dashboard fogaskerék ikonja nyitja)
        ================================================================ -->
   <div class="settings-modal" id="settingsModal" aria-hidden="true">
@@ -926,10 +941,22 @@
   <template id="tpl-exercise">
     <article class="wk-exercise">
       <header class="wk-exercise-head">
+        <!-- Sorszám-választó a gyakorlatok sorrendjének átrendezéséhez: a
+             lenyíló listában kiválasztott szám az új pozíció, a többi
+             gyakorlat ehhez igazodva csúszik arrébb (lásd renumberOrderSelects
+             / enableOrderSelect). Saját, testreszabott legördülő — a natív
+             <select> lenyíló listája böngészőnként/OS-enként máshogy (és itt
+             csúnyán) rajzolódott ki. Csak az edzésnaplóban látszik. -->
+        <div class="wk-order-select" hidden>
+          <button type="button" class="wk-order-trigger tap-target" aria-haspopup="listbox"
+                  aria-expanded="false" aria-label="Gyakorlat sorrendben elfoglalt helye"></button>
+          <div class="wk-order-menu" role="listbox" hidden></div>
+        </div>
         <h3 class="wk-exercise-name"></h3>
-        <!-- Az edzésnaplóban kapcsolható PR-jelölés; a terv-építőben rejtett -->
+        <!-- Automatikus PR-jelzés az edzésnaplóban (a képlet vezérli, nem kattintható);
+             a terv-építőben rejtett -->
         <button class="wk-pr wk-pr-toggle tap-target" type="button" aria-pressed="false"
-                title="Rekord (PR) jelölése" hidden>PR</button>
+                title="Rekord (PR)" tabindex="-1" hidden>PR</button>
         <button class="wk-video-btn tap-target" type="button">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h11a2 2 0 0 1 2 2v2.2l4-2.4v10.4l-4-2.4V17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"/></svg>
         </button>
@@ -1059,10 +1086,19 @@
   </template>
 
   <template id="tpl-pr">
-    <li class="wk-pr-item">
+    <li class="wk-pr-item" tabindex="0" role="button">
       <span class="wk-pr">PR</span>
       <div class="wk-pr-info">
         <span class="wk-pr-exercise"></span>
+        <span class="wk-pr-detail"></span>
+      </div>
+      <span class="wk-pr-date"></span>
+    </li>
+  </template>
+
+  <template id="tpl-pr-history-item">
+    <li class="pr-history-item">
+      <div class="wk-pr-info">
         <span class="wk-pr-detail"></span>
       </div>
       <span class="wk-pr-date"></span>
