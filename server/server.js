@@ -18,6 +18,7 @@ import {
   getWorkouts, addWorkout, getWorkoutDraft, saveWorkoutDraft, clearWorkoutDraft,
   getUserPlans, addPlan, updatePlan, getPlanForDay,
   getCheckin, getCheckins, saveCheckin,
+  calculateEpley1RM, getExerciseMax, getAllExerciseMaxes,
 } from './db.js';
 // A készenlét-motor és a közös dátum-segédek. A dátumkezelés szándékosan egy
 // helyen (recovery.js) lakik, hogy a szerver és a motor sose csússzon el.
@@ -276,23 +277,72 @@ app.get('/api/plans', (req, res) => {
 
 app.get('/api/workout-template', (req, res) => res.json(workoutTemplate()));
 
-// Korábbi rekordok — a mentett edzések PR-ral megjelölt gyakorlataiból
-// (legújabb elöl). A detail az első teljesített (vagy első) szett összegzése.
+/** Egy PR-jelölt gyakorlat-előfordulás listaelemmé alakítása: a detail az
+    első teljesített (vagy első) szett összegzése, valamint a becsült 1RM
+    az Epley-képlettel. */
+function prEntryFor(workout, exercise) {
+  // A mértékegység már nem az értékben van (szám-mezők), ezért itt tesszük hozzá
+  const set = exercise.sets.find((s) => s.done) || exercise.sets[0];
+
+  // Az Epley-képlettel kiszámított 1RM
+  let oneRM = 0;
+  if (set && set.weight && set.reps) {
+    oneRM = calculateEpley1RM(set.weight, set.reps);
+  }
+
+  // Az eddig nyomon követett maximum
+  const maxRecord = getExerciseMax(exercise.name);
+
+  return {
+    exercise: exercise.name,
+    detail: set ? `${set.reps} ism. @ ${set.weight} kg` : workout.name,
+    oneRM: oneRM > 0 ? Math.round(oneRM * 10) / 10 : null, // 1 tizedesjegy pontosság
+    maxOneRM: maxRecord ? Math.round(maxRecord.max1rm * 10) / 10 : oneRM,
+    date: workout.date,
+  };
+}
+
+// Korábbi rekordok — gyakorlatonként egy sor, a jelenlegi (legutóbbi
+// PR-jelölt) rekorddal. A getWorkouts() legújabb elöl ad vissza edzéseket,
+// ezért az adott gyakorlatnál elsőként talált PR-jelölt előfordulás
+// pontosan a jelenlegi rekord.
 app.get('/api/prs', (req, res) => {
-  const prs = [];
+  const latestByExercise = new Map();
   for (const workout of getWorkouts()) {
     for (const exercise of workout.exercises) {
-      if (!exercise.pr) continue;
-      // A mértékegység már nem az értékben van (szám-mezők), ezért itt tesszük hozzá
-      const set = exercise.sets.find((s) => s.done) || exercise.sets[0];
-      prs.push({
-        exercise: exercise.name,
-        detail: set ? `${set.reps} ism. @ ${set.weight} kg` : workout.name,
-        date: workout.date,
-      });
+      if (!exercise.pr || latestByExercise.has(exercise.name)) continue;
+      latestByExercise.set(exercise.name, prEntryFor(workout, exercise));
     }
   }
-  res.json(prs.slice(0, 6));
+  res.json([...latestByExercise.values()]);
+});
+
+// Egy adott gyakorlat összes korábbi rekordja legújabb elöl, hogy a
+// fejlődés a legfrissebb eredménytől visszafelé követhető legyen. Query
+// paraméterben kapja a gyakorlat nevét, mert az útvonal-illesztést törné
+// a benne előforduló szóköz/ékezet/perjel.
+app.get('/api/prs/history', (req, res) => {
+  const exerciseName = req.query.exercise;
+  const history = [];
+  for (const workout of getWorkouts()) {
+    for (const exercise of workout.exercises) {
+      if (exercise.name !== exerciseName || !exercise.pr) continue;
+      history.push(prEntryFor(workout, exercise));
+    }
+  }
+  res.json(history);
+});
+
+/** Az összes nyomon követett exercise maximum (1RM értékek). 
+    A frontend ezt használja valós idejű PR detektáláshoz szerkesztéskor. */
+app.get('/api/exercise-maxes', (req, res) => {
+  const maxes = getAllExerciseMaxes();
+  // Könnyebb kereshetőséghez exercise_name → max1rm térkép formátum
+  const maxMap = {};
+  for (const record of maxes) {
+    maxMap[record.exercise_name] = Math.round(record.max_1rm * 10) / 10;
+  }
+  res.json(maxMap);
 });
 
 /** Hány napja edzel megszakítás nélkül. A mai naptól számol visszafelé; ha ma
