@@ -2184,7 +2184,7 @@
   const CI_SCALE_STEPS = { sleepq: 'sleepQuality', energy: 'energy', stress: 'stress' };
 
   const CI_SLEEP_PRESETS = [6, 7, 7.5, 8, 8.5];
-  const CI_SLEEP_MIN = 3;
+  const CI_SLEEP_MIN = 0;
   const CI_SLEEP_MAX = 12;
 
   /**
@@ -2430,13 +2430,14 @@
         });
       };
 
-      // A ± gombokat a megosztott handleStepClick kezeli (min/max/step onnan
-      // jön) — itt csak az utólagos szinkron kell.
+      // A ± gombokat a megosztott handleStepClick lépteti (min/max/step onnan
+      // jön). A varázsló lépései cserélődnek, ezért a hívás ide kerül: a lapon
+      // nincs olyan delegált kezelő, ami elvégezné. A léptetés `input`
+      // eseményt vált ki, az alábbi listener menti és szinkronizálja a
+      // preseteket — itt már csak az automatikus továbblépést kell leállítani.
       step.addEventListener('click', (event) => {
-        if (!event.target.closest('.wk-num-step')) return;
+        if (!handleStepClick(event)) return;
         cancelAdvance();
-        syncPresets();
-        commitSleep();
       });
       input.addEventListener('input', () => { syncPresets(); commitSleep(); });
 

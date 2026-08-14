@@ -6,7 +6,7 @@ Nem hibajegy-rendszer: rövid, cselekvésre kész sorok, prioritás szerint.
 Jelölések:   [ ] nyitott    [~] részben kész    [x] kész (a következő
              takarításig marad itt, hogy lássuk, mi történt)
 
-Utolsó frissítés: 2026-08-10
+Utolsó frissítés: 2026-08-14
 
 
 ==========================================================================
@@ -65,6 +65,23 @@ ADATMINŐSÉG — fokozatosan bővíthető, nincs határidő
 ==========================================================================
 KÉSZ (a következő takarításig itt marad)
 ==========================================================================
+
+[x] HIBA: a check-in varázsló ± gombjai nem léptettek (alvás lépés)
+    A −/+ gombokra kötött listener csak a preseteket szinkronizálta és
+    mentett, de a tényleges léptetést végző handleStepClick-et sehol nem
+    hívta meg senki: a #checkin oldal delegált click-kezelője csak a
+    vissza gombot nézi (a naplónál és a részletes űrlapnál van ilyen
+    delegálás, a varázslónál nem). A gombok kattintásra nem csináltak
+    semmit, csak a preset-chipekkel lehetett alvásidőt állítani.
+    Javítva: a listener maga hívja handleStepClick-et.
+    Hely: public/script.js → renderSleep
+
+[x] Az alvás alsó határa 3 óra volt a varázslóban, most 0
+    Ennél kevesebbet alvó nap nem volt rögzíthető. A felső határ maradt
+    12 óra. A szerver eddig is elfogadta a 0-t (0–24 a tartomány).
+    Hely: public/script.js → CI_SLEEP_MIN, public/index.html → #ci-sleep
+    Megjegyzés: a részletes szerkesztő űrlap 0–24-gyel fut, a varázsló
+    0–12-vel. Szándékos-e az eltérés, még eldöntendő.
 
 [x] A média letöltése — 2448 fájl, 127 MB, hibátlanul
     npm run exdb:media  (folytatható, a meglévőket átugorja)
