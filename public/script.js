@@ -2184,7 +2184,7 @@
   const CI_SCALE_STEPS = { sleepq: 'sleepQuality', energy: 'energy', stress: 'stress' };
 
   const CI_SLEEP_PRESETS = [6, 7, 7.5, 8, 8.5];
-  const CI_SLEEP_MIN = 3;
+  const CI_SLEEP_MIN = 0;
   const CI_SLEEP_MAX = 12;
 
   /**
