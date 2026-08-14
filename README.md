@@ -51,6 +51,38 @@ az egyetlen szerkesztési hely), illetve a **felhasználói adat** saját tábl�
 (`weight_log`, `nutrition_log`, `workouts`, `plans`, `workout_draft`) — ezeket a
 seed nem írja felül.
 
+## Kódtérkép — graphify (opcionális fejlesztői eszköz)
+
+A repo tartalmazza a [graphify](https://github.com/Graphify-Labs/graphify) skillt
+(`.claude/skills/graphify/`, Apache-2.0), amivel az AI kódasszisztens tudásgráfot
+épít a projektről: ki hívja kit, mik a központi függvények, mi függ mitől.
+
+Maga a skill csak leírás — a munkát a `graphifyy` CLI végzi, azt gépenként
+egyszer telepíteni kell. Bemásolandó parancs:
+
+```bash
+pip install graphifyy && npm run graph
+```
+
+Windows PowerShell 5.1-en a `&&` helyett `;` kell:
+`pip install graphifyy; npm run graph`
+
+Ezután a gráf frissítése már csak ennyi:
+
+```bash
+npm run graph
+```
+
+A `graphifyy` (két y-nal) a hivatalos csomagnév; a kód-elemzés tree-sitterrel,
+helyben fut, semmit nem küld ki a gépről. Az eredmény a `graphify-out/`
+könyvtárba kerül (`graph.html`, `graph.json`, `GRAPH_REPORT.md`) — ez
+generált, ezért nincs verziókövetve. Kódváltozás után futtasd újra.
+
+A projekt gráfja jelenleg nagyjából 280 csomópont / 600 él; a legtöbb kapcsolattal bíró
+függvények: `init()`, `computeReadiness()`, `showToast()`. A `.graphifyignore`
+tartja ki a gráfból magát a vendorolt skillt (különben a saját dokumentációja
+61 csomóponttal hígítaná a képet).
+
 ## Amit tudni érdemes
 
 - **Automatikus mentés.** Az edzésnapló minden változtatása fél másodperc múlva
