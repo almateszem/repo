@@ -97,6 +97,9 @@
     getAthletes:       () => getJsonCached('/api/athletes'),
     // Nem cache-elt: a PR-lista a mentett edzésekből épül, mentés után frissül
     getPrs:            () => getJson('/api/prs'),
+    getPrHistory:      (exercise) => getJson(`/api/prs/history?exercise=${encodeURIComponent(exercise)}`),
+    // Nem cache-elt: az exercise maxes-ek az edzés közben változhatnak
+    getExerciseMaxes:  () => getJson('/api/exercise-maxes'),
     getNotifications:  () => getJsonCached('/api/notifications'),
     getDefaultSet:     () => getJsonCached('/api/default-set'),
     getExerciseCatalog: () => getJsonCached('/api/exercise-catalog'),
@@ -788,12 +791,18 @@
     return true;
   }
 
-  function renderExercise(exercise, { withAddSet = false, prToggle = false } = {}) {
+  function renderExercise(exercise, { withAddSet = false, prToggle = false, reorder = false } = {}) {
     const card = cloneTemplate('tpl-exercise');
     $('.wk-exercise-name', card).textContent = exercise.name;
 
-    // Az edzésnapló kártyáin a PR-jelvény kapcsolható gomb; a terv-építőben
-    // rejtve marad (a tervekben nincs PR-jelölés).
+    // A sorszám-választó csak az edzésnaplóban látszik — a terv-építőben a
+    // gyakorlatok sorrendje a hozzáadás sorrendje marad. A gomb felirata és
+    // a lenyíló lista tartalma a lista minden változásakor renumberOrderSelects-
+    // szel frissül.
+    $('.wk-order-select', card).hidden = !reorder;
+
+    // Az edzésnapló kártyáin a PR-jelvény automatikusan, a képlet alapján
+    // frissül (updateExercisePrIndicator); a terv-építőben rejtve marad.
     const prBtn = $('.wk-pr', card);
     prBtn.hidden = !prToggle;
     prBtn.setAttribute('aria-pressed', String(Boolean(exercise.pr)));
@@ -815,6 +824,89 @@
       card.appendChild(addSetBtn);
     }
     return card;
+  }
+
+  /** A `.wk-order-select` gombjainak feliratát és a hozzájuk tartozó
+      lenyíló lista (`.wk-order-menu`) opcióit frissíti a lista aktuális
+      állapotára — minden hozzáadás/eltávolítás/átrendezés után meg kell
+      hívni, különben a számozás elcsúszna a tényleges DOM-sorrendtől. */
+  function renumberOrderSelects(list) {
+    const cards = $$('.wk-exercise', list);
+    cards.forEach((card, index) => {
+      const wrap = $('.wk-order-select', card);
+      if (wrap.hidden) return;
+      $('.wk-order-trigger', wrap).textContent = String(index + 1);
+
+      const menu = $('.wk-order-menu', wrap);
+      if (menu.children.length !== cards.length) {
+        menu.replaceChildren(...cards.map((_, i) => {
+          const option = document.createElement('button');
+          option.type = 'button';
+          option.className = 'wk-order-option';
+          option.setAttribute('role', 'option');
+          option.dataset.index = String(i);
+          option.textContent = String(i + 1);
+          return option;
+        }));
+      }
+      $$('.wk-order-option', menu).forEach((option, i) => {
+        option.setAttribute('aria-selected', String(i === index));
+      });
+    });
+  }
+
+  /** Az összes nyitott sorszám-lenyíló bezárása (kívülre kattintás, Escape,
+      vagy egy opció kiválasztása után). */
+  function closeAllOrderMenus(list) {
+    $$('.wk-order-menu', list).forEach((menu) => { menu.hidden = true; });
+    $$('.wk-order-trigger', list).forEach((trigger) => trigger.setAttribute('aria-expanded', 'false'));
+  }
+
+  /** A gyakorlatok sorrendjének átrendezése a saját (nem natív) sorszám-
+      lenyílóval: a kiválasztott szám az új pozíció, a köztük lévő
+      gyakorlatok ehhez igazodva csúsznak arrébb (nem csere, hanem
+      "áthelyezés"). Az `onReorder` minden sikeres átrendezés után lefut
+      (pl. autosave). A natív <select> helyett azért saját felépítésű ez a
+      lenyíló, mert a natív opciólista stílusozása böngészőnként/OS-enként
+      megbízhatatlan és a projekt sötét témájával nem volt összhangban. */
+  function enableOrderSelect(list, onReorder) {
+    list.addEventListener('click', (event) => {
+      const trigger = event.target.closest('.wk-order-trigger');
+      if (trigger) {
+        const menu = $('.wk-order-menu', trigger.closest('.wk-order-select'));
+        const willOpen = menu.hidden;
+        closeAllOrderMenus(list);
+        menu.hidden = !willOpen;
+        trigger.setAttribute('aria-expanded', String(willOpen));
+        return;
+      }
+
+      const option = event.target.closest('.wk-order-option');
+      if (!option) return;
+      const card = option.closest('.wk-exercise');
+      const cards = $$('.wk-exercise', list);
+      const fromIndex = cards.indexOf(card);
+      const toIndex = Number(option.dataset.index);
+      closeAllOrderMenus(list);
+      if (fromIndex === -1 || toIndex === fromIndex) return;
+
+      if (toIndex < fromIndex) {
+        list.insertBefore(card, cards[toIndex]);
+      } else {
+        list.insertBefore(card, cards[toIndex].nextSibling);
+      }
+      renumberOrderSelects(list);
+      onReorder();
+    });
+
+    // Kattintás a lenyílókon kívülre / Escape → zárás (ugyanaz a minta, mint
+    // az értesítés-panelnél).
+    document.addEventListener('pointerdown', (event) => {
+      if (!event.target.closest('.wk-order-select')) closeAllOrderMenus(list);
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') closeAllOrderMenus(list);
+    });
   }
 
   /** Egy „Korábbi edzések" sor ({ date, detail, rpe }) <li>-vé építve. */
@@ -1051,8 +1143,15 @@
     prs.forEach((pr, index) => {
       const item = cloneTemplate('tpl-pr');
       item.style.setProperty('--i', index);
+      item.dataset.exercise = pr.exercise;
       $('.wk-pr-exercise', item).textContent = pr.exercise;
-      $('.wk-pr-detail', item).textContent = pr.detail;
+      
+      // Detail: szett információ + 1RM érték
+      let detailText = pr.detail;
+      if (pr.oneRM !== null && pr.oneRM > 0) {
+        detailText += ` • 1RM: ${pr.oneRM.toFixed(1)} kg`;
+      }
+      $('.wk-pr-detail', item).textContent = detailText;
       $('.wk-pr-date', item).textContent = pr.date;
       list.appendChild(item);
     });
@@ -1458,6 +1557,42 @@
       open(exerciseName) {
         exerciseLabel.textContent = exerciseName;
         controller.open();
+      },
+    };
+  }
+
+  /** Gyakorlat rekord-előzmény modál — a "Korábbi rekordok" listaelemre
+      kattintva nyílik, és időrendben (régitől az újig) mutatja az adott
+      gyakorlat összes korábbi rekordját, hogy a fejlődés követhető legyen. */
+  function setupPrModal() {
+    const modal = $('#prModal');
+    const exerciseLabel = $('.pr-modal-exercise', modal);
+    const historyList = $('[data-pr-history]', modal);
+    const controller = createModalController(modal);
+
+    return {
+      async open(exerciseName) {
+        exerciseLabel.textContent = exerciseName;
+        historyList.replaceChildren();
+        controller.open();
+
+        try {
+          const history = await api.getPrHistory(exerciseName);
+          historyList.replaceChildren();
+          history.forEach((entry, index) => {
+            const item = cloneTemplate('tpl-pr-history-item');
+            item.style.setProperty('--i', index);
+            let detailText = entry.detail;
+            if (entry.oneRM !== null && entry.oneRM > 0) {
+              detailText += ` • 1RM: ${entry.oneRM.toFixed(1)} kg`;
+            }
+            $('.wk-pr-detail', item).textContent = detailText;
+            $('.wk-pr-date', item).textContent = entry.date;
+            historyList.appendChild(item);
+          });
+        } catch (err) {
+          console.error(err);
+        }
       },
     };
   }
@@ -2945,7 +3080,7 @@
     onDayChange(() => { ci = null; });
   }
 
-  async function setupWorkout(videoModal, picker, confirmAction) {
+  async function setupWorkout(videoModal, prModal, picker, confirmAction) {
     const page = $('[data-page="workout"]');
     const titleInput = $('#workout-name');
     const titleError = $('#workout-name-error');
@@ -2957,8 +3092,13 @@
     // Az új szettek alapértékei (ha egy gyakorlatnak még nincs szettje)
     const defaultSet = await api.getDefaultSet();
 
-    // A napló kártyái: kapcsolható PR-jelvény és „+ Szett" gomb
-    const exerciseOptions = { prToggle: true, withAddSet: true };
+    // Az összes nyomon követett exercise maximum — az input módosításakor
+    // PR-detektáláshoz kell (valós idejű PR jelzéshez)
+    let exerciseMaxes = await api.getExerciseMaxes();
+
+    // A napló kártyái: kapcsolható PR-jelvény, „+ Szett" gomb és sorszám-
+    // választó (a sorrend átrendezéséhez — lásd enableOrderSelect)
+    const exerciseOptions = { prToggle: true, withAddSet: true, reorder: true };
 
     // Melyik tervből indult az aktuális edzés (null = szabad edzés). A Tervek
     // oldali haladás ebből párosít, nem a terv nevéből.
@@ -3032,6 +3172,10 @@
       autosaveTimer = setTimeout(flush, AUTOSAVE_DEBOUNCE_MS);
     };
 
+    // A gyakorlatok sorrendje a sorszám-választóval módosítható — az
+    // átrendezés után ugyanaz az autosave menti, mint egy szett-szerkesztést.
+    enableOrderSelect(list, autosave);
+
     /** A függő mentés leállítása (az edzés lezárása hívja: a piszkozat törlése
         után egy késleltetett mentés visszaírná a most lezárt edzést). */
     const cancelAutosave = () => {
@@ -3062,6 +3206,47 @@
       }).catch(() => {});
     });
 
+    /** Egy gyakorlat PR-jelzésének frissítése — kizárólag a teljesített
+        (pipált) szettek 1RM-jét nézi; a nem pipált szettekbe írt számok nem
+        számítanak, függetlenül attól, hogy van-e egyáltalán pipált szett.
+        Ha a gyakorlatnak nincs korábbi rekordja, bármelyik pipált, érvényes
+        szám PR-nak számít. A gomb `aria-pressed` állapotát írja — ez az
+        egyetlen, kizárólag a képlet által vezérelt állapot. */
+    const updateExercisePrIndicator = (exerciseCard) => {
+      if (!exerciseCard) return;
+      const prBtn = $('.wk-pr', exerciseCard);
+      const exerciseName = $('.wk-exercise-name', exerciseCard)?.textContent?.trim();
+      if (!prBtn || !exerciseName) return;
+
+      const setRows = $$('.wk-set-list .wk-set-row', exerciseCard);
+      let bestCompleted1rm = 0;
+
+      // Az Epley-képlet: 1RM = weight * (1 + reps / 30)
+      for (const row of setRows) {
+        const set = readSetRow(row);
+        if (!set.done) continue;
+
+        const reps = Number(set.reps);
+        const weight = Number(set.weight);
+        if (!Number.isFinite(reps) || !Number.isFinite(weight) || reps < 1 || weight <= 0) continue;
+
+        const oneRM = weight * (1 + reps / 30);
+        if (oneRM > bestCompleted1rm) bestCompleted1rm = oneRM;
+      }
+
+      // Nincs korábbi rekord az exercise-hez → bármilyen érvényes szám PR-nak számít
+      const currentMax = exerciseMaxes[exerciseName] ?? 0;
+      const hasPotentialPr = bestCompleted1rm > 0 && bestCompleted1rm > currentMax;
+      prBtn.setAttribute('aria-pressed', String(hasPotentialPr));
+    };
+
+    /** Az összes exercise PR jelzésének frissítése — az edzés betöltésekor
+        és az applyTemplate után meghívjuk, hogy az összes szett PR státusza
+        szinkronban legyen az exerciseMaxes-szel. */
+    const refreshAllPrIndicators = () => {
+      $$('.wk-exercise', page).forEach(updateExercisePrIndicator);
+    };
+
     /** A szervertől kapott induló tartalom betöltése a naplóba. */
     const applyTemplate = (template) => {
       if (!template) return;
@@ -3071,8 +3256,11 @@
       template.exercises.forEach((exercise) => {
         list.appendChild(renderExercise(exercise, exerciseOptions));
       });
+      renumberOrderSelects(list);
       if (template.source === 'plan') showToast(`Mai terv betöltve: ${template.name}`);
       syncEmpty();
+      // Az összes PR jelzés frissítése az új template után
+      refreshAllPrIndicators();
     };
 
     // Az induló tartalom a szervertől: aznapi piszkozat, vagy — új napon —
@@ -3098,31 +3286,38 @@
     // Az ism./súly/RPE mezők átírása is változtatás — a piszkozattal mentődik.
     // (Az edzésnév saját input-figyelője a hibaállapotot is kezeli, ezért az
     //  nem itt, hanem külön fut.)
+
     page.addEventListener('input', (event) => {
-      if (event.target.matches('.wk-num-input')) autosave();
+      if (event.target.matches('.wk-num-input')) {
+        // Valós idejű PR detektálás
+        updateExercisePrIndicator(event.target.closest('.wk-exercise'));
+        autosave();
+      }
     });
 
     // Delegált kattintáskezelés — a dinamikusan hozzáadott sorokra is érvényes.
     page.addEventListener('click', (event) => {
+      // A kártyát a kezelők lefutása előtt mentjük el: törléskor a sor kikerül
+      // a DOM-ból, utána már nem lenne elérhető az őse.
+      const exerciseCard = event.target.closest('.wk-exercise');
+
       // Szett-értékek léptetése, illetve szett hozzáadása / törlése
       if (handleStepClick(event)) return; // a kiváltott input esemény menti
-      if (handleAddSetClick(event, defaultSet, autosave)) return;
-      if (handleRemoveSetClick(event, autosave)) return;
+      if (handleAddSetClick(event, defaultSet, autosave)) {
+        updateExercisePrIndicator(exerciseCard);
+        return;
+      }
+      if (handleRemoveSetClick(event, autosave)) {
+        updateExercisePrIndicator(exerciseCard);
+        return;
+      }
 
       const check = event.target.closest('.wk-set-check');
       if (check) {
         const pressed = check.getAttribute('aria-pressed') === 'true';
         check.setAttribute('aria-pressed', String(!pressed));
         if (!pressed) markWorkoutStarted(); // az első pipa indítja az edzés-órát
-        autosave();
-        return;
-      }
-
-      // PR-jelölés kapcsolása a gyakorlaton — a piszkozattal együtt mentődik
-      const prBtn = event.target.closest('.wk-pr-toggle');
-      if (prBtn) {
-        const pressed = prBtn.getAttribute('aria-pressed') === 'true';
-        prBtn.setAttribute('aria-pressed', String(!pressed));
+        updateExercisePrIndicator(exerciseCard); // a pipa állapota is számít a PR-képletbe
         autosave();
         return;
       }
@@ -3132,6 +3327,23 @@
         videoModal.open(videoBtn.dataset.exercise);
         return;
       }
+
+      const prItem = event.target.closest('.wk-pr-item');
+      if (prItem) {
+        prModal.open(prItem.dataset.exercise);
+        return;
+      }
+    });
+
+    // Billentyűzetes elérés: a .wk-pr-item nem <button>, mert vizuálisan
+    // listasorként illeszkedik — Enter/Szóköz-zel mégis nyithatónak kell
+    // lennie (role="button" tabindex="0" a sablonon).
+    page.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      const prItem = event.target.closest('.wk-pr-item');
+      if (!prItem) return;
+      event.preventDefault();
+      prModal.open(prItem.dataset.exercise);
     });
 
     // Gyakorlat hozzáadása közvetlenül az edzésnaplóhoz — a közös gyakorlat-
@@ -3147,7 +3359,10 @@
         exerciseOptions,
         onChange: () => {
           syncEmpty();
+          renumberOrderSelects(list);
           autosave();
+          // Új gyakorlat hozzáadásakor azonnal frissítsd a PR detektálást
+          refreshAllPrIndicators();
         },
       });
       navigate('exercise-picker');
@@ -3254,6 +3469,7 @@
       plan.exercises.forEach((exercise) => {
         list.appendChild(renderExercise(exercise, exerciseOptions));
       });
+      renumberOrderSelects(list);
       syncEmpty();
       prefs.set(WORKOUT_START_KEY, null); // friss edzés — az óra az első pipával indul újra
       autosave();
@@ -4104,7 +4320,7 @@
       mellett inaktív — utóbbi nélkül a háttérben lévő oldal átváltott,
       miközben az ablak nyitva maradt előtte. */
   const isModalOpen = () =>
-    Boolean($('.video-modal.is-open, .settings-modal.is-open, .athlete-modal.is-open, .confirm-modal.is-open'));
+    Boolean($('.video-modal.is-open, .settings-modal.is-open, .athlete-modal.is-open, .confirm-modal.is-open, .pr-modal.is-open'));
 
   function setupShortcuts() {
     document.addEventListener('keydown', (event) => {
@@ -4166,6 +4382,7 @@
     setupRouter();
 
     const videoModal = setupVideoModal();
+    const prModal = setupPrModal();
     // Megerősítő ablak — szinkron felépítésű, mert több setup is erre épül
     const confirmAction = setupConfirmDialog();
     const notifPanel = await safe(setupNotifications);
@@ -4182,7 +4399,7 @@
     await safe(setupCheckinWizard);
     // A közös gyakorlat-választó — az edzésnapló és a terv-építő is ezt célozza át
     const picker = await safe(() => setupExercisePicker(confirmAction));
-    const workout = await safe(() => setupWorkout(videoModal, picker, confirmAction));
+    const workout = await safe(() => setupWorkout(videoModal, prModal, picker, confirmAction));
     await safe(setupWeeklyCompare);
     // Az étel-modál és a Táplálkozás oldal kölcsönösen hivatkoznak egymásra
     // (a nyíl nyitja a modált, a modál naplóz az oldal állapotán keresztül),

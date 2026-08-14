@@ -88,6 +88,12 @@ db.exec(`
     pain          TEXT NOT NULL DEFAULT '{}',  -- JSON: { general: 0..10, quads: 0..10, … }
     updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
   );
+  CREATE TABLE IF NOT EXISTS exercise_maxes (
+    exercise_name TEXT PRIMARY KEY,    -- a gyakorlat neve
+    max_1rm       REAL NOT NULL,        -- Epley-képlettel számított maximális 1RM (kg)
+    date          TEXT NOT NULL,        -- mikor jött ez az értékelés
+    updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
+  );
 `);
 
 /* ---- Migrációk ----
@@ -261,6 +267,45 @@ export function saveCheckin(date, fields) {
   return getCheckin(date);
 }
 
+/** Az Epley-képlet a becsült 1RM kiszámítására: 1RM = weight × (1 + reps/30) */
+export function calculateEpley1RM(weight, reps) {
+  const w = Number(weight);
+  const r = Number(reps);
+  if (!Number.isFinite(w) || !Number.isFinite(r) || w <= 0 || r < 1) return 0;
+  return w * (1 + r / 30);
+}
+
+/** Egy gyakorlat jelenlegi maximális 1RM-je, vagy null ha még nincs. */
+export function getExerciseMax(exerciseName) {
+  const row = db.prepare('SELECT max_1rm, date FROM exercise_maxes WHERE exercise_name = ?').get(exerciseName);
+  return row ? { max1rm: row.max_1rm, date: row.date } : null;
+}
+
+/** Az összes nyomon követett maximális 1RM-ek. */
+export function getAllExerciseMaxes() {
+  return db.prepare('SELECT exercise_name, max_1rm, date FROM exercise_maxes ORDER BY date DESC').all();
+}
+
+/** Egy gyakorlat maximum 1RM-jének frissítése, ha az új érték nagyobb.
+    Visszaadja az objektumot { max1rm, date, isPr } formában (isPr = true ha PR-t ütöttünk). */
+export function updateExerciseMax(exerciseName, new1rm, currentDate) {
+  const existing = getExerciseMax(exerciseName);
+  const isPr = !existing || new1rm > existing.max1rm;
+  
+  if (isPr) {
+    db.prepare(`
+      INSERT INTO exercise_maxes (exercise_name, max_1rm, date, updated_at)
+      VALUES (?, ?, ?, datetime('now'))
+      ON CONFLICT(exercise_name) DO UPDATE SET
+        max_1rm = excluded.max_1rm,
+        date = excluded.date,
+        updated_at = excluded.updated_at
+    `).run(exerciseName, new1rm, currentDate);
+  }
+  
+  return { max1rm: isPr ? new1rm : existing.max1rm, date: isPr ? currentDate : existing.date, isPr };
+}
+
 /** A felhasználó által készített edzéstervek, legújabb elöl. */
 export function getUserPlans() {
   return db.prepare('SELECT id, name, date, exercises, days FROM plans ORDER BY id DESC').all()
@@ -369,12 +414,63 @@ export function clearWorkoutDraft() {
   db.prepare('DELETE FROM workout_draft WHERE id = 1').run();
 }
 
-/** Edzés mentése; visszaadja a létrejött { id, name, date, exercises, planId } sort. */
+/** Edzés mentése; automatikusan kiszámítja a PR-eket az Epley-képlet alapján.
+    Visszaadja a létrejött { id, name, date, exercises, planId } sort. */
 export function addWorkout(name, date, exercises, planId = null) {
+  // PR-eket számítunk az Epley-képlettel: 1RM = weight × (1 + reps/30)
+  // Ha egy gyakorlatban van teljesített szett, és az 1RM nagyobb mint az eddigi maximum,
+  // akkor PR-ként jelöljük meg a gyakorlatot
+  const processedExercises = exercises.map((exercise) => {
+    const sets = exercise.sets || [];
+    
+    // Teljesített szettekből kiemelkedő 1RM keresése
+    let bestCompleted1rm = 0;
+    let hasCompleted = false;
+    let bestCompletedSet = null;
+    
+    for (const set of sets) {
+      if (set.done) {
+        hasCompleted = true;
+        const weight = Number(set.weight);
+        const reps = Number(set.reps);
+        if (Number.isFinite(weight) && Number.isFinite(reps) && weight > 0 && reps >= 1) {
+          const oneRM = calculateEpley1RM(weight, reps);
+          if (oneRM > bestCompleted1rm) {
+            bestCompleted1rm = oneRM;
+            bestCompletedSet = set;
+          }
+        }
+      }
+    }
+    
+    // Ha nincs teljesített szett, az elsőt nézünk
+    if (!hasCompleted && sets.length > 0) {
+      const set = sets[0];
+      const weight = Number(set.weight);
+      const reps = Number(set.reps);
+      if (Number.isFinite(weight) && Number.isFinite(reps) && weight > 0 && reps >= 1) {
+        bestCompleted1rm = calculateEpley1RM(weight, reps);
+        bestCompletedSet = set;
+      }
+    }
+    
+    // PR-ellenőrzés és frissítés
+    let isPr = false;
+    if (bestCompleted1rm > 0) {
+      const maxRecord = updateExerciseMax(exercise.name, bestCompleted1rm, date);
+      isPr = maxRecord.isPr;
+    }
+    
+    return {
+      ...exercise,
+      pr: isPr || exercise.pr, // ha már volt PR jel vagy most érte el
+    };
+  });
+  
   const { lastInsertRowid } = db
     .prepare('INSERT INTO workouts (name, date, exercises, plan_id) VALUES (?, ?, ?, ?)')
-    .run(name, date, JSON.stringify(exercises), planId);
-  return { id: Number(lastInsertRowid), name, date, exercises, planId };
+    .run(name, date, JSON.stringify(processedExercises), planId);
+  return { id: Number(lastInsertRowid), name, date, exercises: processedExercises, planId };
 }
 
 /** Edzésterv mentése; visszaadja a létrejött { id, name, date, exercises, days } sort. */
