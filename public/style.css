@@ -346,10 +346,11 @@ input.wk-chip:focus-visible {
    Ahol két .tap-target közel ül egymáshoz, a --tap-ot szűkítjük annyira, hogy
    a felületek ne érjenek össze. A számok a köztük lévő gap-hez igazodnak. */
 
-/* A gyakorlat-fejlécben a PR-jelölő és a videó gomb 12px-re van egymástól:
-   2×5px kilógás fér el (lásd .wk-exercise-head gap). */
+/* A gyakorlat-fejlécben a sorszám-választó, a PR-jelölő és a videó gomb
+   12px-re van egymástól: 2×5px kilógás fér el (lásd .wk-exercise-head gap). */
 .wk-pr-toggle,
-.wk-video-btn {
+.wk-video-btn,
+.wk-order-trigger {
   --tap: 40px;
 }
 
@@ -848,8 +849,26 @@ input.wk-chip:focus-visible {
   border-radius: var(--r-xs);
 }
 
-/* Kapcsolható PR-jelölés az edzésnapló kártyáin: lenyomva a jelvény-kinézet,
-   kikapcsolva halvány körvonalas gomb */
+/* Valós idejű PR detektálás: amikor az aktuális (teljesített) szett 1RM-je
+   nagyobb az eddigi maximumnál, a PR gomb aria-pressed="true" lesz — ez adja
+   a tömör piros kitöltést (lásd lejjebb) és a lüktető box-shadow-t. */
+.wk-pr-toggle[aria-pressed="true"] {
+  animation: pr-pulse 1.5s ease-in-out infinite;
+  box-shadow: 0 0 12px rgba(224, 67, 90, 0.8);
+}
+
+@keyframes pr-pulse {
+  0%, 100% {
+    box-shadow: 0 0 6px rgba(224, 67, 90, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(224, 67, 90, 1);
+  }
+}
+
+/* Automatikus PR-jelvény az edzésnapló kártyáin (nem kattintható, a képlet
+   írja az aria-pressed állapotát): PR esetén a jelvény-kinézet, egyébként
+   halvány körvonalas gomb */
 .wk-pr-toggle {
   border: 1px solid transparent;
   transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
@@ -889,6 +908,80 @@ input.wk-chip:focus-visible {
   width: 15px;
   height: 15px;
   fill: currentColor;
+}
+
+/* Sorszám-választó a gyakorlat-fejlécben: saját (nem natív) lenyíló, amivel
+   a gyakorlat az edzésnaplóban egy másik pozícióba ugorhat (lásd
+   enableOrderSelect / renumberOrderSelects a script.js-ben). Azért nem natív
+   <select>, mert annak opciólistája böngészőnként/OS-enként máshogy — és a
+   sötét témával összhangban egyáltalán nem — rajzolódott ki. */
+.wk-order-select {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.wk-order-trigger {
+  background: none;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  font-size: var(--fs-sm);
+  color: var(--fg-70);
+  cursor: pointer;
+  transition: border-color var(--t-fast), color var(--t-fast);
+}
+
+.wk-order-trigger:hover,
+.wk-order-trigger[aria-expanded="true"] {
+  border-color: var(--fg-40);
+  color: var(--fg-100);
+}
+
+.wk-order-menu {
+  position: absolute;
+  top: calc(100% + var(--sp-2));
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 40px;
+  max-height: 220px;
+  overflow-y: auto;
+  background: var(--c-bg-raised);
+  border: 1px solid var(--fg-10);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-modal);
+  padding: var(--sp-2);
+  z-index: var(--z-popover);
+  animation: modal-in var(--t-base) both;
+}
+
+.wk-order-option {
+  background: none;
+  border: none;
+  border-radius: var(--r-xs);
+  padding: var(--sp-2) var(--sp-3);
+  font: inherit;
+  font-weight: 700;
+  font-size: var(--fs-sm);
+  color: var(--fg-70);
+  text-align: center;
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+
+.wk-order-option:hover {
+  background: var(--fg-10);
+  color: var(--fg-100);
+}
+
+.wk-order-option[aria-selected="true"] {
+  background: var(--c-accent);
+  color: var(--fg-100);
 }
 
 /* Minden sor önálló grid — a fejléc és az értéksorok csak akkor fedik egymást,
@@ -2035,7 +2128,8 @@ input.wk-chip.wk-num-input {
 .settings-modal,
 .athlete-modal,
 .food-modal,
-.confirm-modal {
+.confirm-modal,
+.pr-modal {
   position: fixed;
   inset: 0;
   z-index: var(--z-modal);
@@ -2049,7 +2143,8 @@ input.wk-chip.wk-num-input {
 .settings-modal.is-open,
 .athlete-modal.is-open,
 .food-modal.is-open,
-.confirm-modal.is-open {
+.confirm-modal.is-open,
+.pr-modal.is-open {
   display: flex;
 }
 
@@ -2057,7 +2152,8 @@ input.wk-chip.wk-num-input {
 .settings-modal-backdrop,
 .athlete-modal-backdrop,
 .food-modal-backdrop,
-.confirm-modal-backdrop {
+.confirm-modal-backdrop,
+.pr-modal-backdrop {
   position: absolute;
   inset: 0;
   background: var(--scrim-modal);
@@ -2070,7 +2166,8 @@ input.wk-chip.wk-num-input {
 .settings-modal-card,
 .athlete-modal-card,
 .food-modal-card,
-.confirm-modal-card {
+.confirm-modal-card,
+.pr-modal-card {
   position: relative;
   width: 100%;
   max-width: 420px;
@@ -2099,7 +2196,8 @@ input.wk-chip.wk-num-input {
 .settings-modal-head,
 .athlete-modal-head,
 .food-modal-head,
-.confirm-modal-head {
+.confirm-modal-head,
+.pr-modal-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -2111,7 +2209,8 @@ input.wk-chip.wk-num-input {
 .settings-modal-head h3,
 .athlete-modal-head h3,
 .food-modal-head h3,
-.confirm-modal-head h3 {
+.confirm-modal-head h3,
+.pr-modal-head h3 {
   margin: 0;
   font-size: var(--fs-lg);
   font-weight: 700;
@@ -2121,7 +2220,8 @@ input.wk-chip.wk-num-input {
 .settings-modal-close,
 .athlete-modal-close,
 .food-modal-close,
-.confirm-modal-close {
+.confirm-modal-close,
+.pr-modal-close {
   background: none;
   border: none;
   color: var(--fg-60);
@@ -2134,7 +2234,8 @@ input.wk-chip.wk-num-input {
 .settings-modal-close:hover,
 .athlete-modal-close:hover,
 .food-modal-close:hover,
-.confirm-modal-close:hover {
+.confirm-modal-close:hover,
+.pr-modal-close:hover {
   color: var(--fg-100);
 }
 
@@ -2815,7 +2916,8 @@ input.wk-chip.wk-num-input {
 .settings-modal.is-closing,
 .athlete-modal.is-closing,
 .food-modal.is-closing,
-.confirm-modal.is-closing {
+.confirm-modal.is-closing,
+.pr-modal.is-closing {
   display: flex;
 }
 
@@ -2823,7 +2925,8 @@ input.wk-chip.wk-num-input {
 .settings-modal.is-closing .settings-modal-card,
 .athlete-modal.is-closing .athlete-modal-card,
 .food-modal.is-closing .food-modal-card,
-.confirm-modal.is-closing .confirm-modal-card {
+.confirm-modal.is-closing .confirm-modal-card,
+.pr-modal.is-closing .pr-modal-card {
   animation: modal-out .18s ease both;
 }
 
@@ -2831,7 +2934,8 @@ input.wk-chip.wk-num-input {
 .settings-modal.is-closing .settings-modal-backdrop,
 .athlete-modal.is-closing .athlete-modal-backdrop,
 .food-modal.is-closing .food-modal-backdrop,
-.confirm-modal.is-closing .confirm-modal-backdrop {
+.confirm-modal.is-closing .confirm-modal-backdrop,
+.pr-modal.is-closing .pr-modal-backdrop {
   animation: fade-out .18s ease both;
 }
 
@@ -3241,8 +3345,15 @@ input.wk-chip.wk-num-input {
   padding: var(--sp-3) var(--sp-4);
   background: var(--surface-soft);
   border-radius: var(--r-md);
+  cursor: pointer;
+  transition: background var(--t-fast);
   animation: note-in .25s ease backwards;
   animation-delay: calc(var(--i, 0) * 30ms);
+}
+
+.wk-pr-item:hover,
+.wk-pr-item:focus-visible {
+  background: var(--surface-hover);
 }
 
 .wk-pr-item .wk-pr {
@@ -3272,6 +3383,34 @@ input.wk-chip.wk-num-input {
   font-size: var(--fs-xs);
   color: var(--text-muted);
   flex-shrink: 0;
+}
+
+/* ---- Rekord-előzmény modál (pr-modal-*) — egy gyakorlat korábbi
+   rekordjai időrendben, a "Korábbi rekordok" listaelemre kattintva ---- */
+.pr-modal-exercise {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.pr-modal-history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.pr-history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface-soft);
+  border-radius: var(--r-md);
+  animation: note-in .25s ease backwards;
+  animation-delay: calc(var(--i, 0) * 30ms);
 }
 
 /* ==========================================================================
