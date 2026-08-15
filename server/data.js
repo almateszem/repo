@@ -21,10 +21,9 @@ export const data = {
     /* A `weeklyCalories` görbe megszűnt: a dashboardon a helyén a napi
        check-in emlékeztető áll. Sosem a valódi táplálkozási naplóból jött,
        csak egy beégetett, monoton emelkedő demo-görbe volt. */
-    benchProgress: {
-      heights: [30, 34, 38, 40, 46, 52, 58, 64, 70, 78, 86, 100],
-      axis: ['110 kg', '90 kg', '70 kg', '50 kg'],
-    },
+    /* A `benchProgress` görbe is megszűnt a `weeklyCalories` után: egy
+       beégetett, mindig ugyanúgy emelkedő fekvenyomás-görbe volt, ráadásul fix
+       gyakorlatra. Az edzés oldalon a helyén a naplózott edzések listája áll. */
     bodyWeight: {
       heights: [34, 33, 38, 42, 40, 47, 52, 50, 58, 64, 70, 76],
       axis: ['86 kg', '84 kg', '82 kg', '80 kg'],

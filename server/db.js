@@ -52,7 +52,10 @@ db.exec(`
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     name       TEXT NOT NULL,
     date       TEXT NOT NULL,
-    exercises  TEXT NOT NULL,          -- JSON: [{ name, pr, sets: [{ reps, weight, rpe, done }] }]
+    -- JSON: [{ name, pr, superset, sets: [{ reps, weight, rpe, type, done }] }]
+    -- A superset azt jelenti: „ez a gyakorlat az ELŐTTE lévővel egy körben" —
+    -- a szuperszett-csoportokat így a tömbsorrend adja ki, nem külön azonosító.
+    exercises  TEXT NOT NULL,
     plan_id    INTEGER,                -- melyik tervből indult (NULL, ha szabad edzés)
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
