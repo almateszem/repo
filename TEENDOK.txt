@@ -6,7 +6,112 @@ Nem hibajegy-rendszer: rövid, cselekvésre kész sorok, prioritás szerint.
 Jelölések:   [ ] nyitott    [~] részben kész    [x] kész (a következő
              takarításig marad itt, hogy lássuk, mi történt)
 
-Utolsó frissítés: 2026-08-10
+Utolsó frissítés: 2026-08-15
+
+
+==========================================================================
+KIADÁS ELŐTT — BLOKKOLÓ, ha az app másokhoz is kikerül
+==========================================================================
+
+[ ] NINCS FELHASZNÁLÓ-FOGALOM: mindenki UGYANAZT az adatot látja és írja
+    Ez a legsúlyosabb tétel. Az egész szerveren nulla találat van
+    session / cookie / auth / userId kifejezésekre. Egy közös weight_log,
+    egy közös workouts, a piszkozat pedig szó szerint EGYETLEN sor
+    (server/db.js:67 → CHECK (id = 1)).
+    Két klienssel kipróbálva: „A" menti a mellnapját, „B" a lábnapját,
+    ezután „A" a lábnapot látja. A testsúly-bejegyzést is mindenki látja.
+    Nem hangolással javítható: user_id oszlop kell MINDEN felhasználói
+    táblába (weight_log, nutrition_log, workouts, plans, workout_draft,
+    checkins) + belépés, és a workout_draft egysoros kényszerét
+    (id = 1) felhasználónkénti sorra kell cserélni.
+    Amíg ez nincs meg, az app csak úgy adható ki, ha MINDENKI a saját
+    gépén futtatja.
+
+[ ] /api/export hitelesítés nélkül kiadja a teljes adatbázist
+    Hely: server/server.js:407 → getSnapshot()
+    3 éves adatnál 3,1 MB, és a felhasználók szétválasztása után is
+    mindenki MINDENKI adatát kapná meg. A felhasználókezeléssel együtt
+    kell levédeni, ne maradjon utána nyitva.
+
+
+==========================================================================
+TELJESÍTMÉNY — mérve 2026-08-15, üres / 1 éves / 3 éves adatbázissal
+==========================================================================
+
+Kiindulás: a „sok update és a nagy adat lelassítja-e" kérdés. A mérés
+szerint NEM az adatmennyiség a szűk keresztmetszet (ld. lentebb, „amivel
+nem kell foglalkozni"), hanem egy fix, minden kérésben kifizetett
+számítás. A /api/dashboard ~250 ms, ebből 239 ms a készenlét-számítás.
+
+[ ] resolveExerciseLoad lineáris keresés — EZ a 240 ms, egyetlen sorban
+    Hely: server/muscles.js:147
+      const entry = catalog.find((item) =>
+        normalizeName(item?.name) === normalized);
+    Minden gyakorlatnál végigpásztázza mind az 1401 katalógussort, és
+    mindegyikre ÚJRA lefuttatja a normalizeName-et. Egy hívás 1,69 ms,
+    és a 28 napos ablak minden gyakorlatára lefut.
+    Mérés: computeReadiness teljes katalógussal 239 ms, üres
+    katalógussal 5 ms — vagyis 234 ms tisztán ez a keresés.
+    Javítás: induláskor felépített Map (normalizált név → load), a
+    katalógushoz kötve. ~20 sor, a legjobb ár-érték arányú javítás az
+    egész kódbázisban.
+
+[ ] A szinkron SQLite miatt minden kérés sorban áll
+    A node:sqlite DatabaseSync szinkron, tehát a fenti 240 ms a TELJES
+    event loopot blokkolja. 10 egyszerre érkező /api/dashboard mérve:
+      1. kérés 0,47 s · 5. kérés 2,35 s · 10. kérés 4,73 s
+    Terhelés alatt még a pici /api/user is 1,9 s-ig várt.
+    Jelenlegi kapacitás: kb. 4 kérés/másodperc, felhasználószámtól
+    függetlenül. A Map-fix után ez nagyjából negyvenszeresére nő —
+    ezért ez a tétel jórészt magától megoldódik a fentivel.
+
+[ ] Hiányzó indexek a date oszlopokon
+    A napi táplálkozási összesítő terve: SCAN nutrition_log (teljes
+    tábla). Két CREATE INDEX (nutrition_log.date, workouts.date)
+    megoldja. Hely: server/db.js séma-blokk.
+
+[ ] Az exerciseCatalog minden kérésnél újra JSON.parse-olódik
+    365 KB → 3,6-4,4 ms kérésenként, pedig indulás után nem változik.
+    Hely: server/db.js:172 getCollection(). Memóriában cache-elhető.
+
+[ ] A /api/dashboard KÉTSZER hívja a getWorkouts()-ot
+    server.js:302 (trainingStreak) és server.js:325 (readinessReport).
+    Mindkettő a teljes táblát beolvassa és JSON-t parse-ol. 3 éves
+    adatnál 2 × 20-27 ms feleslegesen.
+
+[ ] journal_mode = delete → WAL
+    Jelenleg: journal_mode 'delete', synchronous 2. WAL-lal az
+    egyidejű olvasás/írás biztonságosabb és gyorsabb. Egy PRAGMA sor
+    a server/db.js elején.
+
+--- Amivel NEM kell foglalkozni (mérve, hogy ne vizsgáljuk újra) -------
+    · A készenlét-motor NEM lassul az évek múlásával: a
+      CHRONIC_WINDOW_DAYS = 28 ablak korlátozza (recovery.js:224).
+      30 nap / 1 év / 3 év előzménnyel a számítás 245 / 237 / 227 ms.
+    · A nyers DB-olvasás nő, de keveset: 6 ms (30 nap) → 27 ms (3 év).
+    · A sok autosave-update rendben van: 9 ms/mentés, 500 ms debounce
+      mellett (public/script.js:3031). Ez nem probléma.
+    · Az indítás nagy adattal is gyors: ~140 ms, a minden induláskori
+      migrációval együtt.
+
+
+==========================================================================
+ÜZEMELTETÉS — élesítés előtt
+==========================================================================
+
+[ ] A DB fájl elveszhet: perzisztens volume kell
+    Sok hostingon (Heroku, Render, Fly volume nélkül) a fájlrendszer
+    ephemeral, és újradeploykor törlődik a server/fittrack.db — vele az
+    összes felhasználói adat. A seed újraépül, a naplók NEM.
+
+[ ] Időzóna: a today() a SZERVER helyi ideje
+    Hely: server/server.js:38-43. UTC-s szerveren a magyar
+    felhasználóknak hajnali 2-kor vált a nap, tehát éjszaka rossz
+    naphoz könyvelődik az edzés, a check-in és az étkezés.
+    A dátumot a kliens időzónájából kell venni.
+
+[ ] Nincs rate limit egyetlen végponton sem
+    Az express.json() alap 100 kB-os törzsmérete az egyetlen védelem.
 
 
 ==========================================================================
