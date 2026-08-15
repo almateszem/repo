@@ -132,9 +132,13 @@ const parsePlanId = (raw) => (Number.isInteger(raw) && raw > 0 ? raw : null);
 app.get('/api/dashboard', (req, res) => {
   const dashboard = getCollection('dashboard') || {};
   const totals = getNutritionTotals(today());
-  const readiness = readinessReport();
+  // A mentett edzéseket egyszer olvassuk be, és mindkét fogyasztónak átadjuk:
+  // korábban a streak és a készenléti riport külön-külön beolvasta és
+  // JSON-ből visszafejtette a TELJES workouts táblát.
+  const workouts = getWorkouts();
+  const readiness = readinessReport(workouts);
 
-  dashboard.streak = trainingStreak();
+  dashboard.streak = trainingStreak(workouts);
   dashboard.readiness = readiness.overall;
   dashboard.recovery = readiness.recovery;
   // A készenlét-kártya feliratához: mennyire megbízható a szám, és van-e
@@ -298,8 +302,8 @@ app.get('/api/prs', (req, res) => {
 /** Hány napja edzel megszakítás nélkül. A mai naptól számol visszafelé; ha ma
     még nem volt edzés, tegnaptól — így a sorozat nem törik meg attól, hogy a
     mai edzés még előtted áll. */
-function trainingStreak() {
-  const trainedDays = new Set(getWorkouts().map((w) => dayKey(w.date)));
+function trainingStreak(workouts = getWorkouts()) {
+  const trainedDays = new Set(workouts.map((w) => dayKey(w.date)));
   const todayKey = dayKey(today());
 
   let streak = 0;
@@ -314,11 +318,11 @@ function trainingStreak() {
 /** A teljes készenléti riport összeállítása. Az adatgyűjtés itt van, a
     SZÁMÍTÁS a recovery.js-ben — az a modul nem ismeri az adatbázist, ezért
     külön tesztelhető (server/recovery.test.js). */
-function readinessReport() {
+function readinessReport(workouts = getWorkouts()) {
   const todayDate = today();
   return computeReadiness({
     checkins: getCheckins(60),
-    workouts: getWorkouts(),
+    workouts,
     // A motor a tegnapi bevitelt preferálja (reggel a mai még előtted van),
     // és a maira esik vissza, ha tegnapról nincs naplózás.
     nutrition: {
