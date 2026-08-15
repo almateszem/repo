@@ -333,7 +333,7 @@ app.get('/api/prs/history', (req, res) => {
   res.json(history);
 });
 
-/** Az összes nyomon követett exercise maximum (1RM értékek). 
+/** Az összes nyomon követett exercise maximum (1RM értékek).
     A frontend ezt használja valós idejű PR detektáláshoz szerkesztéskor. */
 app.get('/api/exercise-maxes', (req, res) => {
   const maxes = getAllExerciseMaxes();
@@ -506,6 +506,34 @@ app.delete('/api/nutrition/log/:id', (req, res) => {
   res.json(totals);
 });
 
+/** RPE normalizálása: az üres érték üres marad (az RPE nem kötelező),
+    egyébként 1–10 közé szorul, fél fokozatra kerekítve. A felület is ezt a
+    skálát engedi, de a tárolt adat nem függhet a kliens jóindulatától — a
+    recovery-motor (rpeFactor, epley1RM) erre a tartományra van hangolva. */
+function normalizeRpe(raw) {
+  // A számot kiszedjük a szövegből is: a régi bejegyzések „RPE 8" alakúak
+  // lehetnek (a db.js migrációja ugyanígy bánik velük).
+  const match = String(raw ?? '').replace(',', '.').match(/\d+(\.\d+)?/);
+  if (!match) return '';
+  return String(Math.min(Math.max(Math.round(Number(match[0]) * 2) / 2, 1), 10));
+}
+
+/* A szett típusa: bemelegítő / munkasorozat / drop set. Ismeretlen vagy
+   hiányzó értékre (régi bejegyzések) a pozíció szerinti alap érvényes — az
+   első szett bemelegítés, onnantól munkasorozat, ugyanúgy, mint a felületen. */
+const SET_TYPES = ['warmup', 'work', 'drop'];
+/** A szett típusa. A drop set mindig az ELŐTTE lévő szettről csökkent le, ezért
+    érvényes szülője kell legyen: a lista élén nincs mihez kapcsolódnia, és
+    bemelegítőről sem csökkentenek le. Mindkét esetben munkasorozattá szelídül
+    (az első sor bemelegítővé, az az alapértéke). Rokon szabály a gyakorlatok
+    `superset` mezőjénél: ott is a szomszédság hordozza a kapcsolatot. */
+const normalizeSetType = (raw, index, prevType) => {
+  if (!SET_TYPES.includes(raw)) return index === 0 ? 'warmup' : 'work';
+  if (raw !== 'drop') return raw;
+  if (index === 0) return 'warmup';
+  return prevType === 'warmup' ? 'work' : 'drop';
+};
+
 /** A beküldött gyakorlat-lista mezőnkénti normalizálása. A kliens a DOM-ból
     olvassa az értékeket, ezért itt kényszerítjük ki az elvárt alakot;
     érvénytelen szerkezetre null-t ad (→ 400-as válasz). */
@@ -517,15 +545,28 @@ function normalizeExercises(raw) {
     // Szett nélküli gyakorlat nem értelmes: a felületen üres kártyaként
     // jelenne meg, és a haladás-számításokból is kilógna.
     if (!name || !Array.isArray(entry?.sets) || entry.sets.length === 0) return null;
+
+    // Sorrendben, nem map-pel: a szett típusa az ELŐZŐ szett MÁR NORMALIZÁLT
+    // típusától is függ (drop set nem követhet bemelegítőt).
+    const sets = [];
+    for (const [index, set] of entry.sets.entries()) {
+      sets.push({
+        reps: String(set?.reps ?? '').slice(0, 20),
+        weight: String(set?.weight ?? '').slice(0, 20),
+        rpe: normalizeRpe(set?.rpe),
+        type: normalizeSetType(set?.type, index, sets[index - 1]?.type),
+        done: Boolean(set?.done),
+      });
+    }
+
     exercises.push({
       name,
       pr: Boolean(entry.pr),
-      sets: entry.sets.map((set) => ({
-        reps: String(set?.reps ?? '').slice(0, 20),
-        weight: String(set?.weight ?? '').slice(0, 20),
-        rpe: String(set?.rpe ?? '').slice(0, 10),
-        done: Boolean(set?.done),
-      })),
+      // Szuperszett: „az előttem lévő gyakorlattal egy körben". A csoportokat
+      // tehát a lista sorrendje adja ki (egymást követő true-k = egy csoport),
+      // nem külön azonosító. A lista első elemének nincs mihez kapcsolódnia.
+      superset: exercises.length > 0 && Boolean(entry.superset),
+      sets,
     });
   }
   return exercises;
