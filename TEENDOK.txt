@@ -43,46 +43,62 @@ szerint NEM az adatmennyiség a szűk keresztmetszet (ld. lentebb, „amivel
 nem kell foglalkozni"), hanem egy fix, minden kérésben kifizetett
 számítás. A /api/dashboard ~250 ms, ebből 239 ms a készenlét-számítás.
 
-[ ] resolveExerciseLoad lineáris keresés — EZ a 240 ms, egyetlen sorban
-    Hely: server/muscles.js:147
-      const entry = catalog.find((item) =>
-        normalizeName(item?.name) === normalized);
-    Minden gyakorlatnál végigpásztázza mind az 1401 katalógussort, és
-    mindegyikre ÚJRA lefuttatja a normalizeName-et. Egy hívás 1,69 ms,
-    és a 28 napos ablak minden gyakorlatára lefut.
-    Mérés: computeReadiness teljes katalógussal 239 ms, üres
+EREDMÉNY az alábbi öt tétel után (1 éves adat, azonos gépen mérve):
+    /api/dashboard   265 ms →  23 ms
+    /api/readiness   245 ms →  16 ms
+    10 párhuzamos kérés: 4761 ms → 109 ms
+    átbocsátás (keep-alive):  ~4 → 128 kérés/mp
+    A 14 olvasó végpont válasza BÁJTRA AZONOS a javítás előttivel
+    (a /api/export 1,1 MB-ját is beleértve).
+
+[x] resolveExerciseLoad lineáris keresés — EZ volt a 240 ms
+    Volt: catalog.find(), ami minden gyakorlatnál végigpásztázta mind az
+    1401 katalógussort, és mindegyikre ÚJRA lefuttatta a normalizeName-et
+    (1,69 ms hívásonként, a 28 napos ablak minden gyakorlatára).
+    Mérés akkor: computeReadiness teljes katalógussal 239 ms, üres
     katalógussal 5 ms — vagyis 234 ms tisztán ez a keresés.
-    Javítás: induláskor felépített Map (normalizált név → load), a
-    katalógushoz kötve. ~20 sor, a legjobb ár-érték arányú javítás az
-    egész kódbázisban.
+    Most: katalógus-tömbönként egyszer felépülő név-index (Map),
+    WeakMap-ben tartva. Hely: server/muscles.js → catalogLoadIndex.
+    A find() finom viselkedései (első sor nyer, érvénytelen load →
+    kulcsszavas réteg) megőrizve, és tesztben rögzítve
+    (recovery.test.js → „a katalógus név-indexe …"). 1415 gyakorlatnévre
+    ellenőrizve a régi implementációval szemben: 0 eltérés.
 
-[ ] A szinkron SQLite miatt minden kérés sorban áll
-    A node:sqlite DatabaseSync szinkron, tehát a fenti 240 ms a TELJES
-    event loopot blokkolja. 10 egyszerre érkező /api/dashboard mérve:
-      1. kérés 0,47 s · 5. kérés 2,35 s · 10. kérés 4,73 s
-    Terhelés alatt még a pici /api/user is 1,9 s-ig várt.
-    Jelenlegi kapacitás: kb. 4 kérés/másodperc, felhasználószámtól
-    függetlenül. A Map-fix után ez nagyjából negyvenszeresére nő —
-    ezért ez a tétel jórészt magától megoldódik a fentivel.
+[~] A szinkron SQLite miatt minden kérés sorban áll
+    A node:sqlite DatabaseSync szinkron, tehát a kérésenkénti CPU-idő a
+    TELJES event loopot blokkolja. Ez ELVBEN továbbra is így van, de a
+    blokkolt idő 240 ms-ról ~8 ms-ra csökkent, így a gyakorlatban
+    megszűnt a torlódás: 10 párhuzamos kérés 4761 ms helyett 109 ms.
+    Csak akkor kell újra elővenni, ha tényleg sok egyidejű felhasználó
+    lesz — akkor worker thread vagy aszinkron driver a válasz.
 
-[ ] Hiányzó indexek a date oszlopokon
-    A napi táplálkozási összesítő terve: SCAN nutrition_log (teljes
-    tábla). Két CREATE INDEX (nutrition_log.date, workouts.date)
-    megoldja. Hely: server/db.js séma-blokk.
+[x] Hiányzó index a nutrition_log.date oszlopon
+    Volt: SCAN nutrition_log (teljes tábla) a napi összesítőnél.
+    Most:  SEARCH nutrition_log USING INDEX idx_nutrition_log_date.
+    A workouts.date-re NEM kellett index: egyetlen lekérdezés sem szűr
+    rá SQL-ben (a /api/plans és a volumen-diagram JS-ben szűr), a
+    fölösleges index csak az írásokat lassítaná.
 
-[ ] Az exerciseCatalog minden kérésnél újra JSON.parse-olódik
+[x] Az exerciseCatalog minden kérésnél újra JSON.parse-olódott
     365 KB → 3,6-4,4 ms kérésenként, pedig indulás után nem változik.
-    Hely: server/db.js:172 getCollection(). Memóriában cache-elhető.
+    Most: memória-cache a getCollection()-ben, de SZIGORÚAN allowlisttel
+    (exerciseCatalog, foods). A 'dashboard' szándékosan kimarad: a
+    /api/dashboard rááír a lekért objektumra, cache-elve a streak és a
+    készenlét kérésről kérésre egymásra rakódna.
+    Hely: server/db.js → CACHED_COLLECTIONS.
 
-[ ] A /api/dashboard KÉTSZER hívja a getWorkouts()-ot
-    server.js:302 (trainingStreak) és server.js:325 (readinessReport).
-    Mindkettő a teljes táblát beolvassa és JSON-t parse-ol. 3 éves
-    adatnál 2 × 20-27 ms feleslegesen.
+[x] A /api/dashboard KÉTSZER hívta a getWorkouts()-ot
+    trainingStreak() és readinessReport() külön-külön beolvasta és
+    JSON-ből visszafejtette a teljes workouts táblát. Most a végpont
+    egyszer olvassa be, és paraméterként adja át mindkettőnek (a két
+    függvény alapértelmezett paramétere maradt getWorkouts(), így a
+    /api/readiness változatlanul hívható önmagában).
 
-[ ] journal_mode = delete → WAL
-    Jelenleg: journal_mode 'delete', synchronous 2. WAL-lal az
-    egyidejű olvasás/írás biztonságosabb és gyorsabb. Egy PRAGMA sor
-    a server/db.js elején.
+[x] journal_mode = delete → WAL
+    Most: WAL + synchronous = NORMAL (server/db.js eleje). Az olvasók
+    nem blokkolják az írót, és nincs fsync minden autosave-nél. A
+    beállítás a DB-fájlba íródik, a meglévő fájlokon is érvényre jut.
+    A -wal és -shm fájlok már benne voltak a .gitignore-ban.
 
 --- Amivel NEM kell foglalkozni (mérve, hogy ne vizsgáljuk újra) -------
     · A készenlét-motor NEM lassul az évek múlásával: a
@@ -93,6 +109,12 @@ számítás. A /api/dashboard ~250 ms, ebből 239 ms a készenlét-számítás.
       mellett (public/script.js:3031). Ez nem probléma.
     · Az indítás nagy adattal is gyors: ~140 ms, a minden induláskori
       migrációval együtt.
+
+--- Ami a fenti javítások UTÁN maradt a 8 ms-ból ----------------------
+    Nagyjából a getWorkouts() JSON.parse-a és maga a készenlét-számítás.
+    Ha egyszer ez is kevés lesz: a mentett edzésekből elég a 28 napos
+    ablak (a motor úgyis eldobja a régebbit), tehát a getWorkouts()
+    kaphat egy dátum-szűrős változatot. Most nem éri meg.
 
 
 ==========================================================================
