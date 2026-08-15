@@ -13,25 +13,46 @@ Utolsó frissítés: 2026-08-15
 KIADÁS ELŐTT — BLOKKOLÓ, ha az app másokhoz is kikerül
 ==========================================================================
 
-[ ] NINCS FELHASZNÁLÓ-FOGALOM: mindenki UGYANAZT az adatot látja és írja
-    Ez a legsúlyosabb tétel. Az egész szerveren nulla találat van
-    session / cookie / auth / userId kifejezésekre. Egy közös weight_log,
-    egy közös workouts, a piszkozat pedig szó szerint EGYETLEN sor
-    (server/db.js:67 → CHECK (id = 1)).
-    Két klienssel kipróbálva: „A" menti a mellnapját, „B" a lábnapját,
-    ezután „A" a lábnapot látja. A testsúly-bejegyzést is mindenki látja.
-    Nem hangolással javítható: user_id oszlop kell MINDEN felhasználói
-    táblába (weight_log, nutrition_log, workouts, plans, workout_draft,
-    checkins) + belépés, és a workout_draft egysoros kényszerét
-    (id = 1) felhasználónkénti sorra kell cserélni.
-    Amíg ez nincs meg, az app csak úgy adható ki, ha MINDENKI a saját
-    gépén futtatja.
+[x] FELHASZNÁLÓ-FOGALOM — MEGVAN
+    Volt: egyetlen közös adathalmaz. „A" mentette a mellnapját, „B" a
+    lábnapját, ezután „A" a lábnapot látta; a piszkozat szó szerint egy
+    sor volt az egész adatbázisban (workout_draft, CHECK (id = 1)).
+    Most:
+      · users + sessions tábla; user_id MINDEN felhasználói táblán
+        (weight_log, nutrition_log, workouts, plans, workout_draft,
+        checkins), ON DELETE CASCADE-del.
+      · A workout_draft kulcsa user_id, a checkinsé (user_id, date).
+      · Az adatréteg MINDEN függvénye userId-t vár első paraméterként —
+        szűretlen lekérdezés nincs (server/db.js).
+      · Jelszó: scrypt külön sóval; munkamenet: HttpOnly + SameSite=Lax
+        süti, az adatbázisban csak a token SHA-256 lenyomata
+        (server/auth.js). Belépési kísérlet-korlát: 15 perc / 10 hiba.
+      · Belépő képernyő a frontenden (au-*), kijelentkezés a
+        beállításokban.
+    Tesztek: server/users.test.js (izoláció — listák, id-re hivatkozás,
+    export, munkamenet), server/auth.test.js (jelszó, token, süti, zár).
 
-[ ] /api/export hitelesítés nélkül kiadja a teljes adatbázist
-    Hely: server/server.js:407 → getSnapshot()
-    3 éves adatnál 3,1 MB, és a felhasználók szétválasztása után is
-    mindenki MINDENKI adatát kapná meg. A felhasználókezeléssel együtt
-    kell levédeni, ne maradjon utána nyitva.
+[x] Régi, fiók nélküli adatbázisok migrációja — adatvesztés nélkül
+    Aki eddig helyben használta az appot, annak a naplója a régi sémában
+    van. A meglévő sorok egy ARCHÍV fiókhoz kerülnek (üres jelszó-hash →
+    belépni nem lehet vele), és az ELSŐ regisztráció megörökli az
+    egészet; a második regisztráló már nem lát belőle semmit.
+    A workout_draft és a checkins tábla újraépül (változott az elsődleges
+    kulcsuk), a művelet idempotens.
+    Teszt: server/migration.test.js — felépít egy régi sémájú adatbázist,
+    ráindítja az adatréteget, és sorra ellenőrzi, hogy egyetlen sor sem
+    veszett el.
+
+[x] /api/export levédve
+    A végpont mögött ott a hitelesítés, és a getSnapshot(userId) CSAK a
+    hívó saját naplóit adja vissza — a közös referencia-adaton kívül más
+    fiókból semmi. Tesztelve (users.test.js: „az export CSAK a hívó
+    adatát tartalmazza").
+
+[ ] Nincs jelszó-visszaállítás és nincs fióktörlés
+    Elfelejtett jelszónál kézzel kell javítani a users sort. Kis
+    felhasználószámnál elfogadható, de e-mail-cím nélkül nem is lehet
+    önkiszolgáló visszaállítást csinálni — ez terméki döntés.
 
 
 ==========================================================================
@@ -72,12 +93,15 @@ EREDMÉNY az alábbi öt tétel után (1 éves adat, azonos gépen mérve):
     Csak akkor kell újra elővenni, ha tényleg sok egyidejű felhasználó
     lesz — akkor worker thread vagy aszinkron driver a válasz.
 
-[x] Hiányzó index a nutrition_log.date oszlopon
+[x] Hiányzó index a nutrition_log dátum-szűrésén
     Volt: SCAN nutrition_log (teljes tábla) a napi összesítőnél.
-    Most:  SEARCH nutrition_log USING INDEX idx_nutrition_log_date.
-    A workouts.date-re NEM kellett index: egyetlen lekérdezés sem szűr
-    rá SQL-ben (a /api/plans és a volumen-diagram JS-ben szűr), a
-    fölösleges index csak az írásokat lassítaná.
+    Most:  SEARCH … USING INDEX idx_nutrition_log_user_date.
+    A fiókok bevezetésekor az index (user_id, date)-re bővült, mert a
+    lekérdezés is arra szűr; a felhasználónkénti szűréshez a workouts,
+    plans és weight_log is kapott user_id indexet.
+    A workouts.DATE-re továbbra sem kellett index: egyetlen lekérdezés
+    sem szűr rá SQL-ben (a /api/plans és a volumen-diagram JS-ben szűr),
+    a fölösleges index csak az írásokat lassítaná.
 
 [x] Az exerciseCatalog minden kérésnél újra JSON.parse-olódott
     365 KB → 3,6-4,4 ms kérésenként, pedig indulás után nem változik.
@@ -132,8 +156,12 @@ EREDMÉNY az alábbi öt tétel után (1 éves adat, azonos gépen mérve):
     naphoz könyvelődik az edzés, a check-in és az étkezés.
     A dátumot a kliens időzónájából kell venni.
 
-[ ] Nincs rate limit egyetlen végponton sem
-    Az express.json() alap 100 kB-os törzsmérete az egyetlen védelem.
+[~] Rate limit
+    A BELÉPÉS most korlátozott (15 percen belül 10 sikertelen próbálkozás
+    után a felhasználónév zárolódik, server/auth.js). Ez memóriában él,
+    tehát újraindításkor nullázódik, és több példánynál példányonként
+    számol. A többi végponton továbbra sincs korlát — bejelentkezést
+    viszont már mind követel, tehát nem nyilvánosan támadható.
 
 
 ==========================================================================

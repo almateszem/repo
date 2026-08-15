@@ -13,7 +13,9 @@ ami ettől a verziótól érhető el.
 npm install
 npm start          # http://localhost:3000
 npm run dev        # ugyanaz, fájlfigyeléssel (node --watch)
-npm test           # a Recovery Engine unit-tesztjei (node --test, nulla függőség)
+npm test           # unit-tesztek (node --test, nulla függőség):
+                   #   a Recovery Engine, a jelszó-/munkamenet-kezelés,
+                   #   a felhasználók közti adatizoláció és a migráció
 ```
 
 Környezeti változók:
@@ -37,6 +39,10 @@ public/          statikus frontend (a szerver innen szolgálja ki)
   style.css      dizájn-tokenek és komponensstílusok
 server/
   server.js      Express: /api/* végpontok + a public/ kiszolgálása
+  auth.js        jelszó-hash (scrypt), munkamenet-tokenek, sütik — tiszta függvények
+  auth.test.js   a jelszó- és munkamenet-kezelés tesztjei (npm test)
+  users.test.js  a felhasználók közti adatizoláció tesztjei (npm test)
+  migration.test.js  a fiókok előtti adatbázis migrációjának tesztje (npm test)
   db.js          SQLite adatréteg — az egyetlen modul, ami a tárolást ismeri
   data.js        seed / referencia-adat (ételek, gyakorlat-katalógus, sportolók)
   recovery.js    Recovery Engine — a készenlét-számítás (tiszta függvények, DB nélkül)
@@ -47,9 +53,34 @@ server/
 
 Az adat kétféle: a `collections` táblában a **csak olvasható** referencia-adat,
 amit a szerver minden induláskor a `data.js`-ből szinkronizál (tehát a `data.js`
-az egyetlen szerkesztési hely), illetve a **felhasználói adat** saját táblákban
-(`weight_log`, `nutrition_log`, `workouts`, `plans`, `workout_draft`) — ezeket a
-seed nem írja felül.
+az egyetlen szerkesztési hely) — ez minden fióknak közös —, illetve a
+**felhasználói adat** saját táblákban (`weight_log`, `nutrition_log`, `workouts`,
+`plans`, `workout_draft`, `checkins`). Ezeket a seed nem írja felül, és minden
+soruk egy fiókhoz tartozik (`user_id`).
+
+## Fiókok
+
+Minden `/api/*` végpont bejelentkezést követel (az `/api/auth/*` kivételével),
+és **minden lekérdezés a bejelentkezett fiókra szűr** — a felhasználók nem
+látják és nem írhatják egymás adatát, id-re hivatkozva sem.
+
+- **Jelszó:** scrypt, fiókonként külön sóval (`server/auth.js`). A paraméterek
+  bele vannak írva a hashbe, így később emelhetők a régi jelszavak
+  érvénytelenítése nélkül.
+- **Munkamenet:** `HttpOnly`, `SameSite=Lax` süti, 30 napos élettartammal. Az
+  adatbázisba **csak a token SHA-256 lenyomata** kerül, maga a token nem.
+  HTTPS-en (vagy `x-forwarded-proto: https` mögött) a süti `Secure` jelzőt is kap.
+- **Belépési kísérlet-korlát:** 15 percen belül 10 sikertelen próbálkozás után a
+  felhasználónév átmenetileg zárolódik.
+
+### Ha korábbi, fiók nélküli adatbázisod van
+
+Nem vész el semmi. A szerver első indulásakor a meglévő sorok egy **archív
+fiókhoz** kerülnek, amivel belépni nem lehet (üres jelszó-hash), és az **első
+regisztráció megörökli az egészet** — utána ugyanazt az előzményt látod, mint
+korábban. A második regisztráló már nem kap belőle semmit. A `workout_draft` és
+a `checkins` táblát ilyenkor a szerver újraépíti, mert az elsődleges kulcsuk is
+megváltozott; a művelet idempotens, újraindításkor nem fut le mégegyszer.
 
 ## Amit tudni érdemes
 
@@ -172,8 +203,10 @@ komponensenként kelljen újratárgyalni:
 
 Ezek szándékos egyszerűsítések, nem hibák:
 
-- **Nincs hitelesítés, és egyetlen felhasználó van.** Aki eléri a szervert, az
-  ugyanazt az adatot látja és írja — lokális futtatásra készült.
+- **Nincs jelszó-visszaállítás és nincs fióktörlés.** Elfelejtett jelszónál az
+  adatbázisban kell a `users` sort javítani.
+- **A belépési kísérlet-korlát memóriában él**, tehát a szerver újraindításakor
+  nullázódik, és több példány futtatásakor példányonként külön számol.
 - **A dátumot a szerver helyi ideje adja.** Ha a szerver és a böngésző más
   időzónában van, a „mai nap" elcsúszhat.
 - **Nincs pulzus/HRV adatforrás.** Nincs okosóra-integráció, ezért a Recovery

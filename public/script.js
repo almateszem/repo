@@ -32,9 +32,26 @@
      is ugyanazt kéri le induláskor.
      ====================================================================== */
 
+  /* A munkamenet lejárta (401) minden végponton előfordulhat, nem csak
+     induláskor: a süti 30 nap után elévül, és a fiók másik eszközről ki is
+     jelentkeztethető. Ilyenkor nincs értelme hibaüzenetet mutatni a felület
+     ötven pontján — egyszer visszavisszük a felhasználót a belépő képernyőre.
+     A jelzőt a setupAuthGate állítja be. */
+  let onSessionLost = () => {};
+  const SESSION_LOST = 'session-lost';
+
+  /** 401 esetén elindítja a visszaterelést, és jelzett hibát dob. */
+  function handleUnauthorized() {
+    onSessionLost();
+    const err = new Error('A munkamenet lejárt — jelentkezz be újra.');
+    err.code = SESSION_LOST;
+    return err;
+  }
+
   /** GET egy JSON-végpontra, egységes hibakezeléssel. */
   async function getJson(path) {
     const res = await fetch(path);
+    if (res.status === 401) throw handleUnauthorized();
     if (!res.ok) throw new Error(`GET ${path} → ${res.status}`);
     return res.json();
   }
@@ -47,6 +64,7 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
+    if (res.status === 401) throw handleUnauthorized();
     if (!res.ok) {
       const detail = await res.json().catch(() => null);
       throw new Error(detail?.error || `${method} ${path} → ${res.status}`);
@@ -59,7 +77,21 @@
   /** Törlő kérés — a válasz üres (204), ezért nem próbáljuk JSON-ként olvasni. */
   async function del(path) {
     const res = await fetch(path, { method: 'DELETE' });
+    if (res.status === 401) throw handleUnauthorized();
     if (!res.ok) throw new Error(`DELETE ${path} → ${res.status}`);
+  }
+
+  /* Az auth-végpontok NEM mehetnek a fenti burkolókon: a 401 ott normális
+     válasz („nem vagy belépve"), nem a munkamenet elvesztése. */
+  async function authRequest(path, body) {
+    const res = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body ?? {}),
+    });
+    const detail = res.status === 204 ? null : await res.json().catch(() => null);
+    if (!res.ok) throw new Error(detail?.error || `Hiba (${res.status})`);
+    return detail;
   }
 
   /** GET-cache a csak-olvasható referencia-végpontokhoz: több modul kéri
@@ -137,6 +169,24 @@
     getCheckin:        () => getJson('/api/checkin'),
     // A mentés a friss riportot is visszaadja, hogy a felület egy körből frissüljön
     saveCheckin:       (fields) => putJson('/api/checkin', fields),
+
+    /* ---- Fiók ----
+       A me() a 401-et NEM hibaként kezeli: az a „nincs belépve" normális
+       válasza, és a belépő képernyő ebből indul. A firstRun jelzi, ha még
+       egyetlen fiók sincs — ilyenkor rögtön a regisztrációt kínáljuk. */
+    me: async () => {
+      const res = await fetch('/api/auth/me');
+      if (res.status === 401) {
+        const detail = await res.json().catch(() => ({}));
+        return { user: null, firstRun: Boolean(detail.firstRun) };
+      }
+      if (!res.ok) throw new Error(`GET /api/auth/me → ${res.status}`);
+      return { user: await res.json(), firstRun: false };
+    },
+    login:    (username, password) => authRequest('/api/auth/login', { username, password }),
+    register: (username, displayName, password) =>
+      authRequest('/api/auth/register', { username, displayName, password }),
+    logout:   () => authRequest('/api/auth/logout'),
   };
 
   /** Értesítés-kategóriák a beállítások modal kapcsolóihoz (notification.cat). */
@@ -1833,10 +1883,23 @@
       controller.close();
     });
 
+    /* Kijelentkezés. Utána TELJES újratöltés, nem csak képernyőváltás: a
+       memóriában lévő cache-ek és a felépült oldalak az előző fiók adatait
+       tartalmazzák, azokat nem szabad a következő belépésbe átvinni. */
+    $('[data-action="logout"]').addEventListener('click', async () => {
+      try {
+        await api.logout();
+      } catch (err) {
+        console.error('Kijelentkezési hiba:', err);
+      }
+      window.location.reload();
+    });
+
     return {
       open() {
         nameInput.value = prefs.get('displayName', '') || '';
         nameInput.placeholder = user.name;
+        $('[data-st-account]').textContent = `Bejelentkezve: ${user.username ?? user.name}`;
         syncToggles();
         syncRoleToggles();
         controller.open();
@@ -4211,8 +4274,139 @@
     }
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
-    init().catch((err) => console.error('Inicializálási hiba:', err));
+  /* ======================================================================
+     Belépő képernyő (au-*)
+     Az app előtt áll: amíg nincs érvényes munkamenet, a szerver minden
+     /api/* végponton 401-et ad, tehát nincs mit renderelni mögötte. Ezért
+     nem modál — nem lehet bezárni, nincs háttér-átkattintás.
+     ====================================================================== */
+  function setupAuthGate() {
+    const screen = $('#authScreen');
+    const form = $('[data-form="auth"]');
+    const titleEl = $('#authTitle');
+    const leadEl = $('[data-au-lead]');
+    const errorEl = $('[data-au-error]');
+    const submitBtn = $('[data-au-submit]');
+    const switchBtn = $('[data-au-switch]');
+    const switchTextEl = $('[data-au-switch-text]');
+    const passwordInput = $('#au-password');
+
+    let mode = 'login';   // 'login' | 'register'
+    let onSuccess = null; // a sikeres belépés után futtatandó lépés
+
+    const MODES = {
+      login: {
+        title: 'Belépés',
+        lead: 'Jelentkezz be a saját edzésnaplódhoz.',
+        submit: 'Belépés',
+        switchText: 'Még nincs fiókod?',
+        switchLabel: 'Regisztráció',
+        autocomplete: 'current-password',
+      },
+      register: {
+        title: 'Regisztráció',
+        lead: 'Hozz létre egy fiókot — az adataid csak hozzád tartoznak.',
+        submit: 'Fiók létrehozása',
+        switchText: 'Van már fiókod?',
+        switchLabel: 'Belépés',
+        autocomplete: 'new-password',
+      },
+    };
+
+    const showError = (message) => {
+      errorEl.textContent = message;
+      errorEl.hidden = !message;
+    };
+
+    const applyMode = () => {
+      const config = MODES[mode];
+      titleEl.textContent = config.title;
+      leadEl.textContent = config.lead;
+      submitBtn.textContent = config.submit;
+      switchTextEl.textContent = config.switchText;
+      switchBtn.textContent = config.switchLabel;
+      passwordInput.autocomplete = config.autocomplete;
+      $$('[data-au-only="register"]').forEach((el) => { el.hidden = mode !== 'register'; });
+      showError('');
+    };
+
+    switchBtn.addEventListener('click', () => {
+      mode = mode === 'login' ? 'register' : 'login';
+      applyMode();
+    });
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const username = $('#au-username').value.trim();
+      const password = passwordInput.value;
+      const displayName = $('#au-display-name').value.trim();
+
+      showError('');
+      submitBtn.disabled = true;
+      try {
+        if (mode === 'register') await api.register(username, displayName, password);
+        else await api.login(username, password);
+
+        form.reset();
+        screen.hidden = true;
+        screen.setAttribute('aria-hidden', 'true');
+        onSuccess?.();
+      } catch (err) {
+        showError(err.message);
+        passwordInput.focus();
+        passwordInput.select();
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+
+    /** A képernyő megnyitása. `firstRun` esetén rögtön a regisztráció látszik
+        (még egyetlen fiók sincs), `next` pedig a siker utáni lépés. */
+    const open = ({ firstRun = false, next = null, message = '' } = {}) => {
+      mode = firstRun ? 'register' : 'login';
+      onSuccess = next;
+      applyMode();
+      if (message) showError(message);
+      screen.hidden = false;
+      screen.setAttribute('aria-hidden', 'false');
+      $('#au-username').focus();
+    };
+
+    return { open, isOpen: () => !screen.hidden };
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const gate = setupAuthGate();
+
+    /* Munkamenet-vesztés MENET KÖZBEN (lejárt süti, másik eszközről történt
+       kijelentkezés). Ilyenkor a felépült felület már az előző fiók adatait
+       mutatja, ezért belépés után teljes újratöltés jön — nem próbáljuk
+       darabonként frissíteni. A jelző azt is megakadályozza, hogy több
+       párhuzamos 401 többször nyissa meg a képernyőt. */
+    let sessionLostHandled = false;
+    onSessionLost = () => {
+      if (sessionLostHandled || gate.isOpen()) return;
+      sessionLostHandled = true;
+      gate.open({
+        next: () => window.location.reload(),
+        message: 'A munkamenet lejárt — jelentkezz be újra.',
+      });
+    };
+
+    try {
+      const { user, firstRun } = await api.me();
+      if (user) {
+        await init();
+      } else {
+        // Az első betöltésnél még nincs mit eldobni, ezért itt elég az init.
+        gate.open({
+          firstRun,
+          next: () => init().catch((err) => console.error('Inicializálási hiba:', err)),
+        });
+      }
+    } catch (err) {
+      console.error('Inicializálási hiba:', err);
+    }
   });
 
 })();
