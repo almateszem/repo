@@ -349,8 +349,9 @@ function normalizeMuscleMap(raw, max, allowGeneral = false) {
 /** A mai check-in mentése/felülírása. Minden mező opcionális — a felület a
     gyors (5 mezős) és a részletes kitöltést is ide küldi, és a nap folyamán
     bármikor pontosítható. A dátumot a szerver adja.
-    A testsúly NEM ide kerül: ha a törzsben jön, a meglévő testsúly-naplóba
-    írjuk, hogy egyetlen forrás maradjon (és a dashboard grafikonja frissüljön). */
+    A testsúly NEM a check-in sorba kerül: ha a törzsben jön, a testsúly-naplóba
+    írjuk, hogy egyetlen forrás maradjon (és a Regeneráció oldal trend-diagramja
+    frissüljön). Naponta egy bejegyzés — az újramentés felülír, nem duplikál. */
 app.put('/api/checkin', (req, res) => {
   const userId = req.user.id;
   const body = req.body ?? {};
@@ -364,8 +365,9 @@ app.put('/api/checkin', (req, res) => {
   fields.soreness = normalizeMuscleMap(body.soreness, 5);
   fields.pain = normalizeMuscleMap(body.pain, 10, true);
 
-  // Opcionális testsúly — a meglévő weight_log táblába, ugyanazzal a
-  // validálással, mint a /api/weight-log végponton.
+  // Opcionális testsúly — a weight_log táblába, ugyanazzal a validálással,
+  // mint a /api/weight-log végponton. Üres/hiányzó mező = ma nincs mérés,
+  // ilyenkor a korábbi bejegyzések érintetlenül maradnak.
   let weightEntry = null;
   if (body.weightKg !== null && body.weightKg !== undefined && body.weightKg !== '') {
     const kg = Number(body.weightKg);
@@ -609,13 +611,18 @@ app.get('/api/export', (req, res) => res.json(getSnapshot(req.user.id)));
    Write-végpontok (POST) — a SQLite adatbázist módosítják (perzisztens).
    ====================================================================== */
 
-/** Új testsúly-bejegyzés. Törzs: { kg }. A dátumot a szerver adja. */
+/** A mai testsúly rögzítése. Törzs: { kg }. A dátumot a szerver adja, és
+    naponta egy bejegyzés van: az aznapi érték felülíródik (addWeightEntry).
+    A felület ezt a végpontot már nem hívja — a testsúlyt a napi check-in
+    kérdi, és a PUT /api/checkin írja ide. Nyitva marad, mert a testsúly-napló
+    önálló erőforrás (GET + írás egy helyen). */
 app.post('/api/weight-log', (req, res) => {
   const kg = Number(req.body?.kg);
   if (!Number.isFinite(kg) || kg < 30 || kg > 300) {
     return res.status(400).json({ error: 'Érvénytelen testsúly — 30 és 300 kg között adható meg.' });
   }
-  res.status(201).json(addWeightEntry(req.user.id, kg, today()));
+  // 200, nem 201: a mentés a nap meglévő bejegyzését is felülírhatja.
+  res.json(addWeightEntry(req.user.id, kg, today()));
 });
 
 /** Étel naplózása. Törzs: { name, grams }. A szerver a foods-ból keresi ki a
