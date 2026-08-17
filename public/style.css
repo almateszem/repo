@@ -2373,6 +2373,35 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   touch-action: none;
   pointer-events: auto;
   transition: border-color var(--t-base);
+  /* A display a gomb ikonját centrálja. A setupNavRing csak a transform / cursor
+     / transition inline stílusokat írja, ezt nem — a húzás-logika érintetlen. */
+  display: grid;
+  place-items: center;
+  color: var(--fg-92); /* ugyanaz, mint a keret: az ikon és a gomb egy rendszer */
+}
+
+/* „Itt vagy" a gombon. A gyűrű négy iránycímkéje csak 4 oldalt fed le a 10-ből
+   (az Áttekintés, a Regeneráció és a flow-oldalak kimaradnak), a hint-sor pedig
+   a képernyő legalján, 12px-es halvány szöveg — az ikon a legszembetűnőbb
+   navigációs elemre teszi ki a jelzést. A symbolt a script.js cseréli. */
+.nav-knob-icon {
+  width: 26px;
+  height: 26px;
+  fill: currentColor;
+  pointer-events: none; /* a pointer-események a gomboké — setPointerCapture */
+}
+
+/* Oldalváltáskor az új ikon beúszik. A globális prefers-reduced-motion szabály
+   (2. szakasz) ezt automatikusan lenullázza. */
+@keyframes knob-icon-in {
+  from {
+    opacity: 0;
+    transform: scale(.7);
+  }
+}
+
+.nav-knob-icon.is-swap {
+  animation: knob-icon-in var(--t-base) var(--ease-spring) both;
 }
 
 .nl {
@@ -2389,7 +2418,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 /* „Itt vagy" — mobilon eddig SEMMI nem mutatta az aktív oldalt: az
    aria-current csak a side-nav linkjeire kerül, azok viszont 1025px alatt
    display:none-ok. A gyűrű annak az iránynak a feliratát emeli ki, amelyik az
-   aktuális oldalra mutat; a script.js állítja a data-current attribútumot. */
+   aktuális oldalra mutat; a script.js syncNavRingState-je kapcsolja az
+   .is-current osztályt. */
 .nl.is-current {
   color: var(--text-primary);
   font-weight: 800;

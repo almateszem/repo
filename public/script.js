@@ -376,6 +376,17 @@
     'exercise-picker': 'Gyakorlat hozzáadása', checkin: 'Napi check-in',
   };
 
+  /** Az oldalak ikonjai a nav gyűrű gombjához — az index.html tetején lévő közös
+      sprite symbol-id-jei. Ugyanaz a 10 kulcs, mint a PAGE_TITLES-ben, hogy a
+      kettő ne sodródjon szét. Az Edző oldal a már meglévő #icon-user-t használja. */
+  const PAGE_ICONS = {
+    dashboard: 'icon-page-dashboard', recovery: 'icon-page-recovery',
+    workout: 'icon-page-workout', nutrition: 'icon-page-nutrition',
+    plans: 'icon-page-plans', coach: 'icon-user',
+    summary: 'icon-page-summary', 'plan-builder': 'icon-page-plan-builder',
+    'exercise-picker': 'icon-page-exercise-picker', checkin: 'icon-page-checkin',
+  };
+
   /** Az éppen látható oldal (a DOM az igazságforrás — a hash lehet horgony is). */
   const currentPage = () => $('.app-page:not([hidden])')?.dataset.page ?? 'dashboard';
 
@@ -391,6 +402,28 @@
       const dirKey = { up: 'up', dn: 'down', lt: 'left', rt: 'right' }[dir];
       el.classList.toggle('is-current', DIR_TO_PAGE[dirKey] === name);
     });
+
+    /* A gombon lévő ikon az egyetlen jelzés, ami MINDEN oldalra működik: a négy
+       iránycímke az Áttekintésnél, a Regenerációnál és a flow-oldalakon egyszerre
+       sötét marad. */
+    const knob = $('#navKnob');
+    const icon = knob?.querySelector('.nav-knob-icon');
+    const symbol = PAGE_ICONS[name];
+    if (icon) {
+      icon.hidden = !symbol; // ismeretlen oldalnál üres gomb, nem törött <use>
+      if (symbol) {
+        icon.querySelector('use')?.setAttribute('href', `#${symbol}`);
+        icon.classList.remove('is-swap');
+        void icon.offsetWidth; // reflow: enélkül azonos elemen nem indul újra az animáció
+        icon.classList.add('is-swap');
+      }
+    }
+    // Az ikon aria-hidden, így a gomb neve mondja meg a képernyőolvasónak, hol vagy.
+    if (knob) {
+      knob.setAttribute('aria-label',
+        `Navigáció — jelenlegi oldal: ${PAGE_TITLES[name] ?? 'ismeretlen'}. `
+        + 'Húzd a kívánt irányba, vagy koppints az áttekintéshez.');
+    }
   }
 
   function showPage(name) {
