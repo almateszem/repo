@@ -6000,3 +6000,172 @@ details[open] > .rc-details-summary::before {
     min-height: min(100dvh, 820px);
   }
 }
+
+/* ==========================================================================
+   26. Belépő képernyő (au-*)
+   --------------------------------------------------------------------------
+   Teljes képernyős réteg az app fölött: amíg nincs érvényes munkamenet, nincs
+   mit mutatni mögötte (minden /api/* végpont 401-et ad). Ezért nem modál —
+   nincs bezáró gombja és nincs háttér-átkattintás.
+   ========================================================================== */
+.au-screen {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-toast); /* a toast szintjén: minden más fölött */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-9);
+  background: var(--c-bg);
+  overflow-y: auto;
+}
+
+.au-card {
+  width: 100%;
+  max-width: 360px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-2xl);
+  padding: var(--sp-12) var(--sp-11);
+  box-shadow: var(--shadow-modal);
+  animation: fade-in var(--t-slow) both;
+}
+
+.au-brand {
+  font-size: var(--fs-sm);
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--c-accent);
+  margin-bottom: var(--sp-7);
+}
+
+.au-title {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-4xl);
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.au-lead {
+  margin: 0 0 var(--sp-11);
+  font-size: var(--fs-md);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.au-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-7);
+}
+
+.au-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.au-label {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.au-input {
+  background: var(--surface-input);
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  padding: var(--sp-5) var(--sp-6);
+  color: var(--text-primary);
+  font-size: var(--fs-base);
+  font-family: inherit;
+  transition: background var(--t-fast), border-color var(--t-fast);
+}
+
+.au-input:focus {
+  background: var(--surface-hover);
+  border-color: var(--fg-40);
+  outline: none;
+}
+
+.au-hint {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.au-error {
+  margin: 0;
+  padding: var(--sp-5) var(--sp-6);
+  border-radius: var(--r-md);
+  background: rgba(224, 67, 90, .12);
+  border: 1px solid var(--c-accent);
+  color: var(--c-accent);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.au-submit {
+  margin-top: var(--sp-2);
+  background: var(--c-paper);
+  color: var(--c-ink);
+  border: none;
+  border-radius: var(--r-md);
+  padding: var(--sp-6) var(--sp-9);
+  font-size: var(--fs-base);
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--t-fast), transform var(--t-fast), opacity var(--t-fast);
+}
+
+.au-submit:hover:not(:disabled) { background: var(--c-paper-bright); }
+.au-submit:active:not(:disabled) { transform: translateY(1px); }
+.au-submit:disabled { opacity: .55; cursor: progress; }
+
+.au-switch {
+  margin: var(--sp-11) 0 0;
+  font-size: var(--fs-md);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.au-link {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: var(--sp-1);
+  color: var(--c-paper);
+  font-size: inherit;
+  font-family: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.au-link:hover { color: var(--c-paper-bright); }
+
+/* ---- Fiók-szakasz a beállításokban ---- */
+.st-account {
+  margin: 0 0 var(--sp-5);
+  font-size: var(--fs-md);
+  color: var(--text-muted);
+}
+
+.st-logout {
+  width: 100%;
+  background: none;
+  border: 1px solid var(--c-accent);
+  border-radius: var(--r-md);
+  padding: var(--sp-5) var(--sp-9);
+  color: var(--c-accent);
+  font-size: var(--fs-md);
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--t-fast);
+}
+
+.st-logout:hover { background: rgba(224, 67, 90, .12); }

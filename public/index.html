@@ -31,6 +31,52 @@
 
   <a class="skip-link" href="#app-main">Ugrás a tartalomhoz</a>
 
+  <!-- ================================================================
+       Belépő képernyő (au-*). A script.js nyitja, ha nincs érvényes
+       munkamenet, és bezárja belépés/regisztráció után. Amíg nyitva van,
+       a mögötte lévő app nem kap adatot — minden /api/* végpont 401-et ad.
+       Alapból REJTETT: bejelentkezve senki ne lássa felvillanni.
+       ================================================================ -->
+  <div class="au-screen" id="authScreen" aria-hidden="true" hidden>
+    <div class="au-card" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+      <div class="au-brand">FitTrack Pro</div>
+      <h2 class="au-title" id="authTitle">Belépés</h2>
+      <p class="au-lead" data-au-lead>Jelentkezz be a saját edzésnaplódhoz.</p>
+
+      <form class="au-form" data-form="auth" novalidate>
+        <div class="au-field">
+          <label class="au-label" for="au-username">Felhasználónév</label>
+          <input class="au-input" id="au-username" name="username" type="text"
+                 autocomplete="username" autocapitalize="none" spellcheck="false"
+                 maxlength="24" required>
+        </div>
+
+        <!-- Csak regisztrációkor látszik -->
+        <div class="au-field" data-au-only="register" hidden>
+          <label class="au-label" for="au-display-name">Megjelenített név</label>
+          <input class="au-input" id="au-display-name" name="displayName" type="text"
+                 autocomplete="name" maxlength="40">
+        </div>
+
+        <div class="au-field">
+          <label class="au-label" for="au-password">Jelszó</label>
+          <input class="au-input" id="au-password" name="password" type="password"
+                 autocomplete="current-password" minlength="8" required>
+          <p class="au-hint" data-au-only="register" hidden>Legalább 8 karakter.</p>
+        </div>
+
+        <p class="au-error" data-au-error role="alert" hidden></p>
+
+        <button class="au-submit" type="submit" data-au-submit>Belépés</button>
+      </form>
+
+      <p class="au-switch">
+        <span data-au-switch-text>Még nincs fiókod?</span>
+        <button class="au-link" type="button" data-au-switch>Regisztráció</button>
+      </p>
+    </div>
+  </div>
+
   <!-- Desktop side navigation (mobile/tablet uses the nav ring instead — see CSS breakpoints) -->
   <nav class="side-nav" aria-label="Fő navigáció">
     <div class="side-nav-brand">FitTrack Pro</div>
@@ -774,6 +820,12 @@
       <section class="st-section" aria-labelledby="st-title-data">
         <h4 class="st-section-title" id="st-title-data">Adatok</h4>
         <button class="st-export" type="button" data-action="export-data">Adatok exportálása (JSON)</button>
+      </section>
+
+      <section class="st-section" aria-labelledby="st-title-account">
+        <h4 class="st-section-title" id="st-title-account">Fiók</h4>
+        <p class="st-account" data-st-account></p>
+        <button class="st-logout" type="button" data-action="logout">Kijelentkezés</button>
       </section>
 
       <div class="settings-modal-actions">
