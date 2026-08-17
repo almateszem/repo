@@ -359,8 +359,17 @@ export function getSnapshot() {
 
 /* ---- Írás ---- */
 
-/** Új testsúly-bejegyzés; visszaadja a létrejött { id, kg, date } sort. */
+/** A nap testsúly-bejegyzése; visszaadja a { id, kg, date } sort.
+    NAPONTA EGY SOR: ha az adott napra már van bejegyzés, azt írjuk felül.
+    A testsúlyt a napi check-in kérdi (Regeneráció → check-in varázsló), amit
+    a nap folyamán bármikor újra lehet menteni — sima INSERT-tel minden mentés
+    új oszlopot rakott volna a trend-diagramra ugyanarról a napról. */
 export function addWeightEntry(kg, date) {
+  const existing = db.prepare('SELECT id FROM weight_log WHERE date = ? ORDER BY id DESC').get(date);
+  if (existing) {
+    db.prepare('UPDATE weight_log SET kg = ? WHERE id = ?').run(kg, Number(existing.id));
+    return db.prepare('SELECT id, kg, date FROM weight_log WHERE id = ?').get(Number(existing.id));
+  }
   const { lastInsertRowid } = db.prepare('INSERT INTO weight_log (kg, date) VALUES (?, ?)').run(kg, date);
   return db.prepare('SELECT id, kg, date FROM weight_log WHERE id = ?').get(Number(lastInsertRowid));
 }
