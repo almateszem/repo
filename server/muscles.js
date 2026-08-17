@@ -132,9 +132,43 @@ function normalizeLoad(raw) {
   return clean;
 }
 
+/* A katalógus név-indexe. Korábban minden egyes gyakorlatnál végigfutott egy
+   catalog.find(), ami az 1401 soros katalógus MINDEN elemére újra meghívta a
+   normalizeName-et — hívásonként 1,69 ms, és a készenlét-számítás 28 napos
+   ablakában minden gyakorlatra lefut. Ez tette ki a /api/dashboard 250 ms-ából
+   a 234-et (üres katalógussal ugyanaz a számítás 5 ms volt).
+
+   Az index katalógus-tömbönként egyszer épül fel, és WeakMap tartja: ha a
+   hívó eldobja a tömböt, az index is felszabadul — a modul így állapotmentes
+   marad kívülről nézve. A db.js egyazon katalógus-tömböt adja vissza minden
+   kérésnél (getCollection cache), így a gyakorlatban egyszer épül fel.
+
+   A tárolt érték a KÉSZ, 1-re normalizált súly-objektum (vagy null, ha a sor
+   load-ja érvénytelen). Ezt közösen adjuk vissza minden hívónak, tehát az
+   eredményt módosítani TILOS — a recovery.js csak olvassa. */
+const loadIndexCache = new WeakMap();
+
+function catalogLoadIndex(catalog) {
+  let index = loadIndexCache.get(catalog);
+  if (index) return index;
+
+  index = new Map();
+  for (const item of catalog) {
+    const key = normalizeName(item?.name);
+    // Az első találat nyer, ahogy a korábbi catalog.find() esetén is — a
+    // kurált sorok elöl állnak, a névütközésnél ezek maradnak érvényben.
+    if (key && !index.has(key)) index.set(key, normalizeLoad(item?.load));
+  }
+  loadIndexCache.set(catalog, index);
+  return index;
+}
+
 /**
  * Egy gyakorlatnév → izom-hozzájárulások ({ quads: 0.55, … }, összegük 1),
  * vagy üres objektum, ha egyik réteg sem ismerte fel.
+ *
+ * A visszaadott objektum megosztott (ld. a fenti index), ezért csak olvasni
+ * szabad.
  *
  * @param {string} name    a naplózott gyakorlat neve (katalógusból vagy kézzel)
  * @param {Array}  catalog a data.js exerciseCatalog tömbje (opcionális)
@@ -143,9 +177,11 @@ export function resolveExerciseLoad(name, catalog = []) {
   const normalized = normalizeName(name);
   if (!normalized) return {};
 
-  // 1. réteg: pontos katalógus-találat (a névegyezés ékezet-független)
-  const entry = catalog.find((item) => normalizeName(item?.name) === normalized);
-  const fromCatalog = normalizeLoad(entry?.load);
+  // 1. réteg: pontos katalógus-találat (a névegyezés ékezet-független).
+  // A null érték is találat abban az értelemben, hogy a sor létezik, de a
+  // load-ja érvénytelen — ilyenkor a korábbi viselkedés szerint a kulcsszavas
+  // rétegre esünk vissza, nem a következő azonos nevű sorra.
+  const fromCatalog = catalogLoadIndex(catalog).get(normalized);
   if (fromCatalog) return fromCatalog;
 
   // 2. réteg: kulcsszavas becslés a névből
