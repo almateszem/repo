@@ -19,9 +19,16 @@ import path from 'node:path';
 
 const workDir = mkdtempSync(path.join(tmpdir(), 'fittrack-users-'));
 process.env.FITTRACK_DB = path.join(workDir, 'test.db');
-process.on('exit', () => rmSync(workDir, { recursive: true, force: true }));
 
 const db = await import('./db.js');
+
+/* A takarítás előtt ZÁRJUK az adatbázist: Windowson egy nyitott fájlt nem
+   lehet törölni, és az EPERM megbuktatta a tesztfájlt úgy, hogy közben minden
+   állítása teljesült. */
+process.on('exit', () => {
+  db.closeDatabase();
+  rmSync(workDir, { recursive: true, force: true });
+});
 
 /* ---- Két fiók, mindkettőben adat ---- */
 
@@ -121,6 +128,9 @@ test('az export CSAK a hívó adatát tartalmazza', () => {
   assert.deepEqual(snapshot.workouts.map((w) => w.name), ['Anna edzése']);
   assert.equal(snapshot.workoutDraft.name, 'Anna piszkozata');
   assert.equal(snapshot.checkins.length, 1);
+  // Az egyéni csúcsok is a felhasználó adata — a pillanatképnek része.
+  assert.deepEqual(snapshot.exerciseMaxes,
+    [{ exercise: 'Guggolás', max1rm: db.calculateEpley1RM(100, 5), date: TODAY }]);
 
   // A referencia-adat (közös) viszont benne van — abból mindenki ugyanazt kapja
   assert.ok(Array.isArray(snapshot.foods) && snapshot.foods.length > 0);
