@@ -18,7 +18,7 @@ import {
   getWorkouts, addWorkout, getWorkoutDraft, saveWorkoutDraft, clearWorkoutDraft,
   getUserPlans, addPlan, updatePlan, getPlanForDay,
   getCheckin, getCheckins, saveCheckin,
-  calculateEpley1RM, getExerciseMax, getAllExerciseMaxes,
+  calculateEpley1RM, bestCompletedSet, getExerciseMax, getAllExerciseMaxes,
   createUser, getUserWithHash, hasAnyUser,
   createSession, getSessionUser, deleteSession, purgeExpiredSessions,
 } from './db.js';
@@ -428,12 +428,15 @@ app.get('/api/plans', (req, res) => {
 
 app.get('/api/workout-template', (req, res) => res.json(workoutTemplate(req.user.id)));
 
-/** Egy PR-jelölt gyakorlat-előfordulás listaelemmé alakítása: a detail az
-    első teljesített (vagy első) szett összegzése, valamint a becsült 1RM
-    az Epley-képlettel. */
+/** Egy PR-jelölt gyakorlat-előfordulás listaelemmé alakítása: a detail a
+    rekordot hozó szett összegzése, valamint a becsült 1RM az Epley-képlettel.
+    A szett kiválasztása a db.js bestCompletedSet-jével történik — ugyanazzal,
+    amivel az addWorkout PR-nek jelölte a gyakorlatot. Korábban itt az ELSŐ
+    teljesített szett szerepelt, ami a szett-típusok óta jellemzően a
+    bemelegítés: a lista a könnyű bemelegítő sorozatot hirdette rekordnak. */
 function prEntryFor(userId, workout, exercise) {
   // A mértékegység már nem az értékben van (szám-mezők), ezért itt tesszük hozzá
-  const set = exercise.sets.find((s) => s.done) || exercise.sets[0];
+  const set = bestCompletedSet(exercise.sets);
 
   // Az Epley-képlettel kiszámított 1RM
   let oneRM = 0;
@@ -443,12 +446,15 @@ function prEntryFor(userId, workout, exercise) {
 
   // Az eddig nyomon követett maximum
   const maxRecord = getExerciseMax(userId, exercise.name);
+  // A kerekítés mindkét ágon kell: enélkül a nyomon követett maximum nélküli
+  // sorokban a nyers lebegőpontos érték (101.33333333333333) ment ki.
+  const rounded = (value) => Math.round(value * 10) / 10;
 
   return {
     exercise: exercise.name,
     detail: set ? `${set.reps} ism. @ ${set.weight} kg` : workout.name,
-    oneRM: oneRM > 0 ? Math.round(oneRM * 10) / 10 : null, // 1 tizedesjegy pontosság
-    maxOneRM: maxRecord ? Math.round(maxRecord.max1rm * 10) / 10 : oneRM,
+    oneRM: oneRM > 0 ? rounded(oneRM) : null, // 1 tizedesjegy pontosság
+    maxOneRM: maxRecord ? rounded(maxRecord.max1rm) : rounded(oneRM),
     date: workout.date,
   };
 }
@@ -498,8 +504,10 @@ app.get('/api/exercise-maxes', (req, res) => {
 
 /** Hány napja edzel megszakítás nélkül. A mai naptól számol visszafelé; ha ma
     még nem volt edzés, tegnaptól — így a sorozat nem törik meg attól, hogy a
-    mai edzés még előtted áll. */
-function trainingStreak(workouts = getWorkouts()) {
+    mai edzés még előtted áll.
+    A mentett edzéseket a hívó adja át: a getWorkouts() a fiókok bevezetése óta
+    kötelező `userId`-t vár, tehát paraméter nélküli alapérték nem képezhető. */
+function trainingStreak(workouts) {
   const trainedDays = new Set(workouts.map((w) => dayKey(w.date)));
   const todayKey = dayKey(today());
 

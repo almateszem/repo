@@ -85,3 +85,42 @@ test('teljesített szett hiányában az első szett számít, üres edzés nem d
   assert.equal(üres.exercises[0].pr, false);
   assert.equal(db.getExerciseMax(kezdo.id, 'Húzódzkodás'), null, 'szett nélkül nem születik rekord');
 });
+
+/* ======================================================================
+   A rekordot hozó szett — bemelegítővel és drop settel együtt
+   ----------------------------------------------------------------------
+   A szett-típusokat és az automatikus PR-számítást két külön ág hozta, és a
+   találkozásuknál a felület első sora alapból BEMELEGÍTŐ lett. Ha a rekord
+   „az első teljesített szett", akkor a napló a legkönnyebb sorozatot hirdeti
+   csúcsnak — miközben a tárolt maximum a nehezet mutatja.
+   ====================================================================== */
+
+test('a rekordot a legjobb teljesített szett hozza, nem a bemelegítő', () => {
+  const sets = [
+    { reps: '10', weight: '40', rpe: '6', type: 'warmup', done: true },
+    { reps: '5', weight: '100', rpe: '9', type: 'work', done: true },
+    { reps: '8', weight: '80', rpe: '9', type: 'drop', done: true },
+  ];
+  const record = db.bestCompletedSet(sets);
+  assert.equal(record.weight, '100', `a nehéz munkasorozat a rekord (kapott: ${record.weight} kg)`);
+});
+
+test('a bemelegítő sor nem szorítja le a nyomon követett csúcsot', () => {
+  const user = db.createUser('tipusos', 'Típusos Tibor', 'scrypt$16384$8$1$ee$ff').user;
+  db.addWorkout(user.id, 'Mellnap', TODAY, [{
+    name: 'Fekvenyomás',
+    pr: false,
+    sets: [
+      { reps: '10', weight: '40', rpe: '6', type: 'warmup', done: true },
+      { reps: '5', weight: '100', rpe: '9', type: 'work', done: true },
+    ],
+  }]);
+  assert.equal(db.getExerciseMax(user.id, 'Fekvenyomás').max1rm, db.calculateEpley1RM(100, 5));
+});
+
+test('teljesített szett híján az első sor a rekord, üres listára null', () => {
+  const sets = [{ reps: '5', weight: '60', rpe: '8', type: 'work', done: false }];
+  assert.equal(db.bestCompletedSet(sets), sets[0]);
+  assert.equal(db.bestCompletedSet([]), null);
+  assert.equal(db.bestCompletedSet(), null);
+});
