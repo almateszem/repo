@@ -15,6 +15,18 @@
   <!-- Közös SVG-ikonok — a use-hivatkozások innen klónoznak idevertemafaszt kuki-->
   <svg style="display:none" aria-hidden="true">
     <symbol id="icon-user" viewBox="0 0 24 24"><path d="M12 12c2.7 0 4.9-2.2 4.9-4.9S14.7 2.2 12 2.2 7.1 4.4 7.1 7.1 9.3 12 12 12zm0 2.4c-3.3 0-9.8 1.6-9.8 4.9v1.2c0 .7.5 1.2 1.2 1.2h17.2c.7 0 1.2-.5 1.2-1.2v-1.2c0-3.3-6.5-4.9-9.8-4.9z"/></symbol>
+
+    <!-- Oldal-ikonok a nav gyűrű gombjához (lásd script.js → PAGE_ICONS).
+         Az Edző oldal a fenti #icon-user-t használja, nincs külön szimbóluma. -->
+    <symbol id="icon-page-dashboard" viewBox="0 0 24 24"><path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z"/></symbol>
+    <symbol id="icon-page-recovery" viewBox="0 0 24 24"><path d="M12 21s-8-4.9-8-10.2A4.8 4.8 0 0 1 12 7.4a4.8 4.8 0 0 1 8 3.4C20 16.1 12 21 12 21z"/></symbol>
+    <symbol id="icon-page-workout" viewBox="0 0 24 24"><path d="M1 9h2.2v6H1V9zM4 5h3.4v14H4V5zM7.4 10.2h9.2v3.6H7.4v-3.6zM16.6 5H20v14h-3.4V5zM20.8 9H23v6h-2.2V9z"/></symbol>
+    <symbol id="icon-page-nutrition" viewBox="0 0 24 24"><path d="M12 7.6c-1-.7-2.2-1.1-3.3-1.1C6 6.5 4 8.9 4 12.4 4 16.2 7 21 9.6 21c.9 0 1.6-.4 2.4-.4s1.5.4 2.4.4C17 21 20 16.2 20 12.4c0-3.5-2-5.9-4.7-5.9-1.1 0-2.3.4-3.3 1.1zM12.6 5.6c1.4-.2 2.7-1.6 2.6-3.2-1.4.1-2.9 1.5-2.6 3.2z"/></symbol>
+    <symbol id="icon-page-plans" viewBox="0 0 24 24"><path d="M9 2h6a1 1 0 0 1 1 1v1h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2V3a1 1 0 0 1 1-1zm1 2v1h4V4h-4zM7.5 10h9v1.6h-9V10zm0 4h9v1.6h-9V14z"/></symbol>
+    <symbol id="icon-page-summary" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm-1.3 14.4-4-4 1.5-1.5 2.5 2.5 5.6-5.6L17.8 9l-7.1 7.4z"/></symbol>
+    <symbol id="icon-page-plan-builder" viewBox="0 0 24 24"><path d="M6 2h8l5 5v15a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm7 1.8V8h4.2L13 3.8zM11.2 11h1.6v2.7h2.7v1.6h-2.7V18h-1.6v-2.7H8.5v-1.6h2.7V11z"/></symbol>
+    <symbol id="icon-page-exercise-picker" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm1 9h4v2h-4v4h-2v-4H7v-2h4V7h2v4z"/></symbol>
+    <symbol id="icon-page-checkin" viewBox="0 0 24 24"><path d="M7 2h1.6v2H15V2h1.6v2H18a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h1V2zM6 9v10h12V9H6zm5 8.2-2.9-2.9 1.4-1.4 1.5 1.5 3.9-3.9 1.4 1.4-5.3 5.3z"/></symbol>
   </svg>
 
   <a class="skip-link" href="#app-main">Ugrás a tartalomhoz</a>
@@ -664,8 +676,16 @@
       <span class="nl nl--dn" aria-hidden="true">↓ Tervek</span>
       <span class="nl nl--lt" aria-hidden="true">← Edzés</span>
       <span class="nl nl--rt" aria-hidden="true">Tápl. →</span>
+      <!-- A gombon lévő ikon mutatja, melyik oldalon állsz. A négy iránycímke
+           csak 4 oldalt fed le a 10-ből (az Áttekintés, a Regeneráció és a
+           flow-oldalak kimaradnak) — az ikon mindegyiknél működik. Az itteni
+           ikon csak kezdőállapot: a showPage() minden váltásnál felülírja. -->
       <div class="nav-knob" id="navKnob" role="button" tabindex="0"
-           aria-label="Navigáció: húzd a kívánt irányba, vagy koppints az áttekintéshez"></div>
+           aria-label="Navigáció: húzd a kívánt irányba, vagy koppints az áttekintéshez">
+        <svg class="nav-knob-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <use href="#icon-page-dashboard"/>
+        </svg>
+      </div>
     </div>
     <p class="nav-hint" aria-hidden="true"><span class="nav-hint-page" data-nav-current></span><span
       data-nav-hint-tail> · húzd bármelyik irányba</span></p>
