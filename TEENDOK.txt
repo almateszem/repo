@@ -6,7 +6,7 @@ Nem hibajegy-rendszer: rövid, cselekvésre kész sorok, prioritás szerint.
 Jelölések:   [ ] nyitott    [~] részben kész    [x] kész (a következő
              takarításig marad itt, hogy lássuk, mi történt)
 
-Utolsó frissítés: 2026-08-15
+Utolsó frissítés: 2026-08-17
 
 
 ==========================================================================
@@ -162,6 +162,43 @@ EREDMÉNY az alábbi öt tétel után (1 éves adat, azonos gépen mérve):
     tehát újraindításkor nullázódik, és több példánynál példányonként
     számol. A többi végponton továbbra sincs korlát — bejelentkezést
     viszont már mind követel, tehát nem nyilvánosan támadható.
+
+
+==========================================================================
+SZETT-TÍPUSOK — a régebbi elemek átvezetése
+==========================================================================
+
+[x] Recovery Engine: a bemelegítő szett nem izomkárosodás
+    A motor a szett-típusok ELŐTT készült, ezért minden bepipált sort
+    teljes munkasorozatnak vett. A felület viszont MINDEN gyakorlat első
+    sorát bemelegítőnek állítja — vagyis gyakorlatonként egy fantom
+    munkasorozattal számolt a készenlét.
+    Most: bemelegítő 0, munkasorozat 1, drop set 0.5 szett-egység
+    (server/recovery.js → setStimulus). A tonnatömeg és a CNS továbbra is
+    minden teljesített szettet lát: a bemelegítés is elvégzett munka.
+    A típus nélküli, régi bejegyzések teljes munkasorozatnak számítanak.
+
+[x] Korábbi rekordok: a lista a bemelegítést hirdette rekordnak
+    A /api/prs az ELSŐ teljesített szettet írta ki, ami a szett-típusok óta
+    tipikusan a bemelegítés — a sor tehát „10 ism. @ 40 kg · 1RM 53,3 kg"-ot
+    mutatott, miközben a mellette tárolt csúcs 116,7 volt.
+    Most: a szabály egy helyen él (bestCompletedSet, server/db.js), és a
+    mentéskori PR-jelölés meg a lista ugyanazt a szettet nézi.
+
+[x] Egyéni csúcsok visszatöltése a PR-követés előtti naplóból
+    Az exercise_maxes táblát az addWorkout tölti. Akinek a naplója régebbi,
+    annak a tábla üresen indult: a következő edzés MINDEN gyakorlata hamis
+    PR-t ütött volna. A szerver most induláskor egyszer visszatölti a
+    csúcsokat a meglévő edzésekből (server/db.js → backfillExerciseMaxes),
+    csak azoknál a fiókoknál, akiknek van edzésük, de egy csúcsuk sincs.
+
+[ ] Heti volumen-diagram: a bemelegítő szettek is beleszámolnak
+    Hely: server/server.js → volumeCharts. A számláló minden bepipált
+    szettet számol, a felirat is ezt mondja („teljesített szettek"), tehát
+    nem hibás — de a „volumen" edzéselméletben munkasorozatot jelent, és a
+    Recovery Engine már így is számol. Ha a diagram a munkasorozatokra vált,
+    a feliratot és az aria-label-t is át kell írni. Terméki döntés, ezért
+    maradt nyitva.
 
 
 ==========================================================================

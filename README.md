@@ -137,8 +137,23 @@ tartja ki a gráfból magát a vendorolt skillt (különben a saját dokumentác
 - **Szett-értékek.** Az ismétlés, a súly (kg) és az RPE szám; a mértékegység a
   táblázat fejlécében van. A régebbi, mértékegységgel együtt tárolt értékeket
   (`"12 rep"`, `"60% TM"`) a szerver induláskor egyszer átalakítja számokká.
+- **Szett-típusok.** Minden szett *bemelegítő*, *munkasorozat* vagy *drop set* —
+  az első sor alapból bemelegítő. A típus nem csak színezés: a Recovery Engine
+  izomkárosodás-becslése a bemelegítőt nullának, a drop setet fél
+  munkasorozatnak veszi (a tonnatömeg viszont mindegyikből számít). A típus
+  nélküli, régebbi bejegyzések teljes munkasorozatnak számítanak — akkor még
+  minden sor az volt.
+- **Egyéni csúcsok (PR).** A rekordot a gyakorlat **legjobb teljesített**
+  szettje hozza, Epley-becsléssel — nem az első teljesített, ami a
+  szett-típusok óta jellemzően a bemelegítés. A szabály egy helyen él
+  (`bestCompletedSet`, `server/db.js`), és ugyanaz jelöli meg a PR-t mentéskor,
+  mint ami a Korábbi rekordok listáját kiírja. A csúcsok fiókonként külön
+  táblasorban állnak, tehát mindenki a saját korábbi teljesítményéhez mérődik.
 - **Migrációk.** A séma bővítései a `db.js` `ensureColumn` hívásaival futnak le a
-  meglévő adatbázisfájlokon is, tehát nem kell törölni a `fittrack.db`-t.
+  meglévő adatbázisfájlokon is, tehát nem kell törölni a `fittrack.db`-t. Aki a
+  PR-követés bevezetése előtt naplózott, annak a csúcsait a szerver egyszer
+  visszatölti a meglévő edzésekből — enélkül a következő edzés minden
+  gyakorlata hamis rekordot ütne.
 
 ## Recovery Engine — a készenléti állapot
 
@@ -208,9 +223,10 @@ szét, mint bármelyik ki nem töltött mezőé.
 - **Izomcsoportonkénti regeneráció** kilenc csoportra. A károsodás mérőszáma nem
   a tonnatömeg, hanem a bukáshoz közeli szettek száma — a tonnatömeg lokálisan
   félrevezet (egy nehéz 5×5 guggolás kevesebb tonnát ad, mint egy könnyű,
-  sok ismétléses lábtolás, miközben sokkal jobban lever). A csillapítás
-  csoportonként eltér: kis izmok τ = 1.5 nap, nagy tolók/húzók 2.2, a
-  hamstring/farizom/törzs 3.0 nap.
+  sok ismétléses lábtolás, miközben sokkal jobban lever). A szett-egység a
+  szett TÍPUSÁVAL is súlyozódik: bemelegítő 0, munkasorozat 1, drop set 0.5.
+  A csillapítás csoportonként eltér: kis izmok τ = 1.5 nap, nagy tolók/húzók
+  2.2, a hamstring/farizom/törzs 3.0 nap.
 - **CNS-becslés**: az axiális összetett emelések, a magas RPE-s szettek és a
   PR-próbálkozások költsége, lassabb csillapítással (τ = 3.5 nap), az alvással
   szorozva.

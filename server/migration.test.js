@@ -134,6 +134,24 @@ test('az ELSŐ regisztráció megörökli a régi adatot', () => {
   assert.ok(db.hasAnyUser());
 });
 
+test('a PR-követés előtti edzésekből visszatöltődnek az egyéni csúcsok', () => {
+  // Az exercise_maxes táblát az addWorkout tölti, mentéskor. Ez az adatbázis
+  // korábbi: a naplója tele van, a tábla viszont üres lenne. Enélkül a
+  // legközelebbi edzés MINDEN gyakorlata hamis PR-t ütne, mert nincs mihez
+  // mérni — és a rekord egy gyengébb értéken ragadna.
+  const [user] = [db.getUserWithHash('david')];
+  const max = db.getExerciseMax(user.id, 'Guggolás');
+  assert.ok(max, 'a régi edzés gyakorlatához van csúcs');
+  assert.equal(max.max1rm, db.calculateEpley1RM(120, 5), 'a napló legjobb teljesített szettjéből');
+  assert.equal(max.date, '2026.08.14', 'a csúcs annak az edzésnek a dátumát viszi');
+
+  // És a visszatöltött csúcs valóban működik: egy gyengébb edzés már nem PR.
+  const gyengebb = db.addWorkout(user.id, 'Könnyű nap', '2026.08.16', [
+    { name: 'Guggolás', pr: false, sets: [{ reps: '5', weight: '100', rpe: '8', done: true }] },
+  ]);
+  assert.equal(gyengebb.exercises[0].pr, false, 'a régi 120 kg-hoz mérődik, nem a semmihez');
+});
+
 test('a MÁSODIK regisztráló nem örököl semmit', () => {
   const { user, adoptedLegacy } = db.createUser('masodik', 'Második', 'scrypt$16384$8$1$cc$dd');
   assert.equal(adoptedLegacy, false);

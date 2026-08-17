@@ -335,6 +335,53 @@ migrateSetValuesToNumbers('workouts', 'id');
 // A piszkozatnak már nincs id oszlopa — felhasználónként azonosít.
 migrateSetValuesToNumbers('workout_draft', 'user_id');
 
+/* Az `exercise_maxes` táblát az addWorkout tölti, edzés mentésekor. Aki viszont
+   a PR-követés BEVEZETÉSE ELŐTT naplózott, annak az egész előzménye kimaradt
+   belőle: a tábla üres, miközben a workouts tele van. Ilyenkor a legközelebbi
+   edzés minden gyakorlata hamis PR-t ütne (nincs mihez mérni), és a rekord egy
+   gyengébb értéken ragadna. Ezért a meglévő edzésekből egyszer visszatöltjük a
+   csúcsokat.
+
+   Csak azokra a fiókokra fut, akiknek van edzésük, de EGYETLEN csúcsuk sincs —
+   így a második indulásnál már nincs dolga, és aki menet közben gyűjtötte a
+   rekordjait, annak az adatához nem nyúl. */
+function backfillExerciseMaxes() {
+  const userIds = db.prepare(`
+    SELECT DISTINCT w.user_id AS id FROM workouts w
+    WHERE NOT EXISTS (SELECT 1 FROM exercise_maxes m WHERE m.user_id = w.user_id)
+  `).all().map((row) => row.id);
+  if (!userIds.length) return;
+
+  const insert = db.prepare(`INSERT INTO exercise_maxes (user_id, exercise_name, max_1rm, date)
+                             VALUES (?, ?, ?, ?)`);
+  const workoutsOf = db.prepare('SELECT date, exercises FROM workouts WHERE user_id = ? ORDER BY id');
+
+  for (const userId of userIds) {
+    const best = new Map(); // gyakorlatnév → { max1rm, date }
+    for (const row of workoutsOf.all(userId)) {
+      let exercises;
+      try { exercises = JSON.parse(row.exercises); } catch { continue; }
+      if (!Array.isArray(exercises)) continue;
+
+      for (const exercise of exercises) {
+        const name = exercise?.name;
+        if (!name) continue;
+        for (const set of exercise?.sets ?? []) {
+          // Ugyanaz a szabály, mint az addWorkout-ban: csak a teljesített
+          // szettek számítanak, és a legjobb becsült 1RM lesz a csúcs.
+          if (!set?.done) continue;
+          const oneRM = calculateEpley1RM(set.weight, set.reps);
+          if (oneRM <= 0) continue;
+          const current = best.get(name);
+          if (!current || oneRM > current.max1rm) best.set(name, { max1rm: oneRM, date: row.date });
+        }
+      }
+    }
+    for (const [name, record] of best) insert.run(userId, name, record.max1rm, record.date);
+  }
+}
+backfillExerciseMaxes();
+
 /* ---- Indexek ----
    A táblák átépítése (workout_draft, checkins) eldobja a rajtuk lévő
    indexeket, ezért az index-létrehozás a migrációk UTÁN áll.
@@ -614,6 +661,32 @@ export function calculateEpley1RM(weight, reps) {
   return w * (1 + r / 30);
 }
 
+/**
+ * A gyakorlat REKORDOT HOZÓ szettje: a teljesítettek közül a legmagasabb
+ * becsült 1RM-ű, vagy — ha egy sor sincs bepipálva — az első.
+ *
+ * Ez az egyetlen hely, ahol ez a szabály ki van mondva, és ennek oka van. A
+ * szabály eddig kétszer, két ágon élt: az addWorkout a legjobb szettből
+ * döntött PR-ről, a /api/prs listája viszont az ELSŐ teljesítettet írta ki.
+ * Amíg minden szett egyforma volt, ez ritkán tért el; a szett-típusok óta
+ * viszont az első sor alapból BEMELEGÍTŐ, tehát a lista rendszeresen egy
+ * könnyű bemelegítést hirdetett rekordnak (10 × 40 kg a 5 × 100 helyett),
+ * miközben a mellette álló csúcs a valódi értéket mutatta.
+ *
+ * @param {Array<object>} sets egy gyakorlat szettjei
+ * @returns {object|null} a rekordot hozó szett, vagy null üres listára
+ */
+export function bestCompletedSet(sets = []) {
+  let best = null;
+  let best1rm = 0;
+  for (const set of sets) {
+    if (!set?.done) continue;
+    const oneRM = calculateEpley1RM(set.weight, set.reps);
+    if (best === null || oneRM > best1rm) { best = set; best1rm = oneRM; }
+  }
+  return best ?? sets[0] ?? null;
+}
+
 /** A felhasználó jelenlegi maximális 1RM-je egy gyakorlatban, vagy null ha még nincs. */
 export function getExerciseMax(userId, exerciseName) {
   const row = db.prepare('SELECT max_1rm, date FROM exercise_maxes WHERE user_id = ? AND exercise_name = ?')
@@ -782,22 +855,10 @@ export function addWorkout(userId, name, date, exercises, planId = null) {
   const processedExercises = exercises.map((exercise) => {
     const sets = exercise.sets || [];
 
-    // Teljesített szettekből kiemelkedő 1RM keresése
-    let bestCompleted1rm = 0;
-    let hasCompleted = false;
-
-    for (const set of sets) {
-      if (set.done) {
-        hasCompleted = true;
-        const oneRM = calculateEpley1RM(set.weight, set.reps);
-        if (oneRM > bestCompleted1rm) bestCompleted1rm = oneRM;
-      }
-    }
-
-    // Ha nincs teljesített szett, az elsőt nézzük
-    if (!hasCompleted && sets.length > 0) {
-      bestCompleted1rm = calculateEpley1RM(sets[0].weight, sets[0].reps);
-    }
+    // A rekordot hozó szett (teljesítettek közül a legjobb, különben az első)
+    // — ugyanaz a szabály, amit a /api/prs listája is kiír.
+    const record = bestCompletedSet(sets);
+    const bestCompleted1rm = record ? calculateEpley1RM(record.weight, record.reps) : 0;
 
     // PR-ellenőrzés és frissítés
     let isPr = false;
