@@ -383,6 +383,43 @@ test('a katalógus load-súlyai és a kulcsszavas fallback is 1-re normalizáló
   assert.deepEqual(resolveExerciseLoad('Trambulin ugrálás', []), {}, 'ismeretlen név nem terhel hamisan izmot');
 });
 
+/* A katalógus-keresés név-index mögé került (muscles.js → catalogLoadIndex),
+   mert a korábbi lineáris catalog.find() adta a /api/dashboard idejének 90%-át.
+   Az index néhány finom viselkedést örökölt a find()-tól — ezek itt vannak
+   rögzítve, hogy egy későbbi átírás ne csendben változtassa meg őket. */
+test('a katalógus név-indexe a lineáris keresés viselkedését őrzi', () => {
+  const catalog = [
+    { name: 'Guggolás', load: { quads: 1 } },
+    { name: 'guggolas', load: { chest: 1 } },        // ugyanaz normalizálva
+    { name: 'Rossz sor', load: { nincsilyen: 1 } },  // érvénytelen izomkulcs
+    { name: '', load: { back: 1 } },                 // névtelen sor
+  ];
+
+  assert.deepEqual(resolveExerciseLoad('Guggolás', catalog), { quads: 1 },
+    'névütközésnél az ELSŐ sor nyer (a kurált sorok állnak elöl)');
+  assert.deepEqual(resolveExerciseLoad('  GUGGOLÁS  ', catalog), { quads: 1 },
+    'a keresés ékezet-, kisbetű- és szóköz-független');
+
+  // Érvénytelen load esetén a kulcsszavas rétegre esünk vissza — NEM a
+  // következő azonos nevű sorra, és nem is üres eredményre.
+  assert.deepEqual(resolveExerciseLoad('Rossz sor', catalog), {},
+    'érvénytelen load + nem illeszkedő kulcsszó → üres');
+  assert.ok(resolveExerciseLoad('Fekvenyomás', catalog).chest > 0,
+    'a katalógusban nem szereplő név a kulcsszavas réteget kapja');
+
+  // Ugyanaz a katalógus-tömb kétszer: az index gyorsítótárazva van, de az
+  // eredmény nem változhat a második hívásra.
+  assert.deepEqual(resolveExerciseLoad('Guggolás', catalog),
+    resolveExerciseLoad('Guggolás', catalog), 'a cache-elt index ugyanazt adja');
+
+  // Két KÜLÖNBÖZŐ katalógus nem keveredhet össze egymás indexével.
+  const other = [{ name: 'Guggolás', load: { core: 1 } }];
+  assert.deepEqual(resolveExerciseLoad('Guggolás', other), { core: 1 },
+    'katalógusonként külön index');
+  assert.deepEqual(resolveExerciseLoad('Guggolás', catalog), { quads: 1 },
+    'az első katalógus indexe érintetlen marad');
+});
+
 test('az ismeretlen nevű gyakorlat is számít az általános terhelésbe', () => {
   const rested = run({ checkins: [fullCheckin()] });
   const unknown = run({ checkins: [fullCheckin()], workouts: [workout(0, 'Vegyes', [

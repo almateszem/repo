@@ -25,6 +25,15 @@ const DB_PATH = process.env.FITTRACK_DB || path.join(__dirname, 'fittrack.db');
 
 const db = new DatabaseSync(DB_PATH);
 
+/* ---- Naplózási mód ----
+   WAL: az olvasók nem blokkolják az írót és fordítva — a piszkozat-autosave
+   így nem akad össze a dashboard olvasásaival. A synchronous = NORMAL a WAL
+   szokásos párja: áramszünetnél a legutolsó tranzakció elveszhet, de az
+   adatbázis nem sérül. Cserébe nincs fsync minden mentésnél.
+   A beállítás a DB-fájlba íródik, tehát a meglévő fájlokon is érvényre jut. */
+db.exec('PRAGMA journal_mode = WAL');
+db.exec('PRAGMA synchronous = NORMAL');
+
 /* ---- Séma ---- */
 db.exec(`
   CREATE TABLE IF NOT EXISTS collections (
@@ -97,6 +106,10 @@ db.exec(`
     date          TEXT NOT NULL,        -- mikor jött ez az értékelés
     updated_at    TEXT NOT NULL DEFAULT (datetime('now'))
   );
+  -- A napi táplálkozási összesítő és a mai napló dátum szerint szűr; index
+  -- nélkül ez a napról napra hízó nutrition_log teljes végigolvasása volt
+  -- (EXPLAIN QUERY PLAN: SCAN nutrition_log).
+  CREATE INDEX IF NOT EXISTS idx_nutrition_log_date ON nutrition_log(date);
 `);
 
 /* ---- Migrációk ----
@@ -177,10 +190,31 @@ console.log('SQLite kész →', DB_PATH);
 
 /* ---- Olvasás ---- */
 
-/** Egy olvasható kollekció (foods, plans, charts, …) JSON-ből visszafejtve. */
+/* A két nagy kollekció memóriában tartva. A collections tábla a seed után nem
+   változik (csak induláskor írjuk), ezért a cache a folyamat teljes életében
+   érvényes marad.
+
+   CSAK ez a két kulcs cache-elhető, és ez szándékos: a hívó ugyanazt az
+   objektumot kapja meg minden kérésnél, tehát MÓDOSÍTANIA TILOS. A 'dashboard'
+   épp ezért nem szerepel itt — a /api/dashboard végpont a lekért objektumra
+   írja rá a streaket és a készenlétet, cache-elve ezek kérésről kérésre
+   egymásra rakódnának.
+
+   Nyereség: az exerciseCatalog 365 KB-os JSON.parse-a kérésenként 3,6-4,4 ms
+   volt, és minden readiness-számítás lekérte. */
+const CACHED_COLLECTIONS = new Set(['exerciseCatalog', 'foods']);
+const collectionCache = new Map();
+
+/** Egy olvasható kollekció (foods, plans, charts, …) JSON-ből visszafejtve.
+    A CACHED_COLLECTIONS kulcsainál a visszaadott érték MEGOSZTOTT — olvasásra
+    való, módosítani nem szabad. */
 export function getCollection(key) {
+  if (collectionCache.has(key)) return collectionCache.get(key);
+
   const row = db.prepare('SELECT value FROM collections WHERE key = ?').get(key);
-  return row ? JSON.parse(row.value) : null;
+  const value = row ? JSON.parse(row.value) : null;
+  if (CACHED_COLLECTIONS.has(key)) collectionCache.set(key, value);
+  return value;
 }
 
 /** A testsúly-bejegyzések a valódi táblából, rögzítési sorrendben. */
