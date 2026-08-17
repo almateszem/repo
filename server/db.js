@@ -366,15 +366,19 @@ function backfillExerciseMaxes() {
       for (const exercise of exercises) {
         const name = exercise?.name;
         if (!name) continue;
-        for (const set of exercise?.sets ?? []) {
-          // Ugyanaz a szabály, mint az addWorkout-ban: csak a teljesített
-          // szettek számítanak, és a legjobb becsült 1RM lesz a csúcs.
-          if (!set?.done) continue;
-          const oneRM = calculateEpley1RM(set.weight, set.reps);
-          if (oneRM <= 0) continue;
-          const current = best.get(name);
-          if (!current || oneRM > current.max1rm) best.set(name, { max1rm: oneRM, date: row.date });
-        }
+        /* PONTOSAN ugyanaz a szabály, mint az addWorkout-ban — a rekordot hozó
+           szettet a közös bestCompletedSet adja meg. Korábban itt egy saját,
+           csak a bepipált szetteket néző ciklus állt, és ez eltért: az
+           addWorkout teljesített szett HÍJÁN az első sorra esik vissza, ez a
+           ciklus viszont ilyenkor semmit nem talált. Akinek tehát a régi
+           edzéseiben egyetlen szett sem volt bepipálva, annak a visszatöltés
+           üresen maradt — vagyis pontosan az a hamis PR keletkezett a
+           következő edzésnél, aminek a megelőzésére ez a függvény való. */
+        const record = bestCompletedSet(exercise?.sets ?? []);
+        const oneRM = record ? calculateEpley1RM(record.weight, record.reps) : 0;
+        if (oneRM <= 0) continue;
+        const current = best.get(name);
+        if (!current || oneRM > current.max1rm) best.set(name, { max1rm: oneRM, date: row.date });
       }
     }
     for (const [name, record] of best) insert.run(userId, name, record.max1rm, record.date);
@@ -769,6 +773,19 @@ export function getSnapshot(userId) {
   snapshot.workoutDraft = getWorkoutDraft(userId);
   snapshot.userPlans = getUserPlans(userId);
   snapshot.checkins = getCheckins(userId, 1000);
+  /* Az egyéni csúcsok is a felhasználó adata. Az edzésekből elvileg
+     visszaszámolhatók (ezt teszi a backfillExerciseMaxes), de a „teljes
+     pillanatkép" akkor teljes, ha nem kell hozzá újraszámolni semmit — és a
+     csúcs DÁTUMA is megmarad, ami a naplóból csak közvetve jönne ki.
+     A mezőnevek itt a getExerciseMax alakját követik (max1rm), nem a tábla
+     oszlopneveit — a snapshot többi része is a felület felőli alakot használja.
+     A getAllExerciseMaxes nyers sorait ezért képezzük át, nem őt írjuk át:
+     azon a /api/exercise-maxes végpont ül. */
+  snapshot.exerciseMaxes = getAllExerciseMaxes(userId).map((row) => ({
+    exercise: row.exercise_name,
+    max1rm: row.max_1rm,
+    date: row.date,
+  }));
   return snapshot;
 }
 
@@ -895,4 +912,15 @@ export function updatePlan(userId, id, name, exercises, days) {
   if (changes === 0) return null;
   const row = db.prepare('SELECT id, name, date, exercises, days FROM plans WHERE id = ?').get(id);
   return { ...row, exercises: JSON.parse(row.exercises), days: JSON.parse(row.days) };
+}
+
+/** Az adatbázis-kapcsolat lezárása.
+
+    A szervernek erre nincs szüksége (a folyamat végéig nyitva tartja a fájlt),
+    a TESZTEKNEK viszont igen: azok ideiglenes könyvtárba dolgoznak, és azt a
+    futás végén letörlik. Windowson egy NYITOTT fájlt nem lehet törölni — a
+    takarítás EPERM-mel elszállt, és a teszt „megbukott" úgy, hogy közben
+    minden állítása teljesült. Ezért a takarítás előtt le kell zárni. */
+export function closeDatabase() {
+  db.close();
 }

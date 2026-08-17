@@ -479,7 +479,20 @@ app.get('/api/prs', (req, res) => {
 // paraméterben kapja a gyakorlat nevét, mert az útvonal-illesztést törné
 // a benne előforduló szóköz/ékezet/perjel.
 app.get('/api/prs/history', (req, res) => {
+  /* A query-paraméter nem feltétlenül sztring: hiányozhat, és ismétlődő
+     megadásnál (?exercise=a&exercise=b) az Express TÖMBÖT ad. Mindkét esetben
+     a névegyezés sosem teljesült, tehát a végpont üres listával válaszolt —
+     ami megkülönböztethetetlen volt attól, hogy a gyakorlathoz tényleg nincs
+     rekord. Az ilyen kérés mostantól hangosan hibás, a szerver többi
+     végpontjához hasonlóan. Az ISMERT alakú, de ismeretlen nevű gyakorlat
+     viszont továbbra is üres lista — az nem hiba, csak nincs még rekordja. */
   const exerciseName = req.query.exercise;
+  if (typeof exerciseName !== 'string' || !exerciseName.trim()) {
+    return res.status(400).json({
+      error: 'Add meg pontosan egy gyakorlat nevét az `exercise` paraméterben.',
+    });
+  }
+
   const history = [];
   for (const workout of getWorkouts(req.user.id)) {
     for (const exercise of workout.exercises) {
@@ -814,6 +827,10 @@ app.use('/api', (req, res) => {
    ====================================================================== */
 app.use(express.static(PUBLIC_DIR));
 
-app.listen(PORT, () => {
-  console.log(`FitTrack Pro szerver fut: http://localhost:${PORT}`);
+/* A TÉNYLEGESEN kiosztott portot írjuk ki, nem a kért PORT-ot. A kettő
+   rendszerint ugyanaz, de PORT=0 esetén az operációs rendszer választ szabad
+   portot — így indul a végponti teszt (server/api.test.js) is, ami ebből a
+   sorból olvassa ki, hova küldje a kéréseket. */
+const server = app.listen(PORT, () => {
+  console.log(`FitTrack Pro szerver fut: http://localhost:${server.address().port}`);
 });
