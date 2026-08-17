@@ -121,9 +121,9 @@ adatbázist** — mindent paraméterként kap, ezért unit-tesztelhető (`npm te
 A napi check-int két felület írja, **ugyanabba a sorba**:
 
 - **`#checkin` — a lépésenkénti varázsló, az elsődleges út.** Egy kérdés / egy
-  képernyő: alvás, alvásminőség, energia, stressz, majd két kapu (van-e izomláz,
-  ill. fájdalom) és a hozzájuk tartozó testtérkép. Szándékosan **nem** kérdez
-  közérzetet, folyadékot és testsúlyt.
+  képernyő: alvás, alvásminőség, energia, stressz, **testsúly**, majd két kapu
+  (van-e izomláz, ill. fájdalom) és a hozzájuk tartozó testtérkép. Szándékosan
+  **nem** kérdez közérzetet és folyadékot.
 - **A Regeneráció oldal „Részletes szerkesztés" blokkja — a teljes űrlap.** Itt
   minden mező elérhető egy képernyőn, a varázslóból kihagyottakkal együtt.
 
@@ -133,9 +133,24 @@ A `PUT /api/checkin` **teljes sort cserél**, nem merge-öl (`saveCheckin`,
 varázsló ezért megnyitáskor betölti a mai check-int, a nem kérdezett mezőket
 (`mood`, `hydration`, `pain.general`) eltárolja, és mentéskor **változatlanul
 visszaküldi** — enélkül némán felülírná, amit a részletes űrlapon adtál meg.
-Ellenkező irányban: a `weightKg`-ot a varázsló **nem** küldi vissza, mert az nem
-a check-in sorba, hanem sima `INSERT`-tel a `weight_log`-ba megy — minden
-újramentés duplikált testsúly-bejegyzést csinálna.
+A `weightKg` kivétel a szabály alól: azt mindkét felület küldi, de nem a
+check-in sorba megy, hanem a `weight_log`-ba — **naponta egy bejegyzésbe**
+(`addWeightEntry`: ha az adott napra már van sor, azt írja felül). Ezért írhatja
+ugyanazt a napot a varázsló és a részletes űrlap is akárhányszor, duplikátum
+nélkül. Üres/hiányzó `weightKg` = „ma nem mértem": ilyenkor a napló érintetlen
+marad.
+
+### A testsúly útja
+
+A napi testsúly a **check-in része** (korábban a dashboardon volt külön rögzítő
+űrlap és trend-diagram). A varázsló testsúly-lépése kihagyható — a mezőt
+szándékosan nem tölti ki előre a legutóbbi méréssel, mert egy előre beírt szám a
+„Tovább"-bal olyan méréssé válna, ami meg sem történt. Ami ma már be van írva,
+azt viszont visszaadja: azt szerkeszted tovább. A trend a **Regeneráció oldal**
+„Testsúly alakulása" kártyáján látszik (a `GET /api/weight-log` utolsó 12
+bejegyzése, a tényleges értékekhez igazított skálával); az áttekintőn csak a
+„Testsúly Δ" stat maradt. Amíg nincs egyetlen saját bejegyzés sem, a kártya a
+seed-görbét mutatja, és ki is írja, hogy az demo-adat.
 
 **A képlet** súlyozott átlag, de csak a *jelen lévő* komponensekre:
 
