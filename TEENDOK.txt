@@ -6,7 +6,199 @@ Nem hibajegy-rendszer: rövid, cselekvésre kész sorok, prioritás szerint.
 Jelölések:   [ ] nyitott    [~] részben kész    [x] kész (a következő
              takarításig marad itt, hogy lássuk, mi történt)
 
-Utolsó frissítés: 2026-08-14
+Utolsó frissítés: 2026-08-17
+
+
+==========================================================================
+KIADÁS ELŐTT — BLOKKOLÓ, ha az app másokhoz is kikerül
+==========================================================================
+
+[x] FELHASZNÁLÓ-FOGALOM — MEGVAN
+    Volt: egyetlen közös adathalmaz. „A" mentette a mellnapját, „B" a
+    lábnapját, ezután „A" a lábnapot látta; a piszkozat szó szerint egy
+    sor volt az egész adatbázisban (workout_draft, CHECK (id = 1)).
+    Most:
+      · users + sessions tábla; user_id MINDEN felhasználói táblán
+        (weight_log, nutrition_log, workouts, plans, workout_draft,
+        checkins), ON DELETE CASCADE-del.
+      · A workout_draft kulcsa user_id, a checkinsé (user_id, date).
+      · Az adatréteg MINDEN függvénye userId-t vár első paraméterként —
+        szűretlen lekérdezés nincs (server/db.js).
+      · Jelszó: scrypt külön sóval; munkamenet: HttpOnly + SameSite=Lax
+        süti, az adatbázisban csak a token SHA-256 lenyomata
+        (server/auth.js). Belépési kísérlet-korlát: 15 perc / 10 hiba.
+      · Belépő képernyő a frontenden (au-*), kijelentkezés a
+        beállításokban.
+    Tesztek: server/users.test.js (izoláció — listák, id-re hivatkozás,
+    export, munkamenet), server/auth.test.js (jelszó, token, süti, zár).
+
+[x] Régi, fiók nélküli adatbázisok migrációja — adatvesztés nélkül
+    Aki eddig helyben használta az appot, annak a naplója a régi sémában
+    van. A meglévő sorok egy ARCHÍV fiókhoz kerülnek (üres jelszó-hash →
+    belépni nem lehet vele), és az ELSŐ regisztráció megörökli az
+    egészet; a második regisztráló már nem lát belőle semmit.
+    A workout_draft és a checkins tábla újraépül (változott az elsődleges
+    kulcsuk), a művelet idempotens.
+    Teszt: server/migration.test.js — felépít egy régi sémájú adatbázist,
+    ráindítja az adatréteget, és sorra ellenőrzi, hogy egyetlen sor sem
+    veszett el.
+
+[x] /api/export levédve
+    A végpont mögött ott a hitelesítés, és a getSnapshot(userId) CSAK a
+    hívó saját naplóit adja vissza — a közös referencia-adaton kívül más
+    fiókból semmi. Tesztelve (users.test.js: „az export CSAK a hívó
+    adatát tartalmazza").
+
+[ ] Nincs jelszó-visszaállítás és nincs fióktörlés
+    Elfelejtett jelszónál kézzel kell javítani a users sort. Kis
+    felhasználószámnál elfogadható, de e-mail-cím nélkül nem is lehet
+    önkiszolgáló visszaállítást csinálni — ez terméki döntés.
+
+
+==========================================================================
+TELJESÍTMÉNY — mérve 2026-08-15, üres / 1 éves / 3 éves adatbázissal
+==========================================================================
+
+Kiindulás: a „sok update és a nagy adat lelassítja-e" kérdés. A mérés
+szerint NEM az adatmennyiség a szűk keresztmetszet (ld. lentebb, „amivel
+nem kell foglalkozni"), hanem egy fix, minden kérésben kifizetett
+számítás. A /api/dashboard ~250 ms, ebből 239 ms a készenlét-számítás.
+
+EREDMÉNY az alábbi öt tétel után (1 éves adat, azonos gépen mérve):
+    /api/dashboard   265 ms →  23 ms
+    /api/readiness   245 ms →  16 ms
+    10 párhuzamos kérés: 4761 ms → 109 ms
+    átbocsátás (keep-alive):  ~4 → 128 kérés/mp
+    A 14 olvasó végpont válasza BÁJTRA AZONOS a javítás előttivel
+    (a /api/export 1,1 MB-ját is beleértve).
+
+[x] resolveExerciseLoad lineáris keresés — EZ volt a 240 ms
+    Volt: catalog.find(), ami minden gyakorlatnál végigpásztázta mind az
+    1401 katalógussort, és mindegyikre ÚJRA lefuttatta a normalizeName-et
+    (1,69 ms hívásonként, a 28 napos ablak minden gyakorlatára).
+    Mérés akkor: computeReadiness teljes katalógussal 239 ms, üres
+    katalógussal 5 ms — vagyis 234 ms tisztán ez a keresés.
+    Most: katalógus-tömbönként egyszer felépülő név-index (Map),
+    WeakMap-ben tartva. Hely: server/muscles.js → catalogLoadIndex.
+    A find() finom viselkedései (első sor nyer, érvénytelen load →
+    kulcsszavas réteg) megőrizve, és tesztben rögzítve
+    (recovery.test.js → „a katalógus név-indexe …"). 1415 gyakorlatnévre
+    ellenőrizve a régi implementációval szemben: 0 eltérés.
+
+[~] A szinkron SQLite miatt minden kérés sorban áll
+    A node:sqlite DatabaseSync szinkron, tehát a kérésenkénti CPU-idő a
+    TELJES event loopot blokkolja. Ez ELVBEN továbbra is így van, de a
+    blokkolt idő 240 ms-ról ~8 ms-ra csökkent, így a gyakorlatban
+    megszűnt a torlódás: 10 párhuzamos kérés 4761 ms helyett 109 ms.
+    Csak akkor kell újra elővenni, ha tényleg sok egyidejű felhasználó
+    lesz — akkor worker thread vagy aszinkron driver a válasz.
+
+[x] Hiányzó index a nutrition_log dátum-szűrésén
+    Volt: SCAN nutrition_log (teljes tábla) a napi összesítőnél.
+    Most:  SEARCH … USING INDEX idx_nutrition_log_user_date.
+    A fiókok bevezetésekor az index (user_id, date)-re bővült, mert a
+    lekérdezés is arra szűr; a felhasználónkénti szűréshez a workouts,
+    plans és weight_log is kapott user_id indexet.
+    A workouts.DATE-re továbbra sem kellett index: egyetlen lekérdezés
+    sem szűr rá SQL-ben (a /api/plans és a volumen-diagram JS-ben szűr),
+    a fölösleges index csak az írásokat lassítaná.
+
+[x] Az exerciseCatalog minden kérésnél újra JSON.parse-olódott
+    365 KB → 3,6-4,4 ms kérésenként, pedig indulás után nem változik.
+    Most: memória-cache a getCollection()-ben, de SZIGORÚAN allowlisttel
+    (exerciseCatalog, foods). A 'dashboard' szándékosan kimarad: a
+    /api/dashboard rááír a lekért objektumra, cache-elve a streak és a
+    készenlét kérésről kérésre egymásra rakódna.
+    Hely: server/db.js → CACHED_COLLECTIONS.
+
+[x] A /api/dashboard KÉTSZER hívta a getWorkouts()-ot
+    trainingStreak() és readinessReport() külön-külön beolvasta és
+    JSON-ből visszafejtette a teljes workouts táblát. Most a végpont
+    egyszer olvassa be, és paraméterként adja át mindkettőnek (a két
+    függvény alapértelmezett paramétere maradt getWorkouts(), így a
+    /api/readiness változatlanul hívható önmagában).
+
+[x] journal_mode = delete → WAL
+    Most: WAL + synchronous = NORMAL (server/db.js eleje). Az olvasók
+    nem blokkolják az írót, és nincs fsync minden autosave-nél. A
+    beállítás a DB-fájlba íródik, a meglévő fájlokon is érvényre jut.
+    A -wal és -shm fájlok már benne voltak a .gitignore-ban.
+
+--- Amivel NEM kell foglalkozni (mérve, hogy ne vizsgáljuk újra) -------
+    · A készenlét-motor NEM lassul az évek múlásával: a
+      CHRONIC_WINDOW_DAYS = 28 ablak korlátozza (recovery.js:224).
+      30 nap / 1 év / 3 év előzménnyel a számítás 245 / 237 / 227 ms.
+    · A nyers DB-olvasás nő, de keveset: 6 ms (30 nap) → 27 ms (3 év).
+    · A sok autosave-update rendben van: 9 ms/mentés, 500 ms debounce
+      mellett (public/script.js:3031). Ez nem probléma.
+    · Az indítás nagy adattal is gyors: ~140 ms, a minden induláskori
+      migrációval együtt.
+
+--- Ami a fenti javítások UTÁN maradt a 8 ms-ból ----------------------
+    Nagyjából a getWorkouts() JSON.parse-a és maga a készenlét-számítás.
+    Ha egyszer ez is kevés lesz: a mentett edzésekből elég a 28 napos
+    ablak (a motor úgyis eldobja a régebbit), tehát a getWorkouts()
+    kaphat egy dátum-szűrős változatot. Most nem éri meg.
+
+
+==========================================================================
+ÜZEMELTETÉS — élesítés előtt
+==========================================================================
+
+[ ] A DB fájl elveszhet: perzisztens volume kell
+    Sok hostingon (Heroku, Render, Fly volume nélkül) a fájlrendszer
+    ephemeral, és újradeploykor törlődik a server/fittrack.db — vele az
+    összes felhasználói adat. A seed újraépül, a naplók NEM.
+
+[ ] Időzóna: a today() a SZERVER helyi ideje
+    Hely: server/server.js:38-43. UTC-s szerveren a magyar
+    felhasználóknak hajnali 2-kor vált a nap, tehát éjszaka rossz
+    naphoz könyvelődik az edzés, a check-in és az étkezés.
+    A dátumot a kliens időzónájából kell venni.
+
+[~] Rate limit
+    A BELÉPÉS most korlátozott (15 percen belül 10 sikertelen próbálkozás
+    után a felhasználónév zárolódik, server/auth.js). Ez memóriában él,
+    tehát újraindításkor nullázódik, és több példánynál példányonként
+    számol. A többi végponton továbbra sincs korlát — bejelentkezést
+    viszont már mind követel, tehát nem nyilvánosan támadható.
+
+
+==========================================================================
+SZETT-TÍPUSOK — a régebbi elemek átvezetése
+==========================================================================
+
+[x] Recovery Engine: a bemelegítő szett nem izomkárosodás
+    A motor a szett-típusok ELŐTT készült, ezért minden bepipált sort
+    teljes munkasorozatnak vett. A felület viszont MINDEN gyakorlat első
+    sorát bemelegítőnek állítja — vagyis gyakorlatonként egy fantom
+    munkasorozattal számolt a készenlét.
+    Most: bemelegítő 0, munkasorozat 1, drop set 0.5 szett-egység
+    (server/recovery.js → setStimulus). A tonnatömeg és a CNS továbbra is
+    minden teljesített szettet lát: a bemelegítés is elvégzett munka.
+    A típus nélküli, régi bejegyzések teljes munkasorozatnak számítanak.
+
+[x] Korábbi rekordok: a lista a bemelegítést hirdette rekordnak
+    A /api/prs az ELSŐ teljesített szettet írta ki, ami a szett-típusok óta
+    tipikusan a bemelegítés — a sor tehát „10 ism. @ 40 kg · 1RM 53,3 kg"-ot
+    mutatott, miközben a mellette tárolt csúcs 116,7 volt.
+    Most: a szabály egy helyen él (bestCompletedSet, server/db.js), és a
+    mentéskori PR-jelölés meg a lista ugyanazt a szettet nézi.
+
+[x] Egyéni csúcsok visszatöltése a PR-követés előtti naplóból
+    Az exercise_maxes táblát az addWorkout tölti. Akinek a naplója régebbi,
+    annak a tábla üresen indult: a következő edzés MINDEN gyakorlata hamis
+    PR-t ütött volna. A szerver most induláskor egyszer visszatölti a
+    csúcsokat a meglévő edzésekből (server/db.js → backfillExerciseMaxes),
+    csak azoknál a fiókoknál, akiknek van edzésük, de egy csúcsuk sincs.
+
+[ ] Heti volumen-diagram: a bemelegítő szettek is beleszámolnak
+    Hely: server/server.js → volumeCharts. A számláló minden bepipált
+    szettet számol, a felirat is ezt mondja („teljesített szettek"), tehát
+    nem hibás — de a „volumen" edzéselméletben munkasorozatot jelent, és a
+    Recovery Engine már így is számol. Ha a diagram a munkasorozatokra vált,
+    a feliratot és az aria-label-t is át kell írni. Terméki döntés, ezért
+    maradt nyitva.
 
 
 ==========================================================================

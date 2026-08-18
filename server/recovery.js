@@ -165,6 +165,25 @@ const MAX_EXERCISE_RECS = 6;
     olyanért, amit nem írt be a felhasználó). */
 const rpeFactor = (rpe) => (rpe === null ? 1 : clamp(1 + (rpe - 8) * 0.2, 0.8, 1.4));
 
+/**
+ * Egy szett IZOMKÁROSODÁS-szorzója a típusa alapján. A naplóban a szettnek
+ * három típusa lehet (`warmup` / `work` / `drop`, lásd normalizeSetType a
+ * server.js-ben), és ez az ingerre nézve nem mindegy:
+ *
+ *   - **bemelegítő** — definíció szerint előkészítés, nem munkasorozat. A
+ *     felület MINDEN gyakorlat első sorát erre állítja alapból, tehát ha
+ *     beleszámítana, minden gyakorlat kapna egy fantom munkasorozatot.
+ *   - **munkasorozat** — a teljes inger, ez a mérce.
+ *   - **drop set** — nem önálló sorozat, hanem az előző FOLYTATÁSA lecsökkentett
+ *     súllyal, már fáradt izommal. Valódi többletkárosodást okoz, de nem
+ *     annyit, mint egy friss munkasorozat.
+ *
+ * A típus nélküli (a szett-típusok bevezetése ELŐTT mentett) szettek teljes
+ * munkasorozatnak számítanak — akkor még minden sor az volt.
+ */
+const SET_TYPE_STIMULUS = { warmup: 0, work: 1, drop: 0.5 };
+const typeStimulusFactor = (type) => (type in SET_TYPE_STIMULUS ? SET_TYPE_STIMULUS[type] : 1);
+
 /** Egy teljesített szett SZISZTÉMÁS terhelése tonnában (ismétlés × súly / 1000),
     RPE-vel súlyozva. A nem teljesített (be nem pipált) szettek nem számítanak.
     A tonnatömeg az össz-mechanikai munkát méri — ez jó proxy az általános
@@ -182,15 +201,18 @@ function setLoad(set) {
     lokális szinten: egy nehéz 5×5 guggolás kevesebb tonnát ad, mint egy
     könnyű, sok ismétléses lábtolás — miközben sokkal jobban lever. A
     hipertrófia-irodalom is szettben méri a heti volument, nem tonnában.
-    Egy szett ~1 egység, RPE-vel skálázva (0.6 … 1.7).
+    Egy szett ~1 egység, RPE-vel skálázva (0.6 … 1.7), majd a szett TÍPUSÁVAL
+    súlyozva (bemelegítő 0, munkasorozat 1, drop set 0.5).
     A súly itt szándékosan nem feltétel: a saját testsúlyos gyakorlatok
     (húzódzkodás, plank, fekvőtámasz) is valódi izomkárosodást okoznak. */
 function setStimulus(set) {
   if (!set?.done) return 0;
   const reps = num(set.reps);
   if (reps === null || reps <= 0) return 0;
+  const typeFactor = typeStimulusFactor(set.type);
+  if (typeFactor === 0) return 0;
   const rpe = num(set.rpe);
-  return rpe === null ? 1 : clamp(1 + (rpe - 8) * 0.3, 0.6, 1.7);
+  return (rpe === null ? 1 : clamp(1 + (rpe - 8) * 0.3, 0.6, 1.7)) * typeFactor;
 }
 
 /** RIR-korrigált Epley-becslés az egyismétléses maximumra. Az RPE-ből
@@ -233,12 +255,14 @@ function summarizeWorkouts(workouts, todayKey, catalog) {
       let doneSets = 0;
 
       for (const set of exercise.sets ?? []) {
-        const stimulus = setStimulus(set);
-        if (stimulus === 0) continue;
-        exerciseStimulus += stimulus;
+        // Az izomkárosodás szett-típusonként eltérően számít (a bemelegítő
+        // nullát ad) — a TONNATÖMEG viszont a bemelegítésé is valódi elvégzett
+        // munka, ezért a szisztémás terhelés és a CNS minden teljesített
+        // szettet lát. A két mérőszám itt szándékosan külön kapun megy át.
+        exerciseStimulus += setStimulus(set);
 
         const load = setLoad(set);
-        if (load === 0) continue; // saját testsúlyos szett: izmot terhel, tonnát nem
+        if (load === 0) continue; // saját testsúlyos vagy be nem pipált szett: izmot terhel, tonnát nem
         doneSets += 1;
         exerciseLoad += load;
 

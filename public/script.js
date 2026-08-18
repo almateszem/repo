@@ -32,9 +32,26 @@
      is ugyanazt kéri le induláskor.
      ====================================================================== */
 
+  /* A munkamenet lejárta (401) minden végponton előfordulhat, nem csak
+     induláskor: a süti 30 nap után elévül, és a fiók másik eszközről ki is
+     jelentkeztethető. Ilyenkor nincs értelme hibaüzenetet mutatni a felület
+     ötven pontján — egyszer visszavisszük a felhasználót a belépő képernyőre.
+     A jelzőt a setupAuthGate állítja be. */
+  let onSessionLost = () => {};
+  const SESSION_LOST = 'session-lost';
+
+  /** 401 esetén elindítja a visszaterelést, és jelzett hibát dob. */
+  function handleUnauthorized() {
+    onSessionLost();
+    const err = new Error('A munkamenet lejárt — jelentkezz be újra.');
+    err.code = SESSION_LOST;
+    return err;
+  }
+
   /** GET egy JSON-végpontra, egységes hibakezeléssel. */
   async function getJson(path) {
     const res = await fetch(path);
+    if (res.status === 401) throw handleUnauthorized();
     if (!res.ok) throw new Error(`GET ${path} → ${res.status}`);
     return res.json();
   }
@@ -47,6 +64,7 @@
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
+    if (res.status === 401) throw handleUnauthorized();
     if (!res.ok) {
       const detail = await res.json().catch(() => null);
       throw new Error(detail?.error || `${method} ${path} → ${res.status}`);
@@ -59,7 +77,21 @@
   /** Törlő kérés — a válasz üres (204), ezért nem próbáljuk JSON-ként olvasni. */
   async function del(path) {
     const res = await fetch(path, { method: 'DELETE' });
+    if (res.status === 401) throw handleUnauthorized();
     if (!res.ok) throw new Error(`DELETE ${path} → ${res.status}`);
+  }
+
+  /* Az auth-végpontok NEM mehetnek a fenti burkolókon: a 401 ott normális
+     válasz („nem vagy belépve"), nem a munkamenet elvesztése. */
+  async function authRequest(path, body) {
+    const res = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body ?? {}),
+    });
+    const detail = res.status === 204 ? null : await res.json().catch(() => null);
+    if (!res.ok) throw new Error(detail?.error || `Hiba (${res.status})`);
+    return detail;
   }
 
   /** GET-cache a csak-olvasható referencia-végpontokhoz: több modul kéri
@@ -106,9 +138,9 @@
     getAthleteReplies: () => getJsonCached('/api/athlete-replies'),
     getCoachNotes:     () => getJsonCached('/api/coach-notes'),
     getCoachReplies:   () => getJsonCached('/api/coach-replies'),
+    // A testsúly-napló. Írni nem innen írunk: a testsúlyt a napi check-in
+    // kérdi, és a PUT /api/checkin weightKg mezője rögzíti (naponta egy sor).
     getWeightLog:      () => getJson('/api/weight-log'),
-    // Új testsúly-bejegyzés — a szerver visszaadja a létrejött { kg, date }-et
-    addWeightEntry:    (kg) => postJson('/api/weight-log', { kg }),
     getNutrition:      () => getJson('/api/nutrition'),
     // A mai naplózott tételek — a Táplálkozás oldal „Mai napló" listájához
     getNutritionLog:   () => getJson('/api/nutrition/log'),
@@ -140,6 +172,24 @@
     getCheckin:        () => getJson('/api/checkin'),
     // A mentés a friss riportot is visszaadja, hogy a felület egy körből frissüljön
     saveCheckin:       (fields) => putJson('/api/checkin', fields),
+
+    /* ---- Fiók ----
+       A me() a 401-et NEM hibaként kezeli: az a „nincs belépve" normális
+       válasza, és a belépő képernyő ebből indul. A firstRun jelzi, ha még
+       egyetlen fiók sincs — ilyenkor rögtön a regisztrációt kínáljuk. */
+    me: async () => {
+      const res = await fetch('/api/auth/me');
+      if (res.status === 401) {
+        const detail = await res.json().catch(() => ({}));
+        return { user: null, firstRun: Boolean(detail.firstRun) };
+      }
+      if (!res.ok) throw new Error(`GET /api/auth/me → ${res.status}`);
+      return { user: await res.json(), firstRun: false };
+    },
+    login:    (username, password) => authRequest('/api/auth/login', { username, password }),
+    register: (username, displayName, password) =>
+      authRequest('/api/auth/register', { username, displayName, password }),
+    logout:   () => authRequest('/api/auth/logout'),
   };
 
   /** Értesítés-kategóriák a beállítások modal kapcsolóihoz (notification.cat). */
@@ -2295,10 +2345,23 @@
       controller.close();
     });
 
+    /* Kijelentkezés. Utána TELJES újratöltés, nem csak képernyőváltás: a
+       memóriában lévő cache-ek és a felépült oldalak az előző fiók adatait
+       tartalmazzák, azokat nem szabad a következő belépésbe átvinni. */
+    $('[data-action="logout"]').addEventListener('click', async () => {
+      try {
+        await api.logout();
+      } catch (err) {
+        console.error('Kijelentkezési hiba:', err);
+      }
+      window.location.reload();
+    });
+
     return {
       open() {
         nameInput.value = prefs.get('displayName', '') || '';
         nameInput.placeholder = user.name;
+        $('[data-st-account]').textContent = `Bejelentkezve: ${user.username ?? user.name}`;
         syncToggles();
         syncRoleToggles();
         controller.open();
@@ -2400,13 +2463,15 @@
     $('[data-action="open-workout"]').addEventListener('click', () => navigate('workout'));
   }
 
-  /* ---- Testsúly rögzítése (dashboard) ----
-     A bejegyzések a szerverre mentődnek (POST /api/weight-log) és onnan
-     töltődnek be. Amint van saját bejegyzés, a diagram KIZÁRÓLAG azokat
-     mutatja, a skálát pedig a tényleges értékekhez igazítjuk — a korábbi
-     80–86 kg-os fix skálán minden ezen kívüli testsúly a diagram aljára
-     lapult, a tengelyfeliratok pedig hazudtak. A seed-görbe csak addig
-     látszik, amíg nincs egyetlen valódi bejegyzés sem. */
+  /* ---- Testsúly-napló ----
+     A bejegyzéseket a napi check-in írja (PUT /api/checkin → weight_log,
+     naponta egy sor); ez a modul csak MEGJELENÍT: a trend-diagramot a
+     Regeneráció oldalon és a Δ statot az áttekintőn. Amint van saját
+     bejegyzés, a diagram KIZÁRÓLAG azokat mutatja, a skálát pedig a tényleges
+     értékekhez igazítjuk — a korábbi 80–86 kg-os fix skálán minden ezen kívüli
+     testsúly a diagram aljára lapult, a tengelyfeliratok pedig hazudtak. A
+     seed-görbe csak addig látszik, amíg nincs egyetlen valódi bejegyzés sem —
+     és ilyenkor a kártya ki is mondja, hogy demo-adatot néz a felhasználó. */
   const WEIGHT_CHART_BARS = 12;      // legfeljebb ennyi oszlop látszik
   const WEIGHT_CHART_MIN_SPAN = 2;   // kg — ekkora sávot mindenképp lefed a skála
 
@@ -2433,30 +2498,51 @@
     };
   }
 
-  async function setupWeightLog() {
-    const form = $('[data-form="weight-log"]');
-    const input = $('#weight-input');
-    const lastEl = $('[data-weight-last]');
+  /** A szerverről betöltött testsúly-bejegyzések ({ id, kg, date }), rögzítési
+      sorrendben. A check-in varázsló is ebből olvassa a legutóbbi mérést. */
+  let weightLog = [];
+
+  /** A legutóbbi testsúly-bejegyzés, vagy null. */
+  const latestWeightEntry = () => (weightLog.length ? weightLog[weightLog.length - 1] : null);
+
+  /** A MAI bejegyzés, ha van. A szerver dátumformátumára (ÉÉÉÉ.HH.NN) épül —
+      ugyanaz, amit a naplóbejegyzések visznek. */
+  function todayWeightEntry() {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const key = `${now.getFullYear()}.${pad(now.getMonth() + 1)}.${pad(now.getDate())}`;
+    return weightLog.find((entry) => entry.date === key) ?? null;
+  }
+
+  /** A testsúly-nézetek újrarajzolása a `weightLog`-ból. */
+  function syncWeightViews({ animateDelta = false } = {}) {
     const chart = $('[data-chart="bodyWeight"]');
+    const lastEl = $('[data-weight-last]');
+    const emptyEl = $('[data-weight-empty]');
     const deltaEl = $('[data-stat="weightDelta"]');
-
     // A Δ statot kísérő „kg" mértékegység — egyetlen bejegyzésnél elrejtjük
-    const deltaUnitEl = deltaEl.parentElement && $('.db-stat-unit', deltaEl.parentElement);
+    const deltaUnitEl = deltaEl?.parentElement && $('.db-stat-unit', deltaEl.parentElement);
 
-    // A bejegyzések a szerverről jönnek; a lokális másolat a friss válaszokkal frissül
-    let log = await api.getWeightLog();
+    if (weightLog.length === 0) {
+      // Marad a seed-görbe — de kimondjuk, hogy az nem a felhasználó adata,
+      // és a Δ sem mutat 0-t olyan változásra, amit soha nem mértünk.
+      if (emptyEl) emptyEl.hidden = false;
+      if (lastEl) lastEl.hidden = true;
+      if (deltaEl) deltaEl.textContent = '–';
+      if (deltaUnitEl) deltaUnitEl.hidden = true;
+      return;
+    }
+    if (emptyEl) emptyEl.hidden = true;
 
-    const sync = ({ animateDelta = false } = {}) => {
-      if (log.length === 0) return; // marad a seed-görbe, amíg nincs saját adat
+    if (chart) renderChart(chart, weightChartData(weightLog));
 
-      renderChart(chart, weightChartData(log));
-
-      const latest = log[log.length - 1];
+    const latest = weightLog[weightLog.length - 1];
+    if (deltaEl) {
       // Δ csak akkor értelmes, ha van mihez viszonyítani. Korábban az első
       // bejegyzés egy beégetett demo-testsúlyhoz (84.6 kg) mérte magát, és
       // ezért teljesen valótlan változást mutatott.
-      if (log.length > 1) {
-        const delta = latest.kg - log[log.length - 2].kg;
+      if (weightLog.length > 1) {
+        const delta = latest.kg - weightLog[weightLog.length - 2].kg;
         if (animateDelta) animateNumber(deltaEl, delta, { duration: 600, format: formatDelta });
         else deltaEl.textContent = formatDelta(delta);
         if (deltaUnitEl) deltaUnitEl.hidden = false;
@@ -2464,32 +2550,31 @@
         deltaEl.textContent = '–';
         if (deltaUnitEl) deltaUnitEl.hidden = true;
       }
+    }
 
+    if (lastEl) {
       lastEl.hidden = false;
-      lastEl.textContent = `Utolsó bejegyzés: ${formatNumber(latest.kg)} kg · ${latest.date}`;
-    };
+      lastEl.textContent = `Utolsó mérés: ${formatNumber(latest.kg)} kg · ${latest.date}`;
+    }
+  }
 
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const kg = parseFloat(input.value);
-      if (!Number.isFinite(kg) || kg < 30 || kg > 300) {
-        showToast('Adj meg érvényes testsúlyt (30–300 kg)', 'error');
-        input.focus();
-        return;
-      }
-      try {
-        const entry = await api.addWeightEntry(kg); // szerverre mentés → { kg, date }
-        log = [...log, entry];
-        form.reset();
-        sync({ animateDelta: true });
-        showToast(`Testsúly rögzítve: ${formatNumber(entry.kg)} kg`);
-      } catch (err) {
-        console.error(err);
-        showToast(err.message || 'Nem sikerült menteni a testsúlyt', 'error');
-      }
-    });
+  /** A napló újratöltése a szerverről + újrarajzolás. A Regeneráció oldal
+      megnyitása hívja (az adat máshol — akár másik fülön — is változhatott). */
+  async function refreshWeightLog() {
+    weightLog = await api.getWeightLog();
+    syncWeightViews();
+  }
 
-    sync(); // a szerverről betöltött bejegyzések megjelenítése
+  /** A check-in válaszában érkező testsúly-bejegyzés beolvasztása. Naponta egy
+      sor van, ezért az azonos id-jű bejegyzést CSERÉLJÜK, nem hozzáfűzzük —
+      különben a napi újramentés fantom-oszlopot rakna a diagramra. */
+  function mergeWeightEntry(entry) {
+    if (!entry) return;
+    const index = weightLog.findIndex((item) => item.id === entry.id);
+    weightLog = index >= 0
+      ? weightLog.map((item, i) => (i === index ? entry : item))
+      : [...weightLog, entry];
+    syncWeightViews({ animateDelta: true });
   }
 
   /** A Regeneráció oldal: a napi check-in űrlap felépítése és mentése, majd a
@@ -2530,7 +2615,10 @@
       const numberOrEmpty = (value) => (value === null || value === undefined ? '' : String(value));
       sleepInput.value = numberOrEmpty(checkin?.sleepHours);
       hydrationInput.value = numberOrEmpty(checkin?.hydration);
-      weightInput.value = ''; // a testsúlyt nem töltjük vissza: új mérés, nem szerkesztés
+      // A testsúly nem a check-in sorból, hanem a testsúly-naplóból jön: ha ma
+      // már mértél (itt vagy a varázslóban), azt az értéket szerkeszted tovább
+      // — naponta egy bejegyzés van, a mentés felülír.
+      weightInput.value = numberOrEmpty(todayWeightEntry()?.kg);
 
       [...CHECKIN_SCALES, MOOD_SCALE].forEach(([name]) => writeScale(scaleFor(name), checkin?.[name] ?? null));
       MUSCLE_GROUPS.forEach(([key]) => {
@@ -2598,6 +2686,7 @@
       try {
         // A válasz a friss riportot is tartalmazza — nem kell külön lekérni
         const { checkin, weightEntry, readiness } = await api.saveCheckin(body);
+        mergeWeightEntry(weightEntry); // a trend-diagram és a Δ stat frissítése
         applyCheckinSaved(checkin, readiness);
         showToast(weightEntry
           ? `Check-in mentve · testsúly ${formatNumber(weightEntry.kg)} kg`
@@ -2623,7 +2712,11 @@
     /** Friss riport + check-in a szerverről. A pageEffects és az edzés
         lezárása is ezt hívja. */
     refreshRecovery = async () => {
-      const [report, checkin] = await Promise.all([api.getReadiness(), api.getCheckin()]);
+      // A testsúly-napló is ide tartozik: a trend-kártya ezen az oldalon van,
+      // és a fillForm a mai bejegyzésből tölti a testsúly-mezőt.
+      const [report, checkin] = await Promise.all([
+        api.getReadiness(), api.getCheckin(), refreshWeightLog(),
+      ]);
       fillForm(checkin);
       renderRecovery(report);
     };
@@ -2640,7 +2733,7 @@
 
   /** A mindig jelen lévő lépések. A testtérképeket a kapu-válaszok fűzik be
       (lásd ciStepOrder) — ezért nincs külön „ugorj ide" logika sehol. */
-  const CI_BASE_STEPS = ['intro', 'sleep', 'sleepq', 'energy', 'stress', 'soreGate'];
+  const CI_BASE_STEPS = ['intro', 'sleep', 'sleepq', 'energy', 'stress', 'weight', 'soreGate'];
 
   /** A skála-lépések kulcsa → a CHECKIN_SCALES mezőneve. */
   const CI_SCALE_STEPS = { sleepq: 'sleepQuality', energy: 'energy', stress: 'stress' };
@@ -2648,6 +2741,15 @@
   const CI_SLEEP_PRESETS = [6, 7, 7.5, 8, 8.5];
   const CI_SLEEP_MIN = 0;
   const CI_SLEEP_MAX = 12;
+
+  /* A testsúly-lépés. A tartomány a szerverével egyezik (server.js) — a
+     kliens csak beszédesebb hibát ad, nem enged át mást. */
+  const CI_WEIGHT_MIN = 30;
+  const CI_WEIGHT_MAX = 300;
+  /** Gyorsgombok a viszonyítási mérés köré, kilóban. */
+  const CI_WEIGHT_PRESET_OFFSETS = [-0.5, 0, 0.5];
+  /** A ± gombok kiindulópontja, ha még soha nem mértél. */
+  const CI_WEIGHT_FALLBACK = 80;
 
   /**
    * Testtérkép-régiók a 220×420-as rajzterületen: [izomkulcs, x, y, szélesség, magasság].
@@ -2741,9 +2843,10 @@
    * visszaküldjük. Enélkül a részletes űrlapon aznap megadott értékek
    * némán NULL-ra állnának.
    *
-   * A testsúly SZÁNDÉKOSAN nincs itt: azt a szerver nem a checkins sorba,
-   * hanem a weight_log-ba írja, méghozzá sima INSERT-tel (server/db.js:316).
-   * Visszaküldve minden mentés új testsúly-bejegyzést szúrna be.
+   * A testsúly nem itt, hanem az `answers`-ben van: a varázsló KÉRDEZI (a
+   * dashboard külön rögzítő űrlapja helyett). A szerver nem a checkins sorba,
+   * hanem a weight_log-ba írja, naponta egy sorba — az újramentés felülír,
+   * nem duplikál (server/db.js addWeightEntry).
    */
   let ci = null;
 
@@ -2759,6 +2862,7 @@
     gates: { sore: null, pain: null },
     answers: {
       sleepHours: null, sleepQuality: null, energy: null, stress: null,
+      weightKg: null,    // null = ma nem mértél; ilyenkor nem születik bejegyzés
       soreness: {},      // { chest: 3, … } 1..5, csak a megjelöltek
       pain: {},          // { back: 8, … }  1..10, 'general' NÉLKÜL
     },
@@ -2845,6 +2949,7 @@
       sleepq: () => renderScale('sleepq'),
       energy: () => renderScale('energy'),
       stress: () => renderScale('stress'),
+      weight: renderWeight,
       soreGate: () => renderGate('soreGate'),
       painGate: () => renderGate('painGate'),
       soreness: () => renderMap('soreness'),
@@ -2937,6 +3042,120 @@
         ci.dirty = true;
       }
 
+      return step;
+    }
+
+    /* ---- Testsúly ----
+       A napi testsúly rögzítése. Ez váltja ki a dashboard korábbi külön
+       űrlapját: a mérés a check-in része, az eredménye pedig a Regeneráció
+       oldal trend-diagramján látszik. */
+
+    /** A viszonyítási bejegyzés a gyorsgombokhoz és a ± kiindulópontjához:
+        a mai mérés, ha ma már volt, egyébként a legutóbbi. */
+    const ciWeightReference = () => todayWeightEntry() ?? latestWeightEntry();
+
+    function renderWeight() {
+      const step = cloneTemplate('tpl-ci-weight');
+      const input = $('#ci-weight', step);
+      const presets = $('[data-ci-presets]', step);
+      const note = $('[data-ci-weight-note]', step);
+      const reference = ciWeightReference();
+      const todayEntry = todayWeightEntry();
+
+      // A mezőt SZÁNDÉKOSAN nem töltjük ki a legutóbbi méréssel: egy előre
+      // beírt szám a „Tovább" gombbal olyan méréssé válna, ami meg sem történt.
+      // A ma már rögzített érték viszont szerkeszthető — azt visszaadjuk.
+      input.value = ci.answers.weightKg === null ? '' : formatNumber(ci.answers.weightKg);
+
+      const syncStep = () => {
+        const value = ci.answers.weightKg;
+        $$('button', presets).forEach((btn) => {
+          btn.setAttribute('aria-pressed', String(Number(btn.dataset.value) === value));
+        });
+        note.textContent = weightNote(value);
+      };
+
+      /** A mező alatti magyarázó sor: mihez képest van a beírt érték, illetve
+          mi történik, ha üresen hagyod. */
+      function weightNote(value) {
+        if (value === null) {
+          return reference
+            ? `Üresen hagyva kihagyjuk — az utolsó mérésed ${formatNumber(reference.kg)} kg (${reference.date}).`
+            : 'Üresen hagyva kihagyjuk — ma nem kerül bejegyzés a testsúly-naplóba.';
+        }
+        if (todayEntry) {
+          return `Ma már rögzítettél ${formatNumber(todayEntry.kg)} kg-ot — a mentés ezt írja felül.`;
+        }
+        if (!reference) return 'Ez lesz az első bejegyzésed a testsúly-naplóban.';
+        const diff = value - reference.kg;
+        return Math.abs(diff) < 0.05
+          ? `Ugyanannyi, mint a legutóbbi mérésed (${reference.date}).`
+          : `${formatDelta(diff)} kg a legutóbbi méréshez képest (${reference.date}).`;
+      }
+
+      function commitWeight() {
+        const raw = input.value.trim();
+        const value = Number(raw);
+        ci.answers.weightKg = raw === '' || !Number.isFinite(value)
+          ? null
+          : ciClamp(Math.round(value * 10) / 10, CI_WEIGHT_MIN, CI_WEIGHT_MAX);
+        ci.dirty = true;
+        syncStep();
+      }
+
+      // Gépelés közben nem írunk vissza a mezőbe (a félkész „8" nem ugrik
+      // 30-ra), elhagyáskor viszont a látott és a tárolt érték egyezzen.
+      input.addEventListener('input', commitWeight);
+      input.addEventListener('blur', () => {
+        input.value = ci.answers.weightKg === null ? '' : formatNumber(ci.answers.weightKg);
+      });
+
+      // A ± gombokat a megosztott handleStepClick lépteti; üres mezőnél viszont
+      // 0-ról indulna (és a min miatt 30-ra ugrana), ezért az első koppintás
+      // csak beülteti a viszonyítási értéket, és ott meg is áll.
+      step.addEventListener('click', (event) => {
+        if (!event.target.closest('.wk-num-step')) return;
+        cancelAdvance();
+        if (input.value.trim() !== '') return;
+        event.stopPropagation();
+        input.value = formatNumber(reference?.kg ?? CI_WEIGHT_FALLBACK);
+        commitWeight();
+      });
+
+      if (reference) {
+        CI_WEIGHT_PRESET_OFFSETS.forEach((offset) => {
+          const value = Math.round((reference.kg + offset) * 10) / 10;
+          if (value < CI_WEIGHT_MIN || value > CI_WEIGHT_MAX) return;
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'ci-preset';
+          btn.dataset.value = String(value);
+          btn.textContent = formatNumber(value);
+          btn.setAttribute('aria-pressed', 'false');
+          btn.setAttribute('aria-label', `${formatNumber(value)} kilogramm`);
+          btn.addEventListener('click', (event) => {
+            input.value = formatNumber(value);
+            commitWeight();
+            // Billentyűs aktiválás (detail === 0) nem léptet magától.
+            if (event.detail !== 0) advanceSoon(CI_PRESET_ADVANCE_MS);
+          });
+          presets.appendChild(btn);
+        });
+        presets.hidden = presets.childElementCount === 0;
+      }
+
+      $('[data-ci-weight-skip]', step).addEventListener('click', () => {
+        input.value = '';
+        commitWeight(); // → null: ma nincs mérés
+        goNext();
+      });
+
+      $('[data-action="checkin-next"]', step).addEventListener('click', () => {
+        commitWeight();
+        goNext();
+      });
+
+      syncStep();
       return step;
     }
 
@@ -3224,6 +3443,10 @@
         ['Alvásminőség', `${answers.sleepQuality ?? '–'} / 5`],
         ['Energiaszint', `${answers.energy ?? '–'} / 5`],
         ['Stresszszint', `${answers.stress ?? '–'} / 5`],
+        // A kihagyott testsúly nem hiányzó adat, hanem válasz: ma nem mértél.
+        ['Testsúly', answers.weightKg === null
+          ? 'Ma nem mértem'
+          : `${formatNumber(answers.weightKg)} kg`],
         ['Izomláz', named(answers.soreness).join(', ') || 'Nincs'],
         ['Fájdalom', painParts.join(', ') || 'Nincs'],
       ];
@@ -3305,16 +3528,18 @@
         },
         mood: carried.mood,           // nem kérdezzük — vissza, különben NULL lesz
         hydration: carried.hydration, // ugyanígy
-        // weightKg SZÁNDÉKOSAN kimarad: a szerver a weight_log-ba INSERT-eli
-        // (server/db.js:316), tehát visszaküldve minden mentés duplikált
-        // testsúly-sort írna.
+        // A testsúly nem a check-in sorba megy: a szerver a weight_log-ba
+        // írja, naponta egy bejegyzésbe (felülír, nem duplikál). A null azt
+        // jelenti, hogy ma nem mértél — ilyenkor a napló érintetlen marad.
+        weightKg: answers.weightKg,
       };
     }
 
     async function submit(btn, step) {
       btn.disabled = true;
       try {
-        const { checkin, readiness } = await api.saveCheckin(buildBody());
+        const { checkin, weightEntry, readiness } = await api.saveCheckin(buildBody());
+        mergeWeightEntry(weightEntry); // trend-diagram (Regeneráció) + Δ stat
         ci.readiness = readiness;
         ci.saved = true;
         ci.dirty = false;
@@ -3346,7 +3571,9 @@
      * mezők frissülnek, hogy a félbehagyott kitöltés ne vesszen el.
      */
     async function load({ fresh }) {
-      const report = await api.getReadiness();
+      // A testsúly-napló is kell: ebből tölti a testsúly-lépés a viszonyítási
+      // mérést, és ebből derül ki, ma volt-e már mérés.
+      const [report] = await Promise.all([api.getReadiness(), refreshWeightLog()]);
       const checkin = report.checkin.values;
 
       ci.readiness = report;
@@ -3363,6 +3590,9 @@
         sleepQuality: checkin?.sleepQuality ?? null,
         energy: checkin?.energy ?? null,
         stress: checkin?.stress ?? null,
+        // A testsúly a naplóból jön (nem a check-in sorból): ha ma már mértél,
+        // azt az értéket szerkeszted tovább, különben üresen indul.
+        weightKg: todayWeightEntry()?.kg ?? null,
         soreness: ciPickPositive(checkin?.soreness),
         pain: ciPickPositive(checkin?.pain, 'general'),
       };
@@ -3394,6 +3624,11 @@
     };
 
     page.addEventListener('click', (event) => {
+      // A ± léptetők (alvás, testsúly) a megosztott primitívre épülnek: a
+      // min/max/step a mezőről jön, a lépés `input` eseményt vált ki, amire a
+      // lépés saját kezelője beírja a választ. Delegálva, mert a lépések
+      // renderelésenként újraépülnek.
+      if (handleStepClick(event)) return;
       if (event.target.closest('[data-action="checkin-back"]')) goBack();
     });
 
@@ -4781,7 +5016,10 @@
     }));
     const athleteModal = await safe(setupAthleteModal);
     setupDashboard(settingsModal);
-    await safe(setupWeightLog);
+    // A testsúly-napló a Regeneráció oldal trend-kártyáját és az áttekintő Δ
+    // statját tölti — a setupRecovery ELŐTT, mert az a mai bejegyzésből tölti
+    // a részletes űrlap testsúly-mezőjét.
+    await safe(refreshWeightLog);
     await safe(setupRecovery);
     // A setupRecovery UTÁN: a varázsló mentése az ott beállított
     // applyCheckinSaved-en keresztül frissíti a Regeneráció oldalt.
@@ -4818,8 +5056,139 @@
     }
   }
 
-  document.addEventListener('DOMContentLoaded', () => {
-    init().catch((err) => console.error('Inicializálási hiba:', err));
+  /* ======================================================================
+     Belépő képernyő (au-*)
+     Az app előtt áll: amíg nincs érvényes munkamenet, a szerver minden
+     /api/* végponton 401-et ad, tehát nincs mit renderelni mögötte. Ezért
+     nem modál — nem lehet bezárni, nincs háttér-átkattintás.
+     ====================================================================== */
+  function setupAuthGate() {
+    const screen = $('#authScreen');
+    const form = $('[data-form="auth"]');
+    const titleEl = $('#authTitle');
+    const leadEl = $('[data-au-lead]');
+    const errorEl = $('[data-au-error]');
+    const submitBtn = $('[data-au-submit]');
+    const switchBtn = $('[data-au-switch]');
+    const switchTextEl = $('[data-au-switch-text]');
+    const passwordInput = $('#au-password');
+
+    let mode = 'login';   // 'login' | 'register'
+    let onSuccess = null; // a sikeres belépés után futtatandó lépés
+
+    const MODES = {
+      login: {
+        title: 'Belépés',
+        lead: 'Jelentkezz be a saját edzésnaplódhoz.',
+        submit: 'Belépés',
+        switchText: 'Még nincs fiókod?',
+        switchLabel: 'Regisztráció',
+        autocomplete: 'current-password',
+      },
+      register: {
+        title: 'Regisztráció',
+        lead: 'Hozz létre egy fiókot — az adataid csak hozzád tartoznak.',
+        submit: 'Fiók létrehozása',
+        switchText: 'Van már fiókod?',
+        switchLabel: 'Belépés',
+        autocomplete: 'new-password',
+      },
+    };
+
+    const showError = (message) => {
+      errorEl.textContent = message;
+      errorEl.hidden = !message;
+    };
+
+    const applyMode = () => {
+      const config = MODES[mode];
+      titleEl.textContent = config.title;
+      leadEl.textContent = config.lead;
+      submitBtn.textContent = config.submit;
+      switchTextEl.textContent = config.switchText;
+      switchBtn.textContent = config.switchLabel;
+      passwordInput.autocomplete = config.autocomplete;
+      $$('[data-au-only="register"]').forEach((el) => { el.hidden = mode !== 'register'; });
+      showError('');
+    };
+
+    switchBtn.addEventListener('click', () => {
+      mode = mode === 'login' ? 'register' : 'login';
+      applyMode();
+    });
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const username = $('#au-username').value.trim();
+      const password = passwordInput.value;
+      const displayName = $('#au-display-name').value.trim();
+
+      showError('');
+      submitBtn.disabled = true;
+      try {
+        if (mode === 'register') await api.register(username, displayName, password);
+        else await api.login(username, password);
+
+        form.reset();
+        screen.hidden = true;
+        screen.setAttribute('aria-hidden', 'true');
+        onSuccess?.();
+      } catch (err) {
+        showError(err.message);
+        passwordInput.focus();
+        passwordInput.select();
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+
+    /** A képernyő megnyitása. `firstRun` esetén rögtön a regisztráció látszik
+        (még egyetlen fiók sincs), `next` pedig a siker utáni lépés. */
+    const open = ({ firstRun = false, next = null, message = '' } = {}) => {
+      mode = firstRun ? 'register' : 'login';
+      onSuccess = next;
+      applyMode();
+      if (message) showError(message);
+      screen.hidden = false;
+      screen.setAttribute('aria-hidden', 'false');
+      $('#au-username').focus();
+    };
+
+    return { open, isOpen: () => !screen.hidden };
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+    const gate = setupAuthGate();
+
+    /* Munkamenet-vesztés MENET KÖZBEN (lejárt süti, másik eszközről történt
+       kijelentkezés). Ilyenkor a felépült felület már az előző fiók adatait
+       mutatja, ezért belépés után teljes újratöltés jön — nem próbáljuk
+       darabonként frissíteni. A jelző azt is megakadályozza, hogy több
+       párhuzamos 401 többször nyissa meg a képernyőt. */
+    let sessionLostHandled = false;
+    onSessionLost = () => {
+      if (sessionLostHandled || gate.isOpen()) return;
+      sessionLostHandled = true;
+      gate.open({
+        next: () => window.location.reload(),
+        message: 'A munkamenet lejárt — jelentkezz be újra.',
+      });
+    };
+
+    try {
+      const { user, firstRun } = await api.me();
+      if (user) {
+        await init();
+      } else {
+        // Az első betöltésnél még nincs mit eldobni, ezért itt elég az init.
+        gate.open({
+          firstRun,
+          next: () => init().catch((err) => console.error('Inicializálási hiba:', err)),
+        });
+      }
+    } catch (err) {
+      console.error('Inicializálási hiba:', err);
+    }
   });
 
 })();

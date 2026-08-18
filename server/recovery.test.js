@@ -166,6 +166,65 @@ test('a be nem pipált szettek nem terhelnek', () => {
   assert.equal(report.overall, rested.overall, 'csak a teljesített szett számít terhelésnek');
 });
 
+/* ---- Szett-típusok (bemelegítő / munkasorozat / drop set) ----
+   A típus a naplóban választható mező; a motor korábban NEM ismerte, ezért
+   minden bepipált sort teljes munkasorozatnak vett. A felület viszont MINDEN
+   gyakorlat első sorát bemelegítőnek állítja, tehát ez gyakorlatonként egy
+   fantom munkasorozatot jelentett az izomkárosodásban. */
+
+const typedSet = (type, reps, weight, rpe = 8) => ({ ...set(reps, weight, rpe), type });
+
+const quadsOf = (report) => report.muscles.find((m) => m.key === 'quads').readiness;
+
+test('a bemelegítő szett nem okoz izomkárosodást', () => {
+  const rested = run({ checkins: [fullCheckin()] });
+  const warmupOnly = run({
+    checkins: [fullCheckin()],
+    workouts: [workout(0, 'Láb', [exercise('Guggolás', [typedSet('warmup', 8, 60, 5)])])],
+  });
+  assert.equal(quadsOf(warmupOnly), quadsOf(rested), 'a bemelegítés nem terheli az izmot');
+});
+
+test('a bemelegítő tonnatömege ettől még beleszámít a szisztémás terhelésbe', () => {
+  const rested = run({ checkins: [fullCheckin()] });
+  const warmupOnly = run({
+    checkins: [fullCheckin()],
+    workouts: [workout(0, 'Láb', [exercise('Guggolás', [typedSet('warmup', 8, 60, 5)])])],
+  });
+  const loadOf = (report) => report.components.find((c) => c.key === 'load').score;
+  assert.ok(loadOf(warmupOnly) < loadOf(rested), 'elvégzett munka, tehát a terhelés-komponens látja');
+});
+
+test('a drop set fél munkasorozatnyi izomkárosodást ad', () => {
+  const base = [typedSet('work', 5, 140, 9)];
+  const oneWork = run({
+    checkins: [fullCheckin()],
+    workouts: [workout(0, 'Láb', [exercise('Guggolás', base)])],
+  });
+  const withDrop = run({
+    checkins: [fullCheckin()],
+    workouts: [workout(0, 'Láb', [exercise('Guggolás', [...base, typedSet('drop', 5, 140, 9)])])],
+  });
+  const withSecondWork = run({
+    checkins: [fullCheckin()],
+    workouts: [workout(0, 'Láb', [exercise('Guggolás', [...base, typedSet('work', 5, 140, 9)])])],
+  });
+  assert.ok(quadsOf(withDrop) < quadsOf(oneWork), 'a drop set valódi többletkárosodás');
+  assert.ok(quadsOf(withDrop) > quadsOf(withSecondWork), 'de kevesebb, mint egy friss munkasorozat');
+});
+
+test('a típus nélküli (régi) szettek továbbra is teljes munkasorozatnak számítanak', () => {
+  const legacy = run({
+    checkins: [fullCheckin()],
+    workouts: [workout(0, 'Láb', [exercise('Guggolás', [set(5, 140, 9)])])],
+  });
+  const typed = run({
+    checkins: [fullCheckin()],
+    workouts: [workout(0, 'Láb', [exercise('Guggolás', [typedSet('work', 5, 140, 9)])])],
+  });
+  assert.equal(quadsOf(legacy), quadsOf(typed), 'a szett-típusok előtti napló nem értékelődik le');
+});
+
 /* ======================================================================
    Izomcsoport-readiness
    ====================================================================== */
@@ -381,6 +440,43 @@ test('a katalógus load-súlyai és a kulcsszavas fallback is 1-re normalizáló
   assert.ok(fromKeyword.hamstrings > 0 && fromKeyword.back > 0);
 
   assert.deepEqual(resolveExerciseLoad('Trambulin ugrálás', []), {}, 'ismeretlen név nem terhel hamisan izmot');
+});
+
+/* A katalógus-keresés név-index mögé került (muscles.js → catalogLoadIndex),
+   mert a korábbi lineáris catalog.find() adta a /api/dashboard idejének 90%-át.
+   Az index néhány finom viselkedést örökölt a find()-tól — ezek itt vannak
+   rögzítve, hogy egy későbbi átírás ne csendben változtassa meg őket. */
+test('a katalógus név-indexe a lineáris keresés viselkedését őrzi', () => {
+  const catalog = [
+    { name: 'Guggolás', load: { quads: 1 } },
+    { name: 'guggolas', load: { chest: 1 } },        // ugyanaz normalizálva
+    { name: 'Rossz sor', load: { nincsilyen: 1 } },  // érvénytelen izomkulcs
+    { name: '', load: { back: 1 } },                 // névtelen sor
+  ];
+
+  assert.deepEqual(resolveExerciseLoad('Guggolás', catalog), { quads: 1 },
+    'névütközésnél az ELSŐ sor nyer (a kurált sorok állnak elöl)');
+  assert.deepEqual(resolveExerciseLoad('  GUGGOLÁS  ', catalog), { quads: 1 },
+    'a keresés ékezet-, kisbetű- és szóköz-független');
+
+  // Érvénytelen load esetén a kulcsszavas rétegre esünk vissza — NEM a
+  // következő azonos nevű sorra, és nem is üres eredményre.
+  assert.deepEqual(resolveExerciseLoad('Rossz sor', catalog), {},
+    'érvénytelen load + nem illeszkedő kulcsszó → üres');
+  assert.ok(resolveExerciseLoad('Fekvenyomás', catalog).chest > 0,
+    'a katalógusban nem szereplő név a kulcsszavas réteget kapja');
+
+  // Ugyanaz a katalógus-tömb kétszer: az index gyorsítótárazva van, de az
+  // eredmény nem változhat a második hívásra.
+  assert.deepEqual(resolveExerciseLoad('Guggolás', catalog),
+    resolveExerciseLoad('Guggolás', catalog), 'a cache-elt index ugyanazt adja');
+
+  // Két KÜLÖNBÖZŐ katalógus nem keveredhet össze egymás indexével.
+  const other = [{ name: 'Guggolás', load: { core: 1 } }];
+  assert.deepEqual(resolveExerciseLoad('Guggolás', other), { core: 1 },
+    'katalógusonként külön index');
+  assert.deepEqual(resolveExerciseLoad('Guggolás', catalog), { quads: 1 },
+    'az első katalógus indexe érintetlen marad');
 });
 
 test('az ismeretlen nevű gyakorlat is számít az általános terhelésbe', () => {
