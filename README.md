@@ -13,7 +13,9 @@ ami ettől a verziótól érhető el.
 npm install
 npm start          # http://localhost:3000
 npm run dev        # ugyanaz, fájlfigyeléssel (node --watch)
-npm test           # a Recovery Engine unit-tesztjei (node --test, nulla függőség)
+npm test           # unit-tesztek (node --test, nulla függőség):
+                   #   a Recovery Engine, a jelszó-/munkamenet-kezelés,
+                   #   a felhasználók közti adatizoláció és a migráció
 ```
 
 Környezeti változók:
@@ -37,6 +39,10 @@ public/          statikus frontend (a szerver innen szolgálja ki)
   style.css      dizájn-tokenek és komponensstílusok
 server/
   server.js      Express: /api/* végpontok + a public/ kiszolgálása
+  auth.js        jelszó-hash (scrypt), munkamenet-tokenek, sütik — tiszta függvények
+  auth.test.js   a jelszó- és munkamenet-kezelés tesztjei (npm test)
+  users.test.js  a felhasználók közti adatizoláció tesztjei (npm test)
+  migration.test.js  a fiókok előtti adatbázis migrációjának tesztje (npm test)
   db.js          SQLite adatréteg — az egyetlen modul, ami a tárolást ismeri
   data.js        seed / referencia-adat (ételek, gyakorlat-katalógus, sportolók)
   recovery.js    Recovery Engine — a készenlét-számítás (tiszta függvények, DB nélkül)
@@ -47,9 +53,34 @@ server/
 
 Az adat kétféle: a `collections` táblában a **csak olvasható** referencia-adat,
 amit a szerver minden induláskor a `data.js`-ből szinkronizál (tehát a `data.js`
-az egyetlen szerkesztési hely), illetve a **felhasználói adat** saját táblákban
-(`weight_log`, `nutrition_log`, `workouts`, `plans`, `workout_draft`) — ezeket a
-seed nem írja felül.
+az egyetlen szerkesztési hely) — ez minden fióknak közös —, illetve a
+**felhasználói adat** saját táblákban (`weight_log`, `nutrition_log`, `workouts`,
+`plans`, `workout_draft`, `checkins`). Ezeket a seed nem írja felül, és minden
+soruk egy fiókhoz tartozik (`user_id`).
+
+## Fiókok
+
+Minden `/api/*` végpont bejelentkezést követel (az `/api/auth/*` kivételével),
+és **minden lekérdezés a bejelentkezett fiókra szűr** — a felhasználók nem
+látják és nem írhatják egymás adatát, id-re hivatkozva sem.
+
+- **Jelszó:** scrypt, fiókonként külön sóval (`server/auth.js`). A paraméterek
+  bele vannak írva a hashbe, így később emelhetők a régi jelszavak
+  érvénytelenítése nélkül.
+- **Munkamenet:** `HttpOnly`, `SameSite=Lax` süti, 30 napos élettartammal. Az
+  adatbázisba **csak a token SHA-256 lenyomata** kerül, maga a token nem.
+  HTTPS-en (vagy `x-forwarded-proto: https` mögött) a süti `Secure` jelzőt is kap.
+- **Belépési kísérlet-korlát:** 15 percen belül 10 sikertelen próbálkozás után a
+  felhasználónév átmenetileg zárolódik.
+
+### Ha korábbi, fiók nélküli adatbázisod van
+
+Nem vész el semmi. A szerver első indulásakor a meglévő sorok egy **archív
+fiókhoz** kerülnek, amivel belépni nem lehet (üres jelszó-hash), és az **első
+regisztráció megörökli az egészet** — utána ugyanazt az előzményt látod, mint
+korábban. A második regisztráló már nem kap belőle semmit. A `workout_draft` és
+a `checkins` táblát ilyenkor a szerver újraépíti, mert az elsődleges kulcsuk is
+megváltozott; a művelet idempotens, újraindításkor nem fut le mégegyszer.
 
 ## Kódtérkép — graphify (opcionális fejlesztői eszköz)
 
@@ -106,8 +137,23 @@ tartja ki a gráfból magát a vendorolt skillt (különben a saját dokumentác
 - **Szett-értékek.** Az ismétlés, a súly (kg) és az RPE szám; a mértékegység a
   táblázat fejlécében van. A régebbi, mértékegységgel együtt tárolt értékeket
   (`"12 rep"`, `"60% TM"`) a szerver induláskor egyszer átalakítja számokká.
+- **Szett-típusok.** Minden szett *bemelegítő*, *munkasorozat* vagy *drop set* —
+  az első sor alapból bemelegítő. A típus nem csak színezés: a Recovery Engine
+  izomkárosodás-becslése a bemelegítőt nullának, a drop setet fél
+  munkasorozatnak veszi (a tonnatömeg viszont mindegyikből számít). A típus
+  nélküli, régebbi bejegyzések teljes munkasorozatnak számítanak — akkor még
+  minden sor az volt.
+- **Egyéni csúcsok (PR).** A rekordot a gyakorlat **legjobb teljesített**
+  szettje hozza, Epley-becsléssel — nem az első teljesített, ami a
+  szett-típusok óta jellemzően a bemelegítés. A szabály egy helyen él
+  (`bestCompletedSet`, `server/db.js`), és ugyanaz jelöli meg a PR-t mentéskor,
+  mint ami a Korábbi rekordok listáját kiírja. A csúcsok fiókonként külön
+  táblasorban állnak, tehát mindenki a saját korábbi teljesítményéhez mérődik.
 - **Migrációk.** A séma bővítései a `db.js` `ensureColumn` hívásaival futnak le a
-  meglévő adatbázisfájlokon is, tehát nem kell törölni a `fittrack.db`-t.
+  meglévő adatbázisfájlokon is, tehát nem kell törölni a `fittrack.db`-t. Aki a
+  PR-követés bevezetése előtt naplózott, annak a csúcsait a szerver egyszer
+  visszatölti a meglévő edzésekből — enélkül a következő edzés minden
+  gyakorlata hamis rekordot ütne.
 
 ## Recovery Engine — a készenléti állapot
 
@@ -121,9 +167,9 @@ adatbázist** — mindent paraméterként kap, ezért unit-tesztelhető (`npm te
 A napi check-int két felület írja, **ugyanabba a sorba**:
 
 - **`#checkin` — a lépésenkénti varázsló, az elsődleges út.** Egy kérdés / egy
-  képernyő: alvás, alvásminőség, energia, stressz, majd két kapu (van-e izomláz,
-  ill. fájdalom) és a hozzájuk tartozó testtérkép. Szándékosan **nem** kérdez
-  közérzetet, folyadékot és testsúlyt.
+  képernyő: alvás, alvásminőség, energia, stressz, **testsúly**, majd két kapu
+  (van-e izomláz, ill. fájdalom) és a hozzájuk tartozó testtérkép. Szándékosan
+  **nem** kérdez közérzetet és folyadékot.
 - **A Regeneráció oldal „Részletes szerkesztés" blokkja — a teljes űrlap.** Itt
   minden mező elérhető egy képernyőn, a varázslóból kihagyottakkal együtt.
 
@@ -133,9 +179,24 @@ A `PUT /api/checkin` **teljes sort cserél**, nem merge-öl (`saveCheckin`,
 varázsló ezért megnyitáskor betölti a mai check-int, a nem kérdezett mezőket
 (`mood`, `hydration`, `pain.general`) eltárolja, és mentéskor **változatlanul
 visszaküldi** — enélkül némán felülírná, amit a részletes űrlapon adtál meg.
-Ellenkező irányban: a `weightKg`-ot a varázsló **nem** küldi vissza, mert az nem
-a check-in sorba, hanem sima `INSERT`-tel a `weight_log`-ba megy — minden
-újramentés duplikált testsúly-bejegyzést csinálna.
+A `weightKg` kivétel a szabály alól: azt mindkét felület küldi, de nem a
+check-in sorba megy, hanem a `weight_log`-ba — **naponta egy bejegyzésbe**
+(`addWeightEntry`: ha az adott napra már van sor, azt írja felül). Ezért írhatja
+ugyanazt a napot a varázsló és a részletes űrlap is akárhányszor, duplikátum
+nélkül. Üres/hiányzó `weightKg` = „ma nem mértem": ilyenkor a napló érintetlen
+marad.
+
+### A testsúly útja
+
+A napi testsúly a **check-in része** (korábban a dashboardon volt külön rögzítő
+űrlap és trend-diagram). A varázsló testsúly-lépése kihagyható — a mezőt
+szándékosan nem tölti ki előre a legutóbbi méréssel, mert egy előre beírt szám a
+„Tovább"-bal olyan méréssé válna, ami meg sem történt. Ami ma már be van írva,
+azt viszont visszaadja: azt szerkeszted tovább. A trend a **Regeneráció oldal**
+„Testsúly alakulása" kártyáján látszik (a `GET /api/weight-log` utolsó 12
+bejegyzése, a tényleges értékekhez igazított skálával); az áttekintőn csak a
+„Testsúly Δ" stat maradt. Amíg nincs egyetlen saját bejegyzés sem, a kártya a
+seed-görbét mutatja, és ki is írja, hogy az demo-adat.
 
 **A képlet** súlyozott átlag, de csak a *jelen lévő* komponensekre:
 
@@ -162,9 +223,10 @@ szét, mint bármelyik ki nem töltött mezőé.
 - **Izomcsoportonkénti regeneráció** kilenc csoportra. A károsodás mérőszáma nem
   a tonnatömeg, hanem a bukáshoz közeli szettek száma — a tonnatömeg lokálisan
   félrevezet (egy nehéz 5×5 guggolás kevesebb tonnát ad, mint egy könnyű,
-  sok ismétléses lábtolás, miközben sokkal jobban lever). A csillapítás
-  csoportonként eltér: kis izmok τ = 1.5 nap, nagy tolók/húzók 2.2, a
-  hamstring/farizom/törzs 3.0 nap.
+  sok ismétléses lábtolás, miközben sokkal jobban lever). A szett-egység a
+  szett TÍPUSÁVAL is súlyozódik: bemelegítő 0, munkasorozat 1, drop set 0.5.
+  A csillapítás csoportonként eltér: kis izmok τ = 1.5 nap, nagy tolók/húzók
+  2.2, a hamstring/farizom/törzs 3.0 nap.
 - **CNS-becslés**: az axiális összetett emelések, a magas RPE-s szettek és a
   PR-próbálkozások költsége, lassabb csillapítással (τ = 3.5 nap), az alvással
   szorozva.
@@ -204,8 +266,10 @@ komponensenként kelljen újratárgyalni:
 
 Ezek szándékos egyszerűsítések, nem hibák:
 
-- **Nincs hitelesítés, és egyetlen felhasználó van.** Aki eléri a szervert, az
-  ugyanazt az adatot látja és írja — lokális futtatásra készült.
+- **Nincs jelszó-visszaállítás és nincs fióktörlés.** Elfelejtett jelszónál az
+  adatbázisban kell a `users` sort javítani.
+- **A belépési kísérlet-korlát memóriában él**, tehát a szerver újraindításakor
+  nullázódik, és több példány futtatásakor példányonként külön számol.
 - **A dátumot a szerver helyi ideje adja.** Ha a szerver és a böngésző más
   időzónában van, a „mai nap" elcsúszhat.
 - **Nincs pulzus/HRV adatforrás.** Nincs okosóra-integráció, ezért a Recovery

@@ -2848,15 +2848,14 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
     padding: var(--sp-16) var(--sp-15);
     display: grid;
     grid-template-columns: minmax(300px, 1fr) minmax(400px, 1.6fr);
-    grid-template-rows: auto auto auto auto auto;
+    grid-template-rows: auto auto auto auto;
     column-gap: var(--sp-14);
     row-gap: var(--sp-11);
     grid-template-areas:
       "head     head"
       "ready    stats"
       "recovery recovery"
-      "quote    cta"
-      "weight   weight";
+      "quote    cta";
   }
 
   /* Amíg a mai check-in hiányzik, az emlékeztető tölti ki a jobb oszlopot.
@@ -2866,14 +2865,13 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
      Az idézet-sor (1fr) nyeli el a maradék helyet, így a CTA az emlékeztető
      kártya aljához igazodik. */
   .dashboard[data-checkin-pending="true"] {
-    grid-template-rows: auto auto auto 1fr auto auto;
+    grid-template-rows: auto auto auto 1fr auto;
     grid-template-areas:
       "head     head"
       "ready    stats"
       "recovery checkin"
       "quote    checkin"
-      "cta      checkin"
-      "weight   weight";
+      "cta      checkin";
   }
 
   .db-header      { grid-area: head; }
@@ -2883,7 +2881,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   .db-checkin-cta { grid-area: checkin; }
   .db-quote       { grid-area: quote; }
   .db-cta         { grid-area: cta; }
-  .db-weight      { grid-area: weight; }
 
   /* A kártyák közti távot egységesen a grid gap adja — a mobil nézet
      margói itt kikapcsolnak, különben soronként elcsúsznak a kártyák. */
@@ -2893,8 +2890,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   .db-stats,
   .db-checkin-cta,
   .db-quote,
-  .db-cta,
-  .db-weight {
+  .db-cta {
     margin: 0;
   }
 
@@ -2902,8 +2898,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
      akcentus-kerete van, amit ez a szabály felülírna. */
   .db-readiness,
   .db-recovery,
-  .db-stats,
-  .db-weight {
+  .db-stats {
     background: var(--surface-card);
     border: 1px solid var(--border-card);
     border-radius: var(--r-3xl);
@@ -3487,109 +3482,27 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
    18. Analitika — testsúly trend, heti összehasonlítás, PR lista
    ========================================================================== */
 
-/* ---- Testsúly trend (dashboard) ---- */
-.db-weight {
-  margin-bottom: var(--sp-10);
-}
-
-.db-weight-title {
-  font-size: var(--fs-base);
-  font-weight: 700;
-  margin: 0 0 var(--sp-5);
-}
-
-.db-weight .chart {
-  margin-bottom: 0;
-}
-
-/* ---- Testsúly rögzítése ---- */
-.db-weight-form {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--sp-4);
-  margin-top: var(--sp-6);
-}
-
-.db-weight-input-col {
-  flex: 1;
-  min-width: 0;
-}
-
-.db-weight-input-col .field-label {
-  margin-bottom: var(--sp-2);
-}
-
-.db-weight-input-wrap {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-}
-
-.db-weight-input {
-  flex: 1;
-  min-width: 0;
-  background: var(--surface-input);
-  border: 1px solid transparent;
-  border-radius: var(--r-md);
-  padding: var(--sp-4) var(--sp-5);
-  color: var(--text-primary);
-  font-size: var(--fs-input);
-  font-weight: 700;
-  transition: background var(--t-fast), border-color var(--t-fast);
-}
-
-.db-weight-input:focus {
-  background: var(--surface-hover);
-  border-color: var(--fg-40);
-}
-
-.db-weight-input::placeholder {
-  color: var(--text-faint);
-  font-weight: 400;
-}
-
-/* A spinner-nyilak elrejtése — a billentyűzetes léptetés így is működik */
-.db-weight-input::-webkit-outer-spin-button,
-.db-weight-input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
+/* ---- Testsúly trend (Regeneráció oldal) ----
+   A rögzítő űrlap megszűnt: a napi testsúlyt a check-in kérdi, ez a kártya
+   csak a trendet és az utolsó mérést mutatja. */
+/* A kártya flex-gapje adja a térközöket, ezért a chart alap margója itt nem
+   kell (.chart { margin-bottom }). */
+.rc-weight-chart {
   margin: 0;
 }
 
-.db-weight-input {
-  -moz-appearance: textfield;
-  appearance: textfield;
+/* A testsúly-diagram annyi oszlopot rajzol, ahány mérés van (legfeljebb 12).
+   A rugalmas oszlopok az első pár mérésnél az egész sávot kitöltenék — egy
+   ekkora tömb már nem oszlopdiagram. A maximum szélesség megtartja az oszlop-
+   formát, és a hézag magától mutatja, hogy még kevés mérés van. */
+.rc-weight-chart .chart-bars span {
+  max-width: 40px;
 }
 
-.db-weight-unit {
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  color: var(--text-muted);
-}
-
-.db-weight-save {
-  background: var(--c-paper);
-  color: var(--c-ink);
-  border: none;
-  border-radius: var(--r-md);
-  padding: var(--sp-4) var(--sp-8);
-  font-size: var(--fs-md);
-  font-weight: 700;
-  flex-shrink: 0;
-  transition: background var(--t-fast), transform var(--t-fast);
-}
-
-.db-weight-save:hover {
-  background: var(--c-paper-bright);
-}
-
-.db-weight-save:active {
-  transform: translateY(1px);
-}
-
-.db-weight-last {
+.rc-weight-last {
   font-size: var(--fs-sm);
   color: var(--text-muted);
-  margin: var(--sp-4) 0 0;
+  margin: 0;
 }
 
 /* ---- Heti volumen-összehasonlítás (workout) ---- */
@@ -5632,9 +5545,26 @@ details[open] > .rc-details-summary::before {
   color: var(--text-secondary);
 }
 
-/* ---- Alvás ---- */
+/* Kihagyás — a testsúly-lépés másodlagos kiútja (a .ci-exit szövegsúlya,
+   gombként). Tap-target méretű, mert az elsődleges gomb alatt ül. */
+.ci-skip {
+  align-self: center;
+  min-height: 44px;
+  padding: 0 var(--sp-5);
+  margin-top: var(--sp-3);
+  background: none;
+  border: none;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
 
-.ci-sleep-row {
+.ci-skip:hover {
+  color: var(--text-secondary);
+}
+
+/* ---- Nagy szám-bevitel (alvás, testsúly) ---- */
+
+.ci-num-row {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -5642,7 +5572,7 @@ details[open] > .rc-details-summary::before {
 }
 
 /* A megosztott .wk-num sávból itt két nagy körgomb és egy kiemelt szám lesz. */
-.ci-sleep-num {
+.ci-num-dial {
   gap: var(--sp-10);
   background: none;
   border: none;
@@ -5666,7 +5596,7 @@ details[open] > .rc-details-summary::before {
   background: var(--surface-hover);
 }
 
-.ci-sleep-input {
+.ci-num-input {
   width: 118px;
   text-align: center;
   background: none;
@@ -5677,18 +5607,31 @@ details[open] > .rc-details-summary::before {
   font-variant-numeric: tabular-nums;
 }
 
+/* A testsúly négy-öt jegyű („82.9", „102.4"), az alvás három („7.5") — a
+   szélesebb változat elfér a két körgomb mellett a legkeskenyebb telefonon is. */
+.ci-num-input--wide {
+  width: clamp(120px, 40vw, 172px);
+}
+
 /* A böngésző saját fel/le nyilai fölöslegesek — a két körgomb ugyanaz. */
-.ci-sleep-input::-webkit-outer-spin-button,
-.ci-sleep-input::-webkit-inner-spin-button {
+.ci-num-input::-webkit-outer-spin-button,
+.ci-num-input::-webkit-inner-spin-button {
   appearance: none;
   margin: 0;
 }
 
-.ci-sleep-input[type="number"] {
+.ci-num-input[type="number"] {
   appearance: textfield;
 }
 
-.ci-sleep-unit {
+/* Az üres mező a testsúly-lépésen érvényes állapot (= ma nem mértél), ezért a
+   helyőrző halvány, de a szám méretét tartja — nem ugrál a sor. */
+.ci-num-input::placeholder {
+  color: var(--text-faint);
+  font-weight: 800;
+}
+
+.ci-num-unit {
   font-size: var(--fs-xs);
   letter-spacing: .1em;
   text-transform: uppercase;
@@ -6057,3 +6000,172 @@ details[open] > .rc-details-summary::before {
     min-height: min(100dvh, 820px);
   }
 }
+
+/* ==========================================================================
+   26. Belépő képernyő (au-*)
+   --------------------------------------------------------------------------
+   Teljes képernyős réteg az app fölött: amíg nincs érvényes munkamenet, nincs
+   mit mutatni mögötte (minden /api/* végpont 401-et ad). Ezért nem modál —
+   nincs bezáró gombja és nincs háttér-átkattintás.
+   ========================================================================== */
+.au-screen {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-toast); /* a toast szintjén: minden más fölött */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-9);
+  background: var(--c-bg);
+  overflow-y: auto;
+}
+
+.au-card {
+  width: 100%;
+  max-width: 360px;
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-2xl);
+  padding: var(--sp-12) var(--sp-11);
+  box-shadow: var(--shadow-modal);
+  animation: fade-in var(--t-slow) both;
+}
+
+.au-brand {
+  font-size: var(--fs-sm);
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--c-accent);
+  margin-bottom: var(--sp-7);
+}
+
+.au-title {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-4xl);
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.au-lead {
+  margin: 0 0 var(--sp-11);
+  font-size: var(--fs-md);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.au-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-7);
+}
+
+.au-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.au-label {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.au-input {
+  background: var(--surface-input);
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  padding: var(--sp-5) var(--sp-6);
+  color: var(--text-primary);
+  font-size: var(--fs-base);
+  font-family: inherit;
+  transition: background var(--t-fast), border-color var(--t-fast);
+}
+
+.au-input:focus {
+  background: var(--surface-hover);
+  border-color: var(--fg-40);
+  outline: none;
+}
+
+.au-hint {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.au-error {
+  margin: 0;
+  padding: var(--sp-5) var(--sp-6);
+  border-radius: var(--r-md);
+  background: rgba(224, 67, 90, .12);
+  border: 1px solid var(--c-accent);
+  color: var(--c-accent);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.au-submit {
+  margin-top: var(--sp-2);
+  background: var(--c-paper);
+  color: var(--c-ink);
+  border: none;
+  border-radius: var(--r-md);
+  padding: var(--sp-6) var(--sp-9);
+  font-size: var(--fs-base);
+  font-weight: 800;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--t-fast), transform var(--t-fast), opacity var(--t-fast);
+}
+
+.au-submit:hover:not(:disabled) { background: var(--c-paper-bright); }
+.au-submit:active:not(:disabled) { transform: translateY(1px); }
+.au-submit:disabled { opacity: .55; cursor: progress; }
+
+.au-switch {
+  margin: var(--sp-11) 0 0;
+  font-size: var(--fs-md);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.au-link {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: var(--sp-1);
+  color: var(--c-paper);
+  font-size: inherit;
+  font-family: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.au-link:hover { color: var(--c-paper-bright); }
+
+/* ---- Fiók-szakasz a beállításokban ---- */
+.st-account {
+  margin: 0 0 var(--sp-5);
+  font-size: var(--fs-md);
+  color: var(--text-muted);
+}
+
+.st-logout {
+  width: 100%;
+  background: none;
+  border: 1px solid var(--c-accent);
+  border-radius: var(--r-md);
+  padding: var(--sp-5) var(--sp-9);
+  color: var(--c-accent);
+  font-size: var(--fs-md);
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background var(--t-fast);
+}
+
+.st-logout:hover { background: rgba(224, 67, 90, .12); }
