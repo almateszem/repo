@@ -19,7 +19,7 @@ import {
   getUserPlans, addPlan, updatePlan, getPlanForDay,
   getCheckin, getCheckins, saveCheckin,
   calculateEpley1RM, bestCompletedSet, getExerciseMax, getAllExerciseMaxes,
-  createUser, getUserWithHash, hasAnyUser,
+  createUser, getUserWithHash, hasAnyUser, getUserCreatedAt,
   createSession, getSessionUser, deleteSession, purgeExpiredSessions,
 } from './db.js';
 import {
@@ -242,6 +242,69 @@ for (const [route, key] of Object.entries(READ_ENDPOINTS)) {
 app.get('/api/user', (req, res) => {
   const seedUser = getCollection('user') || {};
   res.json({ ...seedUser, name: req.user.displayName, username: req.user.username });
+});
+
+/** A profiloldal adatai: a fiók alapadatai és az eddigi teljesítmény
+    összesítése. Szándékosan NEM a /api/user bővítése: az a seed-fájl demo-
+    mezőit is visszaadja (és cache-elt a kliensen), itt viszont kizárólag a
+    saját, naplózott adat számít, és minden edzés-mentés után frissülnie kell. */
+app.get('/api/profile', (req, res) => {
+  const userId = req.user.id;
+  const workouts = getWorkouts(userId);
+
+  // Egy bejáráson: a PR-t elért gyakorlatok és a teljesített munkasorozatok.
+  // A bemelegítő szettek szándékosan kimaradnak — a „volumen" edzéselméletben
+  // munkasorozatot jelent, és a Recovery Engine is így számol.
+  const prExercises = new Set();
+  let workSets = 0;
+  for (const workout of workouts) {
+    for (const exercise of workout.exercises) {
+      if (exercise.pr) prExercises.add(exercise.name);
+      for (const set of exercise.sets) {
+        if (set.done && set.type !== 'warmup') workSets += 1;
+      }
+    }
+  }
+
+  // A testsúly-változás a napló ELSŐ és UTOLSÓ bejegyzése között. Egyetlen
+  // bejegyzésnél a delta 0 — az nem „nem változott", hanem „még nincs mihez
+  // mérni", ezért ilyenkor null megy ki, és a felület el is hagyja a sort.
+  const weightLog = getWeightLog(userId);
+  const firstWeight = weightLog[0];
+  const lastWeight = weightLog[weightLog.length - 1];
+
+  /* A users.created_at UTC ("2026-03-12 08:41:07"); a felület a többi dátumhoz
+     hasonló alakot vár, ezért itt fordítjuk át. Az érvényesség-ellenőrzés nem
+     elhagyható: egy kézzel szerkesztett vagy régi formátumú sorból a
+     formatDate némán "NaN.NaN.NaN"-t írna ki — a hiányzó dátum ennél jobb,
+     azt a felület el is rejti. */
+  const createdAt = getUserCreatedAt(userId);
+  const joined = createdAt ? new Date(`${createdAt.replace(' ', 'T')}Z`) : null;
+
+  res.json({
+    name: req.user.displayName,
+    username: req.user.username,
+    joinedAt: joined && !Number.isNaN(joined.getTime()) ? formatDate(joined) : null,
+    stats: {
+      workouts: workouts.length,
+      streak: trainingStreak(workouts),
+      prs: prExercises.size,
+      workSets,
+      // A getWorkouts() legújabb elöl ad vissza, tehát a lista két vége
+      // az utolsó és az első edzés.
+      lastWorkoutDate: workouts[0]?.date ?? null,
+      firstWorkoutDate: workouts[workouts.length - 1]?.date ?? null,
+      weight: lastWeight
+        ? {
+          current: lastWeight.kg,
+          delta: weightLog.length > 1
+            ? Math.round((lastWeight.kg - firstWeight.kg) * 10) / 10
+            : null,
+          entries: weightLog.length,
+        }
+        : null,
+    },
+  });
 });
 
 /** Az Edzés oldal induló tartalma, prioritás szerint: aznapi piszkozat →

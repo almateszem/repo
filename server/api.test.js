@@ -129,7 +129,7 @@ test('bejelentkezés nélkül MINDEN /api végpont 401-et ad', async () => {
      összes útvonal ELŐTT áll, tehát egy később felvett végpont automatikusan
      védett. Ha valaki a middleware ELÉ szúr be egy új route-ot, itt bukik. */
   const endpoints = [
-    ['GET', '/api/user'], ['GET', '/api/dashboard'], ['GET', '/api/charts'],
+    ['GET', '/api/user'], ['GET', '/api/profile'], ['GET', '/api/dashboard'], ['GET', '/api/charts'],
     ['GET', '/api/weight-log'], ['GET', '/api/nutrition'], ['GET', '/api/nutrition/log'],
     ['GET', '/api/workouts'], ['GET', '/api/workout-draft'], ['GET', '/api/workout-template'],
     ['GET', '/api/plans'], ['GET', '/api/prs'], ['GET', '/api/prs/history?exercise=X'],
@@ -703,6 +703,76 @@ test('a check-in újramentése frissíti a sort, nem hoz létre újat', async ()
   const mai = (await request('GET', '/api/checkin', { cookie: annaCookie })).json;
   assert.equal(mai.sleepHours, 8, 'a legutóbbi mentés értéke látszik');
   assert.equal(mai.date, today());
+});
+
+/* ======================================================================
+   6b. Profiloldal — a fiók adatai és az összesítők
+   ====================================================================== */
+
+test('a profil összesítői a SAJÁT naplózott adatból épülnek', async () => {
+  /* Friss fiókkal, hogy a számok pontosan ellenőrizhetők legyenek: Anna és
+     Béla ekkor már több edzést és check-int is elmentett — ha bármelyikük
+     adata beszivárogna, az itt azonnal kiütközik. */
+  const reg = await request('POST', '/api/auth/register', {
+    body: { username: 'cili', displayName: 'Szabó Cili', password: 'jelszo123' },
+  });
+  assert.equal(reg.status, 201);
+  const ciliCookie = cookieFrom(reg);
+
+  const ures = (await request('GET', '/api/profile', { cookie: ciliCookie })).json;
+  assert.equal(ures.username, 'cili');
+  assert.equal(ures.name, 'Szabó Cili');
+  assert.equal(ures.joinedAt, today(), 'a regisztráció napja a felület dátumformátumában');
+  assert.deepEqual(ures.stats, {
+    workouts: 0, streak: 0, prs: 0, workSets: 0,
+    lastWorkoutDate: null, firstWorkoutDate: null, weight: null,
+  }, 'új fióknál minden összesítő nulla, a dátumok és a testsúly null');
+
+  /* Egy edzés: bemelegítő + két munkasorozat, amelyek közül az egyik NINCS
+     bepipálva. A workSets tehát 1 — sem a bemelegítés, sem a nem teljesített
+     szett nem számít bele. */
+  await request('POST', '/api/workouts', {
+    cookie: ciliCookie,
+    body: {
+      name: 'Cili első edzése',
+      exercises: [{
+        name: 'Guggolás',
+        sets: [
+          { reps: '10', weight: '40', rpe: '5', type: 'warmup', done: true },
+          { reps: '5', weight: '80', rpe: '8', type: 'work', done: true },
+          { reps: '5', weight: '85', rpe: '9', type: 'work', done: false },
+        ],
+      }],
+    },
+  });
+
+  const egyEdzes = (await request('GET', '/api/profile', { cookie: ciliCookie })).json.stats;
+  assert.equal(egyEdzes.workouts, 1);
+  assert.equal(egyEdzes.streak, 1, 'a mai edzés egy napos sorozat');
+  assert.equal(egyEdzes.prs, 1, 'az első teljesítmény rekord');
+  assert.equal(egyEdzes.workSets, 1, 'csak a TELJESÍTETT munkasorozat számít');
+  assert.equal(egyEdzes.firstWorkoutDate, today());
+  assert.equal(egyEdzes.lastWorkoutDate, today());
+  assert.equal(egyEdzes.weight, null, 'testsúly-mérés nélkül nincs testsúly-blokk');
+
+  // Testsúly a napi check-inből. Egyetlen bejegyzésnél nincs mihez mérni,
+  // ezért a delta null — nem 0, ami „nem változott"-at állítana.
+  await request('PUT', '/api/checkin', {
+    cookie: ciliCookie, body: { sleepHours: 7, energy: 4, weightKg: 62.5 },
+  });
+  const sullyal = (await request('GET', '/api/profile', { cookie: ciliCookie })).json.stats;
+  assert.deepEqual(sullyal.weight, { current: 62.5, delta: null, entries: 1 });
+
+  // Ugyanaz a gyakorlat MÁSODSZOR, nagyobb súllyal: új PR, de a PR-t elért
+  // gyakorlatok száma 1 marad — gyakorlatot számolunk, nem rekord-eseményt.
+  await request('POST', '/api/workouts', {
+    cookie: ciliCookie,
+    body: { name: 'Cili második edzése', exercises: [gyakorlat('Guggolás', 90)] },
+  });
+  const ketEdzes = (await request('GET', '/api/profile', { cookie: ciliCookie })).json.stats;
+  assert.equal(ketEdzes.workouts, 2);
+  assert.equal(ketEdzes.prs, 1, 'ugyanaz a gyakorlat kétszer is csak egy tétel');
+  assert.equal(ketEdzes.workSets, 2);
 });
 
 /* ======================================================================

@@ -467,18 +467,22 @@ input.wk-chip:focus-visible {
   margin-bottom: var(--sp-12);
 }
 
+/* Az avatar és a név egyetlen gomb — a profiloldalra visz. Gombként is a
+   korábbi sor kinézetét tartja: nincs saját háttere és kerete. */
 .db-profile {
   display: flex;
   align-items: center;
   gap: var(--sp-4);
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  color: inherit;
 }
 
 .db-avatar {
-  position: relative;
   width: 34px;
   height: 34px;
-  border: none;
-  padding: 0;
   border-radius: var(--r-full);
   background: var(--c-neutral);
   display: flex;
@@ -488,8 +492,34 @@ input.wk-chip:focus-visible {
   transition: transform var(--t-fast);
 }
 
-.db-avatar:hover {
+.db-profile:hover .db-avatar {
   transform: scale(1.05);
+}
+
+/* A jobb oldali ikonpár (harang + fogaskerék) */
+.db-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.db-notif {
+  position: relative; /* a jelvény horgonya */
+  background: none;
+  border: none;
+  padding: var(--sp-3);
+  color: var(--fg-75);
+  transition: color var(--t-fast);
+}
+
+.db-notif:hover {
+  color: var(--fg-100);
+}
+
+.db-notif svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
 }
 
 .db-avatar-icon {
@@ -498,10 +528,13 @@ input.wk-chip:focus-visible {
   fill: var(--fg-70);
 }
 
+/* A harang gomb jobb felső sarkában. A 0/0 a gomb PADDING-éléhez igazít, tehát
+   a jelvény a 22px-es ikon sarkára ül — a gomb tap-területén belül marad, nem
+   lóg rá a szomszédos fogaskerékre. */
 .db-badge {
   position: absolute;
-  top: -4px;
-  right: -4px;
+  top: 0;
+  right: 0;
   min-width: 16px;
   height: 16px;
   padding: 0 var(--sp-1);
@@ -3045,10 +3078,12 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 /* ---- Értesítés-panel ---- */
+/* A panel a harang alá lóg le — az a fejléc JOBB szélén van, ezért jobbra
+   horgonyzunk (korábban az avatar volt a nyitógomb, és balra igazodott). */
 .notif-panel {
   position: absolute;
   top: calc(100% + var(--sp-3));
-  left: 0;
+  right: 0;
   width: min(320px, 88vw);
   background: var(--c-bg-raised);
   border: 1px solid var(--fg-10);
@@ -6169,3 +6204,176 @@ details[open] > .rc-details-summary::before {
 }
 
 .st-logout:hover { background: rgba(224, 67, 90, .12); }
+
+/* ==========================================================================
+   27. Profiloldal (pf-*)
+   --------------------------------------------------------------------------
+   Az áttekintő avatarja nyitja. Csak megjelenít: a fiók adatai és a naplózott
+   edzésekből számolt összesítők (GET /api/profile). A szerkeszthető
+   beállítások a fogaskerék-modalban maradtak, ide csak egy gomb vezet.
+   ========================================================================== */
+.pf-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  margin: var(--sp-9) 0 var(--sp-13);
+}
+
+.pf-avatar {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  border-radius: var(--r-full);
+  background: var(--c-neutral);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pf-avatar svg {
+  width: 34px;
+  height: 34px;
+  fill: var(--fg-70);
+}
+
+.pf-ident {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0; /* hosszú név is törhessen, ne feszítse szét a sort */
+}
+
+.pf-name {
+  font-size: var(--fs-4xl);
+  font-weight: 800;
+  overflow-wrap: break-word;
+}
+
+.pf-username {
+  font-size: var(--fs-base);
+  color: var(--text-muted);
+}
+
+.pf-joined {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.pf-section-title {
+  margin: 0 0 var(--sp-6);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.pf-stats,
+.pf-facts {
+  margin-bottom: var(--sp-13);
+}
+
+/* Két oszlop: négy összesítő fér el két sorban, telefonon is olvashatóan. */
+.pf-stat-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--sp-5);
+}
+
+.pf-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-xl);
+  padding: var(--sp-8);
+}
+
+.pf-stat-value {
+  font-size: var(--fs-5xl);
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums; /* a felpörgetés ne ugráltassa a szélességet */
+}
+
+.pf-stat-label {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+.pf-fact-list {
+  margin: 0;
+}
+
+.pf-fact {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-6);
+  padding: var(--sp-6) 0;
+  border-bottom: 1px solid var(--fg-08);
+}
+
+.pf-fact:last-child {
+  border-bottom: none;
+}
+
+.pf-fact dt {
+  font-size: var(--fs-base);
+  color: var(--text-muted);
+}
+
+.pf-fact dd {
+  margin: 0;
+  font-size: var(--fs-base);
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pf-empty {
+  margin: 0;
+  font-size: var(--fs-md);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.pf-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+.pf-action {
+  width: 100%;
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-md);
+  padding: var(--sp-6) var(--sp-9);
+  color: var(--text-primary);
+  font-size: var(--fs-base);
+  font-weight: 700;
+  font-family: inherit;
+  transition: background var(--t-fast);
+}
+
+.pf-action:hover {
+  background: var(--surface-hover);
+}
+
+/* A kijelentkezés a beállítások modal gombjának mintáját követi. */
+.pf-action--danger {
+  background: none;
+  border-color: var(--c-accent);
+  color: var(--c-accent);
+}
+
+.pf-action--danger:hover {
+  background: rgba(224, 67, 90, .12);
+}

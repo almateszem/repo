@@ -15,6 +15,9 @@
   <!-- Közös SVG-ikonok — a use-hivatkozások innen klónoznak idevertemafaszt kuki-->
   <svg style="display:none" aria-hidden="true">
     <symbol id="icon-user" viewBox="0 0 24 24"><path d="M12 12c2.7 0 4.9-2.2 4.9-4.9S14.7 2.2 12 2.2 7.1 4.4 7.1 7.1 9.3 12 12 12zm0 2.4c-3.3 0-9.8 1.6-9.8 4.9v1.2c0 .7.5 1.2 1.2 1.2h17.2c.7 0 1.2-.5 1.2-1.2v-1.2c0-3.3-6.5-4.9-9.8-4.9z"/></symbol>
+    <!-- Az értesítés-harang. Korábban az avatar nyitotta az értesítéseket; amióta
+         az a profiloldalra visz, az értesítéseknek saját gombja (és ikonja) van. -->
+    <symbol id="icon-bell" viewBox="0 0 24 24"><path d="M12 2.2a1.4 1.4 0 0 1 1.4 1.4v.7a6 6 0 0 1 4.6 5.8v3.3l1.6 2.6a.9.9 0 0 1-.8 1.4H5.2a.9.9 0 0 1-.8-1.4L6 13.4v-3.3a6 6 0 0 1 4.6-5.8v-.7A1.4 1.4 0 0 1 12 2.2zm0 19.6a2.6 2.6 0 0 1-2.5-1.9h5a2.6 2.6 0 0 1-2.5 1.9z"/></symbol>
 
     <!-- Oldal-ikonok a nav gyűrű gombjához (lásd script.js → PAGE_ICONS).
          Az Edző oldal a fenti #icon-user-t használja, nincs külön szimbóluma. -->
@@ -101,16 +104,29 @@
         <h2 class="sr-only" id="title-dashboard">Áttekintés</h2>
 
         <header class="db-header">
-          <div class="db-profile">
-            <button class="db-avatar tap-target" type="button" data-action="notifications" title="Értesítések"
-                    aria-label="Értesítések" aria-haspopup="true" aria-expanded="false">
+          <!-- Az avatar és a név EGYÜTT visz a profiloldalra: a névre koppintani
+               ugyanolyan természetes szándék, mint az ikonra. -->
+          <button class="db-profile tap-target" type="button" data-action="profile"
+                  title="Profil" aria-label="Profil megnyitása">
+            <span class="db-avatar">
               <svg class="db-avatar-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-user"/></svg>
+            </span>
+            <span class="db-username"></span>
+          </button>
+
+          <div class="db-header-actions">
+            <button class="db-notif tap-target" type="button" data-action="notifications" title="Értesítések"
+                    aria-label="Értesítések" aria-haspopup="true" aria-expanded="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-bell"/></svg>
               <span class="db-badge" data-notif-badge>6</span>
             </button>
-            <span class="db-username"></span>
+
+            <button class="db-settings tap-target" type="button" aria-label="Beállítások" title="Beállítások" data-action="settings">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6a.5.5 0 0 0 .1-.6l-2-3.5a.5.5 0 0 0-.6-.2l-2.5 1a7.4 7.4 0 0 0-1.7-1l-.4-2.6a.5.5 0 0 0-.5-.4h-4a.5.5 0 0 0-.5.4l-.4 2.6a7.4 7.4 0 0 0-1.7 1l-2.5-1a.5.5 0 0 0-.6.2l-2 3.5a.5.5 0 0 0 .1.6L4.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6a.5.5 0 0 0-.1.6l2 3.5c.1.2.4.3.6.2l2.5-1a7.4 7.4 0 0 0 1.7 1l.4 2.6c0 .2.3.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.6a7.4 7.4 0 0 0 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5a.5.5 0 0 0-.1-.6L19.4 13zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z"/></svg>
+            </button>
           </div>
 
-          <!-- Értesítés-panel (az avatarra kattintva nyílik, a script.js tölti fel) -->
+          <!-- Értesítés-panel (a harangra kattintva nyílik, a script.js tölti fel) -->
           <div class="notif-panel" data-notif-panel aria-label="Értesítések" hidden>
             <div class="notif-head">
               <span class="notif-title">Értesítések</span>
@@ -119,10 +135,6 @@
             <ul class="notif-list" data-list="notifications"></ul>
             <p class="notif-empty" hidden>Nincs új értesítésed 🎉</p>
           </div>
-
-          <button class="db-settings tap-target" type="button" aria-label="Beállítások" title="Beállítások" data-action="settings">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6a.5.5 0 0 0 .1-.6l-2-3.5a.5.5 0 0 0-.6-.2l-2.5 1a7.4 7.4 0 0 0-1.7-1l-.4-2.6a.5.5 0 0 0-.5-.4h-4a.5.5 0 0 0-.5.4l-.4 2.6a7.4 7.4 0 0 0-1.7 1l-2.5-1a.5.5 0 0 0-.6.2l-2 3.5a.5.5 0 0 0 .1.6L4.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6a.5.5 0 0 0-.1.6l2 3.5c.1.2.4.3.6.2l2.5-1a7.4 7.4 0 0 0 1.7 1l.4 2.6c0 .2.3.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.6a7.4 7.4 0 0 0 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5a.5.5 0 0 0-.1-.6L19.4 13zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z"/></svg>
-          </button>
         </header>
 
         <!-- A kártya egésze átvisz a Regeneráció oldalra. Ez a mobil belépési
@@ -203,6 +215,79 @@
           <span data-workout-name></span>
           <span class="db-cta-arrow" aria-hidden="true">→</span>
         </button>
+      </section>
+
+      <!-- ================================================================
+           Profil (pf-*) — az áttekintő avatarja nyitja. A fiók adatai és az
+           eddigi teljesítmény összesítése; a tartalmát a script.js tölti fel
+           a GET /api/profile válaszából. A beállítások továbbra is a
+           fogaskerék-modalban laknak, ide csak egy gomb vezet.
+           ================================================================ -->
+      <section class="app-page pf-page" data-page="profile" aria-labelledby="title-profile" hidden>
+        <h2 class="sr-only" id="title-profile">Profil</h2>
+
+        <header class="pf-head">
+          <span class="pf-avatar" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><use href="#icon-user"/></svg>
+          </span>
+          <div class="pf-ident">
+            <span class="pf-name" data-pf-name></span>
+            <span class="pf-username" data-pf-username></span>
+            <span class="pf-joined" data-pf-joined></span>
+          </div>
+        </header>
+
+        <!-- A négy összesítő. A számokat a script.js írja be; a 0 nem
+             placeholder, hanem érvényes érték (új fióknál ez a helyes). -->
+        <section class="pf-stats" aria-labelledby="pf-title-stats">
+          <h3 class="pf-section-title" id="pf-title-stats">Összesítés</h3>
+          <ul class="pf-stat-grid">
+            <li class="pf-stat">
+              <span class="pf-stat-value" data-pf-stat="workouts">0</span>
+              <span class="pf-stat-label">naplózott edzés</span>
+            </li>
+            <li class="pf-stat">
+              <span class="pf-stat-value" data-pf-stat="streak">0</span>
+              <span class="pf-stat-label">napos sorozat</span>
+            </li>
+            <li class="pf-stat">
+              <span class="pf-stat-value" data-pf-stat="prs">0</span>
+              <span class="pf-stat-label">gyakorlat rekorddal</span>
+            </li>
+            <li class="pf-stat">
+              <span class="pf-stat-value" data-pf-stat="workSets">0</span>
+              <span class="pf-stat-label">teljesített munkasorozat</span>
+            </li>
+          </ul>
+        </section>
+
+        <!-- Sorok, amiknek nincs mindig értelmes értékük (nulla edzés, egyetlen
+             testsúly-mérés) — a script.js egyenként rejti el őket. -->
+        <section class="pf-facts" aria-labelledby="pf-title-facts">
+          <h3 class="pf-section-title" id="pf-title-facts">Részletek</h3>
+          <dl class="pf-fact-list">
+            <div class="pf-fact" data-pf-fact="firstWorkout" hidden>
+              <dt>Első edzés</dt><dd data-pf-value="firstWorkout"></dd>
+            </div>
+            <div class="pf-fact" data-pf-fact="lastWorkout" hidden>
+              <dt>Legutóbbi edzés</dt><dd data-pf-value="lastWorkout"></dd>
+            </div>
+            <div class="pf-fact" data-pf-fact="weight" hidden>
+              <dt>Testsúly</dt><dd data-pf-value="weight"></dd>
+            </div>
+            <div class="pf-fact" data-pf-fact="weightDelta" hidden>
+              <dt>Változás az első mérés óta</dt><dd data-pf-value="weightDelta"></dd>
+            </div>
+          </dl>
+          <p class="pf-empty" data-pf-empty hidden>
+            Még nincs naplózott edzésed. Az első mentés után itt jelennek meg az összesítők.
+          </p>
+        </section>
+
+        <div class="pf-actions">
+          <button class="pf-action" type="button" data-action="settings">Beállítások</button>
+          <button class="pf-action pf-action--danger" type="button" data-action="logout">Kijelentkezés</button>
+        </div>
       </section>
 
       <!-- ================================================================
