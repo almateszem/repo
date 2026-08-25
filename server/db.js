@@ -451,6 +451,14 @@ export function getUser(id) {
   return toUser(db.prepare('SELECT id, username, display_name FROM users WHERE id = ?').get(id));
 }
 
+/** A fiók létrehozásának időpontja, ahogy a users.created_at tárolja
+    (datetime('now') → "2026-03-12 08:41:07", UTC). Nem a getUser() adja vissza:
+    a munkamenet-feloldás minden kérésben lefut, és ez az egy mező csak a
+    profiloldal „Tag … óta" sorának kell. Ismeretlen fiókra null. */
+export function getUserCreatedAt(id) {
+  return db.prepare('SELECT created_at FROM users WHERE id = ?').get(id)?.created_at ?? null;
+}
+
 /** Van-e már valódi (nem archív) fiók? A felület ebből tudja, hogy az első
     regisztráció következik-e. */
 export function hasAnyUser() {

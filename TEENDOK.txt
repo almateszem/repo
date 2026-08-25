@@ -6,7 +6,7 @@ Nem hibajegy-rendszer: rövid, cselekvésre kész sorok, prioritás szerint.
 Jelölések:   [ ] nyitott    [~] részben kész    [x] kész (a következő
              takarításig marad itt, hogy lássuk, mi történt)
 
-Utolsó frissítés: 2026-08-17
+Utolsó frissítés: 2026-08-18
 Legutóbbi takarítás: 2026-08-17 — az elkészült [x] tételek kivezetve
 (a részletek a git előzményben maradtak meg).
 
@@ -51,11 +51,16 @@ EREDMÉNY (1 éves adat, azonos gépen), megtartva jövőbeli összevetéshez:
 
 --- Amivel NEM kell foglalkozni (mérve, hogy ne vizsgáljuk újra) -------
     · A készenlét-motor NEM lassul az évek múlásával: a
-      CHRONIC_WINDOW_DAYS = 28 ablak korlátozza (recovery.js:224).
+      CHRONIC_WINDOW_DAYS = 28 ablak korlátozza (recovery.js:123).
       30 nap / 1 év / 3 év előzménnyel a számítás 245 / 237 / 227 ms.
     · A nyers DB-olvasás nő, de keveset: 6 ms (30 nap) → 27 ms (3 év).
     · A sok autosave-update rendben van: 9 ms/mentés, 500 ms debounce
-      mellett (public/script.js:3031). Ez nem probléma.
+      mellett (public/script.js:3684). Ez nem probléma. A piszkozat
+      felhasználónként EGY sor (db.js: saveWorkoutDraft upsert), tehát
+      az írások száma nem hizlalja az adatbázist.
+      2026-08-18 óta a debounce mellett van 5000 ms-os max-wait (a
+      folyamatos gépelés se tolhatja el korlátlanul a mentést), és a
+      változatlan állapot nem megy ki újra (lastSentBody).
     · Az indítás nagy adattal is gyors: ~140 ms, a minden induláskori
       migrációval együtt.
 
@@ -76,7 +81,7 @@ EREDMÉNY (1 éves adat, azonos gépen), megtartva jövőbeli összevetéshez:
     összes felhasználói adat. A seed újraépül, a naplók NEM.
 
 [ ] Időzóna: a today() a SZERVER helyi ideje
-    Hely: server/server.js:38-43. UTC-s szerveren a magyar
+    Hely: server/server.js:174-179. UTC-s szerveren a magyar
     felhasználóknak hajnali 2-kor vált a nap, tehát éjszaka rossz
     naphoz könyvelődik az edzés, a check-in és az étkezés.
     A dátumot a kliens időzónájából kell venni.
