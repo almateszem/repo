@@ -808,7 +808,7 @@ test('a dashboard NEM ragadja meg a korábbi kérés értékeit', async () => {
   assert.equal(annaUjra.readiness, anna.readiness);
 });
 
-test('a heti volumen-diagram a saját teljesített szettjeiből épül', async () => {
+test('a heti volumen-diagram a saját MUNKASOROZATAIBÓL épül (bemelegítő nélkül)', async () => {
   const charts = (await request('GET', '/api/charts', { cookie: belaCookie })).json;
   assert.equal(charts.volumeThisWeek.heights.length, 7);
   assert.equal(charts.volumeLastWeek.heights.length, 7);
@@ -819,6 +819,27 @@ test('a heti volumen-diagram a saját teljesített szettjeiből épül', async (
   const annaCharts = (await request('GET', '/api/charts', { cookie: annaCookie })).json;
   assert.notEqual(annaCharts.volumeThisWeek.total, charts.volumeThisWeek.total,
     'a két fiók volumene külön számolódik');
+
+  /* A bemelegítő szett NEM volumen: a Recovery Engine és a profiloldal is így
+     számol, a diagram korábban viszont minden bepipált sort beleszámolt. Egy
+     csak bemelegítőből álló edzés tehát nem mozdíthatja a számot. */
+  const elotte = (await request('GET', '/api/charts', { cookie: annaCookie })).json.volumeThisWeek.total;
+  const bemelegites = await request('POST', '/api/workouts', {
+    cookie: annaCookie,
+    body: {
+      name: 'Csak bemelegítés',
+      exercises: [{
+        name: 'Guggolás',
+        sets: [
+          { reps: '10', weight: '40', rpe: '5', type: 'warmup', done: true },
+          { reps: '10', weight: '40', rpe: '5', type: 'warmup', done: true },
+        ],
+      }],
+    },
+  });
+  assert.equal(bemelegites.status, 201);
+  const utana = (await request('GET', '/api/charts', { cookie: annaCookie })).json.volumeThisWeek.total;
+  assert.equal(utana, elotte, 'a két bemelegítő szett nem növelte a volument');
 });
 
 test('a gyakorlat-katalógus nem küldi ki a belső mezőket', async () => {

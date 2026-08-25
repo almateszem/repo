@@ -6,7 +6,7 @@ Nem hibajegy-rendszer: rövid, cselekvésre kész sorok, prioritás szerint.
 Jelölések:   [ ] nyitott    [~] részben kész    [x] kész (a következő
              takarításig marad itt, hogy lássuk, mi történt)
 
-Utolsó frissítés: 2026-08-25
+Utolsó frissítés: 2026-08-25 (fiók-műveletek, időzóna)
 Legutóbbi takarítás: 2026-08-17 — az elkészült [x] tételek kivezetve
 (a részletek a git előzményben maradtak meg).
 
@@ -15,10 +15,14 @@ Legutóbbi takarítás: 2026-08-17 — az elkészült [x] tételek kivezetve
 KIADÁS ELŐTT — BLOKKOLÓ, ha az app másokhoz is kikerül
 ==========================================================================
 
-[ ] Nincs jelszó-visszaállítás és nincs fióktörlés
-    Elfelejtett jelszónál kézzel kell javítani a users sort. Kis
-    felhasználószámnál elfogadható, de e-mail-cím nélkül nem is lehet
-    önkiszolgáló visszaállítást csinálni — ez terméki döntés.
+[~] Nincs jelszó-VISSZAÁLLÍTÁS (az elfelejtett jelszóra)
+    Ami MEGVAN (2026-08-25): a belépett felhasználó megváltoztathatja a
+    jelszavát (PUT /api/auth/password — a jelenlegi jelszót is kéri, és a
+    csere után a többi eszköz munkamenete megszűnik), és véglegesen
+    törölheti a fiókját mindenestül (POST /api/auth/delete-account).
+    Ami NEM: az elfelejtett jelszó önkiszolgáló visszaállítása. E-mail-cím
+    nélkül ez nem is megoldható — vagy e-mail kell a fiókhoz, vagy marad a
+    kézi javítás a users sorban. Terméki döntés.
 
 
 ==========================================================================
@@ -114,11 +118,14 @@ EREDMÉNY (1 éves adat, azonos gépen), megtartva jövőbeli összevetéshez:
     ephemeral, és újradeploykor törlődik a server/fittrack.db — vele az
     összes felhasználói adat. A seed újraépül, a naplók NEM.
 
-[ ] Időzóna: a today() a SZERVER helyi ideje
-    Hely: server/server.js:174-179. UTC-s szerveren a magyar
-    felhasználóknak hajnali 2-kor vált a nap, tehát éjszaka rossz
-    naphoz könyvelődik az edzés, a check-in és az étkezés.
-    A dátumot a kliens időzónájából kell venni.
+[x] Időzóna: a nap már a KLIENS naptárából jön   (2026-08-25)
+    Minden kérés viszi az X-Client-Date fejlécet (public/script.js →
+    requestHeaders), a szerver pedig ebből képzi a kérés napját
+    (server/server.js → requestDate, req.today). A fejléc ellenőrzött:
+    alakilag pontos dátum kell, és legfeljebb EGY napra térhet el a szerver
+    napjától — ennyi minden időzónára elég (UTC-12…UTC+14), viszont nem
+    lehet vele tetszőleges napra visszaírni. Hiányzó/gyanús fejlécnél marad
+    a szerver napja. Tesztek: server/timezone.test.js.
 
 [~] Rate limit
     A BELÉPÉS most korlátozott (15 percen belül 10 sikertelen próbálkozás
@@ -132,13 +139,10 @@ EREDMÉNY (1 éves adat, azonos gépen), megtartva jövőbeli összevetéshez:
 SZETT-TÍPUSOK — a régebbi elemek átvezetése
 ==========================================================================
 
-[ ] Heti volumen-diagram: a bemelegítő szettek is beleszámolnak
-    Hely: server/server.js → volumeCharts. A számláló minden bepipált
-    szettet számol, a felirat is ezt mondja („teljesített szettek"), tehát
-    nem hibás — de a „volumen" edzéselméletben munkasorozatot jelent, és a
-    Recovery Engine már így is számol. Ha a diagram a munkasorozatokra vált,
-    a feliratot és az aria-label-t is át kell írni. Terméki döntés, ezért
-    maradt nyitva.
+[x] Heti volumen-diagram: már csak a munkasorozatokat számolja   (2026-08-25)
+    A bemelegítő kimarad, ahogy a Recovery Engine-ben és a profiloldalon is.
+    A szabály egy helyen él (server/server.js → isWorkSet), a feliratok és
+    az aria-label átírva („munkasorozat").
 
 
 ==========================================================================
@@ -193,8 +197,7 @@ ADATMINŐSÉG — fokozatosan bővíthető, nincs határidő
 NYITOTT APRÓSÁG — a check-in varázslóból maradt
 ==========================================================================
 
-[ ] A varázsló és a részletes űrlap alvás-tartománya eltér
-    A részletes szerkesztő űrlap 0–24 órával fut, a varázsló 0–12-vel.
-    A szerver 0–24-et fogad el. Szándékos-e az eltérés, még eldöntendő.
-    Hely: public/script.js → CI_SLEEP_MIN / CI_SLEEP_MAX,
-          public/index.html → #ci-sleep
+[x] A varázsló alvás-tartománya is 0–24   (2026-08-25)
+    Korábban a varázsló 12 óránál némán elvágta a bevitelt, pedig a
+    részletes űrlap és a szerver is 24-ig fogad el. Most mindhárom helyen
+    0–24 (public/script.js → CI_SLEEP_MAX, public/index.html → #ci-sleep).

@@ -77,6 +77,20 @@ látják és nem írhatják egymás adatát, id-re hivatkozva sem.
   HTTPS-en (vagy `x-forwarded-proto: https` mögött) a süti `Secure` jelzőt is kap.
 - **Belépési kísérlet-korlát:** 15 percen belül 10 sikertelen próbálkozás után a
   felhasználónév átmenetileg zárolódik.
+- **Jelszóváltoztatás** (`PUT /api/auth/password`): a JELENLEGI jelszót is kéri —
+  a munkamenet-süti önmagában nem elég hozzá. Sikeres csere után a fiók összes
+  korábbi munkamenete megszűnik (más eszközök, esetleg egy megszerzett token), a
+  változtató böngészője viszont friss sütit kap, tehát bent marad.
+- **Fióktörlés** (`POST /api/auth/delete-account`): szintén jelszóval erősítendő,
+  és végleges. A naplók, tervek, check-inek, rekordok, edző-kapcsolatok és
+  üzenetek is törlődnek — az üzenetek a MÁSIK félnél is. A törlés szándékosan nem
+  bízza magát az idegenkulcs-CASCADE-re: a fiókok előtti adatbázisokban a
+  `user_id` oszlopokon nincs megszorítás, ott gazdátlan sorok maradnának.
+  A felhasználónév a törlés után újra kiadható, és az új fiók üresen indul.
+
+Ami **nincs**: az elfelejtett jelszó önkiszolgáló visszaállítása. E-mail-cím
+nélkül nincs mihez küldeni a visszaállító linket — ez terméki döntés, nem
+elmaradt munka.
 
 ### Ha korábbi, fiók nélküli adatbázisod van
 
@@ -331,12 +345,17 @@ komponensenként kelljen újratárgyalni:
 
 Ezek szándékos egyszerűsítések, nem hibák:
 
-- **Nincs jelszó-visszaállítás és nincs fióktörlés.** Elfelejtett jelszónál az
-  adatbázisban kell a `users` sort javítani.
+- **Nincs jelszó-visszaállítás** az elfelejtett jelszóra (e-mail-cím nélkül nem
+  megoldható). Jelszóváltoztatás és fióktörlés viszont van — lásd a *Fiókok*
+  szakaszt.
 - **A belépési kísérlet-korlát memóriában él**, tehát a szerver újraindításakor
   nullázódik, és több példány futtatásakor példányonként külön számol.
-- **A dátumot a szerver helyi ideje adja.** Ha a szerver és a böngésző más
-  időzónában van, a „mai nap" elcsúszhat.
+- **A napot a kliens mondja meg.** Minden kérés viszi a böngésző szerinti mai
+  napot (`X-Client-Date`), és a naplózás ehhez igazodik — így egy UTC-s szerver
+  sem tolja el a „mai napot". A szerver ellenőrzi a fejlécet: alakilag pontos
+  dátum kell, és legfeljebb egy napra térhet el a szerver napjától (ennyi minden
+  időzónára elég, visszadátumozásra viszont nem használható). Hiányzó vagy
+  gyanús fejléc esetén a szerver saját napja marad.
 - **Nincs pulzus/HRV adatforrás.** Nincs okosóra-integráció, ezért a Recovery
   Engine hat komponensből számol, nem hétből (lásd fentebb).
 - **Az értesítés-panel tartalma demo-adat** (`data.js` → `notifications`): fix

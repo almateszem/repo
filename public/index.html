@@ -344,7 +344,7 @@
               <button class="wk-toggle-btn" type="button" data-period="volumeLastWeek" aria-pressed="false">Múlt hét</button>
             </div>
           </div>
-          <div class="chart" role="img" aria-label="Heti edzésvolumen naponta — ez a hét" data-chart="volumeThisWeek">
+          <div class="chart" role="img" aria-label="Munkasorozatok naponta — ez a hét" data-chart="volumeThisWeek">
             <div class="chart-bars" aria-hidden="true"></div>
             <div class="chart-axis" aria-hidden="true"></div>
           </div>
@@ -352,7 +352,7 @@
             <span>H</span><span>K</span><span>Sze</span><span>Cs</span><span>P</span><span>Szo</span><span>V</span>
           </div>
           <p class="wk-compare-note">Összvolumen:
-            <strong><span data-compare-total></span> szett</strong> ·
+            <strong><span data-compare-total></span> munkasorozat</strong> ·
             <span data-compare-note></span></p>
         </section>
 
@@ -942,7 +942,38 @@
       <section class="st-section" aria-labelledby="st-title-account">
         <h4 class="st-section-title" id="st-title-account">Fiók</h4>
         <p class="st-account" data-st-account></p>
+
+        <!-- Jelszóváltoztatás — a jelenlegi jelszó is kell hozzá -->
+        <button class="st-account-btn" type="button" data-action="toggle-password"
+                aria-expanded="false" aria-controls="st-password-form">Jelszó megváltoztatása</button>
+        <form class="st-account-form" id="st-password-form" data-form="change-password" hidden>
+          <label class="st-label" for="st-password-current">Jelenlegi jelszó</label>
+          <input class="st-input" id="st-password-current" type="password"
+                 autocomplete="current-password" required>
+          <label class="st-label" for="st-password-new">Új jelszó</label>
+          <input class="st-input" id="st-password-new" type="password"
+                 autocomplete="new-password" minlength="8" required>
+          <p class="st-account-hint">Legalább 8 karakter. Mentés után a többi eszközödön
+            ki fogsz jelentkezni — ezen a böngészőn bent maradsz.</p>
+          <p class="st-account-error" data-password-error role="alert" hidden></p>
+          <button class="st-account-save" type="submit">Jelszó mentése</button>
+        </form>
+
         <button class="st-logout" type="button" data-action="logout">Kijelentkezés</button>
+
+        <!-- Fióktörlés — végleges, ezért külön nyílik és jelszót kér -->
+        <button class="st-account-btn st-account-btn--danger" type="button" data-action="toggle-delete"
+                aria-expanded="false" aria-controls="st-delete-form">Fiók törlése</button>
+        <form class="st-account-form" id="st-delete-form" data-form="delete-account" hidden>
+          <p class="st-account-warning">A törlés végleges és nem vonható vissza: az edzésnaplód,
+            a terveid, a check-injeid, a rekordjaid, az edző-kapcsolataid és az üzenetváltásaitok
+            is eltűnnek — az utóbbiak a másik félnél is.</p>
+          <label class="st-label" for="st-delete-password">Jelszó a megerősítéshez</label>
+          <input class="st-input" id="st-delete-password" type="password"
+                 autocomplete="current-password" required>
+          <p class="st-account-error" data-delete-error role="alert" hidden></p>
+          <button class="st-account-save st-account-save--danger" type="submit">Fiók végleges törlése</button>
+        </form>
       </section>
 
       <div class="settings-modal-actions">
@@ -1422,7 +1453,7 @@
                     aria-label="Kevesebb alvás">−</button>
             <label class="sr-only" for="ci-sleep">Alvás órában</label>
             <input class="wk-num-input ci-num-input" id="ci-sleep" type="number"
-                   inputmode="decimal" min="0" max="12" step="0.5" autocomplete="off">
+                   inputmode="decimal" min="0" max="24" step="0.5" autocomplete="off">
             <button class="wk-num-step ci-round-btn" type="button" data-dir="1"
                     aria-label="Több alvás">+</button>
           </span>

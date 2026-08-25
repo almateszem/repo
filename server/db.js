@@ -206,6 +206,14 @@ ensureColumn('users', 'goal', 'goal TEXT');
    Így aki eddig helyben használta az appot, a regisztráció után ugyanazt az
    előzményt látja, mint korábban. */
 
+/* A FELHASZNÁLÓI adatot tartó táblák — mindegyik sorát a `user_id` köti a
+   fiókhoz. Egy helyen felsorolva, mert két művelet is végigmegy rajtuk: az
+   első regisztráció adat-öröklése és a fiók törlése. Ha új ilyen tábla
+   születik, ITT kell felvenni. */
+const USER_DATA_TABLES = ['weight_log', 'nutrition_log', 'workouts', 'plans',
+  'workout_draft', 'checkins', 'exercise_maxes'];
+
+
 const LEGACY_USERNAME = '__archiv__';
 
 /** Az archív felhasználó azonosítója, létrehozva, ha még nincs. */
@@ -535,8 +543,7 @@ function adoptLegacyData(newUserId) {
     .get(LEGACY_USERNAME).n;
   if (realUsers !== 1) return false; // nem az első regisztráció — nem nyúlunk hozzá
 
-  for (const table of ['weight_log', 'nutrition_log', 'workouts', 'plans', 'workout_draft',
-    'checkins', 'exercise_maxes']) {
+  for (const table of USER_DATA_TABLES) {
     db.prepare(`UPDATE ${table} SET user_id = ? WHERE user_id = ?`).run(newUserId, legacy.id);
   }
   db.prepare('DELETE FROM users WHERE id = ?').run(legacy.id);
@@ -558,6 +565,54 @@ export function createUser(username, displayName, passwordHash) {
   const id = Number(lastInsertRowid);
 
   return { user: getUser(id), adoptedLegacy: adoptLegacyData(id) };
+}
+
+/** A fiók jelszó-hashének cseréje (a hashelés a hívó dolga, ld. auth.js). */
+export function updateUserPassword(id, passwordHash) {
+  return db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(passwordHash, id).changes > 0;
+}
+
+/** A fiók ÖSSZES munkamenetének törlése — jelszóváltáskor hívjuk, hogy a
+    korábban kiadott sütik (más eszközök, esetleg egy ellopott token) ne
+    maradjanak érvényben. A hívó ezután új munkamenetet nyit magának. */
+export function deleteUserSessions(userId) {
+  return db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId).changes;
+}
+
+/**
+ * A fiók és MINDEN hozzá tartozó adat törlése, egyetlen tranzakcióban.
+ *
+ * A törlés SZÁNDÉKOSAN nem bízza magát az idegenkulcs-CASCADE-re: a séma új
+ * adatbázisokon tartalmazza ugyan (`REFERENCES users(id) ON DELETE CASCADE`),
+ * a fiókok előtti fájlokon viszont a `user_id` oszlopok ALTER TABLE-lel
+ * születtek, megszorítás nélkül. Ott a users-sor törlése gazdátlan sorokat
+ * hagyna maga után — épp azt az adatot, amit a felhasználó töröltetni akart.
+ *
+ * Az edző–sportoló kapcsolatok mindkét irányban megszűnnek, a hozzájuk tartozó
+ * üzenetekkel együtt: a másik fél sem őrizheti tovább a beszélgetést.
+ */
+export function deleteUser(userId) {
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    db.prepare(`DELETE FROM messages
+                WHERE link_id IN (SELECT id FROM coach_links WHERE coach_id = ? OR athlete_id = ?)`)
+      .run(userId, userId);
+    // Öv és nadrágtartó: ha egy üzenet valahogy kapcsolat nélkül maradt volna
+    db.prepare('DELETE FROM messages WHERE sender_id = ?').run(userId);
+    db.prepare('DELETE FROM coach_links WHERE coach_id = ? OR athlete_id = ?').run(userId, userId);
+
+    for (const table of USER_DATA_TABLES) {
+      db.prepare(`DELETE FROM ${table} WHERE user_id = ?`).run(userId);
+    }
+    db.prepare('DELETE FROM sessions WHERE user_id = ?').run(userId);
+    const { changes } = db.prepare('DELETE FROM users WHERE id = ?').run(userId);
+
+    db.exec('COMMIT');
+    return changes > 0;
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
 }
 
 /** Munkamenet létrehozása a token lenyomatához. */
