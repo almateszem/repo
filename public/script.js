@@ -48,9 +48,28 @@
     return err;
   }
 
+  /* ---- A kliens naptári napja ----
+     A naplózás egy NAPRA könyvel (edzés, check-in, étkezés, testsúly), és azt
+     a napot korábban a szerver helyi ideje adta. Ez hibás volt: egy UTC-s
+     szerveren a magyar felhasználónak este 10 után már a következő napra ment
+     minden. Ezért minden kérés viszi a böngésző szerinti mai napot, és a
+     szerver ezt használja (ld. server.js → requestDate; a fejlécet ott
+     ellenőrzi is, hogy ne lehessen vele tetszőleges napra visszaírni). */
+  const CLIENT_DATE_HEADER = 'X-Client-Date';
+
+  const clientDate = () => {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${now.getFullYear()}.${pad(now.getMonth() + 1)}.${pad(now.getDate())}`;
+  };
+
+  /** Minden kéréshez járó fejlécek. Nem tárolt érték: éjfél után (vagy ha a
+      gép időzónája menet közben változik) magától a helyes napot küldi. */
+  const requestHeaders = (extra) => ({ [CLIENT_DATE_HEADER]: clientDate(), ...extra });
+
   /** GET egy JSON-végpontra, egységes hibakezeléssel. */
   async function getJson(path) {
-    const res = await fetch(path);
+    const res = await fetch(path, { headers: requestHeaders() });
     if (res.status === 401) throw handleUnauthorized();
     if (!res.ok) throw new Error(`GET ${path} → ${res.status}`);
     return res.json();
@@ -61,7 +80,7 @@
   async function sendJson(method, path, body) {
     const res = await fetch(path, {
       method,
-      headers: { 'Content-Type': 'application/json' },
+      headers: requestHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(body),
     });
     if (res.status === 401) throw handleUnauthorized();
@@ -76,7 +95,7 @@
 
   /** Törlő kérés — a válasz üres (204), ezért nem próbáljuk JSON-ként olvasni. */
   async function del(path) {
-    const res = await fetch(path, { method: 'DELETE' });
+    const res = await fetch(path, { method: 'DELETE', headers: requestHeaders() });
     if (res.status === 401) throw handleUnauthorized();
     if (!res.ok) throw new Error(`DELETE ${path} → ${res.status}`);
   }
@@ -209,6 +228,13 @@
     register: (username, displayName, password) =>
       authRequest('/api/auth/register', { username, displayName, password }),
     logout:   () => authRequest('/api/auth/logout'),
+    /* Jelszóváltoztatás és fióktörlés. Mindkettő a JELENLEGI jelszót is kéri —
+       a munkamenet-süti önmagában nem elég hozzájuk. A jelszóváltás válasza új
+       sütit ad (a többi eszköz munkamenete megszűnik), a törlésé pedig törli a
+       sütit; utána a felület újratölt, és a belépő képernyőre esik vissza. */
+    changePassword: (currentPassword, newPassword) =>
+      putJson('/api/auth/password', { currentPassword, newPassword }),
+    deleteAccount: (password) => postJson('/api/auth/delete-account', { password }),
   };
 
   /** Értesítés-kategóriák a beállítások modal kapcsolóihoz (notification.cat). */
@@ -2325,7 +2351,7 @@
       A korábbi szerepkör-kapcsolók („Van edződ" / „Edzel másokat") innen
       kikerültek: a szerepkör már nem demo-kapcsoló, hanem valódi kapcsolatból
       következik — az Edző oldalon lehet meghívni és elfogadni. */
-  async function setupSettingsModal({ onNotifCatsChange } = {}) {
+  async function setupSettingsModal({ onNotifCatsChange, confirmAction } = {}) {
     const modal = $('#settingsModal');
     const controller = createModalController(modal);
     const nameInput = $('#st-display-name');
@@ -2433,6 +2459,85 @@
        tartalmazzák, azokat nem szabad a következő belépésbe átvinni.
        MINDEN kilépő gomb: ez a modalban és a profiloldalon is ott van, a $
        (első találat) az egyiket némán kihagyta volna. */
+    /* ---- Fiók-műveletek: jelszóváltoztatás és fióktörlés ----
+       Mindkettő a JELENLEGI jelszót is kéri (a munkamenet önmagában nem elég),
+       ezért nyílik hozzájuk külön űrlap. A hibát a szerver mondja meg, azt
+       írjuk ki az űrlap alá — nem toastban, mert ott a mező mellett kell
+       látszania, amihez tartozik. */
+    const accountForms = {
+      password: { form: $('[data-form="change-password"]', modal), error: $('[data-password-error]', modal) },
+      delete: { form: $('[data-form="delete-account"]', modal), error: $('[data-delete-error]', modal) },
+    };
+
+    /** Egy fiók-űrlap nyitása/zárása. Nyitáskor a másik bezárul: a kettő
+        egymás mellett csak összezavarná, melyik jelszó melyikhez tartozik. */
+    const openAccountForm = (which, open) => {
+      Object.entries(accountForms).forEach(([key, { form, error }]) => {
+        const show = key === which && open;
+        form.hidden = !show;
+        if (!show) {
+          form.reset();
+          error.hidden = true;
+        }
+        const trigger = $(`[data-action="toggle-${key}"]`, modal);
+        trigger.setAttribute('aria-expanded', String(show));
+      });
+      if (open) $('input', accountForms[which].form).focus();
+    };
+
+    /** Mindkét űrlap bezárása (a modál megnyitásakor és sikeres művelet után).
+        Nem csak rendrakás: a begépelt jelszó nem maradhat ott a mezőben egy
+        bezárt-újranyitott ablak után. */
+    const closeAccountForms = () => openAccountForm(null, false);
+
+    const showFormError = (target, message) => {
+      target.textContent = message;
+      target.hidden = !message;
+    };
+
+    $('[data-action="toggle-password"]', modal).addEventListener('click', () => {
+      openAccountForm('password', accountForms.password.form.hidden);
+    });
+    $('[data-action="toggle-delete"]', modal).addEventListener('click', () => {
+      openAccountForm('delete', accountForms.delete.form.hidden);
+    });
+
+    accountForms.password.form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const current = $('#st-password-current').value;
+      const next = $('#st-password-new').value;
+      showFormError(accountForms.password.error, '');
+      try {
+        await api.changePassword(current, next);
+        closeAccountForms();
+        showToast('Jelszó megváltoztatva');
+      } catch (err) {
+        showFormError(accountForms.password.error, err.message || 'A jelszót nem sikerült megváltoztatni');
+      }
+    });
+
+    accountForms.delete.form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const password = $('#st-delete-password').value;
+      showFormError(accountForms.delete.error, '');
+
+      /* A jelszó megerősítésnek is számít, de a törlés visszafordíthatatlan —
+         ezért kérdezünk rá külön is, ugyanazzal az ablakkal, amivel minden
+         más adatvesztés előtt. */
+      const confirmed = await confirmAction(
+        'A fiókod és MINDEN adatod véglegesen törlődik. Ez nem vonható vissza.',
+        { title: 'Fiók törlése', confirmLabel: 'Törlés' },
+      );
+      if (!confirmed) return;
+
+      try {
+        await api.deleteAccount(password);
+        window.location.reload(); // a belépő képernyőre esünk vissza
+      } catch (err) {
+        showFormError(accountForms.delete.error, err.message || 'A fiókot nem sikerült törölni');
+      }
+    });
+
     $$('[data-action="logout"]').forEach((btn) => {
       btn.addEventListener('click', async () => {
         try {
@@ -2449,6 +2554,7 @@
         nameInput.value = prefs.get('displayName', '') || '';
         nameInput.placeholder = user.name;
         $('[data-st-account]').textContent = `Bejelentkezve: ${user.username ?? user.name}`;
+        closeAccountForms();
         syncToggles();
         // Az edzés-cél a szerveren él: a modál megnyitásakor a legutóbb
         // mentett értékre állunk vissza (a fiók adata a betöltéskor kelt).
@@ -2900,7 +3006,11 @@
 
   const CI_SLEEP_PRESETS = [6, 7, 7.5, 8, 8.5];
   const CI_SLEEP_MIN = 0;
-  const CI_SLEEP_MAX = 12;
+  /* A varázsló korábban 12 óránál elvágta az alvást, a részletes űrlap és a
+     szerver viszont 24-ig fogad el. Az eltérés némán csonkította a bevitelt
+     (betegség, bepótolt alvás után 13 órából 12 lett), ezért a varázsló is
+     0–24-gyel fut. */
+  const CI_SLEEP_MAX = 24;
 
   /* A testsúly-lépés. A tartomány a szerverével egyezik (server.js) — a
      kliens csak beszédesebb hibát ad, nem enged át mást. */
@@ -5391,6 +5501,7 @@
     const notifPanel = await safe(setupNotifications);
     const settingsModal = await safe(() => setupSettingsModal({
       onNotifCatsChange: () => notifPanel?.updateBadge(),
+      confirmAction,
     }));
     setupDashboard(settingsModal);
     // A setupDashboard UTÁN: a profiloldal „Beállítások" gombját is az köti be

@@ -6354,6 +6354,97 @@ details[open] > .rc-details-summary::before {
 
 .st-logout:hover { background: rgba(224, 67, 90, .12); }
 
+/* ---- Fiók-műveletek: jelszóváltoztatás és fióktörlés ----
+   Mindkettő külön nyíló űrlap: a jelenlegi jelszó is kell hozzájuk, és a
+   törlés visszafordíthatatlan — ezért nem fér el egy sima gombban. */
+.st-account-btn {
+  width: 100%;
+  min-height: 44px;
+  margin-bottom: var(--sp-4);
+  background: none;
+  border: 1px solid var(--fg-20);
+  border-radius: var(--r-md);
+  padding: var(--sp-4);
+  color: var(--fg-70);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  transition: border-color var(--t-fast), color var(--t-fast);
+}
+
+.st-account-btn:hover {
+  border-color: var(--fg-40);
+  color: var(--text-secondary);
+}
+
+.st-account-btn--danger {
+  margin-top: var(--sp-4);
+  margin-bottom: 0;
+  color: var(--text-faint);
+}
+
+.st-account-btn--danger:hover {
+  border-color: var(--c-accent);
+  color: var(--c-accent);
+}
+
+.st-account-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-5);
+  padding: var(--sp-5);
+  background: var(--surface-soft);
+  border-radius: var(--r-lg);
+}
+
+.st-account-form .st-input {
+  margin-bottom: var(--sp-2);
+}
+
+.st-account-hint,
+.st-account-warning {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.st-account-warning {
+  color: var(--c-accent);
+}
+
+.st-account-error {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--c-accent);
+}
+
+.st-account-save {
+  min-height: 44px;
+  border: none;
+  border-radius: var(--r-md);
+  background: var(--c-paper);
+  color: var(--c-ink);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  transition: background var(--t-fast);
+}
+
+.st-account-save:hover {
+  background: var(--c-paper-bright);
+}
+
+.st-account-save--danger {
+  background: var(--c-accent);
+  color: var(--fg-100);
+}
+
+.st-account-save--danger:hover {
+  background: var(--c-accent);
+  filter: brightness(1.1);
+}
+
 /* ==========================================================================
    27. Profiloldal (pf-*)
    --------------------------------------------------------------------------
