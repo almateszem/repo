@@ -349,6 +349,45 @@ test('leválás után az edző nem lát semmit, és a szál is megszűnik', asyn
   assert.equal(theirs.json.coach, null, 'a sportolónak nincs többé edzője');
 });
 
+test('a kapcsolat nem fordulhat meg: az edző és a sportoló szerepe nem cserélhető', async () => {
+  /* Kiindulás: az előző teszt után a „sportolo" fióknak nincs edzője.
+     Ő most meghívja „edzo"-t SPORTOLÓNAK — ez még szabályos, hiszen nincs
+     köztük élő kapcsolat. */
+  const backwardsInvite = await request('POST', '/api/athletes', {
+    cookie: athlete.cookie, body: { username: 'edzo' },
+  });
+  assert.equal(backwardsInvite.status, 201);
+
+  // Közben viszont „edzo" hívja meg őt, és el is fogadja: innentől edzi őt.
+  const invite = await request('POST', '/api/athletes', {
+    cookie: coach.cookie, body: { username: 'sportolo' },
+  });
+  assert.equal(invite.status, 201);
+  const accepted = await request('POST', `/api/coach/invites/${invite.json.linkId}/accept`, {
+    cookie: athlete.cookie,
+  });
+  assert.equal(accepted.status, 200);
+
+  /* A korábbi, függő meghívó ezek után NEM fogadható el: az edző a saját
+     sportolójának lenne a sportolója. Két külön üzenet-szál jönne létre
+     ugyanazzal az emberrel, és a felületen nem látszana, melyikbe írsz. */
+  const accept = await request('POST', `/api/coach/invites/${backwardsInvite.json.linkId}/accept`, {
+    cookie: coach.cookie,
+  });
+  assert.equal(accept.status, 409, 'a saját sportolód nem lehet az edződ');
+
+  // Új meghívót sem lehet küldeni a saját edződnek
+  await request('DELETE', `/api/athletes/${backwardsInvite.json.linkId}`, { cookie: athlete.cookie });
+  const again = await request('POST', '/api/athletes', {
+    cookie: athlete.cookie, body: { username: 'edzo' },
+  });
+  assert.equal(again.status, 409);
+  assert.match(again.json.error, /edződ/, 'a hibaüzenet megmondja, mi az akadály');
+
+  // Takarítás: a következő teszt friss kapcsolattal indul
+  assert.equal((await request('DELETE', '/api/coach', { cookie: athlete.cookie })).status, 204);
+});
+
 /* ======================================================================
    6. Edzés-cél (a kártya címkéje)
    ====================================================================== */

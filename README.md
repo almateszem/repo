@@ -278,7 +278,12 @@ sportoló saját naplójából:
 | Legutóbbi aktivitás | edzések, PR-ek, check-inek és testsúly-bejegyzések összefésülve |
 
 Terv nélkül nincs terv-követés: ilyenkor a mező `null`, és a felület `—`-t ír ki,
-nem 0%-ot — az azt hazudná, hogy elmaradt valami. A **cél-címke** (ERŐ, TÖM, FIT,
+nem 0%-ot — az azt hazudná, hogy elmaradt valami. Ugyanez a szabály a
+riasztásoknál: a HIÁNYZÓ adat (nincs check-in, nincs naplózott edzés) csak akkor
+kerül az állapot-sávba, ha már lett volna ideje meglenni — a ma csatlakozott
+sportoló nem „lemaradt". A készenlét mellé a részletmodál kiírja a becslés
+alapját is (`Tájékoztató` / `Közepes` / `Megbízható`): napló nélküli fiókra a
+motor 100%-ot ad, és enélkül az „arany szintnek" látszana. A **cél-címke** (ERŐ, TÖM, FIT,
 FGY, ÁLL) a fiók saját beállítása (Beállítások → Edzés-cél); a választható értékek
 a `data.js` `goals` listájában élnek egy helyen.
 

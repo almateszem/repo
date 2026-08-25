@@ -124,20 +124,24 @@ export const athleteRating = (readiness, adherenceValue) => (adherenceValue === 
  * a kihagyott edzés a legbeszédesebb, utána a teljes leállás, a gyenge
  * készenlét, végül a hiányzó check-in. Ha nincs ok, null — ilyenkor a
  * felület „minden rendben"-t mutat.
+ *
+ * A HIÁNYZÓ adat csak akkor riasztás, ha már lett volna ideje meglenni: az
+ * `activeDays` (hány napja van egyáltalán naplózott adata) ezt méri. Enélkül
+ * minden frissen csatlakozott sportoló azonnal pirosra váltana, pedig épp
+ * csak most kezdett — az edző meg megtanulná figyelmen kívül hagyni a sávot.
  */
-export function athleteAlert({ missed, daysSinceWorkout, readiness, daysSinceCheckin, hasHistory }) {
+export function athleteAlert({ missed, daysSinceWorkout, readiness, daysSinceCheckin, activeDays = 0 }) {
   const reasons = [];
   if (missed >= MISSED_LIMIT) reasons.push(`${missed} kihagyott edzés`);
   if (daysSinceWorkout === null) {
-    // Csak akkor jelezzük, ha egyáltalán van már miből következtetni:
-    // a frissen csatlakozott sportolónak még nincs naplója.
-    if (hasHistory) reasons.push('még nincs naplózott edzés');
+    // Használja az appot (van check-inje), de edzést még egyet sem naplózott
+    if (activeDays >= 1) reasons.push('még nincs naplózott edzés');
   } else if (daysSinceWorkout >= INACTIVE_DAYS) {
     reasons.push(`${daysSinceWorkout} napja nem edzett`);
   }
   if (readiness < LOW_READINESS) reasons.push(`készenlét ${Math.round(readiness)}%`);
   if (daysSinceCheckin === null) {
-    if (hasHistory) reasons.push('nincs kitöltött check-in');
+    if (activeDays >= STALE_CHECKIN_DAYS) reasons.push('nincs kitöltött check-in');
   } else if (daysSinceCheckin >= STALE_CHECKIN_DAYS) {
     reasons.push(`check-in ${daysSinceCheckin} napja hiányzik`);
   }
@@ -184,24 +188,36 @@ export function recentActivity({ workouts, checkins, weightLog, today }) {
  *
  * @param {object} input.athlete   { linkId, username, name, goal } — a kapcsolat másik oldala
  * @param {number} input.readiness a készenléti riport `overall` értéke (0–100)
+ * @param {string} input.confidence a riport `confidence` mezője ('low'|'medium'|'high')
  * @param {number} input.streak    az edzés-sorozat hossza napokban
  * @param {object} input.lastMessage a szál utolsó üzenete (vagy null)
  * @param {string} input.today     a mai nap "ÉÉÉÉ.HH.NN" alakban
  */
 export function buildAthleteCard({
-  athlete, workouts, plans, checkins, weightLog, readiness, streak, lastMessage, today,
+  athlete, workouts, plans, checkins, weightLog, readiness, confidence = null,
+  streak, lastMessage, today,
 }) {
   const todayKey = dayKey(today);
   const week = weekProgress({ workouts, plans, today });
   const adherenceValue = adherence({ workouts, plans, today });
 
-  // A getWorkouts()/getCheckins() legújabb elöl ad vissza — a lista eleje a
-  // legutóbbi esemény.
+  /* A getWorkouts() id szerint csökkenő sorrendet ad, a getCheckins() dátum
+     szerintit. A kettő nem tér el: az edzés dátumát a SZERVER írja (mindig a
+     mai nap), tehát a mentési sorrend egyben dátum-sorrend is. A lista eleje
+     így a legutóbbi, a vége a legrégebbi esemény. */
   const lastWorkout = workouts[0] ?? null;
   const lastCheckin = checkins[0] ?? null;
   const daysSince = (dateStr) => (dateStr
     ? Math.max(0, Math.round((todayKey - dayKey(dateStr)) / DAY_MS))
     : null);
+
+  /* Mióta használja egyáltalán az appot: a legrégebbi naplózott nap (edzés
+     vagy check-in) óta eltelt napok. A listák legújabbal kezdődnek, tehát a
+     végük a legrégebbi elem. */
+  const activeDays = Math.max(
+    daysSince(workouts[workouts.length - 1]?.date) ?? 0,
+    daysSince(checkins[checkins.length - 1]?.date) ?? 0,
+  );
 
   return {
     linkId: athlete.linkId,
@@ -209,6 +225,10 @@ export function buildAthleteCard({
     name: athlete.name,
     goal: athlete.goal ?? null,
     readiness: Math.round(readiness),
+    /* Mennyire megbízható a fenti szám. Ez NEM dísz: napló nélküli fiókra a
+       motor 100%-ot ad (nincs mit levonni), és az edző ezt „arany szintnek"
+       olvasná. A modál kiírja, hogy min alapul. */
+    confidence,
     adherence: adherenceValue,
     rating: athleteRating(readiness, adherenceValue),
     streak,
@@ -223,7 +243,7 @@ export function buildAthleteCard({
       daysSinceWorkout: daysSince(lastWorkout?.date),
       readiness,
       daysSinceCheckin: daysSince(lastCheckin?.date),
-      hasHistory: workouts.length > 0 || checkins.length > 0,
+      activeDays,
     }),
     recent: recentActivity({ workouts, checkins, weightLog, today }),
     lastMessage: lastMessage

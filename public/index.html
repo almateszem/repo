@@ -507,7 +507,8 @@
         <h2 class="sr-only" id="title-coach">Edző</h2>
 
         <div class="co-toggle" role="group" aria-label="Edző-nézet kiválasztása" data-coach-toggle>
-          <button class="co-toggle-btn" type="button" data-coach-view="client" aria-pressed="true">Edződ</button>
+          <button class="co-toggle-btn" type="button" data-coach-view="client" aria-pressed="true">Edződ<span
+            class="co-toggle-badge" data-invite-badge hidden></span></button>
           <button class="co-toggle-btn" type="button" data-coach-view="manager" aria-pressed="false">Edzetteim</button>
         </div>
 
@@ -529,7 +530,7 @@
                 <h3 class="co-coach-name" data-coach-name>Edződ</h3>
                 <span class="co-coach-role" data-coach-role></span>
               </div>
-              <button class="co-unlink" type="button" data-action="leave-coach">Leválás</button>
+              <button class="co-unlink tap-target" type="button" data-action="leave-coach">Leválás</button>
             </header>
 
             <div class="co-msg-feed co-client-feed" data-client-feed aria-label="Üzenetváltás az edződdel"></div>

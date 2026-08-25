@@ -1436,10 +1436,10 @@
     $('[data-plans-empty]').hidden = plansData.length > 0;
   }
 
-  /** Egy üzenet-buborék (a sportoló-modál chat-szimulációja használja). */
-  function createCoachNote({ meta, text, variant, me = false }) {
+  /** Egy üzenet-buborék. A `me` a saját üzeneteket tolja jobbra — a szerver a
+      néző szemszögéből jelöli meg őket (ld. messageNote). */
+  function createCoachNote({ meta, text, me = false }) {
     const article = cloneTemplate('tpl-coach-note');
-    if (variant === 'plan') article.classList.add('co-note--plan');
     if (me) article.classList.add('co-note--me');
     $('.co-note-meta', article).textContent = meta;
     $('.co-note-text', article).textContent = text;
@@ -5017,11 +5017,15 @@
     return { load, reset };
   }
 
-  /** A modálban megjelenő részletes statok (a kártya statjai + extra mezők). */
+  /** A modálban megjelenő részletes statok (a kártya statjai + extra mezők).
+      A megbízhatóság szándékosan itt van: napló nélküli fiókra a motor 100%
+      készenlétet ad (nincs mit levonni), és enélkül az edző „arany szintnek"
+      olvasná azt, ami valójában adathiány. */
   const ATHLETE_MODAL_STATS = [
     ...ATHLETE_CARD_STATS,
     ['Heti edzések', (a) => a.weekly],
     ['Aktív terv', (a) => orDash(a.plan)],
+    ['Készenlét alapja', (a) => CONFIDENCE_LABELS[a.confidence] ?? '—'],
   ];
 
   /** Sportoló részletmodál: a saját naplójából számolt összegzés, valódi
@@ -5146,6 +5150,7 @@
     const clientThread = $('[data-coach-thread]', page);
     const noCoachText = $('[data-coach-none]', page);
     const inviteLead = $('[data-invite-lead]', page);
+    const inviteBadge = $('[data-invite-badge]', page);
     const inviteList = $('[data-list="coach-invites"]', page);
     const sentLead = $('[data-sent-lead]', page);
     const inviteForm = $('[data-form="invite-athlete"]', page);
@@ -5177,6 +5182,15 @@
         $('[data-coach-name]', page).textContent = coach.name;
         $('[data-coach-role]', page).textContent = `Edződ · @${coach.username}`;
       }
+
+      /* Jelvény a nézetváltón. A megjegyzett nézetválasztás miatt előfordulhat,
+         hogy a felhasználó az edzői nézetben nyitja az oldalt — a beérkezett
+         meghívó enélkül észrevétlen maradna. */
+      const clientBtn = inviteBadge.closest('.co-toggle-btn');
+      inviteBadge.textContent = invites.length > 0 ? String(invites.length) : '';
+      inviteBadge.hidden = invites.length === 0;
+      if (invites.length > 0) clientBtn.setAttribute('aria-label', `Edződ — ${invites.length} új meghívó`);
+      else clientBtn.removeAttribute('aria-label');
 
       inviteList.replaceChildren();
       invites.forEach((invite) => inviteList.appendChild(renderInviteRow(invite, [

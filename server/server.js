@@ -356,13 +356,15 @@ const MESSAGE_MAX = 280;
     kapcsolat azonosítója (linkId) azonosít. */
 function athleteCard(athlete) {
   const workouts = getWorkouts(athlete.userId);
+  const readiness = readinessReport(athlete.userId, workouts);
   return buildAthleteCard({
     athlete: { ...athlete, goal: goalTag(athlete.goal) },
     workouts,
     plans: getUserPlans(athlete.userId),
     checkins: getCheckins(athlete.userId, 60),
     weightLog: getWeightLog(athlete.userId),
-    readiness: readinessReport(athlete.userId, workouts).overall,
+    readiness: readiness.overall,
+    confidence: readiness.confidence,
     streak: trainingStreak(workouts),
     lastMessage: getLastMessage(athlete.linkId),
     today: today(),
@@ -397,6 +399,15 @@ app.post('/api/athletes', (req, res) => {
   if (!target) return res.status(404).json({ error: 'Nincs ilyen felhasználó.' });
   if (target.id === req.user.id) {
     return res.status(400).json({ error: 'Magadat nem hívhatod meg sportolónak.' });
+  }
+
+  /* A fordított irány kizárva: ha ő az edződ, nem lehet egyszerre a
+     sportolód is. Technikailag működne (két külön sor), de két külön
+     üzenet-szálat adna UGYANAZZAL az emberrel — a felületen pedig nem
+     látszana, melyikbe írsz. */
+  const myCoach = getActiveCoach(req.user.id);
+  if (myCoach && myCoach.username === target.username) {
+    return res.status(409).json({ error: 'Ő az edződ — előbb válj le róla.' });
   }
 
   const link = createCoachInvite(req.user.id, target.id);
@@ -440,6 +451,10 @@ app.post('/api/coach/invites/:linkId/accept', (req, res) => {
   }
   if (getActiveCoach(req.user.id)) {
     return res.status(409).json({ error: 'Már van edződ — előbb válj le róla.' });
+  }
+  // Ugyanaz a szabály a másik irányból: a saját sportolóm nem lehet az edzőm.
+  if (getCoachAthletes(req.user.id, 'active').some((athlete) => athlete.userId === link.coachId)) {
+    return res.status(409).json({ error: 'Ő a sportolód — előbb bontsd azt a kapcsolatot.' });
   }
   acceptCoachInvite(link.id);
   const coach = getActiveCoach(req.user.id);
