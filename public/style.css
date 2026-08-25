@@ -367,6 +367,8 @@ input.wk-chip:focus-visible {
 .co-toggle-btn,
 .co-banner-item,
 .co-action,
+.co-invite-btn,
+.co-invite-form button,
 .rc-save,
 .st-export,
 .ci-preset,
@@ -2302,10 +2304,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   padding: var(--sp-6);
 }
 
-.co-note--plan {
-  border-color: var(--fg-20);
-}
-
 .co-note-meta {
   font-size: var(--fs-xs);
   color: var(--text-muted);
@@ -3193,31 +3191,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   margin-left: var(--sp-13); /* enyhén jobbra tolva, chat-szerűen */
 }
 
-.co-typing {
-  display: inline-flex;
-  gap: 4px;
-  align-items: center;
-  height: 1em;
-}
-
-.co-typing span {
-  width: 5px;
-  height: 5px;
-  border-radius: var(--r-full);
-  background: var(--fg-45);
-  animation: typing-bounce 1s ease-in-out infinite;
-}
-
-.co-typing span:nth-child(2) { animation-delay: .15s; }
-.co-typing span:nth-child(3) { animation-delay: .3s; }
-
-@keyframes typing-bounce {
-  30% {
-    transform: translateY(-3px);
-    opacity: 1;
-  }
-}
-
 /* ---- Validációs hibaállapot (edzésnév) ---- */
 .wk-error {
   font-size: var(--fs-sm);
@@ -3396,10 +3369,10 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   border-color: var(--fg-40);
 }
 
-/* A legördülő ugyanaz a mező-forma, csak a natív nyíl marad meg belőle */
+/* A legördülő ugyanaz a mező-forma, mint a szövegmezők. A natív nyilat
+   SZÁNDÉKOSAN meghagyjuk: az az egyetlen jelzés, hogy ez választható mező. */
 .st-select {
   width: 100%;
-  appearance: none;
   cursor: pointer;
 }
 
@@ -4202,6 +4175,23 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   padding: var(--sp-3) var(--sp-5);
 }
 
+/* Jelvény a nézetváltón: hány függő meghívó vár a másik nézetben. Enélkül
+   a megjegyzett nézetválasztás elrejthetné a beérkezett meghívót. */
+.co-toggle-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: var(--sp-2);
+  padding: 0 5px;
+  border-radius: var(--r-full);
+  background: var(--c-accent);
+  color: var(--fg-100);
+  font-size: var(--fs-2xs);
+  font-weight: 800;
+}
+
 /* ---- Kliens nézet: edző-fejléc ---- */
 .co-coach-head {
   display: flex;
@@ -4277,7 +4267,9 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 
 .co-invite-list {
   list-style: none;
-  margin: 0;
+  /* A margó a listáé, nem a következő elemé: üresen a lista display:none, és
+     így a rés is vele tűnik el. */
+  margin: 0 0 var(--sp-6);
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -4287,10 +4279,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 /* Üresen ne hagyjon rést maga után a flex-elrendezésben */
 .co-invite-list:empty {
   display: none;
-}
-
-.co-invite-list + * {
-  margin-top: var(--sp-6);
 }
 
 .co-invite {
@@ -4329,7 +4317,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .co-invite-btn {
-  min-height: 40px;
   padding: var(--sp-2) var(--sp-5);
   border: 1px solid var(--fg-20);
   border-radius: var(--r-md);
@@ -4385,7 +4372,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .co-invite-form button {
-  min-height: 44px;
   flex-shrink: 0;
   padding: var(--sp-3) var(--sp-6);
   border: none;
@@ -4404,7 +4390,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 /* ---- Leválás az edzőről (a kliens fejléc jobb szélén) ---- */
 .co-unlink {
   flex-shrink: 0;
-  min-height: 36px;
   padding: var(--sp-2) var(--sp-4);
   border: 1px solid var(--fg-20);
   border-radius: var(--r-md);

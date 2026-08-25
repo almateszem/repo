@@ -610,8 +610,10 @@ purgeExpiredSessions();
     A felület relatív időt ír ki belőle ("2 órája"), ahhoz kell a zóna. */
 const toIso = (stamp) => (stamp ? `${String(stamp).replace(' ', 'T')}Z` : null);
 
-/** Meghívó: az edző hívja a sportolót. Visszaadja a létrejött kapcsolat
-    azonosítóját, vagy null-t, ha ez a pár már létezik (függő vagy élő). */
+/** Meghívó: az edző hívja a sportolót. Visszaadja a létrejött kapcsolatot
+    (getCoachLink alakjában), vagy null-t, ha ez a pár EBBEN AZ IRÁNYBAN már
+    létezik (függő vagy élő). A fordított irányt a hívó zárja ki
+    (server.js): az önmagában érvényes sor lenne, csak épp értelmetlen. */
 export function createCoachInvite(coachId, athleteId) {
   if (coachId === athleteId) return null;
   if (db.prepare('SELECT 1 FROM coach_links WHERE coach_id = ? AND athlete_id = ?').get(coachId, athleteId)) {

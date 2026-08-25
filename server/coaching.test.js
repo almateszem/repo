@@ -97,36 +97,50 @@ test('az összpontszám terv nélkül maga a készenlét', () => {
 
 test('a riasztás a súlyosabb okokat mondja, legfeljebb kettőt', () => {
   const alert = athleteAlert({
-    missed: 3, daysSinceWorkout: 9, readiness: 40, daysSinceCheckin: 10, hasHistory: true,
+    missed: 3, daysSinceWorkout: 9, readiness: 40, daysSinceCheckin: 10, activeDays: 30,
   });
   assert.equal(alert, '3 kihagyott edzés · 9 napja nem edzett', 'a két legsúlyosabb ok');
 
   assert.equal(
-    athleteAlert({ missed: 0, daysSinceWorkout: 1, readiness: 58, daysSinceCheckin: 0, hasHistory: true }),
+    athleteAlert({ missed: 0, daysSinceWorkout: 1, readiness: 58, daysSinceCheckin: 0, activeDays: 30 }),
     'készenlét 58%',
   );
   assert.equal(
-    athleteAlert({ missed: 1, daysSinceWorkout: 2, readiness: 88, daysSinceCheckin: 5, hasHistory: true }),
+    athleteAlert({ missed: 1, daysSinceWorkout: 2, readiness: 88, daysSinceCheckin: 5, activeDays: 30 }),
     'check-in 5 napja hiányzik',
     'egy kihagyott edzés még nem riasztás',
   );
   assert.equal(
-    athleteAlert({ missed: 0, daysSinceWorkout: 1, readiness: 90, daysSinceCheckin: 1, hasHistory: true }),
+    athleteAlert({ missed: 0, daysSinceWorkout: 1, readiness: 90, daysSinceCheckin: 1, activeDays: 30 }),
     null,
     'minden rendben → nincs sor',
   );
 });
 
-test('a frissen csatlakozott sportoló nem kap riasztást a hiányzó előzményre', () => {
+test('a hiányzó adat csak akkor riasztás, ha lett volna ideje meglenni', () => {
+  // Ma csatlakozott, ma naplózott egy edzést: még nincs check-inje — ez nem hiba
   const fresh = athleteAlert({
-    missed: 0, daysSinceWorkout: null, readiness: 100, daysSinceCheckin: null, hasHistory: false,
+    missed: 0, daysSinceWorkout: 0, readiness: 100, daysSinceCheckin: null, activeDays: 0,
   });
-  assert.equal(fresh, null, 'akinek még nincs semmije, az nem „lemaradt"');
+  assert.equal(fresh, null, 'aki most kezdett, nem „lemaradt"');
 
-  const stalled = athleteAlert({
-    missed: 0, daysSinceWorkout: null, readiness: 100, daysSinceCheckin: 2, hasHistory: true,
+  // Egy hete használja, de check-int még egyet sem töltött ki
+  const stale = athleteAlert({
+    missed: 0, daysSinceWorkout: 1, readiness: 100, daysSinceCheckin: null, activeDays: 7,
   });
-  assert.equal(stalled, 'még nincs naplózott edzés');
+  assert.equal(stale, 'nincs kitöltött check-in');
+
+  // Check-inezik, de edzést nem naplóz
+  const noWorkouts = athleteAlert({
+    missed: 0, daysSinceWorkout: null, readiness: 100, daysSinceCheckin: 0, activeDays: 3,
+  });
+  assert.equal(noWorkouts, 'még nincs naplózott edzés');
+
+  // Teljesen üres fiók: semmiről nem állítunk semmit
+  assert.equal(
+    athleteAlert({ missed: 0, daysSinceWorkout: null, readiness: 100, daysSinceCheckin: null, activeDays: 0 }),
+    null,
+  );
 });
 
 test('a legutóbbi aktivitás a naplókból fésülődik össze, legújabb elöl', () => {
@@ -187,6 +201,24 @@ test('a kártya a mai hétnapra ütemezett tervet mutatja aktívként', () => {
   assert.equal(card.lastWorkout, 'ma');
   assert.equal(card.streak, 3);
   assert.equal(card.lastMessage.text, 'Megvolt!');
+});
+
+test('a ma csatlakozott sportoló kártyája nem riaszt, de a megbízhatóság látszik', () => {
+  const card = buildAthleteCard({
+    athlete: { linkId: 3, username: 'uj', name: 'Új Ugyan', goal: null },
+    workouts: [workout(daysAgo(0))],
+    plans: [],
+    checkins: [],
+    weightLog: [],
+    readiness: 100,
+    confidence: 'low',
+    streak: 1,
+    lastMessage: null,
+    today: TODAY,
+  });
+
+  assert.equal(card.alert, null, 'egy nap után nincs mit számonkérni');
+  assert.equal(card.confidence, 'low', 'a modál ebből írja ki, min alapul a 100%');
 });
 
 test('terv nélkül a heti állás „x/–", és az összpontszám a készenlét', () => {

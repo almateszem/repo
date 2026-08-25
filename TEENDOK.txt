@@ -38,6 +38,16 @@ EDZŐ–SPORTOLÓ KAPCSOLAT — a 2026-08-25-i átállás után maradt tételek
     Hely: public/script.js -> COACH_POLL_MS. Kis felhasználószámnál ez
     rendben van; ha sokan lesznek egyszerre bent, SSE vagy websocket kell.
 
+[ ] Az edzői panel ára a sportolók számával nő
+    A GET /api/athletes SPORTOLÓNKÉNT lefuttatja a teljes készenlét-számítást
+    (getWorkouts + computeReadiness). Mérve 2026-08-25: 8 sportoló, mindegyik
+    1 éves naplóval → 38 ms egyetlen kérésre (~5 ms/sportoló), és ez a
+    szinkron SQLite miatt végig blokkolja az event loopot.
+    20-30 sportolónál már érezhető lesz. Válaszok, ha odáig jutunk: a kártya
+    számait elég ritkábban újraszámolni (gyorsítótár a sportoló utolsó
+    edzés-mentéséig érvényesítve), vagy a 28 napos ablakra szűkített
+    getWorkouts (ld. a teljesítmény-szakasz utolsó bekezdését).
+
 [ ] Az edző nem tud tervet kiosztani a sportolónak
     A részletmodálból korábban két demo-gomb nyílt („Terv szerkesztése",
     „Edzés szerkesztése"), amik a SAJÁT tervek oldalára navigáltak — azok
