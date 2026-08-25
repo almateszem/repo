@@ -118,6 +118,10 @@
 
   const api = {
     getUser:           () => getJsonCached('/api/user'),
+    // Friss fiók-adat a cache megkerülésével (edzés-cél mentése, kapcsolat változása után)
+    refreshUser:       () => { invalidateCache('/api/user'); return getJsonCached('/api/user'); },
+    // Az edzés-cél mentése — a válasz a fiók frissített felületi alakja
+    saveGoal:          (goal) => putJson('/api/user', { goal }),
     // Nem cache-elt: a profiloldal összesítői minden edzés-mentés után változnak
     getProfile:        () => getJson('/api/profile'),
     // Nem cache-elt: a dailyStats a naplózással és a nap váltásával változik
@@ -128,7 +132,6 @@
     getFoods:          () => getJsonCached('/api/foods'),
     // Nem cache-elt: a saját tervek mentés/szerkesztés után változnak
     getPlans:          () => getJson('/api/plans'),
-    getAthletes:       () => getJsonCached('/api/athletes'),
     // Nem cache-elt: a PR-lista a mentett edzésekből épül, mentés után frissül
     getPrs:            () => getJson('/api/prs'),
     getPrHistory:      (exercise) => getJson(`/api/prs/history?exercise=${encodeURIComponent(exercise)}`),
@@ -137,9 +140,23 @@
     getNotifications:  () => getJsonCached('/api/notifications'),
     getDefaultSet:     () => getJsonCached('/api/default-set'),
     getExerciseCatalog: () => getJsonCached('/api/exercise-catalog'),
-    getAthleteReplies: () => getJsonCached('/api/athlete-replies'),
-    getCoachNotes:     () => getJsonCached('/api/coach-notes'),
-    getCoachReplies:   () => getJsonCached('/api/coach-replies'),
+    // A választható edzés-célok (kulcs + kártya-címke + felirat) — referencia-adat
+    getGoals:          () => getJsonCached('/api/goals'),
+
+    /* ---- Edző–sportoló kapcsolat ----
+       EGYIK sem cache-elt: a kapcsolatok, a sportolók állapota és az üzenetek
+       a másik fél lépéseitől is változnak, tehát minden megnyitáskor friss
+       adat kell. */
+    getCoach:          () => getJson('/api/coach'),
+    acceptCoachInvite: (linkId) => postJson(`/api/coach/invites/${linkId}/accept`),
+    declineCoachInvite: (linkId) => del(`/api/coach/invites/${linkId}`),
+    leaveCoach:        () => del('/api/coach'),
+    getAthletes:       () => getJson('/api/athletes'),
+    inviteAthlete:     (username) => postJson('/api/athletes', { username }),
+    removeAthlete:     (linkId) => del(`/api/athletes/${linkId}`),
+    // Üzenetváltás — ugyanaz a szál mindkét oldalról, a kapcsolat azonosítójával
+    getMessages:       (linkId) => getJson(`/api/messages/${linkId}`),
+    sendMessage:       (linkId, text) => postJson(`/api/messages/${linkId}`, { text }),
     // A testsúly-napló. Írni nem innen írunk: a testsúlyt a napi check-in
     // kérdi, és a PUT /api/checkin weightKg mezője rögzíti (naponta egy sor).
     getWeightLog:      () => getJson('/api/weight-log'),
@@ -353,10 +370,15 @@
       if (dashboardData) animateNumber($('.db-percent-num'), dashboardData.readiness, { from: 0, duration: 900 });
     },
     coach() {
-      // A sportoló-kártyák összpontszáma 0-ról pörög fel — csak ha az
-      // edzői (menedzser) nézet éppen látszik
-      const manager = $('[data-page="coach"] [data-view="manager"]');
-      if (manager && !manager.hidden) animateCoachRatings();
+      /* Az Edző oldal MÁSIK EMBER adatát mutatja (a sportolóid állapotát, az
+         edződ üzeneteit), ami a saját gépeléseinktől függetlenül változik —
+         ezért minden megnyitáskor friss adatot kérünk. A frissítő rajzolja ki
+         a kártyákat is, és az ő végén pörögnek fel a pontszámok. */
+      if (refreshCoachPage) refreshCoachPage();
+      else {
+        const manager = $('[data-page="coach"] [data-view="manager"]');
+        if (manager && !manager.hidden) animateCoachRatings();
+      }
     },
     summary() {
       renderSummary(); // az edzésnapló élő DOM-állapotából számol + felpörgeti a számokat
@@ -405,6 +427,11 @@
   /** A profiloldal frissítője — a setupProfile állítja be. Az oldal minden
       megnyitása hívja (a pageEffects-en át). */
   let refreshProfile = null;
+
+  /** Az Edző oldal frissítője — a setupCoachPage állítja be. Az oldal minden
+      megnyitása hívja (a pageEffects-en át): a kapcsolatok, a sportolók
+      állapota és az üzenetek a másik fél lépéseitől is változnak. */
+  let refreshCoachPage = null;
 
   /** A mentett check-in kirajzolása a Regeneráció oldalra — a setupRecovery
       állítja be. A hosszú űrlap ÉS a varázsló is ezt hívja mentés után, így
@@ -1420,31 +1447,37 @@
   }
 
   /* ---- Edzői panel: állapot-sáv + sportoló-kártyák ----
-     Összpontszám = (készenlét + terv-követés) / 2, ebből jön a tier is
-     (arany ≥ 85, ezüst ≥ 70, alatta bronz) — FIFA-kártya ihletésű megjelenés. */
-  const athleteRating = (athlete) => Math.round((athlete.readiness + athlete.adherence) / 2);
-
+     A kártyák VALÓDI sportolók valódi adatából épülnek (GET /api/athletes):
+     az összpontszámot a szerver számolja (server/coaching.js) a készenlét és a
+     terv-követés átlagaként, terv híján magából a készenlétből. A szint (arany
+     ≥ 85, ezüst ≥ 70, alatta bronz) ebből jön — FIFA-kártya ihletésű megjelenés.
+     A kártya azonosítója a KAPCSOLAT azonosítója: a sportoló belső id-jét a
+     szerver nem is adja ki. */
   const athleteTier = (rating) => (rating >= 85
     ? { key: 'gold', label: 'Arany szint' }
     : rating >= 70
       ? { key: 'silver', label: 'Ezüst szint' }
       : { key: 'bronze', label: 'Bronz szint' });
 
+  /** Hiányzó érték helyén gondolatjel. A „még nincs adat" NEM nulla: terv
+      nélkül nincs terv-követés, edzés nélkül nincs utolsó edzés. */
+  const orDash = (value) => (value === null || value === undefined ? '—' : value);
+
   /** A kártyán megjelenő statok (címke + érték-képző) — a modál bővebb listát mutat. */
   const ATHLETE_CARD_STATS = [
     ['Készenlét', (a) => `${a.readiness}%`],
-    ['Terv-követés', (a) => `${a.adherence}%`],
+    ['Terv-követés', (a) => (a.adherence === null ? '—' : `${a.adherence}%`)],
     ['Sorozat', (a) => `${a.streak} nap`],
-    ['Utolsó edzés', (a) => a.lastWorkout],
+    ['Utolsó edzés', (a) => orDash(a.lastWorkout)],
   ];
 
   function renderAthleteCard(athlete, index) {
     const card = cloneTemplate('tpl-athlete-card');
-    const rating = athleteRating(athlete);
+    const rating = athlete.rating;
     const tier = athleteTier(rating);
 
     card.classList.add(`co-tier--${tier.key}`);
-    card.dataset.athlete = athlete.id;
+    card.dataset.athlete = athlete.linkId;
     card.style.setProperty('--i', index);
     card.setAttribute('aria-label',
       `${athlete.name} — ${rating} pont, ${tier.label}${athlete.alert ? ', figyelmet igényel' : ''} — részletek megnyitása`);
@@ -1452,7 +1485,7 @@
     const ratingEl = $('.co-card-rating', card);
     ratingEl.textContent = rating;
     ratingEl.dataset.rating = rating;
-    $('.co-card-tag', card).textContent = athlete.goal;
+    $('.co-card-tag', card).textContent = athlete.goal ?? '—';
     $('.co-card-name', card).textContent = athlete.name;
     $('.co-card-alert', card).hidden = !athlete.alert;
 
@@ -1473,9 +1506,42 @@
     return card;
   }
 
-  /** Állapot-sáv + kártya-rács feltöltése a lekért sportolók alapján. */
-  async function renderCoachPanel() {
-    const athletes = await api.getAthletes();
+  /** Egy meghívó-sor. A gombokat a hívó adja meg ({ label, action, variant }),
+      mert a két irány mást kínál: a beérkezőt elfogadni/elutasítani lehet, a
+      kiküldöttet visszavonni. A kattintást az Edző oldal delegálása kezeli. */
+  function renderInviteRow({ linkId, name, username, goal }, actions) {
+    const li = document.createElement('li');
+    li.className = 'co-invite';
+
+    const info = document.createElement('div');
+    info.className = 'co-invite-info';
+    const nameEl = document.createElement('span');
+    nameEl.className = 'co-invite-name';
+    nameEl.textContent = name;
+    const metaEl = document.createElement('span');
+    metaEl.className = 'co-invite-meta';
+    metaEl.textContent = goal ? `@${username} · ${goal}` : `@${username}`;
+    info.append(nameEl, metaEl);
+
+    const buttons = document.createElement('div');
+    buttons.className = 'co-invite-actions';
+    actions.forEach(({ label, action, variant }) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `co-invite-btn${variant ? ` co-invite-btn--${variant}` : ''}`;
+      button.dataset.inviteAction = action;
+      button.dataset.linkId = linkId;
+      button.textContent = label;
+      buttons.appendChild(button);
+    });
+
+    li.append(info, buttons);
+    return li;
+  }
+
+  /** Állapot-sáv + kártya-rács feltöltése a lekért sportolókból. A payload a
+      GET /api/athletes válasza: { athletes, invites }. */
+  function renderCoachPanel({ athletes, invites }) {
     $('[data-athlete-count]').textContent = athletes.length;
 
     const banner = $('[data-banner]');
@@ -1484,6 +1550,11 @@
     const alertList = $('[data-list="alerts"]');
     const okText = $('.co-banner-ok-text', banner);
     const flagged = athletes.filter((athlete) => athlete.alert);
+
+    // Sportoló nélkül nincs mit összegezni — a sáv és a rács helyett az
+    // üres állapot magyarázza el, hogyan lesz sportolód.
+    banner.hidden = athletes.length === 0;
+    $('[data-athletes-empty]').hidden = athletes.length > 0;
 
     banner.classList.toggle('co-banner--alert', flagged.length > 0);
     banner.classList.toggle('co-banner--ok', flagged.length === 0);
@@ -1498,7 +1569,7 @@
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'co-banner-item';
-        button.dataset.athlete = athlete.id;
+        button.dataset.athlete = athlete.linkId;
         button.setAttribute('aria-haspopup', 'dialog');
 
         const name = document.createElement('span');
@@ -1521,6 +1592,12 @@
     const grid = $('[data-list="athletes"]');
     grid.replaceChildren(); // újrahíváskor se duplázódjanak a kártyák
     athletes.forEach((athlete, index) => grid.appendChild(renderAthleteCard(athlete, index)));
+
+    const sent = $('[data-list="sent-invites"]');
+    sent.replaceChildren();
+    invites.forEach((invite) => sent.appendChild(renderInviteRow(invite, [
+      { label: 'Visszavonás', action: 'cancel-invite' },
+    ])));
   }
 
   /** Korábbi rekordok (PR) listája a workout oldalon — a mentett edzések
@@ -2239,26 +2316,24 @@
     };
   }
 
-  /** A beállítások modal szerepkör-kapcsolói (demo: mindhárom állapot kipróbálható). */
-  const ROLE_TOGGLES = [
-    { key: 'roleHasCoach', label: 'Van edződ', fallback: (user) => user.hasCoach },
-    { key: 'roleCoachesAthletes', label: 'Edzel másokat', fallback: (user) => user.coachesAthletes },
-  ];
+  /** Beállítások modal: profilnév, értesítés-kapcsolók, edzés-cél, adat-export.
+      A név és az értesítés-kapcsolók a prefs-be (localStorage) mentődnek; az
+      edzés-cél viszont a FIÓKÉ (szerver), mert az edződ is azt látja a
+      kártyádon. Az onNotifCatsChange az értesítés-jelvényt frissíti élőben,
+      ha egy kapcsoló átbillen.
 
-  /** Beállítások modal: profilnév, értesítés-kapcsolók, szerepkör-kapcsolók,
-      adat-export (demo). A név és a kapcsolók a prefs-be (localStorage)
-      mentődnek — más nem perzisztál. Az onRolesChange az Edző oldal
-      felületeit, az onNotifCatsChange az értesítés-jelvényt frissíti élőben,
-      ha egy kapcsoló átbillen. */
-  async function setupSettingsModal({ onRolesChange, onNotifCatsChange } = {}) {
+      A korábbi szerepkör-kapcsolók („Van edződ" / „Edzel másokat") innen
+      kikerültek: a szerepkör már nem demo-kapcsoló, hanem valódi kapcsolatból
+      következik — az Edző oldalon lehet meghívni és elfogadni. */
+  async function setupSettingsModal({ onNotifCatsChange } = {}) {
     const modal = $('#settingsModal');
     const controller = createModalController(modal);
     const nameInput = $('#st-display-name');
     const usernameEl = $('.db-username');
     const toggleList = $('[data-list="settings-toggles"]');
-    const roleList = $('[data-list="settings-roles"]');
+    const goalSelect = $('#st-goal');
 
-    // A szerepkör-kapcsolók alapállapotát a felhasználó adja meg (egyszer lekérve)
+    // A fiók adatai (név-tartalék, aktuális edzés-cél) — egyszer lekérve
     const user = await api.getUser();
     // A név kiírását a renderUserName végzi — ez a modal csak szerkeszti
 
@@ -2293,33 +2368,28 @@
       onNotifCatsChange?.();
     });
 
-    // Szerepkör-kapcsolók (Van edződ / Edzel másokat) — ugyanaz a sorminta
-    ROLE_TOGGLES.forEach(({ key, label }) => {
-      const row = cloneTemplate('tpl-setting-toggle');
-      $('.st-toggle-label', row).textContent = label;
-      const toggle = $('.st-switch', row);
-      toggle.dataset.role = key;
-      toggle.setAttribute('aria-label', `${label} szerepkör`);
-      roleList.appendChild(row);
+    /* Edzés-cél: a lista a szerverről jön (data.js → goals), hogy a címke és a
+       felirat egy helyen éljen. Az üres érték a „nincs megadva" — ilyenkor az
+       edzői kártyán „—" áll, nem egy kitalált cél. */
+    const goals = await api.getGoals();
+    goalSelect.replaceChildren(new Option('Nincs megadva', ''));
+    goals.forEach(({ key, tag, label }) => {
+      goalSelect.appendChild(new Option(`${label} · ${tag}`, key));
     });
+    goalSelect.value = user.goal ?? '';
 
-    const syncRoleToggles = () => {
-      $$('.st-switch', roleList).forEach((toggle) => {
-        const role = ROLE_TOGGLES.find((r) => r.key === toggle.dataset.role);
-        const isOn = Boolean(prefs.get(role.key, role.fallback(user)));
-        toggle.setAttribute('aria-checked', String(isOn));
-        toggle.closest('.st-toggle').classList.toggle('is-off', !isOn);
-      });
-    };
-
-    // Átbillentéskor azonnal érvényesül — az Edző oldal élőben frissül
-    roleList.addEventListener('click', (event) => {
-      const toggle = event.target.closest('.st-switch');
-      if (!toggle) return;
-      const role = ROLE_TOGGLES.find((r) => r.key === toggle.dataset.role);
-      prefs.set(role.key, !prefs.get(role.key, role.fallback(user)));
-      syncRoleToggles();
-      onRolesChange?.();
+    // Azonnal mentődik (mint a többi beállítás). Hibánál visszaáll a mentett
+    // értékre, hogy a legördülő ne mutasson mást, mint ami a szerveren van.
+    goalSelect.addEventListener('change', async () => {
+      try {
+        const updated = await api.saveGoal(goalSelect.value);
+        user.goal = updated.goal;
+        await api.refreshUser();
+        showToast('Edzés-cél mentve');
+      } catch (err) {
+        goalSelect.value = user.goal ?? '';
+        showToast(err.message || 'Az edzés-célt nem sikerült menteni', 'error');
+      }
     });
 
     // Adat-export: a teljes adat-pillanatkép letöltése JSON-ként + toast (demo)
@@ -2380,7 +2450,9 @@
         nameInput.placeholder = user.name;
         $('[data-st-account]').textContent = `Bejelentkezve: ${user.username ?? user.name}`;
         syncToggles();
-        syncRoleToggles();
+        // Az edzés-cél a szerveren él: a modál megnyitásakor a legutóbb
+        // mentett értékre állunk vissza (a fiók adata a betöltéskor kelt).
+        goalSelect.value = user.goal ?? '';
         controller.open();
       },
     };
@@ -4834,85 +4906,130 @@
     });
   }
 
-  /** Közös chat-szimuláció: saját üzenet azonnal megjelenik, majd „gépel…”
-      jelző után szimulált válasz érkezik (körbeforgó válaszlista). A sportoló-
-      modál chatje és a kliens nézet edző-chatje is erre épül. A beszélgetés
-      objektum: { name, thread, replyPending } — az előzmény a session alatt
-      memóriában marad. */
-  function createChatController({ feed, form, input, replies, getConversation, isFeedVisible }) {
-    const TYPING_DELAY_MS = 700;
-    const REPLY_DELAY_MS = 1900;
-    let replyIndex = 0;
+  /** Relatív idő az üzenet ISO-8601 időbélyegéből. Az üzenetek percre pontos
+      ideje nem érdekes, a „mikor" viszont igen — a hét fölött ezért dátumra
+      vált. (A szerver UTC-t küld, a Date a böngésző zónájában értelmezi.) */
+  function relativeTime(iso) {
+    const at = new Date(iso);
+    if (Number.isNaN(at.getTime())) return '';
+    const minutes = Math.round((Date.now() - at.getTime()) / 60000);
+    if (minutes < 1) return 'most';
+    if (minutes < 60) return `${minutes} perce`;
+    const hours = Math.round(minutes / 60);
+    if (hours < 24) return `${hours} órája`;
+    const days = Math.round(hours / 24);
+    if (days === 1) return 'tegnap';
+    if (days < 7) return `${days} napja`;
+    return at.toLocaleDateString('hu-HU');
+  }
 
+  /** Egy üzenet buborékja a szerver által küldött alakból. A `mine` dönti el,
+      hogy saját (jobbra igazított) üzenet-e — a szerver a NÉZŐ szemszögéből
+      küldi, tehát ugyanaz a sor az edzőnél és a sportolónál más oldalra kerül. */
+  const messageNote = (message) => createCoachNote({
+    meta: `${message.mine ? 'Te' : message.author} · ${relativeTime(message.at)}`,
+    text: message.text,
+    me: message.mine,
+  });
+
+  /** Üres/hibás szál helyén álló magyarázó sor. */
+  function feedNotice(text) {
+    const p = document.createElement('p');
+    p.className = 'co-msg-empty';
+    p.textContent = text;
+    return p;
+  }
+
+  /**
+   * Üzenet-szál vezérlő. VALÓDI backend áll mögötte: a küldött üzenet a másik
+   * fél fiókjába kerül, és a szál mindkét oldalról ugyanaz (a kapcsolat
+   * azonosítója köti össze). Ugyanez szolgálja ki a kliens nézet edző-chatjét
+   * és a sportoló-modál chatjét — a különbség csak a getLinkId().
+   *
+   * A késve érkező válaszra figyelni kell: mire a kérés visszaér, a felhasználó
+   * már másik beszélgetést nézhet. Ezért minden válasznál újra megkérdezzük,
+   * ugyanaz-e még az aktív kapcsolat.
+   */
+  function createChatController({ feed, form, input, getLinkId }) {
     const scrollFeedToEnd = () => { feed.scrollTop = feed.scrollHeight; };
 
-    const renderThread = (conversation) => {
+    /* A legutóbb kirajzolt szál ujjlenyomata (az üzenet-azonosítók sorban).
+       Ha a frissítés ugyanazt hozza, NEM rajzolunk újra: a replaceChildren
+       különben minden körben az aljára ugrasztaná a hírfolyamot, miközben a
+       felhasználó épp a korábbi üzeneteket olvassa. */
+    let lastSignature = null;
+
+    const render = (messages) => {
+      const signature = messages.map((message) => message.id).join(',');
+      if (signature === lastSignature) return;
+      lastSignature = signature;
+
       feed.replaceChildren();
-      conversation.thread.forEach((note) => feed.appendChild(createCoachNote(note)));
+      if (messages.length === 0) feed.appendChild(feedNotice('Még nincs üzenet — írj elsőként.'));
+      messages.forEach((message) => feed.appendChild(messageNote(message)));
       scrollFeedToEnd();
     };
 
-    form.addEventListener('submit', (event) => {
-      event.preventDefault(); // required-validáció után futunk, nincs valódi backend
+    /** A szál lekérése és kirajzolása. Szándékosan nincs „Betöltés…" jelző: a
+        korábbi tartalom marad a képernyőn, amíg a friss meg nem érkezik — így
+        a 20 másodpercenkénti frissítés sem villog. */
+    /** Beszélgetés-váltáskor a hívó ezzel jelzi, hogy a következő töltés
+        MINDENKÉPP rajzoljon (a másik szál tartalma nem maradhat a képernyőn). */
+    const reset = () => {
+      lastSignature = null;
+      feed.replaceChildren(); // amíg a friss szál megjön, ne a másiké álljon itt
+    };
 
-      const message = input.value.trim();
-      if (!message) return;
+    async function load() {
+      const linkId = getLinkId();
+      if (!linkId) return;
+      try {
+        const thread = await api.getMessages(linkId);
+        if (getLinkId() !== linkId) return; // időközben másik beszélgetés lett aktív
+        render(thread.messages);
+      } catch (err) {
+        console.error('Üzenetek betöltési hiba:', err);
+        if (getLinkId() !== linkId) return;
+        lastSignature = null; // a következő sikeres töltés újra kirajzolja a szálat
+        feed.replaceChildren(feedNotice('Az üzenetek most nem tölthetők be.'));
+      }
+    }
 
-      const conversation = getConversation();
-      const myNote = { meta: 'Te · most', text: message, me: true };
-      conversation.thread.push(myNote);
-      feed.appendChild(createCoachNote(myNote));
-      scrollFeedToEnd();
-      form.reset();
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const linkId = getLinkId();
+      const text = input.value.trim();
+      if (!linkId || !text) return;
+
+      try {
+        const message = await api.sendMessage(linkId, text);
+        form.reset();
+        if (getLinkId() !== linkId) return;
+        $('.co-msg-empty', feed)?.remove();
+        feed.appendChild(messageNote(message));
+        scrollFeedToEnd();
+      } catch (err) {
+        showToast(err.message || 'Az üzenetet nem sikerült elküldeni', 'error');
+      }
       input.focus();
-
-      if (conversation.replyPending) return; // beszélgetésenként egy szimulált válasz fusson
-      conversation.replyPending = true;
-
-      setTimeout(() => {
-        // "Gépel…" jelző — csak ha még mindig ez a beszélgetés látszik
-        const typingNote = createCoachNote({ meta: conversation.name, text: '' });
-        const typing = document.createElement('span');
-        typing.className = 'co-typing';
-        typing.setAttribute('aria-label', `${conversation.name} éppen ír`);
-        for (let i = 0; i < 3; i += 1) typing.appendChild(document.createElement('span'));
-        $('.co-note-text', typingNote).appendChild(typing);
-        if (getConversation() === conversation && isFeedVisible()) {
-          feed.appendChild(typingNote);
-          scrollFeedToEnd();
-        }
-
-        setTimeout(() => {
-          const reply = {
-            meta: `${conversation.name} · most`,
-            text: replies[replyIndex % replies.length],
-          };
-          replyIndex += 1;
-          conversation.thread.push(reply);
-          conversation.replyPending = false;
-          if (typingNote.isConnected) typingNote.replaceWith(createCoachNote(reply));
-          else if (getConversation() === conversation && isFeedVisible()) feed.appendChild(createCoachNote(reply));
-          scrollFeedToEnd();
-        }, REPLY_DELAY_MS - TYPING_DELAY_MS);
-      }, TYPING_DELAY_MS);
     });
 
-    return { renderThread };
+    return { load, reset };
   }
 
   /** A modálban megjelenő részletes statok (a kártya statjai + extra mezők). */
   const ATHLETE_MODAL_STATS = [
     ...ATHLETE_CARD_STATS,
     ['Heti edzések', (a) => a.weekly],
-    ['Aktív terv', (a) => a.plan],
+    ['Aktív terv', (a) => orDash(a.plan)],
   ];
 
-  /** Sportoló részletmodál: összegzés, gyors műveletek és üzenetküldés
-      szimulált sportoló-válasszal. A modal-plumbing a közös vezérlőé. */
-  async function setupAthleteModal() {
+  /** Sportoló részletmodál: a saját naplójából számolt összegzés, valódi
+      üzenetváltás, és a kapcsolat bontása. Az `onUnlink` az Edző oldalt
+      frissíti, miután a sportoló lekerült a panelről. */
+  function setupAthleteModal({ confirmAction, onUnlink } = {}) {
     const modal = $('#athleteModal');
     const controller = createModalController(modal);
-    const athleteReplies = await api.getAthleteReplies();
     const badge = $('.co-modal-badge', modal);
     const titleEl = $('#athleteModalTitle');
     const tierEl = $('.co-modal-tier', modal);
@@ -4927,55 +5044,53 @@
 
     let current = null;
 
-    // A chat-mechanika (küldés, „gépel…", szimulált válasz) a közös vezérlőé
     const chat = createChatController({
       feed,
       form,
       input,
-      replies: athleteReplies,
-      getConversation: () => current,
-      isFeedVisible: () => !msgSection.hidden,
+      getLinkId: () => current?.linkId ?? null,
     });
 
     const setMessageOpen = (open, { focus = false } = {}) => {
       msgSection.hidden = !open;
       msgButton.setAttribute('aria-expanded', String(open));
-      if (open) {
-        chat.renderThread(current);
-        if (focus) input.focus();
-      }
+      if (!open) return;
+      chat.reset(); // másik sportoló szála jöhet — a régi nem maradhat kint
+      chat.load();
+      if (focus) input.focus();
     };
 
-    // Terv / edzés szerkesztése: demo-stub — toast + átnavigálás a megfelelő oldalra
-    $('[data-action="edit-plan"]', modal).addEventListener('click', () => {
-      showToast(`„${current.plan}” megnyitva szerkesztésre · demo`);
-      controller.close();
-      navigate('plans');
-    });
-
-    $('[data-action="edit-workout"]', modal).addEventListener('click', () => {
-      showToast(`${current.name} — legutóbbi edzés megnyitva · demo`);
-      controller.close();
-      navigate('workout');
-    });
-
     msgButton.addEventListener('click', () => setMessageOpen(msgSection.hidden, { focus: true }));
+
+    // A kapcsolat bontása: a sportoló lekerül a panelről, és az üzenetváltás
+    // is törlődik — ezért kérdezünk rá.
+    $('[data-action="remove-athlete"]', modal).addEventListener('click', async () => {
+      const athlete = current;
+      const confirmed = await confirmAction(
+        `${athlete.name} lekerül az edzői panelről, és az üzenetváltásotok is törlődik.`,
+        { title: 'Kapcsolat bontása', confirmLabel: 'Bontás' },
+      );
+      if (!confirmed) return;
+      try {
+        await api.removeAthlete(athlete.linkId);
+        controller.close();
+        showToast(`${athlete.name} kapcsolata bontva`);
+        await onUnlink?.();
+      } catch (err) {
+        showToast(err.message || 'A kapcsolatot nem sikerült bontani', 'error');
+      }
+    });
 
     return {
       open(athlete) {
         current = athlete;
-        // Az üzenetváltás előzménye a session alatt megmarad (memóriában)
-        if (!athlete.thread) {
-          athlete.thread = [{ meta: `${athlete.name} · tegnap`, text: athlete.lastMessage }];
-        }
 
-        const rating = athleteRating(athlete);
-        const tier = athleteTier(rating);
+        const tier = athleteTier(athlete.rating);
         badge.className = `co-modal-badge co-tier--${tier.key}`;
-        $('.co-modal-rating', badge).textContent = rating;
-        $('.co-modal-tag', badge).textContent = athlete.goal;
+        $('.co-modal-rating', badge).textContent = athlete.rating;
+        $('.co-modal-tag', badge).textContent = athlete.goal ?? '—';
         titleEl.textContent = athlete.name;
-        tierEl.textContent = `${tier.label} · ${rating} pont`;
+        tierEl.textContent = `${tier.label} · ${athlete.rating} pont · @${athlete.username}`;
 
         alertEl.hidden = !athlete.alert;
         if (athlete.alert) alertEl.textContent = `Figyelmet igényel: ${athlete.alert}`;
@@ -4993,7 +5108,10 @@
         });
 
         activityEl.replaceChildren();
-        athlete.recent.forEach((entry, index) => {
+        const entries = athlete.recent.length > 0
+          ? athlete.recent
+          : ['Még nincs naplózott aktivitás.'];
+        entries.forEach((entry, index) => {
           const li = document.createElement('li');
           li.style.setProperty('--i', index);
           li.textContent = entry;
@@ -5006,79 +5124,94 @@
     };
   }
 
-  /** Edzői panel: kártyára vagy riasztás-sorra kattintva a részletmodál nyílik. */
-  async function setupCoach(athleteModal) {
-    // A sportolók listája — egyszer lekérve; a kattintás id alapján keres benne.
-    // (Ugyanaz a cache szolgálja ki az összes kattintást, így a modal-ban a
-    //  session alatt épülő üzenetváltás-előzmény ugyanazon az objektumon marad.)
-    const athletes = await api.getAthletes();
-    $('[data-page="coach"]').addEventListener('click', (event) => {
-      const trigger = event.target.closest('[data-athlete]');
-      if (!trigger) return;
-      const athlete = athletes.find((a) => a.id === trigger.dataset.athlete);
-      if (athlete) athleteModal?.open(athlete);
-    });
-  }
+  /* ---- Az Edző oldal ----
+     Mindkét nézet MINDIG elérhető: ugyanaz a fiók lehet valakinek az edzője és
+     valaki másnak a sportolója. A tartalom viszont valódi kapcsolatból jön:
+       - kliens nézet: a saját edződ szála + a hozzád érkezett meghívók;
+       - edzői nézet: a sportolóid kártyái + a kiküldött meghívók.
+     Az alapértelmezett nézet ahhoz igazodik, amiben a fióknak épp van adata;
+     a felhasználó választását a prefs megjegyzi. */
 
-  /** Az Edző oldal szerepkör-alapú felületei.
-      - hasCoach + coachesAthletes → nézetváltó („Edződ" / „Edzetteim"), az
-        utolsó választás prefs-ben megjegyzett;
-      - csak hasCoach → csak a kliens chat; csak coachesAthletes → csak a
-        sportoló-menedzser; egyik sem → üres állapot.
-      A kliens chat a közös chat-vezérlőre épül (coachNotes + coachReplies). */
-  async function setupCoachSurfaces() {
+  /** Az Edző oldal halk frissítése: ennyi időnként kérjük le újra a nyitott
+      beszélgetést, hogy a másik fél üzenete magától megjelenjen. */
+  const COACH_POLL_MS = 20_000;
+
+  async function setupCoachPage(athleteModal, confirmAction) {
     const page = $('[data-page="coach"]');
     const toggle = $('[data-coach-toggle]', page);
-    const emptyState = $('[data-coach-empty]', page);
     const views = {
       client: $('[data-view="client"]', page),
       manager: $('[data-view="manager"]', page),
     };
+    const clientThread = $('[data-coach-thread]', page);
+    const noCoachText = $('[data-coach-none]', page);
+    const inviteLead = $('[data-invite-lead]', page);
+    const inviteList = $('[data-list="coach-invites"]', page);
+    const sentLead = $('[data-sent-lead]', page);
+    const inviteForm = $('[data-form="invite-athlete"]', page);
+    const inviteInput = $('#co-invite-username');
 
-    const [coachNotes, coachReplies, user] = await Promise.all([
-      api.getCoachNotes(), api.getCoachReplies(), api.getUser(),
-    ]);
-
-    // A saját edző beszélgetése — az előzmény a session alatt memóriában marad
-    const coachConversation = {
-      name: 'Kovács Bence',
-      thread: coachNotes.map((note) => ({ ...note })),
-    };
+    // A saját edződ szála — a kapcsolat azonosítója a /api/coach válaszából jön
+    let coachData = { coach: null, invites: [] };
+    let panel = { athletes: [], invites: [] };
 
     const chat = createChatController({
       feed: $('[data-client-feed]', page),
       form: $('[data-form="coach-message"]', page),
       input: $('#coach-message'),
-      replies: coachReplies,
-      getConversation: () => coachConversation,
-      isFeedVisible: () => !views.client.hidden,
+      getLinkId: () => coachData.coach?.linkId ?? null,
     });
 
-    const roles = () => ({
-      hasCoach: prefs.get('roleHasCoach', user.hasCoach),
-      coachesAthletes: prefs.get('roleCoachesAthletes', user.coachesAthletes),
-    });
+    // A saját felhasználónév: ezzel tud meghívni az edző, ezért ki van írva
+    const user = await api.getUser();
+    $('[data-my-username]', page).textContent = `@${user.username}`;
 
-    /** A szerepkörök + a megjegyzett választás alapján kapcsolja a nézeteket. */
+    function renderClient() {
+      const { coach, invites } = coachData;
+      clientThread.hidden = !coach;
+      // A hosszú magyarázat csak akkor kell, ha nincs se edző, se meghívó
+      noCoachText.hidden = Boolean(coach) || invites.length > 0;
+      inviteLead.hidden = invites.length === 0;
+
+      if (coach) {
+        $('[data-coach-name]', page).textContent = coach.name;
+        $('[data-coach-role]', page).textContent = `Edződ · @${coach.username}`;
+      }
+
+      inviteList.replaceChildren();
+      invites.forEach((invite) => inviteList.appendChild(renderInviteRow(invite, [
+        { label: 'Elfogadás', action: 'accept-invite', variant: 'primary' },
+        { label: 'Elutasítás', action: 'decline-invite' },
+      ])));
+    }
+
+    /** Az alapértelmezett nézet: amelyik oldalon a fióknak épp van dolga. */
+    const defaultView = () => {
+      if (coachData.coach || coachData.invites.length > 0) return 'client';
+      if (panel.athletes.length > 0 || panel.invites.length > 0) return 'manager';
+      return 'client';
+    };
+
     const apply = ({ animate = false } = {}) => {
-      const { hasCoach, coachesAthletes } = roles();
-      const both = hasCoach && coachesAthletes;
-      const view = both
-        ? (prefs.get('coachView', 'client') === 'manager' ? 'manager' : 'client')
-        : hasCoach ? 'client' : coachesAthletes ? 'manager' : null;
-
-      toggle.hidden = !both;
-      emptyState.hidden = view !== null;
+      const view = prefs.get('coachView', null) ?? defaultView();
       views.client.hidden = view !== 'client';
       views.manager.hidden = view !== 'manager';
-
       $$('.co-toggle-btn', toggle).forEach((btn) => {
         btn.setAttribute('aria-pressed', String(btn.dataset.coachView === view));
       });
-
-      if (view === 'client') chat.renderThread(coachConversation);
       if (view === 'manager' && animate) animateCoachRatings();
     };
+
+    /** Mindkét oldal újratöltése. Az oldalra lépéskor és minden olyan művelet
+        után fut, ami a kapcsolatokat módosítja. */
+    async function refresh({ animate = false } = {}) {
+      [coachData, panel] = await Promise.all([api.getCoach(), api.getAthletes()]);
+      renderClient();
+      renderCoachPanel(panel);
+      sentLead.hidden = panel.invites.length === 0;
+      apply({ animate });
+      chat.load();
+    }
 
     toggle.addEventListener('click', (event) => {
       const btn = event.target.closest('.co-toggle-btn');
@@ -5087,8 +5220,77 @@
       apply({ animate: true });
     });
 
-    apply();
-    return { apply };
+    // Meghívás felhasználónévvel — a hibát (nincs ilyen fiók, már kapcsolatban
+    // vagytok) a szerver üzenete mondja meg, azt írjuk ki.
+    inviteForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const username = inviteInput.value.trim();
+      if (!username) return;
+      try {
+        const invite = await api.inviteAthlete(username);
+        inviteForm.reset();
+        await refresh();
+        showToast(`Meghívó elküldve — ${invite.name} elfogadására vár`);
+      } catch (err) {
+        showToast(err.message || 'A meghívó nem ment el', 'error');
+      }
+      inviteInput.focus();
+    });
+
+    $('[data-action="leave-coach"]', page).addEventListener('click', async () => {
+      const coach = coachData.coach;
+      if (!coach) return;
+      const confirmed = await confirmAction(
+        `${coach.name} innentől nem látja az adataidat, és az üzenetváltásotok is törlődik.`,
+        { title: 'Leválás az edzőről', confirmLabel: 'Leválás' },
+      );
+      if (!confirmed) return;
+      try {
+        await api.leaveCoach();
+        await refresh();
+        showToast('Leváltál az edződről');
+      } catch (err) {
+        showToast(err.message || 'A leválás nem sikerült', 'error');
+      }
+    });
+
+    /* Egyetlen delegált kattintás-kezelő: a meghívó-gombok és a sportoló-
+       kártyák is dinamikusan születnek, tehát nem lehet rájuk közvetlenül
+       kötni. A kártya/riasztás-sor a részletmodált nyitja. */
+    page.addEventListener('click', async (event) => {
+      const inviteBtn = event.target.closest('[data-invite-action]');
+      if (inviteBtn) {
+        const linkId = Number(inviteBtn.dataset.linkId);
+        const action = inviteBtn.dataset.inviteAction;
+        try {
+          if (action === 'accept-invite') await api.acceptCoachInvite(linkId);
+          else if (action === 'decline-invite') await api.declineCoachInvite(linkId);
+          else if (action === 'cancel-invite') await api.removeAthlete(linkId);
+          await refresh();
+          if (action === 'accept-invite') showToast('Meghívó elfogadva');
+        } catch (err) {
+          showToast(err.message || 'A művelet nem sikerült', 'error');
+        }
+        return;
+      }
+
+      const trigger = event.target.closest('[data-athlete]');
+      if (!trigger) return;
+      const athlete = panel.athletes.find((item) => String(item.linkId) === trigger.dataset.athlete);
+      if (athlete) athleteModal?.open(athlete);
+    });
+
+    /* Halk frissítés: amíg az Edző oldal a kliens nézetében nyitva van,
+       időnként lekérjük a szálat — így a másik fél üzenete magától megjelenik,
+       websocket nélkül. Rejtett fülön nem kérdezünk (ott úgysem látszana), és
+       a hiba némán elhal: a következő kör újrapróbálja. */
+    setInterval(() => {
+      if (document.hidden || page.hidden || views.client.hidden) return;
+      chat.load();
+    }, COACH_POLL_MS);
+
+    await refresh();
+    return { refresh };
   }
 
   /** Gyorsbillentyűk: 1–5 oldalváltás. Gépelés közben és nyitott modal
@@ -5147,25 +5349,35 @@
       safe(renderPrs),
       safe(renderFoods),
       safe(renderPlans),
-      safe(renderCoachPanel),
     ]);
 
-    // A szerepkör-alapú nézetek a router előtt állnak be, hogy az induló
-    // oldal effektjei (pl. kártya-pontszámok) már a jó nézetet lássák.
-    const coachSurfaces = await safe(setupCoachSurfaces);
+    // Megerősítő ablak — szinkron felépítésű, mert több setup is erre épül
+    const confirmAction = setupConfirmDialog();
+
+    /* Az Edző oldal a router ELŐTT épül fel, hogy az induló oldal effektjei
+       (pl. a kártya-pontszámok animációja) már a jó nézetet lássák. A
+       részletmodál előbb kell nála: a kártyák azt nyitják, a modálból indított
+       kapcsolat-bontás pedig visszafelé frissíti az oldalt. */
+    let coachPage = null;
+    const athleteModal = await safe(() => setupAthleteModal({
+      confirmAction,
+      onUnlink: () => coachPage?.refresh(),
+    }));
+    coachPage = await safe(() => setupCoachPage(athleteModal, confirmAction));
+    /* Az oldalra lépéskor futó frissítés hibáját itt nyeljük el: a korábbi
+       tartalom marad a képernyőn, és a következő megnyitás újrapróbálja —
+       egy pillanatnyi hálózati hiba miatt nem üresedhet ki az oldal. */
+    refreshCoachPage = () => coachPage?.refresh({ animate: true })
+      .catch((err) => console.error('Edző oldal frissítési hiba:', err));
 
     setupRouter();
 
     const videoModal = setupVideoModal();
     const prModal = setupPrModal();
-    // Megerősítő ablak — szinkron felépítésű, mert több setup is erre épül
-    const confirmAction = setupConfirmDialog();
     const notifPanel = await safe(setupNotifications);
     const settingsModal = await safe(() => setupSettingsModal({
-      onRolesChange: () => coachSurfaces?.apply({ animate: true }),
       onNotifCatsChange: () => notifPanel?.updateBadge(),
     }));
-    const athleteModal = await safe(setupAthleteModal);
     setupDashboard(settingsModal);
     // A setupDashboard UTÁN: a profiloldal „Beállítások" gombját is az köti be
     // (minden [data-action="settings"] elemre), a tartalmat pedig a
@@ -5193,7 +5405,6 @@
     nutrition = await safe(() => setupNutrition(foodDetail));
     const planBuilder = await safe(() => setupPlanBuilder(picker));
     setupPlans(planBuilder, workout);
-    await safe(() => setupCoach(athleteModal));
     setupSummary();
     setupShortcuts();
     setupConnectivity();

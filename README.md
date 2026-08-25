@@ -1,7 +1,7 @@
 # FitTrack Pro
 
 Edző–kliens edzésmenedzsment demo: edzésnapló, tervkészítő, táplálkozás-követés
-és edzői panel. Egyetlen Express szerver szolgálja ki a statikus frontendet és a
+és edzői panel — utóbbi valódi, több fiók közti edző–sportoló kapcsolattal. Egyetlen Express szerver szolgálja ki a statikus frontendet és a
 REST API-t, az adat SQLite-ban perzisztál.
 
 ## Indítás
@@ -44,9 +44,12 @@ server/
   users.test.js  a felhasználók közti adatizoláció tesztjei (npm test)
   migration.test.js  a fiókok előtti adatbázis migrációjának tesztje (npm test)
   db.js          SQLite adatréteg — az egyetlen modul, ami a tárolást ismeri
-  data.js        seed / referencia-adat (ételek, gyakorlat-katalógus, sportolók)
+  data.js        seed / referencia-adat (ételek, gyakorlat-katalógus, edzés-célok)
   recovery.js    Recovery Engine — a készenlét-számítás (tiszta függvények, DB nélkül)
   recovery.test.js  a motor unit-tesztjei (npm test)
+  coaching.js    az edzői panel sportoló-összegzője (tiszta függvények, DB nélkül)
+  coaching.test.js  az összegző unit-tesztjei (npm test)
+  coach.test.js  az edző–sportoló kapcsolat végponti tesztjei (npm test)
   muscles.js     izomcsoport-taxonómia + gyakorlat → izom leképezés
   fittrack.db    az adatbázisfájl (nem verziókövetett, a szerver hozza létre)
 ```
@@ -55,8 +58,10 @@ Az adat kétféle: a `collections` táblában a **csak olvasható** referencia-a
 amit a szerver minden induláskor a `data.js`-ből szinkronizál (tehát a `data.js`
 az egyetlen szerkesztési hely) — ez minden fióknak közös —, illetve a
 **felhasználói adat** saját táblákban (`weight_log`, `nutrition_log`, `workouts`,
-`plans`, `workout_draft`, `checkins`). Ezeket a seed nem írja felül, és minden
-soruk egy fiókhoz tartozik (`user_id`).
+`plans`, `workout_draft`, `checkins`, `exercise_maxes`). Ezeket a seed nem írja
+felül, és minden soruk egy fiókhoz tartozik (`user_id`). A fiókok KÖZTI adat —
+az edző–sportoló kapcsolatok (`coach_links`) és az üzenetek (`messages`) — külön
+táblákban áll; ezekhez mindkét érintett fél hozzáfér, más senki.
 
 ## Fiókok
 
@@ -242,6 +247,61 @@ személyre szabott (saját előzményhez mért) referenciához 14 nap edzés-el�
 7 check-in kell; addig testsúlyra skálázott általános referenciával fut, és a
 felület `Tájékoztató` / `Közepes` / `Megbízható` jelzéssel kiírja, mire épül a szám.
 
+## Edző–sportoló kapcsolat
+
+Az Edző oldal (`#coach`) **valódi fiókok kapcsolatából** él, nem demo-adatból.
+Mindkét nézete mindig elérhető, mert ugyanaz a fiók lehet valakinek az edzője és
+valaki másnak a sportolója:
+
+- **Edződ** — a saját edződdel folytatott üzenetváltás, és a hozzád érkezett,
+  még el nem fogadott meghívók.
+- **Edzetteim** — a sportolóid kártyái és a kiküldött meghívóid.
+
+**A kapcsolat beleegyezéssel jön létre.** Az edző a sportoló *felhasználónevével*
+küld meghívót; az `pending` állapotban áll, amíg a másik fél el nem fogadja.
+**Elfogadás előtt az edző semmit nem lát az adataiból.** A sportolónak egyszerre
+egy edzője lehet (a felület is egy edzőt mutat); edzőként viszont bárki tarthat
+több sportolót. Bontani mindkét fél tud: az edző a részletmodálból, a sportoló a
+„Leválás" gombbal — a kapcsolattal az üzenetváltás is törlődik (`ON DELETE
+CASCADE`), tehát a levált sportoló előzménye nem marad az edzőnél.
+
+**A sportoló-kártya minden száma számolt érték** (`server/coaching.js`), a
+sportoló saját naplójából:
+
+| Mező | Miből |
+| --- | --- |
+| Készenlét | a sportolóra lefuttatott Recovery Engine (`overall`) |
+| Terv-követés | az elmúlt 4 hét ütemezett napjaihoz mért edzésnapok, 100%-on tetőzve |
+| Összpontszám | a kettő átlaga (terv híján maga a készenlét) → ebből jön az arany/ezüst/bronz szint |
+| Sorozat / utolsó edzés / heti állás | a mentett edzésekből és a tervek hétnapjaiból |
+| Állapot-sáv | kihagyott edzés, leállás, gyenge készenlét, hiányzó check-in — a két legsúlyosabb ok |
+| Legutóbbi aktivitás | edzések, PR-ek, check-inek és testsúly-bejegyzések összefésülve |
+
+Terv nélkül nincs terv-követés: ilyenkor a mező `null`, és a felület `—`-t ír ki,
+nem 0%-ot — az azt hazudná, hogy elmaradt valami. A **cél-címke** (ERŐ, TÖM, FIT,
+FGY, ÁLL) a fiók saját beállítása (Beállítások → Edzés-cél); a választható értékek
+a `data.js` `goals` listájában élnek egy helyen.
+
+**Üzenetek.** A szál a kapcsolathoz tartozik, és mindkét oldalról ugyanaz — a
+szerver a *néző* szemszögéből jelöli meg a saját üzeneteket. Nincs websocket: a
+nyitott beszélgetés 20 másodpercenként (és minden oldalra lépéskor) frissül.
+
+**Végpontok**
+
+| Végpont | Mit csinál |
+| --- | --- |
+| `GET /api/athletes` | a sportolóim kártyái + a kiküldött meghívóim |
+| `POST /api/athletes` | meghívó felhasználónévre |
+| `DELETE /api/athletes/:linkId` | meghívó visszavonása vagy a kapcsolat bontása (edzőként) |
+| `GET /api/coach` | a saját edzőm + a hozzám érkezett meghívók |
+| `POST /api/coach/invites/:linkId/accept` | meghívó elfogadása |
+| `DELETE /api/coach/invites/:linkId` | meghívó elutasítása |
+| `DELETE /api/coach` | leválás az edzőről |
+| `GET` / `POST /api/messages/:linkId` | a kapcsolat üzenet-szála |
+
+Minden végpont ellenőrzi, hogy a hívó a kapcsolat melyik oldala: a `linkId`
+önmagában semmire nem jogosít (`server/coach.test.js`).
+
 ## Felület — akadálymentesség és érintés
 
 A frontend néhány szabályt szándékosan tokenszinten tart be, hogy ne
@@ -274,8 +334,8 @@ Ezek szándékos egyszerűsítések, nem hibák:
   időzónában van, a „mai nap" elcsúszhat.
 - **Nincs pulzus/HRV adatforrás.** Nincs okosóra-integráció, ezért a Recovery
   Engine hat komponensből számol, nem hétből (lásd fentebb).
-- **Az edzői panel sportolói demo-adatok** — az ő `readiness` értékük fix szám a
-  `data.js`-ben, nem a Recovery Engine számolja (nincs mögöttük edzésnapló). A
-  saját készenlét, a regenerációs sorok, a sorozat, a napi kalória/fehérje és a
-  heti volumen viszont mind a tényleges adatból számolódik.
-- **Az edző-chat válaszai szimuláltak**, előre megírt sorokból forognak körbe.
+- **Az értesítés-panel tartalma demo-adat** (`data.js` → `notifications`): fix
+  lista, nem a valódi eseményekből (üzenet, meghívó, PR) épül.
+- **Az üzenetek frissítése lekérdezéssel megy**, nem websockettel: a nyitott
+  beszélgetés 20 másodpercenként és minden oldalra lépéskor frissül. Nincs
+  „olvasatlan" jelölés sem.

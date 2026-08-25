@@ -56,6 +56,7 @@ db.exec(`
     username      TEXT NOT NULL UNIQUE,
     display_name  TEXT NOT NULL,
     password_hash TEXT NOT NULL,   -- scrypt (server/auth.js); üres = nem lehet belépni
+    goal          TEXT,            -- edzés-cél kulcsa (data.js → goals), lehet NULL
     created_at    TEXT NOT NULL DEFAULT (datetime('now'))
   );
   -- Munkamenetek. A süti tokenjének CSAK a SHA-256 lenyomata kerül ide.
@@ -134,6 +135,30 @@ db.exec(`
     updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (user_id, date)
   );
+  -- Edző–sportoló kapcsolat. EGY sor = egy irányított kapcsolat: az edző
+  -- meghívja a sportolót ('pending'), a sportoló elfogadja ('active').
+  -- A pár (coach_id, athlete_id) egyedi, tehát ugyanaz a meghívás nem
+  -- duplázódhat; a fordított irányú (a másik fél mint edző) külön sor lenne.
+  CREATE TABLE IF NOT EXISTS coach_links (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    coach_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    athlete_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    status       TEXT NOT NULL DEFAULT 'pending',   -- pending | active
+    created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+    responded_at TEXT,                              -- mikor fogadta el a sportoló
+    UNIQUE (coach_id, athlete_id),
+    CHECK (coach_id != athlete_id)
+  );
+  -- Üzenetek a kapcsolat két oldala között. A szál a kapcsolathoz tartozik,
+  -- nem a két félhez külön — a kapcsolat megszűnésével (CASCADE) az üzenetek
+  -- is eltűnnek, tehát a levált sportoló előzménye nem marad az edzőnél.
+  CREATE TABLE IF NOT EXISTS messages (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    link_id    INTEGER NOT NULL REFERENCES coach_links(id) ON DELETE CASCADE,
+    sender_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    body       TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))   -- UTC
+  );
   -- Gyakorlatonkénti egyéni csúcs (becsült 1RM). A PR MINDIG a saját korábbi
   -- teljesítményhez képest az, ezért a rekordok felhasználónként állnak — a
   -- kulcs (user_id, exercise_name).
@@ -166,6 +191,9 @@ ensureColumn('workout_draft', 'plan_id', 'plan_id INTEGER');
 // A naplózás korábban fix 100 g-os adaggal ment — a régi sorok makrói tehát
 // 100 g-ra vonatkoznak, ezért a default érték helyes a meglévő adatokra is.
 ensureColumn('nutrition_log', 'grams', 'grams REAL NOT NULL DEFAULT 100');
+// Edzés-cél: a fiók sajátja, az edzői panel kártyáján címkeként látszik.
+// Üresen hagyható (NULL) — a felület ilyenkor „—"-t mutat.
+ensureColumn('users', 'goal', 'goal TEXT');
 
 /* ---- Migráció: egyfelhasználós → többfelhasználós ----
 
@@ -402,6 +430,9 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_plans_user ON plans(user_id);
   CREATE INDEX IF NOT EXISTS idx_weight_log_user ON weight_log(user_id);
   CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+  CREATE INDEX IF NOT EXISTS idx_coach_links_coach ON coach_links(coach_id);
+  CREATE INDEX IF NOT EXISTS idx_coach_links_athlete ON coach_links(athlete_id);
+  CREATE INDEX IF NOT EXISTS idx_messages_link ON messages(link_id, id);
 `);
 
 /* ---- Seed ----
@@ -439,6 +470,13 @@ const toUser = (row) => (row
   ? { id: row.id, username: row.username, displayName: row.display_name }
   : null);
 
+/** Egy felhasználó NYILVÁNOS alakja: ennyit lát róla a kapcsolat másik
+    oldala (meghíváskor, a sportoló-kártyán, az üzenet-szálban). Az id
+    szándékosan nincs benne — a felület a kapcsolat azonosítójával dolgozik. */
+const toPublicUser = (row) => (row
+  ? { username: row.username, name: row.display_name, goal: row.goal ?? null }
+  : null);
+
 /** Felhasználó a (már kisbetűsített) felhasználónév alapján, a hash-sel együtt
     — kizárólag a belépés ellenőrzéséhez. */
 export function getUserWithHash(username) {
@@ -457,6 +495,27 @@ export function getUser(id) {
     profiloldal „Tag … óta" sorának kell. Ismeretlen fiókra null. */
 export function getUserCreatedAt(id) {
   return db.prepare('SELECT created_at FROM users WHERE id = ?').get(id)?.created_at ?? null;
+}
+
+/** A fiók edzés-célja (a data.js goals-listájának kulcsa), vagy null. */
+export function getUserGoal(id) {
+  return db.prepare('SELECT goal FROM users WHERE id = ?').get(id)?.goal ?? null;
+}
+
+/** A fiók edzés-céljának beállítása. A null a „nincs megadva" — a hívó
+    (server.js) ellenőrzi, hogy a kulcs szerepel-e a goals-listában. */
+export function setUserGoal(id, goal) {
+  db.prepare('UPDATE users SET goal = ? WHERE id = ?').run(goal, id);
+  return getUserGoal(id);
+}
+
+/** Felhasználó keresése a (már kisbetűsített) felhasználónév alapján — a
+    meghíváshoz. Az archív fiók SOSEM találat: az nem egy valódi ember, és a
+    hozzárendelt adat az első regisztrálóé lesz. */
+export function findUserByUsername(username) {
+  const row = db.prepare('SELECT id, username, display_name, goal FROM users WHERE username = ? AND username != ?')
+    .get(username, LEGACY_USERNAME);
+  return row ? { id: row.id, ...toPublicUser(row) } : null;
 }
 
 /** Van-e már valódi (nem archív) fiók? A felület ebből tudja, hogy az első
@@ -535,6 +594,149 @@ export function purgeExpiredSessions() {
   return changes;
 }
 purgeExpiredSessions();
+
+/* ======================================================================
+   Edző–sportoló kapcsolatok és üzenetek
+   ----------------------------------------------------------------------
+   A kapcsolat IRÁNYÍTOTT: az edző hívja meg a sportolót (pending), és a
+   sportoló fogadja el (active). Beleegyezés nélkül tehát senki adata nem
+   látszik a másik oldalon — a végpontok mindenhol az AKTÍV kapcsolatot kérik.
+
+   A sportolónak egyszerre EGY aktív edzője lehet (a felület is egy edzőt
+   mutat); edzőként viszont bárki tarthat több sportolót.
+   ====================================================================== */
+
+/** A SQLite datetime('now') alakja ("2026-08-25 18:30:07", UTC) → ISO-8601.
+    A felület relatív időt ír ki belőle ("2 órája"), ahhoz kell a zóna. */
+const toIso = (stamp) => (stamp ? `${String(stamp).replace(' ', 'T')}Z` : null);
+
+/** Meghívó: az edző hívja a sportolót. Visszaadja a létrejött kapcsolat
+    azonosítóját, vagy null-t, ha ez a pár már létezik (függő vagy élő). */
+export function createCoachInvite(coachId, athleteId) {
+  if (coachId === athleteId) return null;
+  if (db.prepare('SELECT 1 FROM coach_links WHERE coach_id = ? AND athlete_id = ?').get(coachId, athleteId)) {
+    return null;
+  }
+  const { lastInsertRowid } = db.prepare(
+    "INSERT INTO coach_links (coach_id, athlete_id, status) VALUES (?, ?, 'pending')",
+  ).run(coachId, athleteId);
+  return getCoachLink(Number(lastInsertRowid));
+}
+
+/** Egy kapcsolat a saját azonosítója alapján (a végpontok ebből döntik el,
+    hogy a hívó fél egyáltalán érintett-e). Ismeretlen id-re null. */
+export function getCoachLink(linkId) {
+  const row = db.prepare(`SELECT id, coach_id, athlete_id, status, created_at, responded_at
+                          FROM coach_links WHERE id = ?`).get(linkId);
+  return row ? {
+    id: row.id,
+    coachId: row.coach_id,
+    athleteId: row.athlete_id,
+    status: row.status,
+    createdAt: toIso(row.created_at),
+    respondedAt: toIso(row.responded_at),
+  } : null;
+}
+
+/** A sportoló ÉLŐ edzője, vagy null. */
+export function getActiveCoach(athleteId) {
+  const row = db.prepare(`
+    SELECT l.id AS link_id, u.username, u.display_name, u.goal
+    FROM coach_links l JOIN users u ON u.id = l.coach_id
+    WHERE l.athlete_id = ? AND l.status = 'active'
+    ORDER BY l.id LIMIT 1
+  `).get(athleteId);
+  return row ? { linkId: row.link_id, ...toPublicUser(row) } : null;
+}
+
+/** A sportolóhoz érkezett, még el nem fogadott meghívók (legújabb elöl). */
+export function getPendingCoachInvites(athleteId) {
+  return db.prepare(`
+    SELECT l.id AS link_id, l.created_at, u.username, u.display_name, u.goal
+    FROM coach_links l JOIN users u ON u.id = l.coach_id
+    WHERE l.athlete_id = ? AND l.status = 'pending'
+    ORDER BY l.id DESC
+  `).all(athleteId).map((row) => ({
+    linkId: row.link_id, at: toIso(row.created_at), coach: toPublicUser(row),
+  }));
+}
+
+/**
+ * Az edző sportolói a megadott állapotban ('active' vagy 'pending').
+ * A sor tartalmazza a sportoló BELSŐ azonosítóját is: a hívó (server.js)
+ * ebből olvassa ki a sportoló naplóit a kártya-statokhoz. A hálózatra
+ * kimenő alakba az id nem kerül bele — ott a linkId az azonosító.
+ */
+export function getCoachAthletes(coachId, status = 'active') {
+  return db.prepare(`
+    SELECT l.id AS link_id, l.created_at, u.id AS user_id, u.username, u.display_name, u.goal
+    FROM coach_links l JOIN users u ON u.id = l.athlete_id
+    WHERE l.coach_id = ? AND l.status = ?
+    ORDER BY l.id
+  `).all(coachId, status).map((row) => ({
+    linkId: row.link_id,
+    at: toIso(row.created_at),
+    userId: row.user_id,
+    ...toPublicUser(row),
+  }));
+}
+
+/** Meghívó elfogadása. A hívó előbb ellenőrzi, hogy a sportolónak nincs-e már
+    élő edzője — ez a függvény csak az állapotot állítja át. */
+export function acceptCoachInvite(linkId) {
+  const { changes } = db.prepare(
+    "UPDATE coach_links SET status = 'active', responded_at = datetime('now') WHERE id = ? AND status = 'pending'",
+  ).run(linkId);
+  return changes > 0 ? getCoachLink(linkId) : null;
+}
+
+/** Kapcsolat bontása: visszautasított/visszavont meghívó és leválás is ez.
+    Az üzenetek a CASCADE miatt vele tűnnek el. */
+export function deleteCoachLink(linkId) {
+  return db.prepare('DELETE FROM coach_links WHERE id = ?').run(linkId).changes > 0;
+}
+
+/** Egy üzenet-sor → a felület által látott alak. A `mine` a NÉZŐ szemszöge,
+    ezért a hívó adja hozzá (ld. server.js). */
+const toMessage = (row) => ({
+  id: row.id,
+  senderId: row.sender_id,
+  author: row.display_name,
+  text: row.body,
+  at: toIso(row.created_at),
+});
+
+/** Egy kapcsolat üzenetei időrendben (a legutóbbi `limit` darab). */
+export function getMessages(linkId, limit = 100) {
+  return db.prepare(`
+    SELECT m.id, m.sender_id, m.body, m.created_at, u.display_name
+    FROM messages m JOIN users u ON u.id = m.sender_id
+    WHERE m.link_id = ? ORDER BY m.id DESC LIMIT ?
+  `).all(linkId, limit).map(toMessage).reverse();
+}
+
+/** A kapcsolat legutóbbi üzenete, vagy null (a sportoló-kártya idézi). */
+export function getLastMessage(linkId) {
+  const row = db.prepare(`
+    SELECT m.id, m.sender_id, m.body, m.created_at, u.display_name
+    FROM messages m JOIN users u ON u.id = m.sender_id
+    WHERE m.link_id = ? ORDER BY m.id DESC LIMIT 1
+  `).get(linkId);
+  return row ? toMessage(row) : null;
+}
+
+/** Üzenet küldése egy kapcsolatba. A küldő fél jogosultságát a végpont
+    ellenőrzi (csak a kapcsolat két oldala írhat bele). */
+export function addMessage(linkId, senderId, body) {
+  const { lastInsertRowid } = db.prepare(
+    'INSERT INTO messages (link_id, sender_id, body) VALUES (?, ?, ?)',
+  ).run(linkId, senderId, body);
+  const row = db.prepare(`
+    SELECT m.id, m.sender_id, m.body, m.created_at, u.display_name
+    FROM messages m JOIN users u ON u.id = m.sender_id WHERE m.id = ?
+  `).get(Number(lastInsertRowid));
+  return toMessage(row);
+}
 
 /* ======================================================================
    Olvasás — MINDEN függvény első paramétere a felhasználó azonosítója.
