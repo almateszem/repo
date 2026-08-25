@@ -496,44 +496,54 @@
       </section>
 
       <!-- ================================================================
-           Edző oldal — szerepkör-alapú felületek
-           (kliens nézet: chat a saját edzővel; edzői nézet: sportoló-
-           menedzser. Mindkét szerepkörnél a váltógomb dönt, a script.js
-           a szerver user-adata + prefs alapján kapcsolja a nézeteket.)
+           Edző oldal — két nézet VALÓDI fiókok kapcsolatából
+           (kliens nézet: az edződdel váltott üzenetek; edzői nézet: a
+           sportolóid, akiket felhasználónévvel hívtál meg és elfogadták.
+           Mindkét nézet mindig elérhető: bárki lehet edző is, sportoló is —
+           a tartalmat a script.js tölti a /api/coach és /api/athletes
+           végpontokból.)
            ================================================================ -->
       <section class="app-page co-page" data-page="coach" aria-labelledby="title-coach" hidden>
         <h2 class="sr-only" id="title-coach">Edző</h2>
 
-        <!-- Nézetváltó — csak akkor látszik, ha mindkét szerepkör aktív -->
-        <div class="co-toggle" role="group" aria-label="Edző-nézet kiválasztása" data-coach-toggle hidden>
+        <div class="co-toggle" role="group" aria-label="Edző-nézet kiválasztása" data-coach-toggle>
           <button class="co-toggle-btn" type="button" data-coach-view="client" aria-pressed="true">Edződ</button>
           <button class="co-toggle-btn" type="button" data-coach-view="manager" aria-pressed="false">Edzetteim</button>
         </div>
 
-        <!-- Üres állapot — ha se edződ nincs, se nem edzel senkit -->
-        <p class="co-empty" data-coach-empty hidden>Jelenleg nincs kapcsolt edződ, és sportolókat sem edzel.
-          A beállításokban (fogaskerék az áttekintésen) bekapcsolhatod bármelyik szerepkört — utána itt
-          jelenik meg a hozzá tartozó felület.</p>
-
-        <!-- Kliens nézet: üzenetváltás a saját edzővel (script.js tölti fel) -->
+        <!-- Kliens nézet: a saját edződ (ha van) és a hozzád érkezett meghívók -->
         <div class="co-view" data-view="client" hidden>
-          <header class="co-coach-head">
-            <span class="co-coach-avatar" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><use href="#icon-user"/></svg>
-            </span>
-            <div class="co-coach-ident">
-              <h3 class="co-coach-name">Kovács Bence</h3>
-              <span class="co-coach-role">Edződ · erő- és kondicionáló specialista</span>
-            </div>
-            <span class="co-coach-status"><span class="co-coach-status-dot" aria-hidden="true"></span>Elérhető</span>
-          </header>
 
-          <div class="co-msg-feed co-client-feed" data-client-feed aria-label="Üzenetváltás az edződdel"></div>
-          <form class="co-composer" data-form="coach-message">
-            <label class="sr-only" for="coach-message">Üzenet az edzőnek</label>
-            <input type="text" id="coach-message" placeholder="Írj az edződnek…" required maxlength="280" autocomplete="off">
-            <button type="submit" aria-label="Küldés">→</button>
-          </form>
+          <!-- Beérkezett meghívók — elfogadásig az edző semmit nem lát az adataidból -->
+          <p class="co-invite-lead" data-invite-lead hidden>Meghívtak edzőnek. Elfogadás után látja
+            a naplóidból számolt összegzést, és üzenetet is tudtok váltani.</p>
+          <ul class="co-invite-list" data-list="coach-invites" aria-label="Beérkezett edző-meghívók"></ul>
+
+          <!-- Van edződ: fejléc + üzenetváltás -->
+          <div data-coach-thread hidden>
+            <header class="co-coach-head">
+              <span class="co-coach-avatar" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><use href="#icon-user"/></svg>
+              </span>
+              <div class="co-coach-ident">
+                <h3 class="co-coach-name" data-coach-name>Edződ</h3>
+                <span class="co-coach-role" data-coach-role></span>
+              </div>
+              <button class="co-unlink" type="button" data-action="leave-coach">Leválás</button>
+            </header>
+
+            <div class="co-msg-feed co-client-feed" data-client-feed aria-label="Üzenetváltás az edződdel"></div>
+            <form class="co-composer" data-form="coach-message">
+              <label class="sr-only" for="coach-message">Üzenet az edzőnek</label>
+              <input type="text" id="coach-message" placeholder="Írj az edződnek…" required maxlength="280" autocomplete="off">
+              <button type="submit" aria-label="Küldés">→</button>
+            </form>
+          </div>
+
+          <!-- Nincs edződ: a felhasználóneved kell hozzá, azt az edző hívja meg -->
+          <p class="co-empty" data-coach-none hidden>Jelenleg nincs edződ.
+            Az edződ a felhasználóneveddel (<strong data-my-username></strong>) tud meghívni,
+            és a meghívó itt fog megjelenni — elfogadásig semmit nem lát az adataidból.</p>
         </div>
 
         <!-- Edzői nézet: sportoló-menedzser (script.js tölti fel) -->
@@ -542,6 +552,18 @@
             <h3 class="co-title">Edzői panel</h3>
             <p class="co-subtitle">Heti áttekintés · <span data-athlete-count>0</span> aktív sportoló</p>
           </header>
+
+          <!-- Meghívás: a sportoló felhasználónevével -->
+          <form class="co-invite-form" data-form="invite-athlete">
+            <label class="sr-only" for="co-invite-username">Sportoló felhasználóneve</label>
+            <input type="text" id="co-invite-username" placeholder="Sportoló felhasználóneve…"
+                   required maxlength="24" autocomplete="off" spellcheck="false">
+            <button type="submit">Meghívás</button>
+          </form>
+
+          <!-- Kiküldött, még el nem fogadott meghívók -->
+          <p class="co-invite-lead" data-sent-lead hidden>Kiküldött meghívók — elfogadásra várnak.</p>
+          <ul class="co-invite-list" data-list="sent-invites" aria-label="Kiküldött meghívók"></ul>
 
           <!-- Állapot-sáv: riasztás-összegzés vagy "minden rendben" (script.js tölti fel) -->
           <section class="co-banner" data-banner aria-live="polite" aria-label="Sportolók állapota">
@@ -554,6 +576,10 @@
           </section>
 
           <div class="co-grid" data-list="athletes"></div>
+
+          <p class="co-empty" data-athletes-empty hidden>Még nincs sportolód.
+            Hívj meg valakit a felhasználónevével — amint elfogadja, itt jelenik meg a kártyája
+            a saját naplójából számolt állapotával.</p>
         </div>
       </section>
 
@@ -896,10 +922,15 @@
         <ul class="st-toggle-list" data-list="settings-toggles"></ul>
       </section>
 
-      <section class="st-section" aria-labelledby="st-title-roles">
-        <h4 class="st-section-title" id="st-title-roles">Szerepkörök · demo</h4>
-        <ul class="st-toggle-list" data-list="settings-roles"></ul>
-        <p class="st-section-hint">Az Edző oldal felülete a szerepkörök szerint változik.</p>
+      <section class="st-section" aria-labelledby="st-title-goal">
+        <h4 class="st-section-title" id="st-title-goal">Edzés-cél</h4>
+        <div class="st-field">
+          <label class="sr-only" for="st-goal">Edzés-cél</label>
+          <select class="st-input st-select" id="st-goal"></select>
+        </div>
+        <p class="st-section-hint">Ezt a címkét látja az edződ a kártyádon. A szerepkörök
+          (van-e edződ, edzel-e valakit) már nem itt állnak: az Edző oldalon tudsz sportolót
+          meghívni, illetve edző-meghívót elfogadni.</p>
       </section>
 
       <section class="st-section" aria-labelledby="st-title-data">
@@ -951,8 +982,7 @@
       </section>
 
       <div class="co-modal-actions">
-        <button class="co-action" type="button" data-action="edit-plan">Terv szerkesztése</button>
-        <button class="co-action" type="button" data-action="edit-workout">Edzés szerkesztése</button>
+        <button class="co-action co-action--danger" type="button" data-action="remove-athlete">Kapcsolat bontása</button>
         <button class="co-action co-action--primary" type="button" data-action="message"
                 aria-expanded="false" aria-controls="athleteMsgSection">Üzenet</button>
       </div>

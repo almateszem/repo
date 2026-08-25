@@ -6,7 +6,7 @@ Nem hibajegy-rendszer: rövid, cselekvésre kész sorok, prioritás szerint.
 Jelölések:   [ ] nyitott    [~] részben kész    [x] kész (a következő
              takarításig marad itt, hogy lássuk, mi történt)
 
-Utolsó frissítés: 2026-08-18
+Utolsó frissítés: 2026-08-25
 Legutóbbi takarítás: 2026-08-17 — az elkészült [x] tételek kivezetve
 (a részletek a git előzményben maradtak meg).
 
@@ -19,6 +19,30 @@ KIADÁS ELŐTT — BLOKKOLÓ, ha az app másokhoz is kikerül
     Elfelejtett jelszónál kézzel kell javítani a users sort. Kis
     felhasználószámnál elfogadható, de e-mail-cím nélkül nem is lehet
     önkiszolgáló visszaállítást csinálni — ez terméki döntés.
+
+
+==========================================================================
+EDZŐ–SPORTOLÓ KAPCSOLAT — a 2026-08-25-i átállás után maradt tételek
+==========================================================================
+
+[ ] Az értesítés-panel még demo-adat
+    Hely: server/data.js -> notifications (beégetett lista, „Kovács Bence"
+    nevű nem létező edzővel). Most már VAN mihez kötni: új üzenet, beérkező
+    meghívó, elfogadott meghívó, PR. Ezek valódi eseményekből épülhetnének.
+
+[ ] Nincs „olvasatlan" jelölés az üzeneteken
+    A messages táblában nincs read_at, tehát sem jelvény, sem kiemelés nem
+    képezhető. Az edzői kártya csak az utolsó üzenetet idézi.
+
+[ ] Az üzenetek lekérdezéssel frissülnek (20 mp), nem push-sal
+    Hely: public/script.js -> COACH_POLL_MS. Kis felhasználószámnál ez
+    rendben van; ha sokan lesznek egyszerre bent, SSE vagy websocket kell.
+
+[ ] Az edző nem tud tervet kiosztani a sportolónak
+    A részletmodálból korábban két demo-gomb nyílt („Terv szerkesztése",
+    „Edzés szerkesztése"), amik a SAJÁT tervek oldalára navigáltak — azok
+    kikerültek. A valódi funkció (terv írása más fiókjába) külön feladat:
+    jogosultság, értesítés és a sportoló felülírás-védelme is kell hozzá.
 
 
 ==========================================================================

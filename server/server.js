@@ -19,8 +19,12 @@ import {
   getUserPlans, addPlan, updatePlan, getPlanForDay,
   getCheckin, getCheckins, saveCheckin,
   calculateEpley1RM, bestCompletedSet, getExerciseMax, getAllExerciseMaxes,
-  createUser, getUserWithHash, hasAnyUser, getUserCreatedAt,
+  createUser, getUser, getUserWithHash, hasAnyUser, getUserCreatedAt,
   createSession, getSessionUser, deleteSession, purgeExpiredSessions,
+  getUserGoal, setUserGoal, findUserByUsername,
+  createCoachInvite, getCoachLink, getActiveCoach, getPendingCoachInvites,
+  getCoachAthletes, acceptCoachInvite, deleteCoachLink,
+  getMessages, getLastMessage, addMessage,
 } from './db.js';
 import {
   hashPassword, verifyPassword, createSessionToken, hashToken,
@@ -30,6 +34,9 @@ import {
 // A készenlét-motor és a közös dátum-segédek. A dátumkezelés szándékosan egy
 // helyen (recovery.js) lakik, hogy a szerver és a motor sose csússzon el.
 import { computeReadiness, parseDate, dayKey, DAY_MS } from './recovery.js';
+// Az edzői panel sportoló-összegzője. Szintén tiszta számítás: a végpont
+// gyűjti az adatot, a modul számol belőle (server/coaching.js).
+import { buildAthleteCard } from './coaching.js';
 import { MUSCLE_KEYS } from './muscles.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -207,13 +214,13 @@ const normalizeDays = (raw) => (Array.isArray(raw) ? raw : [])
    ====================================================================== */
 const READ_ENDPOINTS = {
   '/api/foods': 'foods',
-  '/api/athletes': 'athletes',
   '/api/notifications': 'notifications',
   '/api/default-set': 'defaultSet',
   '/api/exercise-catalog': 'exerciseCatalog',
-  '/api/athlete-replies': 'athleteReplies',
-  '/api/coach-notes': 'coachNotes',
-  '/api/coach-replies': 'coachReplies',
+  // A választható edzés-célok (kulcs + kártya-címke + felirat). A sportolók
+  // listája NINCS köztük: az nem referencia-adat, hanem valódi kapcsolat —
+  // ld. lentebb, „Edző–sportoló kapcsolatok".
+  '/api/goals': 'goals',
 };
 
 /* Mezőszűrés a válaszhoz. A kollekció a DB-ben TELJES marad (a Recovery
@@ -236,12 +243,32 @@ for (const [route, key] of Object.entries(READ_ENDPOINTS)) {
   });
 }
 
-/* A profil-végpont. A NÉV a bejelentkezett fiókból jön, a szerepkör-jelzők
-   (van-e edződ, edzel-e másokat) továbbra is a seedből: azok a demo-felületek
-   kapcsolói, nem fiók-tulajdonságok. */
-app.get('/api/user', (req, res) => {
-  const seedUser = getCollection('user') || {};
-  res.json({ ...seedUser, name: req.user.displayName, username: req.user.username });
+/** Egy edzés-cél kulcsa → a kártyán megjelenő rövid címke ("ERŐ"), vagy null.
+    A lista a seedből jön (data.js → goals), tehát egy helyen bővíthető. */
+const goalTag = (key) => (getCollection('goals') || []).find((goal) => goal.key === key)?.tag ?? null;
+
+/** A bejelentkezett fiók felületi alakja. A korábbi szerepkör-jelzők
+    (hasCoach / coachesAthletes) kikerültek belőle: a szerepkör nem a fiók
+    tulajdonsága, hanem a kapcsolatokból következik — az Edző oldal a
+    /api/coach és a /api/athletes válaszából tudja, melyik nézetben van dolga. */
+const userPayload = (user) => ({
+  name: user.displayName,
+  username: user.username,
+  goal: getUserGoal(user.id),
+});
+
+app.get('/api/user', (req, res) => res.json(userPayload(req.user)));
+
+/** Az edzés-cél beállítása (beállítások → Edzés-cél). Csak a seedben szereplő
+    kulcs fogadható el; az üres érték a „nincs megadva". */
+app.put('/api/user', (req, res) => {
+  const raw = req.body?.goal;
+  const goal = raw === null || raw === undefined || raw === '' ? null : String(raw);
+  if (goal !== null && !(getCollection('goals') || []).some((item) => item.key === goal)) {
+    return res.status(400).json({ error: 'Ismeretlen edzés-cél.' });
+  }
+  setUserGoal(req.user.id, goal);
+  res.json(userPayload(req.user));
 });
 
 /** A profiloldal adatai: a fiók alapadatai és az eddigi teljesítmény
@@ -305,6 +332,188 @@ app.get('/api/profile', (req, res) => {
         : null,
     },
   });
+});
+
+/* ======================================================================
+   Edző–sportoló kapcsolatok és üzenetek
+   ----------------------------------------------------------------------
+   Itt lesz az Edző oldal valódi: a sportolók VALÓDI fiókok, a stat-jaik a
+   SAJÁT naplójukból számolnak (server/coaching.js), az üzenetek pedig
+   ténylegesen a másik félhez érkeznek meg.
+
+   A kapcsolat mindig BELEEGYEZÉSSEL jön létre: az edző meghív egy
+   felhasználónevet (pending), és amíg a sportoló el nem fogadja, az edző
+   SEMMIT nem lát az adataiból. Minden végpont ellenőrzi, hogy a hívó a
+   kapcsolat melyik oldala — a kapcsolat azonosítója (linkId) önmagában nem
+   jogosít semmire.
+   ====================================================================== */
+
+/** Egy üzenet legfeljebb ennyi karakter (a felület input-ja is ennyit enged). */
+const MESSAGE_MAX = 280;
+
+/** Egy sportoló kártyája: a kapcsolat + a sportoló saját naplóiból számolt
+    összegzés. A sportoló BELSŐ azonosítója nem kerül ki a válaszba — kifelé a
+    kapcsolat azonosítója (linkId) azonosít. */
+function athleteCard(athlete) {
+  const workouts = getWorkouts(athlete.userId);
+  return buildAthleteCard({
+    athlete: { ...athlete, goal: goalTag(athlete.goal) },
+    workouts,
+    plans: getUserPlans(athlete.userId),
+    checkins: getCheckins(athlete.userId, 60),
+    weightLog: getWeightLog(athlete.userId),
+    readiness: readinessReport(athlete.userId, workouts).overall,
+    streak: trainingStreak(workouts),
+    lastMessage: getLastMessage(athlete.linkId),
+    today: today(),
+  });
+}
+
+/** Egy függő meghívó felületi alakja (mindkét irányban ugyanaz a mezőkészlet). */
+const invitePayload = ({ linkId, at, username, name, goal }) => ({
+  linkId, at, username, name, goal: goalTag(goal),
+});
+
+/* ---- Edzői oldal ---- */
+
+/** A saját sportolóim + az általam kiküldött, még függő meghívók. */
+app.get('/api/athletes', (req, res) => {
+  res.json({
+    athletes: getCoachAthletes(req.user.id, 'active').map(athleteCard),
+    invites: getCoachAthletes(req.user.id, 'pending').map(invitePayload),
+  });
+});
+
+/** Sportoló meghívása felhasználónévvel. A meghívó függő marad, amíg a másik
+    fél el nem fogadja — addig az edző nem lát az adataiból semmit. */
+app.post('/api/athletes', (req, res) => {
+  const username = normalizeUsername(req.body?.username);
+  if (!USERNAME_RE.test(username)) {
+    return res.status(400).json({ error: 'Add meg a sportoló felhasználónevét.' });
+  }
+  const target = findUserByUsername(username);
+  // Az „ismeretlen név" és a „saját név" külön üzenetet kap: itt nincs mit
+  // titkolni (a hívó belépett), viszont a gépelési hiba így azonnal kiderül.
+  if (!target) return res.status(404).json({ error: 'Nincs ilyen felhasználó.' });
+  if (target.id === req.user.id) {
+    return res.status(400).json({ error: 'Magadat nem hívhatod meg sportolónak.' });
+  }
+
+  const link = createCoachInvite(req.user.id, target.id);
+  if (!link) return res.status(409).json({ error: 'Ezzel a felhasználóval már van kapcsolatod.' });
+
+  res.status(201).json(invitePayload({
+    linkId: link.id, at: link.createdAt, username: target.username, name: target.name, goal: target.goal,
+  }));
+});
+
+/** A kapcsolat bontása az EDZŐ oldaláról: függő meghívó visszavonása vagy
+    élő kapcsolat lezárása. Az üzenetváltás is törlődik vele (CASCADE). */
+app.delete('/api/athletes/:linkId', (req, res) => {
+  const link = getCoachLink(Number(req.params.linkId));
+  if (!link || link.coachId !== req.user.id) {
+    return res.status(404).json({ error: 'Nincs ilyen kapcsolat.' });
+  }
+  deleteCoachLink(link.id);
+  res.status(204).end();
+});
+
+/* ---- Sportolói oldal ---- */
+
+/** A saját edzőm (vagy null) és a hozzám érkezett, még függő meghívók. */
+app.get('/api/coach', (req, res) => {
+  const coach = getActiveCoach(req.user.id);
+  res.json({
+    coach: coach ? { ...coach, goal: goalTag(coach.goal) } : null,
+    invites: getPendingCoachInvites(req.user.id).map(({ linkId, at, coach: from }) => ({
+      linkId, at, ...from, goal: goalTag(from.goal),
+    })),
+  });
+});
+
+/** Meghívó elfogadása. Egyszerre EGY edző lehet — előbb le kell válni a
+    régiről, különben nem lenne eldönthető, kinek a felülete a „kliens nézet". */
+app.post('/api/coach/invites/:linkId/accept', (req, res) => {
+  const link = getCoachLink(Number(req.params.linkId));
+  if (!link || link.athleteId !== req.user.id || link.status !== 'pending') {
+    return res.status(404).json({ error: 'Nincs ilyen meghívó.' });
+  }
+  if (getActiveCoach(req.user.id)) {
+    return res.status(409).json({ error: 'Már van edződ — előbb válj le róla.' });
+  }
+  acceptCoachInvite(link.id);
+  const coach = getActiveCoach(req.user.id);
+  res.json({ coach: coach ? { ...coach, goal: goalTag(coach.goal) } : null });
+});
+
+/** Meghívó elutasítása (a sportoló oldaláról). */
+app.delete('/api/coach/invites/:linkId', (req, res) => {
+  const link = getCoachLink(Number(req.params.linkId));
+  if (!link || link.athleteId !== req.user.id || link.status !== 'pending') {
+    return res.status(404).json({ error: 'Nincs ilyen meghívó.' });
+  }
+  deleteCoachLink(link.id);
+  res.status(204).end();
+});
+
+/** Leválás az edzőről. Innentől nem látja az adataimat. */
+app.delete('/api/coach', (req, res) => {
+  const coach = getActiveCoach(req.user.id);
+  if (!coach) return res.status(404).json({ error: 'Nincs edződ.' });
+  deleteCoachLink(coach.linkId);
+  res.status(204).end();
+});
+
+/* ---- Üzenetek (a kapcsolat mindkét oldala ugyanazt a szálat használja) ---- */
+
+/** A kapcsolat, ha ÉL és a hívó tényleg az egyik oldala — különben null.
+    Ez az egyetlen hely, ahol az üzenet-szálhoz való hozzáférés eldől. */
+function activeLinkFor(user, rawLinkId) {
+  const link = getCoachLink(Number(rawLinkId));
+  if (!link || link.status !== 'active') return null;
+  if (link.coachId !== user.id && link.athleteId !== user.id) return null;
+  return link;
+}
+
+/** A szál másik oldalán álló fél (a válasz fejlécéhez). */
+function partnerOf(link, user) {
+  const isCoach = link.coachId === user.id;
+  const other = getUser(isCoach ? link.athleteId : link.coachId);
+  return {
+    username: other?.username ?? null,
+    name: other?.displayName ?? 'Ismeretlen',
+    role: isCoach ? 'athlete' : 'coach',
+  };
+}
+
+/** Egy üzenet felületi alakja. A `mine` a NÉZŐ szemszöge — ebből tudja a
+    felület, melyik buborék kerül jobbra. */
+const messagePayload = (message, userId) => ({
+  id: message.id,
+  mine: message.senderId === userId,
+  author: message.author,
+  text: message.text,
+  at: message.at,
+});
+
+app.get('/api/messages/:linkId', (req, res) => {
+  const link = activeLinkFor(req.user, req.params.linkId);
+  if (!link) return res.status(404).json({ error: 'Nincs ilyen beszélgetés.' });
+  res.json({
+    linkId: link.id,
+    partner: partnerOf(link, req.user),
+    messages: getMessages(link.id).map((message) => messagePayload(message, req.user.id)),
+  });
+});
+
+app.post('/api/messages/:linkId', (req, res) => {
+  const link = activeLinkFor(req.user, req.params.linkId);
+  if (!link) return res.status(404).json({ error: 'Nincs ilyen beszélgetés.' });
+
+  const text = String(req.body?.text ?? '').trim().slice(0, MESSAGE_MAX);
+  if (!text) return res.status(400).json({ error: 'Az üzenet nem lehet üres.' });
+
+  res.status(201).json(messagePayload(addMessage(link.id, req.user.id, text), req.user.id));
 });
 
 /** Az Edzés oldal induló tartalma, prioritás szerint: aznapi piszkozat →

@@ -22,8 +22,8 @@
     17.  Beállítások modal tartalma (st-*)
     18.  Analitika — testsúly trend, heti összehasonlítás, PR lista
     19.  Sportoló részletmodál (athlete-modal-*, co-modal-*, co-action, co-msg)
-    20.  Edző oldal — szerepkör-nézetek: nézetváltó, kliens chat, üres állapot
-         (co-toggle, co-view, co-coach-*, co-client-feed, co-empty)
+    20.  Edző oldal — a két nézet: nézetváltó, kliens chat, meghívók, üres állapotok
+         (co-toggle, co-view, co-coach-*, co-invite-*, co-client-feed, co-empty)
     21.  Edzés-összegző oldal (su-*) + edzés-befejezés gomb (wk-finish)
     22.  Regeneráció — Recovery Engine oldal (rc-*)
     24.  Étel részlet-modál (fd-*)
@@ -3396,6 +3396,13 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   border-color: var(--fg-40);
 }
 
+/* A legördülő ugyanaz a mező-forma, csak a natív nyíl marad meg belőle */
+.st-select {
+  width: 100%;
+  appearance: none;
+  cursor: pointer;
+}
+
 .st-toggle-list {
   list-style: none;
   margin: 0;
@@ -4149,6 +4156,18 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--c-ink);
 }
 
+/* Kapcsolat bontása — visszafordíthatatlan, ezért elkülönül a többitől */
+.co-action--danger {
+  border-color: var(--fg-20);
+  color: var(--text-muted);
+}
+
+.co-action--danger:hover {
+  border-color: var(--c-accent);
+  color: var(--c-accent);
+  background: none;
+}
+
 /* ---- Üzenetváltás (az „Üzenet" gomb nyitja) ---- */
 .co-msg {
   margin-top: var(--sp-7);
@@ -4170,8 +4189,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 /* ==========================================================================
-   20. Edző oldal — szerepkör-nézetek
-   (nézetváltó, kliens chat a saját edzővel, üres állapot)
+   20. Edző oldal — a két nézet
+   (nézetváltó, kliens chat a saját edzővel, meghívók, üres állapotok)
    ========================================================================== */
 .co-toggle {
   margin-bottom: var(--sp-9);
@@ -4230,23 +4249,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--text-muted);
 }
 
-.co-coach-status {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  font-size: var(--fs-xs);
-  font-weight: 600;
-  color: var(--c-ok);
-  flex-shrink: 0;
-}
-
-.co-coach-status-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: var(--r-full);
-  background: var(--c-ok);
-}
-
 /* ---- Kliens nézet: hírfolyam — oldal-kontextusban nem korlátozzuk 200px-re ---- */
 .co-client-feed {
   max-height: none;
@@ -4265,7 +4267,169 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   margin: 0;
 }
 
-/* ---- Beállítások: a szerepkör-szekció magyarázó sora ---- */
+/* ---- Meghívók (mindkét irányban ugyanaz a sorminta) ---- */
+.co-invite-lead {
+  margin: 0 0 var(--sp-4);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.co-invite-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+/* Üresen ne hagyjon rést maga után a flex-elrendezésben */
+.co-invite-list:empty {
+  display: none;
+}
+
+.co-invite-list + * {
+  margin-top: var(--sp-6);
+}
+
+.co-invite {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-xl);
+  padding: var(--sp-4) var(--sp-5);
+}
+
+.co-invite-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.co-invite-name {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+
+.co-invite-meta {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.co-invite-actions {
+  display: flex;
+  gap: var(--sp-2);
+  flex-shrink: 0;
+}
+
+.co-invite-btn {
+  min-height: 40px;
+  padding: var(--sp-2) var(--sp-5);
+  border: 1px solid var(--fg-20);
+  border-radius: var(--r-md);
+  background: none;
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+}
+
+.co-invite-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.co-invite-btn--primary {
+  background: var(--c-paper);
+  border-color: transparent;
+  color: var(--c-ink);
+}
+
+.co-invite-btn--primary:hover {
+  background: var(--c-paper-bright);
+  color: var(--c-ink);
+}
+
+/* ---- Meghívó űrlap (edzői nézet) ---- */
+.co-invite-form {
+  display: flex;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-6);
+}
+
+.co-invite-form input {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface-input);
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  padding: var(--sp-3) var(--sp-5);
+  color: var(--text-primary);
+  font-size: var(--fs-input);
+  transition: background var(--t-fast), border-color var(--t-fast);
+}
+
+.co-invite-form input:focus {
+  background: var(--surface-hover);
+  border-color: var(--fg-40);
+}
+
+.co-invite-form input::placeholder {
+  color: var(--text-faint);
+}
+
+.co-invite-form button {
+  min-height: 44px;
+  flex-shrink: 0;
+  padding: var(--sp-3) var(--sp-6);
+  border: none;
+  border-radius: var(--r-md);
+  background: var(--c-paper);
+  color: var(--c-ink);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  transition: background var(--t-fast);
+}
+
+.co-invite-form button:hover {
+  background: var(--c-paper-bright);
+}
+
+/* ---- Leválás az edzőről (a kliens fejléc jobb szélén) ---- */
+.co-unlink {
+  flex-shrink: 0;
+  min-height: 36px;
+  padding: var(--sp-2) var(--sp-4);
+  border: 1px solid var(--fg-20);
+  border-radius: var(--r-md);
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  transition: color var(--t-fast), border-color var(--t-fast);
+}
+
+.co-unlink:hover {
+  color: var(--c-accent);
+  border-color: var(--c-accent);
+}
+
+/* ---- Üres üzenet-szál ---- */
+.co-msg-empty {
+  margin: 0;
+  padding: var(--sp-6) 0;
+  text-align: center;
+  font-size: var(--fs-sm);
+  color: var(--text-faint);
+}
+
+/* ---- Beállítások: a szekciók magyarázó sora ---- */
 .st-section-hint {
   margin: var(--sp-3) 0 0;
   font-size: var(--fs-xs);
