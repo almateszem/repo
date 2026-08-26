@@ -370,7 +370,77 @@ test('az üres üzenetet elutasítja, a hosszút levágja', async () => {
 });
 
 /* ======================================================================
-   5. Egy edző egyszerre, és a leválás
+   5. Értesítések — a panel valódi eseményekből
+   ====================================================================== */
+
+test('az értesítés-panel a hívó valódi eseményeiből áll össze', async () => {
+  /* Kiindulás: a kapcsolat él (a sportoló elfogadta a meghívót), a sportoló
+     ma naplózott egy guggolást, és az edző már mindent elolvasott. */
+  const forCoach = (await request('GET', '/api/notifications', { cookie: coach.cookie })).json;
+
+  const accepted = forCoach.find((n) => n.cat === 'coach');
+  assert.ok(accepted, 'az elfogadott meghívó értesítés');
+  assert.equal(accepted.text, 'Nagy Petra elfogadta a meghívódat');
+  assert.ok(accepted.at, 'valódi időbélyeggel — nem „5 órája"');
+
+  assert.equal(
+    forCoach.some((n) => n.cat === 'message'), false,
+    'elolvasott szálra nincs üzenet-értesítés',
+  );
+
+  /* A sportoló oldala más: neki az edző üzenete még olvasatlan, és a saját
+     mai csúcsa is friss esemény. Elfogadott meghívója viszont NINCS —
+     ő fogadta el a másikét. */
+  const forAthlete = (await request('GET', '/api/notifications', { cookie: athlete.cookie })).json;
+
+  /* Az edző két üzenete vár rá olvasatlanul, tehát az ÖSSZEVONT alak jár —
+     szálanként egy sor akkor is, ha közben tíz üzenet gyűlt össze. */
+  const message = forAthlete.find((n) => n.cat === 'message');
+  assert.ok(message, 'az olvasatlan üzenet értesítés');
+  assert.equal(message.text, '2 új üzenet — Kovács Bence');
+
+  const pr = forAthlete.find((n) => n.cat === 'pr');
+  assert.ok(pr, 'a mai guggolás egyéni csúcsa is esemény');
+  assert.match(pr.text, /^Új egyéni csúcs: Guggolás — \d+ kg \(becsült 1RM\)$/);
+
+  assert.equal(
+    forAthlete.some((n) => n.text.includes('elfogadta a meghívódat')), false,
+    'nem a sportoló meghívóját fogadták el',
+  );
+
+  // Időrend: a lista legfrissebbel kezdődik
+  const times = forAthlete.map((n) => n.at);
+  assert.deepEqual(times, [...times].sort().reverse(), 'legfrissebb elöl');
+});
+
+test('az olvasatlan üzenet értesítése a nyugtázással eltűnik', async () => {
+  await request('POST', `/api/messages/${linkId}`, {
+    cookie: athlete.cookie, body: { text: 'Holnap pótolom!' },
+  });
+
+  const before = (await request('GET', '/api/notifications', { cookie: coach.cookie })).json;
+  const item = before.find((n) => n.cat === 'message');
+  assert.equal(item.text, 'Új üzenet — Nagy Petra: „Holnap pótolom!”');
+
+  await request('POST', `/api/messages/${linkId}/read`, { cookie: coach.cookie });
+
+  const after = (await request('GET', '/api/notifications', { cookie: coach.cookie })).json;
+  assert.equal(
+    after.some((n) => n.cat === 'message'), false,
+    'az elolvasott szál nem értesít tovább — a panel magától tisztul',
+  );
+});
+
+test('a panel SEM szivárogtat: a kívülálló csak a sajátját látja', async () => {
+  const mine = (await request('GET', '/api/notifications', { cookie: outsider.cookie })).json;
+  assert.deepEqual(mine, [], 'nincs kapcsolata és nincs naplója — nincs értesítése sem');
+
+  const unauth = await request('GET', '/api/notifications');
+  assert.equal(unauth.status, 401, 'bejelentkezés nélkül nem is kérdezhető');
+});
+
+/* ======================================================================
+   6. Egy edző egyszerre, és a leválás
    ====================================================================== */
 
 test('második edző csak leválás után fogadható el', async () => {

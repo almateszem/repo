@@ -6,7 +6,7 @@ Nem hibajegy-rendszer: rövid, cselekvésre kész sorok, prioritás szerint.
 Jelölések:   [ ] nyitott    [~] részben kész    [x] kész (a következő
              takarításig marad itt, hogy lássuk, mi történt)
 
-Utolsó frissítés: 2026-08-26 (üzenetek: olvasottság, frissítés)
+Utolsó frissítés: 2026-08-26 (üzenetek: olvasottság; értesítés-panel)
 Legutóbbi takarítás: 2026-08-17 — az elkészült [x] tételek kivezetve
 (a részletek a git előzményben maradtak meg).
 
@@ -29,13 +29,26 @@ KIADÁS ELŐTT — BLOKKOLÓ, ha az app másokhoz is kikerül
 EDZŐ–SPORTOLÓ KAPCSOLAT — a 2026-08-25-i átállás után maradt tételek
 ==========================================================================
 
-[ ] Az értesítés-panel még demo-adat
-    Hely: server/data.js -> notifications (beégetett lista, „Kovács Bence"
-    nevű nem létező edzővel). Most már VAN mihez kötni: új üzenet, beérkező
-    meghívó, elfogadott meghívó, PR. Ezek valódi eseményekből épülhetnének.
-    Az olvasatlan üzenetek 2026-08-26 óta számolhatók (db.js -> getUnreadCounts),
-    tehát az „új üzenet" sor valódi adatból kitölthető — a többi eseményhez
-    viszont továbbra sincs napló.
+[x] Az értesítés-panel valódi eseményekből épül   (2026-08-26)
+    A beégetett lista (server/data.js -> notifications) kikerült. A panel négy
+    VALÓDI eseményt mutat: olvasatlan üzenet szálanként egy sorban, hozzám
+    érkezett meghívó, az én meghívóm elfogadása, és a friss egyéni csúcs.
+    Az összeállítás tiszta függvény (server/notifications.js), a végpont a
+    GET /api/notifications — nem referencia-adat többé, tehát a kliens sem
+    cache-eli, a panel minden megnyitáskor frisset kér.
+    MINDEGYIK SORNAK VALÓDI IDŐBÉLYEGE VAN, és ez a szűrő döntötte el, mi
+    kerülhet ide: a „töltsd ki a check-int" és a „sorozat mérföldkő" kimaradt,
+    mert azok ÁLLAPOTOK, nem események — csak kitalált időponttal lehetne
+    kiírni őket, és a panel megint azt mutatná, ami nem igaz. (A check-in
+    emlékeztetője ott van az áttekintőn, ahol dolga van.)
+    A kategória-kapcsolók is a hármat követik, ami tényleg létezik (új üzenet,
+    edző-kapcsolat, egyéni csúcs) — a korábbi hatból négyhez (terv kiosztva /
+    módosítva, edzői megjegyzés, heti riport) nem tartozott esemény.
+    Az „olvasott" állapot mostantól LÁTOTT-IDŐPONT (prefs -> notifSeenAt), nem
+    mindent elrejtő kapcsoló: a „mind olvasott" a sorokat megtartja, csak az
+    újdonság-pötty és a jelvény tűnik el. Az elolvasott üzenet-szál értesítése
+    magától kiesik.
+    Tesztek: server/notifications.test.js, server/coach.test.js (5. szakasz).
 
 [x] „Olvasatlan" jelölés az üzeneteken   (2026-08-26)
     A messages tábla kapott egy read_at oszlopot (NULL = olvasatlan), és erre

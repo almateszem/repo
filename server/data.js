@@ -67,14 +67,14 @@ export const data = {
      naplójából a server/coaching.js számolja, az üzenetek pedig a messages
      táblában vannak (GET/POST /api/messages/:linkId). Seedelni ezekből
      semmit nem lehet — más ember adata nem születhet a data.js-ből. */
-  notifications: [
-    { text: 'Kovács Bence kiosztotta a „Tömegnövelő 4 napos” tervet', time: '2 órája', cat: 'plan' },
-    { text: 'Új edzői megjegyzés érkezett a fekvenyomás videódra', time: '5 órája', cat: 'comment' },
-    { text: '🔥 Elérted a 25 napos edzés-sorozatot', time: 'tegnap', cat: 'streak' },
-    { text: 'Heti fejlődési riportod elkészült', time: 'tegnap', cat: 'report' },
-    { text: 'Kovács Bence módosította a szombati edzésed', time: '2 napja', cat: 'planChange' },
-    { text: 'Emlékeztető: töltsd ki a regenerációs naplót', time: '3 napja', cat: 'reminder' },
-  ],
+  /* AZ ÉRTESÍTÉSEK SEM ITT VANNAK TÖBBÉ. A korábbi beégetett lista egy nem
+     létező edzőt („Kovács Bence”) idézett, kitalált tervekkel és „5 órája"
+     idővel — mindenkinek ugyanazt, az első indítástól kezdve. A panel azóta a
+     hívó VALÓDI eseményeiből épül: olvasatlan üzenet, beérkezett meghívó,
+     elfogadott meghívó, friss egyéni csúcs. Az összeállítás a
+     server/notifications.js-ben van, a végpont a GET /api/notifications.
+     Seedelni ebből sem lehet semmit — az események a felhasználó saját
+     naplójából és a kapcsolataiból születnek. */
   /* Az edző által kitűzött napi táplálkozási cél. */
   nutritionGoal: { calories: 2900, protein: 170 },
 };

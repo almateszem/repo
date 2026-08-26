@@ -3532,6 +3532,13 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   background: var(--fg-30);
 }
 
+/* Már látott értesítés: a sor marad, csak az újdonságot jelző pötty halkul el.
+   (Korábban a „mind olvasott" az egész listát eltüntette — a valódi
+   eseményekkel az azt jelentené, hogy a panel a tartalmát is elveszti.) */
+.notif-item--seen .notif-dot {
+  background: var(--fg-30);
+}
+
 /* ==========================================================================
    18. Analitika — testsúly trend, heti összehasonlítás, PR lista
    ========================================================================== */
