@@ -740,13 +740,17 @@ export function getPendingCoachInvites(athleteId) {
  */
 export function getCoachAthletes(coachId, status = 'active') {
   return db.prepare(`
-    SELECT l.id AS link_id, l.created_at, u.id AS user_id, u.username, u.display_name, u.goal
+    SELECT l.id AS link_id, l.created_at, l.responded_at, u.id AS user_id,
+           u.username, u.display_name, u.goal
     FROM coach_links l JOIN users u ON u.id = l.athlete_id
     WHERE l.coach_id = ? AND l.status = ?
     ORDER BY l.id
   `).all(coachId, status).map((row) => ({
     linkId: row.link_id,
     at: toIso(row.created_at),
+    // Mikor fogadta el a sportoló. Csak élő kapcsolatnál van értéke — az
+    // értesítés-panel ebből tudja, hogy „X elfogadta a meghívódat".
+    respondedAt: toIso(row.responded_at),
     userId: row.user_id,
     ...toPublicUser(row),
   }));
@@ -1020,6 +1024,33 @@ export function getExerciseMax(userId, exerciseName) {
 export function getAllExerciseMaxes(userId) {
   return db.prepare('SELECT exercise_name, max_1rm, date FROM exercise_maxes WHERE user_id = ? ORDER BY date DESC')
     .all(userId);
+}
+
+/**
+ * A `sinceDate` óta született egyéni csúcsok, legfrissebb elöl — az
+ * értesítés-panel ebből építi az „új PR" sorokat.
+ *
+ * Két időpont van a soron, és mindkettőre szükség van: a `date` a csúcsot hozó
+ * EDZÉS napja (erre szűrünk), az `updated_at` pedig az, amikor a rekord
+ * ténylegesen megszületett (ez rendez, és ez az értesítés időbélyege). A kettő
+ * a PR-követés előtti edzésekből visszatöltött soroknál tér el egymástól: ott
+ * a dátum régi, a bejegyzés viszont friss — a dátumra szűrés így pont azt éri
+ * el, hogy egy migráció ne zúdítson be tucatnyi „új csúcs" értesítést.
+ *
+ * A dátum "ÉÉÉÉ.HH.NN" alakú, tehát a szöveges összehasonlítás egyben
+ * időrendi is (nullákkal feltöltött, évvel kezdődő mezők).
+ */
+export function getRecentExerciseMaxes(userId, sinceDate, limit = 5) {
+  return db.prepare(`
+    SELECT exercise_name, max_1rm, date, updated_at FROM exercise_maxes
+    WHERE user_id = ? AND date >= ?
+    ORDER BY updated_at DESC, date DESC LIMIT ?
+  `).all(userId, sinceDate, limit).map((row) => ({
+    exercise: row.exercise_name,
+    max1rm: row.max_1rm,
+    date: row.date,
+    at: toIso(row.updated_at),
+  }));
 }
 
 /** Egy gyakorlat maximum 1RM-jének frissítése, ha az új érték nagyobb.

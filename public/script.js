@@ -156,7 +156,10 @@
     getPrHistory:      (exercise) => getJson(`/api/prs/history?exercise=${encodeURIComponent(exercise)}`),
     // Nem cache-elt: az exercise maxes-ek az edzés közben változhatnak
     getExerciseMaxes:  () => getJson('/api/exercise-maxes'),
-    getNotifications:  () => getJsonCached('/api/notifications'),
+    /* Nem cache-elt: a lista a hívó VALÓDI eseményeiből áll össze (olvasatlan
+       üzenet, meghívó, friss PR), tehát a panel minden megnyitásakor frisset
+       kérünk — a munkamenetre eltett válasz órákig hazudna. */
+    getNotifications:  () => getJson('/api/notifications'),
     getDefaultSet:     () => getJsonCached('/api/default-set'),
     getExerciseCatalog: () => getJsonCached('/api/exercise-catalog'),
     // A választható edzés-célok (kulcs + kártya-címke + felirat) — referencia-adat
@@ -240,14 +243,15 @@
     deleteAccount: (password) => postJson('/api/auth/delete-account', { password }),
   };
 
-  /** Értesítés-kategóriák a beállítások modal kapcsolóihoz (notification.cat). */
+  /** Értesítés-kategóriák a beállítások modal kapcsolóihoz (notification.cat).
+      A lista pontosan azt a hármat sorolja, amit a szerver valóban KÜLDENI tud
+      (server/notifications.js) — a korábbi hat kategória a demo-listával együtt
+      kikerült, mert négyükhöz (terv kiosztva/módosítva, edzői megjegyzés, heti
+      riport) nem tartozott és ma sem tartozik valódi esemény. */
   const NOTIF_CATEGORIES = [
-    { key: 'plan', label: 'Terv kiosztva' },
-    { key: 'comment', label: 'Edzői megjegyzés' },
-    { key: 'streak', label: 'Sorozat mérföldkő' },
-    { key: 'report', label: 'Heti riport' },
-    { key: 'planChange', label: 'Terv módosítva' },
-    { key: 'reminder', label: 'Emlékeztető' },
+    { key: 'message', label: 'Új üzenet' },
+    { key: 'coach', label: 'Edző-kapcsolat' },
+    { key: 'pr', label: 'Egyéni csúcs' },
   ];
 
   /** Az oldalak, a nav gyűrű irányai és a gyorsbillentyűk megfeleltetése.
@@ -2588,22 +2592,49 @@
     };
   }
 
-  /** Értesítés-panel: az avatarra nyílik, olvasott állapota megjegyzett. */
+  /**
+   * Értesítés-panel: az avatarra nyílik. A tartalma VALÓDI eseményekből jön
+   * (GET /api/notifications), tehát magától is változik — a panel minden
+   * megnyitásakor frisset kérünk.
+   *
+   * Az „olvasott" állapot egy LÁTOTT-IDŐPONT (prefs → notifSeenAt), nem egy
+   * mindent elrejtő kapcsoló. Korábban a „mind olvasott" kiürítette a panelt,
+   * és onnantól a valódi tartalom sem látszott volna benne. Most a sorok
+   * maradnak, csak az újdonságot jelző pötty tűnik el róluk, és a jelvény
+   * ennél frissebb eseményeket számol.
+   */
   async function setupNotifications() {
     const button = $('[data-action="notifications"]');
     const panel = $('[data-notif-panel]');
     const badge = $('[data-notif-badge]');
     const list = $('[data-list="notifications"]');
     const emptyState = $('.notif-empty', panel);
-    let allRead = prefs.get('notificationsRead', false);
 
-    // Az értesítések listája — egyszer lekérve
-    const notifications = await api.getNotifications();
+    /* A legutóbbi „mind olvasott" időpontja ISO-8601-ben. Üresen minden
+       értesítés újnak számít — ez az első indulás helyes viselkedése. */
+    let seenAt = prefs.get('notifSeenAt', '');
+    let notifications = [];
+
+    const isNew = (notif) => !seenAt || notif.at > seenAt;
+    const visible = () => {
+      const mutedCats = prefs.get('notifCats', {}); // a beállítások modal kapcsolói
+      return notifications.filter((notif) => !mutedCats[notif.cat]);
+    };
+
+    /** Friss lekérés. A hiba némán elhal: a panel a korábbi tartalmat mutatja,
+        és a következő megnyitás újrapróbálja — egy pillanatnyi hálózati hiba
+        miatt nem villoghat üresre a lista. */
+    async function load() {
+      try {
+        notifications = await api.getNotifications();
+      } catch (err) {
+        console.error('Értesítések betöltési hiba:', err);
+      }
+    }
 
     const updateBadge = (pop = false) => {
       // A némított kategóriák nem számítanak bele az "új" darabszámba
-      const mutedCats = prefs.get('notifCats', {});
-      const count = allRead ? 0 : notifications.filter((n) => !mutedCats[n.cat]).length;
+      const count = visible().filter(isNew).length;
       badge.hidden = count === 0;
       badge.textContent = String(count);
       badge.setAttribute('aria-label', `${count} új értesítés`);
@@ -2614,15 +2645,19 @@
       }
     };
 
+    /* A némított kategória sorai bent maradnak, csak halványan: a kapcsoló azt
+       mondja ki, hogy „ne szóljon", nem azt, hogy „ne is lássam". A pötty
+       viszont csak a látott-időpontnál frissebb sorokon marad. */
     const renderList = () => {
       list.replaceChildren();
-      emptyState.hidden = !allRead;
-      if (allRead) return;
-      const mutedCats = prefs.get('notifCats', {}); // a beállítások modal kapcsolói
+      const mutedCats = prefs.get('notifCats', {});
+      emptyState.hidden = notifications.length > 0;
+
       notifications.forEach((notif, index) => {
         const li = document.createElement('li');
         li.className = 'notif-item';
         if (mutedCats[notif.cat]) li.classList.add('notif-item--muted');
+        if (!isNew(notif)) li.classList.add('notif-item--seen');
         li.style.setProperty('--i', index);
 
         const dot = document.createElement('span');
@@ -2633,7 +2668,8 @@
         text.textContent = notif.text;
         const time = document.createElement('span');
         time.className = 'notif-time';
-        time.textContent = notif.time;
+        // A szerver ISO-időbélyeget küld — a „mikor" a böngésző zónájában áll elő
+        time.textContent = relativeTime(notif.at);
         body.append(text, time);
 
         li.append(dot, body);
@@ -2641,17 +2677,27 @@
       });
     };
 
-    const setOpen = (open) => {
+    const setOpen = async (open) => {
       panel.hidden = !open;
       button.setAttribute('aria-expanded', String(open));
-      if (open) renderList();
+      if (!open) return;
+      renderList();      // előbb a meglévő tartalom, hogy ne legyen üres pillanat
+      await load();      // majd a friss lista
+      if (panel.hidden) return; // időközben becsukták
+      renderList();
+      updateBadge();
     };
 
     button.addEventListener('click', () => setOpen(panel.hidden));
 
+    /* „Mind olvasott": a látott-időpontot a LEGFRISSEBB értesítésre állítjuk,
+       nem a mostani órára. Így egy időközben (a panel nyitva léte alatt)
+       beérkező, még le nem kért esemény sem tűnik el olvasottként. */
     $('[data-action="clear-notifications"]').addEventListener('click', () => {
-      allRead = true;
-      prefs.set('notificationsRead', true);
+      const newest = notifications[0]?.at;
+      if (!newest) return;
+      seenAt = newest;
+      prefs.set('notifSeenAt', seenAt);
       renderList();
       updateBadge();
       showToast('Minden értesítés olvasottnak jelölve');
@@ -2671,6 +2717,7 @@
     });
     window.addEventListener('hashchange', () => setOpen(false));
 
+    await load();
     updateBadge(true); // betöltéskor egy finom "pop" hívja fel a figyelmet a badge-re
 
     return { updateBadge };

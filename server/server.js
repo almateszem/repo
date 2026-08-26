@@ -26,6 +26,7 @@ import {
   createCoachInvite, getCoachLink, getActiveCoach, getPendingCoachInvites,
   getCoachAthletes, acceptCoachInvite, deleteCoachLink,
   getMessages, getLastMessage, addMessage, markMessagesRead, getUnreadCounts,
+  getRecentExerciseMaxes,
 } from './db.js';
 import {
   hashPassword, verifyPassword, createSessionToken, hashToken,
@@ -38,6 +39,9 @@ import { computeReadiness, parseDate, dayKey, DAY_MS } from './recovery.js';
 // Az edzői panel sportoló-összegzője. Szintén tiszta számítás: a végpont
 // gyűjti az adatot, a modul számol belőle (server/coaching.js).
 import { buildAthleteCard } from './coaching.js';
+// Az értesítés-panel sorai. Szintén tiszta összeállítás: a végpont gyűjti az
+// eseményeket, a modul formázza őket (server/notifications.js).
+import { buildNotifications } from './notifications.js';
 import { MUSCLE_KEYS } from './muscles.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -247,7 +251,8 @@ const normalizeDays = (raw) => (Array.isArray(raw) ? raw : [])
    ====================================================================== */
 const READ_ENDPOINTS = {
   '/api/foods': 'foods',
-  '/api/notifications': 'notifications',
+  // A /api/notifications NINCS köztük: nem referencia-adat többé, hanem a
+  // hívó valódi eseményeiből épül (ld. lentebb, „Értesítések").
   '/api/default-set': 'defaultSet',
   '/api/exercise-catalog': 'exerciseCatalog',
   // A választható edzés-célok (kulcs + kártya-címke + felirat). A sportolók
@@ -674,6 +679,56 @@ app.post('/api/messages/:linkId/read', (req, res) => {
   const link = activeLinkFor(req.user, req.params.linkId);
   if (!link) return res.status(404).json({ error: 'Nincs ilyen beszélgetés.' });
   res.json({ read: markMessagesRead(link.id, req.user.id) });
+});
+
+/* ======================================================================
+   Értesítések
+   ----------------------------------------------------------------------
+   A panel tartalma a HÍVÓ valódi eseményeiből áll össze — a korábbi,
+   mindenkinek egyforma demo-lista kikerült a data.js-ből. Az összeállítás
+   tiszta függvény (server/notifications.js); itt csak összegyűjtjük neki az
+   adatot.
+   ====================================================================== */
+
+/** Ennyi napra visszamenőleg számít frissnek egy egyéni csúcs. */
+const PR_NOTICE_DAYS = 14;
+
+app.get('/api/notifications', (req, res) => {
+  const userId = req.user.id;
+
+  /* Olvasatlan üzenetek szálanként. A számláló egy lekérdezésből jön, a
+     partner nevéért és az idézett szövegért szálanként megyünk vissza — de
+     csak azokért a szálakért, ahol tényleg van hátralék. */
+  const unreadThreads = [];
+  for (const [linkId, unread] of getUnreadCounts(userId)) {
+    const link = getCoachLink(linkId);
+    if (!link) continue;
+    const last = getLastMessage(linkId);
+    if (!last) continue;
+    const partner = getUser(link.coachId === userId ? link.athleteId : link.coachId);
+    unreadThreads.push({
+      linkId,
+      partner: partner?.displayName ?? 'Ismeretlen',
+      unread,
+      lastText: last.text,
+      at: last.at,
+    });
+  }
+
+  const since = formatDate(new Date(dayKey(req.today) - PR_NOTICE_DAYS * DAY_MS));
+
+  res.json(buildNotifications({
+    unreadThreads,
+    incomingInvites: getPendingCoachInvites(userId)
+      .map(({ linkId, at, coach }) => ({ linkId, at, coach: coach.name })),
+    /* Az elfogadás pillanata: csak élő kapcsolatnál van, és csak akkor
+       értesítés, ha a sportoló tényleg lépett (a responded_at üres marad
+       azoknál a soroknál, amik nem meghívóból lettek aktívak). */
+    acceptedLinks: getCoachAthletes(userId, 'active')
+      .filter((athlete) => athlete.respondedAt)
+      .map((athlete) => ({ linkId: athlete.linkId, at: athlete.respondedAt, athlete: athlete.name })),
+    recentPrs: getRecentExerciseMaxes(userId, since),
+  }));
 });
 
 /** Az Edzés oldal induló tartalma, prioritás szerint: aznapi piszkozat →

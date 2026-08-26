@@ -133,7 +133,9 @@
               <button class="notif-clear tap-target" type="button" data-action="clear-notifications">Összes olvasott</button>
             </div>
             <ul class="notif-list" data-list="notifications"></ul>
-            <p class="notif-empty" hidden>Nincs új értesítésed 🎉</p>
+            <!-- Üres állapot: a lista valódi eseményekből épül, tehát az
+                 „üres" itt azt jelenti, hogy tényleg nem történt semmi -->
+            <p class="notif-empty" hidden>Nincs értesítésed 🎉</p>
           </div>
         </header>
 
