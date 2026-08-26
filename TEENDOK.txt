@@ -6,7 +6,7 @@ Nem hibajegy-rendszer: rövid, cselekvésre kész sorok, prioritás szerint.
 Jelölések:   [ ] nyitott    [~] részben kész    [x] kész (a következő
              takarításig marad itt, hogy lássuk, mi történt)
 
-Utolsó frissítés: 2026-08-25 (fiók-műveletek, időzóna)
+Utolsó frissítés: 2026-08-26 (üzenetek: olvasottság, frissítés)
 Legutóbbi takarítás: 2026-08-17 — az elkészült [x] tételek kivezetve
 (a részletek a git előzményben maradtak meg).
 
@@ -33,14 +33,37 @@ EDZŐ–SPORTOLÓ KAPCSOLAT — a 2026-08-25-i átállás után maradt tételek
     Hely: server/data.js -> notifications (beégetett lista, „Kovács Bence"
     nevű nem létező edzővel). Most már VAN mihez kötni: új üzenet, beérkező
     meghívó, elfogadott meghívó, PR. Ezek valódi eseményekből épülhetnének.
+    Az olvasatlan üzenetek 2026-08-26 óta számolhatók (db.js -> getUnreadCounts),
+    tehát az „új üzenet" sor valódi adatból kitölthető — a többi eseményhez
+    viszont továbbra sincs napló.
 
-[ ] Nincs „olvasatlan" jelölés az üzeneteken
-    A messages táblában nincs read_at, tehát sem jelvény, sem kiemelés nem
-    képezhető. Az edzői kártya csak az utolsó üzenetet idézi.
+[x] „Olvasatlan" jelölés az üzeneteken   (2026-08-26)
+    A messages tábla kapott egy read_at oszlopot (NULL = olvasatlan), és erre
+    épül minden: a sportoló-kártya és a nézetváltó jelvénye, a szálban az
+    „Új üzenet" elválasztó és a kiemelt buborék, a küldő oldalán pedig az
+    „olvasva" jelölés a saját üzenetén. A kártya végre IDÉZI is az utolsó
+    üzenetet — a szerver eddig is küldte (lastMessage), csak a felület sosem
+    rajzolta ki.
+    A nyugtázás KÜLÖN végponton megy (POST /api/messages/:linkId/read), nem a
+    lekérésen: a 20 másodperces halk frissítés nem jelenti, hogy a felhasználó
+    látta is a szálat, és a rejtett szálra nem küldünk nyugtázást — különben az
+    „olvasva" azt hazudná a másik félnek, hogy elolvasták az üzenetét.
+    A számláló szálanként EGY lekérdezésből jön az egész panelre
+    (db.js -> getUnreadCounts), részleges indexszel; kártyánkénti COUNT sok
+    sportolónál a szinkron SQLite miatt érezhető lett volna.
+    Tesztek: server/messages.test.js (migráció + adatréteg), server/coach.test.js.
 
-[ ] Az üzenetek lekérdezéssel frissülnek (20 mp), nem push-sal
+[~] Az üzenetek lekérdezéssel frissülnek (20 mp), nem push-sal
     Hely: public/script.js -> COACH_POLL_MS. Kis felhasználószámnál ez
     rendben van; ha sokan lesznek egyszerre bent, SSE vagy websocket kell.
+    2026-08-26: a frissítés maga megjavult. Eddig CSAK a kliens nézet szála
+    frissült — az edzői részletmodál chatje egyszer betöltött, és a sportoló
+    válasza csak a modál újranyitásakor jelent meg. A ciklus átkerült a
+    chat-vezérlőbe (createChatController), tehát mindkét szál frissül, de csak
+    amíg TÉNYLEG látszik: rejtett fülön, másik nézetben és csukott
+    üzenet-blokkban nem kérdezünk. Az elküldött üzenet ujjlenyomata is
+    vezetve van, így a következő kör nem rajzolja újra a szálat (eddig a
+    hírfolyam aljára rántotta az olvasót olvasás közben).
 
 [ ] Az edzői panel ára a sportolók számával nő
     A GET /api/athletes SPORTOLÓNKÉNT lefuttatja a teljes készenlét-számítást

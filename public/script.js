@@ -176,6 +176,9 @@
     // Üzenetváltás — ugyanaz a szál mindkét oldalról, a kapcsolat azonosítójával
     getMessages:       (linkId) => getJson(`/api/messages/${linkId}`),
     sendMessage:       (linkId, text) => postJson(`/api/messages/${linkId}`, { text }),
+    // A szál nyugtázása: a másik fél üzenetei olvasottá válnak. A felület
+    // akkor küldi, amikor a hírfolyam TÉNYLEG látszik — nem minden lekérésnél.
+    markMessagesRead:  (linkId) => postJson(`/api/messages/${linkId}/read`),
     // A testsúly-napló. Írni nem innen írunk: a testsúlyt a napi check-in
     // kérdi, és a PUT /api/checkin weightKg mezője rögzíti (naponta egy sor).
     getWeightLog:      () => getJson('/api/weight-log'),
@@ -1505,8 +1508,12 @@
     card.classList.add(`co-tier--${tier.key}`);
     card.dataset.athlete = athlete.linkId;
     card.style.setProperty('--i', index);
-    card.setAttribute('aria-label',
-      `${athlete.name} — ${rating} pont, ${tier.label}${athlete.alert ? ', figyelmet igényel' : ''} — részletek megnyitása`);
+    card.setAttribute('aria-label', [
+      `${athlete.name} — ${rating} pont, ${tier.label}`,
+      athlete.alert ? 'figyelmet igényel' : null,
+      athlete.unread > 0 ? `${athlete.unread} olvasatlan üzenet` : null,
+      'részletek megnyitása',
+    ].filter(Boolean).join(' — '));
 
     const ratingEl = $('.co-card-rating', card);
     ratingEl.textContent = rating;
@@ -1514,6 +1521,23 @@
     $('.co-card-tag', card).textContent = athlete.goal ?? '—';
     $('.co-card-name', card).textContent = athlete.name;
     $('.co-card-alert', card).hidden = !athlete.alert;
+
+    /* Olvasatlan-jelvény. A darabszám a jelvényben látszik, a képernyőolvasó
+       pedig a kártya aria-label-jéből kapja meg — a jelvény maga aria-hidden,
+       hogy a szám ne hangozzon el másodszor, kontextus nélkül. */
+    const unreadEl = $('.co-card-unread', card);
+    unreadEl.hidden = !athlete.unread;
+    unreadEl.textContent = athlete.unread > 9 ? '9+' : String(athlete.unread);
+
+    /* A szál utolsó üzenete idézve: az edző így a kártyáról látja, hol tart a
+       beszélgetés. Olvasatlan hátraléknál kiemelve. */
+    const msgEl = $('.co-card-msg', card);
+    msgEl.hidden = !athlete.lastMessage;
+    if (athlete.lastMessage) {
+      const who = athlete.lastMessage.mine ? 'Te' : athlete.name.split(' ')[0];
+      msgEl.textContent = `${who}: ${athlete.lastMessage.text}`;
+      msgEl.classList.toggle('co-card-msg--unread', athlete.unread > 0);
+    }
 
     const stats = $('.co-card-stats', card);
     ATHLETE_CARD_STATS.forEach(([label, getValue]) => {
@@ -5035,12 +5059,34 @@
 
   /** Egy üzenet buborékja a szerver által küldött alakból. A `mine` dönti el,
       hogy saját (jobbra igazított) üzenet-e — a szerver a NÉZŐ szemszögéből
-      küldi, tehát ugyanaz a sor az edzőnél és a sportolónál más oldalra kerül. */
-  const messageNote = (message) => createCoachNote({
-    meta: `${message.mine ? 'Te' : message.author} · ${relativeTime(message.at)}`,
-    text: message.text,
-    me: message.mine,
-  });
+      küldi, tehát ugyanaz a sor az edzőnél és a sportolónál más oldalra kerül.
+
+      A `read` is a néző szemszöge: a SAJÁT üzenetnél azt jelenti, hogy a másik
+      fél elolvasta (ezt írjuk ki a meta végére), a beérkezőnél azt, hogy én már
+      láttam — az olvasatlan beérkező kapja a kiemelést. */
+  function messageNote(message) {
+    const readMark = message.mine && message.read ? ' · olvasva' : '';
+    const note = createCoachNote({
+      meta: `${message.mine ? 'Te' : message.author} · ${relativeTime(message.at)}${readMark}`,
+      text: message.text,
+      me: message.mine,
+    });
+    if (!message.mine && !message.read) note.classList.add('co-note--unread');
+    return note;
+  }
+
+  /** Az olvasatlan blokk elé kerülő elválasztó. Nélküle egy hosszabb szálban
+      nem látszik, honnan újdonság a tartalom. */
+  function unreadDivider(count) {
+    const divider = document.createElement('p');
+    divider.className = 'co-msg-divider';
+    divider.textContent = count === 1 ? 'Új üzenet' : `${count} új üzenet`;
+    return divider;
+  }
+
+  /** Az üzenet-szál halk frissítése: ennyi időnként kérjük le újra a LÁTHATÓ
+      beszélgetést, hogy a másik fél üzenete magától megjelenjen. */
+  const COACH_POLL_MS = 20_000;
 
   /** Üres/hibás szál helyén álló magyarázó sor. */
   function feedNotice(text) {
@@ -5059,30 +5105,48 @@
    * A késve érkező válaszra figyelni kell: mire a kérés visszaér, a felhasználó
    * már másik beszélgetést nézhet. Ezért minden válasznál újra megkérdezzük,
    * ugyanaz-e még az aktív kapcsolat.
+   *
+   * @param {Function} options.isVisible  látszik-e ÉPP a hírfolyam. Kettőt dönt
+   *        el: kérdezzük-e a szervert a halk frissítéskor, és nyugtázhatjuk-e
+   *        olvasottként a beérkezett üzeneteket. Rejtett szálat nem jelölünk
+   *        olvasottnak — az „olvasva" különben azt hazudná a másik félnek, hogy
+   *        látták az üzenetét.
+   * @param {Function} options.onRead  olvasás-nyugtázás után fut (a jelvények
+   *        frissítéséhez). Nem kötelező.
    */
-  function createChatController({ feed, form, input, getLinkId }) {
+  function createChatController({ feed, form, input, getLinkId, isVisible = () => true, onRead }) {
     const scrollFeedToEnd = () => { feed.scrollTop = feed.scrollHeight; };
 
-    /* A legutóbb kirajzolt szál ujjlenyomata (az üzenet-azonosítók sorban).
-       Ha a frissítés ugyanazt hozza, NEM rajzolunk újra: a replaceChildren
-       különben minden körben az aljára ugrasztaná a hírfolyamot, miközben a
-       felhasználó épp a korábbi üzeneteket olvassa. */
+    /* A legutóbb kirajzolt szál ujjlenyomata: az üzenet-azonosítók ÉS az
+       olvasottság. Ha a frissítés ugyanazt hozza, NEM rajzolunk újra — a
+       replaceChildren különben minden körben az aljára ugrasztaná a
+       hírfolyamot, miközben a felhasználó épp a korábbi üzeneteket olvassa.
+       Az olvasottság is része, különben az „olvasva" jelölés csak a következő
+       ÚJ üzenetnél jelenne meg. */
     let lastSignature = null;
+    const signatureOf = (messages) => messages
+      .map((message) => `${message.id}${message.read ? 'r' : ''}`).join(',');
 
     const render = (messages) => {
-      const signature = messages.map((message) => message.id).join(',');
+      const signature = signatureOf(messages);
       if (signature === lastSignature) return;
       lastSignature = signature;
 
       feed.replaceChildren();
-      if (messages.length === 0) feed.appendChild(feedNotice('Még nincs üzenet — írj elsőként.'));
-      messages.forEach((message) => feed.appendChild(messageNote(message)));
+      if (messages.length === 0) {
+        feed.appendChild(feedNotice('Még nincs üzenet — írj elsőként.'));
+        return;
+      }
+      // Az elválasztó a legelső olvasatlan BEÉRKEZŐ üzenet elé kerül
+      const unread = messages.filter((message) => !message.mine && !message.read);
+      const firstUnreadId = unread[0]?.id ?? null;
+      messages.forEach((message) => {
+        if (message.id === firstUnreadId) feed.appendChild(unreadDivider(unread.length));
+        feed.appendChild(messageNote(message));
+      });
       scrollFeedToEnd();
     };
 
-    /** A szál lekérése és kirajzolása. Szándékosan nincs „Betöltés…" jelző: a
-        korábbi tartalom marad a képernyőn, amíg a friss meg nem érkezik — így
-        a 20 másodpercenkénti frissítés sem villog. */
     /** Beszélgetés-váltáskor a hívó ezzel jelzi, hogy a következő töltés
         MINDENKÉPP rajzoljon (a másik szál tartalma nem maradhat a képernyőn). */
     const reset = () => {
@@ -5090,6 +5154,12 @@
       feed.replaceChildren(); // amíg a friss szál megjön, ne a másiké álljon itt
     };
 
+    /** A szál lekérése és kirajzolása. Szándékosan nincs „Betöltés…" jelző: a
+        korábbi tartalom marad a képernyőn, amíg a friss meg nem érkezik — így
+        a 20 másodpercenkénti frissítés sem villog.
+
+        A kirajzolás UTÁN nyugtázzuk az olvasást: a felhasználó ekkor már látja
+        az elválasztót és a kiemelt buborékokat, tehát a jelölés igaz. */
     async function load() {
       const linkId = getLinkId();
       if (!linkId) return;
@@ -5097,11 +5167,24 @@
         const thread = await api.getMessages(linkId);
         if (getLinkId() !== linkId) return; // időközben másik beszélgetés lett aktív
         render(thread.messages);
+        if (thread.unread > 0 && isVisible()) await acknowledge(linkId);
       } catch (err) {
         console.error('Üzenetek betöltési hiba:', err);
         if (getLinkId() !== linkId) return;
         lastSignature = null; // a következő sikeres töltés újra kirajzolja a szálat
         feed.replaceChildren(feedNotice('Az üzenetek most nem tölthetők be.'));
+      }
+    }
+
+    /* Az olvasás-nyugtázás némán bukik: a szál kirajzolva már ott van, a
+       következő kör újrapróbálja. Hibaüzenettel zavarni a felhasználót olyasmi
+       miatt, amit nem is kért, csak elterelés lenne. */
+    async function acknowledge(linkId) {
+      try {
+        const { read } = await api.markMessagesRead(linkId);
+        if (read > 0) await onRead?.();
+      } catch (err) {
+        console.error('Az üzenetek nyugtázása nem sikerült:', err);
       }
     }
 
@@ -5117,12 +5200,27 @@
         if (getLinkId() !== linkId) return;
         $('.co-msg-empty', feed)?.remove();
         feed.appendChild(messageNote(message));
+        /* Az ujjlenyomatot is vezetjük: enélkül a következő halk frissítés
+           „változásnak" látná a saját, már kint lévő üzenetünket, és a teljes
+           újrarajzolással a hírfolyam aljára rántaná az olvasót. */
+        if (lastSignature !== null) {
+          lastSignature = [lastSignature, String(message.id)].filter(Boolean).join(',');
+        }
         scrollFeedToEnd();
       } catch (err) {
         showToast(err.message || 'Az üzenetet nem sikerült elküldeni', 'error');
       }
       input.focus();
     });
+
+    /* Halk frissítés: amíg a hírfolyam látszik, időnként lekérjük a szálat —
+       így a másik fél üzenete magától megjelenik, websocket nélkül. Rejtett
+       fülön/nézetben nem kérdezünk (ott úgysem látszana), és a hiba némán
+       elhal: a következő kör újrapróbálja. */
+    setInterval(() => {
+      if (document.hidden || !isVisible()) return;
+      load();
+    }, COACH_POLL_MS);
 
     return { load, reset };
   }
@@ -5141,7 +5239,7 @@
   /** Sportoló részletmodál: a saját naplójából számolt összegzés, valódi
       üzenetváltás, és a kapcsolat bontása. Az `onUnlink` az Edző oldalt
       frissíti, miután a sportoló lekerült a panelről. */
-  function setupAthleteModal({ confirmAction, onUnlink } = {}) {
+  function setupAthleteModal({ confirmAction, onUnlink, onRead } = {}) {
     const modal = $('#athleteModal');
     const controller = createModalController(modal);
     const badge = $('.co-modal-badge', modal);
@@ -5163,6 +5261,12 @@
       form,
       input,
       getLinkId: () => current?.linkId ?? null,
+      /* A modál chatje eddig egyszer töltött be, és utána megállt: a sportoló
+         válasza csak a modál újranyitásakor jelent meg. A látható szál most itt
+         is frissül magától — a feltétel a nyitott modál ÉS a kinyitott
+         üzenet-blokk (a csukott blokk tartalmát senki nem olvassa el). */
+      isVisible: () => modal.classList.contains('is-open') && !msgSection.hidden,
+      onRead,
     });
 
     const setMessageOpen = (open, { focus = false } = {}) => {
@@ -5232,8 +5336,15 @@
           activityEl.appendChild(li);
         });
 
-        setMessageOpen(false);
+        /* Olvasatlan üzenettel a szál nyitva indul: azért kattintott a
+           kártyára, mert a jelvény hívta oda. A gomb felirata is kiírja a
+           hátralékot, hogy csukott állapotban is látszódjon. */
+        msgButton.textContent = athlete.unread > 0 ? `Üzenet · ${athlete.unread} új` : 'Üzenet';
+        /* A modál nyitása MEGELŐZI a szálét: a chat láthatóság-feltétele a
+           nyitott modált nézi, és csak látható szálat nyugtázunk olvasottként
+           (fordított sorrendben a betöltés nem jelölné meg az üzeneteket). */
         controller.open();
+        setMessageOpen(athlete.unread > 0);
       },
     };
   }
@@ -5246,10 +5357,6 @@
      Az alapértelmezett nézet ahhoz igazodik, amiben a fióknak épp van adata;
      a felhasználó választását a prefs megjegyzi. */
 
-  /** Az Edző oldal halk frissítése: ennyi időnként kérjük le újra a nyitott
-      beszélgetést, hogy a másik fél üzenete magától megjelenjen. */
-  const COACH_POLL_MS = 20_000;
-
   async function setupCoachPage(athleteModal, confirmAction) {
     const page = $('[data-page="coach"]');
     const toggle = $('[data-coach-toggle]', page);
@@ -5261,6 +5368,7 @@
     const noCoachText = $('[data-coach-none]', page);
     const inviteLead = $('[data-invite-lead]', page);
     const inviteBadge = $('[data-invite-badge]', page);
+    const athleteBadge = $('[data-athlete-badge]', page);
     const inviteList = $('[data-list="coach-invites"]', page);
     const sentLead = $('[data-sent-lead]', page);
     const inviteForm = $('[data-form="invite-athlete"]', page);
@@ -5270,11 +5378,20 @@
     let coachData = { coach: null, invites: [] };
     let panel = { athletes: [], invites: [] };
 
+    /** Látszik-e ÉPP az edződdel folytatott beszélgetés. Enélkül a halk
+        frissítés a rejtett oldalon is kérdezne, az olvasás-nyugtázás pedig
+        olyan üzeneteket jelölne olvasottnak, amiket a felhasználó nem is
+        látott — az edző oldalán hamis „olvasva" jelenne meg. */
+    const clientThreadVisible = () => !page.hidden && !views.client.hidden && !clientThread.hidden;
+
     const chat = createChatController({
       feed: $('[data-client-feed]', page),
       form: $('[data-form="coach-message"]', page),
       input: $('#coach-message'),
       getLinkId: () => coachData.coach?.linkId ?? null,
+      isVisible: clientThreadVisible,
+      // Az olvasás után a jelvény már nem stimmel — friss számokat kérünk
+      onRead: () => refresh(),
     });
 
     // A saját felhasználónév: ezzel tud meghívni az edző, ezért ki van írva
@@ -5293,20 +5410,39 @@
         $('[data-coach-role]', page).textContent = `Edződ · @${coach.username}`;
       }
 
-      /* Jelvény a nézetváltón. A megjegyzett nézetválasztás miatt előfordulhat,
-         hogy a felhasználó az edzői nézetben nyitja az oldalt — a beérkezett
-         meghívó enélkül észrevétlen maradna. */
-      const clientBtn = inviteBadge.closest('.co-toggle-btn');
-      inviteBadge.textContent = invites.length > 0 ? String(invites.length) : '';
-      inviteBadge.hidden = invites.length === 0;
-      if (invites.length > 0) clientBtn.setAttribute('aria-label', `Edződ — ${invites.length} új meghívó`);
-      else clientBtn.removeAttribute('aria-label');
-
       inviteList.replaceChildren();
       invites.forEach((invite) => inviteList.appendChild(renderInviteRow(invite, [
         { label: 'Elfogadás', action: 'accept-invite', variant: 'primary' },
         { label: 'Elutasítás', action: 'decline-invite' },
       ])));
+    }
+
+    /**
+     * Jelvények a nézetváltón. MINDKÉT nézet kap egyet, mert a megjegyzett
+     * nézetválasztás miatt a felhasználó bármelyikben nyithatja az oldalt — a
+     * másik oldalon várakozó meghívó vagy olvasatlan üzenet enélkül
+     * észrevétlen maradna. A kettőt egy szám fogja össze („mennyi vár rád
+     * ott"), a felolvasott címke viszont kibontja, miből áll.
+     */
+    function renderToggleBadges() {
+      const setBadge = (badge, count, describe) => {
+        const button = badge.closest('.co-toggle-btn');
+        badge.textContent = count > 0 ? String(count) : '';
+        badge.hidden = count === 0;
+        if (count > 0) button.setAttribute('aria-label', describe());
+        else button.removeAttribute('aria-label');
+      };
+
+      const invites = coachData.invites.length;
+      const coachUnread = coachData.coach?.unread ?? 0;
+      setBadge(inviteBadge, invites + coachUnread, () => [
+        'Edződ',
+        invites > 0 ? `${invites} új meghívó` : null,
+        coachUnread > 0 ? `${coachUnread} olvasatlan üzenet` : null,
+      ].filter(Boolean).join(' — '));
+
+      const athleteUnread = panel.athletes.reduce((sum, athlete) => sum + athlete.unread, 0);
+      setBadge(athleteBadge, athleteUnread, () => `Edzetteim — ${athleteUnread} olvasatlan üzenet`);
     }
 
     /** Az alapértelmezett nézet: amelyik oldalon a fióknak épp van dolga. */
@@ -5334,7 +5470,11 @@
       renderCoachPanel(panel);
       sentLead.hidden = panel.invites.length === 0;
       apply({ animate });
-      chat.load();
+      renderToggleBadges(); // az apply UTÁN: a nézetváltó ekkor áll a helyére
+      /* A szálat csak akkor töltjük, ha látszik is. Az edzői nézetben állva
+         nincs értelme lekérni — és ami fontosabb: a nem látott üzenetet nem
+         nyugtázhatjuk olvasottként. */
+      if (clientThreadVisible()) chat.load();
     }
 
     toggle.addEventListener('click', (event) => {
@@ -5342,6 +5482,9 @@
       if (!btn || btn.getAttribute('aria-pressed') === 'true') return;
       prefs.set('coachView', btn.dataset.coachView);
       apply({ animate: true });
+      // A kliens nézetre váltva a szál most lett látható: itt kérjük le (és
+      // nyugtázzuk), nem várva a következő halk frissítésre.
+      if (clientThreadVisible()) chat.load();
     });
 
     // Meghívás felhasználónévvel — a hibát (nincs ilyen fiók, már kapcsolatban
@@ -5403,15 +5546,6 @@
       const athlete = panel.athletes.find((item) => String(item.linkId) === trigger.dataset.athlete);
       if (athlete) athleteModal?.open(athlete);
     });
-
-    /* Halk frissítés: amíg az Edző oldal a kliens nézetében nyitva van,
-       időnként lekérjük a szálat — így a másik fél üzenete magától megjelenik,
-       websocket nélkül. Rejtett fülön nem kérdezünk (ott úgysem látszana), és
-       a hiba némán elhal: a következő kör újrapróbálja. */
-    setInterval(() => {
-      if (document.hidden || page.hidden || views.client.hidden) return;
-      chat.load();
-    }, COACH_POLL_MS);
 
     await refresh();
     return { refresh };
@@ -5486,6 +5620,9 @@
     const athleteModal = await safe(() => setupAthleteModal({
       confirmAction,
       onUnlink: () => coachPage?.refresh(),
+      // A modálban elolvasott üzenetek után a kártya és a nézetváltó jelvénye
+      // is elavult — a panel újratöltése hozza helyre.
+      onRead: () => coachPage?.refresh(),
     }));
     coachPage = await safe(() => setupCoachPage(athleteModal, confirmAction));
     /* Az oldalra lépéskor futó frissítés hibáját itt nyeljük el: a korábbi

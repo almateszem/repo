@@ -509,7 +509,8 @@
         <div class="co-toggle" role="group" aria-label="Edző-nézet kiválasztása" data-coach-toggle>
           <button class="co-toggle-btn" type="button" data-coach-view="client" aria-pressed="true">Edződ<span
             class="co-toggle-badge" data-invite-badge hidden></span></button>
-          <button class="co-toggle-btn" type="button" data-coach-view="manager" aria-pressed="false">Edzetteim</button>
+          <button class="co-toggle-btn" type="button" data-coach-view="manager" aria-pressed="false">Edzetteim<span
+            class="co-toggle-badge" data-athlete-badge hidden></span></button>
         </div>
 
         <!-- Kliens nézet: a saját edződ (ha van) és a hozzád érkezett meghívók -->
@@ -1323,11 +1324,14 @@
         <span class="co-card-tag"></span>
       </span>
       <span class="co-card-alert" aria-hidden="true" hidden>!</span>
+      <span class="co-card-unread" aria-hidden="true" hidden></span>
       <span class="co-card-avatar" aria-hidden="true">
         <svg viewBox="0 0 24 24"><use href="#icon-user"/></svg>
       </span>
       <span class="co-card-name"></span>
       <span class="co-card-stats"></span>
+      <!-- A szál utolsó üzenete idézve (a szerver küldi, script.js tölti fel) -->
+      <span class="co-card-msg" hidden></span>
     </button>
   </template>
 

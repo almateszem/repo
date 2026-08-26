@@ -152,12 +152,16 @@ db.exec(`
   -- Üzenetek a kapcsolat két oldala között. A szál a kapcsolathoz tartozik,
   -- nem a két félhez külön — a kapcsolat megszűnésével (CASCADE) az üzenetek
   -- is eltűnnek, tehát a levált sportoló előzménye nem marad az edzőnél.
+  -- A read_at a CÍMZETT olvasását jelöli: mikor nézte meg a szál másik oldala
+  -- ezt a sort. NULL = olvasatlan. Egy szálnak két oldala van, tehát egy
+  -- oszlop elég — a küldő számára a saját üzenete definíció szerint olvasott.
   CREATE TABLE IF NOT EXISTS messages (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     link_id    INTEGER NOT NULL REFERENCES coach_links(id) ON DELETE CASCADE,
     sender_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     body       TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))   -- UTC
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),  -- UTC
+    read_at    TEXT                                      -- UTC, NULL = olvasatlan
   );
   -- Gyakorlatonkénti egyéni csúcs (becsült 1RM). A PR MINDIG a saját korábbi
   -- teljesítményhez képest az, ezért a rekordok felhasználónként állnak — a
@@ -194,6 +198,10 @@ ensureColumn('nutrition_log', 'grams', 'grams REAL NOT NULL DEFAULT 100');
 // Edzés-cél: a fiók sajátja, az edzői panel kártyáján címkeként látszik.
 // Üresen hagyható (NULL) — a felület ilyenkor „—"-t mutat.
 ensureColumn('users', 'goal', 'goal TEXT');
+// Olvasás-jelölés az üzeneteken. A régi sorok NULL-lal (olvasatlanul) jönnek
+// át — ez a helyes: nem tudhatjuk, látta-e őket a címzett. Aki megnyitja a
+// szálat, egy lépésben olvasottá teszi a régi hátralékot is.
+ensureColumn('messages', 'read_at', 'read_at TEXT');
 
 /* ---- Migráció: egyfelhasználós → többfelhasználós ----
 
@@ -441,6 +449,12 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_coach_links_coach ON coach_links(coach_id);
   CREATE INDEX IF NOT EXISTS idx_coach_links_athlete ON coach_links(athlete_id);
   CREATE INDEX IF NOT EXISTS idx_messages_link ON messages(link_id, id);
+  /* Olvasatlan-számláló: az edzői panel EGY lekérdezéssel kéri le az összes
+     szál hátralékát. Részleges index — csak az olvasatlan sorok kerülnek bele,
+     tehát a mérete nem a szál hosszával, hanem a tényleg olvasatlan üzenetek
+     számával nő (a szálak túlnyomó része elolvasva nulla sort ad ide). */
+  CREATE INDEX IF NOT EXISTS idx_messages_unread ON messages(link_id, sender_id)
+    WHERE read_at IS NULL;
 `);
 
 /* ---- Seed ----
@@ -761,13 +775,20 @@ const toMessage = (row) => ({
   author: row.display_name,
   text: row.body,
   at: toIso(row.created_at),
+  readAt: toIso(row.read_at),
 });
+
+/** A négy üzenet-lekérdezés ugyanazt a mezőkészletet adja vissza (ezt várja a
+    toMessage), ezért a SELECT-lista egy helyen él. */
+const MESSAGE_COLUMNS = `
+  m.id, m.sender_id, m.body, m.created_at, m.read_at, u.display_name
+  FROM messages m JOIN users u ON u.id = m.sender_id
+`;
 
 /** Egy kapcsolat üzenetei időrendben (a legutóbbi `limit` darab). */
 export function getMessages(linkId, limit = 100) {
   return db.prepare(`
-    SELECT m.id, m.sender_id, m.body, m.created_at, u.display_name
-    FROM messages m JOIN users u ON u.id = m.sender_id
+    SELECT ${MESSAGE_COLUMNS}
     WHERE m.link_id = ? ORDER BY m.id DESC LIMIT ?
   `).all(linkId, limit).map(toMessage).reverse();
 }
@@ -775,8 +796,7 @@ export function getMessages(linkId, limit = 100) {
 /** A kapcsolat legutóbbi üzenete, vagy null (a sportoló-kártya idézi). */
 export function getLastMessage(linkId) {
   const row = db.prepare(`
-    SELECT m.id, m.sender_id, m.body, m.created_at, u.display_name
-    FROM messages m JOIN users u ON u.id = m.sender_id
+    SELECT ${MESSAGE_COLUMNS}
     WHERE m.link_id = ? ORDER BY m.id DESC LIMIT 1
   `).get(linkId);
   return row ? toMessage(row) : null;
@@ -788,11 +808,42 @@ export function addMessage(linkId, senderId, body) {
   const { lastInsertRowid } = db.prepare(
     'INSERT INTO messages (link_id, sender_id, body) VALUES (?, ?, ?)',
   ).run(linkId, senderId, body);
-  const row = db.prepare(`
-    SELECT m.id, m.sender_id, m.body, m.created_at, u.display_name
-    FROM messages m JOIN users u ON u.id = m.sender_id WHERE m.id = ?
-  `).get(Number(lastInsertRowid));
+  const row = db.prepare(`SELECT ${MESSAGE_COLUMNS} WHERE m.id = ?`).get(Number(lastInsertRowid));
   return toMessage(row);
+}
+
+/**
+ * A szál olvasottnak jelölése a NÉZŐ szemszögéből: a másik fél még olvasatlan
+ * üzenetei kapnak időbélyeget. A sajátjait senki nem „olvassa el" — azok
+ * read_at-je a címzett olvasását jelöli, tehát a sender_id != ? feltétel nem
+ * finomkodás, hanem a mező jelentése.
+ *
+ * @returns {number} hány üzenet vált olvasottá (0 = nem volt hátralék)
+ */
+export function markMessagesRead(linkId, readerId) {
+  return db.prepare(`
+    UPDATE messages SET read_at = datetime('now')
+    WHERE link_id = ? AND sender_id != ? AND read_at IS NULL
+  `).run(linkId, readerId).changes;
+}
+
+/**
+ * A felhasználó ÖSSZES szálának olvasatlan-hátraléka egyetlen lekérdezésben:
+ * { [linkId]: darabszám }, csak a nem-nulla szálakkal.
+ *
+ * Szándékosan nem szálanként számolunk: az edzői panel 20-30 sportolónál
+ * ugyanennyi külön COUNT-ot futtatna, és a szinkron SQLite miatt mindegyik a
+ * teljes event loopot blokkolná (ld. TEENDOK.txt, teljesítmény-szakasz).
+ */
+export function getUnreadCounts(userId) {
+  const rows = db.prepare(`
+    SELECT m.link_id, COUNT(*) AS unread
+    FROM messages m JOIN coach_links l ON l.id = m.link_id
+    WHERE m.read_at IS NULL AND m.sender_id != ?
+      AND (l.coach_id = ? OR l.athlete_id = ?)
+    GROUP BY m.link_id
+  `).all(userId, userId, userId);
+  return new Map(rows.map((row) => [row.link_id, row.unread]));
 }
 
 /* ======================================================================

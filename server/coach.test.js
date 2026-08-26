@@ -116,7 +116,7 @@ test('bejelentkezés nélkül a kapcsolat- és üzenet-végpontok is 401-et adna
     ['GET', '/api/athletes'], ['POST', '/api/athletes'], ['DELETE', '/api/athletes/1'],
     ['GET', '/api/coach'], ['DELETE', '/api/coach'],
     ['POST', '/api/coach/invites/1/accept'], ['DELETE', '/api/coach/invites/1'],
-    ['GET', '/api/messages/1'], ['POST', '/api/messages/1'],
+    ['GET', '/api/messages/1'], ['POST', '/api/messages/1'], ['POST', '/api/messages/1/read'],
     ['GET', '/api/goals'], ['PUT', '/api/user'],
   ];
   for (const [method, urlPath] of endpoints) {
@@ -264,6 +264,9 @@ test('a kívülálló továbbra sem lát semmit', async () => {
   // Értelmezhetetlen azonosítóra sem hibázhat a szerver (a szám-konverzió NaN-t ad)
   const bogus = await request('GET', '/api/messages/abc', { cookie: coach.cookie });
   assert.equal(bogus.status, 404);
+
+  const read = await request('POST', `/api/messages/${linkId}/read`, { cookie: outsider.cookie });
+  assert.equal(read.status, 404, 'idegen nem nyugtázhatja más szálát');
 });
 
 /* ======================================================================
@@ -293,9 +296,64 @@ test('az üzenet mindkét irányban megérkezik, és a "mine" a nézőtől függ
   assert.deepEqual(asAthlete.json.messages.map((m) => m.mine), [false, true], 'ugyanaz a szál, fordított nézőpont');
   assert.equal(asAthlete.json.messages[0].text, 'Szép munka a guggolásnál!');
 
-  // A kártya az utolsó üzenetet idézi
+  // A kártya az utolsó üzenetet idézi, az EDZŐ szemszögéből jelölve
   const card = (await request('GET', '/api/athletes', { cookie: coach.cookie })).json.athletes[0];
   assert.equal(card.lastMessage.text, 'Köszönöm, jövő héten emelek!');
+  assert.equal(card.lastMessage.mine, false, 'az utolsó szó a sportolóé volt');
+});
+
+test('az olvasatlan üzenet számít, a nyugtázás után nem', async () => {
+  /* A kiindulás: a fenti teszt két üzenete még nyugtázatlan. Mindkét fél a
+     MÁSIK üzenetét látja olvasatlanként — a sajátját senki nem "olvassa el". */
+  const coachThread = await request('GET', `/api/messages/${linkId}`, { cookie: coach.cookie });
+  assert.equal(coachThread.json.unread, 1, 'az edzőnek a sportoló üzenete olvasatlan');
+  assert.deepEqual(
+    coachThread.json.messages.map((m) => m.read), [false, false],
+    'még egyik üzenetet sem olvasták el',
+  );
+
+  // A kártya és a nézetváltó jelvénye ugyanabból a számból él
+  const before = (await request('GET', '/api/athletes', { cookie: coach.cookie })).json.athletes[0];
+  assert.equal(before.unread, 1);
+  const athleteSide = await request('GET', '/api/coach', { cookie: athlete.cookie });
+  assert.equal(athleteSide.json.coach.unread, 1, 'a sportolónak az edző üzenete olvasatlan');
+
+  // Az edző elolvassa: CSAK a sportoló üzenete válik olvasottá
+  const read = await request('POST', `/api/messages/${linkId}/read`, { cookie: coach.cookie });
+  assert.equal(read.status, 200);
+  assert.equal(read.json.read, 1, 'egy üzenet vált olvasottá');
+
+  const after = (await request('GET', '/api/athletes', { cookie: coach.cookie })).json.athletes[0];
+  assert.equal(after.unread, 0, 'az edzőnek nincs több hátraléka');
+
+  const stillUnread = await request('GET', '/api/coach', { cookie: athlete.cookie });
+  assert.equal(stillUnread.json.coach.unread, 1, 'a sportoló hátralékát az edző olvasása nem érinti');
+
+  /* A küldő a saját üzenetén látja, hogy elolvasták — ez az "olvasva" jelölés.
+     A sportoló szemszögéből: a SAJÁT üzenete (mine) most már read. */
+  const asAthlete = await request('GET', `/api/messages/${linkId}`, { cookie: athlete.cookie });
+  const own = asAthlete.json.messages.find((m) => m.mine);
+  assert.equal(own.read, true, 'az edző elolvasta a sportoló üzenetét');
+  assert.equal(asAthlete.json.unread, 1, 'a sportolónak viszont maradt olvasatlanja');
+});
+
+test('a nyugtázás idempotens, és az új üzenet újra hátralékot csinál', async () => {
+  const again = await request('POST', `/api/messages/${linkId}/read`, { cookie: coach.cookie });
+  assert.equal(again.status, 200);
+  assert.equal(again.json.read, 0, 'hátralék nélkül nincs mit megjelölni');
+
+  await request('POST', `/api/messages/${linkId}`, {
+    cookie: athlete.cookie, body: { text: 'Kihagytam a keddi edzést.' },
+  });
+  const thread = await request('GET', `/api/messages/${linkId}`, { cookie: coach.cookie });
+  assert.equal(thread.json.unread, 1, 'az új üzenet olvasatlanul érkezik');
+
+  // A GET önmagában NEM jelöl olvasottnak: a halk frissítés nem jelenti, hogy
+  // a felhasználó a képernyőn is látta a szálat.
+  const twice = await request('GET', `/api/messages/${linkId}`, { cookie: coach.cookie });
+  assert.equal(twice.json.unread, 1, 'a lekérés önmagában nem nyugtáz');
+
+  await request('POST', `/api/messages/${linkId}/read`, { cookie: coach.cookie });
 });
 
 test('az üres üzenetet elutasítja, a hosszút levágja', async () => {

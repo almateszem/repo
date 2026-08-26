@@ -25,7 +25,7 @@ import {
   getUserGoal, setUserGoal, findUserByUsername,
   createCoachInvite, getCoachLink, getActiveCoach, getPendingCoachInvites,
   getCoachAthletes, acceptCoachInvite, deleteCoachLink,
-  getMessages, getLastMessage, addMessage,
+  getMessages, getLastMessage, addMessage, markMessagesRead, getUnreadCounts,
 } from './db.js';
 import {
   hashPassword, verifyPassword, createSessionToken, hashToken,
@@ -467,10 +467,14 @@ const MESSAGE_MAX = 280;
 
 /** Egy sportoló kártyája: a kapcsolat + a sportoló saját naplóiból számolt
     összegzés. A sportoló BELSŐ azonosítója nem kerül ki a válaszba — kifelé a
-    kapcsolat azonosítója (linkId) azonosít. */
-function athleteCard(athlete, today) {
+    kapcsolat azonosítója (linkId) azonosít.
+
+    A `viewerId` az EDZŐ (a panelt néző fél): az utolsó üzenet `mine` jelölése
+    és az olvasatlan-számláló is az ő szemszögéből értendő. */
+function athleteCard(athlete, today, viewerId, unread = 0) {
   const workouts = getWorkouts(athlete.userId);
   const readiness = readinessReport(athlete.userId, today, workouts);
+  const lastMessage = getLastMessage(athlete.linkId);
   return buildAthleteCard({
     athlete: { ...athlete, goal: goalTag(athlete.goal) },
     workouts,
@@ -480,7 +484,8 @@ function athleteCard(athlete, today) {
     readiness: readiness.overall,
     confidence: readiness.confidence,
     streak: trainingStreak(workouts, today),
-    lastMessage: getLastMessage(athlete.linkId),
+    lastMessage: lastMessage && { ...lastMessage, mine: lastMessage.senderId === viewerId },
+    unread,
     today,
   });
 }
@@ -492,10 +497,14 @@ const invitePayload = ({ linkId, at, username, name, goal }) => ({
 
 /* ---- Edzői oldal ---- */
 
-/** A saját sportolóim + az általam kiküldött, még függő meghívók. */
+/** A saját sportolóim + az általam kiküldött, még függő meghívók.
+    Az olvasatlan-hátralék MINDEN szálra egyetlen lekérdezésből jön — kártyánként
+    külön COUNT-ot futtatni sok sportolónál érezhetően drágább lenne. */
 app.get('/api/athletes', (req, res) => {
+  const unread = getUnreadCounts(req.user.id);
   res.json({
-    athletes: getCoachAthletes(req.user.id, 'active').map((athlete) => athleteCard(athlete, req.today)),
+    athletes: getCoachAthletes(req.user.id, 'active')
+      .map((athlete) => athleteCard(athlete, req.today, req.user.id, unread.get(athlete.linkId) ?? 0)),
     invites: getCoachAthletes(req.user.id, 'pending').map(invitePayload),
   });
 });
@@ -545,11 +554,16 @@ app.delete('/api/athletes/:linkId', (req, res) => {
 
 /* ---- Sportolói oldal ---- */
 
+/** Az edzőm felületi alakja. Az olvasatlan üzenetek száma is benne van — ebből
+    lesz a nézetváltó jelvénye, hogy a másik nézetben se maradjon észrevétlen. */
+const coachPayload = (coach, userId) => (coach
+  ? { ...coach, goal: goalTag(coach.goal), unread: getUnreadCounts(userId).get(coach.linkId) ?? 0 }
+  : null);
+
 /** A saját edzőm (vagy null) és a hozzám érkezett, még függő meghívók. */
 app.get('/api/coach', (req, res) => {
-  const coach = getActiveCoach(req.user.id);
   res.json({
-    coach: coach ? { ...coach, goal: goalTag(coach.goal) } : null,
+    coach: coachPayload(getActiveCoach(req.user.id), req.user.id),
     invites: getPendingCoachInvites(req.user.id).map(({ linkId, at, coach: from }) => ({
       linkId, at, ...from, goal: goalTag(from.goal),
     })),
@@ -571,8 +585,7 @@ app.post('/api/coach/invites/:linkId/accept', (req, res) => {
     return res.status(409).json({ error: 'Ő a sportolód — előbb bontsd azt a kapcsolatot.' });
   }
   acceptCoachInvite(link.id);
-  const coach = getActiveCoach(req.user.id);
-  res.json({ coach: coach ? { ...coach, goal: goalTag(coach.goal) } : null });
+  res.json({ coach: coachPayload(getActiveCoach(req.user.id), req.user.id) });
 });
 
 /** Meghívó elutasítása (a sportoló oldaláról). */
@@ -616,22 +629,32 @@ function partnerOf(link, user) {
 }
 
 /** Egy üzenet felületi alakja. A `mine` a NÉZŐ szemszöge — ebből tudja a
-    felület, melyik buborék kerül jobbra. */
+    felület, melyik buborék kerül jobbra.
+
+    A `read` jelentése is a nézőtől függ, és ez szándékos: a SAJÁT üzenetemnél
+    azt jelenti, hogy a másik fél elolvasta („olvasva" jelölés), a beérkezőnél
+    pedig azt, hogy én már láttam — ez utóbbiak kapnak kiemelést a szálban. */
 const messagePayload = (message, userId) => ({
   id: message.id,
   mine: message.senderId === userId,
   author: message.author,
   text: message.text,
   at: message.at,
+  read: message.readAt !== null,
 });
 
+/** A szál lekérése. Az olvasottá jelölés NEM itt történik: a felület akkor
+    nyugtázza (POST .../read), amikor a hírfolyam tényleg látszik — a 20
+    másodpercenkénti halk frissítés önmagában nem jelenti, hogy el is olvasták. */
 app.get('/api/messages/:linkId', (req, res) => {
   const link = activeLinkFor(req.user, req.params.linkId);
   if (!link) return res.status(404).json({ error: 'Nincs ilyen beszélgetés.' });
+  const messages = getMessages(link.id).map((message) => messagePayload(message, req.user.id));
   res.json({
     linkId: link.id,
     partner: partnerOf(link, req.user),
-    messages: getMessages(link.id).map((message) => messagePayload(message, req.user.id)),
+    messages,
+    unread: messages.filter((message) => !message.mine && !message.read).length,
   });
 });
 
@@ -643,6 +666,14 @@ app.post('/api/messages/:linkId', (req, res) => {
   if (!text) return res.status(400).json({ error: 'Az üzenet nem lehet üres.' });
 
   res.status(201).json(messagePayload(addMessage(link.id, req.user.id, text), req.user.id));
+});
+
+/** A szál nyugtázása: a másik fél üzenetei olvasottá válnak. Idempotens —
+    hátralék nélkül is 200-at ad, `read: 0`-val. */
+app.post('/api/messages/:linkId/read', (req, res) => {
+  const link = activeLinkFor(req.user, req.params.linkId);
+  if (!link) return res.status(404).json({ error: 'Nincs ilyen beszélgetés.' });
+  res.json({ read: markMessagesRead(link.id, req.user.id) });
 });
 
 /** Az Edzés oldal induló tartalma, prioritás szerint: aznapi piszkozat →

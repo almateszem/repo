@@ -2242,6 +2242,45 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   justify-content: center;
 }
 
+/* Olvasatlan-jelvény: a riasztás ALATT, hogy a kettő egyszerre is elférjen
+   (a figyelmet igénylő sportoló írhat is). A darabszámot a kártya
+   aria-label-je mondja el — a jelvény maga aria-hidden. */
+.co-card-unread {
+  position: absolute;
+  top: calc(var(--sp-5) + 22px);
+  right: var(--sp-5);
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--r-full);
+  background: var(--c-accent);
+  color: var(--fg-100);
+  font-size: var(--fs-2xs);
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* A szál utolsó üzenete a kártya alján, egy sorban levágva — a kártya
+   magassága nem függhet attól, milyen hosszút írt valaki. */
+.co-card-msg {
+  width: 100%;
+  margin-top: var(--sp-1);
+  font-size: var(--fs-2xs);
+  line-height: 1.4;
+  color: var(--text-faint);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.co-card-msg--unread {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
 .co-card-avatar {
   width: 56px;
   height: 56px;
@@ -4412,6 +4451,38 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   text-align: center;
   font-size: var(--fs-sm);
   color: var(--text-faint);
+}
+
+/* ---- Olvasatlan üzenetek ----
+   Az elválasztó egy címkézett vonal: innentől lefelé újdonság a tartalom.
+   A vonalat a ::before/::after húzza, hogy a felirat középen üljön benne. */
+.co-msg-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  margin: var(--sp-2) 0;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--c-accent);
+}
+
+.co-msg-divider::before,
+.co-msg-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--c-accent);
+  opacity: .35;
+}
+
+/* Az olvasatlan BEÉRKEZŐ üzenet bal oldali sávot kap. A jelölés így nem
+   színezi át a buborékot (a szöveg kontrasztja marad), csak megmutatja,
+   meddig tart az újdonság. */
+.co-note--unread {
+  border-color: var(--c-accent);
+  box-shadow: inset 3px 0 0 var(--c-accent);
 }
 
 /* ---- Beállítások: a szekciók magyarázó sora ---- */

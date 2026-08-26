@@ -190,12 +190,14 @@ export function recentActivity({ workouts, checkins, weightLog, today }) {
  * @param {number} input.readiness a készenléti riport `overall` értéke (0–100)
  * @param {string} input.confidence a riport `confidence` mezője ('low'|'medium'|'high')
  * @param {number} input.streak    az edzés-sorozat hossza napokban
- * @param {object} input.lastMessage a szál utolsó üzenete (vagy null)
+ * @param {object} input.lastMessage a szál utolsó üzenete (vagy null); a `mine`
+ *                                 mezőjét a hívó tölti ki — ő tudja, ki a néző
+ * @param {number} input.unread    hány olvasatlan üzenet vár az EDZŐRE ebben a szálban
  * @param {string} input.today     a mai nap "ÉÉÉÉ.HH.NN" alakban
  */
 export function buildAthleteCard({
   athlete, workouts, plans, checkins, weightLog, readiness, confidence = null,
-  streak, lastMessage, today,
+  streak, lastMessage, unread = 0, today,
 }) {
   const todayKey = dayKey(today);
   const week = weekProgress({ workouts, plans, today });
@@ -246,8 +248,17 @@ export function buildAthleteCard({
       activeDays,
     }),
     recent: recentActivity({ workouts, checkins, weightLog, today }),
+    /* A szál utolsó üzenete a kártyán idézve. A `mine` a NÉZŐ (az edző)
+       szemszöge — ki a néző, azt csak a végpont tudja, ezért a hívó jelöli
+       meg (server.js); saját üzenetnél a felület „Te"-t ír a név helyére. */
     lastMessage: lastMessage
-      ? { text: lastMessage.text, at: lastMessage.at, from: lastMessage.author }
+      ? {
+        text: lastMessage.text,
+        at: lastMessage.at,
+        from: lastMessage.author,
+        mine: lastMessage.mine === true,
+      }
       : null,
+    unread,
   };
 }
