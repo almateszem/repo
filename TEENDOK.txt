@@ -176,12 +176,32 @@ EREDMÉNY (1 éves adat, azonos gépen), megtartva jövőbeli összevetéshez:
     lehet vele tetszőleges napra visszaírni. Hiányzó/gyanús fejlécnél marad
     a szerver napja. Tesztek: server/timezone.test.js.
 
-[~] Rate limit
-    A BELÉPÉS most korlátozott (15 percen belül 10 sikertelen próbálkozás
-    után a felhasználónév zárolódik, server/auth.js). Ez memóriában él,
-    tehát újraindításkor nullázódik, és több példánynál példányonként
-    számol. A többi végponton továbbra sincs korlát — bejelentkezést
-    viszont már mind követel, tehát nem nyilvánosan támadható.
+[~] Rate limit   (2026-08-26: a hiányzó korlátok pótolva)
+    Ami MEGVAN:
+      · BELÉPÉS: 15 percen belül 10 sikertelen próbálkozás után a
+        felhasználónév zárolódik (server/auth.js).
+      · REGISZTRÁCIÓ: forrásonként 10 óránként. Ez volt a legnagyobb rés —
+        az egyetlen írás, amihez nem kell fiók, tehát bárki gyárthatott
+        korlátlanul fiókot. A hibás próbálkozás is beleszámít, különben a
+        foglalt nevek végigpróbálása ingyen lenne.
+      · ÍRÁSOK: fiókonként 240 percenként, MINDEN /api/* POST/PUT/PATCH/
+        DELETE-re, köztes rétegként — egy később felvett író végpont
+        automatikusan védett lesz. A limit az autosave legrosszabb esetének
+        (500 ms debounce → 2 mentés/mp) a duplája.
+      · ÜZENETKÜLDÉS: fiókonként 20 percenként, az általánoson FELÜL. Itt a
+        szemetet egy másik ember nézi végig, nem csak a szerver nyeli le.
+    Az olvasás szándékosan korlátlan: ott nincs mit felhalmozni, míg az írás
+    sorokat hagy az adatbázisban, és a szinkron SQLite miatt blokkol is.
+    Elutasításnál 429 + Retry-After fejléc.
+    Hely: server/ratelimit.js (tiszta számláló, tesztelhető órával),
+    a limitek és a kulcsválasztás a server.js-ben.
+    Ami továbbra sem: a számláló MEMÓRIÁBAN él, tehát újraindításkor
+    nullázódik, és több példánynál példányonként számol. Egy elszánt,
+    elosztott támadó ellen ez kevés — közös tár (Redis vagy DB-tábla) kellene
+    hozzá. A cél most nem is ő volt, hanem az elszabadult kliens és a
+    fiók-gyártó szkript.
+    Reverse proxy mögött a regisztrációs korláthoz app.set('trust proxy', …)
+    kell, különben minden kérés a proxy címéről érkezőnek látszik.
 
 
 ==========================================================================

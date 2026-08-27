@@ -79,7 +79,7 @@ async function request(method, urlPath, { body, cookie } = {}) {
   const text = await res.text();
   let json = null;
   try { json = text ? JSON.parse(text) : null; } catch { /* nem JSON */ }
-  return { status: res.status, json, setCookie };
+  return { status: res.status, json, setCookie, retryAfter: res.headers.get('retry-after') };
 }
 
 const cookieFrom = (res) => (res.setCookie[0] ?? '').split(';')[0];
@@ -546,4 +546,52 @@ test('az edzés-cél mentődik, és csak ismert kulcs fogadható el', async () =
 
   const cleared = await request('PUT', '/api/user', { cookie: athlete.cookie, body: { goal: '' } });
   assert.equal(cleared.json.goal, null, 'a cél törölhető');
+});
+
+/* ======================================================================
+   7. Üzenet-korlát
+   ----------------------------------------------------------------------
+   A LEGVÉGÉN áll, saját szereplőkkel: húsz üzenet elküldése szükségképpen
+   szétzilálná a fenti tesztek gondosan felépített szál-állapotát (olvasatlan
+   számok, idézett utolsó üzenet, értesítések).
+   ====================================================================== */
+
+test('az üzenet-özön 429-et kap, Retry-After fejléccel — fiókonként', async () => {
+  const spammer = { cookie: await register('spammer', 'Türelmetlen Tamás') };
+  const target = { cookie: await register('cimzett', 'Címzett Cili') };
+
+  const invite = await request('POST', '/api/athletes', {
+    cookie: spammer.cookie, body: { username: 'cimzett' },
+  });
+  assert.equal(invite.status, 201);
+  const spamLink = invite.json.linkId;
+  await request('POST', `/api/coach/invites/${spamLink}/accept`, { cookie: target.cookie });
+
+  /* A korlát percenként 20 üzenet fiókonként. Szigorúbb, mint az általános
+     írás-korlát, mert a szemetet itt egy MÁSIK ember nézi végig. */
+  let limited = null;
+  let sent = 0;
+  for (let i = 0; i < 30 && !limited; i += 1) {
+    const res = await request('POST', `/api/messages/${spamLink}`, {
+      cookie: spammer.cookie, body: { text: `Sorozat ${i}` },
+    });
+    if (res.status === 429) limited = res;
+    else sent += 1;
+  }
+
+  assert.ok(limited, 'a 30 üzenet valahol elakad');
+  assert.equal(sent, 20, 'pontosan a limitig enged át');
+  assert.match(limited.json.error, /gyorsan/, 'a hibaüzenet megmondja, mi a baj');
+  assert.ok(Number(limited.retryAfter) > 0, `Retry-After fejléc: ${limited.retryAfter}`);
+
+  // A MÁSIK fél korlátja ettől érintetlen: a számláló fiókonként vezet
+  const other = await request('POST', `/api/messages/${spamLink}`, {
+    cookie: target.cookie, body: { text: 'Én még írhatok.' },
+  });
+  assert.equal(other.status, 201, 'a címzett nem issza meg a spammer levét');
+
+  // Az olvasás viszont nem korlátozott — a torlódást az írás okozza
+  const read = await request('GET', `/api/messages/${spamLink}`, { cookie: spammer.cookie });
+  assert.equal(read.status, 200, 'a szálát továbbra is elolvashatja');
+  assert.equal(read.json.messages.length, 21);
 });

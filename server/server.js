@@ -44,6 +44,9 @@ import { buildAthleteCard } from './coaching.js';
 // eseményeket, a modul formázza őket (server/notifications.js).
 import { buildNotifications } from './notifications.js';
 import { MUSCLE_KEYS } from './muscles.js';
+// Kérés-korlátozás. Tiszta számláló, adatbázis és Express nélkül — a limitek
+// és a kulcsválasztás itt, a szerveren dőlnek el (server/ratelimit.js).
+import { createRateLimiter } from './ratelimit.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public'); // a statikus frontend mappája
@@ -64,6 +67,43 @@ app.use(express.json()); // a POST/PUT végpontokhoz (JSON törzs olvasása)
 const SESSION_COOKIE = 'fittrack_session';
 const SESSION_DAYS = 30;
 const SESSION_MAX_AGE = SESSION_DAYS * 24 * 60 * 60;
+
+/* ---- Kérés-korlátozás ----
+   Három külön korlát, mert három külön dolgot védenek. A számláló memóriában
+   él (ld. server/ratelimit.js) — újraindításkor nullázódik, több példánynál
+   példányonként számol; ezt vállaljuk.
+
+   A KULCS ott dönt, ahol a támadási felület van. A regisztráció az egyetlen
+   olyan írás, amihez nem kell fiók, tehát ott csak a kérés forrása marad
+   fogódzónak; minden más végpont belépést követel, ott viszont a FIÓK a
+   helyes kulcs (egy fiók sok IP-ről is nyomhatja, és egy megosztott IP mögül
+   sokan dolgozhatnak).
+
+   A limitek szándékosan bőkezűek: a valódi használatot nem szabad zavarniuk.
+   Az autosave a legsűrűbb író (500 ms debounce → legfeljebb 2 mentés/mp),
+   annak a duplája fér bele. */
+const MINUTE = 60 * 1000;
+
+/** Új fiókok egy forrásból. Óránként ennyi bőven elég egy családnak is. */
+const registerLimiter = createRateLimiter({ limit: 10, windowMs: 60 * MINUTE });
+
+/** Írások fiókonként. Az autosave legrosszabb esetének a duplája. */
+const writeLimiter = createRateLimiter({ limit: 240, windowMs: MINUTE });
+
+/** Üzenetküldés fiókonként — külön, szigorúbb korlát: itt a spam MÁSIK
+    EMBER felületén jelenik meg, nem csak a szerveren okoz terhelést. */
+const messageLimiter = createRateLimiter({ limit: 20, windowMs: MINUTE });
+
+/** A kérés forrása. Reverse proxy mögött ehhez `app.set('trust proxy', …)`
+    kell, különben minden kérés a proxy címéről érkezőnek látszik — a
+    regisztrációs korlát ilyenkor az egész forgalomra közösen számol. */
+const requestSource = (req) => req.ip || req.socket?.remoteAddress || 'ismeretlen';
+
+/** Elutasítás 429-cel, a szokásos Retry-After fejléccel. */
+function tooManyRequests(res, retryAfter, message) {
+  res.setHeader('Retry-After', String(retryAfter));
+  return res.status(429).json({ error: message });
+}
 
 /* A Secure jelző csak HTTPS-en való kiszolgáláskor kell — localhoston
    bekapcsolva a böngésző eldobná a sütit, és senki nem tudna belépni.
@@ -120,6 +160,14 @@ function parseCredentials(body) {
 /** Regisztráció. Az ELSŐ fiók megörökli a fiókok bevezetése előtti adatokat
     (ld. db.js → adoptLegacyData), a válasz ezt jelzi is. */
 app.post('/api/auth/register', async (req, res) => {
+  /* A korlát a HIBÁS próbálkozásokra is áll: enélkül a foglalt nevek
+     végigpróbálása (409) ingyen lenne, és a fiók-gyártó szkriptnek elég
+     lenne érvénytelen törzzsel melegen tartania a szervert. */
+  const quota = registerLimiter.hit(requestSource(req));
+  if (!quota.allowed) {
+    return tooManyRequests(res, quota.retryAfter, 'Túl sok regisztráció innen. Próbáld később.');
+  }
+
   const parsed = parseCredentials(req.body);
   if (parsed.error) return res.status(400).json({ error: parsed.error });
 
@@ -177,6 +225,25 @@ app.use('/api', (req, res, next) => {
   // A kérés napja (a kliens naptára szerint) — minden végpont ezt használja,
   // hogy egy kérésen belül biztosan ugyanaz a nap szerepeljen mindenhol.
   req.today = requestDate(req);
+  next();
+});
+
+/* ---- Írás-korlát fiókonként ----
+   Az előző réteghez hasonlóan ez is SZÁNDÉKOSAN az útvonalak előtt áll: egy
+   később felvett író végpont automatikusan védett lesz.
+
+   Csak az ÍRÁSOKAT korlátozzuk. Az olvasás sem ingyen van, de ott nincs mit
+   felhalmozni: egy elszabadult olvasó legfeljebb magát lassítja, míg az írás
+   sorokat hagy maga után az adatbázisban — és a szinkron SQLite miatt minden
+   egyes írás az egész event loopot blokkolja. */
+const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+app.use('/api', (req, res, next) => {
+  if (!WRITE_METHODS.has(req.method)) return next();
+  const quota = writeLimiter.hit(req.user.id);
+  if (!quota.allowed) {
+    return tooManyRequests(res, quota.retryAfter, 'Túl sok kérés. Várj egy kicsit, aztán próbáld újra.');
+  }
   next();
 });
 
@@ -703,6 +770,14 @@ app.get('/api/messages/:linkId', (req, res) => {
 app.post('/api/messages/:linkId', (req, res) => {
   const link = activeLinkFor(req.user, req.params.linkId);
   if (!link) return res.status(404).json({ error: 'Nincs ilyen beszélgetés.' });
+
+  /* Az általános írás-korláton FELÜL: a szemetet itt egy másik ember nézi
+     végig, nem csak a szerver nyeli le. Percenként 20 üzenet a leggyorsabb
+     gépelőnek is elég. */
+  const quota = messageLimiter.hit(req.user.id);
+  if (!quota.allowed) {
+    return tooManyRequests(res, quota.retryAfter, 'Túl gyorsan írsz — várj egy kicsit.');
+  }
 
   const text = String(req.body?.text ?? '').trim().slice(0, MESSAGE_MAX);
   if (!text) return res.status(400).json({ error: 'Az üzenet nem lehet üres.' });
