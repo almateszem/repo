@@ -385,6 +385,21 @@
             a lenti listából egy koppintással hozzáadhatsz.</p>
         </section>
 
+        <!-- Saját étel felvitele: kézzel vagy a csomagolás vonalkódjáról.
+             A beépített katalógus általános referencia-értékeket ad; egy
+             konkrét bolti termék ettől 100 kcal-t is eltérhet. -->
+        <div class="nu-actions">
+          <button class="nu-action" type="button" data-action="add-custom-food"
+                  aria-haspopup="dialog">+ Étel hozzáadása</button>
+          <button class="nu-action nu-action--ghost" type="button" data-action="scan-barcode"
+                  aria-haspopup="dialog">
+            <svg class="nu-action-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 5h2v14H3zm3 0h1v14H6zm2 0h2v14H8zm3 0h1v14h-1zm2 0h2v14h-2zm3 0h1v14h-1zm2 0h2v14h-2z"/>
+            </svg>
+            Vonalkód
+          </button>
+        </div>
+
         <div class="nu-search">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4a6 6 0 1 0 3.8 10.6l5 5 1.4-1.4-5-5A6 6 0 0 0 10 4zm0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8z"/></svg>
           <label class="sr-only" for="food-search">Étel keresése</label>
@@ -885,6 +900,152 @@
   </div>
 
   <!-- ================================================================
+       Saját étel modál (cf-*) — a Táplálkozás oldal „+ Étel hozzáadása"
+       gombja nyitja, és a vonalkód-olvasó is ide tölti be a találatot.
+       A kalóriát a makrókból számoljuk (Atwater 4/4/9), de a mező
+       szerkeszthető: a csomagoláson lévő érték a rost és a poliolok miatt
+       jogosan eltérhet. A ↻ visszakapcsol az automatikus számolásra.
+
+       A DOM-ban a #foodModal ELŐTT áll: a „Mentés és naplózás" az
+       adagválasztót nyitja meg, aminek azonos z-index mellett fölé kell kerülnie.
+       ================================================================ -->
+  <div class="custom-food-modal" id="customFoodModal" aria-hidden="true">
+    <div class="custom-food-modal-backdrop" data-close-modal></div>
+    <div class="custom-food-modal-card" role="dialog" aria-modal="true"
+         aria-labelledby="customFoodModalTitle">
+      <div class="custom-food-modal-head">
+        <h3 id="customFoodModalTitle">Saját étel</h3>
+        <button class="custom-food-modal-close tap-target" type="button"
+                data-close-modal aria-label="Bezárás">✕</button>
+      </div>
+
+      <form class="cf-form" data-form="custom-food" novalidate>
+        <!-- Csak vonalkódról töltve látszik: honnan jött az adat -->
+        <p class="cf-source" data-cf-source hidden></p>
+
+        <div class="cf-field cf-field--wide">
+          <label class="cf-label" for="cf-name">Név</label>
+          <input class="cf-input" id="cf-name" name="name" type="text" maxlength="60"
+                 required autocomplete="off" placeholder="pl. Görög joghurt 2%">
+        </div>
+
+        <div class="cf-row">
+          <div class="cf-field">
+            <label class="cf-label" for="cf-group">Kategória</label>
+            <!-- Az opciókat a script.js tölti fel az étel-lista csoportjaiból -->
+            <select class="cf-input cf-select" id="cf-group" name="group">
+              <option value="">— nincs megadva —</option>
+            </select>
+          </div>
+          <div class="cf-field cf-field--narrow">
+            <label class="cf-label" for="cf-unit">Egység</label>
+            <select class="cf-input cf-select" id="cf-unit" name="unit">
+              <option value="g" selected>g</option>
+              <option value="ml">ml</option>
+            </select>
+          </div>
+        </div>
+
+        <fieldset class="cf-macros">
+          <legend class="cf-legend">Tápérték <span data-cf-basis>100 g</span>-ra</legend>
+          <div class="cf-macro-grid">
+            <div class="cf-field">
+              <label class="cf-label" for="cf-protein">Fehérje (g)</label>
+              <input class="cf-input cf-num" id="cf-protein" name="protein" type="number"
+                     inputmode="decimal" min="0" max="100" step="0.1" required autocomplete="off">
+            </div>
+            <div class="cf-field">
+              <label class="cf-label" for="cf-carbs">Szénhidrát (g)</label>
+              <input class="cf-input cf-num" id="cf-carbs" name="carbs" type="number"
+                     inputmode="decimal" min="0" max="100" step="0.1" required autocomplete="off">
+            </div>
+            <div class="cf-field">
+              <label class="cf-label" for="cf-fat">Zsír (g)</label>
+              <input class="cf-input cf-num" id="cf-fat" name="fat" type="number"
+                     inputmode="decimal" min="0" max="100" step="0.1" required autocomplete="off">
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- Kalória: alapból a makrókból számolt, de felülírható -->
+        <div class="cf-kcal">
+          <div class="cf-field">
+            <label class="cf-label" for="cf-kcal">Kalória (kcal)</label>
+            <input class="cf-input cf-num cf-kcal-input" id="cf-kcal" name="kcal" type="number"
+                   inputmode="numeric" min="0" max="900" step="1" autocomplete="off">
+          </div>
+          <div class="cf-kcal-side">
+            <span class="cf-kcal-state" data-cf-kcal-state>a makrókból számolva</span>
+            <button class="cf-kcal-reset tap-target" type="button" data-cf-kcal-reset hidden
+                    aria-label="Kalória újraszámolása a makrókból">↻ újraszámol</button>
+          </div>
+        </div>
+        <p class="cf-hint">Atwater-tényezők: fehérje 4 · szénhidrát 4 · zsír 9 kcal/g.</p>
+
+        <div class="cf-field cf-field--wide">
+          <label class="cf-label" for="cf-barcode">Vonalkód
+            <span class="cf-optional">(nem kötelező)</span></label>
+          <div class="cf-barcode">
+            <input class="cf-input" id="cf-barcode" name="barcode" type="text"
+                   inputmode="numeric" pattern="[0-9]*" maxlength="14" autocomplete="off"
+                   placeholder="pl. 5998200310010">
+            <button class="cf-scan tap-target" type="button" data-cf-scan
+                    aria-haspopup="dialog" aria-label="Vonalkód beolvasása kamerával">Beolvasás</button>
+          </div>
+        </div>
+
+        <p class="cf-error" data-cf-error role="alert" hidden></p>
+
+        <div class="cf-actions">
+          <button class="cf-cancel" type="button" data-close-modal>Mégse</button>
+          <button class="cf-save" type="submit" data-cf-save>Mentés</button>
+          <button class="cf-save-log" type="button" data-cf-save-log>Mentés és naplózás</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       Vonalkód-olvasó (sc-*). Három szint, ebben a sorrendben:
+         1. natív BarcodeDetector (Chrome/Android, ChromeOS),
+         2. lustán betöltött ZXing UMD (/vendor/zxing),
+         3. kézi beírás — ez MINDIG látszik, mert a kamera hiányozhat, és
+            sima http-n (a gép LAN-IP-jén) a böngésző oda sem adja.
+       ================================================================ -->
+  <div class="scanner-modal" id="scannerModal" aria-hidden="true">
+    <div class="scanner-modal-backdrop" data-close-modal></div>
+    <div class="scanner-modal-card" role="dialog" aria-modal="true"
+         aria-labelledby="scannerModalTitle">
+      <div class="scanner-modal-head">
+        <h3 id="scannerModalTitle">Vonalkód beolvasása</h3>
+        <button class="scanner-modal-close tap-target" type="button"
+                data-close-modal aria-label="Bezárás">✕</button>
+      </div>
+
+      <div class="sc-stage" data-sc-stage hidden>
+        <video class="sc-video" data-sc-video playsinline muted
+               aria-label="Kamera képe — irányítsd a vonalkódra"></video>
+        <span class="sc-frame" aria-hidden="true"></span>
+        <span class="sc-laser" aria-hidden="true"></span>
+        <button class="sc-torch tap-target" type="button" data-sc-torch hidden
+                aria-pressed="false" aria-label="Vaku be- és kikapcsolása">🔦</button>
+      </div>
+
+      <p class="sc-status" data-sc-status role="status" aria-live="polite">Kamera indítása…</p>
+      <p class="sc-error" data-sc-error role="alert" hidden></p>
+
+      <form class="sc-manual" data-form="manual-barcode">
+        <label class="cf-label" for="sc-manual-code">Vagy írd be a kódot</label>
+        <div class="sc-manual-row">
+          <input class="cf-input" id="sc-manual-code" type="text" inputmode="numeric"
+                 pattern="[0-9]*" maxlength="14" autocomplete="off" placeholder="13 számjegy">
+          <button class="sc-manual-go" type="submit">Keresés</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================================================================
        Étel részlet-modál (fd-*) — a Táplálkozás oldal étel-kártyáin lévő
        nyíl nyitja. Itt választható meg az adag (görgethető gramm-választó
        + gyorsgombok), a makrók és a napi célhoz mért hatás élőben követi.
@@ -1133,6 +1294,10 @@
         <span class="nu-food-name"><span class="nu-food-kcal"></span></span>
         <span class="nu-food-macros"></span>
       </div>
+      <!-- A jelvény és a törlés csak a SAJÁT ételeken látszik — a renderFoods
+           veszi le róluk a hidden-t, ha a food.custom igaz. -->
+      <span class="nu-food-badge" hidden>saját</span>
+      <button class="nu-food-remove tap-target" type="button" hidden>✕</button>
       <button class="nu-food-add tap-target" type="button">→</button>
     </li>
   </template>

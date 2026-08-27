@@ -21,9 +21,15 @@ import path from 'node:path';
 
 const workDir = mkdtempSync(path.join(tmpdir(), 'fittrack-prs-'));
 process.env.FITTRACK_DB = path.join(workDir, 'test.db');
-process.on('exit', () => rmSync(workDir, { recursive: true, force: true }));
 
 const db = await import('./db.js');
+
+/* Takarítás előtt zárjuk az adatbázist — Windowson a nyitott fájlt tartó
+   könyvtár törlése EPERM-mel elszáll (ld. db.js → closeDatabase). */
+process.on('exit', () => {
+  db.closeDatabase();
+  rmSync(workDir, { recursive: true, force: true });
+});
 
 const eros = db.createUser('eros', 'Erős Elek', 'scrypt$16384$8$1$aa$bb').user;
 const kezdo = db.createUser('kezdo', 'Kezdő Kata', 'scrypt$16384$8$1$cc$dd').user;

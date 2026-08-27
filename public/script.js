@@ -56,6 +56,23 @@
     return res.json();
   }
 
+  /** GET, amely a szerver `error` üzenetét adja tovább, nem csak a státuszt.
+      A vonalkód-feloldás hibái tartalmas magyar mondatok („ezt a kódot az OFF
+      sem ismeri", „most nem elérhető") — ezeket a felhasználó látja, a
+      „GET /api/… → 404" viszont semmit nem mond neki. A státusz az `err.status`
+      mezőn marad elérhető a hívónak. */
+  async function getJsonDetailed(path) {
+    const res = await fetch(path);
+    if (res.status === 401) throw handleUnauthorized();
+    const detail = await res.json().catch(() => null);
+    if (!res.ok) {
+      const err = new Error(detail?.error || `GET ${path} → ${res.status}`);
+      err.status = res.status;
+      throw err;
+    }
+    return detail;
+  }
+
   /** JSON-törzsű kérés (POST/PUT) egy végpontra. Hiba esetén a szerver `error`
       üzenetét dobja, ha van, különben a HTTP-státuszt. A választ JSON-ként adja vissza. */
   async function sendJson(method, path, body) {
@@ -123,7 +140,11 @@
     getCharts:         () => getJsonCached('/api/charts'),
     // Friss chart-adat a cache megkerülésével (edzés naplózása után)
     refreshCharts:     () => { invalidateCache('/api/charts'); return getJsonCached('/api/charts'); },
+    // A /api/foods FIÓKFÜGGŐ (elöl a saját ételek), de a cache-elés így is
+    // helyes: fiókváltáskor az app teljes oldalt tölt. Saját étel felvitele
+    // vagy törlése után viszont el kell dobni — erre való a refreshFoods.
     getFoods:          () => getJsonCached('/api/foods'),
+    refreshFoods:      () => { invalidateCache('/api/foods'); return getJsonCached('/api/foods'); },
     // Nem cache-elt: a saját tervek mentés/szerkesztés után változnak
     getPlans:          () => getJson('/api/plans'),
     getAthletes:       () => getJsonCached('/api/athletes'),
@@ -149,6 +170,15 @@
     addNutritionEntry: (name, grams) => postJson('/api/nutrition/log', { name, grams }),
     // Naplóbejegyzés visszavonása — a válasz a frissített napi összesítő
     removeNutritionEntry: (id) => sendJson('DELETE', `/api/nutrition/log/${id}`),
+
+    /* ---- Saját ételek + vonalkód ----
+       A kalóriát a szerver számolja a makrókból (Atwater 4/4/9); a kcalMode
+       'manual' esetén a megadott érték marad, de a szerver akkor is sávban tartja. */
+    addCustomFood:     (food) => postJson('/api/foods/custom', food),
+    removeCustomFood:  (id) => del(`/api/foods/custom/${id}`),
+    // Vonalkód feloldása: saját étel → szerver-cache → Open Food Facts.
+    // getJsonDetailed, mert itt a szerver magyar hibaüzenete a lényeg.
+    lookupBarcode:     (code) => getJsonDetailed(`/api/foods/barcode/${encodeURIComponent(code)}`),
     getWorkouts:       () => getJson('/api/workouts'),
     // Edzés mentése — a szerver visszaadja a mentett { id, name, date, exercises }-t.
     // A planId azt rögzíti, melyik tervből indult az edzés (a Tervek oldali
@@ -229,6 +259,29 @@
 
   /** Template klónozása — a template-eknek egyetlen gyökérelemük van. */
   const cloneTemplate = (id) => $('#' + id).content.firstElementChild.cloneNode(true);
+
+  /** Külső szkript LUSTA betöltése, URL-enként egyszer (az ígéret cache-elt).
+      Bundler nincs a projektben, a ZXing vonalkód-dekóder viszont 336 KB —
+      ezt nem tesszük minden oldalbetöltés útjába. Csak akkor tölt le, ha a
+      felhasználó ténylegesen szkennel, ÉS a natív BarcodeDetector nem elérhető.
+      Hibánál a bejegyzést töröljük, hogy egy későbbi próbálkozás újrakezdhesse. */
+  const loadedScripts = new Map();
+  function loadScript(src) {
+    if (!loadedScripts.has(src)) {
+      loadedScripts.set(src, new Promise((resolve, reject) => {
+        const element = document.createElement('script');
+        element.src = src;
+        element.async = true;
+        element.onload = resolve;
+        element.onerror = () => {
+          loadedScripts.delete(src);
+          reject(new Error(`Nem sikerült betölteni: ${src}`));
+        };
+        document.head.appendChild(element);
+      }));
+    }
+    return loadedScripts.get(src);
+  }
 
   /** Max 1 tizedesjegy, egész számnál tizedes nélkül. */
   const formatNumber = (value) => String(Math.round(value * 10) / 10);
@@ -1322,16 +1375,22 @@
     syncHistoryEmpty();
   }
 
-  async function renderFoods() {
-    const foods = await api.getFoods();
+  /** Az étel-lista feltöltése. A `list` opcionális: ha a hívó már lekérte az
+      ételeket (setupNutrition), ne kérje le másodszor is — így a lista és a
+      naplózás ugyanabból az egy válaszból épül, és nem csúszhatnak el.
+      A SAJÁT ételek a szervertől elöl jönnek, és jelvényt + törlés-gombot kapnak. */
+  async function renderFoods(foodList = null) {
+    const foods = foodList ?? await api.getFoods();
     const list = $('[data-list="foods"]');
     list.replaceChildren(); // újrahíváskor se duplázódjon a lista
     foods.forEach((food) => {
       const item = cloneTemplate('tpl-food');
       // A kereső erre szűr, nem a teljes szövegre. A kategória is bele megy:
       // 437 étel közt a „tejtermék” vagy a „hüvelyes” beírása használhatóbb
-      // belépő, mint végiggörgetni a listát.
-      item.dataset.foodName = [food.name, food.group].filter(Boolean).join(' ').toLowerCase();
+      // belépő, mint végiggörgetni a listát. A márka a vonalkódról felvitt
+      // termékeknél az, amiről a felhasználó felismeri őket.
+      item.dataset.foodName = [food.name, food.group, food.brand]
+        .filter(Boolean).join(' ').toLowerCase();
 
       // A kcal-jelvény a név span-jén belül ül, ezért a nevet elé szúrjuk be.
       const nameEl = $('.nu-food-name', item);
@@ -1346,6 +1405,19 @@
       addBtn.title = 'Adag megadása és hozzáadás';
       addBtn.setAttribute('aria-haspopup', 'dialog');
       addBtn.setAttribute('aria-label', `${food.name} — adag megadása és hozzáadás a naplóhoz`);
+
+      // Saját étel: jelvény + törlés. A beépített katalógus elemei nem
+      // törölhetők, azok minden fióknak közösek.
+      if (food.custom) {
+        item.classList.add('nu-food--custom');
+        $('.nu-food-badge', item).hidden = false;
+        const removeBtn = $('.nu-food-remove', item);
+        removeBtn.hidden = false;
+        removeBtn.dataset.customFoodId = food.id;
+        removeBtn.title = 'Saját étel törlése';
+        removeBtn.setAttribute('aria-label', `${food.name} törlése a saját ételek közül`);
+      }
+
       list.appendChild(item);
     });
   }
@@ -2224,6 +2296,542 @@
         picker.scrollTop = portionIndex(grams) * PICKER_ITEM_H;
       },
     };
+  }
+
+  /* ======================================================================
+     Vonalkód-olvasó (sc-*)
+     ----------------------------------------------------------------------
+     Három szint, ebben a sorrendben:
+       1. natív BarcodeDetector — nulla letöltés, a platform gyorsított
+          dekódere. Androidon/ChromeOS-en elérhető;
+       2. lustán betöltött ZXing UMD — asztali Chrome-on (Windows), Firefoxon
+          és Safarin ez az egyetlen működő út;
+       3. kézi beírás — NEM vészmegoldás, hanem egyenrangú út: sima http-n
+          (a gép LAN-IP-jéről nézve) a böngésző a kamerát oda sem adja, és a
+          szkennelés fizikailag is bukhat (karcos csomagolás, rossz fény).
+     ====================================================================== */
+
+  const ZXING_URL = '/vendor/zxing/index.min.js';
+  // Élelmiszer-csomagoláson gyakorlatilag ezek fordulnak elő. A szűkítés nem
+  // kozmetika: minden engedélyezett formátum külön dekódert futtat képkockánként.
+  const SCAN_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128'];
+  // ~8 kép/mp. A dekódolás CPU-igényes; 60 fps-en a ZXing úgysem végezne, a
+  // telefon akkuja viszont elfogyna.
+  const SCAN_INTERVAL_MS = 120;
+  const SCAN_CANVAS_W = 640;
+
+  /** A getUserMedia hibái emberi nyelven. A böngésző `err.name`-je pontos, de
+      a felhasználónak semmit nem mond. */
+  const CAMERA_ERRORS = {
+    NotAllowedError: 'A kamerához nem adtál engedélyt. A böngésző címsorában visszavonhatod '
+      + 'a tiltást — addig írd be a kódot kézzel.',
+    SecurityError: 'A böngésző letiltotta a kamerát ezen az oldalon.',
+    NotFoundError: 'Nem találtunk kamerát ezen az eszközön.',
+    OverconstrainedError: 'Nem találtunk használható hátsó kamerát.',
+    NotReadableError: 'A kamerát épp egy másik alkalmazás használja.',
+  };
+
+  /**
+   * A vonalkód-olvasó modál vezérlője.
+   *
+   * @returns {{ scan: () => Promise<string|null> }}
+   *   A `scan()` a beolvasott (nyers) vonalkóddal oldódik fel, vagy null-lal,
+   *   ha a felhasználó megszakította. SOHA nem dob: a hibák a modálon belül,
+   *   magyarul jelennek meg, és a kézi beírás mindig marad.
+   */
+  function setupScanner() {
+    const modal = $('#scannerModal');
+    const controller = createModalController(modal);
+    const stage = $('[data-sc-stage]', modal);
+    const video = $('[data-sc-video]', modal);
+    const torchBtn = $('[data-sc-torch]', modal);
+    const statusEl = $('[data-sc-status]', modal);
+    const errorEl = $('[data-sc-error]', modal);
+    const manualForm = $('[data-form="manual-barcode"]', modal);
+    const manualInput = $('#sc-manual-code', modal);
+
+    let pending = null;      // a futó scan() feloldója
+    let stream = null;
+    let rafId = 0;
+    let canvas = null;
+    let zxingReader = null;
+
+    const setStatus = (text) => { statusEl.textContent = text; };
+    const setError = (text) => {
+      errorEl.textContent = text || '';
+      errorEl.hidden = !text;
+    };
+
+    /* A legkritikusabb függvény az egész felületen. Track-stop nélkül a
+       kamera-LED égve marad a modál bezárása után is (a felhasználó joggal
+       hiszi, hogy figyeljük), és a KÖVETKEZŐ megnyitás NotReadableError-t kap,
+       mert az eszköz még foglalt. Ezért MINDEN kilépési út ezen megy át. */
+    const stopCamera = () => {
+      if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+      if (zxingReader) { try { zxingReader.reset(); } catch { /* nincs mit tenni */ } }
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+        stream = null;
+      }
+      video.srcObject = null;
+      stage.hidden = true;
+      torchBtn.hidden = true;
+      torchBtn.setAttribute('aria-pressed', 'false');
+    };
+
+    /** Az ígéret lezárása EGYSZER, minden kilépési úton — előbb a kamera áll le. */
+    const settle = (code) => {
+      stopCamera();
+      const resolve = pending;
+      pending = null;
+      controller.close();
+      if (resolve) resolve(code ?? null);
+    };
+
+    // A modál saját záró-útjai (✕, háttér, Escape, hashchange) a controllerben
+    // vannak; azok a `close`-t hívják, nem a settle-t — ezért itt is figyelünk,
+    // különben a scan() ígérete örökre függőben maradna.
+    $$('[data-close-modal]', modal).forEach((el) => el.addEventListener('click', () => settle(null)));
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && modal.classList.contains('is-open')) settle(null);
+    });
+    window.addEventListener('hashchange', () => { if (pending) settle(null); });
+    // Háttérbe került fül: a rAF magától megáll, a kamera-LED viszont nem.
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && stream) stopCamera();
+    });
+    window.addEventListener('beforeunload', stopCamera);
+
+    /** ZXing-alapú dekóder a canvas-képkockára. Csak akkor hívjuk, ha a
+        natív BarcodeDetector nem használható. */
+    const createZxingDetector = () => {
+      const ZX = window.ZXing;
+      if (!ZX?.MultiFormatReader) throw new Error('A ZXing dekóder nem érhető el.');
+
+      const reader = new ZX.MultiFormatReader();
+      const hints = new Map([
+        [ZX.DecodeHintType.POSSIBLE_FORMATS, [
+          ZX.BarcodeFormat.EAN_13, ZX.BarcodeFormat.EAN_8,
+          ZX.BarcodeFormat.UPC_A, ZX.BarcodeFormat.UPC_E, ZX.BarcodeFormat.CODE_128,
+        ]],
+        // A csomagolás ritkán fekszik síkban a kamera előtt; a TRY_HARDER a
+        // ferde és a gyengébb kontrasztú képet is megpróbálja.
+        [ZX.DecodeHintType.TRY_HARDER, true],
+      ]);
+      reader.setHints(hints);
+      zxingReader = reader;
+
+      return (videoEl) => {
+        if (!videoEl.videoWidth) return null;
+        if (!canvas) canvas = document.createElement('canvas');
+        // 640 px-re skálázunk: a dekódoláshoz bőven elég, és a nagyobb kép
+        // képkockánként milliszekundumokat vinne el.
+        const scale = SCAN_CANVAS_W / videoEl.videoWidth;
+        canvas.width = SCAN_CANVAS_W;
+        canvas.height = Math.round(videoEl.videoHeight * scale);
+        canvas.getContext('2d').drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+
+        const source = new ZX.HTMLCanvasElementLuminanceSource(canvas);
+        const bitmap = new ZX.BinaryBitmap(new ZX.HybridBinarizer(source));
+        try {
+          // decodeWithState: a setHints-szel beállított olvasókat újrahasználja
+          // — folyamatos szkennelésnél ez a gyorsabb út.
+          return reader.decodeWithState(bitmap).getText();
+        } catch {
+          // NotFoundException minden olyan képkockán, amin nincs kód — ez a
+          // szkennelés NORMÁLIS állapota, nem hiba.
+          return null;
+        }
+      };
+    };
+
+    /** A használható dekóder: natív, ha van, különben lustán betöltött ZXing. */
+    const createDetector = async () => {
+      if ('BarcodeDetector' in window) {
+        try {
+          const supported = await window.BarcodeDetector.getSupportedFormats();
+          const formats = SCAN_FORMATS.filter((format) => supported.includes(format));
+          if (formats.length) {
+            const detector = new window.BarcodeDetector({ formats });
+            // A natív detect() közvetlenül a <video>-t is elfogadja — nem kell canvas.
+            return async (videoEl) => (await detector.detect(videoEl))[0]?.rawValue ?? null;
+          }
+        } catch {
+          // Van BarcodeDetector, de nem használható (pl. nincs mögötte platform-
+          // támogatás) — essünk vissza a ZXingre, ne a kézi beírásra.
+        }
+      }
+      await loadScript(ZXING_URL);
+      return createZxingDetector();
+    };
+
+    /** Vaku — csak ott, ahol az eszköz tudja (jellemzően telefonok hátsó kamerája). */
+    const setupTorch = (track) => {
+      const capabilities = track.getCapabilities?.() ?? {};
+      if (!('torch' in capabilities)) return;
+
+      torchBtn.hidden = false;
+      let torchOn = false;
+      torchBtn.onclick = async () => {
+        torchOn = !torchOn;
+        try {
+          await track.applyConstraints({ advanced: [{ torch: torchOn }] });
+        } catch {
+          // Néhány eszköz jelenti a képességet, de az alkalmazása mégis elbukik.
+          torchOn = false;
+        }
+        torchBtn.setAttribute('aria-pressed', String(torchOn));
+      };
+    };
+
+    const start = async () => {
+      setError('');
+      setStatus('Kamera indítása…');
+
+      /* A getUserMedia CSAK biztonságos kontextusban él: https VAGY localhost.
+         Sima http-n, a gép LAN-IP-jéről (telefonról a gépre) a böngésző NEM ad
+         kamerát. Ezt ki kell mondani: enélkül „nem működik a szkenner"-ként
+         jelentik, és nincs mit debugolni rajta. */
+      if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+        setStatus('');
+        setError('A kamera csak https-en vagy localhoston érhető el. Telefonról, a gép '
+          + 'IP-címéről nyitva a böngésző letiltja — írd be a vonalkódot kézzel.');
+        return;
+      }
+
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: 'environment' },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+          },
+          audio: false,
+        });
+      } catch (err) {
+        setStatus('');
+        setError(CAMERA_ERRORS[err.name] || 'A kamerát nem sikerült elindítani — írd be a kódot kézzel.');
+        return;
+      }
+
+      video.srcObject = stream;
+      stage.hidden = false;
+      try {
+        await video.play();
+      } catch {
+        // Az autoplay-tiltás ritka némított videónál, de nem végzetes: a
+        // képkockák a detektáló ciklusban akkor is elérhetők lehetnek.
+      }
+      setupTorch(stream.getVideoTracks()[0]);
+
+      let detect;
+      try {
+        setStatus('Dekóder betöltése…');
+        detect = await createDetector();
+      } catch {
+        stopCamera();
+        setStatus('');
+        setError('A vonalkód-dekódert nem sikerült betölteni — írd be a kódot kézzel.');
+        return;
+      }
+      setStatus('Irányítsd a kamerát a vonalkódra.');
+
+      /* requestAnimationFrame, nem setInterval: a rAF magától megáll, ha a fül
+         háttérbe kerül vagy a képernyő lezár — a setInterval a telefon akkuját
+         égetné dekódolással egy fekete képkockán. */
+      let lastRun = 0;
+      let busy = false;
+      let lastCode = null;
+      const tick = async (now) => {
+        rafId = requestAnimationFrame(tick);
+        if (!stream || busy || now - lastRun < SCAN_INTERVAL_MS) return;
+        lastRun = now;
+        busy = true;
+        try {
+          const code = await detect(video);
+          /* KÉT egymás utáni azonos leolvasás kell. Egyetlen képkocka
+             félreolvasása így nem visz be rossz terméket — a mod-10 ellenőrző-
+             szám sem fog ki minden hibán, és egy rossz étel csendben elrontaná
+             a napi bevitelt. */
+          if (code && code === lastCode) {
+            navigator.vibrate?.(30);
+            settle(code);
+            return;
+          }
+          lastCode = code;
+        } catch {
+          // Képkockánkénti hiba: a következőn újrapróbáljuk.
+        } finally {
+          busy = false;
+        }
+      };
+      rafId = requestAnimationFrame(tick);
+    };
+
+    // Kézi beírás — a validálást (hossz, ellenőrzőszám) a szerver végzi.
+    manualForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const code = manualInput.value.trim();
+      if (code) settle(code);
+    });
+
+    return {
+      scan() {
+        return new Promise((resolve) => {
+          // Ha valamiért már fut egy szkennelés, azt megszakítjuk — két
+          // párhuzamos kamera-stream sosem lenne jó.
+          if (pending) settle(null);
+          pending = resolve;
+          manualInput.value = '';
+          setError('');
+          controller.open();
+          start();
+        });
+      },
+    };
+  }
+
+  /* ======================================================================
+     Saját étel modál (cf-*)
+     ----------------------------------------------------------------------
+     A kalóriát a makrókból számoljuk (Atwater 4/4/9) és élőben mutatjuk, de a
+     mező szerkeszthető: a csomagoláson lévő érték a rost, a poliolok és az
+     alkohol miatt jogosan eltérhet a képlettől. A ↻ visszakapcsol automatikusra.
+     ====================================================================== */
+
+  const ATWATER = { protein: 4, carbs: 4, fat: 9 };
+
+  /**
+   * A „saját étel" modál vezérlője. Ő birtokolja a Táplálkozás oldal két új
+   * gombját, a vonalkód-feloldást és a saját ételek törlését is.
+   *
+   * @param {object}   opts
+   * @param {object}   opts.scanner        a setupScanner() vezérlője ({ scan })
+   * @param {Function} opts.confirmAction  megerősítő ablak (törléshez)
+   * @param {Function} opts.onSaved        () => Promise — az étel-lista frissítése
+   * @param {Function} opts.onLog          (food) => void — adagválasztó nyitása
+   * @returns {{ open: (prefill?: object) => void, scanAndOpen: () => Promise<void> }}
+   */
+  async function setupCustomFood({ scanner, confirmAction, onSaved, onLog } = {}) {
+    const modal = $('#customFoodModal');
+    const controller = createModalController(modal);
+    const form = $('[data-form="custom-food"]', modal);
+    const nameInput = $('#cf-name', modal);
+    const groupSelect = $('#cf-group', modal);
+    const unitSelect = $('#cf-unit', modal);
+    const proteinInput = $('#cf-protein', modal);
+    const carbsInput = $('#cf-carbs', modal);
+    const fatInput = $('#cf-fat', modal);
+    const kcalInput = $('#cf-kcal', modal);
+    const kcalState = $('[data-cf-kcal-state]', modal);
+    const kcalReset = $('[data-cf-kcal-reset]', modal);
+    const barcodeInput = $('#cf-barcode', modal);
+    const basisEl = $('[data-cf-basis]', modal);
+    const sourceEl = $('[data-cf-source]', modal);
+    const errorEl = $('[data-cf-error]', modal);
+    const saveButtons = [$('[data-cf-save]', modal), $('[data-cf-save-log]', modal)];
+
+    let kcalMode = 'auto';
+    let prefillSource = 'manual';
+
+    /* A kategória-opciók az étel-listából jönnek, nem a FOOD_GROUPS kliens-
+       oldali másolatából: így nincs két igazság, és a szerver FOOD_GROUPS-
+       alapú validálásával sem csúszhat el. A saját ételek 'Saját étel'
+       csoportja kimarad — az nem valódi kategória, csak megjelenítési alap. */
+    const foods = await api.getFoods();
+    const groups = [...new Set(foods.filter((f) => !f.custom).map((f) => f.group))]
+      .filter(Boolean).sort((a, b) => a.localeCompare(b, 'hu'));
+    groups.forEach((group) => {
+      const option = document.createElement('option');
+      option.value = group;
+      option.textContent = group;
+      groupSelect.appendChild(option);
+    });
+
+    const setError = (text) => {
+      errorEl.textContent = text || '';
+      errorEl.hidden = !text;
+    };
+
+    const numberOf = (input) => {
+      const value = Number(String(input.value).replace(',', '.'));
+      return Number.isFinite(value) ? value : 0;
+    };
+
+    const computeKcal = () => Math.round(
+      numberOf(proteinInput) * ATWATER.protein
+      + numberOf(carbsInput) * ATWATER.carbs
+      + numberOf(fatInput) * ATWATER.fat,
+    );
+
+    /** A kalória-mező és az állapotszöveg összehangolása a jelenlegi móddal. */
+    const syncKcal = () => {
+      const computed = computeKcal();
+      // A programozott értékadás NEM vált ki `input` eseményt, tehát ez nem
+      // billenti át kézi módba — nincs visszacsatolási hurok.
+      if (kcalMode === 'auto') kcalInput.value = String(computed);
+      kcalState.textContent = kcalMode === 'auto'
+        ? 'a makrókból számolva'
+        : `kézi érték · a képlet szerint ${computed} kcal`;
+      kcalReset.hidden = kcalMode === 'auto';
+      kcalInput.classList.toggle('is-manual', kcalMode === 'manual');
+    };
+
+    [proteinInput, carbsInput, fatInput].forEach((input) => {
+      input.addEventListener('input', syncKcal);
+    });
+    kcalInput.addEventListener('input', () => { kcalMode = 'manual'; syncKcal(); });
+    kcalReset.addEventListener('click', () => {
+      kcalMode = 'auto';
+      syncKcal();
+      kcalInput.focus();
+    });
+
+    // Az egység a mezők jelentését változtatja meg (100 g vagy 100 ml) —
+    // a legend ezt mondja ki, hogy ne legyen kétértelmű.
+    const syncUnit = () => { basisEl.textContent = `100 ${unitSelect.value}`; };
+    unitSelect.addEventListener('change', syncUnit);
+
+    /** A modál megnyitása, opcionálisan előre kitöltve (vonalkódról). */
+    const open = (prefill = null) => {
+      form.reset();
+      kcalMode = 'auto';
+      prefillSource = prefill?.source === 'openfoodfacts' ? 'openfoodfacts' : 'manual';
+      setError('');
+
+      if (prefill) {
+        // A hiányzó (null) tápérték ÜRESEN marad, nem nulla lesz: a nulla azt
+        // állítaná, hogy a termék nem tartalmaz fehérjét, holott csak nem tudjuk.
+        const fill = (input, value) => {
+          input.value = value === null || value === undefined ? '' : String(value);
+        };
+        fill(nameInput, prefill.name);
+        fill(proteinInput, prefill.protein);
+        fill(carbsInput, prefill.carbs);
+        fill(fatInput, prefill.fat);
+        fill(barcodeInput, prefill.barcode);
+        if (prefill.unit === 'ml') unitSelect.value = 'ml';
+
+        /* Az OFF címke-kalóriája gyakran eltér a makrókból számolttól (rost,
+           poliolok). Ilyenkor a címke értékét vesszük át KÉZI módban — az a
+           termékre vonatkozó tény —, de a ↻ egy koppintással visszaszámoltat. */
+        const labelKcal = prefill.kcal;
+        if (labelKcal !== null && labelKcal !== undefined && Math.round(labelKcal) !== computeKcal()) {
+          kcalMode = 'manual';
+          kcalInput.value = String(Math.round(labelKcal));
+        }
+      }
+
+      sourceEl.hidden = prefillSource !== 'openfoodfacts';
+      sourceEl.textContent = prefillSource === 'openfoodfacts'
+        ? 'Open Food Facts adat — vesd össze a csomagolással, mielőtt mentesz.'
+        : '';
+
+      syncUnit();
+      syncKcal();
+      controller.open();
+      // A controller a bezárás-gombra fókuszál; az űrlapon a névmező a kezdet.
+      nameInput.focus();
+    };
+
+    /** Beolvasás → feloldás → az űrlap megnyitása a találattal. */
+    const scanAndOpen = async () => {
+      const code = await scanner?.scan();
+      if (!code) return; // megszakítva
+
+      try {
+        const hit = await api.lookupBarcode(code);
+        if (hit.source === 'saved') {
+          // Ezt a terméket már felvitted — nem kérdezzük meg újra a
+          // tápértékeit, egyből az adagválasztó jön.
+          showToast(`${hit.food.name} — már a saját ételeid közt van`);
+          onLog?.(hit.food);
+          return;
+        }
+        open({ ...hit.product, source: 'openfoodfacts' });
+      } catch (err) {
+        /* A 404 (ismeretlen kód) és az 502 (az OFF nem elérhető) is ide fut. A
+           modál ilyenkor ÜRESEN, a vonalkóddal előre kitöltve nyílik: a
+           felhasználó a csomagolásról beírja az értékeket, és legközelebb már
+           a saját listájából ismeri fel a szkenner. */
+        if (err.code !== SESSION_LOST) {
+          showToast(err.message || 'A vonalkódot nem sikerült feloldani', 'error');
+          open({ barcode: code });
+        }
+      }
+    };
+
+    const submit = async ({ thenLog = false } = {}) => {
+      setError('');
+      saveButtons.forEach((button) => { button.disabled = true; });
+      try {
+        const saved = await api.addCustomFood({
+          name: nameInput.value,
+          group: groupSelect.value,
+          unit: unitSelect.value,
+          protein: numberOf(proteinInput),
+          carbs: numberOf(carbsInput),
+          fat: numberOf(fatInput),
+          kcal: numberOf(kcalInput),
+          kcalMode,
+          barcode: barcodeInput.value.trim() || undefined,
+          source: prefillSource,
+        });
+        await onSaved?.(saved);
+        controller.close();
+        showToast(`${saved.name} felvéve a saját ételeid közé`);
+        // Az adagválasztó CSAK a záró animáció után nyíljon, különben egy
+        // pillanatra két modál látszana egymáson.
+        if (thenLog) requestAnimationFrame(() => onLog?.(saved));
+      } catch (err) {
+        // A szerver üzenete (409 duplikátum, 400 validálás) magyarul, az
+        // űrlapon marad — a bevitt adat NEM vész el.
+        if (err.code !== SESSION_LOST) setError(err.message || 'Nem sikerült menteni az ételt');
+      } finally {
+        saveButtons.forEach((button) => { button.disabled = false; });
+      }
+    };
+
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+      submit();
+    });
+    $('[data-cf-save-log]', modal).addEventListener('click', () => submit({ thenLog: true }));
+    $('[data-cf-scan]', modal).addEventListener('click', scanAndOpen);
+
+    // A két oldali gomb
+    $('[data-action="add-custom-food"]')?.addEventListener('click', () => open());
+    $('[data-action="scan-barcode"]')?.addEventListener('click', scanAndOpen);
+
+    /* Saját étel törlése. Külön figyelő ugyanazon a listán: a setupNutrition
+       delegációját nem zavarja, mert az a `.nu-food-add`-re szűr, ami a ✕-re
+       null-t ad. */
+    $('[data-list="foods"]').addEventListener('click', async (event) => {
+      const removeBtn = event.target.closest('.nu-food-remove');
+      if (!removeBtn) return;
+
+      const item = removeBtn.closest('.nu-food');
+      const name = $('.nu-food-name', item)?.firstChild?.textContent?.trim() || 'Ez az étel';
+      const ok = await confirmAction?.(
+        `A(z) „${name}" törlődik a saját ételeid közül. A már lenaplózott tételeid megmaradnak.`,
+        { title: 'Saját étel törlése', confirmLabel: 'Törlés' },
+      );
+      if (!ok) return;
+
+      removeBtn.disabled = true;
+      try {
+        await api.removeCustomFood(Number(removeBtn.dataset.customFoodId));
+        await onSaved?.(null);
+        showToast(`${name} törölve a saját ételek közül`);
+      } catch (err) {
+        removeBtn.disabled = false;
+        if (err.code !== SESSION_LOST) {
+          showToast(err.message || 'Nem sikerült törölni az ételt', 'error');
+        }
+      }
+    });
+
+    return { open, scanAndOpen };
   }
 
   /** A beállítások modal szerepkör-kapcsolói (demo: mindhárom állapot kipróbálható). */
@@ -4496,7 +5104,8 @@
   }
 
   async function setupNutrition(foodDetail) {
-    const foods = await api.getFoods();
+    // `let`, nem `const`: saját étel felvitele/törlése után újratöltjük.
+    let foods = await api.getFoods();
     const searchInput = $('#food-search');
     const emptyState = $('.nu-empty');
     const logList = $('[data-list="nutrition-log"]');
@@ -4593,7 +5202,10 @@
       goalTextEl.textContent = `napi ${totals.goal.calories} kcal, ${totals.goal.protein} g fehérje a tömegnövelő fázisban.`;
     }
 
-    searchInput.addEventListener('input', () => {
+    /* Az élő szűrés önálló függvényben: a lista újraépítése után (saját étel
+       felvitele/törlése) újra érvényre kell juttatni, különben a beírt keresés
+       némán feloldódna, és a felhasználó hirtelen mind a 437 ételt látná. */
+    const applyFilter = () => {
       const query = searchInput.value.trim().toLowerCase();
       let visibleCount = 0;
       $$('.nu-food').forEach((item) => {
@@ -4602,7 +5214,31 @@
         if (matches) visibleCount += 1;
       });
       emptyState.hidden = visibleCount > 0;
-    });
+    };
+    searchInput.addEventListener('input', applyFilter);
+
+    /* Az étel-lista újratöltése saját étel felvitele/törlése után. A kliens-
+       oldali cache-t EL KELL DOBNI (api.refreshFoods), különben a lista a
+       munkamenet végéig a betöltéskori állapotot mutatná — a /api/charts már
+       ugyanezt a mintát követi. Egyetlen hálózati kör: a friss válasz a cache-be
+       kerül, a renderFoods pedig már a memóriabeli tömböt kapja meg. */
+    const refreshFoods = async () => {
+      foods = await api.refreshFoods();
+      await renderFoods(foods);
+      applyFilter();
+    };
+
+    /** Az adagválasztó megnyitása egy ételre — a napi összesítővel és a mai,
+        EBBŐL az ételből származó bejegyzésekkel. A lista nyila és a saját étel
+        „Mentés és naplózás" gombja is ezt hívja. */
+    const openFoodDetail = (food) => {
+      if (!foodDetail) return false;
+      foodDetail.open(food, {
+        totals,
+        entries: logEntries.filter((entry) => entry.name === food.name),
+      });
+      return true;
+    };
 
     /* Naplózás a részlet-modálból: a szerver a megadott adagra számolja át a
        makrókat, és visszaadja a frissített összesítőt. Hibát tovább dobunk —
@@ -4629,13 +5265,7 @@
       const food = foods.find((f) => f.name === addBtn.dataset.food);
       if (!food) return;
 
-      if (foodDetail) {
-        foodDetail.open(food, {
-          totals,
-          entries: logEntries.filter((entry) => entry.name === food.name),
-        });
-        return;
-      }
+      if (openFoodDetail(food)) return;
 
       try {
         await logFood(food, 100);
@@ -4645,7 +5275,7 @@
       }
     });
 
-    return { logFood };
+    return { logFood, refreshFoods, openFoodDetail };
   }
 
   /** A Tervek oldal interakciói. A planBuilder és a workout a megfelelő setup
@@ -5036,6 +5666,20 @@
       onAdd: (food, grams) => nutrition.logFood(food, grams),
     });
     nutrition = await safe(() => setupNutrition(foodDetail));
+
+    /* Saját étel + vonalkód-olvasó. A szkenner szinkron épül fel (nem kér
+       adatot); a saját-étel modál viszont a felépült Táplálkozás oldalra
+       támaszkodik: onnan frissíti a listát, és onnan nyitja az adagválasztót.
+       Ha a setupNutrition elbukott (safe → null), a gombok nem szállnak el —
+       az opcionális láncolás miatt csendben nem csinálnak semmit. */
+    const scanner = setupScanner();
+    await safe(() => setupCustomFood({
+      scanner,
+      confirmAction,
+      onSaved: () => nutrition?.refreshFoods(),
+      onLog: (food) => nutrition?.openFoodDetail(food),
+    }));
+
     const planBuilder = await safe(() => setupPlanBuilder(picker));
     setupPlans(planBuilder, workout);
     await safe(() => setupCoach(athleteModal));

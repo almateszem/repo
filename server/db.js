@@ -85,6 +85,48 @@ db.exec(`
     date       TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+  -- Saját (a felhasználó által felvitt) ételek. A beépített katalógus a
+  -- collections['foods'] kulcsban él és MINDENKINEK közös; ez viszont
+  -- felhasználói adat, ezért saját tábla user_id-vel. A tápértékek — mint a
+  -- beépített katalógusban — 100 g / 100 ml alapmennyiségre értendők, így a
+  -- naplózás (addNutritionEntry) változtatás nélkül működik rájuk.
+  CREATE TABLE IF NOT EXISTS custom_foods (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    -- COLLATE NOCASE: a „Tejföl" és a „tejföl" ugyanaz az étel, a UNIQUE is erre
+    -- épül. A SQLite NOCASE viszont csak ASCII-t hajt (a „TÚRÓ" és a „túró"
+    -- SQL szinten két külön sor), ezért a felvitel ELŐTT az addCustomFood
+    -- ékezet-helyesen is ellenőrzi az ütközést — ez a megszorítás a backstop.
+    name       TEXT NOT NULL COLLATE NOCASE,
+    brand      TEXT NOT NULL DEFAULT '',
+    -- Nem lehet a neve "group": az SQL kulcsszó, idézőjel nélkül szintaktikai hiba.
+    food_group TEXT NOT NULL DEFAULT '',       -- a FOOD_GROUPS egyike vagy üres
+    unit       TEXT NOT NULL DEFAULT 'g',      -- 'g' | 'ml'
+    kcal       REAL NOT NULL,
+    protein    REAL NOT NULL,
+    carbs      REAL NOT NULL,
+    fat        REAL NOT NULL,
+    kcal_auto  INTEGER NOT NULL DEFAULT 1,     -- 1 = a kcal a makrókból számolt (4/4/9)
+    barcode    TEXT,                           -- normalizált EAN-13, vagy NULL
+    portions   TEXT NOT NULL DEFAULT '[]',     -- JSON: [['1 adag', 150]]
+    source     TEXT NOT NULL DEFAULT 'manual', -- 'manual' | 'openfoodfacts'
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE (user_id, name),
+    -- SQLite-ban a NULL-ok egymástól KÜLÖNBÖZŐEK, ezért ez a megszorítás a
+    -- vonalkód nélkül, kézzel felvitt ételekbe nem szól bele.
+    UNIQUE (user_id, barcode)
+  );
+  -- Vonalkód → Open Food Facts termék, gyorsítótárazva. Ez NEM felhasználói
+  -- adat: ugyanaz a vonalkód mindenkinek ugyanazt a terméket jelenti, ezért
+  -- szándékosan nincs rajta user_id (és nincs is rajta mit szivárogtatni).
+  -- A negatív találatot is tároljuk (found = 0) — enélkül minden újraolvasás
+  -- új hálózati kérés lenne egy nem létező termékre.
+  CREATE TABLE IF NOT EXISTS barcode_cache (
+    barcode    TEXT PRIMARY KEY,               -- normalizált (EAN-13-ra egészített) kód
+    found      INTEGER NOT NULL,               -- 1 = van termék, 0 = az OFF nem ismeri
+    payload    TEXT NOT NULL DEFAULT '{}',     -- JSON: a leképezett termék (found = 1)
+    fetched_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
   CREATE TABLE IF NOT EXISTS workouts (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -366,15 +408,19 @@ function backfillExerciseMaxes() {
       for (const exercise of exercises) {
         const name = exercise?.name;
         if (!name) continue;
-        for (const set of exercise?.sets ?? []) {
-          // Ugyanaz a szabály, mint az addWorkout-ban: csak a teljesített
-          // szettek számítanak, és a legjobb becsült 1RM lesz a csúcs.
-          if (!set?.done) continue;
-          const oneRM = calculateEpley1RM(set.weight, set.reps);
-          if (oneRM <= 0) continue;
-          const current = best.get(name);
-          if (!current || oneRM > current.max1rm) best.set(name, { max1rm: oneRM, date: row.date });
-        }
+        /* PONTOSAN ugyanaz a szabály, mint az addWorkout-ban — a rekordot hozó
+           szettet a közös bestCompletedSet adja meg. Korábban itt egy saját,
+           csak a bepipált szetteket néző ciklus állt, és ez eltért: az
+           addWorkout teljesített szett HÍJÁN az első sorra esik vissza, ez a
+           ciklus viszont ilyenkor semmit nem talált. Akinek tehát a régi
+           edzéseiben egyetlen szett sem volt bepipálva, annak a visszatöltés
+           üresen maradt — vagyis pontosan az a hamis PR keletkezett a
+           következő edzésnél, aminek a megelőzésére ez a függvény való. */
+        const record = bestCompletedSet(exercise?.sets ?? []);
+        const oneRM = record ? calculateEpley1RM(record.weight, record.reps) : 0;
+        if (oneRM <= 0) continue;
+        const current = best.get(name);
+        if (!current || oneRM > current.max1rm) best.set(name, { max1rm: oneRM, date: row.date });
       }
     }
     for (const [name, record] of best) insert.run(userId, name, record.max1rm, record.date);
@@ -390,7 +436,12 @@ backfillExerciseMaxes();
    index nélkül ez a napról napra hízó nutrition_log teljes végigolvasása volt
    (EXPLAIN QUERY PLAN: SCAN nutrition_log). A korábbi, csak dátum szerinti
    index helyét az összetett veszi át — az első oszlopa ugyanúgy szűr, de a
-   felhasználós lekérdezést is kiszolgálja. */
+   felhasználós lekérdezést is kiszolgálja.
+
+   A custom_foods SZÁNDÉKOSAN nem szerepel itt: a két UNIQUE megszorítása
+   (user_id, name) és (user_id, barcode) implicit indexet hoz létre, és
+   mindkettő első oszlopa user_id — a listázást és a vonalkód-keresést is
+   kiszolgálják. Külön index csak felesleges írás-költség lenne. */
 db.exec(`
   DROP INDEX IF EXISTS idx_nutrition_log_date;
   CREATE INDEX IF NOT EXISTS idx_nutrition_log_user_date ON nutrition_log(user_id, date);
@@ -591,6 +642,142 @@ export function getNutritionTotals(userId, date) {
   return { ...sum, goal: getCollection('nutritionGoal') || { calories: 0, protein: 0 } };
 }
 
+/* ======================================================================
+   Saját ételek — a felhasználó által felvitt, illetve vonalkódról beolvasott
+   termékek. A beépített katalógussal AZONOS alakot adnak vissza (100 g-ra
+   vonatkozó makrók), csak a `custom: true` jelző különbözteti meg őket — így
+   a naplózás, az adagválasztó és az étel-kártya változtatás nélkül működik.
+   ====================================================================== */
+
+/** Egy custom_foods sor → a felület (és a naplózás) által várt étel-alak.
+    A `per` címkét ugyanúgy képezzük, mint a catalog.js a seed-ételeknél —
+    enélkül az étel-kártya „undefined"-ot írna ki. */
+const toCustomFood = (row) => (row ? {
+  id: row.id,
+  name: row.name,
+  brand: row.brand || undefined,
+  // A csoport nélküli saját ételek is kapjanak besorolást: a felület a
+  // group mezőt írja ki a kártyára, és keresni is lehet rá.
+  group: row.food_group || 'Saját étel',
+  unit: row.unit,
+  per: `100 ${row.unit}`,
+  kcal: row.kcal,
+  protein: row.protein,
+  carbs: row.carbs,
+  fat: row.fat,
+  kcalAuto: row.kcal_auto === 1,
+  portions: JSON.parse(row.portions || '[]'),
+  barcode: row.barcode || undefined,
+  source: row.source,
+  custom: true,
+} : null);
+
+const CUSTOM_FOOD_COLS = `id, name, brand, food_group, unit, kcal, protein, carbs, fat,
+                          kcal_auto, barcode, portions, source`;
+
+/** A hívó saját ételei, felvitel sorrendjében. */
+export function listCustomFoods(userId) {
+  return db.prepare(`SELECT ${CUSTOM_FOOD_COLS} FROM custom_foods WHERE user_id = ? ORDER BY id`)
+    .all(userId).map(toCustomFood);
+}
+
+/** Saját étel név szerint (kis/nagybetű-érzéketlen — a name COLLATE NOCASE). */
+export function getCustomFoodByName(userId, name) {
+  return toCustomFood(db.prepare(`SELECT ${CUSTOM_FOOD_COLS} FROM custom_foods
+                                  WHERE user_id = ? AND name = ?`).get(userId, name));
+}
+
+/** Saját étel vonalkód szerint — a beolvasás ezzel zárható rövidre (ha a
+    terméket már felvitte, nincs se hálózati kör, se újabb kitöltés). */
+export function getCustomFoodByBarcode(userId, barcode) {
+  return toCustomFood(db.prepare(`SELECT ${CUSTOM_FOOD_COLS} FROM custom_foods
+                                  WHERE user_id = ? AND barcode = ?`).get(userId, barcode));
+}
+
+/** Névütközés a hívó saját ételei közt, ÉKEZETEKKEL EGYÜTT.
+    A tábla COLLATE NOCASE-e csak ASCII-t hajt: SQL szinten a „Túró Rudi" és a
+    „TÚRÓ RUDI" két külön sor lenne, a felhasználó viszont joggal ugyanannak az
+    ételnek látja őket. A JS toLowerCase() Unicode-ot is kezel, és a saját lista
+    néhány tucat elem — bőven megéri végigolvasni. */
+const customNameTaken = (userId, name) => {
+  const needle = String(name).toLowerCase();
+  return listCustomFoods(userId).some((food) => food.name.toLowerCase() === needle);
+};
+
+/** Saját étel felvitele. A validálást a végpont végzi; ide már tiszta, 100 g-ra
+    normalizált adat érkezik. Ütközésnél (azonos név vagy vonalkód ugyanannál a
+    fióknál) null-t ad — a hívó ebből 409-et képez. */
+export function addCustomFood(userId, food) {
+  if (customNameTaken(userId, food.name)) return null;
+  if (food.barcode && getCustomFoodByBarcode(userId, food.barcode)) return null;
+
+  const { lastInsertRowid } = db.prepare(
+    `INSERT INTO custom_foods (user_id, name, brand, food_group, unit, kcal,
+                               protein, carbs, fat, kcal_auto, barcode, portions, source)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    userId, food.name, food.brand ?? '', food.group ?? '', food.unit,
+    food.kcal, food.protein, food.carbs, food.fat, food.kcalAuto ? 1 : 0,
+    food.barcode ?? null, JSON.stringify(food.portions ?? []), food.source ?? 'manual',
+  );
+  return toCustomFood(db.prepare(`SELECT ${CUSTOM_FOOD_COLS} FROM custom_foods WHERE id = ?`)
+    .get(Number(lastInsertRowid)));
+}
+
+/** Saját étel törlése. Ismeretlen id-re vagy MÁS felhasználó ételére false —
+    a hívó ebből 404-et képez. A már lenaplózott bejegyzések NEM sérülnek: a
+    nutrition_log a nevet és a kiszámolt makrókat MÁSOLATBAN tárolja, tehát a
+    korábbi napok összesítői változatlanok maradnak. */
+export function deleteCustomFood(userId, id) {
+  return db.prepare('DELETE FROM custom_foods WHERE id = ? AND user_id = ?')
+    .run(id, userId).changes > 0;
+}
+
+/** A hívónak megjelenítendő teljes étel-lista: elöl a sajátjai (azokat keresi
+    a leggyakrabban), utána a beépített katalógus.
+    FONTOS: a getCollection('foods') tömbje MEGOSZTOTT és cache-elt — ezért ÚJ
+    tömböt képzünk a spreaddel, belepush-olni tilos lenne. */
+export function getFoodsForUser(userId) {
+  return [...listCustomFoods(userId), ...(getCollection('foods') || [])];
+}
+
+/** Naplózható étel keresése név szerint. A SAJÁT étel nyer: a beépített
+    katalógus később bővülhet egy olyan névvel, amit a felhasználó már felvitt
+    — ilyenkor is az ő tápértékei az érvényesek. */
+export function findFoodForUser(userId, name) {
+  return getCustomFoodByName(userId, name)
+    || (getCollection('foods') || []).find((f) => f.name === name)
+    || null;
+}
+
+/* ---- Vonalkód-gyorsítótár ---- */
+
+/** Friss cache-sor vagy null. A frissesség HATÁRA a találattól függ: egy
+    megtalált termék tápértéke ritkán változik (30 nap), a „nem ismerjük"
+    viszont holnap már lehet más (1 nap — az OFF közösségi adatbázis, naponta
+    ezrével kerülnek bele termékek).
+    A CASE-t szándékosan SQL-ben számoljuk: a SQLite dátumformátuma
+    („ÉÉÉÉ-HH-NN óó:pp:mm") JS-ben nem szabványosan parse-olható. */
+export function readBarcodeCache(barcode) {
+  const row = db.prepare(`
+    SELECT found, payload FROM barcode_cache
+    WHERE barcode = ?
+      AND fetched_at > datetime('now', CASE found WHEN 1 THEN '-30 days' ELSE '-1 day' END)
+  `).get(barcode);
+  if (!row) return null;
+  return { found: row.found === 1, product: row.found === 1 ? JSON.parse(row.payload) : null };
+}
+
+/** Cache-írás. A `product === null` a negatív találatot rögzíti. */
+export function writeBarcodeCache(barcode, product) {
+  db.prepare(`INSERT INTO barcode_cache (barcode, found, payload, fetched_at)
+              VALUES (?, ?, ?, datetime('now'))
+              ON CONFLICT(barcode) DO UPDATE SET
+                found = excluded.found, payload = excluded.payload,
+                fetched_at = excluded.fetched_at`)
+    .run(barcode, product ? 1 : 0, JSON.stringify(product ?? {}));
+}
+
 /** Egy DB-sor → a Recovery Engine által várt check-in alak (JSON-mezők
     visszafejtve, a hiányzó értékek null-ok maradnak). */
 const toCheckin = (row) => (row ? {
@@ -765,10 +952,26 @@ export function getSnapshot(userId) {
   }
   snapshot.weightLog = getWeightLog(userId);
   snapshot.nutritionLog = getNutritionLog(userId);
+  // A saját ételek is a felhasználó adata — a naplóból nem rekonstruálhatók
+  // (a nutrition_log az adagra átszámolt makrókat tárolja, nem a 100 g-osakat).
+  snapshot.customFoods = listCustomFoods(userId);
   snapshot.workouts = getWorkouts(userId);
   snapshot.workoutDraft = getWorkoutDraft(userId);
   snapshot.userPlans = getUserPlans(userId);
   snapshot.checkins = getCheckins(userId, 1000);
+  /* Az egyéni csúcsok is a felhasználó adata. Az edzésekből elvileg
+     visszaszámolhatók (ezt teszi a backfillExerciseMaxes), de a „teljes
+     pillanatkép" akkor teljes, ha nem kell hozzá újraszámolni semmit — és a
+     csúcs DÁTUMA is megmarad, ami a naplóból csak közvetve jönne ki.
+     A mezőnevek itt a getExerciseMax alakját követik (max1rm), nem a tábla
+     oszlopneveit — a snapshot többi része is a felület felőli alakot használja.
+     A getAllExerciseMaxes nyers sorait ezért képezzük át, nem őt írjuk át:
+     azon a /api/exercise-maxes végpont ül. */
+  snapshot.exerciseMaxes = getAllExerciseMaxes(userId).map((row) => ({
+    exercise: row.exercise_name,
+    max1rm: row.max_1rm,
+    date: row.date,
+  }));
   return snapshot;
 }
 
@@ -895,4 +1098,15 @@ export function updatePlan(userId, id, name, exercises, days) {
   if (changes === 0) return null;
   const row = db.prepare('SELECT id, name, date, exercises, days FROM plans WHERE id = ?').get(id);
   return { ...row, exercises: JSON.parse(row.exercises), days: JSON.parse(row.days) };
+}
+
+/** Az adatbázis-kapcsolat lezárása.
+
+    A szervernek erre nincs szüksége (a folyamat végéig nyitva tartja a fájlt),
+    a TESZTEKNEK viszont igen: azok ideiglenes könyvtárba dolgoznak, és azt a
+    futás végén letörlik. Windowson egy NYITOTT fájlt nem lehet törölni — a
+    takarítás EPERM-mel elszállt, és a teszt „megbukott" úgy, hogy közben
+    minden állítása teljesült. Ezért a takarítás előtt le kell zárni. */
+export function closeDatabase() {
+  db.close();
 }
