@@ -4356,6 +4356,15 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--text-muted);
 }
 
+/* Az edző kísérő sora a felajánlott tervnél. Idézet-jellegű, tehát dőlt és
+   halványabb — a terv neve marad a sor főszereplője. */
+.co-invite-note {
+  margin-top: 2px;
+  font-size: var(--fs-xs);
+  font-style: italic;
+  color: var(--text-faint);
+}
+
 .co-invite-actions {
   display: flex;
   gap: var(--sp-2);
@@ -4449,6 +4458,50 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .co-unlink:hover {
   color: var(--c-accent);
   border-color: var(--c-accent);
+}
+
+/* ---- Terv kiosztása (a sportoló részletmodáljában) ---- */
+.co-assign {
+  margin-top: var(--sp-6);
+  padding-top: var(--sp-6);
+  border-top: 1px solid var(--fg-08);
+}
+
+.co-assign-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.co-assign-label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.co-assign-select,
+.co-assign-note {
+  width: 100%;
+  min-height: 44px;
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface-input);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-lg);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.co-assign-hint,
+.co-assign-empty {
+  margin: 0;
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+  color: var(--text-faint);
+}
+
+.co-assign-form button[type="submit"] {
+  margin-top: var(--sp-2);
 }
 
 /* ---- Üres üzenet-szál ---- */

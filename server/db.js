@@ -163,6 +163,26 @@ db.exec(`
     created_at TEXT NOT NULL DEFAULT (datetime('now')),  -- UTC
     read_at    TEXT                                      -- UTC, NULL = olvasatlan
   );
+  -- Terv-kiosztás: az edző FELAJÁNL egy tervet, a sportoló elfogadja vagy
+  -- elutasítja. Miért nem írjuk egyszerűen a sportoló plans táblájába:
+  --   1. A tervet TÖRÖLNI nem lehet az appban, tehát amit egyszer belepakolunk
+  --      a fiókjába, azt onnan nem is tudná kiszedni.
+  --   2. Ugyanaz az elv, mint a kapcsolaté: ami a másik fiókjában megjelenik,
+  --      ahhoz a másik BELEEGYEZÉSE kell.
+  -- A gyakorlat-lista PILLANATKÉP, nem hivatkozás: ha az edző később átírja a
+  -- saját tervét, a kiosztott (és elfogadott) példány nem változik meg némán
+  -- a sportoló alatt.
+  CREATE TABLE IF NOT EXISTS plan_assignments (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    link_id      INTEGER NOT NULL REFERENCES coach_links(id) ON DELETE CASCADE,
+    name         TEXT NOT NULL,
+    exercises    TEXT NOT NULL,                  -- JSON, a plans.exercises alakjában
+    days         TEXT NOT NULL DEFAULT '[]',     -- JSON: hétnap-indexek
+    note         TEXT,                           -- az edző kísérő sora (nem kötelező)
+    status       TEXT NOT NULL DEFAULT 'pending',-- pending | accepted | declined
+    created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+    responded_at TEXT
+  );
   -- Gyakorlatonkénti egyéni csúcs (becsült 1RM). A PR MINDIG a saját korábbi
   -- teljesítményhez képest az, ezért a rekordok felhasználónként állnak — a
   -- kulcs (user_id, exercise_name).
@@ -455,6 +475,7 @@ db.exec(`
      számával nő (a szálak túlnyomó része elolvasva nulla sort ad ide). */
   CREATE INDEX IF NOT EXISTS idx_messages_unread ON messages(link_id, sender_id)
     WHERE read_at IS NULL;
+  CREATE INDEX IF NOT EXISTS idx_plan_assignments_link ON plan_assignments(link_id, id);
 `);
 
 /* ---- Seed ----
@@ -850,6 +871,93 @@ export function getUnreadCounts(userId) {
   return new Map(rows.map((row) => [row.link_id, row.unread]));
 }
 
+/* ---- Terv-kiosztás ---- */
+
+/** Egy kiosztás-sor → a felület által látott alak. */
+const toAssignment = (row) => ({
+  id: row.id,
+  linkId: row.link_id,
+  name: row.name,
+  exercises: JSON.parse(row.exercises),
+  days: JSON.parse(row.days),
+  note: row.note,
+  status: row.status,
+  at: toIso(row.created_at),
+  respondedAt: toIso(row.responded_at),
+});
+
+/* A kiosztás mezői. Kétszer kell: egyszer önmagában, egyszer `a.` előtaggal a
+   kapcsolat- és felhasználó-JOIN-os lekérdezésekhez (ott a display_name miatt
+   a csillag nem volna egyértelmű). */
+const ASSIGNMENT_FIELDS = ['id', 'link_id', 'name', 'exercises', 'days', 'note', 'status', 'created_at', 'responded_at'];
+const ASSIGNMENT_COLUMNS = ASSIGNMENT_FIELDS.join(', ');
+const ASSIGNMENT_COLUMNS_A = ASSIGNMENT_FIELDS.map((field) => `a.${field}`).join(', ');
+
+/** Terv felajánlása a kapcsolat sportolójának. A hívó (server.js) ellenőrzi,
+    hogy a kapcsolat él-e, és hogy tényleg az EDZŐ oldala kéri. */
+export function assignPlan(linkId, { name, exercises, days, note = null }) {
+  const { lastInsertRowid } = db.prepare(`
+    INSERT INTO plan_assignments (link_id, name, exercises, days, note)
+    VALUES (?, ?, ?, ?, ?)
+  `).run(linkId, name, JSON.stringify(exercises), JSON.stringify(days), note);
+  return getPlanAssignment(Number(lastInsertRowid));
+}
+
+/** Egy kiosztás a saját azonosítója alapján (a végpont ebből dönti el, hogy a
+    hívó egyáltalán érintett-e). Ismeretlen id-re null. */
+export function getPlanAssignment(id) {
+  const row = db.prepare(`SELECT ${ASSIGNMENT_COLUMNS} FROM plan_assignments WHERE id = ?`).get(id);
+  return row ? toAssignment(row) : null;
+}
+
+/**
+ * A sportolóhoz érkezett, még FÜGGŐ terv-ajánlatok (legújabb elöl), az edző
+ * nevével együtt. Csak élő kapcsolatból: a felfüggesztett/megszűnt kapcsolat
+ * ajánlata nem lóghat ott a sportolónál.
+ */
+export function getPendingPlanOffers(athleteId) {
+  return db.prepare(`
+    SELECT ${ASSIGNMENT_COLUMNS_A}, u.display_name, u.username
+    FROM plan_assignments a
+    JOIN coach_links l ON l.id = a.link_id
+    JOIN users u ON u.id = l.coach_id
+    WHERE l.athlete_id = ? AND l.status = 'active' AND a.status = 'pending'
+    ORDER BY a.id DESC
+  `).all(athleteId).map((row) => ({
+    ...toAssignment(row),
+    coach: { username: row.username, name: row.display_name },
+  }));
+}
+
+/**
+ * Az edző által kiosztott tervek, amikre a sportoló MÁR válaszolt — az
+ * értesítés-panel ebből tudja, hogy „X elfogadta a … tervet". Csak a
+ * `limit` legutóbbi, a sportoló nevével.
+ */
+export function getAnsweredPlanOffers(coachId, limit = 10) {
+  return db.prepare(`
+    SELECT ${ASSIGNMENT_COLUMNS_A}, u.display_name, u.username
+    FROM plan_assignments a
+    JOIN coach_links l ON l.id = a.link_id
+    JOIN users u ON u.id = l.athlete_id
+    WHERE l.coach_id = ? AND a.status != 'pending'
+    ORDER BY a.responded_at DESC LIMIT ?
+  `).all(coachId, limit).map((row) => ({
+    ...toAssignment(row),
+    athlete: { username: row.username, name: row.display_name },
+  }));
+}
+
+/** A kiosztás lezárása ('accepted' vagy 'declined'). Csak FÜGGŐ sort mozdít
+    meg, tehát a kétszer elküldött válasz nem írja felül az elsőt. */
+export function resolvePlanAssignment(id, status) {
+  const { changes } = db.prepare(`
+    UPDATE plan_assignments SET status = ?, responded_at = datetime('now')
+    WHERE id = ? AND status = 'pending'
+  `).run(status, id);
+  return changes > 0 ? getPlanAssignment(id) : null;
+}
+
 /* ======================================================================
    Olvasás — MINDEN függvény első paramétere a felhasználó azonosítója.
    Ez szándékos: így egy lekérdezést nem lehet „véletlenül" szűretlenül
@@ -1091,6 +1199,17 @@ export function getUserPlanSchedules(userId) {
   return db.prepare('SELECT id, name, days FROM plans WHERE user_id = ? ORDER BY id DESC')
     .all(userId)
     .map((row) => ({ id: row.id, name: row.name, days: JSON.parse(row.days) }));
+}
+
+/** EGY terv a felhasználó sajátjai közül, vagy null. A userId nem díszítés:
+    ez akadályozza meg, hogy más tervére lehessen hivatkozni az azonosítóval. */
+export function getPlan(userId, id) {
+  const row = db.prepare('SELECT id, name, date, exercises, days FROM plans WHERE user_id = ? AND id = ?')
+    .get(userId, id);
+  return row ? {
+    id: row.id, name: row.name, date: row.date,
+    exercises: JSON.parse(row.exercises), days: JSON.parse(row.days),
+  } : null;
 }
 
 /** A felhasználó által készített edzéstervek, legújabb elöl. */

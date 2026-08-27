@@ -523,6 +523,12 @@
             a naplóidból számolt összegzést, és üzenetet is tudtok váltani.</p>
           <ul class="co-invite-list" data-list="coach-invites" aria-label="Beérkezett edző-meghívók"></ul>
 
+          <!-- Az edződ által felajánlott tervek. Elfogadásig SEMMI nem kerül
+               a terveid közé — a meglévőkhöz pedig sosem nyúlunk hozzá. -->
+          <p class="co-invite-lead" data-offer-lead hidden>Az edződ tervet osztott ki.
+            Elfogadás után új tervként jelenik meg a Tervek oldalon — a mostaniak megmaradnak.</p>
+          <ul class="co-invite-list" data-list="plan-offers" aria-label="Felajánlott tervek"></ul>
+
           <!-- Van edződ: fejléc + üzenetváltás -->
           <div data-coach-thread hidden>
             <header class="co-coach-head">
@@ -1018,9 +1024,30 @@
 
       <div class="co-modal-actions">
         <button class="co-action co-action--danger" type="button" data-action="remove-athlete">Kapcsolat bontása</button>
+        <button class="co-action" type="button" data-action="assign-plan"
+                aria-expanded="false" aria-controls="athletePlanSection">Terv kiosztása</button>
         <button class="co-action co-action--primary" type="button" data-action="message"
                 aria-expanded="false" aria-controls="athleteMsgSection">Üzenet</button>
       </div>
+
+      <!-- Terv kiosztása — a saját tervek közül. A sportoló ELFOGADJA vagy
+           elutasítja: közvetlenül nem írunk a fiókjába. -->
+      <section class="co-assign" id="athletePlanSection" data-plan-section aria-label="Terv kiosztása" hidden>
+        <form class="co-assign-form" data-form="assign-plan">
+          <label class="co-assign-label" for="assign-plan-select">Melyik tervet osztod ki?</label>
+          <select class="co-assign-select" id="assign-plan-select" data-plan-select required></select>
+
+          <label class="co-assign-label" for="assign-plan-note">Kísérő üzenet (nem kötelező)</label>
+          <input class="co-assign-note" type="text" id="assign-plan-note"
+                 placeholder="Pl. jövő héttől ezzel kezdjük…" maxlength="200" autocomplete="off">
+
+          <p class="co-assign-hint">A sportolód elfogadhatja vagy elutasíthatja — a meglévő
+            terveihez nem nyúlunk hozzá.</p>
+          <button class="co-action co-action--primary" type="submit">Kiosztás</button>
+        </form>
+        <p class="co-assign-empty" data-plan-empty hidden>Még nincs saját terved, amit kioszthatnál.
+          Készíts egyet a Tervek oldalon.</p>
+      </section>
 
       <!-- Üzenetváltás — az „Üzenet" gomb nyitja, a hírfolyam a tpl-coach-note-ból épül -->
       <section class="co-msg" id="athleteMsgSection" data-msg-section aria-label="Üzenetváltás a sportolóval" hidden>

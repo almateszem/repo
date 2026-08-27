@@ -176,6 +176,12 @@
     getAthletes:       () => getJson('/api/athletes'),
     inviteAthlete:     (username) => postJson('/api/athletes', { username }),
     removeAthlete:     (linkId) => del(`/api/athletes/${linkId}`),
+    /* Terv-kiosztás. Az edző a SAJÁT tervei közül ajánl fel egyet; a sportoló
+       fiókjába csak az elfogadás után kerül be — másolatként, a meglévő
+       tervei mellé. */
+    assignPlan:        (linkId, planId, note) => postJson(`/api/athletes/${linkId}/plan`, { planId, note }),
+    acceptPlanOffer:   (id) => postJson(`/api/plan-offers/${id}/accept`),
+    declinePlanOffer:  (id) => del(`/api/plan-offers/${id}`),
     // Üzenetváltás — ugyanaz a szál mindkét oldalról, a kapcsolat azonosítójával
     getMessages:       (linkId) => getJson(`/api/messages/${linkId}`),
     sendMessage:       (linkId, text) => postJson(`/api/messages/${linkId}`, { text }),
@@ -243,6 +249,12 @@
     deleteAccount: (password) => postJson('/api/auth/delete-account', { password }),
   };
 
+  /** Hétnapok hétfőtől (0 = hétfő), ahogy a szerver is indexeli őket
+      (plans.days). A terv-építő chipjei és a felajánlott terv ütemezése is
+      innen kapja a feliratot — a kettő nem csúszhat el egymástól. */
+  const DAY_LABELS = ['H', 'K', 'Sze', 'Cs', 'P', 'Szo', 'V'];
+  const DAY_NAMES = ['hétfő', 'kedd', 'szerda', 'csütörtök', 'péntek', 'szombat', 'vasárnap'];
+
   /** Értesítés-kategóriák a beállítások modal kapcsolóihoz (notification.cat).
       A lista pontosan azt a hármat sorolja, amit a szerver valóban KÜLDENI tud
       (server/notifications.js) — a korábbi hat kategória a demo-listával együtt
@@ -251,6 +263,7 @@
   const NOTIF_CATEGORIES = [
     { key: 'message', label: 'Új üzenet' },
     { key: 'coach', label: 'Edző-kapcsolat' },
+    { key: 'plan', label: 'Terv kiosztva' },
     { key: 'pr', label: 'Egyéni csúcs' },
   ];
 
@@ -1585,6 +1598,59 @@
       button.className = `co-invite-btn${variant ? ` co-invite-btn--${variant}` : ''}`;
       button.dataset.inviteAction = action;
       button.dataset.linkId = linkId;
+      button.textContent = label;
+      buttons.appendChild(button);
+    });
+
+    li.append(info, buttons);
+    return li;
+  }
+
+  /**
+   * Egy felajánlott terv sora a sportoló oldalán. A meghívó-sorral azonos
+   * alakú, de TÖBBET mond: a terv neve mellett ott a gyakorlatok száma és az
+   * ütemezett napok is — a sportolónak látnia kell, MIT fogad el, mielőtt a
+   * saját tervei közé kerül.
+   */
+  function renderPlanOffer(offer) {
+    const li = document.createElement('li');
+    li.className = 'co-invite';
+
+    const info = document.createElement('div');
+    info.className = 'co-invite-info';
+    const nameEl = document.createElement('span');
+    nameEl.className = 'co-invite-name';
+    nameEl.textContent = offer.name;
+
+    const metaEl = document.createElement('span');
+    metaEl.className = 'co-invite-meta';
+    const days = (offer.days ?? []).map((day) => DAY_LABELS[day]).filter(Boolean);
+    metaEl.textContent = [
+      offer.from,
+      `${offer.exercises.length} gyakorlat`,
+      days.length ? days.join(', ') : null,
+    ].filter(Boolean).join(' · ');
+    info.append(nameEl, metaEl);
+
+    // Az edző kísérő sora, ha írt ilyet — külön sorban, idézve
+    if (offer.note) {
+      const noteEl = document.createElement('span');
+      noteEl.className = 'co-invite-note';
+      noteEl.textContent = `„${offer.note}”`;
+      info.appendChild(noteEl);
+    }
+
+    const buttons = document.createElement('div');
+    buttons.className = 'co-invite-actions';
+    [
+      { label: 'Elfogadás', action: 'accept-offer', variant: 'primary' },
+      { label: 'Elutasítás', action: 'decline-offer' },
+    ].forEach(({ label, action, variant }) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `co-invite-btn${variant ? ` co-invite-btn--${variant}` : ''}`;
+      button.dataset.offerAction = action;
+      button.dataset.offerId = offer.id;
       button.textContent = label;
       buttons.appendChild(button);
     });
@@ -4702,8 +4768,6 @@
     let editingId = null;
 
     // Hétnap-chipek (0 = hétfő) — a kijelölt napokon a terv az Edzés oldalra töltődik
-    const DAY_LABELS = ['H', 'K', 'Sze', 'Cs', 'P', 'Szo', 'V'];
-    const DAY_NAMES = ['hétfő', 'kedd', 'szerda', 'csütörtök', 'péntek', 'szombat', 'vasárnap'];
     const daysWrap = $('[data-list="builder-days"]', page);
     DAY_LABELS.forEach((label, index) => {
       const chip = document.createElement('button');
@@ -5286,7 +5350,7 @@
   /** Sportoló részletmodál: a saját naplójából számolt összegzés, valódi
       üzenetváltás, és a kapcsolat bontása. Az `onUnlink` az Edző oldalt
       frissíti, miután a sportoló lekerült a panelről. */
-  function setupAthleteModal({ confirmAction, onUnlink, onRead } = {}) {
+  function setupAthleteModal({ confirmAction, onUnlink, onRead, onAssign } = {}) {
     const modal = $('#athleteModal');
     const controller = createModalController(modal);
     const badge = $('.co-modal-badge', modal);
@@ -5320,12 +5384,73 @@
       msgSection.hidden = !open;
       msgButton.setAttribute('aria-expanded', String(open));
       if (!open) return;
+      setPlanOpen(false); // a két blokk kizárja egymást — a modál különben nagyon hosszú lenne
       chat.reset(); // másik sportoló szála jöhet — a régi nem maradhat kint
       chat.load();
       if (focus) input.focus();
     };
 
     msgButton.addEventListener('click', () => setMessageOpen(msgSection.hidden, { focus: true }));
+
+    /* ---- Terv kiosztása ----
+       Az edző a SAJÁT tervei közül választ. A lista a blokk kinyitásakor
+       frissül: időközben készülhetett új terv a Tervek oldalon. */
+    const planButton = $('[data-action="assign-plan"]', modal);
+    const planSection = $('[data-plan-section]', modal);
+    const planSelect = $('[data-plan-select]', modal);
+    const planEmpty = $('[data-plan-empty]', modal);
+    const planForm = $('[data-form="assign-plan"]', modal);
+    const planNote = $('#assign-plan-note');
+
+    async function loadOwnPlans() {
+      let plans = [];
+      try {
+        plans = await api.getPlans();
+      } catch (err) {
+        console.error('A tervek betöltése nem sikerült:', err);
+        showToast('A terveid most nem tölthetők be', 'error');
+      }
+      planSelect.replaceChildren();
+      plans.forEach((plan) => planSelect.appendChild(new Option(plan.name, plan.id)));
+      // Terv nélkül nincs mit kiosztani — a magyarázat mondja meg, mi a teendő
+      planEmpty.hidden = plans.length > 0;
+      planForm.hidden = plans.length === 0;
+    }
+
+    function setPlanOpen(open, { focus = false } = {}) {
+      planSection.hidden = !open;
+      planButton.setAttribute('aria-expanded', String(open));
+      if (!open) return;
+      planNote.value = '';
+      loadOwnPlans().then(() => {
+        if (focus && !planSelect.disabled) planSelect.focus();
+      });
+    }
+
+    planButton.addEventListener('click', () => {
+      const opening = planSection.hidden;
+      if (opening) setMessageOpen(false);
+      setPlanOpen(opening, { focus: true });
+    });
+
+    planForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const athlete = current;
+      const planId = Number(planSelect.value);
+      if (!athlete || !Number.isInteger(planId)) return;
+
+      const submit = $('button[type="submit"]', planForm);
+      submit.disabled = true;
+      try {
+        const offer = await api.assignPlan(athlete.linkId, planId, planNote.value.trim());
+        setPlanOpen(false);
+        showToast(`„${offer.name}” kiosztva — ${athlete.name} elfogadására vár`);
+        await onAssign?.();
+      } catch (err) {
+        showToast(err.message || 'A tervet nem sikerült kiosztani', 'error');
+      }
+      submit.disabled = false;
+    });
 
     // A kapcsolat bontása: a sportoló lekerül a panelről, és az üzenetváltás
     // is törlődik — ezért kérdezünk rá.
@@ -5391,6 +5516,7 @@
            nyitott modált nézi, és csak látható szálat nyugtázunk olvasottként
            (fordított sorrendben a betöltés nem jelölné meg az üzeneteket). */
         controller.open();
+        setPlanOpen(false); // másik sportolóhoz nyílt: a félbehagyott kiosztás ne maradjon kint
         setMessageOpen(athlete.unread > 0);
       },
     };
@@ -5417,12 +5543,14 @@
     const inviteBadge = $('[data-invite-badge]', page);
     const athleteBadge = $('[data-athlete-badge]', page);
     const inviteList = $('[data-list="coach-invites"]', page);
+    const offerLead = $('[data-offer-lead]', page);
+    const offerList = $('[data-list="plan-offers"]', page);
     const sentLead = $('[data-sent-lead]', page);
     const inviteForm = $('[data-form="invite-athlete"]', page);
     const inviteInput = $('#co-invite-username');
 
     // A saját edződ szála — a kapcsolat azonosítója a /api/coach válaszából jön
-    let coachData = { coach: null, invites: [] };
+    let coachData = { coach: null, invites: [], planOffers: [] };
     let panel = { athletes: [], invites: [] };
 
     /** Látszik-e ÉPP az edződdel folytatott beszélgetés. Enélkül a halk
@@ -5446,7 +5574,7 @@
     $('[data-my-username]', page).textContent = `@${user.username}`;
 
     function renderClient() {
-      const { coach, invites } = coachData;
+      const { coach, invites, planOffers = [] } = coachData;
       clientThread.hidden = !coach;
       // A hosszú magyarázat csak akkor kell, ha nincs se edző, se meghívó
       noCoachText.hidden = Boolean(coach) || invites.length > 0;
@@ -5462,6 +5590,10 @@
         { label: 'Elfogadás', action: 'accept-invite', variant: 'primary' },
         { label: 'Elutasítás', action: 'decline-invite' },
       ])));
+
+      offerLead.hidden = planOffers.length === 0;
+      offerList.replaceChildren();
+      planOffers.forEach((offer) => offerList.appendChild(renderPlanOffer(offer)));
     }
 
     /**
@@ -5481,10 +5613,12 @@
       };
 
       const invites = coachData.invites.length;
+      const offers = (coachData.planOffers ?? []).length;
       const coachUnread = coachData.coach?.unread ?? 0;
-      setBadge(inviteBadge, invites + coachUnread, () => [
+      setBadge(inviteBadge, invites + offers + coachUnread, () => [
         'Edződ',
         invites > 0 ? `${invites} új meghívó` : null,
+        offers > 0 ? `${offers} felajánlott terv` : null,
         coachUnread > 0 ? `${coachUnread} olvasatlan üzenet` : null,
       ].filter(Boolean).join(' — '));
 
@@ -5588,6 +5722,28 @@
         return;
       }
 
+      /* Terv-ajánlat: az elfogadás ÚJ tervet hoz létre a sportoló fiókjában,
+         a meglévők mellé — a Tervek oldal ezért elavul, azt is frissítjük. */
+      const offerBtn = event.target.closest('[data-offer-action]');
+      if (offerBtn) {
+        const offerId = Number(offerBtn.dataset.offerId);
+        const accepting = offerBtn.dataset.offerAction === 'accept-offer';
+        try {
+          if (accepting) {
+            const plan = await api.acceptPlanOffer(offerId);
+            showToast(`„${plan.name}” bekerült a terveid közé`);
+            // A Tervek oldal listája ettől elavult — frissen húzzuk le
+            await renderPlans();
+          } else {
+            await api.declinePlanOffer(offerId);
+          }
+          await refresh();
+        } catch (err) {
+          showToast(err.message || 'A művelet nem sikerült', 'error');
+        }
+        return;
+      }
+
       const trigger = event.target.closest('[data-athlete]');
       if (!trigger) return;
       const athlete = panel.athletes.find((item) => String(item.linkId) === trigger.dataset.athlete);
@@ -5670,6 +5826,8 @@
       // A modálban elolvasott üzenetek után a kártya és a nézetváltó jelvénye
       // is elavult — a panel újratöltése hozza helyre.
       onRead: () => coachPage?.refresh(),
+      // Kiosztás után szintén: az értesítés-panel és a kártyák is változhatnak
+      onAssign: () => coachPage?.refresh(),
     }));
     coachPage = await safe(() => setupCoachPage(athleteModal, confirmAction));
     /* Az oldalra lépéskor futó frissítés hibáját itt nyeljük el: a korábbi
