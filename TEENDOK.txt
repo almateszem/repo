@@ -261,12 +261,23 @@ NYITOTT — döntést vagy külső lépést igényel
 ADATMINŐSÉG — fokozatosan bővíthető, nincs határidő
 ==========================================================================
 
-[~] 53 gyakorlat nem fordult le, ezért kimaradt a katalógusból
-    (Korábban 80 volt; a szótár bővítésével 1201 gyakorlat van bent.)
-    A maradék nagyrészt tulajdonnév és a forrás elgépelése — a 100%-ot
-    nem érdemes hajszolni.
+[~] 13 gyakorlat nem fordult le, ezért kimaradt a katalógusból
+    (Korábban 80, majd 53; a szótár bővítésével most 1241 gyakorlat van bent.)
+    2026-08-26: a maradék 53-ból 40 bekerült. Amit hozzáadtunk, az vagy bevett
+    magyar szakszó (kozák guggolás, török felállás, T-rúdas evezés, V-ülés,
+    csillagugrás, elliptikus tréner, lépcsőzőgép, hasi kigördülés), vagy a
+    forrás egyértelműen kiolvasható elgépelése (`squad`=squat, `keens`=knees,
+    `rollerer`=roller). Ahol a szó szerinti összefűzés magyartalan lett volna
+    („Ölelés térd mell”), ott teljes névre szóló kivétel (NAME_OVERRIDES).
+    ELLENŐRIZVE: a generált fájl 1273 → 1313 sorra nőtt úgy, hogy egyetlen
+    KORÁBBI név sem változott meg — csak bővülés, és nincs duplikált név.
+    A maradék 13 szándékosan kint van, és a `MEGFEJTETLEN` blokk (a szótár
+    végén) soronként megmondja, miért: tulajdonnév, sérült forrás vagy
+    értelmezhetetlen kifejezés. Magyar nevet KITALÁLNI rosszabb lenne, mint
+    kihagyni: a hiányzót a felhasználó észre sem veszi, a rosszul elnevezettet
+    viszont rossz gyakorlatnak hiszi.
     Jelentés:  server/data/.exdb/report.txt
-    Bővítendő: server/data/exdb.names.hu.js → PHRASES
+    Bővítendő: server/data/exdb.names.hu.js → PHRASES / NAME_OVERRIDES
     Utána:     npm run exdb:build
 
 [ ] A származtatott `load` súlyok felülvizsgálata a gyakori gyakorlatoknál
@@ -277,12 +288,21 @@ ADATMINŐSÉG — fokozatosan bővíthető, nincs határidő
     névütközésnél mindig azok nyernek — az alapgyakorlatok tehát rendben
     vannak. Ez a tétel a ritkábban használt generált sorokra vonatkozik.
 
-[ ] Címke-heurisztika: néhány vitatható Összetett/Izolációs besorolás
+[x] Címke-heurisztika: a vitatható Összetett/Izolációs besorolások   (2026-08-26)
     A dataset nem tartalmaz `mechanic` mezőt, ezért a címkét névből +
-    terhelt izomcsoportok számából becsüljük. A nyújtó gyakorlatok azóta
-    külön „Nyújtás” címkét kapnak (50 db), a minták bővültek.
-    Hely: server/data/exdb.map.js → COMPOUND_PATTERNS / ISOLATION_PATTERNS
-    Kis hatású (csak a kártyán látszó címke), ráér.
+    terhelt izomcsoportok számából becsüljük.
+    A hiba GYÖKERE megvolt: a FELSZERELÉS neve döntött a mozgás helyett. A
+    „… on leg press machine” és a „(on pull-up cable machine)” farok miatt egy
+    vádliemelés és egy combhajlítás is összetettnek látszott. A címkézés most
+    levágja ezt a farkot (APPARATUS_SUFFIX), a `calf press` pedig kivételként
+    izolációs — attól, hogy „press”, még egy izületet mozgat.
+    Módszer: a forrás mind az 1324 nevét végigmérve 25 olyan volt, ami
+    EGYSZERRE illeszkedett összetett és izolációs mintára; ebből 7 kapott
+    tényleg rossz címkét, és pontosan az a 7 változott meg. Kettő az újonnan
+    bekerültek közül is javult: a terpeszugrás összetett lett (kardió, nem
+    izolációs), a felfelé néző kutya pedig nyújtás.
+    Hely: server/data/exdb.map.js → COMPOUND_PATTERNS / ISOLATION_PATTERNS /
+          ISOLATION_FIRST_PATTERNS / MOBILITY_PATTERNS / APPARATUS_SUFFIX
 
 [ ] 128 kurált gyakorlathoz nincs illusztráció
     A 200-ból 72-höz sikerült médiát párosítani a generált katalógusból
