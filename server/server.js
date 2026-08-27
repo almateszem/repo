@@ -16,7 +16,8 @@ import {
   addWeightEntry, getNutritionTotals, addNutritionEntry,
   getNutritionLogForDate, deleteNutritionEntry,
   getWorkouts, getWorkoutsSince, getWorkoutDates, getWeightLogSince, getUserPlanSchedules,
-  addWorkout, getWorkoutDraft, saveWorkoutDraft, clearWorkoutDraft,
+  addWorkout, updateWorkout, deleteWorkout,
+  getWorkoutDraft, saveWorkoutDraft, clearWorkoutDraft,
   getUserPlans, addPlan, updatePlan, getPlanForDay,
   getCheckin, getCheckins, saveCheckin,
   calculateEpley1RM, bestCompletedSet, getExerciseMax, getAllExerciseMaxes,
@@ -948,23 +949,29 @@ app.get('/api/notifications', (req, res) => {
     beállított terv automatikusan az edzésnaplóba töltődik, de egy megkezdett
     mai edzést sosem ír felül. A dashboard edzésneve is ebből jön. */
 function workoutTemplate(userId, today) {
+  /* A workoutId is átmegy: ha a piszkozat egy VISSZANYITOTT edzésé, akkor a
+     felület újratöltés után is tudja, hogy javítás van folyamatban — különben
+     a befejezés új, MAI edzést hozna létre a javítás helyett. */
+  const fromDraft = (draft) => ({
+    source: 'draft', name: draft.name, exercises: draft.exercises,
+    planId: draft.planId, workoutId: draft.workoutId,
+  });
+
   const draft = getWorkoutDraft(userId);
-  if (draft && draft.date === today) {
-    return { source: 'draft', name: draft.name, exercises: draft.exercises, planId: draft.planId };
-  }
+  if (draft && draft.date === today) return fromDraft(draft);
+
   const plan = getPlanForDay(userId, weekdayOf(today));
   if (plan) {
-    return { source: 'plan', name: plan.name, exercises: plan.exercises, planId: plan.id };
+    return { source: 'plan', name: plan.name, exercises: plan.exercises, planId: plan.id, workoutId: null };
   }
-  if (draft) {
-    return { source: 'draft', name: draft.name, exercises: draft.exercises, planId: draft.planId };
-  }
+  if (draft) return fromDraft(draft);
   return null;
 }
 
-/** A törzsben érkező terv-azonosító — hiányzó/érvénytelen értékre null
-    (szabad edzés, nem tervből indult). */
-const parsePlanId = (raw) => (Number.isInteger(raw) && raw > 0 ? raw : null);
+/** A törzsben érkező, NEM KÖTELEZŐ sor-azonosító (terv- vagy edzés-id) —
+    hiányzó/érvénytelen értékre null. A piszkozatnál mindkettő így viselkedik:
+    terv nélkül szabad edzés, edzés-azonosító nélkül új edzés. */
+const parseRowId = (raw) => (Number.isInteger(raw) && raw > 0 ? raw : null);
 
 // Áttekintő — minden mezője számolt érték. A készenlét és a regenerációs sorok
 // a Recovery Engine-ből, a napi kalória/fehérje a táplálkozási naplóból (hogy
@@ -1490,17 +1497,61 @@ app.put('/api/plans/:id', (req, res) => {
   res.json(updated);
 });
 
+/** Az edzés-törzs (name/exercises) közös validálása — a mentés és a javítás
+    ugyanazt követeli meg. Hibánál { error }-t ad, a parsePlanBody mintájára. */
+function parseWorkoutBody(body) {
+  const name = String(body?.name ?? '').trim();
+  if (!name || name.length > 60) {
+    return { error: 'Az edzés neve kötelező (legfeljebb 60 karakter).' };
+  }
+  const exercises = normalizeExercises(body?.exercises);
+  if (!exercises) {
+    return { error: 'Az edzésnek legalább egy érvényes gyakorlatot kell tartalmaznia.' };
+  }
+  return { name, exercises };
+}
+
 /** Edzés mentése. Törzs: { name, exercises }. A dátumot a szerver adja. */
 app.post('/api/workouts', (req, res) => {
-  const name = String(req.body?.name ?? '').trim();
-  if (!name || name.length > 60) {
-    return res.status(400).json({ error: 'Az edzés neve kötelező (legfeljebb 60 karakter).' });
+  const workout = parseWorkoutBody(req.body);
+  if (workout.error) return res.status(400).json({ error: workout.error });
+  res.status(201).json(
+    addWorkout(req.user.id, workout.name, req.today, workout.exercises, parseRowId(req.body?.planId)),
+  );
+});
+
+/**
+ * Mentett edzés javítása. Törzs: { name, exercises } — ugyanaz, mint a mentésé.
+ *
+ * A DÁTUMOT szándékosan nem lehet megadni: az edzés a saját napján marad. A
+ * javítás nem áthelyezés, és a szerver amúgy sem enged tetszőleges napra írni
+ * (ld. az X-Client-Date ellenőrzését) — a javított edzés mai edzéssé válása
+ * elcsúsztatná a sorozatot, a heti volument és a készenlét 28 napos ablakát.
+ */
+app.put('/api/workouts/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: 'Érvénytelen edzés-azonosító.' });
   }
-  const exercises = normalizeExercises(req.body?.exercises);
-  if (!exercises) {
-    return res.status(400).json({ error: 'Az edzésnek legalább egy érvényes gyakorlatot kell tartalmaznia.' });
+  const workout = parseWorkoutBody(req.body);
+  if (workout.error) return res.status(400).json({ error: workout.error });
+
+  const updated = updateWorkout(req.user.id, id, workout.name, workout.exercises);
+  if (!updated) return res.status(404).json({ error: 'Nincs ilyen edzés — lehet, hogy időközben törölték.' });
+  res.json(updated);
+});
+
+/** Mentett edzés törlése. Az egyéni csúcsok újraszámolása az adatrétegben
+    történik (deleteWorkout) — a napló és a rekordok csak együtt igazak. */
+app.delete('/api/workouts/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: 'Érvénytelen edzés-azonosító.' });
   }
-  res.status(201).json(addWorkout(req.user.id, name, req.today, exercises, parsePlanId(req.body?.planId)));
+  if (!deleteWorkout(req.user.id, id)) {
+    return res.status(404).json({ error: 'Nincs ilyen edzés — lehet, hogy időközben törölték.' });
+  }
+  res.status(204).end();
 });
 
 /** Piszkozat automatikus mentése minden változtatáskor. Törzs: { name, exercises }.
@@ -1513,7 +1564,10 @@ app.put('/api/workout-draft', (req, res) => {
   if (!exercises) {
     return res.status(400).json({ error: 'Érvénytelen piszkozat-szerkezet.' });
   }
-  res.json(saveWorkoutDraft(req.user.id, name, exercises, req.today, parsePlanId(req.body?.planId)));
+  res.json(saveWorkoutDraft(
+    req.user.id, name, exercises, req.today,
+    parseRowId(req.body?.planId), parseRowId(req.body?.workoutId),
+  ));
 });
 
 /** A piszkozat törlése — az edzés lezárása után hívja a kliens. Így ugyanaznap

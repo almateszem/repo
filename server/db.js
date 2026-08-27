@@ -125,6 +125,10 @@ db.exec(`
     exercises  TEXT NOT NULL,          -- JSON, a workouts.exercises-szel azonos alak
     date       TEXT NOT NULL DEFAULT '',            -- a mentés HELYI napja — ebből tudni, friss-e a piszkozat
     plan_id    INTEGER,                             -- melyik tervből indult (NULL, ha szabad edzés)
+    -- Melyik MENTETT edzésből nyitották vissza (NULL = új edzés). Ebből tudja a
+    -- befejezés, hogy a meglévő sort kell FRISSÍTENIE: enélkül a javított edzés
+    -- mai edzésként íródna be, és elcsúszna a napló időrendje.
+    workout_id INTEGER,
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
   -- Napi regenerációs check-in: felhasználónként és naponta egy sor.
@@ -371,6 +375,12 @@ rebuildCheckins();
 rebuildExerciseMaxes();
 db.exec('PRAGMA foreign_keys = ON');
 
+/* Ez az ensureColumn KÉSŐBB fut, mint a többi — szándékosan. A
+   rebuildWorkoutDraft ÚJRAÉPÍTI a táblát (a régi id = 1 kulcs miatt), tehát a
+   fölötte hozzáadott oszlopot menet közben eldobná. Aki ide új oszlopot vesz
+   fel a workout_draft-hoz, az ide vegye fel, ne a többi közé. */
+ensureColumn('workout_draft', 'workout_id', 'workout_id INTEGER');
+
 /* A szett-értékek korábban mértékegységgel együtt, szabad szövegként voltak
    tárolva („12 rep", „60% TM", „–"). A felület már szám-mezőkkel szerkeszti
    őket, ezért a meglévő sorokból kinyerjük a puszta számot. A művelet
@@ -418,45 +428,19 @@ migrateSetValuesToNumbers('workout_draft', 'user_id');
 
    Csak azokra a fiókokra fut, akiknek van edzésük, de EGYETLEN csúcsuk sincs —
    így a második indulásnál már nincs dolga, és aki menet közben gyűjtötte a
-   rekordjait, annak az adatához nem nyúl. */
+   rekordjait, annak az adatához nem nyúl.
+
+   Maga az újraépítés a recomputeExerciseMaxes-ban él (ld. lentebb, az egyéni
+   csúcsok között): ugyanazt a munkát végzi a törlés/javítás után is, és két
+   helyen álló, lassan elcsúszó másolatból pontosan a bestCompletedSet
+   kommentjében leírt hiba születne. */
 function backfillExerciseMaxes() {
   const userIds = db.prepare(`
     SELECT DISTINCT w.user_id AS id FROM workouts w
     WHERE NOT EXISTS (SELECT 1 FROM exercise_maxes m WHERE m.user_id = w.user_id)
   `).all().map((row) => row.id);
-  if (!userIds.length) return;
 
-  const insert = db.prepare(`INSERT INTO exercise_maxes (user_id, exercise_name, max_1rm, date)
-                             VALUES (?, ?, ?, ?)`);
-  const workoutsOf = db.prepare('SELECT date, exercises FROM workouts WHERE user_id = ? ORDER BY id');
-
-  for (const userId of userIds) {
-    const best = new Map(); // gyakorlatnév → { max1rm, date }
-    for (const row of workoutsOf.all(userId)) {
-      let exercises;
-      try { exercises = JSON.parse(row.exercises); } catch { continue; }
-      if (!Array.isArray(exercises)) continue;
-
-      for (const exercise of exercises) {
-        const name = exercise?.name;
-        if (!name) continue;
-        /* PONTOSAN ugyanaz a szabály, mint az addWorkout-ban — a rekordot hozó
-           szettet a közös bestCompletedSet adja meg. Korábban itt egy saját,
-           csak a bepipált szetteket néző ciklus állt, és ez eltért: az
-           addWorkout teljesített szett HÍJÁN az első sorra esik vissza, ez a
-           ciklus viszont ilyenkor semmit nem talált. Akinek tehát a régi
-           edzéseiben egyetlen szett sem volt bepipálva, annak a visszatöltés
-           üresen maradt — vagyis pontosan az a hamis PR keletkezett a
-           következő edzésnél, aminek a megelőzésére ez a függvény való. */
-        const record = bestCompletedSet(exercise?.sets ?? []);
-        const oneRM = record ? calculateEpley1RM(record.weight, record.reps) : 0;
-        if (oneRM <= 0) continue;
-        const current = best.get(name);
-        if (!current || oneRM > current.max1rm) best.set(name, { max1rm: oneRM, date: row.date });
-      }
-    }
-    for (const [name, record] of best) insert.run(userId, name, record.max1rm, record.date);
-  }
+  for (const userId of userIds) recomputeExerciseMaxes(userId);
 }
 backfillExerciseMaxes();
 
@@ -1207,6 +1191,87 @@ export function updateExerciseMax(userId, exerciseName, new1rm, currentDate) {
   return { max1rm: isPr ? new1rm : existing.max1rm, date: isPr ? currentDate : existing.date, isPr };
 }
 
+/**
+ * Egy felhasználó egyéni csúcsainak ÉS a mentett edzésekben tárolt `pr`
+ * jelzőknek a TELJES újraépítése a naplóból.
+ *
+ * Miért kell egyáltalán: az updateExerciseMax csak FELFELÉ lép. Amíg csak
+ * hozzáadni lehetett a naplóhoz, ez pontosan jó volt — mióta törölni és
+ * javítani is, azóta viszont a csúcs bent ragadna a megszűnt teljesítményen:
+ * elzárná a jövőbeli VALÓDI PR-t, és olyan rekordot mutatna, ami mögött nincs
+ * edzés.
+ *
+ * MIÉRT KELL A `pr` JELZŐKET IS ÚJRAÍRNI: a /api/prs és a /api/prs/history nem
+ * ebből a táblából olvas, hanem a workouts sorokban tárolt jelzőkből. Ha a
+ * törölt edzés vitte a rekordot, akkor a nála gyengébb, KÉSŐBBI edzés lesz az
+ * új csúcs — de a jelzője false maradna, és a PR-lista üresen állna egy olyan
+ * gyakorlatra, aminek közben van értéke az exercise_maxes-ben. A két tárolás
+ * csak együtt igaz.
+ *
+ * Három részlet, ami nem magától értetődő:
+ *   · A rendezés `date, id` — nem `id`. Amíg a napló csak bővült, a kettő
+ *     ugyanaz volt; a helyben javítás óta nem: egy javított RÉGI edzés a
+ *     beszúrási sorrendben későbbinek látszana, és elvinné a rekordot egy
+ *     nála frissebb edzés elől.
+ *   · A rekord `date`-je a FORRÁS-EDZÉS napja marad, sosem a mai. A
+ *     getRecentExerciseMaxes dátumra szűr, tehát különben egy törlés után az
+ *     értesítés-panel a fél napló csúcsait „friss egyéni csúcs"-ként zúdítaná be.
+ *   · A szabály a szerveré: PR az a gyakorlat, amelyik a futó maximumot
+ *     megemelte. A kliens szerkesztés közbeni, előre kitett jelzője (addWorkout
+ *     → `isPr || exercise.pr`) utólag nem reprodukálható, és nem is kell:
+ *     amit a lista kiír, annak a naplóból következnie kell.
+ */
+export function recomputeExerciseMaxes(userId) {
+  const rows = db.prepare('SELECT id, date, exercises FROM workouts WHERE user_id = ? ORDER BY date, id')
+    .all(userId);
+
+  const best = new Map();      // gyakorlatnév → { max1rm, date }
+  const rewrites = [];         // [{ id, exercises }] — csak a ténylegesen változó sorok
+
+  for (const row of rows) {
+    let exercises;
+    try { exercises = JSON.parse(row.exercises); } catch { continue; }
+    if (!Array.isArray(exercises)) continue;
+
+    let changed = false;
+    for (const exercise of exercises) {
+      const name = exercise?.name;
+      if (!name) continue;
+      /* PONTOSAN ugyanaz a szabály, mint az addWorkout-ban — a rekordot hozó
+         szettet a közös bestCompletedSet adja meg. Korábban itt egy saját,
+         csak a bepipált szetteket néző ciklus állt, és ez eltért: az
+         addWorkout teljesített szett HÍJÁN az első sorra esik vissza, ez a
+         ciklus viszont ilyenkor semmit nem talált. Akinek tehát a régi
+         edzéseiben egyetlen szett sem volt bepipálva, annak a visszatöltés
+         üresen maradt — vagyis pontosan az a hamis PR keletkezett a
+         következő edzésnél, aminek a megelőzésére ez a függvény való. */
+      const record = bestCompletedSet(exercise?.sets ?? []);
+      const oneRM = record ? calculateEpley1RM(record.weight, record.reps) : 0;
+      if (oneRM <= 0) continue;
+
+      const current = best.get(name);
+      const isPr = !current || oneRM > current.max1rm;
+      if (isPr) best.set(name, { max1rm: oneRM, date: row.date });
+
+      // A hiányzó és a false jelző ugyanaz — a régi sorokon nincs is `pr` mező
+      if (Boolean(exercise.pr) !== isPr) {
+        exercise.pr = isPr;
+        changed = true;
+      }
+    }
+    if (changed) rewrites.push({ id: row.id, exercises });
+  }
+
+  const clear = db.prepare('DELETE FROM exercise_maxes WHERE user_id = ?');
+  const insert = db.prepare(`INSERT INTO exercise_maxes (user_id, exercise_name, max_1rm, date)
+                             VALUES (?, ?, ?, ?)`);
+  const rewrite = db.prepare('UPDATE workouts SET exercises = ? WHERE id = ?');
+
+  clear.run(userId);
+  for (const [name, record] of best) insert.run(userId, name, record.max1rm, record.date);
+  for (const row of rewrites) rewrite.run(JSON.stringify(row.exercises), row.id);
+}
+
 /** A tervek ÜTEMEZÉSE, legújabb elöl — gyakorlat-lista nélkül.
     Az edzői kártyának pontosan ennyi kell (a terv-követés a hétnapokból
     számol, a kártyán a terv NEVE látszik), a gyakorlatok JSON-ja viszont a
@@ -1247,10 +1312,13 @@ export function getPlanForDay(userId, dayIndex) {
 /** Az épp szerkesztett edzés piszkozata ({ name, exercises, date, planId })
     vagy null. A planId mutatja, melyik tervből indult az edzés. */
 export function getWorkoutDraft(userId) {
-  const row = db.prepare('SELECT name, exercises, date, plan_id FROM workout_draft WHERE user_id = ?')
+  const row = db.prepare('SELECT name, exercises, date, plan_id, workout_id FROM workout_draft WHERE user_id = ?')
     .get(userId);
   return row
-    ? { name: row.name, exercises: JSON.parse(row.exercises), date: row.date, planId: row.plan_id }
+    ? {
+      name: row.name, exercises: JSON.parse(row.exercises), date: row.date,
+      planId: row.plan_id, workoutId: row.workout_id,
+    }
     : null;
 }
 
@@ -1383,15 +1451,16 @@ export function deleteNutritionEntry(userId, id, date) {
 /** A piszkozat felülírása (felhasználónként egy sor) — minden változtatásnál
     hívjuk. A date a szerver helyi napja: ebből dönti el a /api/workout-template,
     hogy a piszkozat aznapi-e, vagy jöhet helyette a napra ütemezett terv. */
-export function saveWorkoutDraft(userId, name, exercises, date, planId = null) {
-  db.prepare(`INSERT INTO workout_draft (user_id, name, exercises, date, plan_id, updated_at)
-              VALUES (?, ?, ?, ?, ?, datetime('now'))
+export function saveWorkoutDraft(userId, name, exercises, date, planId = null, workoutId = null) {
+  db.prepare(`INSERT INTO workout_draft (user_id, name, exercises, date, plan_id, workout_id, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
               ON CONFLICT(user_id) DO UPDATE SET
                 name = excluded.name, exercises = excluded.exercises,
                 date = excluded.date, plan_id = excluded.plan_id,
+                workout_id = excluded.workout_id,
                 updated_at = excluded.updated_at`)
-    .run(userId, name, JSON.stringify(exercises), date, planId);
-  return { name, exercises, planId };
+    .run(userId, name, JSON.stringify(exercises), date, planId, workoutId);
+  return { name, exercises, planId, workoutId };
 }
 
 /** A piszkozat törlése — az „Edzés befejezése" hívja, miután az edzés bekerült
@@ -1432,6 +1501,64 @@ export function addWorkout(userId, name, date, exercises, planId = null) {
     .prepare('INSERT INTO workouts (user_id, name, date, exercises, plan_id) VALUES (?, ?, ?, ?, ?)')
     .run(userId, name, date, JSON.stringify(processedExercises), planId);
   return { id: Number(lastInsertRowid), name, date, exercises: processedExercises, planId };
+}
+
+/**
+ * Mentett edzés törlése. Csak a SAJÁT sorát törli — idegen id-re false jön,
+ * ugyanaz a minta, mint az updatePlan null-ja.
+ *
+ * A törlés után a csúcsok újraépülnek: enélkül a megszűnt edzés rekordja bent
+ * ragadna, és elzárná a jövőbeli valódi PR-t (ld. recomputeExerciseMaxes).
+ * A kettő EGY tranzakcióban megy — félúton megszakadva a napló és a csúcsok
+ * ellentmondanának egymásnak.
+ */
+export function deleteWorkout(userId, id) {
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const { changes } = db.prepare('DELETE FROM workouts WHERE id = ? AND user_id = ?').run(id, userId);
+    if (changes > 0) {
+      /* Ha épp ez az edzés volt visszanyitva a szerkesztőbe, a piszkozat egy
+         megszűnt sorra hivatkozna, és a befejezés 404-be futna. A tartalmát
+         nem dobjuk el (azt a felhasználó írta) — csak elengedjük a
+         hivatkozást, így új edzésként menthető. */
+      db.prepare('UPDATE workout_draft SET workout_id = NULL WHERE user_id = ? AND workout_id = ?')
+        .run(userId, id);
+      recomputeExerciseMaxes(userId);
+    }
+    db.exec('COMMIT');
+    return changes > 0;
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+}
+
+/**
+ * Mentett edzés felülírása (név + gyakorlatok). A DÁTUMA és a plan_id-je
+ * MARAD: a javítás nem helyezi át az edzést a mai napra — különben elcsúszna
+ * a sorozat, a heti volumen és a készenlét 28 napos ablaka.
+ *
+ * A frissített sort adja vissza, vagy null-t, ha nincs ilyen id — MÁS
+ * felhasználó edzését sem lehet átírni. A sort a csúcsok újraszámolása UTÁN
+ * olvassuk vissza, tehát a válasz már a friss `pr` jelzőket viszi.
+ */
+export function updateWorkout(userId, id, name, exercises) {
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const { changes } = db.prepare('UPDATE workouts SET name = ?, exercises = ? WHERE id = ? AND user_id = ?')
+      .run(name, JSON.stringify(exercises), id, userId);
+    if (changes === 0) {
+      db.exec('COMMIT');
+      return null;
+    }
+    recomputeExerciseMaxes(userId);
+    const row = db.prepare('SELECT id, name, date, exercises, plan_id FROM workouts WHERE id = ?').get(id);
+    db.exec('COMMIT');
+    return toWorkout(row);
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
 }
 
 /** Edzésterv mentése; visszaadja a létrejött { id, name, date, exercises, days } sort. */

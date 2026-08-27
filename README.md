@@ -210,6 +210,21 @@ tartja ki a gráfból magát a vendorolt skillt (különben a saját dokumentác
 - **Az „Edzés befejezése" lezárja az edzést**: a napló bekerül a Korábbi
   edzésekhez, a piszkozat törlődik, az Edzés oldal pedig üresen áll készen a
   következőre. Ugyanaznap így nyugodtan kezdhető második edzés is.
+- **Mentett edzés javítása és törlése.** A Korábbi edzések minden sorának van
+  *Javítás* és *törlés* gombja. A javítás a szerkesztőbe nyitja vissza az
+  edzést (`workout_draft.workout_id`), és a mentés a **meglévő sort frissíti a
+  saját napján** — `PUT /api/workouts/:id`, dátum nélkül: a javítás nem
+  helyezi át az edzést a mai napra, különben elcsúszna a sorozat, a heti
+  volumen és a készenlét 28 napos ablaka. A visszanyitás ténye a piszkozattal
+  utazik, tehát újratöltés után is megmarad; a sáv a szerkesztő tetején végig
+  kiírja, melyik napot javítod.
+  **Mindkét művelet újraszámolja az egyéni csúcsokat** (`recomputeExerciseMaxes`,
+  `server/db.js`), és ez nem elhagyható: az `updateExerciseMax` csak felfelé
+  lép, tehát a megszűnt teljesítmény rekordja bent ragadna, és elzárná a
+  jövőbeli valódi PR-t. A csúcs mellett a mentett edzésekben tárolt `pr`
+  jelzők is újraépülnek — a PR-lista azokból dolgozik, nem a táblából —, így a
+  törölt rekord helyére a következő legjobb edzés lép be. A művelet
+  tranzakcióban fut: a napló és a rekordok csak együtt igazak.
 - **Napra ütemezett tervek.** A tervkészítőben kijelölt hétnapokon az adott terv
   automatikusan betöltődik az Edzés oldalra — de egy már megkezdett edzést soha
   nem ír felül.

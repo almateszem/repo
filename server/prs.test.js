@@ -130,3 +130,98 @@ test('teljesített szett híján az első sor a rekord, üres listára null', ()
   assert.equal(db.bestCompletedSet([]), null);
   assert.equal(db.bestCompletedSet(), null);
 });
+
+/* ======================================================================
+   Törlés és javítás — a csúcsok VISSZAFELÉ is követik a naplót
+   ----------------------------------------------------------------------
+   Az updateExerciseMax csak felfelé lép. Amíg a naplóhoz csak hozzáadni
+   lehetett, ez pontosan jó volt; mióta törölni és javítani is, azóta a
+   megszűnt teljesítmény csúcsa bent ragadna, és elzárná a jövőbeli VALÓDI
+   PR-t. Az itteni állítások azt kérik számon, hogy a rekord a MEGMARADT
+   edzésekből következik — és hogy a workouts sorokban tárolt `pr` jelzők
+   (amikből a PR-lista dolgozik) ugyanazt mondják, mint a tábla.
+   ====================================================================== */
+
+const torlo = db.createUser('torlo', 'Törlő Tódor', 'scrypt$16384$8$1$gg$hh').user;
+
+test('a rekordot hozó edzés törlése után a csúcs a következő legjobbra esik vissza', () => {
+  const nehez = db.addWorkout(torlo.id, 'Nehéz nap', TODAY, nyomas(100));
+  db.addWorkout(torlo.id, 'Könnyebb nap', HOLNAP, nyomas(80));
+  assert.equal(db.getExerciseMax(torlo.id, 'Fekvenyomás').max1rm, db.calculateEpley1RM(100, 5));
+
+  assert.equal(db.deleteWorkout(torlo.id, nehez.id), true);
+
+  const max = db.getExerciseMax(torlo.id, 'Fekvenyomás');
+  assert.equal(max.max1rm, db.calculateEpley1RM(80, 5), 'a csúcs a megmaradt edzésből jön');
+  assert.equal(max.date, HOLNAP, 'és a MEGMARADT edzés napját viseli, nem a mait');
+});
+
+test('a törlés a megmaradt edzés `pr` jelzőjét is átbillenti', () => {
+  // A 80 kg-os edzés mentésekor még NEM volt rekord (a 100 fölötte állt) —
+  // a törlés után viszont az lett. Ha a jelző false maradna, a PR-lista
+  // üresen állna egy olyan gyakorlatra, aminek közben van tárolt csúcsa.
+  const [maradt] = db.getWorkouts(torlo.id);
+  assert.equal(maradt.name, 'Könnyebb nap');
+  assert.equal(maradt.exercises[0].pr, true);
+});
+
+test('az utolsó edzés törlésével a csúcs is eltűnik', () => {
+  const [maradt] = db.getWorkouts(torlo.id);
+  assert.equal(db.deleteWorkout(torlo.id, maradt.id), true);
+  assert.equal(db.getExerciseMax(torlo.id, 'Fekvenyomás'), null,
+    'edzés nélkül nincs mire hivatkozni — a rekord nem élheti túl a naplóját');
+  assert.deepEqual(db.getWorkouts(torlo.id), []);
+});
+
+test('MÁS felhasználó edzését nem lehet törölni, és a csúcsaihoz sem nyúl', () => {
+  const [elekE] = db.getWorkouts(eros.id);
+  assert.equal(db.deleteWorkout(torlo.id, elekE.id), false, 'idegen sorra false');
+  assert.equal(db.deleteWorkout(torlo.id, 999999), false, 'nem létező sorra is false');
+  assert.equal(db.getExerciseMax(eros.id, 'Fekvenyomás').max1rm, db.calculateEpley1RM(100, 5),
+    'Elek csúcsa érintetlen');
+  assert.equal(db.getWorkouts(eros.id).length, 2, 'és az edzései is megvannak');
+});
+
+test('a javítás a saját napján hagyja az edzést, és újraszámolja a csúcsot', () => {
+  const user = db.createUser('javito', 'Javító Judit', 'scrypt$16384$8$1$ii$jj').user;
+  const elgepelt = db.addWorkout(user.id, 'Mellnap', TODAY, nyomas(180));
+  assert.equal(db.getExerciseMax(user.id, 'Fekvenyomás').max1rm, db.calculateEpley1RM(180, 5));
+
+  const javitott = db.updateWorkout(user.id, elgepelt.id, 'Mellnap', nyomas(80));
+
+  assert.equal(javitott.date, TODAY, 'a javítás NEM helyezi át a mai napra');
+  assert.equal(javitott.id, elgepelt.id, 'ugyanaz a sor, nem új');
+  assert.equal(db.getExerciseMax(user.id, 'Fekvenyomás').max1rm, db.calculateEpley1RM(80, 5),
+    'az elgépelt 180 kg-os rekord nem ragadhat bent');
+});
+
+test('MÁS felhasználó edzését javítani sem lehet', () => {
+  const [elekE] = db.getWorkouts(eros.id);
+  assert.equal(db.updateWorkout(kezdo.id, elekE.id, 'Átírva', nyomas(1)), null);
+  assert.equal(db.getWorkouts(eros.id)[0].name, elekE.name, 'a neve sem változott');
+});
+
+test('a csúcs a DÁTUM szerinti sorrendet követi, nem a beszúrásit', () => {
+  /* Ez a javítás miatt lényeges: egy RÉGI edzés utólag szerkesztve a
+     beszúrási sorrendben későbbinek látszik. Ha az újraszámolás id szerint
+     menne, a régi edzés vinné el a rekordot egy nála frissebb elől. */
+  const user = db.createUser('sorrend', 'Sorrend Sári', 'scrypt$16384$8$1$kk$ll').user;
+  const regi = db.addWorkout(user.id, 'Régi', TODAY, nyomas(60));
+  db.addWorkout(user.id, 'Friss', HOLNAP, nyomas(100));
+
+  // A RÉGI edzést javítjuk — a sora ettől „mozdul meg" utoljára
+  db.updateWorkout(user.id, regi.id, 'Régi javítva', nyomas(70));
+
+  const max = db.getExerciseMax(user.id, 'Fekvenyomás');
+  assert.equal(max.max1rm, db.calculateEpley1RM(100, 5), 'a nagyobb súly a rekord');
+  assert.equal(max.date, HOLNAP, 'és a FRISSEBB edzés napján áll');
+
+  /* Itt válik el a két rendezés. IDŐREND szerint a régi edzés a maga napján
+     az ELSŐ mért teljesítmény volt, tehát rekord — és az is marad. Ha az
+     újraszámolás id szerint menne, a javított sor a friss edzés UTÁN
+     következne, és a napló azt állítaná, hogy a korábbi edzés sosem volt
+     rekord. */
+  const [friss, regiSor] = db.getWorkouts(user.id);
+  assert.equal(friss.exercises[0].pr, true, 'a frissebb, nehezebb edzés rekord');
+  assert.equal(regiSor.exercises[0].pr, true, 'a korábbi edzés a maga idejében is az volt');
+});
