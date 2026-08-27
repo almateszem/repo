@@ -19,11 +19,18 @@ import { DatabaseSync } from 'node:sqlite';
 
 const workDir = mkdtempSync(path.join(tmpdir(), 'fittrack-migr-'));
 const DB_PATH = path.join(workDir, 'legacy.db');
-process.on('exit', () => rmSync(workDir, { recursive: true, force: true }));
 
 /* ---- A RÉGI séma felépítése (szó szerint a fiókok előtti alak) ---- */
 const legacyExercises = JSON.stringify(
   [{ name: 'Guggolás', pr: true, sets: [{ reps: '5', weight: '120', rpe: '8', done: true }] }],
+);
+
+/* Egy edzés, amiben EGYETLEN szett sincs bepipálva. Ez nem elméleti eset: aki
+   a naplót előre kitölti és menet közben nem pipálgat, ilyen sorokat hagy maga
+   után. Az addWorkout az ilyen gyakorlatnál az ELSŐ szettre esik vissza, tehát
+   csúcsot rögzít — a visszatöltésnek ugyanígy kell viselkednie. */
+const legacyPipalatlan = JSON.stringify(
+  [{ name: 'Vállnyomás', pr: false, sets: [{ reps: '8', weight: '40', rpe: '7', done: false }] }],
 );
 
 {
@@ -64,6 +71,8 @@ const legacyExercises = JSON.stringify(
     .run('Csirkemell', 150, 165, 31, 0, 3.6, '2026.08.15');
   old.prepare('INSERT INTO workouts (name, date, exercises) VALUES (?, ?, ?)')
     .run('Régi edzés', '2026.08.14', legacyExercises);
+  old.prepare('INSERT INTO workouts (name, date, exercises) VALUES (?, ?, ?)')
+    .run('Előre kitöltött edzés', '2026.08.13', legacyPipalatlan);
   old.prepare('INSERT INTO plans (name, date, exercises, days) VALUES (?, ?, ?, ?)')
     .run('Régi terv', '2026.08.10', legacyExercises, '[0,3]');
   old.prepare('INSERT INTO workout_draft (id, name, exercises, date) VALUES (1, ?, ?, ?)')
@@ -77,13 +86,20 @@ const legacyExercises = JSON.stringify(
 process.env.FITTRACK_DB = DB_PATH;
 const db = await import('./db.js');
 
+/* Takarítás előtt zárjuk az adatréteg kapcsolatát — Windowson a nyitott fájlt
+   tartó könyvtár törlése EPERM-mel elszáll (ld. db.js → closeDatabase). */
+process.on('exit', () => {
+  db.closeDatabase();
+  rmSync(workDir, { recursive: true, force: true });
+});
+
 test('a migráció egyetlen sort sem veszít el', () => {
   const raw = new DatabaseSync(DB_PATH);
   const count = (table) => raw.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n;
 
   assert.equal(count('weight_log'), 2);
   assert.equal(count('nutrition_log'), 1);
-  assert.equal(count('workouts'), 1);
+  assert.equal(count('workouts'), 2);
   assert.equal(count('plans'), 1);
   assert.equal(count('workout_draft'), 1);
   assert.equal(count('checkins'), 1);
@@ -118,7 +134,8 @@ test('az ELSŐ regisztráció megörökli a régi adatot', () => {
   assert.equal(adoptedLegacy, true, 'a válasz jelzi az örökölést');
 
   assert.deepEqual(db.getWeightLog(user.id).map((w) => w.kg), [84.2, 83.9]);
-  assert.deepEqual(db.getWorkouts(user.id).map((w) => w.name), ['Régi edzés']);
+  assert.deepEqual(db.getWorkouts(user.id).map((w) => w.name),
+    ['Előre kitöltött edzés', 'Régi edzés']);
   assert.deepEqual(db.getUserPlans(user.id).map((p) => p.name), ['Régi terv']);
   assert.equal(db.getWorkoutDraft(user.id).name, 'Régi piszkozat');
   assert.equal(db.getCheckin(user.id, '2026.08.15').sleepHours, 7.5);
@@ -150,6 +167,27 @@ test('a PR-követés előtti edzésekből visszatöltődnek az egyéni csúcsok'
     { name: 'Guggolás', pr: false, sets: [{ reps: '5', weight: '100', rpe: '8', done: true }] },
   ]);
   assert.equal(gyengebb.exercises[0].pr, false, 'a régi 120 kg-hoz mérődik, nem a semmihez');
+});
+
+test('a visszatöltés a bepipálatlan edzést is figyelembe veszi — mint az addWorkout', () => {
+  /* A visszatöltésnek és az addWorkout-nak UGYANAZT a szabályt kell követnie
+     (server/db.js → bestCompletedSet). A két ág egyszer már elcsúszott: a
+     visszatöltés csak a bepipált szetteket nézte, az addWorkout viszont
+     teljesített szett híján az első sorra esik vissza. Következmény: akinek a
+     régi edzéseiben nem volt pipa, annál a visszatöltés üresen maradt — és a
+     következő edzés hamis PR-t ütött, vagyis pont az történt, aminek a
+     megelőzésére a visszatöltés való. */
+  const user = db.getUserWithHash('david');
+  const max = db.getExerciseMax(user.id, 'Vállnyomás');
+  assert.ok(max, 'a bepipálatlan edzés gyakorlatához is van csúcs');
+  assert.equal(max.max1rm, db.calculateEpley1RM(40, 8), 'az első szettből, ahogy az addWorkout tenné');
+  assert.equal(max.date, '2026.08.13');
+
+  // És működik is: egy gyengébb vállnyomás már nem rekord.
+  const gyengebb = db.addWorkout(user.id, 'Váll', '2026.08.17', [
+    { name: 'Vállnyomás', pr: false, sets: [{ reps: '8', weight: '30', rpe: '7', done: true }] },
+  ]);
+  assert.equal(gyengebb.exercises[0].pr, false, 'nem hamis PR — van mihez mérni');
 });
 
 test('a MÁSODIK regisztráló nem örököl semmit', () => {

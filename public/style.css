@@ -1757,6 +1757,52 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   border-radius: var(--r-lg);
 }
 
+/* Saját étel felvitele / vonalkód-beolvasás — a kereső fölött, mert ez a
+   listával egyenrangú belépő, nem a keresés alárendeltje. */
+.nu-actions {
+  display: flex;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-6);
+}
+
+.nu-action {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  border: none;
+  border-radius: var(--r-lg);
+  padding: var(--sp-5) var(--sp-6);
+  background: var(--c-accent);
+  color: #fff;
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter var(--t-fast), background var(--t-fast);
+}
+
+.nu-action:hover { filter: brightness(1.08); }
+
+.nu-action--ghost {
+  background: none;
+  border: 1px solid var(--fg-15);
+  color: var(--text-primary);
+}
+
+.nu-action--ghost:hover {
+  filter: none;
+  background: var(--surface-hover);
+}
+
+.nu-action-icon {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
 .nu-search {
   display: flex;
   align-items: center;
@@ -1850,6 +1896,51 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 
 .nu-food-add:hover {
   background: var(--fg-15);
+}
+
+/* Saját étel: bal oldali akcentus-sáv — a 437 elemű listában a felhasználó
+   ránézésre megtalálja, amit ő vitt fel. */
+.nu-food--custom {
+  box-shadow: inset 3px 0 0 var(--c-accent);
+}
+
+.nu-food-badge {
+  flex-shrink: 0;
+  padding: 2px var(--sp-4);
+  border-radius: var(--r-full);
+  background: var(--fg-10);
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+}
+
+/* Törlés — a nu-log-remove mintájára, de halványabban: a lista fő művelete a
+   naplózás (→), a törlés csak ráközelítéskor kérje a figyelmet. */
+.nu-food-remove {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: var(--r-full);
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+  line-height: 1;
+  opacity: .5;
+  transition: color var(--t-fast), background var(--t-fast), opacity var(--t-fast);
+}
+
+.nu-food-remove:hover,
+.nu-food-remove:focus-visible {
+  opacity: 1;
+  color: var(--c-accent);
+  background: var(--surface-hover);
+}
+
+.nu-food-remove:disabled {
+  opacity: .3;
+  cursor: default;
 }
 
 .nu-empty {
@@ -2474,6 +2565,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .athlete-modal,
 .food-modal,
 .confirm-modal,
+.custom-food-modal,
+.scanner-modal,
 .pr-modal {
   position: fixed;
   inset: 0;
@@ -2489,6 +2582,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .athlete-modal.is-open,
 .food-modal.is-open,
 .confirm-modal.is-open,
+.custom-food-modal.is-open,
+.scanner-modal.is-open,
 .pr-modal.is-open {
   display: flex;
 }
@@ -2498,6 +2593,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .athlete-modal-backdrop,
 .food-modal-backdrop,
 .confirm-modal-backdrop,
+.custom-food-modal-backdrop,
+.scanner-modal-backdrop,
 .pr-modal-backdrop {
   position: absolute;
   inset: 0;
@@ -2512,6 +2609,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .athlete-modal-card,
 .food-modal-card,
 .confirm-modal-card,
+.custom-food-modal-card,
+.scanner-modal-card,
 .pr-modal-card {
   position: relative;
   width: 100%;
@@ -2542,6 +2641,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .athlete-modal-head,
 .food-modal-head,
 .confirm-modal-head,
+.custom-food-modal-head,
+.scanner-modal-head,
 .pr-modal-head {
   display: flex;
   align-items: flex-start;
@@ -2555,6 +2656,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .athlete-modal-head h3,
 .food-modal-head h3,
 .confirm-modal-head h3,
+.custom-food-modal-head h3,
+.scanner-modal-head h3,
 .pr-modal-head h3 {
   margin: 0;
   font-size: var(--fs-lg);
@@ -2566,6 +2669,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .athlete-modal-close,
 .food-modal-close,
 .confirm-modal-close,
+.custom-food-modal-close,
+.scanner-modal-close,
 .pr-modal-close {
   background: none;
   border: none;
@@ -2580,6 +2685,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .athlete-modal-close:hover,
 .food-modal-close:hover,
 .confirm-modal-close:hover,
+.custom-food-modal-close:hover,
+.scanner-modal-close:hover,
 .pr-modal-close:hover {
   color: var(--fg-100);
 }
@@ -3257,6 +3364,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .athlete-modal.is-closing,
 .food-modal.is-closing,
 .confirm-modal.is-closing,
+.custom-food-modal.is-closing,
+.scanner-modal.is-closing,
 .pr-modal.is-closing {
   display: flex;
 }
@@ -3266,6 +3375,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .athlete-modal.is-closing .athlete-modal-card,
 .food-modal.is-closing .food-modal-card,
 .confirm-modal.is-closing .confirm-modal-card,
+.custom-food-modal.is-closing .custom-food-modal-card,
+.scanner-modal.is-closing .scanner-modal-card,
 .pr-modal.is-closing .pr-modal-card {
   animation: modal-out .18s ease both;
 }
@@ -3275,6 +3386,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .athlete-modal.is-closing .athlete-modal-backdrop,
 .food-modal.is-closing .food-modal-backdrop,
 .confirm-modal.is-closing .confirm-modal-backdrop,
+.custom-food-modal.is-closing .custom-food-modal-backdrop,
+.scanner-modal.is-closing .scanner-modal-backdrop,
 .pr-modal.is-closing .pr-modal-backdrop {
   animation: fade-out .18s ease both;
 }
@@ -6169,3 +6282,361 @@ details[open] > .rc-details-summary::before {
 }
 
 .st-logout:hover { background: rgba(224, 67, 90, .12); }
+
+
+/* ==========================================================================
+   27. Saját étel modál (cf-*) + vonalkód-olvasó (sc-*)
+   ========================================================================== */
+
+/* A közös 420 px-es modál-szélesség az űrlapnak szűk: három makró-mező egy
+   sorban 460 px alatt már összenyomódna. (A 24. szekció a .food-modal-card-ot
+   ugyanígy írja felül.) */
+.custom-food-modal-card,
+.scanner-modal-card {
+  max-width: 460px;
+}
+
+/* ---- Űrlap ---- */
+.cf-form {
+  display: grid;
+  gap: var(--sp-5);
+}
+
+.cf-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--sp-4);
+}
+
+.cf-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.cf-field--narrow { width: 88px; }
+
+.cf-label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.cf-optional {
+  font-weight: 400;
+  opacity: .75;
+}
+
+/* Az input-formanyelvet a beállítások .st-input-jától örököljük — nem
+   születik harmadik mezőstílus az appban. */
+.cf-input {
+  width: 100%;
+  background: var(--surface-input);
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  padding: var(--sp-4) var(--sp-5);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: var(--fs-input);
+  transition: background var(--t-fast), border-color var(--t-fast);
+}
+
+.cf-input:focus {
+  outline: none;
+  background: var(--surface-hover);
+  border-color: var(--fg-40);
+}
+
+.cf-input::placeholder { color: var(--text-muted); }
+
+.cf-select { cursor: pointer; }
+
+.cf-num { font-variant-numeric: tabular-nums; }
+
+/* ---- Makró-blokk ---- */
+.cf-macros {
+  border: 1px solid var(--fg-10);
+  border-radius: var(--r-lg);
+  padding: var(--sp-5) var(--sp-6) var(--sp-6);
+  margin: 0;
+}
+
+.cf-legend {
+  padding: 0 var(--sp-3);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.cf-macro-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-4);
+}
+
+/* Keskeny telefonon a három mező egymás alá kerül — összenyomva a „Szénhidrát"
+   címke amúgy is olvashatatlan lenne. */
+@media (max-width: 400px) {
+  .cf-macro-grid { grid-template-columns: 1fr; }
+}
+
+/* ---- Kalória ---- */
+.cf-kcal {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  align-items: end;
+  gap: var(--sp-5);
+}
+
+/* Látható jelzés arról, hogy a kézi érték „ragad", és nem számolódik újra. */
+.cf-kcal-input.is-manual {
+  border-color: var(--c-accent);
+}
+
+.cf-kcal-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding-bottom: var(--sp-2);
+}
+
+.cf-kcal-state {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.cf-kcal-reset {
+  border: 1px solid var(--fg-15);
+  border-radius: var(--r-full);
+  background: none;
+  padding: 2px var(--sp-4);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--t-fast);
+}
+
+.cf-kcal-reset:hover { background: var(--surface-hover); }
+
+.cf-hint {
+  margin: calc(var(--sp-3) * -1) 0 0;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+/* ---- Vonalkód ---- */
+.cf-barcode {
+  display: flex;
+  gap: var(--sp-4);
+}
+
+.cf-barcode .cf-input { flex: 1; }
+
+.cf-scan {
+  flex-shrink: 0;
+  border: 1px solid var(--fg-15);
+  border-radius: var(--r-md);
+  background: none;
+  padding: 0 var(--sp-6);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--t-fast);
+}
+
+.cf-scan:hover { background: var(--surface-hover); }
+
+/* ---- Visszajelzések ---- */
+.cf-source {
+  margin: 0;
+  padding: var(--sp-4) var(--sp-5);
+  border-radius: var(--r-md);
+  background: var(--fg-06);
+  border: 1px solid var(--fg-10);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.cf-error,
+.sc-error {
+  margin: 0;
+  padding: var(--sp-5) var(--sp-6);
+  border-radius: var(--r-md);
+  background: rgba(224, 67, 90, .12);
+  border: 1px solid var(--c-accent);
+  color: var(--c-accent);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+.cf-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--sp-4);
+  margin-top: var(--sp-3);
+}
+
+.cf-cancel,
+.cf-save,
+.cf-save-log {
+  border-radius: var(--r-md);
+  padding: var(--sp-5) var(--sp-7);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--t-fast), filter var(--t-fast);
+}
+
+.cf-cancel,
+.cf-save {
+  background: none;
+  border: 1px solid var(--fg-15);
+  color: var(--text-primary);
+}
+
+.cf-cancel:hover,
+.cf-save:hover { background: var(--surface-hover); }
+
+.cf-save-log {
+  border: none;
+  background: var(--c-accent);
+  color: #fff;
+}
+
+.cf-save-log:hover { filter: brightness(1.08); }
+
+.cf-save:disabled,
+.cf-save-log:disabled {
+  opacity: .5;
+  cursor: default;
+  filter: none;
+}
+
+/* ==========================================================================
+   Vonalkód-olvasó (sc-*)
+   ========================================================================== */
+.sc-stage {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--r-xl);
+  overflow: hidden;
+  background: var(--surface-input);
+  margin-bottom: var(--sp-6);
+}
+
+.sc-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Célkeret: megmondja, hova kell tartani a csomagolást. A vonalkód fekvő,
+   ezért a keret is széles és alacsony. */
+.sc-frame {
+  position: absolute;
+  inset: 28% 8%;
+  border: 2px solid rgba(255, 255, 255, .85);
+  border-radius: var(--r-md);
+  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .35);
+  pointer-events: none;
+}
+
+/* Pásztázó vonal — a „dolgozik" jelzése; enélkül a felhasználó nem tudja,
+   hogy a szkennelés fut-e egyáltalán. */
+.sc-laser {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  height: 2px;
+  background: var(--c-accent);
+  box-shadow: 0 0 8px var(--c-accent);
+  animation: sc-scan 1.6s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes sc-scan {
+  from { top: 30%; }
+  to   { top: 70%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-laser {
+    animation: none;
+    top: 50%;
+  }
+}
+
+.sc-torch {
+  position: absolute;
+  top: var(--sp-5);
+  right: var(--sp-5);
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: var(--r-full);
+  background: rgba(0, 0, 0, .5);
+  font-size: var(--fs-base);
+  line-height: 1;
+  cursor: pointer;
+  transition: background var(--t-fast);
+}
+
+.sc-torch[aria-pressed="true"] {
+  background: var(--c-accent);
+}
+
+.sc-status {
+  margin: 0 0 var(--sp-5);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.sc-status:empty { display: none; }
+
+.sc-error { margin-bottom: var(--sp-6); }
+
+/* A kézi beírás mindig látszik: sima http-n a kamera nem is indul el, és a
+   karcos csomagolást a legjobb dekóder sem olvassa le. */
+.sc-manual {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding-top: var(--sp-6);
+  border-top: 1px solid var(--fg-10);
+}
+
+.sc-manual-row {
+  display: flex;
+  gap: var(--sp-4);
+}
+
+.sc-manual-row .cf-input {
+  flex: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.sc-manual-go {
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--r-md);
+  background: var(--c-accent);
+  color: #fff;
+  padding: 0 var(--sp-7);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter var(--t-fast);
+}
+
+.sc-manual-go:hover { filter: brightness(1.08); }

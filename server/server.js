@@ -21,7 +21,12 @@ import {
   calculateEpley1RM, bestCompletedSet, getExerciseMax, getAllExerciseMaxes,
   createUser, getUserWithHash, hasAnyUser,
   createSession, getSessionUser, deleteSession, purgeExpiredSessions,
+  getFoodsForUser, findFoodForUser, addCustomFood, deleteCustomFood,
+  getCustomFoodByBarcode, readBarcodeCache, writeBarcodeCache,
 } from './db.js';
+// Vonalkód-feloldás: a normalizálás/ellenőrzés és az Open Food Facts hívás.
+import { normalizeBarcode, fetchProduct } from './openfoodfacts.js';
+import { FOOD_GROUPS } from './data/foods.hu.js';
 import {
   hashPassword, verifyPassword, createSessionToken, hashToken,
   parseCookies, serializeCookie, isLockedOut, recordFailure, clearFailures,
@@ -203,10 +208,11 @@ const normalizeDays = (raw) => (Array.isArray(raw) ? raw : [])
    A frontend `api.getX()` metódusai ezeket a végpontokat hívják. Az olvasó-
    végpontok egy-egy collections-kulcsot adnak vissza; az útvonal → kulcs
    megfeleltetés egy helyen, hogy a lista könnyen bővíthető legyen.
-   (A weight-log NEM itt van: saját táblából, dedikált route-tal jön.)
+   (A weight-log NEM itt van: saját táblából, dedikált route-tal jön.
+    A /api/foods SEM: mióta a felhasználó saját ételt is felvihet, a válasz
+    fiókfüggő — dedikált route-ot kapott a táplálkozási végpontok között.)
    ====================================================================== */
 const READ_ENDPOINTS = {
-  '/api/foods': 'foods',
   '/api/athletes': 'athletes',
   '/api/notifications': 'notifications',
   '/api/default-set': 'defaultSet',
@@ -479,7 +485,20 @@ app.get('/api/prs', (req, res) => {
 // paraméterben kapja a gyakorlat nevét, mert az útvonal-illesztést törné
 // a benne előforduló szóköz/ékezet/perjel.
 app.get('/api/prs/history', (req, res) => {
+  /* A query-paraméter nem feltétlenül sztring: hiányozhat, és ismétlődő
+     megadásnál (?exercise=a&exercise=b) az Express TÖMBÖT ad. Mindkét esetben
+     a névegyezés sosem teljesült, tehát a végpont üres listával válaszolt —
+     ami megkülönböztethetetlen volt attól, hogy a gyakorlathoz tényleg nincs
+     rekord. Az ilyen kérés mostantól hangosan hibás, a szerver többi
+     végpontjához hasonlóan. Az ISMERT alakú, de ismeretlen nevű gyakorlat
+     viszont továbbra is üres lista — az nem hiba, csak nincs még rekordja. */
   const exerciseName = req.query.exercise;
+  if (typeof exerciseName !== 'string' || !exerciseName.trim()) {
+    return res.status(400).json({
+      error: 'Add meg pontosan egy gyakorlat nevét az `exercise` paraméterben.',
+    });
+  }
+
   const history = [];
   for (const workout of getWorkouts(req.user.id)) {
     for (const exercise of workout.exercises) {
@@ -600,6 +619,12 @@ app.get('/api/charts', (req, res) => res.json({ ...getCollection('charts'), ...v
 // Testsúly-napló — a valódi weight_log táblából
 app.get('/api/weight-log', (req, res) => res.json(getWeightLog(req.user.id)));
 
+/** Az étel-lista: elöl a hívó SAJÁT ételei, utánuk a beépített katalógus.
+    Ezért nem maradhatott a READ_ENDPOINTS generikus ágán — az felhasználó-
+    független kollekciókat szolgál ki. A getCollection('foods') tömbje
+    megosztott és cache-elt: a getFoodsForUser ÚJ tömböt képez belőle. */
+app.get('/api/foods', (req, res) => res.json(getFoodsForUser(req.user.id)));
+
 // Napi táplálkozási összesítő (alap + a MAI naplózott ételek)
 app.get('/api/nutrition', (req, res) => res.json(getNutritionTotals(req.user.id, today())));
 
@@ -641,7 +666,11 @@ app.post('/api/weight-log', (req, res) => {
 const MAX_PORTION_GRAMS = 2000;
 app.post('/api/nutrition/log', (req, res) => {
   const name = String(req.body?.name ?? '');
-  const food = (getCollection('foods') || []).find((f) => f.name === name);
+  // A saját étel is naplózható; névütközéskor az ÖVÉ nyer (findFoodForUser).
+  // Az addNutritionEntry innentől sem tud róla, hogy az étel „saját": a
+  // nutrition_log a nevet és a kiszámolt makrókat MÁSOLATBAN tárolja, ezért a
+  // saját étel későbbi törlése a régi bejegyzéseket és összesítőket nem sérti.
+  const food = findFoodForUser(req.user.id, name);
   if (!food) {
     return res.status(400).json({ error: 'Ismeretlen étel — csak a listában szereplő adható a naplóhoz.' });
   }
@@ -668,6 +697,197 @@ app.delete('/api/nutrition/log/:id', (req, res) => {
     return res.status(404).json({ error: 'Ez a bejegyzés nem törölhető — csak a mai napló módosítható.' });
   }
   res.json(totals);
+});
+
+/* ======================================================================
+   Saját ételek + vonalkód
+   ----------------------------------------------------------------------
+   A beépített katalógus 437 általános referencia-étel. Egy konkrét bolti
+   termék tápértéke ettől jócskán eltérhet (két csokoládé között 100 kcal is
+   lehet), ezért a felhasználó felvihet sajátot — kézzel, vagy a csomagolás
+   vonalkódjáról, az Open Food Facts adataival előre kitöltve.
+   ====================================================================== */
+
+const CUSTOM_NAME_MIN = 2;
+const CUSTOM_NAME_MAX = 60;
+const MACRO_MAX = 100;        // g / 100 g — ennél több fizikailag nem fér bele
+const MACRO_SUM_MAX = 100.5;  // fél gramm tűrés a kerekítésnek
+const KCAL_MAX = 900;         // 100 g tiszta zsír ~900 kcal
+/** Atwater-tényezők: ennyi kcal-t ad egy gramm makrotápanyag. */
+const ATWATER = { protein: 4, carbs: 4, fat: 9 };
+
+/** Egy makró-mező: véges szám, 0 és 100 g között, egy tizedesre kerekítve
+    (mint a nutrition_log-ban) — érvénytelenre null. */
+const macroValue = (raw) => {
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value < 0 || value > MACRO_MAX) return null;
+  return Math.round(value * 10) / 10;
+};
+
+/** Adag-előbeállítások: [['1 adag', 150], …] — max 4 db, 1–2000 g/ml.
+    A rosszul megadott elemeket csendben eldobjuk: ez kényelmi mező, nem
+    kötelező adat, egy hibás gyorsgomb miatt nem érdemes elutasítani a mentést. */
+const normalizePortions = (raw) => (Array.isArray(raw) ? raw : [])
+  .map((portion) => [String(portion?.[0] ?? '').trim().slice(0, 24), Math.round(Number(portion?.[1]))])
+  .filter(([label, value]) => label && Number.isFinite(value) && value >= 1 && value <= MAX_PORTION_GRAMS)
+  .slice(0, 4);
+
+/** Saját étel felvitele. Törzs:
+      { name, group?, unit?, brand?, protein, carbs, fat,
+        kcal?, kcalMode?, barcode?, portions?, source? }
+
+    A makrók 100 g / 100 ml alapmennyiségre értendők — ugyanúgy, mint a
+    beépített katalógusban, így a naplózás semmit nem tud meg arról, hogy az
+    étel „saját".
+
+    A kalóriát ALAPBÓL a szerver számolja az Atwater-tényezőkkel (4/4/9), a
+    felület pedig élőben mutatja ugyanezt. Ha a felhasználó felülírja
+    (kcalMode: 'manual'), elfogadjuk — a csomagoláson lévő érték a rost, a
+    poliolok és az alkohol miatt jogosan eltérhet —, de csak ésszerű sávban: a
+    képlettől való nagy eltérés jóval valószínűbben elgépelés, mint tény. */
+app.post('/api/foods/custom', (req, res) => {
+  const name = String(req.body?.name ?? '').replace(/\s+/g, ' ').trim();
+  if (name.length < CUSTOM_NAME_MIN || name.length > CUSTOM_NAME_MAX) {
+    return res.status(400).json({
+      error: `Az étel neve ${CUSTOM_NAME_MIN} és ${CUSTOM_NAME_MAX} karakter között lehet.`,
+    });
+  }
+
+  const unit = req.body?.unit === 'ml' ? 'ml' : 'g';
+
+  const group = String(req.body?.group ?? '').trim();
+  if (group && !FOOD_GROUPS.includes(group)) {
+    return res.status(400).json({ error: 'Ismeretlen kategória.' });
+  }
+
+  const protein = macroValue(req.body?.protein);
+  const carbs = macroValue(req.body?.carbs);
+  const fat = macroValue(req.body?.fat);
+  if (protein === null || carbs === null || fat === null) {
+    return res.status(400).json({
+      error: `A fehérje, a szénhidrát és a zsír 0 és ${MACRO_MAX} g között adható meg (100 ${unit}-ra).`,
+    });
+  }
+  if (protein + carbs + fat > MACRO_SUM_MAX) {
+    return res.status(400).json({
+      error: `A három makró összege nem lehet több 100 g-nál 100 ${unit}-ban.`,
+    });
+  }
+
+  const computed = Math.round(
+    protein * ATWATER.protein + carbs * ATWATER.carbs + fat * ATWATER.fat,
+  );
+  let kcal = computed;
+  const manual = req.body?.kcalMode === 'manual' && req.body?.kcal !== undefined;
+  if (manual) {
+    const raw = Number(req.body.kcal);
+    if (!Number.isFinite(raw) || raw < 0 || raw > KCAL_MAX) {
+      return res.status(400).json({
+        error: `A kalória 0 és ${KCAL_MAX} kcal között adható meg (100 ${unit}-ra).`,
+      });
+    }
+    // Tűrés: a nagyobbik a fix 50 kcal-ból és a számított 30%-ából. A fix
+    // alsó határ a kis értékek miatt kell (10 kcal-nál a 30% három kcal lenne).
+    const tolerance = Math.max(50, Math.round(computed * 0.3));
+    if (Math.abs(raw - computed) > tolerance) {
+      return res.status(400).json({
+        error: `A megadott ${Math.round(raw)} kcal nem fér össze a makrókkal `
+             + `(a képlet szerint ${computed} kcal). Ellenőrizd a makrókat, `
+             + 'vagy számoltasd újra a kalóriát.',
+      });
+    }
+    kcal = Math.round(raw);
+  }
+
+  let barcode = null;
+  const rawBarcode = req.body?.barcode;
+  if (rawBarcode !== undefined && rawBarcode !== null && rawBarcode !== '') {
+    barcode = normalizeBarcode(rawBarcode);
+    if (!barcode) {
+      return res.status(400).json({
+        error: 'Érvénytelen vonalkód — 8, 12, 13 vagy 14 számjegy, helyes ellenőrzőszámmal.',
+      });
+    }
+  }
+
+  // A név NEM ütközhet a beépített katalógussal: a naplózás NÉVVEL hivatkozik
+  // az ételre, két azonos név eltérő tápértékkel megfejthetetlen lenne.
+  if ((getCollection('foods') || []).some((f) => f.name.toLowerCase() === name.toLowerCase())) {
+    return res.status(409).json({ error: 'Ez a név szerepel az alap étel-listában — válassz másikat.' });
+  }
+
+  const saved = addCustomFood(req.user.id, {
+    name,
+    brand: String(req.body?.brand ?? '').trim().slice(0, 60),
+    group,
+    unit,
+    kcal,
+    protein,
+    carbs,
+    fat,
+    kcalAuto: !manual,
+    barcode,
+    portions: normalizePortions(req.body?.portions),
+    source: req.body?.source === 'openfoodfacts' ? 'openfoodfacts' : 'manual',
+  });
+  if (!saved) {
+    return res.status(409).json({ error: 'Már van ilyen nevű vagy ilyen vonalkódú saját ételed.' });
+  }
+  res.status(201).json(saved);
+});
+
+/** Saját étel törlése. A MÁR LENAPLÓZOTT bejegyzéseket nem érinti: a
+    nutrition_log a nevet és a makrókat másolatban tárolja, a korábbi napok
+    összesítői tehát nem változnak meg visszamenőleg. */
+app.delete('/api/foods/custom/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: 'Érvénytelen étel-azonosító.' });
+  }
+  if (!deleteCustomFood(req.user.id, id)) {
+    return res.status(404).json({ error: 'Nincs ilyen saját ételed.' });
+  }
+  res.status(204).end();
+});
+
+/** Vonalkód feloldása. A keresés sorrendje — minden lépés megspórol egy
+    hálózati kört a következőhöz képest:
+      1. a hívó SAJÁT, ilyen vonalkódú étele → a felület egyből naplózásra
+         kínálja, nem kérdezi meg újra a tápértékeket;
+      2. friss cache-sor (barcode_cache);
+      3. Open Food Facts (szerver-oldali proxy, azonosított User-Agenttel).
+    A válasz `source` mezője megmondja, honnan jött — a felület ebből tudja,
+    hogy „mentve" vagy „kitöltendő" állapotot mutasson. */
+app.get('/api/foods/barcode/:code', async (req, res) => {
+  const barcode = normalizeBarcode(req.params.code);
+  if (!barcode) {
+    return res.status(400).json({
+      error: 'Érvénytelen vonalkód — 8, 12, 13 vagy 14 számjegy, helyes ellenőrzőszámmal.',
+    });
+  }
+
+  const own = getCustomFoodByBarcode(req.user.id, barcode);
+  if (own) return res.json({ source: 'saved', barcode, food: own });
+
+  const notFound = { error: 'Ezt a vonalkódot az Open Food Facts sem ismeri — vidd fel kézzel.' };
+
+  const cached = readBarcodeCache(barcode);
+  if (cached) {
+    return cached.found
+      ? res.json({ source: 'cache', barcode, product: cached.product })
+      : res.status(404).json(notFound);
+  }
+
+  const result = await fetchProduct(barcode);
+  if (!result.ok) {
+    // Hálózati hiba: NEM cache-eljük — holnap (vagy egy perc múlva) sikerülhet.
+    return res.status(502).json({
+      error: 'Az Open Food Facts most nem elérhető — próbáld később, vagy vidd fel kézzel.',
+    });
+  }
+  writeBarcodeCache(barcode, result.product);
+  if (!result.product) return res.status(404).json(notFound);
+  res.json({ source: 'openfoodfacts', barcode, product: result.product });
 });
 
 /** RPE normalizálása: az üres érték üres marad (az RPE nem kötelező),
@@ -812,8 +1032,25 @@ app.use('/api', (req, res) => {
    A szerver-belső (kód, DB-fájl, node_modules) így eleve nem érhető el
    http-n, nem kell hozzá tiltólista.
    ====================================================================== */
+
+/* A ZXing vonalkód-dekóder UMD-bundle-je. Bundler nincs a projektben, a
+   public/ mappát viszont nem szemeteljük tele egy 336 KB-os függőség
+   másolatával — ezért a node_modules-ból EZT AZ EGY mappát tesszük ki,
+   semmi mást. A frontend lustán, csak a szkennelés indításakor tölti be, és
+   ha a csomag nincs telepítve, a 404-re a kézi vonalkód-beírásra vált.
+   A statikus kiszolgálás nem enged ki a mappából (az express.static a
+   ../-t tartalmazó útvonalakat elutasítja), tehát a node_modules többi
+   része továbbra sem érhető el. */
+app.use('/vendor/zxing', express.static(
+  path.join(__dirname, '..', 'node_modules', '@zxing', 'library', 'umd'),
+));
+
 app.use(express.static(PUBLIC_DIR));
 
-app.listen(PORT, () => {
-  console.log(`FitTrack Pro szerver fut: http://localhost:${PORT}`);
+/* A TÉNYLEGESEN kiosztott portot írjuk ki, nem a kért PORT-ot. A kettő
+   rendszerint ugyanaz, de PORT=0 esetén az operációs rendszer választ szabad
+   portot — így indul a végponti teszt (server/api.test.js) is, ami ebből a
+   sorból olvassa ki, hova küldje a kéréseket. */
+const server = app.listen(PORT, () => {
+  console.log(`FitTrack Pro szerver fut: http://localhost:${server.address().port}`);
 });
