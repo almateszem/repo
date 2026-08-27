@@ -240,3 +240,74 @@ test('terv nélkül a heti állás „x/–", és az összpontszám a készenlé
   assert.equal(card.plan, null);
   assert.equal(card.lastMessage, null);
 });
+
+/* ======================================================================
+   Ablakozott edzés-napló
+   ----------------------------------------------------------------------
+   Az edzői panel nem olvassa be a sportoló TELJES naplóját, csak az utolsó
+   pár hetet (server.js -> CARD_WINDOW_DAYS): a készenlét-motor és a
+   terv-követés úgyis eldobja a régebbit. Ami viszont kilóg az ablakból, azt
+   a NAPOK listája hozza — a lentiek pontosan azt őrzik, hogy ettől ne
+   sérüljön a kártya.
+   ====================================================================== */
+
+test('az ablakon KÍVÜLI utolsó edzés is látszik a kártyán', () => {
+  const card = buildAthleteCard({
+    athlete: { linkId: 1, username: 'petra', name: 'Nagy Petra', goal: null },
+    // Az ablakban nincs edzés — a sportoló két hónapja nem járt edzeni
+    workouts: [],
+    workoutDates: [daysAgo(62), daysAgo(64)],
+    plans: [],
+    checkins: [{ date: daysAgo(0) }, { date: daysAgo(70) }],
+    weightLog: [],
+    readiness: 90,
+    streak: 0,
+    lastMessage: null,
+    today: TODAY,
+  });
+
+  assert.equal(card.lastWorkout, '62 napja', 'nem „—", és nem is a mai nap');
+  assert.match(
+    card.alert, /62 napja nem edzett/,
+    'a riasztás a valódi kihagyást mondja, nem azt, hogy „még nincs naplózott edzés"',
+  );
+});
+
+test('a sorozat az ablaknál hosszabb is lehet — a hívó számolja a napokból', () => {
+  /* 50 egymást követő edzésnap: az ablak ennek a felét sem fogja át, a kártya
+     mégis az igazi hosszt mutatja, mert a `streak` a napok listájából jön. */
+  const dates = Array.from({ length: 50 }, (_, i) => daysAgo(i));
+  const card = buildAthleteCard({
+    athlete: { linkId: 1, username: 'petra', name: 'Nagy Petra', goal: null },
+    workouts: [workout(daysAgo(0)), workout(daysAgo(1))],
+    workoutDates: dates,
+    plans: [],
+    checkins: [],
+    weightLog: [],
+    readiness: 80,
+    streak: 50,
+    lastMessage: null,
+    today: TODAY,
+  });
+
+  assert.equal(card.streak, 50);
+  assert.equal(card.lastWorkout, 'ma');
+});
+
+test('workoutDates nélkül minden a régi módon, az edzésekből képződik', () => {
+  /* Visszafelé kompatibilitás: a mező elhagyható, és akkor a lista maga adja
+     a napokat — az ablakozatlan hívók (és a tesztek) ezt használják. */
+  const card = buildAthleteCard({
+    athlete: { linkId: 1, username: 'petra', name: 'Nagy Petra', goal: null },
+    workouts: [workout(daysAgo(2)), workout(daysAgo(9))],
+    plans: [],
+    checkins: [],
+    weightLog: [],
+    readiness: 80,
+    streak: 0,
+    lastMessage: null,
+    today: TODAY,
+  });
+
+  assert.equal(card.lastWorkout, '2 napja');
+});

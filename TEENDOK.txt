@@ -78,15 +78,28 @@ EDZŐ–SPORTOLÓ KAPCSOLAT — a 2026-08-25-i átállás után maradt tételek
     vezetve van, így a következő kör nem rajzolja újra a szálat (eddig a
     hírfolyam aljára rántotta az olvasót olvasás közben).
 
-[ ] Az edzői panel ára a sportolók számával nő
-    A GET /api/athletes SPORTOLÓNKÉNT lefuttatja a teljes készenlét-számítást
-    (getWorkouts + computeReadiness). Mérve 2026-08-25: 8 sportoló, mindegyik
-    1 éves naplóval → 38 ms egyetlen kérésre (~5 ms/sportoló), és ez a
-    szinkron SQLite miatt végig blokkolja az event loopot.
-    20-30 sportolónál már érezhető lesz. Válaszok, ha odáig jutunk: a kártya
-    számait elég ritkábban újraszámolni (gyorsítótár a sportoló utolsó
-    edzés-mentéséig érvényesítve), vagy a 28 napos ablakra szűkített
-    getWorkouts (ld. a teljesítmény-szakasz utolsó bekezdését).
+[x] Az edzői panel ára a sportolók számával nő   (2026-08-26)
+    A javítás a két javasolt válasz közül a MÁSODIK lett: a napló ablakozva
+    jön be, gyorsítótár nélkül. A kártya minden számítása belefér 28 napba (a
+    készenlét-motor a személyes referenciát ennyiből képzi és a régebbit el is
+    dobja, a terv-követés ablaka szintén 28 nap, a heti állás egy hét), az
+    olvasás viszont eddig a TELJES naplót felhozta és JSON-ból visszafejtette
+    — sportolónként, minden panel-frissítésnél.
+    Ami kilóg az ablakból, azt az EDZÉSNAPOK listája adja (getWorkoutDates):
+    az a teljes előzményt látja, de gyakorlat-listát nem olvas, tehát olcsó.
+    Két dolog múlik rajta, és mindkettőt elrontotta volna a puszta ablak:
+    a sorozat hossza tetszőlegesen régre nyúlhat, és az „utolsó edzés" akkor
+    is létezik, ha két hónapja volt — enélkül a kártya „még nincs naplózott
+    edzés"-t írt volna egy rég nem edző sportolóra.
+    Ugyanígy ablakozva jön a check-in (a motor 3 napot néz az alvásadóssághoz,
+    28-at a megbízhatósághoz) és a testsúly (a motort csak az UTOLSÓ mérés
+    érdekli); a tervekből pedig csak az ütemezés (getUserPlanSchedules) —
+    a gyakorlat-listájukat a kártya sosem használta.
+    Mérve 2026-08-26, 1 éves naplókkal, azonos gépen:
+        20 sportoló:  107,6 ms → 38,2 ms   (~5,4 → ~1,9 ms/sportoló)
+        10 párhuzamos kérés:  1051 ms → 379 ms
+        30 sportoló (az új mérce):  57,6 ms
+    A gyorsítótár így megspórolva: ~2 ms/sportolónál nincs mit érvényteleníteni.
 
 [ ] Az edző nem tud tervet kiosztani a sportolónak
     A részletmodálból korábban két demo-gomb nyílt („Terv szerkesztése",
