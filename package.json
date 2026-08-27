@@ -16,6 +16,7 @@
     "exdb:media": "node scripts/fetch-exdb-media.js"
   },
   "dependencies": {
+    "@zxing/library": "^0.21.3",
     "express": "^4.21.2"
   }
 }

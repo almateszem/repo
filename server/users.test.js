@@ -53,6 +53,12 @@ const food = { name: 'Teszt étel', kcal: 100, protein: 10, carbs: 10, fat: 5 };
 const annaEntry = db.addNutritionEntry(anna.id, food, TODAY, 100).entry;
 const belaEntry = db.addNutritionEntry(bela.id, food, TODAY, 200).entry;
 
+// A saját ételek is felhasználói adat — ugyanaz az izolációs elvárás áll rájuk.
+const annaFood = db.addCustomFood(anna.id, {
+  name: 'Anna müzlije', unit: 'g', kcal: 380, protein: 9, carbs: 62, fat: 10,
+  kcalAuto: true, barcode: '5998200310010',
+});
+
 test('a fiók létrehozása nem adja vissza a jelszót, és a név foglalt lesz', () => {
   assert.deepEqual(Object.keys(anna).sort(), ['displayName', 'id', 'username']);
   assert.equal(db.createUser('anna', 'Másik Anna', 'scrypt$1$1$1$x$y'), null, 'foglalt név');
@@ -146,8 +152,55 @@ test('az export CSAK a hívó adatát tartalmazza', () => {
   // A referencia-adat (közös) viszont benne van — abból mindenki ugyanazt kapja
   assert.ok(Array.isArray(snapshot.foods) && snapshot.foods.length > 0);
 
+  // A saját ételek is a felhasználó adata (a naplóból nem rekonstruálhatók).
+  assert.deepEqual(snapshot.customFoods.map((f) => f.name), ['Anna müzlije']);
+  assert.deepEqual(db.getSnapshot(bela.id).customFoods, []);
+
   const dump = JSON.stringify(snapshot);
   assert.ok(!dump.includes('Béla'), 'a másik fiók adata sehol nem szivárog be');
+});
+
+/* ---- Saját ételek ---- */
+
+test('a saját ételeket csak a tulajdonosuk éri el', () => {
+  assert.deepEqual(db.listCustomFoods(anna.id).map((f) => f.name), ['Anna müzlije']);
+  assert.deepEqual(db.listCustomFoods(bela.id), [], 'Bélának nincs saját étele');
+
+  assert.equal(db.getCustomFoodByName(bela.id, 'Anna müzlije'), null);
+  assert.equal(db.getCustomFoodByBarcode(bela.id, '5998200310010'), null);
+  assert.ok(db.getCustomFoodByBarcode(anna.id, '5998200310010'), 'Anna viszont megtalálja');
+});
+
+test('MÁS fiók saját ételét nem lehet törölni', () => {
+  assert.equal(db.deleteCustomFood(bela.id, annaFood.id), false);
+  assert.equal(db.listCustomFoods(anna.id).length, 1, 'Anna étele érintetlen');
+});
+
+test('a naplózási keresés a SAJÁT ételt is megtalálja, de csak a tulajdonosnak', () => {
+  assert.equal(db.findFoodForUser(anna.id, 'Anna müzlije').kcal, 380);
+  assert.equal(db.findFoodForUser(bela.id, 'Anna müzlije'), null);
+  // A beépített katalógus viszont mindkettejüknek elérhető.
+  const seedName = db.getCollection('foods')[0].name;
+  assert.ok(db.findFoodForUser(anna.id, seedName));
+  assert.ok(db.findFoodForUser(bela.id, seedName));
+});
+
+test('getFoodsForUser: a saját ételek elöl, és a MEGOSZTOTT cache érintetlen marad', () => {
+  /* Ez a legfontosabb állítás itt. A getCollection('foods') tömbje cache-elt
+     és MINDEN kérésnek ugyanaz az objektum: ha a merge belepush-olna, Anna
+     müzlije a folyamat élettartamáig ott ragadna MINDENKI katalógusában. */
+  const kiindulas = db.getCollection('foods').length;
+
+  const annaFoods = db.getFoodsForUser(anna.id);
+  const belaFoods = db.getFoodsForUser(bela.id);
+
+  assert.equal(annaFoods[0].name, 'Anna müzlije', 'a saját étel a lista elején');
+  assert.equal(annaFoods.length, kiindulas + 1);
+  assert.equal(belaFoods.length, kiindulas, 'Bélának csak a seed-katalógus');
+  assert.ok(!belaFoods.some((f) => f.custom));
+
+  assert.equal(db.getCollection('foods').length, kiindulas,
+    'a megosztott katalógus-tömb NEM módosult');
 });
 
 test('munkamenet: érvényes, lejárt és ismeretlen token', () => {
