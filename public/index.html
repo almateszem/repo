@@ -305,6 +305,13 @@
                  aria-describedby="workout-name-error">
         </header>
         <p class="wk-error" id="workout-name-error" hidden>Adj nevet az edzésnek a befejezéshez.</p>
+        <!-- Visszanyitott edzés jelzése. Enélkül a szerkesztő pontosan úgy néz
+             ki, mint egy új edzésnél — a felhasználó azt hinné, ma naplóz, és
+             nem értené, miért nem került új sor a Korábbi edzések tetejére. -->
+        <p class="wk-editing" data-editing-workout hidden>
+          <span data-editing-text></span>
+          <button class="wk-editing-cancel" type="button" data-action="cancel-workout-edit">Szerkesztés megszakítása</button>
+        </p>
         <!-- Automatikus mentés állapota. Élő régió: korábban csak egy statikus
              ígéret állt itt, a mentés hibáját pedig semmi nem jelezte — a
              felhasználó azt hitte, minden mentve van. -->
@@ -1291,6 +1298,21 @@
       </div>
       <button class="ep-item-toggle tap-target" type="button" aria-pressed="false"></button>
     </article>
+  </template>
+
+  <!-- Egy „Korábbi edzések" sor. Sablonból épül (nem kézzel összerakott
+       elemekből), mert két út is ír a listába: a teljes újrarajzolás és az
+       edzés lezárása utáni beszúrás — így nem csúszhatnak szét. -->
+  <template id="tpl-history-entry">
+    <li class="wk-history-item">
+      <span class="wk-history-date"></span>
+      <span class="wk-history-detail"></span>
+      <span class="wk-history-rpe"></span>
+      <span class="wk-history-actions">
+        <button class="wk-history-btn tap-target" type="button" data-action="reopen-workout">Javítás</button>
+        <button class="wk-history-btn wk-history-remove tap-target" type="button" data-action="delete-workout">✕</button>
+      </span>
+    </li>
   </template>
 
   <template id="tpl-nutrition-entry">

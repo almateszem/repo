@@ -140,6 +140,7 @@ test('bejelentkezés nélkül MINDEN /api végpont 401-et ad', async () => {
     ['POST', '/api/weight-log'], ['POST', '/api/nutrition/log'], ['POST', '/api/workouts'],
     ['POST', '/api/plans'], ['PUT', '/api/plans/1'], ['PUT', '/api/workout-draft'],
     ['PUT', '/api/checkin'], ['DELETE', '/api/workout-draft'], ['DELETE', '/api/nutrition/log/1'],
+    ['PUT', '/api/workouts/1'], ['DELETE', '/api/workouts/1'],
   ];
 
   for (const [method, urlPath] of endpoints) {
@@ -886,4 +887,141 @@ test('a szerver-belső fájlok nem érhetők el HTTP-n', async () => {
     const res = await fetch(`${baseUrl}${utvonal}`, { redirect: 'manual' });
     assert.notEqual(res.status, 200, `${utvonal} nem lehet elérhető`);
   }
+});
+
+/* ======================================================================
+   9. Mentett edzés javítása és törlése
+   ----------------------------------------------------------------------
+   A napló sokáig csak bővülni tudott. A javítás és a törlés két dolgot
+   követel meg a szervertől, és mindkettő csendben romlana el: az edzés a
+   SAJÁT napján maradjon (különben elcsúszik a sorozat és a heti volumen),
+   és a másik fiók sorához ne lehessen hozzáférni id-re hivatkozva sem.
+   ====================================================================== */
+
+test('a javítás a meglévő sort írja felül, az EREDETI dátumán', async () => {
+  const mentes = await request('POST', '/api/workouts', {
+    cookie: annaCookie,
+    body: { name: 'Elgépelt nap', exercises: [gyakorlat('Bicepsz curl', 180, 5)] },
+  });
+  assert.equal(mentes.status, 201);
+  const eredetiDatum = mentes.json.date;
+
+  const javitas = await request('PUT', `/api/workouts/${mentes.json.id}`, {
+    cookie: annaCookie,
+    body: { name: 'Javított nap', exercises: [gyakorlat('Bicepsz curl', 18, 5)] },
+  });
+  assert.equal(javitas.status, 200);
+  assert.equal(javitas.json.id, mentes.json.id, 'ugyanaz a sor, nem új');
+  assert.equal(javitas.json.date, eredetiDatum, 'a javítás nem helyezi át a naplóban');
+  assert.equal(javitas.json.name, 'Javított nap');
+
+  // A lista sem duplázódott: egy sor, a javított tartalommal.
+  const lista = (await request('GET', '/api/workouts', { cookie: annaCookie })).json;
+  const talalatok = lista.filter((w) => w.id === mentes.json.id);
+  assert.equal(talalatok.length, 1);
+  assert.equal(talalatok[0].exercises[0].sets[0].weight, '18');
+
+  // Az elgépelt 180 kg-os csúcs sem maradhat bent.
+  const maxes = (await request('GET', '/api/exercise-maxes', { cookie: annaCookie })).json;
+  assert.equal(maxes['Bicepsz curl'], Math.round(18 * (1 + 5 / 30) * 10) / 10,
+    'a javítás után a csúcs a javított értékből jön');
+});
+
+test('a törlés kiveszi az edzést, és 404-et ad másodszor', async () => {
+  const mentes = await request('POST', '/api/workouts', {
+    cookie: annaCookie,
+    body: { name: 'Törlendő', exercises: [gyakorlat('Lábtolás', 200, 8)] },
+  });
+  const id = mentes.json.id;
+
+  const torles = await request('DELETE', `/api/workouts/${id}`, { cookie: annaCookie });
+  assert.equal(torles.status, 204);
+  assert.equal(torles.text, '', 'a törlés üres választ ad');
+
+  const lista = (await request('GET', '/api/workouts', { cookie: annaCookie })).json;
+  assert.equal(lista.some((w) => w.id === id), false, 'a törölt edzés eltűnt a naplóból');
+
+  const ujra = await request('DELETE', `/api/workouts/${id}`, { cookie: annaCookie });
+  assert.equal(ujra.status, 404);
+  assert.ok(ujra.json.error, 'a 404 beszédes üzenetet ad, nem üres törzset');
+
+  const maxes = (await request('GET', '/api/exercise-maxes', { cookie: annaCookie })).json;
+  assert.equal(maxes['Lábtolás'], undefined, 'a törölt edzés csúcsa sem maradt vissza');
+});
+
+test('MÁS fiók edzését sem javítani, sem törölni nem lehet', async () => {
+  const belaE = await request('POST', '/api/workouts', {
+    cookie: belaCookie,
+    body: { name: 'Béla sajátja', exercises: [gyakorlat('Evezés', 70, 8)] },
+  });
+  const id = belaE.json.id;
+
+  const idegenJavitas = await request('PUT', `/api/workouts/${id}`, {
+    cookie: annaCookie,
+    body: { name: 'Anna átírta', exercises: [gyakorlat('Evezés', 5, 5)] },
+  });
+  assert.equal(idegenJavitas.status, 404, 'idegen sor NEM LÉTEZŐKÉNT viselkedik');
+
+  const idegenTorles = await request('DELETE', `/api/workouts/${id}`, { cookie: annaCookie });
+  assert.equal(idegenTorles.status, 404);
+
+  // És tényleg érintetlen maradt.
+  const belaLista = (await request('GET', '/api/workouts', { cookie: belaCookie })).json;
+  const belaSor = belaLista.find((w) => w.id === id);
+  assert.equal(belaSor.name, 'Béla sajátja');
+  assert.equal(belaSor.exercises[0].sets[0].weight, '70');
+});
+
+test('a javítás ugyanazt a validálást kéri, mint a mentés', async () => {
+  const mentes = await request('POST', '/api/workouts', {
+    cookie: annaCookie,
+    body: { name: 'Validáláshoz', exercises: [gyakorlat('Vádliemelés', 50, 12)] },
+  });
+  const id = mentes.json.id;
+
+  const rosszTorzsek = [
+    [{ name: '', exercises: [gyakorlat('Vádliemelés', 50)] }, 'üres név'],
+    [{ name: 'x'.repeat(61), exercises: [gyakorlat('Vádliemelés', 50)] }, 'túl hosszú név'],
+    [{ name: 'Jó név', exercises: [] }, 'gyakorlat nélkül'],
+    [{ name: 'Jó név', exercises: [{ name: 'Nincs szettje', sets: [] }] }, 'szett nélküli gyakorlat'],
+  ];
+  for (const [body, eset] of rosszTorzsek) {
+    const res = await request('PUT', `/api/workouts/${id}`, { cookie: annaCookie, body });
+    assert.equal(res.status, 400, `${eset}: 400-at kell adnia`);
+  }
+
+  for (const rosszId of ['abc', '0', '-3']) {
+    const res = await request('PUT', `/api/workouts/${rosszId}`, {
+      cookie: annaCookie,
+      body: { name: 'Jó név', exercises: [gyakorlat('Vádliemelés', 50)] },
+    });
+    assert.equal(res.status, 400, `${rosszId}: érvénytelen azonosító`);
+    assert.equal((await request('DELETE', `/api/workouts/${rosszId}`, { cookie: annaCookie })).status, 400);
+  }
+});
+
+test('a piszkozat megjegyzi a visszanyitott edzést, a törlés pedig elengedi', async () => {
+  const mentes = await request('POST', '/api/workouts', {
+    cookie: belaCookie,
+    body: { name: 'Visszanyitandó', exercises: [gyakorlat('Húzódzkodás', 10, 8)] },
+  });
+  const id = mentes.json.id;
+
+  await request('PUT', '/api/workout-draft', {
+    cookie: belaCookie,
+    body: { name: 'Visszanyitandó', exercises: [gyakorlat('Húzódzkodás', 12, 8)], workoutId: id },
+  });
+
+  const piszkozat = (await request('GET', '/api/workout-draft', { cookie: belaCookie })).json;
+  assert.equal(piszkozat.workoutId, id, 'a javítás ténye újratöltés után is megmarad');
+
+  const sablon = (await request('GET', '/api/workout-template', { cookie: belaCookie })).json;
+  assert.equal(sablon.workoutId, id, 'az induló tartalom is viszi — a felület ebből tudja');
+
+  /* Ha az edzést közben törlik, a piszkozat egy megszűnt sorra hivatkozna, és
+     a befejezés 404-be futna. A tartalma marad, a hivatkozás nem. */
+  assert.equal((await request('DELETE', `/api/workouts/${id}`, { cookie: belaCookie })).status, 204);
+  const utana = (await request('GET', '/api/workout-draft', { cookie: belaCookie })).json;
+  assert.equal(utana.workoutId, null, 'a törlés elengedte a hivatkozást');
+  assert.equal(utana.exercises.length, 1, 'a piszkozat tartalma viszont megmaradt');
 });

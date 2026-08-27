@@ -1606,6 +1606,77 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   flex-shrink: 0;
 }
 
+/* A sor műveletei (javítás, törlés). A detail-mező viszi a maradék helyet,
+   így a gombok akkor is a jobb szélen maradnak, ha rövid az edzésnév. */
+.wk-history-detail {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wk-history-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-shrink: 0;
+}
+
+.wk-history-btn {
+  padding: 0 var(--sp-3);
+  height: 26px;
+  border: none;
+  border-radius: var(--r-full);
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+  line-height: 1;
+  cursor: pointer;
+  transition: color var(--t-fast), background var(--t-fast);
+}
+
+.wk-history-btn:hover {
+  color: var(--c-accent);
+  background: var(--surface-hover);
+}
+
+.wk-history-remove {
+  width: 26px;
+  padding: 0;
+}
+
+/* Visszanyitott edzés sávja. Ugyanaz a hangsúly, mint az autosave-jelzésé:
+   halk, de a naplózás előtt szem előtt van. */
+.wk-editing {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  margin: var(--sp-4) 0 0;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-md);
+  background: var(--surface-soft);
+  border: 1px dashed var(--fg-15);
+  font-size: var(--fs-sm);
+  color: var(--fg-70);
+}
+
+.wk-editing-cancel {
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  text-decoration: underline;
+  cursor: pointer;
+  transition: color var(--t-fast);
+}
+
+.wk-editing-cancel:hover { color: var(--c-accent); }
+
 /* ==========================================================================
    8. Nutrition tracker
    ========================================================================== */

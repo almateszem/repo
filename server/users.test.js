@@ -40,7 +40,7 @@ const exercises = [{ name: 'Guggolás', pr: false, sets: [{ reps: '5', weight: '
 
 db.addWeightEntry(anna.id, 62.5, TODAY);
 db.addWeightEntry(bela.id, 95, TODAY);
-db.addWorkout(anna.id, 'Anna edzése', TODAY, exercises);
+const annaWorkout = db.addWorkout(anna.id, 'Anna edzése', TODAY, exercises);
 db.addWorkout(bela.id, 'Béla edzése', TODAY, exercises);
 const annaPlan = db.addPlan(anna.id, 'Anna terve', TODAY, exercises, [0]);
 const belaPlan = db.addPlan(bela.id, 'Béla terve', TODAY, exercises, [1]);
@@ -111,6 +111,17 @@ test('MÁS fiók sorát id-re hivatkozva sem lehet módosítani vagy törölni',
     'Béla nem törölheti Anna naplótételét',
   );
   assert.equal(db.getNutritionLog(anna.id).length, 1, 'Anna tétele megvan');
+
+  // Ugyanez a mentett EDZÉSRE: a javítás és a törlés is a saját sorokra szűr.
+  assert.equal(
+    db.updateWorkout(bela.id, annaWorkout.id, 'ELTÉRÍTVE', exercises), null,
+    'Béla nem írhatja át Anna edzését',
+  );
+  assert.equal(
+    db.deleteWorkout(bela.id, annaWorkout.id), false,
+    'és nem is törölheti',
+  );
+  assert.equal(db.getWorkouts(anna.id)[0].name, 'Anna edzése', 'Anna edzése változatlan');
 
   // A sajátjával viszont mindkettő működik — a szűrés nem tör el mindent
   assert.ok(db.updatePlan(bela.id, belaPlan.id, 'Béla átnevezte', exercises, []));

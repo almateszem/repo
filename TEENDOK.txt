@@ -6,8 +6,9 @@ Nem hibajegy-rendszer: rövid, cselekvésre kész sorok, prioritás szerint.
 Jelölések:   [ ] nyitott    [~] részben kész    [x] kész (a következő
              takarításig marad itt, hogy lássuk, mi történt)
 
-Utolsó frissítés: 2026-08-26 (üzenetek, értesítések, panel-teljesítmény,
-                  rate limit, terv-kiosztás; + négy átbeszélt funkció-ötlet)
+Utolsó frissítés: 2026-08-27 (végpont- és séma-átnézésből felderített
+                  hiányok — új szakasz; közülük az első, a mentett edzés
+                  javíthatósága, el is készült)
 Legutóbbi takarítás: 2026-08-17 — az elkészült [x] tételek kivezetve
 (a részletek a git előzményben maradtak meg).
 
@@ -226,6 +227,143 @@ felhasználónak nincs miből ajánlani. A többi három egymástól független.
     javaslatok közé — ezt a cím sem írhatja felül.
     Ha a címből nincs értelmezhető szó, a lista essen vissza a
     regeneráltságra, ne maradjon üres.
+
+
+==========================================================================
+FELDERÍTETT HIÁNYOK — a végpontlistából, 2026-08-27
+==========================================================================
+
+Ezek nem felhasználói bejelentésből jöttek, hanem egy végpont- és séma-
+átnézésből: azt kerestük, mit NEM lehet megcsinálni az appban. Egyikük sem
+szerepelt eddig sehol — se itt, se a README-ben —, tehát nem elmaradt munkák,
+hanem eddig fel nem tett kérdések.
+
+Ami a listát összeköti: majdnem mindegyik VISSZAFORDÍTHATATLAN adatot hagy
+maga után. Az appban ma bőven lehet írni, javítani viszont alig.
+
+
+[x] Mentett edzést nem lehet javítani vagy törölni   (2026-08-27)
+    A Korábbi edzések minden sora kapott egy „Javítás" és egy törlés gombot.
+    Ami a tétel LÉNYEGE volt: az elgépelt szám nem csak a listában maradt bent,
+    hanem az egyéni csúcsot is elvitte — és az updateExerciseMax csak FELFELÉ
+    lép, tehát onnantól a valódi PR-t is elzárta.
+
+    A JAVÍTÁS NEM ÚJRANAPLÓZÁS. A POST /api/workouts mindig a mai napra ír, így
+    a „töröld és vedd fel újra" megoldás áthelyezte volna az edzést — elcsúszva
+    a sorozat, a heti volumen és a készenlét 28 napos ablaka. Ehelyett a
+    piszkozat megjegyzi, melyik mentett edzésből nyitották vissza
+    (workout_draft.workout_id), és a befejezés ilyenkor PUT /api/workouts/:id-t
+    hív, ami a sor EREDETI dátumát megtartja. A dátumot a törzsben megadni nem
+    lehet: a javítás nem áthelyezés.
+
+    A CSÚCSOK ÚJRASZÁMOLÁSA a tétel nehezebbik fele, és két helyen kellett:
+      · exercise_maxes — különben a megszűnt teljesítmény rekordja bent ragad;
+      · a workouts sorokban tárolt `pr` JELZŐK — a /api/prs és a /api/prs/history
+        EZEKBŐL dolgozik, nem a táblából. Ha a törölt edzés vitte a rekordot, a
+        nála gyengébb, későbbi edzés lesz az új csúcs — de a jelzője false
+        maradt volna, és a PR-lista ÜRESEN állt volna egy olyan gyakorlatra,
+        aminek közben van értéke a táblában. A két tárolás csak együtt igaz.
+    A logika nem új: a backfillExerciseMaxes belső ciklusa volt, kiemelve
+    recomputeExerciseMaxes-ba — a migráció is azt hívja, tehát egy szabály
+    maradt. Három szándékos eltérés a régihez képest: a rendezés `date, id`
+    (nem `id` — a javított RÉGI edzés különben későbbinek látszana a beszúrási
+    sorrendben), a `pr` jelzők visszaírása, és hogy a rekord a FORRÁS-EDZÉS
+    napját viseli (a getRecentExerciseMaxes dátumra szűr, enélkül egy törlés
+    után az értesítés-panel régi csúcsokat zúdítana be „friss"-ként).
+
+    Amihez NEM kellett hozzányúlni, és ez a 2026-08-26-i döntés igazolása: a
+    készenlét, a heti volumen, a sorozat és az edzői kártya menet közben számol
+    a workouts-ból, gyorsítótár nélkül — nincs mit érvényteleníteni.
+
+    Két dolog derült ki menet közben, és mindkettő javítva:
+      · A rebuildWorkoutDraft ÚJRAÉPÍTI a workout_draft táblát, tehát a fölé
+        írt ensureColumn oszlopát eldobta volna. Az új oszlop ezért a rebuild
+        UTÁN kerül fel (a date/plan_id ma három helyen szerepel — ezt a
+        duplikálást nem vittük tovább).
+      · Az exerciseMaxes térkép a felületen CSAK induláskor töltődött, tehát az
+        edzés lezárása után is elavult maradt: a következő edzés PR-jelvénye a
+        régi csúcsokhoz mérődött. A közös frissítő (refreshAfterWorkoutChange)
+        ezt is rendezi, a lezárás ágán is.
+
+    Végpontok: PUT /api/workouts/:id, DELETE /api/workouts/:id; a piszkozat
+    workoutId-t is fogad.
+    Tesztek: prs.test.js (a visszaesés, a `pr` jelzők átbillenése, a dátum-
+    rendezés), api.test.js 9. szakasz, users.test.js (izoláció) + böngésző-
+    végigjátszás eldobható adatbázison.
+
+[ ] Tervet nem lehet törölni
+    Nincs DELETE /api/plans/:id (csak POST és PUT).
+    Ez NEM új felfedezés: a terv-kiosztás tervezésekor már megfogalmaztuk
+    korlátként — pont ezért lett a kiosztásból AJÁNLAT a közvetlen írás
+    helyett. Csak maga a hiány maradt meg, és a kiosztás óta a sportoló
+    terv-listája már kizárólag NŐNI tud: az edzőtől kapott, egyszer
+    elfogadott terv sem szedhető ki többé.
+
+[ ] Testsúly-bejegyzést nem lehet törölni vagy visszamenőleg javítani
+    Az addWeightEntry a mai napra felülír (ezért írhatja a varázsló és a
+    részletes űrlap is duplikátum nélkül), de a TEGNAPI elgépeléshez nincs út.
+    MI ROMLIK EL TŐLE: egy 188 kg-os sor a 12 elemű trend-kártya skáláját
+    lapos vonallá nyomja, és a Testsúly Δ statot is elviszi.
+
+[ ] Táplálkozás: csak a seed-katalógusból lehet naplózni
+    A POST /api/nutrition/log elutasít mindent, ami nincs a foods listában
+    („Ismeretlen étel"). Nincs saját étel, nincs kézi makró-bevitel, nincs
+    recept és nincs kedvenc; a mennyiség sem szerkeszthető, csak a tétel
+    törölhető, és az is csak aznap.
+    Egy versenyző étrendje nem fér bele egy fix listába — és amíg nem fér
+    bele, a napi bevitel alulmért marad, ami a készenlét táplálkozás-
+    komponensébe is beszivárog.
+
+[ ] Nincs kardió/állóképesség naplózás
+    A workouts.exercises szerkezete szett/ismétlés/kg — idő, táv és pulzus
+    mező sehol nincs a sémában. Az off-szezon kondimunka tehát nyomtalanul
+    elvész, pedig a terhelés-oldalon ott a helye.
+    FIGYELEM, ez nem felületi tétel: sémabővítés, és a Recovery Engine
+    terhelés-komponensét is érinti (ma a tonnatömegből számol, aminek egy
+    futásnál nincs értelme). Külön át kell beszélni, mielőtt bárki elkezdi.
+
+[ ] Csak testsúly van, körfogat és testzsír nincs
+    A checkins táblában nincs testösszetétel-mező, a weight_log pedig egyetlen
+    számot tárol. Egy versenyző nem a testsúlyát követi, hanem a mellette futó
+    körfogatot — a puszta kilogramm nem mondja meg, mi épült és mi fogyott.
+    A 3. funkció-ötlet (on/off szezon célsúly) mellett ez a hiány feltűnő:
+    a célsúly önmagában kevesebbet mond, mint amennyit ígér.
+
+[ ] Nincs import — csak export
+    A GET /api/export (getSnapshot) teljes pillanatképet ad, de nincs párja:
+    az adat kimegy, vissza nem jön. Fiókköltöztetésre nincs út, és az
+    ÜZEMELTETÉS szakasz „a DB fájl elveszhet" kockázatán sem enyhít semmit —
+    a felhasználónak lehet a kezében a saját exportja, mégsem tud vele mit
+    kezdeni.
+
+
+--- FELDERÍTVE, DE NEM TERVEZZÜK ---------------------------------------
+Azért állnak itt, hogy ne kelljen még egyszer felfedezni őket, és hogy
+látszódjon: döntés, nem elmaradt munka.
+
+    · PWA / offline. Nincs manifest és nincs service worker. Konditerem-
+      pincében az autosave a 3/8/20 mp-es újrapróbálás után feladja.
+      MIÉRT MARAD KI: az offline ÍRÁS ütközés-feloldást igényelne (két
+      eszköz ugyanarra a piszkozat-sorra), ami nagyságrenddel több munka,
+      mint amennyit ezen a felhasználószámon hoz.
+    · Pihenőidő-stopper a szettek között. Nincs.
+      MIÉRT MARAD KI: nem ez az app értékajánlata, és minden telefonon van
+      stopper. A készenlét-motor az, amit más nem tud — oda érdemes a munka.
+    · Push- vagy e-mail-értesítés. Az értesítés appon belüli és pull-alapú
+      (20 mp). Ha a sportoló nem nyitja meg az appot, az edzője üzenetéről
+      nem tud.
+      MIÉRT MARAD KI: a fiókhoz nincs e-mail-cím — ugyanaz a gyökér, mint a
+      jelszó-visszaállításnál, és azzal EGYÜTT eldöntendő, nem külön.
+    · Imperial mértékegység és többnyelvűség. Az app kg-only és magyar-only.
+      MIÉRT MARAD KI: a kettős mértékegység csak hibafelületet ad (a szám a
+      szettben van, a „kg" a táblázat fejlécében — ma pont ezért él egy
+      helyen), a fordítás pedig a célközönségnél nem hiányzik.
+
+
+SORRENDJAVASLAT az egész backlogra: a mentett edzés javíthatósága megvolt az
+első lépésnek (2026-08-27, ld. fent). A KÖVETKEZŐ a beégetett nutritionGoal
+kivezetése (ld. a NYITOTT szakaszt) — szintén dokumentált hazugságot javít, és
+szintén nem függ semmitől —, és csak ezután jöjjön a négy nagy funkció-ötlet.
 
 
 ==========================================================================
