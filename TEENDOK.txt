@@ -281,7 +281,11 @@ ADATMINŐSÉG — fokozatosan bővíthető, nincs határidő
     Utána:     npm run exdb:build
 
 [ ] A származtatott `load` súlyok felülvizsgálata a gyakori gyakorlatoknál
-    Az 1201 generált sor súlyai BECSLÉSEK (loadSource: 'derived'):
+    (2026-08-26: szándékosan érintetlen. A felülvizsgálat mérést vagy
+    szakértői ítéletet igényel gyakorlatonként; a súlyok „ránézésre"
+    átírása nem javítaná az adatot, csak más — és ellenőrizetlen — becslést
+    tenne a mostani, legalább következetes becslés helyére.)
+    Az 1241 generált sor súlyai BECSLÉSEK (loadSource: 'derived'):
     elsődleges izom 60%, másodlagosak osztoznak a 40%-on. A forrásban
     nincs súlyozás, csak izomlista.
     A 200 kurált gyakorlat súlyai viszont kézzel megadottak, és a
@@ -309,6 +313,17 @@ ADATMINŐSÉG — fokozatosan bővíthető, nincs határidő
     (névutótag + felszerelés-preferencia alapján). A többinek nincs
     megfelelője a forrásban, vagy más néven szerepel.
     Hely: scripts/build-exdb.js → matchCuratedBySuffix
+    MÉRVE 2026-08-26 — hogy ne fusson bele mindenki ugyanabba: a kézenfekvő
+    ötlet, hogy a kurált név ne csak a VÉGÉN, hanem bárhol szó-határon
+    illeszkedhessen, PONTOSAN NULLA új párosítást hoz. Nem a szabály szűk,
+    hanem a nevek térnek el érdemben: „Ferde kézisúlyzós nyomás" vs. a
+    generált „Kézisúlyzós ferde mellnyomás" — más a szórend ÉS más a
+    mozgásszó. „T-rúd evezés" vs. „Gépi T-rúdas evezés" — a toldalék tér el.
+    Ami valóban megoldaná: kurált gyakorlatonként EXPLICIT alias (a forrás
+    gyakorlat-azonosítójára), kézzel átnézve. Fuzzy párosítást szándékosan
+    NEM építettünk: rossz illusztráció rosszabb, mint a hiányzó — egy lehúzás
+    helyén futó evezés-animációt a felhasználó nem hibának néz, hanem
+    útmutatásnak.
 
 
 ==========================================================================
