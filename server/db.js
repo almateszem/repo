@@ -20,6 +20,7 @@
  */
 import { DatabaseSync } from 'node:sqlite';
 import path from 'node:path';
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { data as seed } from './data.js';
 import { buildExerciseCatalog, buildFoodCatalog } from './data/catalog.js';
@@ -27,6 +28,15 @@ import { buildExerciseCatalog, buildFoodCatalog } from './data/catalog.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Alapból server/fittrack.db; a FITTRACK_DB env-változóval felülírható (pl. teszthez).
 const DB_PATH = process.env.FITTRACK_DB || path.join(__dirname, 'fittrack.db');
+
+/* Volt-e már adatbázis, mielőtt megnyitottuk? Ez a legolcsóbb ELLENŐRIZHETŐ
+   jele annak, hogy a fájl tényleg megmarad a deployok között: sok hostingon
+   (Heroku, Render, Fly volume nélkül) a fájlrendszer ephemeral, és minden
+   újraindításkor üres lappal indulnánk — a felhasználók naplója pedig
+   csendben eltűnne. Egy „új adatbázis jött létre" sor minden indításkor
+   ennek a pontos tünete, és a naplóban azonnal látszik.
+   Ld. TEENDOK.txt → ÜZEMELTETÉS, és a README „Élesítés" szakasza. */
+const dbExisted = existsSync(DB_PATH);
 
 const db = new DatabaseSync(DB_PATH);
 
@@ -502,7 +512,13 @@ for (const [key, value] of Object.entries(collections)) {
 const seedKeys = Object.keys(collections);
 db.prepare(`DELETE FROM collections WHERE key NOT IN (${seedKeys.map(() => '?').join(', ')})`)
   .run(...seedKeys);
-console.log('SQLite kész →', DB_PATH);
+console.log('SQLite kész →', path.resolve(DB_PATH), dbExisted ? '(meglévő)' : '(ÚJ adatbázis jött létre)');
+if (!dbExisted) {
+  /* Élesben ez a sor CSAK EGYSZER, a legelső indításkor helyénvaló. Ha minden
+     deploy után látod, akkor a fájlrendszer ephemeral, és a felhasználói
+     naplók deployonként elvesznek — perzisztens volume kell (README → Élesítés). */
+  console.log('   → ha ezt MINDEN indításkor látod, az adatbázis nem marad meg: perzisztens tároló kell.');
+}
 
 /* ======================================================================
    Fiókok és munkamenetek

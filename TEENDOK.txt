@@ -180,10 +180,20 @@ EREDMÉNY (1 éves adat, azonos gépen), megtartva jövőbeli összevetéshez:
 ÜZEMELTETÉS — élesítés előtt
 ==========================================================================
 
-[ ] A DB fájl elveszhet: perzisztens volume kell
+[~] A DB fájl elveszhet: perzisztens volume kell
     Sok hostingon (Heroku, Render, Fly volume nélkül) a fájlrendszer
     ephemeral, és újradeploykor törlődik a server/fittrack.db — vele az
     összes felhasználói adat. A seed újraépül, a naplók NEM.
+    EZT NEM LEHET KÓDBÓL MEGOLDANI: a telepítés környezetén múlik. Amit
+    2026-08-26-án meg lehetett tenni:
+      · A README kapott „Élesítés" szakaszt konkrét FITTRACK_DB példákkal
+        (Fly volume mount, Docker nevesített kötet), és a WAL-fájlok
+        (-wal, -shm) együttes kezeléséről is szól.
+      · A szerver indításkor kiírja a FELOLDOTT útvonalat, és azt is, hogy
+        meglévő adatbázist nyitott-e vagy újat hozott létre. Ha a naplóban
+        MINDEN indításnál „(ÚJ adatbázis jött létre)" áll, az pontosan ennek
+        a hibának a tünete — eddig ez némán történt.
+    Ami hátravan: a valódi kötet beállítása a választott hostingon.
 
 [x] Időzóna: a nap már a KLIENS naptárából jön   (2026-08-25)
     Minden kérés viszi az X-Client-Date fejlécet (public/script.js →
