@@ -888,6 +888,16 @@ export function getWeightLog(userId) {
   return db.prepare('SELECT id, kg, date FROM weight_log WHERE user_id = ? ORDER BY id').all(userId);
 }
 
+/** A `sinceDate` óta rögzített testsúlyok, a getWeightLog sorrendjében
+    (legrégebbi elöl). Az edzői kártyához ennyi elég: a készenlét-motor csak a
+    LEGUTOLSÓ mérést használja (a terhelés-referenciák skálázásához), a
+    „legutóbbi aktivitás" pedig négy eseményt mutat. Napi méréssel a teljes
+    napló évente ~365 sorral hízik — sportolónként, minden panel-frissítésnél. */
+export function getWeightLogSince(userId, sinceDate) {
+  return db.prepare('SELECT id, kg, date FROM weight_log WHERE user_id = ? AND date >= ? ORDER BY id')
+    .all(userId, sinceDate);
+}
+
 /** A naplózott ételek, rögzítési sorrendben. */
 export function getNutritionLog(userId) {
   return db.prepare(`SELECT id, name, grams, kcal, protein, carbs, fat, date
@@ -1073,6 +1083,16 @@ export function updateExerciseMax(userId, exerciseName, new1rm, currentDate) {
   return { max1rm: isPr ? new1rm : existing.max1rm, date: isPr ? currentDate : existing.date, isPr };
 }
 
+/** A tervek ÜTEMEZÉSE, legújabb elöl — gyakorlat-lista nélkül.
+    Az edzői kártyának pontosan ennyi kell (a terv-követés a hétnapokból
+    számol, a kártyán a terv NEVE látszik), a gyakorlatok JSON-ja viszont a
+    terv legnagyobb része. Sportolónként, minden panel-frissítésnél. */
+export function getUserPlanSchedules(userId) {
+  return db.prepare('SELECT id, name, days FROM plans WHERE user_id = ? ORDER BY id DESC')
+    .all(userId)
+    .map((row) => ({ id: row.id, name: row.name, days: JSON.parse(row.days) }));
+}
+
 /** A felhasználó által készített edzéstervek, legújabb elöl. */
 export function getUserPlans(userId) {
   return db.prepare('SELECT id, name, date, exercises, days FROM plans WHERE user_id = ? ORDER BY id DESC')
@@ -1099,14 +1119,49 @@ export function getWorkoutDraft(userId) {
     : null;
 }
 
+/** Egy edzés-sor → a hívók által várt alak (a gyakorlatok JSON-ból vissza). */
+const toWorkout = (row) => ({
+  id: row.id, name: row.name, date: row.date,
+  exercises: JSON.parse(row.exercises), planId: row.plan_id,
+});
+
 /** A mentett edzések, legújabb elöl (a gyakorlatok JSON-ból visszafejtve). */
 export function getWorkouts(userId) {
   return db.prepare('SELECT id, name, date, exercises, plan_id FROM workouts WHERE user_id = ? ORDER BY id DESC')
-    .all(userId)
-    .map((row) => ({
-      id: row.id, name: row.name, date: row.date,
-      exercises: JSON.parse(row.exercises), planId: row.plan_id,
-    }));
+    .all(userId).map(toWorkout);
+}
+
+/**
+ * A `sinceDate` óta mentett edzések, legújabb elöl.
+ *
+ * Miért van külön a teljes lekérdezéstől: az edzések ára szinte teljes
+ * egészében a gyakorlat-lista JSON.parse-a, és a készenlét-motor amúgy is
+ * eldob mindent, ami CHRONIC_WINDOW_DAYS-nél (28 nap) régebbi
+ * (recovery.js -> summarizeWorkouts). Egy éves naplónál ez ~183 sor helyett
+ * ~12-t jelent — az edzői panelen SPORTOLÓNKÉNT.
+ *
+ * A dátum "ÉÉÉÉ.HH.NN" alakú, tehát a szöveges összehasonlítás időrendi is.
+ */
+export function getWorkoutsSince(userId, sinceDate) {
+  return db.prepare(`
+    SELECT id, name, date, exercises, plan_id FROM workouts
+    WHERE user_id = ? AND date >= ? ORDER BY id DESC
+  `).all(userId, sinceDate).map(toWorkout);
+}
+
+/**
+ * Azok a NAPOK, amikor volt edzés — legújabb elöl, ismétlés nélkül.
+ *
+ * Ez a teljes előzményt nézi, de nem olvas gyakorlat-listát, tehát olcsó
+ * (3 éves naplónál is pár száz rövid sztring). Két dologhoz kell, amit a
+ * 28 napos ablak elrontana: a SOROZAT hossza tetszőlegesen régre nyúlhat,
+ * és az „utolsó edzés" akkor is létezik, ha épp két hónapja volt — az
+ * edzői kártya különben „még nincs naplózott edzés"-t írna ki egy olyan
+ * sportolóra, aki csak régen edzett utoljára.
+ */
+export function getWorkoutDates(userId) {
+  return db.prepare('SELECT DISTINCT date FROM workouts WHERE user_id = ? ORDER BY date DESC')
+    .all(userId).map((row) => row.date);
 }
 
 /** Teljes pillanatkép a beállítások exportjához: a közös referencia-adat és a

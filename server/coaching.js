@@ -187,6 +187,9 @@ export function recentActivity({ workouts, checkins, weightLog, today }) {
  * bemenetet az adatrétegből; itt csak számolunk.
  *
  * @param {object} input.athlete   { linkId, username, name, goal } — a kapcsolat másik oldala
+ * @param {string[]} [input.workoutDates] MINDEN edzésnap, legújabb elöl. Akkor
+ *                                 kell, ha a `workouts` ablakozott — enélkül az
+ *                                 abból képződik (ld. lentebb)
  * @param {number} input.readiness a készenléti riport `overall` értéke (0–100)
  * @param {string} input.confidence a riport `confidence` mezője ('low'|'medium'|'high')
  * @param {number} input.streak    az edzés-sorozat hossza napokban
@@ -196,18 +199,23 @@ export function recentActivity({ workouts, checkins, weightLog, today }) {
  * @param {string} input.today     a mai nap "ÉÉÉÉ.HH.NN" alakban
  */
 export function buildAthleteCard({
-  athlete, workouts, plans, checkins, weightLog, readiness, confidence = null,
-  streak, lastMessage, unread = 0, today,
+  athlete, workouts, workoutDates = null, plans, checkins, weightLog,
+  readiness, confidence = null, streak, lastMessage, unread = 0, today,
 }) {
   const todayKey = dayKey(today);
   const week = weekProgress({ workouts, plans, today });
   const adherenceValue = adherence({ workouts, plans, today });
 
-  /* A getWorkouts() id szerint csökkenő sorrendet ad, a getCheckins() dátum
-     szerintit. A kettő nem tér el: az edzés dátumát a SZERVER írja (mindig a
-     mai nap), tehát a mentési sorrend egyben dátum-sorrend is. A lista eleje
-     így a legutóbbi, a vége a legrégebbi esemény. */
-  const lastWorkout = workouts[0] ?? null;
+  /* A `workouts` a hívónál ABLAKOZOTT lehet (a panel csak az utolsó néhány
+     hét edzéseit olvassa be, mert a többit se a készenlét-motor, se a
+     terv-követés nem használja). Ami viszont a teljes előzményből jön, az a
+     `workoutDates`: az „utolsó edzés" tetszőlegesen régi lehet, és e nélkül
+     egy két hónapja edzett sportolóra a kártya azt írná ki, hogy „még nincs
+     naplózott edzés" — a legbeszédesebb riasztás helyett a legfélrevezetőbb.
+     Ablakozatlan hívónál a kettő ugyanaz, ezért a lista alapból az edzésekből
+     képződik. */
+  const allDates = workoutDates ?? workouts.map((workout) => workout.date);
+  const lastWorkoutDate = allDates[0] ?? null;
   const lastCheckin = checkins[0] ?? null;
   const daysSince = (dateStr) => (dateStr
     ? Math.max(0, Math.round((todayKey - dayKey(dateStr)) / DAY_MS))
@@ -217,7 +225,7 @@ export function buildAthleteCard({
      vagy check-in) óta eltelt napok. A listák legújabbal kezdődnek, tehát a
      végük a legrégebbi elem. */
   const activeDays = Math.max(
-    daysSince(workouts[workouts.length - 1]?.date) ?? 0,
+    daysSince(allDates[allDates.length - 1]) ?? 0,
     daysSince(checkins[checkins.length - 1]?.date) ?? 0,
   );
 
@@ -234,7 +242,7 @@ export function buildAthleteCard({
     adherence: adherenceValue,
     rating: athleteRating(readiness, adherenceValue),
     streak,
-    lastWorkout: lastWorkout ? relativeDay(lastWorkout.date, todayKey) : null,
+    lastWorkout: lastWorkoutDate ? relativeDay(lastWorkoutDate, todayKey) : null,
     // "3/4", terv nélkül "3/–" — a felület egy az egyben kiírja
     weekly: `${week.done}/${week.target || '–'}`,
     // Aktív terv: amelyik a MAI hétnapra szól, különben a legutóbb készített
@@ -242,7 +250,7 @@ export function buildAthleteCard({
     plan: (plans.find((plan) => (plan.days ?? []).includes(weekdayOf(today))) ?? plans[0])?.name ?? null,
     alert: athleteAlert({
       missed: week.missed,
-      daysSinceWorkout: daysSince(lastWorkout?.date),
+      daysSinceWorkout: daysSince(lastWorkoutDate),
       readiness,
       daysSinceCheckin: daysSince(lastCheckin?.date),
       activeDays,

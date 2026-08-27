@@ -15,7 +15,8 @@ import {
   getCollection, getWeightLog, getSnapshot,
   addWeightEntry, getNutritionTotals, addNutritionEntry,
   getNutritionLogForDate, deleteNutritionEntry,
-  getWorkouts, addWorkout, getWorkoutDraft, saveWorkoutDraft, clearWorkoutDraft,
+  getWorkouts, getWorkoutsSince, getWorkoutDates, getWeightLogSince, getUserPlanSchedules,
+  addWorkout, getWorkoutDraft, saveWorkoutDraft, clearWorkoutDraft,
   getUserPlans, addPlan, updatePlan, getPlanForDay,
   getCheckin, getCheckins, saveCheckin,
   calculateEpley1RM, bestCompletedSet, getExerciseMax, getAllExerciseMaxes,
@@ -470,6 +471,12 @@ app.get('/api/profile', (req, res) => {
 /** Egy üzenet legfeljebb ennyi karakter (a felület input-ja is ennyit enged). */
 const MESSAGE_MAX = 280;
 
+/** Ennyi napra visszamenőleg olvassuk be a sportoló edzéseit a kártyához.
+    A leghosszabb ablak, amit a kártya bármelyik számítása használ, 28 nap (a
+    készenlét-motor személyes referenciája és a terv-követés is ennyi) — a
+    ráadás napok csak biztonsági tartalék, hogy egy határeset se csússzon ki. */
+const CARD_WINDOW_DAYS = 35;
+
 /** Egy sportoló kártyája: a kapcsolat + a sportoló saját naplóiból számolt
     összegzés. A sportoló BELSŐ azonosítója nem kerül ki a válaszba — kifelé a
     kapcsolat azonosítója (linkId) azonosít.
@@ -477,18 +484,48 @@ const MESSAGE_MAX = 280;
     A `viewerId` az EDZŐ (a panelt néző fél): az utolsó üzenet `mine` jelölése
     és az olvasatlan-számláló is az ő szemszögéből értendő. */
 function athleteCard(athlete, today, viewerId, unread = 0) {
-  const workouts = getWorkouts(athlete.userId);
-  const readiness = readinessReport(athlete.userId, today, workouts);
+  /* Az edzés-napló ABLAKOZVA jön be. A kártya minden számítása belefér a
+     CARD_WINDOW_DAYS ablakba: a készenlét-motor 28 napnál régebbit amúgy is
+     eldob (recovery.js -> summarizeWorkouts), a terv-követés ablaka szintén
+     28 nap, a heti állás egy hét, a „legutóbbi aktivitás" pedig négy elem.
+     Ami ezen kívülre nyúlik — a sorozat hossza és az utolsó edzés napja —, azt
+     a NAPOK listája adja: az a teljes előzményt látja, de gyakorlat-listát nem
+     olvas, tehát olcsó. Egy éves naplónál ez ~183 JSON.parse helyett ~12. */
+  const since = shiftDate(today, -CARD_WINDOW_DAYS);
+
+  /* A napló ABLAKOZVA jön be, és ugyanaz a három sor szolgálja ki a
+     készenlét-motort meg a kártyát is — kétszer nem olvassuk fel. A check-in
+     és a testsúly ugyanabból az okból szűkíthető, mint az edzés: a motor az
+     alvásadóssághoz 3 napot néz, a megbízhatósághoz 28-at, a testsúlyból
+     pedig egyedül a LEGUTOLSÓ mérés érdekli. */
+  const workouts = getWorkoutsSince(athlete.userId, since);
+  const checkins = getCheckins(athlete.userId, CARD_WINDOW_DAYS);
+  const weightLog = getWeightLogSince(athlete.userId, since);
+  const workoutDates = getWorkoutDates(athlete.userId);
+
+  const readiness = computeReadiness({
+    checkins,
+    workouts,
+    nutrition: {
+      today: getNutritionTotals(athlete.userId, today),
+      yesterday: getNutritionTotals(athlete.userId, shiftDate(today, -1)),
+    },
+    weightLog,
+    catalog: getCollection('exerciseCatalog') || [],
+    today,
+  });
+
   const lastMessage = getLastMessage(athlete.linkId);
   return buildAthleteCard({
     athlete: { ...athlete, goal: goalTag(athlete.goal) },
     workouts,
-    plans: getUserPlans(athlete.userId),
-    checkins: getCheckins(athlete.userId, 60),
-    weightLog: getWeightLog(athlete.userId),
+    workoutDates,
+    plans: getUserPlanSchedules(athlete.userId),
+    checkins,
+    weightLog,
     readiness: readiness.overall,
     confidence: readiness.confidence,
-    streak: trainingStreak(workouts, today),
+    streak: streakFromDates(workoutDates, today),
     lastMessage: lastMessage && { ...lastMessage, mine: lastMessage.senderId === viewerId },
     unread,
     today,
@@ -1009,7 +1046,15 @@ app.get('/api/exercise-maxes', (req, res) => {
     fiókok bevezetése óta kötelező `userId`-t vár, a nap pedig a KLIENS
     naptárából jön (req.today), nem a szerver helyi idejéből. */
 function trainingStreak(workouts, today) {
-  const trainedDays = new Set(workouts.map((w) => dayKey(w.date)));
+  return streakFromDates(workouts.map((workout) => workout.date), today);
+}
+
+/** Ugyanaz, edzés-objektumok helyett puszta NAPOKBÓL. Az edzői panel ezt
+    hívja: ott a napok listája a teljes előzményből jön (getWorkoutDates), az
+    edzések viszont ablakozva — a sorozat pedig tetszőlegesen régre nyúlhat,
+    tehát nem szorítható az ablakba. */
+function streakFromDates(dates, today) {
+  const trainedDays = new Set(dates.map(dayKey));
   const todayKey = dayKey(today);
 
   let streak = 0;
