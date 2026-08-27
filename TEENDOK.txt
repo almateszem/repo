@@ -7,7 +7,7 @@ Jelölések:   [ ] nyitott    [~] részben kész    [x] kész (a következő
              takarításig marad itt, hogy lássuk, mi történt)
 
 Utolsó frissítés: 2026-08-26 (üzenetek, értesítések, panel-teljesítmény,
-                  rate limit, terv-kiosztás)
+                  rate limit, terv-kiosztás; + négy átbeszélt funkció-ötlet)
 Legutóbbi takarítás: 2026-08-17 — az elkészült [x] tételek kivezetve
 (a részletek a git előzményben maradtak meg).
 
@@ -124,6 +124,108 @@ EDZŐ–SPORTOLÓ KAPCSOLAT — a 2026-08-25-i átállás után maradt tételek
     Végpontok: POST /api/athletes/:linkId/plan, POST /api/plan-offers/:id/accept,
     DELETE /api/plan-offers/:id; a függő ajánlatok a GET /api/coach-ban jönnek.
     Tesztek: server/coach.test.js 8. szakasz + böngésző-végigjátszás.
+
+
+==========================================================================
+ÚJ FUNKCIÓ-ÖTLETEK — átbeszélve, még egy sor kód sem íródott
+==========================================================================
+
+Négy ötlet, 2026-08-26-án átbeszélve. Az itt szereplő döntéseket NEM kell
+újra levezetni — azért vannak leírva, hogy ne kelljen.
+
+KÖZÖS MEGKÖTÉS, mind a négyre: a célközönség a profi versenyző, EDZŐVEL VAGY
+ANÉLKÜL. Ebből két dolog következik:
+  · az „on/off szezon" a helyes szóhasználat (nem „tömegelés/szálkásítás"),
+  · minden funkciónak EDZŐ NÉLKÜL is teljes értékűnek kell lennie. A
+    felhasználók nagy részének soha nem lesz edzője; ha egy funkció fele
+    csak edzővel működik, az a többségnél üresen fog kongani.
+
+Ami közös még bennük: HÁROM olyasmire épül, ami a motorban MÁR MEGVAN, csak
+a felületről nem érhető el. A Recovery Engine izomcsoportonként kezel
+fájdalmat (0–10), 7/10 felett letiltja az érintett gyakorlatokat, és számol
+gyakorlat-szintű ajánlást konkrét súly/volumen javaslattal. Nem új motor
+kell hozzájuk, hanem hiányzó belépési pontok.
+
+SORRENDJAVASLAT: az erőfelmérés az első (a legkisebb kockázat, dokumentált
+hibát javít), és FELOLDÁS a gyakorlat-ajánláshoz — enélkül friss
+felhasználónak nincs miből ajánlani. A többi három egymástól független.
+
+
+[ ] 1. Erőfelmérés / fresh start   (javasolt első lépés)
+    A user megadja pár gyakorlatban a maxát, és a motor ebből azonnal tud
+    személyre szabottan számolni.
+    MIT JAVÍT: a friss felhasználó ma hetekig „vakon" használja az appot. A
+    személyre szabott referenciához 14 nap edzés-előzmény és 7 check-in kell
+    (recovery.js -> PERSONAL_REF_MIN_DAYS), egy gyakorlat pedig 3 naplózott
+    alkalom után kap ajánlást (MIN_SESSIONS) — csak a három fő emelés
+    (fekvenyomás, guggolás, felhúzás) kivétel. Addig általános, testsúlyra
+    skálázott referenciával fut, „Tájékoztató" jelzéssel.
+    A BUKTATÓ, amit tervezéskor tudni kell: az ajánló a MENTETT EDZÉSEKBŐL
+    építi az alkalmakat (summarizeWorkouts), nem az exercise_maxes-ből —
+    egy bemondott max önmagában tehát NEM hozná elő az ajánlásokat. Vagy a
+    motor kap külön „bemondott" bemenetet, vagy a felmérés edzésként
+    íródna be (utóbbi viszont hazudna egy meg nem történt edzést a naplóba,
+    a sorozatba és a volumen-diagramba).
+    És: a bemondott szám NEM mérés. Ugyanaz a megkülönböztetés kell rá, ami
+    a katalógusban már megvan (loadSource: 'derived' vs. kurált), és a
+    megbízhatóság-jelzésnek is ki kell mondania, min alapul.
+    Kapcsolódó, már meglévő gépezet: calculateEpley1RM, updateExerciseMax.
+
+
+[ ] 2. SOS sérülés gomb
+    Edzés közben elérhető gomb: hol fáj, mennyire, mi közben. Rögzíti,
+    lezárja az edzést, és szól az edzőnek.
+    MIÉRT KELL, ha a fájdalom-kezelés már megvan: az IDŐZÍTÉS miatt. A
+    check-in napi, reggeli dolog — a sérülés viszont sorozat közben
+    történik, és ma nincs mód azt mondani, hogy „ez MOST történt". Ez a
+    hiányzó második bemeneti út ugyanahhoz a motorhoz.
+    ELDÖNTVE: a gomb NEM AD KEZELÉSI TANÁCSOT. Rögzít, lezárja az edzést,
+    letiltja az érintett izmot mára, szól az edzőnek, és VÉSZJELZÉSEKET
+    mutat (ropogást hallottál / nem tudsz ráterhelni / duzzad / zsibbad →
+    orvos). A „jegeld le és folytasd" típusú tanács kimarad: rossz esetben
+    árt, és a jegelés maga is vitatott ma már akut sérülésnél. A
+    vészjelzés biztonsági információ, nem kezelés — a termék értékéből
+    semmit nem veszít vele.
+    NYITOTT KÉRDÉS, amit meg kell tervezni: MIT CSINÁL A GOMB EDZŐ NÉLKÜL?
+    Edzővel a kör bezárul (sérülés → értesítés → az edző azonnal kioszt egy
+    módosított tervet; erre a terv-kiosztás óta van út). Edző nélkül marad
+    a rögzítés és az izom letiltása — ennek önmagában is értelmesnek kell
+    lennie, különben a funkció fele a felhasználók többségénél üres.
+    Az adat a mai check-in fájdalom-mezőjébe is beírható (saveCheckin) —
+    onnan a motor ingyen átveszi, nem kell új számítás.
+
+
+[ ] 3. On/off szezon célsúly → táplálkozási cél
+    Szezon-fázisonként külön optimális testsúly beállítása.
+    FONTOS, hogy ez NEM a meglévő users.goal átnevezése: versenyzőnél a
+    szezon-fázis és az edzés-cél KÉT KÜLÖN TENGELY (lehetsz szálkásításban
+    on és off szezonban is), és jellemzően két külön célsúly tartozik
+    hozzájuk. A szezon tehát önálló fogalom.
+    ELDÖNTVE: a célsúly A NAPI KALÓRIA/FEHÉRJE CÉLT HAJTJA. Enélkül csak egy
+    szám a képernyőn, ami nem csinál semmit. Így viszont egy meglévő hiányt
+    is befoltoz — ld. lentebb, a NYITOTT szakaszban a beégetett
+    nutritionGoal tételét.
+    MEGKÖTÉS: ütem-korlát kell. A modul számolja ki, mit jelent a cél heti
+    százalékban, és kb. 1%/hét testsúly fölött jelezzen. Nem kell megtiltani,
+    de egy „−15 kg 4 hét alatt" cél nem mehet át némán.
+
+
+[ ] 4. Ajánlott gyakorlat — a címből ÉS a regeneráltságból
+    A gyakorlat-választó ajánljon gyakorlatokat magától.
+    A CÍMBŐL OLVASÁS ÖNMAGÁBAN TÖRÉKENY: az emberek „Hétfő", „A nap",
+    „Push #3" néven mentenek. Ha nem talál, nem kapsz semmit, és azt sem
+    érted, miért.
+    A másik jel viszont már megvan, és ilyet más app nem tud: a
+    GET /api/readiness izomcsoportonkénti készenlétet ad. A választó pedig
+    már ismeri az edzés nevét (script.js -> setupExercisePicker, context.
+    nameInput), tehát a cím-egyezés is olcsó.
+    ELDÖNTVE: MINDKÉT JEL, EGYENRANGÚAN — de minden javaslat írja ki, MIÉRT
+    került oda („a címből: Láb" / „88% regenerált"). Két összekevert jel
+    indoklás nélkül kiszámíthatatlannak látszana.
+    MEGKÖTÉS: fájdalommal letiltott csoport (painBlocked) SOSEM kerülhet a
+    javaslatok közé — ezt a cím sem írhatja felül.
+    Ha a címből nincs értelmezhető szó, a lista essen vissza a
+    regeneráltságra, ne maradjon üres.
 
 
 ==========================================================================
@@ -246,6 +348,20 @@ SZETT-TÍPUSOK — a régebbi elemek átvezetése
 ==========================================================================
 NYITOTT — döntést vagy külső lépést igényel
 ==========================================================================
+
+[ ] A napi kalória- és fehérjecél BEÉGETETT demo-adat
+    Hely: server/data.js -> nutritionGoal { calories: 2900, protein: 170 }.
+    Mindenkinek UGYANAZ, az első indítástól kezdve — függetlenül a
+    testsúlytól, a céltól és a nemtől. Ugyanaz a fajta hiba, mint amit az
+    értesítés-panelnél kivezettünk, csak ez nem látszik ránézésre.
+    És nem csak kijelzés: a Recovery Engine táplálkozás-komponense (0.05
+    súly) EHHEZ méri a tegnapi bevitelt, tehát egy kitalált szám megy bele
+    a készenléti pontszámba.
+    Ami eldöntendő: mi számolja ki helyette. Az ÚJ FUNKCIÓ-ÖTLETEK 3.
+    tétele (on/off szezon célsúly) pont ezt hajtaná — de ha az nem épül
+    meg, akkor is kell egy értelmes alap (testsúly + cél + aktivitás).
+    Addig legalább azt érdemes kimondani a felületen, hogy ez irányszám,
+    nem a felhasználóra szabott cél.
 
 [ ] Gym visual licenc tisztázása, MIELŐTT ez élesbe/nyilvánosra megy
     EZT NEM LEHET KÓDBÓL MEGOLDANI — meg kell keresni a jogtulajdonost.
