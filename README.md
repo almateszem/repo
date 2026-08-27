@@ -105,6 +105,8 @@ server/
   migration.test.js  a fiókok előtti adatbázis migrációjának tesztje (npm test)
   db.js          SQLite adatréteg — az egyetlen modul, ami a tárolást ismeri
   data.js        seed / referencia-adat (ételek, gyakorlat-katalógus, edzés-célok)
+  openfoodfacts.js  vonalkód-ellenőrzés + Open Food Facts proxy (a kliens nem hívja közvetlenül)
+  openfoodfacts.test.js  a leképezés és a vonalkód-normalizálás tesztjei (npm test)
   recovery.js    Recovery Engine — a készenlét-számítás (tiszta függvények, DB nélkül)
   recovery.test.js  a motor unit-tesztjei (npm test)
   coaching.js    az edzői panel sportoló-összegzője (tiszta függvények, DB nélkül)
@@ -118,10 +120,16 @@ Az adat kétféle: a `collections` táblában a **csak olvasható** referencia-a
 amit a szerver minden induláskor a `data.js`-ből szinkronizál (tehát a `data.js`
 az egyetlen szerkesztési hely) — ez minden fióknak közös —, illetve a
 **felhasználói adat** saját táblákban (`weight_log`, `nutrition_log`, `workouts`,
-`plans`, `workout_draft`, `checkins`, `exercise_maxes`). Ezeket a seed nem írja
-felül, és minden soruk egy fiókhoz tartozik (`user_id`). A fiókok KÖZTI adat —
-az edző–sportoló kapcsolatok (`coach_links`) és az üzenetek (`messages`) — külön
-táblákban áll; ezekhez mindkét érintett fél hozzáfér, más senki.
+`plans`, `workout_draft`, `checkins`, `exercise_maxes`, `custom_foods`). Ezeket a
+seed nem írja felül, és minden soruk egy fiókhoz tartozik (`user_id`). A fiókok
+KÖZTI adat — az edző–sportoló kapcsolatok (`coach_links`) és az üzenetek
+(`messages`) — külön táblákban áll; ezekhez mindkét érintett fél hozzáfér, más
+senki.
+
+Egy kivétel van: a `barcode_cache` (vonalkód → Open Food Facts termék) tudatosan
+**nem** felhasználói adat és nincs rajta `user_id` — ugyanaz a vonalkód
+mindenkinek ugyanazt a terméket jelenti. A `/api/foods` viszont innentől
+fiókfüggő: elöl a hívó saját ételei, utánuk a közös katalógus.
 
 ## Fiókok
 
@@ -204,6 +212,24 @@ tartja ki a gráfból magát a vendorolt skillt (különben a saját dokumentác
 - **Táplálkozás — mai napló.** A bevitt tételek listája a napi összesítő alatt
   látszik, bármelyik egy koppintással törölhető. Csak az aznapi bejegyzés
   módosítható: a korábbi napok összesítői már beépültek a készenlét-számításba.
+- **Saját étel + vonalkód-olvasó.** A beépített katalógus általános referencia-
+  értékeket ad, egy konkrét bolti termék ettől 100 kcal-t is eltérhet — ezért
+  fel lehet vinni sajátot. A makrókat külön-külön adod meg, a **kalóriát az app
+  számolja** (Atwater 4/4/9) és élőben mutatja; ha a csomagoláson más áll (rost,
+  poliolok), felülírható, és egy ↻ gomb visszakapcsol az automatikusra. A
+  szerver mindkét ágat validálja — a napi bevitelt a kliensből nem lehet hazudni.
+
+  A vonalkód-olvasó három szinten működik, ebben a sorrendben: natív
+  `BarcodeDetector` → lustán letöltött ZXing (`/vendor/zxing`, csak szkenneléskor,
+  a `node_modules`-ból kiszolgálva) → **kézi kódbeírás**, ami mindig elérhető. Ez
+  utóbbi nem vészmegoldás: a `getUserMedia` csak https-en vagy localhoston él, a
+  gép LAN-IP-jéről nyitva a böngésző a kamerát oda sem adja (a felület ezt meg is
+  mondja). A beolvasott kódot a **szerver** oldja fel — saját étel → gyorsítótár →
+  Open Food Facts —, és a találat előre kitölti az űrlapot. Egyszer felvitt
+  termék újraolvasásakor rögtön az adagválasztó jön.
+
+  A már lenaplózott tételeket a saját étel törlése **nem** írja át: a
+  `nutrition_log` a nevet és a makrókat másolatban tárolja.
 - **Megerősítés adatvesztés előtt.** Ha egy terv betöltése megkezdett edzést
   írna felül, vagy egy teljesített szetteket tartalmazó gyakorlatot vennél ki,
   az app rákérdez (saját modállal, nem natív `confirm`-mal).
