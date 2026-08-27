@@ -8,6 +8,8 @@
  *   · olvasatlan üzenet egy élő edző–sportoló szálban,
  *   · hozzám érkezett, még függő edző-meghívó,
  *   · az általam kiküldött meghívó elfogadása,
+ *   · hozzám érkezett, még függő terv-ajánlat,
+ *   · az általam kiosztott terv elfogadása vagy elutasítása,
  *   · friss egyéni csúcs (PR) a saját naplómból.
  *
  * MINDEGYIKNEK VAN IGAZI IDŐBÉLYEGE. Ez nem apróság: ez a szűrő döntötte el,
@@ -45,10 +47,13 @@ function preview(text) {
  * @param {object[]} input.unreadThreads  { linkId, partner, unread, lastText, at }
  * @param {object[]} input.incomingInvites { linkId, coach, at } — hozzám jött meghívó
  * @param {object[]} input.acceptedLinks  { linkId, athlete, at } — az én meghívóm, elfogadva
+ * @param {object[]} input.planOffers     { id, plan, coach, at } — nekem felajánlott terv
+ * @param {object[]} input.answeredPlans  { id, plan, athlete, accepted, at } — az én tervem, megválaszolva
  * @param {object[]} input.recentPrs      { exercise, max1rm, at }
  */
 export function buildNotifications({
-  unreadThreads = [], incomingInvites = [], acceptedLinks = [], recentPrs = [],
+  unreadThreads = [], incomingInvites = [], acceptedLinks = [],
+  planOffers = [], answeredPlans = [], recentPrs = [],
 } = {}) {
   const items = [];
 
@@ -80,6 +85,26 @@ export function buildNotifications({
       cat: 'coach',
       text: `${link.athlete} elfogadta a meghívódat`,
       at: link.at,
+    });
+  }
+
+  for (const offer of planOffers) {
+    items.push({
+      id: `plan-offer:${offer.id}`,
+      cat: 'plan',
+      text: `${offer.coach} kiosztotta a „${offer.plan}” tervet`,
+      at: offer.at,
+    });
+  }
+
+  /* Az edző oldala: a válasz akkor is esemény, ha nemleges — az elutasított
+     tervről ugyanúgy tudnia kell, mint az elfogadottról. */
+  for (const answer of answeredPlans) {
+    items.push({
+      id: `plan-answer:${answer.id}`,
+      cat: 'plan',
+      text: `${answer.athlete} ${answer.accepted ? 'elfogadta' : 'elutasította'} a „${answer.plan}” tervet`,
+      at: answer.at,
     });
   }
 

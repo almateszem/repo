@@ -6,7 +6,8 @@ Nem hibajegy-rendszer: rövid, cselekvésre kész sorok, prioritás szerint.
 Jelölések:   [ ] nyitott    [~] részben kész    [x] kész (a következő
              takarításig marad itt, hogy lássuk, mi történt)
 
-Utolsó frissítés: 2026-08-26 (üzenetek: olvasottság; értesítés-panel)
+Utolsó frissítés: 2026-08-26 (üzenetek, értesítések, panel-teljesítmény,
+                  rate limit, terv-kiosztás)
 Legutóbbi takarítás: 2026-08-17 — az elkészült [x] tételek kivezetve
 (a részletek a git előzményben maradtak meg).
 
@@ -41,9 +42,10 @@ EDZŐ–SPORTOLÓ KAPCSOLAT — a 2026-08-25-i átállás után maradt tételek
     mert azok ÁLLAPOTOK, nem események — csak kitalált időponttal lehetne
     kiírni őket, és a panel megint azt mutatná, ami nem igaz. (A check-in
     emlékeztetője ott van az áttekintőn, ahol dolga van.)
-    A kategória-kapcsolók is a hármat követik, ami tényleg létezik (új üzenet,
-    edző-kapcsolat, egyéni csúcs) — a korábbi hatból négyhez (terv kiosztva /
-    módosítva, edzői megjegyzés, heti riport) nem tartozott esemény.
+    A kategória-kapcsolók is azt követik, ami tényleg létezik (új üzenet,
+    edző-kapcsolat, egyéni csúcs — a „terv kiosztva" a terv-kiosztással
+    visszatért); a korábbi hatból a többihez (terv módosítva, edzői
+    megjegyzés, heti riport) továbbra sem tartozik esemény.
     Az „olvasott" állapot mostantól LÁTOTT-IDŐPONT (prefs -> notifSeenAt), nem
     mindent elrejtő kapcsoló: a „mind olvasott" a sorokat megtartja, csak az
     újdonság-pötty és a jelvény tűnik el. Az elolvasott üzenet-szál értesítése
@@ -101,11 +103,27 @@ EDZŐ–SPORTOLÓ KAPCSOLAT — a 2026-08-25-i átállás után maradt tételek
         30 sportoló (az új mérce):  57,6 ms
     A gyorsítótár így megspórolva: ~2 ms/sportolónál nincs mit érvényteleníteni.
 
-[ ] Az edző nem tud tervet kiosztani a sportolónak
-    A részletmodálból korábban két demo-gomb nyílt („Terv szerkesztése",
-    „Edzés szerkesztése"), amik a SAJÁT tervek oldalára navigáltak — azok
-    kikerültek. A valódi funkció (terv írása más fiókjába) külön feladat:
-    jogosultság, értesítés és a sportoló felülírás-védelme is kell hozzá.
+[x] Az edző tervet tud kiosztani a sportolónak   (2026-08-26)
+    A helyén a részletmodál „Terv kiosztása" gombja áll: az edző a SAJÁT
+    tervei közül választ, és írhat mellé egy kísérő sort.
+    A három feltétel, amit a tétel kért:
+      · JOGOSULTSÁG: csak élő kapcsolatba, és csak a kapcsolat EDZŐ-oldaláról
+        (a sportoló nem oszthat ki visszafelé); a terv-azonosítóval más
+        tervére sem lehet hivatkozni.
+      · ÉRTESÍTÉS: a sportoló a felajánlott tervről, az edző a válaszról kap
+        sort a panelen — az ELUTASÍTÁSRÓL is, mert a hallgatás rosszabb.
+      · FELÜLÍRÁS-VÉDELEM: a terv NEM íródik a sportoló plans táblájába. Az
+        edző FELAJÁNL, a sportoló elfogadja vagy elutasítja (plan_assignments
+        tábla), és elfogadáskor is MÁSOLATKÉNT, a meglévő tervei MELLÉ kerül.
+    Miért ajánlat és nem közvetlen írás: tervet TÖRÖLNI nem lehet az appban,
+    tehát amit egyszer belepakolnánk a fiókjába, azt nem tudná kiszedni. És
+    ugyanaz az elv, mint a kapcsolaté: ami a másik fiókjában megjelenik,
+    ahhoz a másik beleegyezése kell.
+    A kiosztott gyakorlat-lista PILLANATKÉP: ha az edző később átírja a saját
+    tervét, a sportolónál lévő példány nem változik meg némán alatta.
+    Végpontok: POST /api/athletes/:linkId/plan, POST /api/plan-offers/:id/accept,
+    DELETE /api/plan-offers/:id; a függő ajánlatok a GET /api/coach-ban jönnek.
+    Tesztek: server/coach.test.js 8. szakasz + böngésző-végigjátszás.
 
 
 ==========================================================================
@@ -180,10 +198,11 @@ EREDMÉNY (1 éves adat, azonos gépen), megtartva jövőbeli összevetéshez:
     Ami MEGVAN:
       · BELÉPÉS: 15 percen belül 10 sikertelen próbálkozás után a
         felhasználónév zárolódik (server/auth.js).
-      · REGISZTRÁCIÓ: forrásonként 10 óránként. Ez volt a legnagyobb rés —
+      · REGISZTRÁCIÓ: forrásonként 30 óránként. Ez volt a legnagyobb rés —
         az egyetlen írás, amihez nem kell fiók, tehát bárki gyárthatott
         korlátlanul fiókot. A hibás próbálkozás is beleszámít, különben a
-        foglalt nevek végigpróbálása ingyen lenne.
+        foglalt nevek végigpróbálása ingyen lenne. A szám tudatosan bőkezű:
+        egy edzőterem vagy iroda közös IP-je mögül többen is regisztrálhatnak.
       · ÍRÁSOK: fiókonként 240 percenként, MINDEN /api/* POST/PUT/PATCH/
         DELETE-re, köztes rétegként — egy később felvett író végpont
         automatikusan védett lesz. A limit az autosave legrosszabb esetének

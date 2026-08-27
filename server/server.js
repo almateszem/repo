@@ -28,6 +28,8 @@ import {
   getCoachAthletes, acceptCoachInvite, deleteCoachLink,
   getMessages, getLastMessage, addMessage, markMessagesRead, getUnreadCounts,
   getRecentExerciseMaxes,
+  getPlan, assignPlan, getPlanAssignment, getPendingPlanOffers,
+  getAnsweredPlanOffers, resolvePlanAssignment,
 } from './db.js';
 import {
   hashPassword, verifyPassword, createSessionToken, hashToken,
@@ -84,8 +86,10 @@ const SESSION_MAX_AGE = SESSION_DAYS * 24 * 60 * 60;
    annak a duplája fér bele. */
 const MINUTE = 60 * 1000;
 
-/** Új fiókok egy forrásból. Óránként ennyi bőven elég egy családnak is. */
-const registerLimiter = createRateLimiter({ limit: 10, windowMs: 60 * MINUTE });
+/** Új fiókok egy forrásból. A szám tudatosan bőkezű: egy edzőterem vagy egy
+    iroda közös IP-je mögül többen is regisztrálhatnak egyszerre, és őket nem
+    szabad kizárni. Egy fiók-gyártó szkriptet ez így is megállít. */
+const registerLimiter = createRateLimiter({ limit: 30, windowMs: 60 * MINUTE });
 
 /** Írások fiókonként. Az autosave legrosszabb esetének a duplája. */
 const writeLimiter = createRateLimiter({ limit: 240, windowMs: MINUTE });
@@ -669,13 +673,16 @@ const coachPayload = (coach, userId) => (coach
   ? { ...coach, goal: goalTag(coach.goal), unread: getUnreadCounts(userId).get(coach.linkId) ?? 0 }
   : null);
 
-/** A saját edzőm (vagy null) és a hozzám érkezett, még függő meghívók. */
+/** A saját edzőm (vagy null), a hozzám érkezett meghívók, és az edzőm által
+    felajánlott, még el nem fogadott tervek. */
 app.get('/api/coach', (req, res) => {
   res.json({
     coach: coachPayload(getActiveCoach(req.user.id), req.user.id),
     invites: getPendingCoachInvites(req.user.id).map(({ linkId, at, coach: from }) => ({
       linkId, at, ...from, goal: goalTag(from.goal),
     })),
+    planOffers: getPendingPlanOffers(req.user.id)
+      .map((offer) => offerPayload(offer, { from: offer.coach.name })),
   });
 });
 
@@ -794,6 +801,87 @@ app.post('/api/messages/:linkId/read', (req, res) => {
 });
 
 /* ======================================================================
+   Terv-kiosztás
+   ----------------------------------------------------------------------
+   Az edző FELAJÁNL egy tervet, a sportoló elfogadja vagy elutasítja —
+   ugyanaz az elv, mint a kapcsolaté: ami a másik fiókjában megjelenik, ahhoz
+   a másik beleegyezése kell. Közvetlenül beírni a plans táblájába két okból
+   sem szabad: tervet TÖRÖLNI nem lehet az appban (amit egyszer belepakolunk,
+   azt nem tudná kiszedni), és a saját tervei közé se kerülhet olyasmi, amit
+   nem ő tett oda.
+
+   Ami átmegy, az PILLANATKÉP: az edző későbbi szerkesztése nem változtatja
+   meg némán a sportolónál lévő példányt.
+   ====================================================================== */
+
+/** Az edző kísérő sora a kiosztáshoz — legfeljebb ennyi karakter. */
+const PLAN_NOTE_MAX = 200;
+
+/** Egy terv-ajánlat felületi alakja. A gyakorlat-lista is benne van: a
+    sportolónak látnia kell, MIT fogad el. */
+const offerPayload = (offer, from) => ({
+  id: offer.id,
+  name: offer.name,
+  exercises: offer.exercises,
+  days: offer.days,
+  note: offer.note,
+  at: offer.at,
+  ...from,
+});
+
+/** Terv kiosztása a kapcsolat sportolójának. Törzs: { planId, note }.
+    A terv az EDZŐ saját tervei közül való — a végpont nem terv-szerkesztő. */
+app.post('/api/athletes/:linkId/plan', (req, res) => {
+  const link = getCoachLink(Number(req.params.linkId));
+  // Csak az edző oldala oszthat ki, és csak ÉLŐ kapcsolatba
+  if (!link || link.coachId !== req.user.id || link.status !== 'active') {
+    return res.status(404).json({ error: 'Nincs ilyen kapcsolat.' });
+  }
+
+  const planId = Number(req.body?.planId);
+  if (!Number.isInteger(planId)) {
+    return res.status(400).json({ error: 'Válaszd ki, melyik tervet osztod ki.' });
+  }
+  const plan = getPlan(req.user.id, planId);
+  if (!plan) return res.status(404).json({ error: 'Nincs ilyen terved.' });
+
+  const note = String(req.body?.note ?? '').trim().slice(0, PLAN_NOTE_MAX) || null;
+  const assignment = assignPlan(link.id, {
+    name: plan.name, exercises: plan.exercises, days: plan.days, note,
+  });
+  res.status(201).json(offerPayload(assignment, { linkId: link.id }));
+});
+
+/** A hozzám érkezett ajánlat, ha tényleg az enyém és még függő — különben null. */
+function pendingOfferFor(userId, rawId) {
+  const offer = getPlanAssignment(Number(rawId));
+  if (!offer || offer.status !== 'pending') return null;
+  const link = getCoachLink(offer.linkId);
+  if (!link || link.status !== 'active' || link.athleteId !== userId) return null;
+  return offer;
+}
+
+/** Ajánlat elfogadása: a terv MÁSOLATKÉNT kerül a sportoló tervei közé.
+    A meglévő terveihez nem nyúlunk — ez mindig hozzáadás, sosem felülírás. */
+app.post('/api/plan-offers/:id/accept', (req, res) => {
+  const offer = pendingOfferFor(req.user.id, req.params.id);
+  if (!offer) return res.status(404).json({ error: 'Nincs ilyen terv-ajánlat.' });
+
+  resolvePlanAssignment(offer.id, 'accepted');
+  const plan = addPlan(req.user.id, offer.name, req.today, offer.exercises, offer.days);
+  res.status(201).json(plan);
+});
+
+/** Ajánlat elutasítása. A sor megmarad (lezárt állapotban), hogy az edző
+    lássa a választ — de a sportolónál nem lóg ott tovább. */
+app.delete('/api/plan-offers/:id', (req, res) => {
+  const offer = pendingOfferFor(req.user.id, req.params.id);
+  if (!offer) return res.status(404).json({ error: 'Nincs ilyen terv-ajánlat.' });
+  resolvePlanAssignment(offer.id, 'declined');
+  res.status(204).end();
+});
+
+/* ======================================================================
    Értesítések
    ----------------------------------------------------------------------
    A panel tartalma a HÍVÓ valódi eseményeiből áll össze — a korábbi,
@@ -839,6 +927,17 @@ app.get('/api/notifications', (req, res) => {
     acceptedLinks: getCoachAthletes(userId, 'active')
       .filter((athlete) => athlete.respondedAt)
       .map((athlete) => ({ linkId: athlete.linkId, at: athlete.respondedAt, athlete: athlete.name })),
+    // A sportoló oldala: nekem felajánlott, még függő tervek
+    planOffers: getPendingPlanOffers(userId)
+      .map((offer) => ({ id: offer.id, plan: offer.name, coach: offer.coach.name, at: offer.at })),
+    // Az edző oldala: az általam kiosztott tervekre érkezett válaszok
+    answeredPlans: getAnsweredPlanOffers(userId).map((offer) => ({
+      id: offer.id,
+      plan: offer.name,
+      athlete: offer.athlete.name,
+      accepted: offer.status === 'accepted',
+      at: offer.respondedAt,
+    })),
     recentPrs: getRecentExerciseMaxes(userId, since),
   }));
 });
