@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <!-- viewport-fit=cover: a modern telefonok lekerekített sarkai és a
+       gesztus-sáv alá is fusson be a háttér; a tartalmat a CSS safe-area
+       paddingje tartja bent. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0f1115">
+  <title>Gyűjtő — hiányzó élelmiszerek</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ====================================================================
+     Fejléc — mindig látszik: ki vagyok, hány tétel vár feltöltésre, és
+     a két nézet közti váltó. A szinkron-jelző szándékosan itt van, nem
+     eldugva: offline gyűjtésnél ez a legfontosabb visszajelzés.
+     ==================================================================== -->
+<header class="app-header" hidden data-app-header>
+  <div class="app-header__row">
+    <h1 class="app-header__title">Gyűjtő</h1>
+    <div class="app-header__user">
+      <span data-user-name></span>
+      <button type="button" class="btn btn--ghost btn--sm" data-action="logout">Kilépés</button>
+    </div>
+  </div>
+
+  <button type="button" class="sync-bar" data-sync-bar hidden>
+    <span data-sync-text></span>
+    <span class="sync-bar__action">Szinkronizálás</span>
+  </button>
+
+  <nav class="tabs">
+    <a class="tabs__item" href="#/szkenneles" data-tab="szkenneles">Szkennelés</a>
+    <a class="tabs__item" href="#/lista" data-tab="lista">
+      Gyűjtés <span class="tabs__badge" data-count-total>0</span>
+    </a>
+  </nav>
+</header>
+
+<main class="app-main">
+
+  <!-- ==================================================================
+       Belépés / regisztráció
+       ================================================================== -->
+  <section class="view" data-view="belepes" hidden>
+    <div class="card card--auth">
+      <h2 class="card__title" data-auth-title>Belépés</h2>
+      <p class="muted" data-auth-lead>
+        A Gyűjtőnek saját fiókjai vannak — nem a FitTrack-jelszavad kell ide.
+      </p>
+
+      <form data-form="auth" novalidate>
+        <label class="field">
+          <span class="field__label">Felhasználónév</span>
+          <input type="text" name="username" autocomplete="username" required
+                 autocapitalize="none" spellcheck="false" minlength="3" maxlength="24">
+        </label>
+
+        <label class="field" data-field="displayName" hidden>
+          <span class="field__label">Megjelenő név</span>
+          <input type="text" name="displayName" autocomplete="name" maxlength="40">
+          <span class="field__hint">Ez látszik a gyűjtött tételeknél. Üresen a felhasználónév marad.</span>
+        </label>
+
+        <label class="field">
+          <span class="field__label">Jelszó</span>
+          <input type="password" name="password" autocomplete="current-password" required minlength="8">
+        </label>
+
+        <p class="form-error" data-auth-error hidden></p>
+
+        <button type="submit" class="btn btn--primary btn--block" data-auth-submit>Belépés</button>
+      </form>
+
+      <p class="card__foot">
+        <button type="button" class="link" data-action="toggle-auth-mode">
+          Nincs még fiókom — regisztrálok
+        </button>
+      </p>
+    </div>
+  </section>
+
+  <!-- ==================================================================
+       Szkennelés — a boltban ezt nézzük. Egy kézzel, nagy gombokkal.
+       ================================================================== -->
+  <section class="view" data-view="szkenneles" hidden>
+
+    <div class="scanner">
+      <div class="scanner__stage" data-sc-stage hidden>
+        <!-- playsinline: iOS különben teljes képernyős lejátszóba dobná a videót -->
+        <video class="scanner__video" data-sc-video playsinline muted></video>
+        <div class="scanner__frame" aria-hidden="true"></div>
+        <button type="button" class="scanner__torch" data-sc-torch hidden
+                aria-pressed="false" aria-label="Vaku">💡</button>
+      </div>
+
+      <p class="scanner__status" data-sc-status role="status"></p>
+      <p class="form-error" data-sc-error hidden></p>
+
+      <div class="scanner__buttons">
+        <button type="button" class="btn btn--primary btn--block btn--lg" data-action="scan-start">
+          Szkennelés indítása
+        </button>
+        <button type="button" class="btn btn--ghost btn--block" data-action="scan-stop" hidden>
+          Kamera leállítása
+        </button>
+      </div>
+
+      <!-- A kézi beírás NEM vészmegoldás: a kamera csak https-en vagy
+           localhoston él, és a szkennelés fizikailag is bukhat (karcos
+           csomagolás, rossz fény). Ezért mindig itt van, egyenrangú útként. -->
+      <form class="manual" data-form="manual">
+        <label class="field">
+          <span class="field__label">Vagy írd be a kódot</span>
+          <div class="manual__row">
+            <input type="text" name="code" inputmode="numeric" autocomplete="off"
+                   pattern="[0-9 ]*" placeholder="5998200310010" maxlength="20">
+            <button type="submit" class="btn btn--secondary">Keresés</button>
+          </div>
+        </label>
+      </form>
+    </div>
+
+    <!-- Az eredmény kártyája: itt derül ki, hogy megvan-e a termék. -->
+    <div class="result" data-result hidden></div>
+
+    <!-- A hiányzó termék űrlapja. -->
+    <form class="card product-form" data-form="product" hidden novalidate>
+      <h2 class="card__title" data-form-title>Új termék felvitele</h2>
+      <p class="product-form__barcode">
+        Vonalkód: <strong data-form-barcode></strong>
+      </p>
+
+      <label class="field">
+        <span class="field__label">Név <span class="req">*</span></span>
+        <input type="text" name="name" required minlength="2" maxlength="60"
+               placeholder="pl. Natúr joghurt 3,5%">
+      </label>
+
+      <div class="grid-2">
+        <label class="field">
+          <span class="field__label">Márka</span>
+          <input type="text" name="brand" maxlength="60">
+        </label>
+        <label class="field">
+          <span class="field__label">Kategória</span>
+          <select name="group" data-group-select>
+            <option value="">— nincs megadva —</option>
+          </select>
+        </label>
+      </div>
+
+      <fieldset class="field">
+        <legend class="field__label">Alapmennyiség</legend>
+        <div class="segmented" role="group">
+          <label><input type="radio" name="unit" value="g" checked><span>100 g</span></label>
+          <label><input type="radio" name="unit" value="ml"><span>100 ml</span></label>
+        </div>
+        <span class="field__hint">A makrók erre a mennyiségre értendők — ahogy a csomagoláson áll.</span>
+      </fieldset>
+
+      <div class="grid-3">
+        <label class="field">
+          <span class="field__label">Fehérje (g)</span>
+          <input type="number" name="protein" inputmode="decimal" step="0.1" min="0" max="100">
+        </label>
+        <label class="field">
+          <span class="field__label">Szénhidrát (g)</span>
+          <input type="number" name="carbs" inputmode="decimal" step="0.1" min="0" max="100">
+        </label>
+        <label class="field">
+          <span class="field__label">Zsír (g)</span>
+          <input type="number" name="fat" inputmode="decimal" step="0.1" min="0" max="100">
+        </label>
+      </div>
+
+      <label class="field">
+        <span class="field__label">
+          Kalória (kcal)
+          <button type="button" class="link link--sm" data-action="kcal-auto" hidden>↻ számoltasd újra</button>
+        </span>
+        <input type="number" name="kcal" inputmode="numeric" step="1" min="0" max="900">
+        <span class="field__hint" data-kcal-hint>A makrókból számoljuk (4/4/9). Ha a csomagoláson más áll, írd felül.</span>
+      </label>
+
+      <div class="grid-2">
+        <label class="field">
+          <span class="field__label">Adag neve</span>
+          <input type="text" name="portionLabel" maxlength="24" placeholder="pl. 1 pohár">
+        </label>
+        <label class="field">
+          <span class="field__label">Adag mérete</span>
+          <input type="number" name="portionGrams" inputmode="numeric" step="1" min="1" max="2000">
+        </label>
+      </div>
+
+      <div class="grid-2">
+        <label class="field">
+          <span class="field__label">Hol találtad</span>
+          <input type="text" name="store" maxlength="60" placeholder="pl. Aldi, Fő tér">
+        </label>
+        <label class="field">
+          <span class="field__label">Megjegyzés</span>
+          <input type="text" name="note" maxlength="200">
+        </label>
+      </div>
+
+      <p class="form-error" data-product-error hidden></p>
+
+      <div class="product-form__actions">
+        <button type="submit" class="btn btn--primary btn--block btn--lg">Mentés</button>
+        <button type="button" class="btn btn--secondary btn--block" data-action="save-draft">
+          Mentés piszkozatként
+        </button>
+        <button type="button" class="btn btn--ghost btn--block" data-action="cancel-product">Mégse</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- ==================================================================
+       A gyűjtés listája
+       ================================================================== -->
+  <section class="view" data-view="lista" hidden>
+    <div class="stats" data-stats></div>
+
+    <div class="filters">
+      <div class="segmented segmented--wide" role="group" data-status-filter>
+        <label><input type="radio" name="statusFilter" value="" checked><span>Mind</span></label>
+        <label><input type="radio" name="statusFilter" value="piszkozat"><span>Piszkozat</span></label>
+        <label><input type="radio" name="statusFilter" value="kesz"><span>Kész</span></label>
+      </div>
+      <input type="search" class="filters__search" data-search
+             placeholder="Keresés névre, márkára, vonalkódra" maxlength="60">
+    </div>
+
+    <div class="list" data-list></div>
+  </section>
+</main>
+
+<!-- A rövid visszajelzések helye (mentve / hiba / sorba téve). -->
+<div class="toast" data-toast hidden role="status" aria-live="polite"></div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

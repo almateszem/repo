@@ -6,7 +6,9 @@ Nem hibajegy-rendszer: rövid, cselekvésre kész sorok, prioritás szerint.
 Jelölések:   [ ] nyitott    [~] részben kész    [x] kész (a következő
              takarításig marad itt, hogy lássuk, mi történt)
 
-Utolsó frissítés: 2026-08-27 (végpont- és séma-átnézésből felderített
+Utolsó frissítés: 2026-08-28 (a Gyűjtő — terepi vonalkód-gyűjtő — elkészült;
+                  a nyitott tételei a fájl végén)
+Előző frissítés:  2026-08-27 (végpont- és séma-átnézésből felderített
                   hiányok — új szakasz; közülük az első, a mentett edzés
                   javíthatósága, el is készült)
 Legutóbbi takarítás: 2026-08-17 — az elkészült [x] tételek kivezetve
@@ -588,3 +590,47 @@ NYITOTT APRÓSÁG — a check-in varázslóból maradt
     Korábban a varázsló 12 óránál némán elvágta a bevitelt, pedig a
     részletes űrlap és a szerver is 24-ig fogad el. Most mindhárom helyen
     0–24 (public/script.js → CI_SLEEP_MAX, public/index.html → #ci-sleep).
+
+
+==========================================================================
+GYŰJTŐ — a terepi vonalkód-gyűjtő (gyujto/), 2026-08-28
+==========================================================================
+Külön kis app: boltokat körbejárva szkenneljük a vonalkódokat, és amit sem a
+gyűjtés, sem az Open Food Facts nem ismer, azt ott helyben felvisszük egy
+KÖZÖS adatbázisba. Az export-szkript ebből generálja a
+server/data/products.barcode.js-t, amit a fő app a vonalkód-feloldásnál az
+OFF ELŐTT néz meg. Saját szerver (3100), saját DB, saját fiókok, offline sor.
+Részletek: gyujto/README.md.
+
+[ ] Fénykép a címkéről
+    A boltban a legdrágább mozzanat a makrók begépelése. Egy kép a
+    tápértéktáblázatról (a tétel mellé csatolva) otthon nyugodtan
+    kiolvasható lenne, és a piszkozat percek alatt késszé válna.
+    Kell hozzá: fájlfeltöltés a szerveren + tárolás (a SQLite BLOB itt
+    rossz ötlet, inkább egy uploads/ mappa útvonallal), és a képméret
+    korlátozása kliensoldalon (canvas-átméretezés) — egy modern telefon
+    4 MB-os fotót készít, amit gyenge neten sosem töltenénk fel.
+
+[ ] Jóváhagyási munkafolyamat az export előtt
+    Ma minden „kesz" tétel automatikusan kimegy. Egy elgépelt makró így
+    észrevétlenül bekerül a fő appba. Egy negyedik állapot („ellenőrzött",
+    amit MÁSIK felhasználó ad meg, mint aki felvitte) olcsón megfogná —
+    az export pedig csak az ellenőrzötteket vinné.
+
+[ ] Visszaküldés az Open Food Facts-be
+    Amit begyűjtünk, az másnak is hiányzik. Az OFF-nak van írás-API-ja
+    (bejelentkezéssel); a kész tételeinket fel lehetne tölteni oda is.
+    Ez viszont KÜLSŐ közreadás: előbb tisztázni kell a licencet (ODbL) és
+    azt, hogy a mért adatért ki vállal felelősséget.
+
+[ ] Az OFF-találatok tápértékének ellenőrzése
+    Ma a megtalált termékről csak egy naplósor marad. Pedig a boltban a
+    kezünkben van a csomagolás: egy „ez az adat stimmel / nem stimmel"
+    koppintás felderítené, mennyire bízhatunk az OFF magyar adataiban.
+
+[ ] A gyűjtés listája csak online nézhető
+    Offline a szinkron-sor és a már gyűjtött vonalkódok listája megvan
+    (ettől nem dolgozunk duplán), de a tételeket nem lehet átnézni vagy
+    javítani. A teljes lista offline gyorsítótárazása (IndexedDB) megoldaná
+    — csak akkor kell, ha tényleg zsebre gyűrt telefonnal, net nélkül
+    akarunk a listában turkálni.

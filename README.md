@@ -107,6 +107,7 @@ server/
   data.js        seed / referencia-adat (ételek, gyakorlat-katalógus, edzés-célok)
   openfoodfacts.js  vonalkód-ellenőrzés + Open Food Facts proxy (a kliens nem hívja közvetlenül)
   openfoodfacts.test.js  a leképezés és a vonalkód-normalizálás tesztjei (npm test)
+  data/products.barcode.js  a boltokban BEGYŰJTÖTT termékek (generált — ld. gyujto/)
   recovery.js    Recovery Engine — a készenlét-számítás (tiszta függvények, DB nélkül)
   recovery.test.js  a motor unit-tesztjei (npm test)
   coaching.js    az edzői panel sportoló-összegzője (tiszta függvények, DB nélkül)
@@ -114,7 +115,30 @@ server/
   coach.test.js  az edző–sportoló kapcsolat végponti tesztjei (npm test)
   muscles.js     izomcsoport-taxonómia + gyakorlat → izom leképezés
   fittrack.db    az adatbázisfájl (nem verziókövetett, a szerver hozza létre)
+gyujto/          KÜLÖN APP: terepi vonalkód-gyűjtő (saját szerver, DB, fiókok)
 ```
+
+### Gyűjtő — a hiányzó élelmiszerek begyűjtése
+
+A `gyujto/` mappa egy **önálló kis alkalmazás**, saját Express szerverrel,
+saját SQLite adatbázissal és saját fiókokkal. Boltokat körbejárva
+szkenneljük vele a vonalkódokat: megmondja, ismerjük-e már a terméket, és amit
+nem, azt ott helyben fel lehet vinni (név + makrók) egy **közös** gyűjtésbe.
+Offline is működik — a boltban gyakran nincs net —, a telefon sorba teszi a
+tételeket, és hálózat esetén magától felszinkronizál.
+
+```bash
+npm run gyujto          # http://localhost:3100
+npm run gyujto:test
+npm run gyujto:export   # a kész tételek → server/data/products.barcode.js
+```
+
+A visszaút: az export-szkript a kész tételekből legenerálja a
+`server/data/products.barcode.js`-t, és a `/api/foods/barcode/:code` innentől
+**a saját étel után, az Open Food Facts előtt** ezt nézi meg. A begyűjtött
+bolti termék tehát hálózat nélkül is felismerhető, és nem hígítja az általános
+étel-katalógust: névre keresve nem jön elő, csak vonalkódra. Részletek:
+`gyujto/README.md`.
 
 Az adat kétféle: a `collections` táblában a **csak olvasható** referencia-adat,
 amit a szerver minden induláskor a `data.js`-ből szinkronizál (tehát a `data.js`
@@ -224,7 +248,8 @@ tartja ki a gráfból magát a vendorolt skillt (különben a saját dokumentác
   a `node_modules`-ból kiszolgálva) → **kézi kódbeírás**, ami mindig elérhető. Ez
   utóbbi nem vészmegoldás: a `getUserMedia` csak https-en vagy localhoston él, a
   gép LAN-IP-jéről nyitva a böngésző a kamerát oda sem adja (a felület ezt meg is
-  mondja). A beolvasott kódot a **szerver** oldja fel — saját étel → gyorsítótár →
+  mondja). A beolvasott kódot a **szerver** oldja fel — saját étel → a boltokban
+  begyűjtött termékek (`data/products.barcode.js`, ld. `gyujto/`) → gyorsítótár →
   Open Food Facts —, és a találat előre kitölti az űrlapot. Egyszer felvitt
   termék újraolvasásakor rögtön az adagválasztó jön.
 

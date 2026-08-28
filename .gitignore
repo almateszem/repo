@@ -7,6 +7,13 @@ server/fittrack.db-journal
 server/fittrack.db-wal
 server/fittrack.db-shm
 
+# A Gyűjtő adatbázisa. A gyűjtött termékek a repóba az EXPORTON át kerülnek be
+# (server/data/products.barcode.js), nem az adatbázisfájllal.
+gyujto/gyujto.db
+gyujto/gyujto.db-journal
+gyujto/gyujto.db-wal
+gyujto/gyujto.db-shm
+
 # Külső gyakorlat-dataset munkakönyvtára (17 MB forrás-JSON + jelentés).
 # A scripts/build-exdb.js bármikor újra letölti — nem tartozik a repóba.
 server/data/.exdb/

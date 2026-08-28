@@ -2833,6 +2833,14 @@
 
   const ATWATER = { protein: 4, carbs: 4, fat: 9 };
 
+  /* Honnan jött az előre kitöltött tápérték — és mit érdemes tudni róla. A
+     kulcsok a /api/foods/barcode válaszának `source` mezőjéhez igazodnak; ami
+     nincs itt, az „manual", és nem ír ki semmit. */
+  const SOURCE_NOTES = {
+    openfoodfacts: 'Open Food Facts adat — vesd össze a csomagolással, mielőtt mentesz.',
+    gyujto: 'A saját bolti gyűjtésünkből — vesd össze a csomagolással, mielőtt mentesz.',
+  };
+
   /**
    * A „saját étel" modál vezérlője. Ő birtokolja a Táplálkozás oldal két új
    * gombját, a vonalkód-feloldást és a saját ételek törlését is.
@@ -2928,7 +2936,7 @@
     const open = (prefill = null) => {
       form.reset();
       kcalMode = 'auto';
-      prefillSource = prefill?.source === 'openfoodfacts' ? 'openfoodfacts' : 'manual';
+      prefillSource = SOURCE_NOTES[prefill?.source] ? prefill.source : 'manual';
       setError('');
 
       if (prefill) {
@@ -2954,10 +2962,8 @@
         }
       }
 
-      sourceEl.hidden = prefillSource !== 'openfoodfacts';
-      sourceEl.textContent = prefillSource === 'openfoodfacts'
-        ? 'Open Food Facts adat — vesd össze a csomagolással, mielőtt mentesz.'
-        : '';
+      sourceEl.textContent = SOURCE_NOTES[prefillSource] ?? '';
+      sourceEl.hidden = !sourceEl.textContent;
 
       syncUnit();
       syncKcal();
@@ -2980,7 +2986,10 @@
           onLog?.(hit.food);
           return;
         }
-        open({ ...hit.product, source: 'openfoodfacts' });
+        // A `source` a válaszból jön, nem beégetve: a begyűjtött bolti termék
+        // (source: 'local') MÁS eredetű, mint az Open Food Facts adata, és a
+        // modál is mást ír ki róla.
+        open({ ...hit.product, source: hit.source === 'local' ? 'gyujto' : 'openfoodfacts' });
       } catch (err) {
         /* A 404 (ismeretlen kód) és az 502 (az OFF nem elérhető) is ide fut. A
            modál ilyenkor ÜRESEN, a vonalkóddal előre kitöltve nyílik: a

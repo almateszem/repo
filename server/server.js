@@ -36,6 +36,8 @@ import {
 } from './db.js';
 // Vonalkód-feloldás: a normalizálás/ellenőrzés és az Open Food Facts hívás.
 import { normalizeBarcode, fetchProduct } from './openfoodfacts.js';
+// A boltokban begyűjtött termékek (a gyujto/ export-szkriptje generálja).
+import { barcodeProducts } from './data/products.barcode.js';
 import { FOOD_GROUPS } from './data/foods.hu.js';
 import {
   hashPassword, verifyPassword, createSessionToken, hashToken,
@@ -1545,7 +1547,10 @@ app.post('/api/foods/custom', (req, res) => {
     kcalAuto: !manual,
     barcode,
     portions: normalizePortions(req.body?.portions),
-    source: req.body?.source === 'openfoodfacts' ? 'openfoodfacts' : 'manual',
+    /* Honnan jött a tápérték: kézzel írták be, az Open Food Facts adta, vagy a
+       saját bolti gyűjtésünkből (gyujto/) került elő. Ismeretlen értékre
+       'manual' — a kliens állítását nem vesszük készpénznek. */
+    source: ['openfoodfacts', 'gyujto'].includes(req.body?.source) ? req.body.source : 'manual',
   });
   if (!saved) {
     return res.status(409).json({ error: 'Már van ilyen nevű vagy ilyen vonalkódú saját ételed.' });
@@ -1567,12 +1572,19 @@ app.delete('/api/foods/custom/:id', (req, res) => {
   res.status(204).end();
 });
 
+/* A begyűjtött bolti termékek vonalkód szerint. A listát indításkor egyszer
+   Map-be tesszük: a feloldás így O(1), és a fájl több ezer sornál sem lassít.
+   (A tartalma generált — ld. server/data/products.barcode.js.) */
+const collectedProducts = new Map(barcodeProducts.map((product) => [product.barcode, product]));
+
 /** Vonalkód feloldása. A keresés sorrendje — minden lépés megspórol egy
     hálózati kört a következőhöz képest:
       1. a hívó SAJÁT, ilyen vonalkódú étele → a felület egyből naplózásra
          kínálja, nem kérdezi meg újra a tápértékeket;
-      2. friss cache-sor (barcode_cache);
-      3. Open Food Facts (szerver-oldali proxy, azonosított User-Agenttel).
+      2. a BEGYŰJTÖTT bolti termékek (products.barcode.js) — ezeket mi mértük
+         fel a polcokon, tehát pontosabbak és hálózat nélkül is megvannak;
+      3. friss cache-sor (barcode_cache);
+      4. Open Food Facts (szerver-oldali proxy, azonosított User-Agenttel).
     A válasz `source` mezője megmondja, honnan jött — a felület ebből tudja,
     hogy „mentve" vagy „kitöltendő" állapotot mutasson. */
 app.get('/api/foods/barcode/:code', async (req, res) => {
@@ -1585,6 +1597,9 @@ app.get('/api/foods/barcode/:code', async (req, res) => {
 
   const own = getCustomFoodByBarcode(req.user.id, barcode);
   if (own) return res.json({ source: 'saved', barcode, food: own });
+
+  const collected = collectedProducts.get(barcode);
+  if (collected) return res.json({ source: 'local', barcode, product: collected });
 
   const notFound = { error: 'Ezt a vonalkódot az Open Food Facts sem ismeri — vidd fel kézzel.' };
 
