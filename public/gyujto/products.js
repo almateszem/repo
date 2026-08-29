@@ -5,18 +5,20 @@
  * tesztelhetők (products.test.js), és a szerver-végpontok csak összedrótozzák
  * őket.
  *
- * A SZABÁLYOK SZÁNDÉKOSAN AZONOSAK a fő app „saját étel" végpontjáéval
- * (server/server.js → POST /api/foods/custom). Ez nem stílus-kérdés: amit itt
- * összegyűjtünk, annak később VÁLTOZTATÁS NÉLKÜL át kell mennie a FitTrack
- * validálásán. Ha itt megengedőbbek lennénk, az export napján derülne ki, hogy
- * a gyűjtés fele használhatatlan.
+ * A SZABÁLYOK SZÁNDÉKOSAN AZONOSAK a fő app végpontjáéval
+ * (server/server.js → parseCollected és POST /api/foods/custom). Ez nem
+ * stílus-kérdés: amit itt összegyűjtünk, annak VÁLTOZTATÁS NÉLKÜL át kell
+ * mennie a FitTrack validálásán is. Ha itt megengedőbbek lennénk, a feltöltés
+ * napján derülne ki, hogy a gyűjtés fele használhatatlan. A szerver ugyanezt
+ * újra ellenőrzi — a Gyűjtő is „csak egy kliens".
  *
  * Egy dologban viszont ENGEDÉKENYEBB, és ez a Gyűjtő lényege: a boltban
  * elég a NÉV. A makrók nélkül mentett tétel `piszkozat` állapotba kerül, és
  * otthon, nyugodt körülmények között pótolható. A kapkodva félig kitöltött sor
  * is többet ér, mint a fel nem vitt termék — csak tudni kell róla, hogy félkész.
  */
-import { normalizeBarcode, FOOD_GROUPS } from './shared.js';
+import { normalizeBarcode } from '../shared/barcode.js';
+import { FOOD_GROUPS } from '../shared/foodgroups.js';
 
 /** Atwater-tényezők: a kalória a makrókból számolva (kcal / g). */
 export const ATWATER = { protein: 4, carbs: 4, fat: 9 };
@@ -36,8 +38,8 @@ export const PORTION_MAX_GRAMS = 2000;
 export const PORTION_MAX_COUNT = 4;
 export const PORTION_LABEL_MAX = 24;
 
-/** A tétel útja: félkész → kész → már kiexportálva a FitTrack-be. */
-export const STATUSES = ['piszkozat', 'kesz', 'exportalva'];
+/** A tétel útja: félkész → kész → már feltöltve a FitTrack-be. */
+export const STATUSES = ['piszkozat', 'kesz', 'feltoltve'];
 
 /** Szöveg normalizálása: a többszörös szóköz egy, a szélek levágva. */
 const clean = (value) => String(value ?? '').replace(/\s+/g, ' ').trim();
@@ -192,9 +194,9 @@ export function parseProduct(body) {
     source: body?.source === 'openfoodfacts' ? 'openfoodfacts' : 'manual',
   };
 
-  /* Az állapotot a SZERVER dönti el, nem a kliens: a „kész" azt ígéri, hogy a
-     tétel exportálható, és ezt csak az adat teljessége igazolhatja. Az
-     `exportalva` kívülről egyáltalán nem kérhető — azt az export-szkript írja. */
+  /* Az állapotot az ADAT dönti el, nem a gomb, amit megnyomtak: a „kész" azt
+     ígéri, hogy a tétel feltölthető, és ezt csak a teljesség igazolhatja. A
+     `feltoltve` innen nem kérhető — azt a sikeres feltöltés írja be. */
   const wanted = body?.status === 'piszkozat' ? 'piszkozat' : 'kesz';
   value.status = isComplete(value) && wanted === 'kesz' ? 'kesz' : 'piszkozat';
 

@@ -11,9 +11,6 @@
     "start": "node --disable-warning=ExperimentalWarning server/server.js",
     "dev": "node --watch --disable-warning=ExperimentalWarning server/server.js",
     "test": "node --test \"server/**/*.test.js\"",
-    "gyujto": "node --disable-warning=ExperimentalWarning gyujto/server.js",
-    "gyujto:test": "node --test \"gyujto/**/*.test.js\"",
-    "gyujto:export": "node gyujto/scripts/export-products.js",
     "graph": "graphify update .",
     "exdb:build": "node scripts/build-exdb.js",
     "exdb:media": "node scripts/fetch-exdb-media.js"

@@ -82,27 +82,24 @@ p { margin: 0 0 8px; }
   color: var(--muted);
 }
 
-/* A szinkron-sáv szándékosan a fejlécben, teljes szélességben: offline
-   gyűjtésnél ez a legfontosabb visszajelzés, nem szabad elrejteni. */
-.sync-bar {
+.app-header__meta { margin: 0; font-size: 0.8125rem; color: var(--muted); }
+.app-header__meta strong { color: var(--text); }
+
+/* Tárolás-figyelmeztetés. Egyszer jelenik meg, és nem tolakodó: az app
+   enélkül is működik, csak a telefon egyszer csak kitörölheti az adatot. */
+.hint {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   gap: 12px;
-  width: 100%;
   margin-bottom: 8px;
   padding: 10px 12px;
-  border: 0;
   border-radius: 10px;
-  background: var(--accent);
-  color: #fff;
-  font: inherit;
-  font-size: 0.875rem;
-  cursor: pointer;
+  background: color-mix(in srgb, var(--warn) 20%, var(--surface));
+  font-size: 0.8125rem;
 }
 
-.sync-bar--offline { background: var(--warn); color: #241a00; }
-.sync-bar__action { text-decoration: underline; }
+.hint p { margin: 0; }
+.hint .btn { flex: 0 0 auto; margin-top: 0; }
 
 .tabs { display: flex; gap: 4px; }
 
@@ -144,7 +141,6 @@ p { margin: 0 0 8px; }
   margin-bottom: var(--pad);
 }
 
-.card--auth { margin-top: 10vh; }
 .card__title { margin-bottom: 4px; }
 .card__foot { margin: 12px 0 0; text-align: center; }
 
@@ -210,6 +206,23 @@ input[type="number"] { -moz-appearance: textfield; }
 .segmented input:checked + span {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--accent) 22%, var(--surface-2));
+}
+
+.form-ok {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--ok) 18%, var(--surface));
+  font-size: 0.875rem;
+}
+
+/* A fájlválasztót egy <label> takarja el: a natív input gomb minden
+   böngészőben máshogy néz ki, és egyikben sem illik a többi gombhoz. */
+.file-btn {
+  display: block;
+  text-align: center;
+  cursor: pointer;
+  margin-top: 8px;
 }
 
 .form-error {

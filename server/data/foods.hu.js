@@ -33,13 +33,12 @@
  * átlagértékek.
  */
 
-/** A kategóriák megjelenítési sorrendje. */
-export const FOOD_GROUPS = [
-  'Hús, baromfi', 'Felvágott', 'Hal, tenger gyümölcse', 'Tojás', 'Tejtermék',
-  'Gabona, pékáru', 'Köret, burgonya', 'Hüvelyes, növényi fehérje', 'Zöldség',
-  'Gyümölcs', 'Olajos mag', 'Olaj, zsiradék', 'Édesség, snack', 'Ital',
-  'Sportkiegészítő', 'Készétel', 'Fűszer, szósz',
-];
+/* A kategóriák megjelenítési sorrendje. A lista a public/shared/foodgroups.js-ben
+   lakik, mert a Gyűjtő (public/gyujto/) a böngészőben, szerver nélkül és
+   offline is ugyanezekből a kategóriákból választ — két másolatból előbb-utóbb
+   két különböző kategória-halmaz lenne. Innen újra-exportáljuk, hogy a
+   hívóknak (db.js, server.js) ne kelljen tudniuk a bontásról. */
+export { FOOD_GROUPS } from '../../public/shared/foodgroups.js';
 
 /** Korábbi nevek → jelenlegi név (átnevezéskor tölteni, hogy ne duplázódjon). */
 export const RENAMED_FROM = {

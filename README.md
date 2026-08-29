@@ -97,6 +97,8 @@ public/          statikus frontend (a szerver innen szolgálja ki)
   index.html     az összes oldal + a listaelemek <template> sablonjai
   script.js      teljes frontend logika (api réteg → renderelők → interakciók)
   style.css      dizájn-tokenek és komponensstílusok
+  shared/        a szerverrel KÖZÖS modulok (vonalkód, étel-kategóriák)
+  gyujto/        a Gyűjtő: szerver nélküli terepi vonalkód-gyűjtő (ld. lentebb)
 server/
   server.js      Express: /api/* végpontok + a public/ kiszolgálása
   auth.js        jelszó-hash (scrypt), munkamenet-tokenek, sütik — tiszta függvények
@@ -105,9 +107,10 @@ server/
   migration.test.js  a fiókok előtti adatbázis migrációjának tesztje (npm test)
   db.js          SQLite adatréteg — az egyetlen modul, ami a tárolást ismeri
   data.js        seed / referencia-adat (ételek, gyakorlat-katalógus, edzés-célok)
-  openfoodfacts.js  vonalkód-ellenőrzés + Open Food Facts proxy (a kliens nem hívja közvetlenül)
+  openfoodfacts.js  Open Food Facts proxy (a FitTrack kliense nem hívja közvetlenül)
   openfoodfacts.test.js  a leképezés és a vonalkód-normalizálás tesztjei (npm test)
-  data/products.barcode.js  a boltokban BEGYŰJTÖTT termékek (generált — ld. gyujto/)
+  collected.test.js  a Gyűjtő-feltöltés végponti tesztjei (npm test)
+  gyujto.test.js     a Gyűjtő validálásának tesztjei (npm test)
   recovery.js    Recovery Engine — a készenlét-számítás (tiszta függvények, DB nélkül)
   recovery.test.js  a motor unit-tesztjei (npm test)
   coaching.js    az edzői panel sportoló-összegzője (tiszta függvények, DB nélkül)
@@ -115,30 +118,35 @@ server/
   coach.test.js  az edző–sportoló kapcsolat végponti tesztjei (npm test)
   muscles.js     izomcsoport-taxonómia + gyakorlat → izom leképezés
   fittrack.db    az adatbázisfájl (nem verziókövetett, a szerver hozza létre)
-gyujto/          KÜLÖN APP: terepi vonalkód-gyűjtő (saját szerver, DB, fiókok)
 ```
 
 ### Gyűjtő — a hiányzó élelmiszerek begyűjtése
 
-A `gyujto/` mappa egy **önálló kis alkalmazás**, saját Express szerverrel,
-saját SQLite adatbázissal és saját fiókokkal. Boltokat körbejárva
-szkenneljük vele a vonalkódokat: megmondja, ismerjük-e már a terméket, és amit
-nem, azt ott helyben fel lehet vinni (név + makrók) egy **közös** gyűjtésbe.
-Offline is működik — a boltban gyakran nincs net —, a telefon sorba teszi a
-tételeket, és hálózat esetén magától felszinkronizál.
+A `public/gyujto/` egy **külön kis app** a boltokban való gyűjtésre:
+beszkenneled a vonalkódot, megmondja, ismeri-e valaki, és ami hiányzik, azt ott
+helyben felviszed. Nincs mögötte szerver: a gyűjtés a **telefon**
+adatbázisában (IndexedDB) él, az Open Food Facts-et a böngésző kérdezi meg
+közvetlenül, és egy gombbal töltöd fel a FitTrack-be. Statikus oldal — ez a
+szerver szolgálja ki, más dolga nincs vele:
 
-```bash
-npm run gyujto          # http://localhost:3100
-npm run gyujto:test
-npm run gyujto:export   # a kész tételek → server/data/products.barcode.js
+```
+npm start        # majd: http://localhost:3000/gyujto/
 ```
 
-A visszaút: az export-szkript a kész tételekből legenerálja a
-`server/data/products.barcode.js`-t, és a `/api/foods/barcode/:code` innentől
-**a saját étel után, az Open Food Facts előtt** ezt nézi meg. A begyűjtött
-bolti termék tehát hálózat nélkül is felismerhető, és nem hígítja az általános
-étel-katalógust: névre keresve nem jön elő, csak vonalkódra. Részletek:
-`gyujto/README.md`.
+A feltöltött termékek a `collected_products` táblába kerülnek, és onnantól
+MINDEN fióké: a `/api/foods/barcode/:code` a saját étel után, a `barcode_cache`
+és az Open Food Facts **előtt** nézi meg őket. A begyűjtött bolti termék tehát
+hálózat nélkül is felismerhető, és nem hígítja az általános étel-katalógust:
+névre keresve nem jön elő, csak vonalkódra. Részletek:
+`public/gyujto/README.md`.
+
+**Közös kód.** A `public/shared/` alatt a vonalkód-normalizálás
+(`barcode.js` — mod-10 ellenőrzőszám és az Open Food Facts leképezése) és az
+étel-kategóriák (`foodgroups.js`) **egy példányban** élnek, mert a szerver és a
+böngészőben futó Gyűjtő is ugyanazokat használja. A szerver oldali modulok
+(`server/openfoodfacts.js`, `server/data/foods.hu.js`) innen exportálják őket
+újra. Ha a két oldal másképp normalizálna, ugyanaz a termék két külön kódon
+ülne, és a begyűjtött tétel nem találná meg a párját.
 
 Az adat kétféle: a `collections` táblában a **csak olvasható** referencia-adat,
 amit a szerver minden induláskor a `data.js`-ből szinkronizál (tehát a `data.js`
@@ -150,9 +158,11 @@ KÖZTI adat — az edző–sportoló kapcsolatok (`coach_links`) és az üzenete
 (`messages`) — külön táblákban áll; ezekhez mindkét érintett fél hozzáfér, más
 senki.
 
-Egy kivétel van: a `barcode_cache` (vonalkód → Open Food Facts termék) tudatosan
-**nem** felhasználói adat és nincs rajta `user_id` — ugyanaz a vonalkód
-mindenkinek ugyanazt a terméket jelenti. A `/api/foods` viszont innentől
+Két kivétel van, és mindkettő ugyanazért: a `barcode_cache` (vonalkód → Open
+Food Facts termék) és a `collected_products` (a boltokban felmért termékek, a
+Gyűjtő tölti fel) tudatosan **nem** felhasználói adat, és nincs rajtuk
+`user_id` — ugyanaz a vonalkód mindenkinek ugyanazt a terméket jelenti, és a
+polcon felmért adat értéke pont abban van, hogy mindenki megkapja. A `/api/foods` viszont innentől
 fiókfüggő: elöl a hívó saját ételei, utánuk a közös katalógus.
 
 ## Fiókok
@@ -249,7 +259,7 @@ tartja ki a gráfból magát a vendorolt skillt (különben a saját dokumentác
   utóbbi nem vészmegoldás: a `getUserMedia` csak https-en vagy localhoston él, a
   gép LAN-IP-jéről nyitva a böngésző a kamerát oda sem adja (a felület ezt meg is
   mondja). A beolvasott kódot a **szerver** oldja fel — saját étel → a boltokban
-  begyűjtött termékek (`data/products.barcode.js`, ld. `gyujto/`) → gyorsítótár →
+  begyűjtött termékek (`collected_products`, ld. `public/gyujto/`) → gyorsítótár →
   Open Food Facts —, és a találat előre kitölti az űrlapot. Egyszer felvitt
   termék újraolvasásakor rögtön az adagválasztó jön.
 

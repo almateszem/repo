@@ -2,13 +2,13 @@
  * Gyűjtő — service worker
  * =======================
  * EGY dolga van: az app-héj (HTML/CSS/JS) offline is betöltődjön, hogy a
- * telefon kezdőképernyőjéről a boltban akkor is elinduljon, ha nincs net. A
- * gyűjtött adat NEM itt él — az a localStorage-beli sorban és a szerveren
- * (ld. app.js → queue).
+ * telefon kezdőképernyőjéről a boltban akkor is elinduljon, ha nincs net.
  *
- * Az /api/* SOHA nem cache-elődik. Egy régi termék-lista rosszabb a semminél:
- * azt hinnénk, hogy egy kód már megvan, holott csak a cache emlékszik rá. Az
- * offline dedupláláshoz a kódlista van (localStorage), az frissül és látszik is.
+ * A gyűjtött adat NEM itt él, hanem az IndexedDB-ben (db.js) — a service
+ * worker soha nem nyúl hozzá. Az /api/* és az Open Food Facts sem cache-elődik:
+ * egy régi válasz rosszabb a semminél, mert azt hinnénk, tudunk valamit a
+ * termékről, holott csak a cache emlékszik rá. (Az OFF-válaszokat az app maga
+ * gyorsítótárazza, lejárattal — ld. db.js → readOffCache.)
  */
 
 const CACHE = 'gyujto-shell-v1';
@@ -21,6 +21,11 @@ const SHELL = [
   'style.css',
   'app.js',
   'scanner.js',
+  'products.js',
+  'db.js',
+  'off.js',
+  '../shared/barcode.js',
+  '../shared/foodgroups.js',
   'manifest.webmanifest',
   'icon.svg',
 ];
@@ -49,9 +54,10 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
-  // Az API és a lustán töltött ZXing a hálózaté — az elsőt tilos, a másodikat
-  // fölösleges cache-elni.
-  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/vendor/')) return;
+  // Az API a hálózaté (tilos cache-elni). A ZXing viszont KELL offline is: a
+  // boltban a natív dekóder nélküli telefonon enélkül nem indulna a szkenner —
+  // ezért az esik a lenti cache-first ágra, mint a héj többi darabja.
+  if (url.pathname.startsWith('/api/')) return;
 
   /* Cache-first: a héj ritkán változik, és a boltban a gyorsaság többet ér,
      mint a frissesség. Az új verzió a következő indításnál jön be (a hálózati

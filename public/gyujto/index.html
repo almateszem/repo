@@ -20,70 +20,33 @@
      a két nézet közti váltó. A szinkron-jelző szándékosan itt van, nem
      eldugva: offline gyűjtésnél ez a legfontosabb visszajelzés.
      ==================================================================== -->
-<header class="app-header" hidden data-app-header>
+<header class="app-header">
   <div class="app-header__row">
     <h1 class="app-header__title">Gyűjtő</h1>
-    <div class="app-header__user">
-      <span data-user-name></span>
-      <button type="button" class="btn btn--ghost btn--sm" data-action="logout">Kilépés</button>
-    </div>
+    <p class="app-header__meta">
+      ma <strong data-count-scans>0</strong> szkennelés
+    </p>
   </div>
 
-  <button type="button" class="sync-bar" data-sync-bar hidden>
-    <span data-sync-text></span>
-    <span class="sync-bar__action">Szinkronizálás</span>
-  </button>
+  <!-- A böngésző a saját adatait kitörölheti (iOS-en 7 nap tétlenség után),
+       DE a kezdőképernyőre kitett appot békén hagyja. Egyszer szólunk. -->
+  <div class="hint" data-storage-hint hidden>
+    <p>Tedd ki a <strong>kezdőképernyőre</strong> — így a telefon nem törli ki a
+       gyűjtést, és net nélkül is elindul. Biztonsági másolatot a
+       <em>Feltöltés</em> fülön tudsz menteni.</p>
+    <button type="button" class="btn btn--ghost btn--sm" data-action="hint-close">Értem</button>
+  </div>
 
   <nav class="tabs">
     <a class="tabs__item" href="#/szkenneles" data-tab="szkenneles">Szkennelés</a>
     <a class="tabs__item" href="#/lista" data-tab="lista">
       Gyűjtés <span class="tabs__badge" data-count-total>0</span>
     </a>
+    <a class="tabs__item" href="#/feltoltes" data-tab="feltoltes">Feltöltés</a>
   </nav>
 </header>
 
 <main class="app-main">
-
-  <!-- ==================================================================
-       Belépés / regisztráció
-       ================================================================== -->
-  <section class="view" data-view="belepes" hidden>
-    <div class="card card--auth">
-      <h2 class="card__title" data-auth-title>Belépés</h2>
-      <p class="muted" data-auth-lead>
-        A Gyűjtőnek saját fiókjai vannak — nem a FitTrack-jelszavad kell ide.
-      </p>
-
-      <form data-form="auth" novalidate>
-        <label class="field">
-          <span class="field__label">Felhasználónév</span>
-          <input type="text" name="username" autocomplete="username" required
-                 autocapitalize="none" spellcheck="false" minlength="3" maxlength="24">
-        </label>
-
-        <label class="field" data-field="displayName" hidden>
-          <span class="field__label">Megjelenő név</span>
-          <input type="text" name="displayName" autocomplete="name" maxlength="40">
-          <span class="field__hint">Ez látszik a gyűjtött tételeknél. Üresen a felhasználónév marad.</span>
-        </label>
-
-        <label class="field">
-          <span class="field__label">Jelszó</span>
-          <input type="password" name="password" autocomplete="current-password" required minlength="8">
-        </label>
-
-        <p class="form-error" data-auth-error hidden></p>
-
-        <button type="submit" class="btn btn--primary btn--block" data-auth-submit>Belépés</button>
-      </form>
-
-      <p class="card__foot">
-        <button type="button" class="link" data-action="toggle-auth-mode">
-          Nincs még fiókom — regisztrálok
-        </button>
-      </p>
-    </div>
-  </section>
 
   <!-- ==================================================================
        Szkennelés — a boltban ezt nézzük. Egy kézzel, nagy gombokkal.
@@ -226,8 +189,6 @@
        A gyűjtés listája
        ================================================================== -->
   <section class="view" data-view="lista" hidden>
-    <div class="stats" data-stats></div>
-
     <div class="filters">
       <div class="segmented segmented--wide" role="group" data-status-filter>
         <label><input type="radio" name="statusFilter" value="" checked><span>Mind</span></label>
@@ -239,6 +200,46 @@
     </div>
 
     <div class="list" data-list></div>
+  </section>
+
+  <!-- ==================================================================
+       Feltöltés — a gyűjtés útja a telefonról a FitTrack-be, és a
+       biztonsági másolat. Ez a három gomb az app EGYETLEN kapcsolata a
+       külvilággal.
+       ================================================================== -->
+  <section class="view" data-view="feltoltes" hidden>
+    <div data-upload-summary></div>
+
+    <div class="card">
+      <h2 class="card__title">Feltöltés a FitTrack-be</h2>
+      <p class="muted">
+        A kész tételek átkerülnek a FitTrack-be, és onnantól MINDEN fióknak
+        megvannak: a vonalkód-olvasó hálózat nélkül is felismeri őket. Ehhez
+        be kell lépned a FitTrack-be ugyanebben a böngészőben — külön jelszó
+        nem kell.
+      </p>
+      <button type="button" class="btn btn--primary btn--block btn--lg" data-action="upload">
+        Feltöltés a FitTrack-be
+      </button>
+      <p data-upload-result hidden></p>
+    </div>
+
+    <div class="card">
+      <h2 class="card__title">Biztonsági másolat</h2>
+      <p class="muted">
+        A gyűjtés a telefonon van, és a böngésző a saját adatait kitörölheti.
+        Hetek munkája ne múljon ezen: mentsd ki fájlba. Ugyanezzel a fájllal
+        fésülhető össze <strong>két telefon</strong> gyűjtése is — töltsd be a
+        másikét, és a frissebb felmérés nyer.
+      </p>
+      <button type="button" class="btn btn--secondary btn--block" data-action="save-file">
+        Mentés fájlba
+      </button>
+      <label class="btn btn--ghost btn--block file-btn">
+        Visszatöltés fájlból
+        <input type="file" accept="application/json,.json" data-load-file hidden>
+      </label>
+    </div>
   </section>
 </main>
 

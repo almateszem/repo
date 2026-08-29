@@ -6,8 +6,8 @@ Nem hibajegy-rendszer: rövid, cselekvésre kész sorok, prioritás szerint.
 Jelölések:   [ ] nyitott    [~] részben kész    [x] kész (a következő
              takarításig marad itt, hogy lássuk, mi történt)
 
-Utolsó frissítés: 2026-08-28 (a Gyűjtő — terepi vonalkód-gyűjtő — elkészült;
-                  a nyitott tételei a fájl végén)
+Utolsó frissítés: 2026-08-29 (a Gyűjtő átépítve szerver nélküli, telefonon
+                  tároló appra; a nyitott tételei a fájl végén)
 Előző frissítés:  2026-08-27 (végpont- és séma-átnézésből felderített
                   hiányok — új szakasz; közülük az első, a mentett edzés
                   javíthatósága, el is készült)
@@ -593,44 +593,53 @@ NYITOTT APRÓSÁG — a check-in varázslóból maradt
 
 
 ==========================================================================
-GYŰJTŐ — a terepi vonalkód-gyűjtő (gyujto/), 2026-08-28
+GYŰJTŐ — a terepi vonalkód-gyűjtő (public/gyujto/), 2026-08-29
 ==========================================================================
 Külön kis app: boltokat körbejárva szkenneljük a vonalkódokat, és amit sem a
-gyűjtés, sem az Open Food Facts nem ismer, azt ott helyben felvisszük egy
-KÖZÖS adatbázisba. Az export-szkript ebből generálja a
-server/data/products.barcode.js-t, amit a fő app a vonalkód-feloldásnál az
-OFF ELŐTT néz meg. Saját szerver (3100), saját DB, saját fiókok, offline sor.
-Részletek: gyujto/README.md.
+saját gyűjtés, sem az Open Food Facts nem ismer, azt ott helyben felvisszük.
+
+NINCS MÖGÖTTE SZERVER. A gyűjtés a telefon IndexedDB-jében él, az OFF-ot a
+böngésző hívja közvetlenül, és egy gombbal töltjük fel a FitTrack-be
+(collected_products tábla). Az első változat saját Express szervert, fiókokat
+és offline szinkron-sort kapott — az a felépítés ~1300 sorral több volt, és
+mindent megoldott, amit egy szerver nélküli app fel sem vet.
+Részletek: public/gyujto/README.md.
 
 [ ] Fénykép a címkéről
     A boltban a legdrágább mozzanat a makrók begépelése. Egy kép a
     tápértéktáblázatról (a tétel mellé csatolva) otthon nyugodtan
     kiolvasható lenne, és a piszkozat percek alatt késszé válna.
-    Kell hozzá: fájlfeltöltés a szerveren + tárolás (a SQLite BLOB itt
-    rossz ötlet, inkább egy uploads/ mappa útvonallal), és a képméret
-    korlátozása kliensoldalon (canvas-átméretezés) — egy modern telefon
-    4 MB-os fotót készít, amit gyenge neten sosem töltenénk fel.
+    Szerver nélkül ez most EGYSZERŰBB, mint korábban lett volna: a kép
+    Blobként az IndexedDB-be megy, feltöltés előtt pedig eldobjuk (a
+    FitTrack-nek a makrók kellenek, nem a fotó). Kell hozzá kliensoldali
+    átméretezés (canvas): egy modern telefon 4 MB-os fotót készít.
 
-[ ] Jóváhagyási munkafolyamat az export előtt
-    Ma minden „kesz" tétel automatikusan kimegy. Egy elgépelt makró így
-    észrevétlenül bekerül a fő appba. Egy negyedik állapot („ellenőrzött",
-    amit MÁSIK felhasználó ad meg, mint aki felvitte) olcsón megfogná —
-    az export pedig csak az ellenőrzötteket vinné.
+[ ] Jóváhagyás feltöltés előtt
+    Ma minden „kész" tétel felmehet, és onnantól MINDENKIÉ. Egy elgépelt
+    makró így észrevétlenül szétterjed. A szerver ugyan validál (a képlettől
+    30%-nál jobban eltérő kalóriát elutasít), de a 10% hiba átmegy.
+    Egy negyedik állapot („ellenőrizve", amit MÁSIK ember ad meg) olcsón
+    megfogná — cserébe kell hozzá, hogy két telefon adata találkozzon.
+
+[ ] A begyűjtött termékek átnézése/javítása a FitTrack-ben
+    A GET /api/foods/collected megvan (a Gyűjtő ezt mutatja), de a FitTrack
+    felületén nincs se lista, se javítás, se törlés. Ha egy hibás tétel
+    felmegy, ma csak SQL-lel lehet kivenni.
 
 [ ] Visszaküldés az Open Food Facts-be
-    Amit begyűjtünk, az másnak is hiányzik. Az OFF-nak van írás-API-ja
-    (bejelentkezéssel); a kész tételeinket fel lehetne tölteni oda is.
-    Ez viszont KÜLSŐ közreadás: előbb tisztázni kell a licencet (ODbL) és
-    azt, hogy a mért adatért ki vállal felelősséget.
+    Amit begyűjtünk, az másnak is hiányzik. Az OFF-nak van írás-API-ja;
+    a kész tételeinket fel lehetne tölteni oda is. Ez viszont KÜLSŐ
+    közreadás: előbb tisztázni kell a licencet (ODbL) és azt, hogy a mért
+    adatért ki vállal felelősséget.
 
-[ ] Az OFF-találatok tápértékének ellenőrzése
-    Ma a megtalált termékről csak egy naplósor marad. Pedig a boltban a
-    kezünkben van a csomagolás: egy „ez az adat stimmel / nem stimmel"
-    koppintás felderítené, mennyire bízhatunk az OFF magyar adataiban.
+[ ] Az OFF magyar adatainak minősítése
+    Ma a megtalált termékről csak egy naplósor marad a telefonon. Pedig a
+    boltban a kezünkben a csomagolás: egy „stimmel / nem stimmel" koppintás
+    felderítené, mennyire bízhatunk az OFF magyar tápértékeiben.
 
-[ ] A gyűjtés listája csak online nézhető
-    Offline a szinkron-sor és a már gyűjtött vonalkódok listája megvan
-    (ettől nem dolgozunk duplán), de a tételeket nem lehet átnézni vagy
-    javítani. A teljes lista offline gyorsítótárazása (IndexedDB) megoldaná
-    — csak akkor kell, ha tényleg zsebre gyűrt telefonnal, net nélkül
-    akarunk a listában turkálni.
+[ ] A böngésző kitörölheti a gyűjtést
+    iOS-en a Safari 7 nap tétlenség után takarít — a kezdőképernyőre kitett
+    appot viszont békén hagyja. Az app egyszer szól emiatt, és van „Mentés
+    fájlba", de aki egyiket sem teszi meg, az elveszítheti a munkáját.
+    Ami segítene: navigator.storage.persist() kérése (a böngésző dönt), és
+    egy emlékeztető, ha rég volt mentés.

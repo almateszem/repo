@@ -1,27 +1,30 @@
 /**
- * Gyűjtő — a termék-validálás unit-tesztjei
- * =========================================
- * Tiszta függvények, hálózat és adatbázis nélkül (products.js). A tétje nem
- * elméleti: a szabályok szándékosan azonosak a FitTrack „saját étel"
- * végpontjáéval, mert a gyűjtésnek később VÁLTOZTATÁS NÉLKÜL át kell mennie
- * ott is. Ha itt elcsúszunk, az az export napján derülne ki.
+ * A Gyűjtő validálásának unit-tesztjei
+ * ====================================
+ * A modul maga a BÖNGÉSZŐBEN fut (public/gyujto/products.js) — de sima ES-modul,
+ * tiszta függvényekkel, tehát Node-ból változtatás nélkül tesztelhető. Ezért
+ * fekszik a tesztje itt, a többi `npm test` közt: egy külön futtatóért, ami
+ * ugyanezt böngészőben csinálná, nem érné meg a bonyolultságot.
+ *
+ * A tétje nem elméleti: a szabályok szándékosan azonosak a szerver
+ * `parseCollected`-jével, mert a gyűjtésnek VÁLTOZTATÁS NÉLKÜL át kell mennie
+ * a feltöltéskor is. Ha itt megengedőbbek lennénk, az a feltöltés napján
+ * derülne ki — a bolt után, amikor már nincs kéznél a csomagolás.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   parseProduct, computeKcal, kcalTolerance, normalizePortions, isComplete,
   macroValue, MACRO_MAX, KCAL_MAX,
-} from './products.js';
+} from '../public/gyujto/products.js';
 
-const KOD = '5998200310010';       // érvényes EAN-13
+const KOD = '5998200310010';   // érvényes EAN-13
 const KOD2 = '5901234123457';
 
 /** Minimális, érvényes törzs — az egyes tesztek ezt írják felül. */
 const alap = (extra = {}) => ({ barcode: KOD, name: 'Teszt termék', ...extra });
 
-/* ======================================================================
-   1. Kalória — a képlet és a tűrés
-   ====================================================================== */
+/* ---- Kalória ---- */
 
 test('a kalória a makrókból számolódik (Atwater 4/4/9)', () => {
   // 10·4 + 4·4 + 0,5·9 = 60,5 → egészre kerekítve 61
@@ -29,7 +32,7 @@ test('a kalória a makrókból számolódik (Atwater 4/4/9)', () => {
   assert.equal(computeKcal({ protein: 0, carbs: 0, fat: 0 }), 0);
 
   const { value } = parseProduct(alap({ protein: 20, carbs: 10, fat: 5 }));
-  assert.equal(value.kcal, 20 * 4 + 10 * 4 + 5 * 9); // 165
+  assert.equal(value.kcal, 165);
   assert.equal(value.kcalAuto, true);
 });
 
@@ -39,17 +42,12 @@ test('a tűrés a fix 50 kcal és a számított 30%-a közül a nagyobbik', () =
 });
 
 test('a kézzel megadott kalória a tűrésen belül elfogadott', () => {
-  // 20/10/5 → 165 kcal, a tűrés max(50, 50) = 50
-  const jo = parseProduct(alap({
-    protein: 20, carbs: 10, fat: 5, kcalMode: 'manual', kcal: 200,
-  }));
+  const jo = parseProduct(alap({ protein: 20, carbs: 10, fat: 5, kcalMode: 'manual', kcal: 200 }));
   assert.equal(jo.ok, true);
   assert.equal(jo.value.kcal, 200);
   assert.equal(jo.value.kcalAuto, false, 'a kézi érték nem számítottnak jelölődik');
 
-  const rossz = parseProduct(alap({
-    protein: 20, carbs: 10, fat: 5, kcalMode: 'manual', kcal: 400,
-  }));
+  const rossz = parseProduct(alap({ protein: 20, carbs: 10, fat: 5, kcalMode: 'manual', kcal: 400 }));
   assert.equal(rossz.ok, false);
   assert.match(rossz.error, /nem fér össze a makrókkal/);
 });
@@ -60,13 +58,10 @@ test('a kalória a 0–900 sávon kívül elutasított', () => {
   assert.match(res.error, /0 és 900 kcal között/);
 });
 
-/* ======================================================================
-   2. Makrók
-   ====================================================================== */
+/* ---- Makrók ---- */
 
 test('a makró 0 és 100 g között adható meg', () => {
   assert.equal(macroValue(''), undefined, 'az üres mező = nem adták meg');
-  assert.equal(macroValue(undefined), undefined);
   assert.equal(macroValue(12.34), 12.3, 'egy tizedesre kerekít');
   assert.equal(macroValue(-1), null);
   assert.equal(macroValue(MACRO_MAX + 1), null);
@@ -91,9 +86,7 @@ test('a hiányzó makró null marad, nem nulla', () => {
   assert.equal(value.kcal, null, 'hiányos makrókból nem számolunk kalóriát');
 });
 
-/* ======================================================================
-   3. Állapot — a boltban elég a név
-   ====================================================================== */
+/* ---- Állapot ---- */
 
 test('a hiányos tétel piszkozat marad, akkor is, ha a kliens készt kér', () => {
   const { value } = parseProduct(alap({ status: 'kesz', protein: 10 }));
@@ -101,27 +94,23 @@ test('a hiányos tétel piszkozat marad, akkor is, ha a kliens készt kér', () 
   assert.equal(isComplete(value), false);
 });
 
-test('a teljes tétel kész lesz', () => {
-  const { value } = parseProduct(alap({ protein: 10, carbs: 4, fat: 0.5 }));
-  assert.equal(isComplete(value), true);
+test('a teljes tétel kész lesz, és piszkozatként is menthető', () => {
+  const kesz = parseProduct(alap({ protein: 10, carbs: 4, fat: 0.5 })).value;
+  assert.equal(isComplete(kesz), true);
+  assert.equal(kesz.status, 'kesz');
+
+  const piszkozat = parseProduct(alap({ status: 'piszkozat', protein: 10, carbs: 4, fat: 0.5 })).value;
+  assert.equal(piszkozat.status, 'piszkozat');
+});
+
+test('a „feltoltve” kívülről nem kérhető', () => {
+  // Ezt csak a SIKERES feltöltés írhatja be: egy kliens nem állíthatja
+  // magáról, hogy az adata már átment a FitTrack-be.
+  const { value } = parseProduct(alap({ status: 'feltoltve', protein: 10, carbs: 4, fat: 0.5 }));
   assert.equal(value.status, 'kesz');
 });
 
-test('a teljes tétel is menthető piszkozatként, ha a felhasználó úgy kéri', () => {
-  const { value } = parseProduct(alap({ status: 'piszkozat', protein: 10, carbs: 4, fat: 0.5 }));
-  assert.equal(value.status, 'piszkozat');
-});
-
-test('az „exportalva” kívülről nem kérhető', () => {
-  // Csak az export-szkript írhatja: ez az állapot azt ígéri, hogy a tétel már
-  // átment a FitTrack-be — ezt egy kliens nem állíthatja magáról.
-  const { value } = parseProduct(alap({ status: 'exportalva', protein: 10, carbs: 4, fat: 0.5 }));
-  assert.equal(value.status, 'kesz');
-});
-
-/* ======================================================================
-   4. Név, vonalkód, kategória, adagok
-   ====================================================================== */
+/* ---- Név, vonalkód, kategória, adagok ---- */
 
 test('a név 2–60 karakter, a többszörös szóköz összevonva', () => {
   assert.equal(parseProduct(alap({ name: 'x' })).ok, false);

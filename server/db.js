@@ -138,6 +138,31 @@ db.exec(`
     payload    TEXT NOT NULL DEFAULT '{}',     -- JSON: a leképezett termék (found = 1)
     fetched_at TEXT NOT NULL DEFAULT (datetime('now'))
   );
+  -- A BOLTOKBAN BEGYŰJTÖTT termékek (a Gyűjtő tölti fel: public/gyujto/).
+  -- Mint a barcode_cache, ez sem felhasználói adat és nincs rajta user_id:
+  -- ugyanaz a vonalkód mindenkinek ugyanazt a terméket jelenti, és pont az a
+  -- lényeg, hogy amit egyvalaki felmért a polcon, azt MINDENKI megkapja.
+  -- A tápértékek 100 g / 100 ml alapmennyiségre értendők, mint mindenhol.
+  CREATE TABLE IF NOT EXISTS collected_products (
+    barcode     TEXT PRIMARY KEY,             -- normalizált, EAN-13-ra egészített
+    name        TEXT NOT NULL,
+    brand       TEXT NOT NULL DEFAULT '',
+    food_group  TEXT NOT NULL DEFAULT '',
+    unit        TEXT NOT NULL DEFAULT 'g',    -- 'g' | 'ml'
+    kcal        REAL NOT NULL,
+    protein     REAL NOT NULL,
+    carbs       REAL NOT NULL,
+    fat         REAL NOT NULL,
+    portions    TEXT NOT NULL DEFAULT '[]',   -- JSON: [['1 adag', 150]]
+    note        TEXT NOT NULL DEFAULT '',
+    store       TEXT NOT NULL DEFAULT '',     -- hol találtuk
+    -- Ki töltötte fel, és mikor mérték fel. A collected_at a TELEFONON
+    -- rögzített idő: ez dönti el ütközéskor, melyik felvitel a frissebb —
+    -- két telefon ugyanarról a termékről más adatot hozhat.
+    uploaded_by  INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    collected_at TEXT NOT NULL,
+    uploaded_at  TEXT NOT NULL DEFAULT (datetime('now'))
+  );
   CREATE TABLE IF NOT EXISTS workouts (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -1764,6 +1789,118 @@ export function updatePlan(userId, id, name, exercises, days) {
   if (changes === 0) return null;
   const row = db.prepare('SELECT id, name, date, exercises, days FROM plans WHERE id = ?').get(id);
   return { ...row, exercises: JSON.parse(row.exercises), days: JSON.parse(row.days) };
+}
+
+/* ======================================================================
+   Begyűjtött bolti termékek (collected_products)
+   ----------------------------------------------------------------------
+   A Gyűjtő (public/gyujto/) a telefonon dolgozik, szerver nélkül; ide egy
+   gombnyomással tölti fel, amit összeszedett. Innentől MINDEN fióknak megvan,
+   és a vonalkód-feloldás hálózat nélkül is megtalálja.
+   ====================================================================== */
+
+/** Sor → a felület által várt étel-alak. SZÁNDÉKOSAN azonos a mapProduct
+    kimenetével (public/shared/barcode.js), hogy a kliensnek ne kelljen tudnia,
+    az adat az Open Food Facts-ből vagy a mi polc-felmérésünkből jött-e. */
+function toCollected(row) {
+  if (!row) return null;
+  let portions = [];
+  try {
+    const parsed = JSON.parse(row.portions);
+    if (Array.isArray(parsed)) portions = parsed;
+  } catch {
+    portions = []; // sérült JSON: a gyorsgombok elhagyhatók, a termék nem
+  }
+  return {
+    barcode: row.barcode,
+    name: row.name,
+    brand: row.brand,
+    group: row.food_group,
+    unit: row.unit,
+    kcal: row.kcal,
+    protein: row.protein,
+    carbs: row.carbs,
+    fat: row.fat,
+    portions,
+    note: row.note,
+    store: row.store,
+    collectedAt: row.collected_at,
+    source: 'gyujto',
+  };
+}
+
+export function getCollectedProduct(barcode) {
+  return toCollected(
+    db.prepare('SELECT * FROM collected_products WHERE barcode = ?').get(barcode),
+  );
+}
+
+/** Minden begyűjtött termék, legutóbb feltöltött elöl. */
+export function getCollectedProducts(limit = 2000) {
+  return db.prepare('SELECT * FROM collected_products ORDER BY uploaded_at DESC, barcode LIMIT ?')
+    .all(limit).map(toCollected);
+}
+
+export function countCollectedProducts() {
+  return db.prepare('SELECT COUNT(*) AS n FROM collected_products').get().n;
+}
+
+/**
+ * Egy feltöltött köteg beolvasztása. A kulcs a VONALKÓD: ugyanazt a terméket
+ * két telefon is felmérheti, új sor helyett tehát frissítünk.
+ *
+ * ÜTKÖZÉSKOR A FRISSEBB MÉRÉS NYER, nem a későbbi feltöltés. A `collectedAt` a
+ * telefonon rögzített idő: aki csak hetekkel később jut hálózathoz, annak a
+ * RÉGI adata nem írhatja felül a tegnapi, pontosabb felmérést.
+ *
+ * Egyetlen tranzakcióban fut: egy fél-beolvasztott köteg rosszabb lenne, mint
+ * egy elutasított — a feltöltő azt hinné, minden átment.
+ *
+ * @param {Array<object>} items validált termékek (server.js → parseCollected)
+ * @param {number|null} userId ki tölti fel
+ * @returns {{added: number, updated: number, skipped: number}}
+ */
+export function importCollectedProducts(items, userId) {
+  const existing = db.prepare('SELECT barcode, collected_at FROM collected_products WHERE barcode = ?');
+  const insert = db.prepare(`
+    INSERT INTO collected_products (
+      barcode, name, brand, food_group, unit, kcal, protein, carbs, fat,
+      portions, note, store, uploaded_by, collected_at, uploaded_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+    ON CONFLICT(barcode) DO UPDATE SET
+      name = excluded.name, brand = excluded.brand, food_group = excluded.food_group,
+      unit = excluded.unit, kcal = excluded.kcal, protein = excluded.protein,
+      carbs = excluded.carbs, fat = excluded.fat, portions = excluded.portions,
+      note = excluded.note, store = excluded.store,
+      uploaded_by = excluded.uploaded_by, collected_at = excluded.collected_at,
+      uploaded_at = excluded.uploaded_at
+  `);
+
+  const stats = { added: 0, updated: 0, skipped: 0 };
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    for (const item of items) {
+      const prev = existing.get(item.barcode);
+      // ISO-8601 időbélyegek: a szótári összehasonlítás egyben idősorrend is.
+      if (prev && String(prev.collected_at) >= String(item.collectedAt)) {
+        stats.skipped += 1;
+        continue;
+      }
+      insert.run(
+        item.barcode, item.name, item.brand, item.group, item.unit,
+        item.kcal, item.protein, item.carbs, item.fat,
+        JSON.stringify(item.portions ?? []), item.note, item.store,
+        userId, item.collectedAt,
+      );
+      if (prev) stats.updated += 1;
+      else stats.added += 1;
+    }
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+  return stats;
 }
 
 /** Az adatbázis-kapcsolat lezárása.

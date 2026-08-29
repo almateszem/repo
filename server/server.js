@@ -33,11 +33,11 @@ import {
   getAnsweredPlanOffers, resolvePlanAssignment,
   getFoodsForUser, findFoodForUser, addCustomFood, deleteCustomFood,
   getCustomFoodByBarcode, readBarcodeCache, writeBarcodeCache,
+  getCollectedProduct, getCollectedProducts, countCollectedProducts,
+  importCollectedProducts,
 } from './db.js';
 // Vonalkód-feloldás: a normalizálás/ellenőrzés és az Open Food Facts hívás.
 import { normalizeBarcode, fetchProduct } from './openfoodfacts.js';
-// A boltokban begyűjtött termékek (a gyujto/ export-szkriptje generálja).
-import { barcodeProducts } from './data/products.barcode.js';
 import { FOOD_GROUPS } from './data/foods.hu.js';
 import {
   hashPassword, verifyPassword, createSessionToken, hashToken,
@@ -64,6 +64,12 @@ const PUBLIC_DIR = path.join(__dirname, '..', 'public'); // a statikus frontend 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+/* A Gyűjtő feltöltése az EGYETLEN nagy törzs az egész API-ban: egy hetekig
+   tartó gyűjtőkör több száz terméke egyszerre érkezik. Csak ennek az útvonalnak
+   emeljük a korlátot — a többi végpont marad a szűk alapértéken, ahol egy
+   túlméretes törzs eleve gyanús. (Ez a sor a globális elemző ELŐTT áll: az
+   express.json() átugorja a már feldolgozott törzset.) */
+app.use('/api/foods/collected', express.json({ limit: '2mb' }));
 app.use(express.json()); // a POST/PUT végpontokhoz (JSON törzs olvasása)
 
 /* ======================================================================
@@ -1432,6 +1438,10 @@ const CUSTOM_NAME_MAX = 60;
 const MACRO_MAX = 100;        // g / 100 g — ennél több fizikailag nem fér bele
 const MACRO_SUM_MAX = 100.5;  // fél gramm tűrés a kerekítésnek
 const KCAL_MAX = 900;         // 100 g tiszta zsír ~900 kcal
+/* Egy Gyűjtő-feltöltés felső határa. Egy hetekig tartó gyűjtőkör is bőven
+   belefér, egy elszabadult (vagy rosszindulatú) kliens viszont nem tömheti
+   tele a közös táblát egyetlen kéréssel. */
+const COLLECTED_IMPORT_MAX = 2000;
 /** Atwater-tényezők: ennyi kcal-t ad egy gramm makrotápanyag. */
 const ATWATER = { protein: 4, carbs: 4, fat: 9 };
 
@@ -1572,17 +1582,13 @@ app.delete('/api/foods/custom/:id', (req, res) => {
   res.status(204).end();
 });
 
-/* A begyűjtött bolti termékek vonalkód szerint. A listát indításkor egyszer
-   Map-be tesszük: a feloldás így O(1), és a fájl több ezer sornál sem lassít.
-   (A tartalma generált — ld. server/data/products.barcode.js.) */
-const collectedProducts = new Map(barcodeProducts.map((product) => [product.barcode, product]));
-
 /** Vonalkód feloldása. A keresés sorrendje — minden lépés megspórol egy
     hálózati kört a következőhöz képest:
       1. a hívó SAJÁT, ilyen vonalkódú étele → a felület egyből naplózásra
          kínálja, nem kérdezi meg újra a tápértékeket;
-      2. a BEGYŰJTÖTT bolti termékek (products.barcode.js) — ezeket mi mértük
-         fel a polcokon, tehát pontosabbak és hálózat nélkül is megvannak;
+      2. a BEGYŰJTÖTT bolti termékek (collected_products) — ezeket mi mértük
+         fel a polcokon a Gyűjtővel, tehát pontosabbak, és nem kell hozzájuk
+         hálózat;
       3. friss cache-sor (barcode_cache);
       4. Open Food Facts (szerver-oldali proxy, azonosított User-Agenttel).
     A válasz `source` mezője megmondja, honnan jött — a felület ebből tudja,
@@ -1598,7 +1604,7 @@ app.get('/api/foods/barcode/:code', async (req, res) => {
   const own = getCustomFoodByBarcode(req.user.id, barcode);
   if (own) return res.json({ source: 'saved', barcode, food: own });
 
-  const collected = collectedProducts.get(barcode);
+  const collected = getCollectedProduct(barcode);
   if (collected) return res.json({ source: 'local', barcode, product: collected });
 
   const notFound = { error: 'Ezt a vonalkódot az Open Food Facts sem ismeri — vidd fel kézzel.' };
@@ -1620,6 +1626,116 @@ app.get('/api/foods/barcode/:code', async (req, res) => {
   writeBarcodeCache(barcode, result.product);
   if (!result.product) return res.status(404).json(notFound);
   res.json({ source: 'openfoodfacts', barcode, product: result.product });
+});
+
+/* ======================================================================
+   A Gyűjtő feltöltése — a boltokban felmért termékek beolvasztása
+   ----------------------------------------------------------------------
+   A Gyűjtő (public/gyujto/) a TELEFONON dolgozik, szerver nélkül: az adatai
+   IndexedDB-ben ülnek. Ez a két végpont az egyetlen kapcsolat vele — és mivel
+   a Gyűjtőt ugyanez a szerver szolgálja ki (public/gyujto/), a feltöltés a
+   MEGLÉVŐ FitTrack-munkamenettel megy: nincs külön fiók, nincs külön jelszó.
+   ====================================================================== */
+
+/** Mennyi termék van bent, és mi a legutóbbi — a Gyűjtő ezt mutatja meg
+    feltöltés előtt, hogy a felhasználó lássa, mihez adja hozzá a magáét. */
+app.get('/api/foods/collected', (req, res) => {
+  res.json({
+    count: countCollectedProducts(),
+    products: getCollectedProducts(500),
+  });
+});
+
+/** Egy feltöltött termék ellenőrzése. A szabályok AZONOSAK a saját étel
+    végpontjáéval (POST /api/foods/custom): amit itt elfogadunk, annak a
+    felületen is használhatónak kell lennie. A kliens állítását semmiben nem
+    vesszük készpénznek — a Gyűjtő is „csak egy kliens". */
+function parseCollected(raw) {
+  const barcode = normalizeBarcode(raw?.barcode);
+  if (!barcode) return { error: 'Érvénytelen vonalkód.' };
+
+  const name = String(raw?.name ?? '').replace(/\s+/g, ' ').trim();
+  if (name.length < CUSTOM_NAME_MIN || name.length > CUSTOM_NAME_MAX) {
+    return { error: `A név ${CUSTOM_NAME_MIN}–${CUSTOM_NAME_MAX} karakter lehet.` };
+  }
+
+  const protein = macroValue(raw?.protein);
+  const carbs = macroValue(raw?.carbs);
+  const fat = macroValue(raw?.fat);
+  if (protein === null || carbs === null || fat === null) {
+    return { error: `A makrók 0 és ${MACRO_MAX} g között adhatók meg (100 alapmennyiségre).` };
+  }
+  if (protein + carbs + fat > MACRO_SUM_MAX) {
+    return { error: 'A három makró összege nem lehet több 100 g-nál.' };
+  }
+
+  /* A kalória: elfogadjuk a megadottat, ha összefér a makrókkal — a címkén a
+     rost és a poliolok miatt JOGGAL más állhat. Ami kilóg a tűrésből, az jóval
+     valószínűbben elgépelés, és nem engedjük be a közös adatba. */
+  const computed = Math.round(
+    protein * ATWATER.protein + carbs * ATWATER.carbs + fat * ATWATER.fat,
+  );
+  const rawKcal = Number(raw?.kcal);
+  if (!Number.isFinite(rawKcal) || rawKcal < 0 || rawKcal > KCAL_MAX) {
+    return { error: `A kalória 0 és ${KCAL_MAX} kcal között adható meg.` };
+  }
+  if (Math.abs(rawKcal - computed) > Math.max(50, Math.round(computed * 0.3))) {
+    return { error: `A megadott ${Math.round(rawKcal)} kcal nem fér össze a makrókkal (${computed} kcal).` };
+  }
+
+  const group = String(raw?.group ?? '').trim();
+  if (group && !FOOD_GROUPS.includes(group)) return { error: 'Ismeretlen kategória.' };
+
+  /* A felmérés ideje dönti el az ütközést (ld. db.js → importCollectedProducts).
+     Hiányzó vagy értelmezhetetlen időbélyeg esetén a LEGRÉGEBBI lehetséges
+     értéket adjuk: így egy hibás órájú telefon nem írhat felül semmit. */
+  const collectedAt = typeof raw?.collectedAt === 'string' && !Number.isNaN(Date.parse(raw.collectedAt))
+    ? new Date(raw.collectedAt).toISOString()
+    : new Date(0).toISOString();
+
+  return {
+    value: {
+      barcode,
+      name,
+      brand: String(raw?.brand ?? '').trim().slice(0, 60),
+      group,
+      unit: raw?.unit === 'ml' ? 'ml' : 'g',
+      kcal: Math.round(rawKcal),
+      protein,
+      carbs,
+      fat,
+      portions: normalizePortions(raw?.portions),
+      note: String(raw?.note ?? '').trim().slice(0, 200),
+      store: String(raw?.store ?? '').trim().slice(0, 60),
+      collectedAt,
+    },
+  };
+}
+
+/** A Gyűjtő kötegének beolvasztása.
+
+    TÉTELENKÉNT válaszol, és soha nem esik el az egészre: egy hibás sor (rossz
+    vonalkód, elgépelt makró) nem viheti magával a másik százat. A gyűjtés
+    hetek munkája — nem dobjuk el egy tétel miatt. */
+app.post('/api/foods/collected', (req, res) => {
+  const items = Array.isArray(req.body?.products) ? req.body.products : null;
+  if (!items) return res.status(400).json({ error: 'A törzsben `products` tömböt várunk.' });
+  if (items.length > COLLECTED_IMPORT_MAX) {
+    return res.status(413).json({
+      error: `Egyszerre legfeljebb ${COLLECTED_IMPORT_MAX} termék tölthető fel.`,
+    });
+  }
+
+  const valid = [];
+  const rejected = [];
+  for (const item of items) {
+    const parsed = parseCollected(item);
+    if (parsed.error) rejected.push({ barcode: String(item?.barcode ?? '?'), error: parsed.error });
+    else valid.push(parsed.value);
+  }
+
+  const stats = importCollectedProducts(valid, req.user.id);
+  res.json({ ...stats, rejected, count: countCollectedProducts() });
 });
 
 /** RPE normalizálása: az üres érték üres marad (az RPE nem kötelező),
