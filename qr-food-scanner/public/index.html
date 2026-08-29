@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark light">
+  <title>QR Food Scanner</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='14' font-size='14'>&#128247;</text></svg>">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <h1>QR Food Scanner</h1>
+    <p class="topbar__sub">Olvasd be a termék kódját</p>
+  </header>
+
+  <!-- Élő visszajelzés: ide kerül a „benne van" / „mentve" / hibaüzenet.
+       aria-live, mert a folyamat lényege pont ez az egy mondat. -->
+  <p class="banner" data-banner hidden role="status" aria-live="polite"></p>
+
+  <main>
+    <!-- ============ 1. nézet: szkenner ============ -->
+    <section class="view" data-view="scanner">
+      <div class="stage" data-stage hidden>
+        <video class="stage__video" data-video playsinline muted></video>
+        <div class="stage__frame" aria-hidden="true"></div>
+        <button type="button" class="stage__torch" data-torch hidden aria-pressed="false">
+          Vaku
+        </button>
+      </div>
+
+      <p class="status" data-status>Kamera indítása…</p>
+      <p class="error" data-error hidden></p>
+
+      <button type="button" class="btn btn--primary" data-restart hidden>Új beolvasás</button>
+
+      <form class="manual" data-manual>
+        <label class="field">
+          <span class="field__label">Vagy írd be a kódot kézzel</span>
+          <input type="text" name="code" inputmode="numeric" autocomplete="off"
+                 placeholder="pl. 5997523110253" data-manual-input>
+        </label>
+        <button type="submit" class="btn">Ellenőrzés</button>
+      </form>
+
+      <!-- A helyi adatbázis tartalma: enélkül a mentés láthatatlan lenne. -->
+      <details class="saved">
+        <summary>Helyi adatbázis <span class="saved__count" data-saved-count>0</span></summary>
+        <ul class="saved__list" data-saved-list></ul>
+      </details>
+    </section>
+
+    <!-- ============ 2. nézet: makró-táblázat ============ -->
+    <section class="view" data-view="form" hidden>
+      <p class="notice">
+        Ez a termék <strong>nincs benne</strong> az Open Food Facts-ben — töltsd ki
+        a tápértékeket a csomagolásról.
+      </p>
+
+      <form class="macros" data-macro-form>
+        <p class="macros__barcode">Vonalkód: <code data-form-barcode></code></p>
+
+        <label class="field">
+          <span class="field__label">Termék neve</span>
+          <input type="text" name="name" maxlength="80" required autocomplete="off" data-field-name>
+        </label>
+
+        <label class="field">
+          <span class="field__label">Alapmennyiség egysége</span>
+          <select name="unit" data-field-unit>
+            <option value="g">100 g (szilárd)</option>
+            <option value="ml">100 ml (folyadék)</option>
+          </select>
+        </label>
+
+        <table class="table">
+          <caption>Tápérték <span data-base-label>100 g</span>-ra</caption>
+          <tbody>
+            <tr>
+              <th scope="row"><label for="f-protein">Fehérje (g)</label></th>
+              <td><input id="f-protein" type="number" name="protein" step="0.1" min="0" max="100" required data-field-protein></td>
+            </tr>
+            <tr>
+              <th scope="row"><label for="f-carbs">Szénhidrát (g)</label></th>
+              <td><input id="f-carbs" type="number" name="carbs" step="0.1" min="0" max="100" required data-field-carbs></td>
+            </tr>
+            <tr>
+              <th scope="row"><label for="f-fat">Zsír (g)</label></th>
+              <td><input id="f-fat" type="number" name="fat" step="0.1" min="0" max="100" required data-field-fat></td>
+            </tr>
+            <tr class="table__kcal">
+              <th scope="row"><label for="f-kcal">Kalória (kcal)</label></th>
+              <td>
+                <input id="f-kcal" type="number" name="kcal" step="1" min="0" max="1000" required data-field-kcal>
+                <span class="hint" data-kcal-state>a makrókból számolva</span>
+                <button type="button" class="linkbtn" data-kcal-reset hidden>↻ újraszámol</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p class="error" data-form-error hidden></p>
+
+        <div class="actions">
+          <button type="submit" class="btn btn--primary">Mentés a helyi adatbázisba</button>
+          <button type="button" class="btn" data-form-cancel>Mégsem</button>
+        </div>
+      </form>
+    </section>
+  </main>
+
+  <script src="/app.js" type="module"></script>
+</body>
+</html>

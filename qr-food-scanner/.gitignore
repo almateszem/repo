@@ -1,0 +1,5 @@
+# A helyi adatbázis a felhasználó gépén keletkezik — nem verziókövetett.
+server/qr-food-scanner.db
+server/qr-food-scanner.db-journal
+server/qr-food-scanner.db-wal
+server/qr-food-scanner.db-shm

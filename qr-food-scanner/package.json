@@ -1,0 +1,19 @@
+{
+  "name": "qr-food-scanner",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Önálló app: termék QR-/vonalkód beolvasása, Open Food Facts ellenőrzés, ismeretlen termék makró-táblázata helyi adatbázisba",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server/server.js",
+    "dev": "node --watch --disable-warning=ExperimentalWarning server/server.js",
+    "test": "node --test --disable-warning=ExperimentalWarning \"server/**/*.test.js\""
+  },
+  "dependencies": {
+    "@zxing/library": "^0.21.3",
+    "express": "^4.21.2"
+  }
+}
