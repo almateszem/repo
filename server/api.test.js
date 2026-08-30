@@ -135,8 +135,14 @@ test('bejelentkezés nélkül MINDEN /api végpont 401-et ad', async () => {
     ['GET', '/api/plans'], ['GET', '/api/prs'], ['GET', '/api/prs/history?exercise=X'],
     ['GET', '/api/exercise-maxes'], ['GET', '/api/readiness'], ['GET', '/api/checkin'],
     ['GET', '/api/export'], ['GET', '/api/foods'], ['GET', '/api/exercise-catalog'],
-    ['GET', '/api/athletes'], ['GET', '/api/notifications'], ['GET', '/api/default-set'],
-    ['GET', '/api/athlete-replies'], ['GET', '/api/coach-notes'], ['GET', '/api/coach-replies'],
+    ['GET', '/api/notifications'], ['GET', '/api/default-set'],
+    ['GET', '/api/athlete-replies'], ['GET', '/api/coach-replies'],
+    ['GET', '/api/coach/overview'], ['GET', '/api/coach/clients/1/readiness'],
+    ['POST', '/api/coach/role'], ['POST', '/api/coach/invites'],
+    ['POST', '/api/coach/invites/1/accept'], ['DELETE', '/api/coach/links/1'],
+    ['GET', '/api/coach/clients/1/plans'], ['POST', '/api/coach/clients/1/plans'],
+    ['PUT', '/api/coach/plans/1'], ['POST', '/api/notifications/read'],
+    ['GET', '/api/readiness/advice'], ['POST', '/api/readiness/advice/apply'],
     ['POST', '/api/weight-log'], ['POST', '/api/nutrition/log'], ['POST', '/api/workouts'],
     ['POST', '/api/plans'], ['PUT', '/api/plans/1'], ['PUT', '/api/workout-draft'],
     ['PUT', '/api/checkin'], ['DELETE', '/api/workout-draft'], ['DELETE', '/api/nutrition/log/1'],
@@ -795,4 +801,22 @@ test('a szerver-belső fájlok nem érhetők el HTTP-n', async () => {
     const res = await fetch(`${baseUrl}${utvonal}`, { redirect: 'manual' });
     assert.notEqual(res.status, 200, `${utvonal} nem lehet elérhető`);
   }
+});
+
+test('a negatív súly és ismétlés nullára szorul', async () => {
+  /* Egy negatív súly NEGATÍV tonnatömeget adna, ami a fáradtság-modellben
+     levonódik — vagyis egy hamis sorral felfelé lehetne tolni a saját
+     készenléti pontszámot. Nem támadás elleni védelem (mindenki a saját
+     adatát rontja vele), hanem a modell épsége. */
+  const res = await request('POST', '/api/workouts', {
+    cookie: annaCookie,
+    body: {
+      name: 'Negatív teszt',
+      exercises: [{ name: 'Guggolás', sets: [{ reps: '-5', weight: '-500', rpe: '8', type: 'work', done: true }] }],
+    },
+  });
+  assert.equal(res.status, 201);
+  const [set] = res.json.exercises[0].sets;
+  assert.equal(set.weight, '0');
+  assert.equal(set.reps, '0');
 });

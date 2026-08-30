@@ -2115,6 +2115,14 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 /* ---- Tier-színek — a kártya és a modálbeli jelvény közös változói ---- */
+/* Nincs elég adat a klienshez (még nem naplózott és nem töltött check-int):
+   semleges jelvény, nem bronz — a bronz értékelés volna, ez nem az. */
+.co-tier--none {
+  --tier: var(--text-muted);
+  --tier-soft: var(--fg-04);
+  --tier-border: var(--fg-15);
+}
+
 .co-tier--gold {
   --tier: var(--c-tier-gold);
   --tier-soft: rgba(232, 193, 90, .1);
@@ -4195,27 +4203,358 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--text-muted);
 }
 
-.co-coach-status {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
+/* ---- Kapcsolat bontása (a kliens nézet fejlécében) ----
+   Szándékosan halk: ritka, visszafordítható, de nem véletlenül nyomandó. */
+.co-coach-end {
+  flex-shrink: 0;
+  border: 1px solid var(--border-card);
+  background: none;
+  color: var(--text-muted);
   font-size: var(--fs-xs);
   font-weight: 600;
-  color: var(--c-ok);
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--r-lg);
+  transition: color var(--t-fast), border-color var(--t-fast);
+}
+
+.co-coach-end:hover {
+  color: var(--c-accent);
+  border-color: var(--c-accent);
+}
+
+/* ==========================================================================
+   Készenlét-javaslat ablak (ad-*)
+   A confirm-modal vázára ül rá, csak a törzse bővebb: tételes lista
+   műveletcímkével. A „kihagyás" akcentust kap, a „csökkentés" nem — a
+   kettő súlya nem azonos.
+   ========================================================================== */
+
+.ad-list {
+  list-style: none;
+  margin: var(--sp-5) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  /* Sok gyakorlatnál se nőjön ki az ablak a képernyőből. */
+  max-height: 42vh;
+  overflow-y: auto;
+}
+
+.ad-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-4);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-lg);
+  padding: var(--sp-4) var(--sp-5);
+}
+
+.ad-item-action {
+  flex-shrink: 0;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: var(--sp-1) var(--sp-3);
+  border-radius: var(--r-2xs);
+  background: var(--surface-strong);
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.ad-item--drop .ad-item-action {
+  background: var(--c-accent);
+  color: var(--c-paper-bright);
+}
+
+.ad-item-body {
+  min-width: 0;
+}
+
+.ad-item-name {
+  display: block;
+  font-size: var(--fs-base);
+  font-weight: 600;
+}
+
+.ad-item-detail {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.ad-note {
+  margin: var(--sp-5) 0 0;
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  color: var(--text-faint);
+}
+
+/* ---- Terv-kártya: kiosztási nyom és biztonsági jelzés ----
+   Mindkettő halkabb a kártya fő szövegénél: kiegészítő információ, nem a
+   kártya tárgya. A tiltás viszont akcentust kap — azt látni KELL. */
+.pl-card-change {
+  display: block;
+  margin-top: var(--sp-2);
+  font-size: var(--fs-2xs);
+  color: var(--text-faint);
+}
+
+.pl-card-safety {
+  display: block;
+  margin-top: var(--sp-2);
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.pl-card-safety.is-blocked {
+  color: var(--c-accent);
+  font-weight: 600;
+}
+
+/* ---- Terv-építő: kinek készül a terv ----
+   Kiemelt sáv, mert ez dönti el, MELYIK FIÓKBA ment a „Mentés". */
+.pb-for {
+  margin: var(--sp-4) 0 0;
+  padding: var(--sp-3) var(--sp-5);
+  border-radius: var(--r-lg);
+  background: var(--surface-strong);
+  border: 1px solid var(--border-strong);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+
+/* ---- A sportoló-modál terv-listája ---- */
+.co-modal-plans {
+  margin-top: var(--sp-7);
+  margin-bottom: var(--sp-8);
+}
+
+.co-modal-plan-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.co-modal-plan {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-lg);
+  padding: var(--sp-4) var(--sp-5);
+}
+
+.co-modal-plan-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.co-modal-plan-name {
+  display: block;
+  font-size: var(--fs-base);
+  font-weight: 600;
+}
+
+.co-modal-plan-meta {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.co-modal-plan-edit {
+  flex-shrink: 0;
+  border: 1px solid var(--border-card);
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  padding: var(--sp-3) var(--sp-5);
+  border-radius: var(--r-md);
+  transition: color var(--t-fast), border-color var(--t-fast);
+}
+
+.co-modal-plan-edit:hover {
+  color: var(--c-paper-bright);
+  border-color: var(--border-strong);
+}
+
+.co-modal-plan-empty {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+}
+
+/* ---- Elolvasott értesítés: halványabb pötty ----
+   A sor MEGMARAD a listában (az előzmény nem vész el), csak az „új" jelzés
+   tűnik el róla. */
+.notif-item--read .notif-dot {
+  background: var(--fg-20);
+}
+
+/* ---- Meghívás-felületek (mindkét irányban ugyanaz a doboz) ---- */
+.co-invite-panel {
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-2xl);
+  padding: var(--sp-7);
+  margin-bottom: var(--sp-7);
+}
+
+.co-invite-title {
+  margin: 0 0 var(--sp-5);
+  font-size: var(--fs-md);
+  font-weight: 700;
+}
+
+.co-invite-form {
+  display: flex;
+  gap: var(--sp-3);
+}
+
+.co-invite-form input {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface-input);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-lg);
+  color: inherit;
+  /* Legalább 16px: ez alatt az iOS Safari fókuszkor ráközelít a lapra. */
+  font-size: var(--fs-input);
+  padding: var(--sp-4) var(--sp-5);
+}
+
+.co-invite-form input::placeholder {
+  color: var(--text-faint);
+}
+
+.co-invite-form button {
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--r-lg);
+  background: var(--c-paper);
+  color: var(--c-ink);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  padding: 0 var(--sp-7);
+  transition: background var(--t-fast), transform var(--t-fast);
+}
+
+.co-invite-form button:hover {
+  background: var(--c-paper-bright);
+}
+
+.co-invite-form button:active {
+  transform: scale(.97);
+}
+
+.co-invite-hint {
+  margin: var(--sp-4) 0 0;
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+  color: var(--text-muted);
+}
+
+.co-invite-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.co-invite-list:not(:empty) {
+  margin-top: var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.co-invite {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-lg);
+  padding: var(--sp-4) var(--sp-5);
+}
+
+.co-invite-who {
+  flex: 1;
+  min-width: 0;
+}
+
+.co-invite-name {
+  display: block;
+  font-size: var(--fs-base);
+  font-weight: 600;
+}
+
+.co-invite-meta {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.co-invite-actions {
+  display: flex;
+  gap: var(--sp-3);
   flex-shrink: 0;
 }
 
-.co-coach-status-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: var(--r-full);
-  background: var(--c-ok);
+.co-invite-accept,
+.co-invite-remove {
+  border-radius: var(--r-md);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  padding: var(--sp-3) var(--sp-5);
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+}
+
+.co-invite-accept {
+  border: none;
+  background: var(--c-paper);
+  color: var(--c-ink);
+}
+
+.co-invite-accept:hover {
+  background: var(--c-paper-bright);
+}
+
+.co-invite-remove {
+  border: 1px solid var(--border-card);
+  background: none;
+  color: var(--text-muted);
+}
+
+.co-invite-remove:hover {
+  color: var(--c-accent);
+  border-color: var(--c-accent);
 }
 
 /* ---- Kliens nézet: hírfolyam — oldal-kontextusban nem korlátozzuk 200px-re ---- */
 .co-client-feed {
   max-height: none;
   margin-bottom: var(--sp-6);
+}
+
+/* ---- „Ez még szimulált" jelzés a chat alatt ---- */
+.co-demo-note {
+  margin: var(--sp-4) 0 0;
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+  color: var(--text-faint);
 }
 
 /* ---- Üres állapot (nincs egyik szerepkör sem) ---- */
@@ -4514,6 +4853,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .rc-ring[data-tone="ok"] .db-ring-fg { stroke: var(--c-ok); }
 .rc-ring[data-tone="warn"] .db-ring-fg { stroke: var(--fg-60); }
 .rc-ring[data-tone="bad"] .db-ring-fg { stroke: var(--c-accent); }
+/* Nincs elég adat: a gyűrű üres marad, a kitöltés halvány és semleges. */
+.rc-ring[data-tone="none"] .db-ring-fg { stroke: var(--fg-20); }
 
 /* ---- Megbízhatóság-sáv ---- */
 

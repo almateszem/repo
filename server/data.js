@@ -16,7 +16,10 @@
 
 export const data = {
   /* A bejelentkezett felhasználó. A szerepkör-jelzők: van-e edzője, edz-e másokat. */
-  user: { name: 'Németh Dávid', hasCoach: true, coachesAthletes: true },
+  /* A név is csak tartalék: a /api/user a BEJELENTKEZETT fiók nevét adja
+     vissza. A szerepkörök (van edződ / edzel másokat) korábban itt álltak fix
+     értékkel — átkerültek a fiókhoz, ezért innen kikerültek. */
+  user: { name: 'Németh Dávid' },
   charts: {
     /* A `weeklyCalories` görbe megszűnt: a dashboardon a helyén a napi
        check-in emlékeztető áll. Sosem a valódi táplálkozási naplóból jött,
@@ -52,106 +55,21 @@ export const data = {
   /* Az étel-katalógus sem itt él: server/data/foods.hu.js (437 étel,
      kategóriákkal és reális adagokkal). Összeállítás: server/data/catalog.js. */
 
-  /* Az edzői panel sportolói. Az összpontszám a readiness és az adherence
-     átlaga; az alert mező (ha van) az állapot-sáv riasztásait hajtja. */
-  athletes: [
-    {
-      id: 'petra', name: 'Nagy Petra', goal: 'ERŐ',
-      readiness: 91, adherence: 94, streak: 18,
-      lastWorkout: 'ma', weekly: '4/4', plan: 'Erőnléti alapok',
-      alert: null,
-      recent: [
-        'Guggolás 5×5 @ 120 kg — ma',
-        'Új PR: felhúzás 140 kg — 2 napja',
-        'Heti check-in kitöltve — hétfő',
-      ],
-      lastMessage: '„Megvolt a mai edzés, a guggolás nagyon jól ment! 💪”',
-    },
-    {
-      id: 'mark', name: 'Szabó Márk', goal: 'TÖM',
-      readiness: 84, adherence: 81, streak: 6,
-      lastWorkout: 'tegnap', weekly: '3/4', plan: 'Tömegnövelő 4 napos',
-      alert: null,
-      recent: [
-        'Fekvenyomás 3×8 @ 82.5 kg — tegnap',
-        'Testsúly rögzítve: 86.4 kg — tegnap',
-        'Technika videó feltöltve: vállból nyomás — 3 napja',
-      ],
-      lastMessage: '„A vállból nyomásnál küldtem egy új videót, ránéznél?”',
-    },
-    {
-      id: 'lili', name: 'Horváth Lili', goal: 'FIT',
-      readiness: 78, adherence: 85, streak: 9,
-      lastWorkout: 'tegnap', weekly: '3/4', plan: 'Erőnléti alapok',
-      alert: null,
-      recent: [
-        'Köredzés teljesítve — tegnap',
-        'Táplálkozási napló vezetve 7 napja folyamatosan',
-        'Heti check-in kitöltve — kedd',
-      ],
-      lastMessage: '„A hétvégi futást beszámoljam az edzések közé?”',
-    },
-    {
-      id: 'dora', name: 'Kiss Dóra', goal: 'FGY',
-      readiness: 58, adherence: 76, streak: 0,
-      lastWorkout: '4 napja', weekly: '1/4', plan: 'Deload hét',
-      alert: '2 kihagyott edzés · készenlét 58%',
-      recent: [
-        'Kihagyott edzés: alsótest — szerda',
-        'Alvás 5.1 óra átlag az elmúlt 3 napban',
-        'Utolsó edzés: teljes test — 4 napja',
-      ],
-      lastMessage: '„Bocsi, ez a hét kicsit sűrű lett a munka miatt…”',
-    },
-    {
-      id: 'adam', name: 'Tóth Ádám', goal: 'ÁLL',
-      readiness: 72, adherence: 64, streak: 2,
-      lastWorkout: '3 napja', weekly: '2/4', plan: 'Erőnléti alapok',
-      alert: 'Heti check-in 5 napja késik',
-      recent: [
-        'Intervall futás 6×400 m — 3 napja',
-        'Heti check-in: még nincs kitöltve',
-        'Pulzuszóna-riport elérhető — hétfő',
-      ],
-      lastMessage: '„A futóedzés megvolt, a check-int este pótolom!”',
-    },
-  ],
+  /* Az edzői panel sportolói KIKERÜLTEK innen: a panel valódi kliensekből
+     épül (users + coach_clients), a kártyák minden számát a szerver számolja
+     a kliens tényleges naplóiból. Ami itt maradt, az kizárólag a még
+     szimulált üzenetváltás szövegkészlete. */
   /* Szimulált sportoló-válaszok az üzenetküldéshez (körbeforgó sorrendben). */
   athleteReplies: [
     '„Rendben, köszi a visszajelzést!”',
     '„Vettem, holnap eszerint csinálom. 💪”',
     '„Köszönöm! Este küldök róla videót.”',
   ],
-  /* A saját edző (Kovács Bence) hírfolyamának kezdő üzenetei — a kliens
-     nézet chatje ezekből indul (variant: 'plan' = terv-módosítás értesítő). */
-  coachNotes: [
-    {
-      meta: 'Kovács Bence · 3 napja',
-      text: '„A guggolás mélysége sokat javult a videód alapján — így tovább! 💪”',
-    },
-    {
-      meta: 'Kovács Bence · 2 napja',
-      text: 'Frissítettem a szombati edzésed: a felhúzás 5×3-ra módosult 82%-on. Nézd meg a Tervek oldalon.',
-      variant: 'plan',
-    },
-    {
-      meta: 'Kovács Bence · tegnap',
-      text: '„Szép munka a fekvenyomásnál! A 3. szettben már fáradt a technika — legközelebb állj meg RPE 8-nál.”',
-    },
-  ],
   /* Szimulált edző-válaszok a kliens chathez (körbeforgó sorrendben). */
   coachReplies: [
     '„Rendben, ránézek ma este a naplódra!”',
     '„Jó kérdés — a következő heti tervben módosítom.”',
     '„Vettem! A csütörtöki check-innél átbeszéljük. 💪”',
-  ],
-  notifications: [
-    { text: 'Kovács Bence kiosztotta a „Tömegnövelő 4 napos” tervet', time: '2 órája', cat: 'plan' },
-    { text: 'Új edzői megjegyzés érkezett a fekvenyomás videódra', time: '5 órája', cat: 'comment' },
-    { text: '🔥 Elérted a 25 napos edzés-sorozatot', time: 'tegnap', cat: 'streak' },
-    { text: 'Heti fejlődési riportod elkészült', time: 'tegnap', cat: 'report' },
-    { text: 'Kovács Bence módosította a szombati edzésed', time: '2 napja', cat: 'planChange' },
-    { text: 'Emlékeztető: töltsd ki a regenerációs naplót', time: '3 napja', cat: 'reminder' },
   ],
   /* Az edző által kitűzött napi táplálkozási cél. */
   nutritionGoal: { calories: 2900, protein: 170 },

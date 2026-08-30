@@ -117,7 +117,8 @@
               <button class="notif-clear tap-target" type="button" data-action="clear-notifications">Összes olvasott</button>
             </div>
             <ul class="notif-list" data-list="notifications"></ul>
-            <p class="notif-empty" hidden>Nincs új értesítésed 🎉</p>
+            <p class="notif-empty" hidden>Még nincs értesítésed. Itt jelennek meg a valódi
+              események: meghívás, kiosztott vagy módosított terv.</p>
           </div>
 
           <button class="db-settings tap-target" type="button" aria-label="Beállítások" title="Beállítások" data-action="settings">
@@ -296,6 +297,8 @@
         </header>
         <h2 class="sr-only" id="title-builder">Új edzésterv készítése</h2>
         <p class="wk-error" id="plan-name-error" hidden>Adj nevet a tervnek a mentéshez.</p>
+        <!-- Csak edzői módban látszik: enélkül a mentés némán más fiókjába írna -->
+        <p class="pb-for" data-pb-for hidden></p>
         <p class="pb-summary" data-pb-summary aria-live="polite"></p>
 
         <!-- Hétnap-ütemezés: a kijelölt napokon a terv az Edzés oldalra töltődik -->
@@ -426,22 +429,35 @@
         </div>
 
         <!-- Üres állapot — ha se edződ nincs, se nem edzel senkit -->
-        <p class="co-empty" data-coach-empty hidden>Jelenleg nincs kapcsolt edződ, és sportolókat sem edzel.
-          A beállításokban (fogaskerék az áttekintésen) bekapcsolhatod bármelyik szerepkört — utána itt
-          jelenik meg a hozzá tartozó felület.</p>
+        <p class="co-empty" data-coach-empty hidden>Jelenleg nincs edződ, és te sem edzel senkit.
+          Ha edző vagy, kapcsold be az edzői szerepkört a beállításokban (fogaskerék az áttekintésen),
+          és hívd meg a klienseidet a felhasználónevükkel. Ha edzenek téged, az edződ tud meghívni —
+          a meghívás itt fog megjelenni.</p>
 
-        <!-- Kliens nézet: üzenetváltás a saját edzővel (script.js tölti fel) -->
+        <!-- Kliens nézet: a saját edző(k) és a beérkezett meghívások (script.js tölti fel) -->
         <div class="co-view" data-view="client" hidden>
-          <header class="co-coach-head">
+          <!-- Beérkezett meghívás. Amíg nincs elfogadva, az edző SEMMIT nem lát
+               a naplóidból — ezt a felület ki is írja, hogy tudatos legyen a döntés. -->
+          <section class="co-invite-panel" data-invites-received hidden aria-labelledby="co-received-title">
+            <h3 class="co-invite-title" id="co-received-title">Edzői meghívás</h3>
+            <ul class="co-invite-list" data-list="invites-received"></ul>
+            <p class="co-invite-hint">Elfogadás után az edződ látja a készenlétedet és az edzésnaplódat.
+              A kapcsolatot bármikor bonthatod.</p>
+          </section>
+
+          <header class="co-coach-head" data-coach-head hidden>
             <span class="co-coach-avatar" aria-hidden="true">
               <svg viewBox="0 0 24 24"><use href="#icon-user"/></svg>
             </span>
             <div class="co-coach-ident">
-              <h3 class="co-coach-name">Kovács Bence</h3>
-              <span class="co-coach-role">Edződ · erő- és kondicionáló specialista</span>
+              <h3 class="co-coach-name" data-coach-name></h3>
+              <span class="co-coach-role" data-coach-role></span>
             </div>
-            <span class="co-coach-status"><span class="co-coach-status-dot" aria-hidden="true"></span>Elérhető</span>
+            <button class="co-coach-end tap-target" type="button" data-action="end-coach-link">Kapcsolat bontása</button>
           </header>
+
+          <p class="co-empty" data-no-coach hidden>Még nincs edződ. Ha van edződ az appban, ő tud meghívni
+            a felhasználóneveddel — a meghívás itt jelenik meg.</p>
 
           <div class="co-msg-feed co-client-feed" data-client-feed aria-label="Üzenetváltás az edződdel"></div>
           <form class="co-composer" data-form="coach-message">
@@ -449,13 +465,15 @@
             <input type="text" id="coach-message" placeholder="Írj az edződnek…" required maxlength="280" autocomplete="off">
             <button type="submit" aria-label="Küldés">→</button>
           </form>
+          <p class="co-demo-note">Az üzenetváltás egyelőre szimulált: az üzenet nem jut el az edződhöz,
+            és a válaszok előre megírt sorok. A valódi üzenetküldés a következő lépés.</p>
         </div>
 
         <!-- Edzői nézet: sportoló-menedzser (script.js tölti fel) -->
         <div class="co-view" data-view="manager" hidden>
           <header class="co-header">
             <h3 class="co-title">Edzői panel</h3>
-            <p class="co-subtitle">Heti áttekintés · <span data-athlete-count>0</span> aktív sportoló</p>
+            <p class="co-subtitle">Heti áttekintés · <span data-athlete-count>0</span> kliens</p>
           </header>
 
           <!-- Állapot-sáv: riasztás-összegzés vagy "minden rendben" (script.js tölti fel) -->
@@ -466,6 +484,21 @@
             </div>
             <ul class="co-banner-list" data-list="alerts"></ul>
             <p class="co-banner-ok-text" hidden>Minden sportolód a terv szerint halad — nincs sürgős teendőd.</p>
+          </section>
+
+          <!-- Kliens meghívása felhasználónévvel. A hozzáférést az ELFOGADÁS
+               adja meg, nem a meghívás — a súgó ezt mondja ki. -->
+          <section class="co-invite-panel" aria-labelledby="co-invite-title">
+            <h4 class="co-invite-title" id="co-invite-title">Kliens meghívása</h4>
+            <form class="co-invite-form" data-form="invite-client">
+              <label class="sr-only" for="co-invite-username">A kliens felhasználóneve</label>
+              <input type="text" id="co-invite-username" placeholder="felhasználónév" required maxlength="24"
+                autocomplete="off" autocapitalize="off" spellcheck="false">
+              <button type="submit">Meghívás</button>
+            </form>
+            <p class="co-invite-hint">A meghívott a saját Edző oldalán fogadja el. Amíg nem fogadta el,
+              semmit nem látsz az adataiból.</p>
+            <ul class="co-invite-list" data-list="invites-sent"></ul>
           </section>
 
           <div class="co-grid" data-list="athletes"></div>
@@ -812,9 +845,11 @@
       </section>
 
       <section class="st-section" aria-labelledby="st-title-roles">
-        <h4 class="st-section-title" id="st-title-roles">Szerepkörök · demo</h4>
+        <h4 class="st-section-title" id="st-title-roles">Szerepkör</h4>
         <ul class="st-toggle-list" data-list="settings-roles"></ul>
-        <p class="st-section-hint">Az Edző oldal felülete a szerepkörök szerint változik.</p>
+        <!-- A „van edződ" NEM kapcsoló: az elfogadott kapcsolatból következik,
+             ezért itt csak kiírjuk, nem állítható. -->
+        <p class="st-section-hint" data-role-hint></p>
       </section>
 
       <section class="st-section" aria-labelledby="st-title-data">
@@ -865,9 +900,16 @@
         <ul class="co-modal-activity-list" data-modal-activity></ul>
       </section>
 
+      <!-- A kliens tervei. Szerkeszteni CSAK az általad kiosztottakat lehet;
+           a kliens saját tervei olvashatók, de nem módosíthatók. -->
+      <section class="co-modal-plans" aria-labelledby="co-modal-plans-title">
+        <h4 class="co-modal-section-title" id="co-modal-plans-title">Tervek</h4>
+        <ul class="co-modal-plan-list" data-modal-plans></ul>
+        <p class="co-modal-plan-empty" data-modal-plans-empty hidden>Ennek a kliensnek még nincs terve.</p>
+      </section>
+
       <div class="co-modal-actions">
-        <button class="co-action" type="button" data-action="edit-plan">Terv szerkesztése</button>
-        <button class="co-action" type="button" data-action="edit-workout">Edzés szerkesztése</button>
+        <button class="co-action" type="button" data-action="assign-plan">+ Terv kiosztása</button>
         <button class="co-action co-action--primary" type="button" data-action="message"
                 aria-expanded="false" aria-controls="athleteMsgSection">Üzenet</button>
       </div>
@@ -985,6 +1027,33 @@
        A natív window.confirm helyett: az app saját design-nyelvén szólal
        meg, és a fókuszkezelése a többi modáléval azonos.
        ================================================================ -->
+  <!-- ================================================================
+       Készenlét-javaslat (ad-*) — a check-in mentése után ugrik fel, ha a
+       mai naplóban van olyan gyakorlat, amit a mai állapot alapján
+       csökkenteni vagy kihagyni érdemes.
+
+       SZÁNDÉKOSAN kérdez, nem cselekszik: a javaslatot a felhasználó
+       fogadja el. Amit módosít, az a MAI NAPLÓ — a terv (ha edzőtől jött)
+       érintetlen marad.
+       ================================================================ -->
+  <div class="confirm-modal advice-modal" id="adviceModal" aria-hidden="true">
+    <div class="confirm-modal-backdrop" data-close-modal></div>
+    <div class="confirm-modal-card" role="alertdialog" aria-modal="true"
+         aria-labelledby="adviceModalTitle" aria-describedby="adviceModalText">
+      <div class="confirm-modal-head">
+        <h3 id="adviceModalTitle">A mai készenléted alapján</h3>
+        <button class="confirm-modal-close tap-target" type="button" data-close-modal aria-label="Bezárás">✕</button>
+      </div>
+      <p class="confirm-modal-text" id="adviceModalText"></p>
+      <ul class="ad-list" data-advice-list></ul>
+      <p class="ad-note">A terved nem változik — csak a mai naplód. Bármikor visszaírhatod kézzel.</p>
+      <div class="confirm-modal-actions">
+        <button class="confirm-cancel" type="button" data-advice-decline>Most nem</button>
+        <button class="confirm-ok" type="button" data-advice-accept>Elfogadom</button>
+      </div>
+    </div>
+  </div>
+
   <div class="confirm-modal" id="confirmModal" aria-hidden="true">
     <div class="confirm-modal-backdrop" data-close-modal></div>
     <div class="confirm-modal-card" role="alertdialog" aria-modal="true"
@@ -1150,6 +1219,10 @@
       <div class="pl-card-info">
         <span class="pl-card-name"></span>
         <span class="pl-card-meta"></span>
+        <!-- „Módosítva 2 órája · Kovács Bence" — csak kiosztott terven -->
+        <span class="pl-card-change" hidden></span>
+        <!-- A mai készenlét figyelmeztetése (tiltott / óvatos gyakorlatok) -->
+        <span class="pl-card-safety" hidden></span>
         <div class="pl-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100">
           <span class="pl-progress-fill"></span>
         </div>
@@ -1167,6 +1240,39 @@
       <span class="co-note-meta"></span>
       <p class="co-note-text"></p>
     </article>
+  </template>
+
+  <template id="tpl-advice-item">
+    <li class="ad-item">
+      <span class="ad-item-action"></span>
+      <span class="ad-item-body">
+        <span class="ad-item-name"></span>
+        <span class="ad-item-detail"></span>
+      </span>
+    </li>
+  </template>
+
+  <template id="tpl-co-plan">
+    <li class="co-modal-plan">
+      <span class="co-modal-plan-info">
+        <span class="co-modal-plan-name"></span>
+        <span class="co-modal-plan-meta"></span>
+      </span>
+      <button class="co-modal-plan-edit" type="button" data-action="edit-client-plan" hidden>Szerkesztés</button>
+    </li>
+  </template>
+
+  <template id="tpl-co-invite">
+    <li class="co-invite">
+      <span class="co-invite-who">
+        <span class="co-invite-name"></span>
+        <span class="co-invite-meta"></span>
+      </span>
+      <span class="co-invite-actions">
+        <button class="co-invite-accept" type="button" data-action="accept-invite" hidden>Elfogadom</button>
+        <button class="co-invite-remove" type="button" data-action="remove-link"></button>
+      </span>
+    </li>
   </template>
 
   <template id="tpl-athlete-card">
