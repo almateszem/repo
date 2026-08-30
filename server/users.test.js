@@ -54,7 +54,9 @@ const annaEntry = db.addNutritionEntry(anna.id, food, TODAY, 100).entry;
 const belaEntry = db.addNutritionEntry(bela.id, food, TODAY, 200).entry;
 
 test('a fiók létrehozása nem adja vissza a jelszót, és a név foglalt lesz', () => {
-  assert.deepEqual(Object.keys(anna).sort(), ['displayName', 'id', 'username']);
+  // A jelszó-hash SOSEM kerül bele; az isCoach az edzői szerepkör jelzője.
+  assert.deepEqual(Object.keys(anna).sort(), ['displayName', 'id', 'isCoach', 'username']);
+  assert.equal(anna.isCoach, false, 'új fiók alapból nem edző');
   assert.equal(db.createUser('anna', 'Másik Anna', 'scrypt$1$1$1$x$y'), null, 'foglalt név');
   assert.ok(db.hasAnyUser());
 });

@@ -21,6 +21,11 @@ import {
   calculateEpley1RM, bestCompletedSet, getExerciseMax, getAllExerciseMaxes,
   createUser, getUserWithHash, hasAnyUser,
   createSession, getSessionUser, deleteSession, purgeExpiredSessions,
+  findUserByUsername, setCoachRole, isCoachOf,
+  inviteClient, acceptInvite, removeCoachLink,
+  listClientsOfCoach, listCoachesOfClient,
+  getPlanById, updateAssignedPlan,
+  addNotification, getNotifications, markNotificationsRead,
 } from './db.js';
 import {
   hashPassword, verifyPassword, createSessionToken, hashToken,
@@ -30,7 +35,7 @@ import {
 // A készenlét-motor és a közös dátum-segédek. A dátumkezelés szándékosan egy
 // helyen (recovery.js) lakik, hogy a szerver és a motor sose csússzon el.
 import { computeReadiness, parseDate, dayKey, DAY_MS } from './recovery.js';
-import { MUSCLE_KEYS } from './muscles.js';
+import { MUSCLE_KEYS, MUSCLE_GROUPS, resolveExerciseLoad } from './muscles.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public'); // a statikus frontend mappája
@@ -207,12 +212,9 @@ const normalizeDays = (raw) => (Array.isArray(raw) ? raw : [])
    ====================================================================== */
 const READ_ENDPOINTS = {
   '/api/foods': 'foods',
-  '/api/athletes': 'athletes',
-  '/api/notifications': 'notifications',
   '/api/default-set': 'defaultSet',
   '/api/exercise-catalog': 'exerciseCatalog',
   '/api/athlete-replies': 'athleteReplies',
-  '/api/coach-notes': 'coachNotes',
   '/api/coach-replies': 'coachReplies',
 };
 
@@ -236,12 +238,605 @@ for (const [route, key] of Object.entries(READ_ENDPOINTS)) {
   });
 }
 
-/* A profil-végpont. A NÉV a bejelentkezett fiókból jön, a szerepkör-jelzők
-   (van-e edződ, edzel-e másokat) továbbra is a seedből: azok a demo-felületek
-   kapcsolói, nem fiók-tulajdonságok. */
+/* A profil-végpont. A NÉV és a SZEREPKÖRÖK is a bejelentkezett fiókból
+   jönnek — korábban a szerepkör-jelzők a seedből származtak, tehát mindenki
+   ugyanazt a demo-beállítást kapta.
+     · coachesAthletes = a users.is_coach jelző (a felhasználó maga kapcsolja),
+     · hasCoach        = van-e ELFOGADOTT coach_clients sora. Ez szándékosan
+       nem külön jelző: így nem lehet edző nélkül „edzőset" mutatni. */
 app.get('/api/user', (req, res) => {
   const seedUser = getCollection('user') || {};
-  res.json({ ...seedUser, name: req.user.displayName, username: req.user.username });
+  res.json({
+    ...seedUser,
+    name: req.user.displayName,
+    username: req.user.username,
+    coachesAthletes: req.user.isCoach,
+    hasCoach: listCoachesOfClient(req.user.id).length > 0,
+  });
+});
+
+/* ======================================================================
+   Edző–kliens kapcsolat
+   ----------------------------------------------------------------------
+   Idáig az Edző oldal minden adata a seedből jött (fix sportolók, fix
+   készenlét). Innentől valódi: az edző MEGHÍVJA a klienst, a kliens
+   ELFOGADJA, és az edzői panel a kliens tényleges naplóiból számol.
+
+   A kereszt-fiók olvasás egyetlen kapuja a resolveClientId — minden olyan
+   végpontnak ezen kell átmennie, amelyik nem a saját fiók adatát adja
+   vissza. Az izolációt a server/coach.test.js őrzi.
+   ====================================================================== */
+
+/** Hány napja volt az adott dátum? (0 = ma). Ismeretlen dátumra null. */
+const daysSince = (dateStr) => (dateStr ? Math.round((dayKey(today()) - dayKey(dateStr)) / DAY_MS) : null);
+
+/** Emberi címke a napok számából — a kártya „Utolsó edzés" statjához. */
+function relativeDay(dateStr) {
+  const days = daysSince(dateStr);
+  if (days === null) return 'nincs';
+  if (days <= 0) return 'ma';
+  if (days === 1) return 'tegnap';
+  return `${days} napja`;
+}
+
+/** A terv-követés a legutóbbi 4 hétre: az ütemezett napok hány százalékán
+    volt tényleg edzés.
+
+    Két nap NEM számít bele, és mindkét kizárás szándékos:
+      · a MAI — a mai edzés még előtte lehet, mulasztásnak venni igazságtalan;
+      · minden nap, amelyre az adott terv MÉG NEM LÉTEZETT — egy tegnap
+        felvett heti terv nem tehet visszamenőleg mulasztóvá senkit.
+    Ha így egyetlen mérhető nap sem marad (új fiók, friss terv, vagy nincs
+    napra tett terv), az eredmény null: a felület „—"-t ír, nem 0%-ot.
+    Egy kitalált 0% ugyanis pontosan az ellenkezőjét állítaná a valóságnak. */
+const ADHERENCE_DAYS = 28;
+function adherenceOf(workouts, plans) {
+  const scheduled = plans.filter((plan) => plan.days.length > 0);
+  if (scheduled.length === 0) return null;
+
+  const trained = new Set(workouts.map((workout) => dayKey(workout.date)));
+  const todayKeyValue = dayKey(today());
+  let expected = 0;
+  let done = 0;
+  for (let i = 1; i <= ADHERENCE_DAYS; i += 1) {
+    const stamp = todayKeyValue - i * DAY_MS;
+    const weekday = (new Date(stamp).getDay() + 6) % 7;
+    const wasScheduled = scheduled.some(
+      (plan) => plan.days.includes(weekday) && dayKey(plan.date) <= stamp,
+    );
+    if (!wasScheduled) continue;
+    expected += 1;
+    if (trained.has(stamp)) done += 1;
+  }
+  return expected === 0 ? null : Math.round((done / expected) * 100);
+}
+
+/** „3/4" — ezen a héten hány NAPON edzett, a heti ütemezett napokhoz mérve.
+    Ütemezés nélkül csak a megtett edzésnapok száma látszik. */
+function weeklyLabel(workouts, plans) {
+  const thisMonday = mondayOf(new Date());
+  const trainedDays = new Set(
+    workouts.filter((w) => mondayOf(parseDate(w.date)) === thisMonday).map((w) => dayKey(w.date)),
+  ).size;
+  const scheduled = new Set(plans.flatMap((plan) => plan.days)).size;
+  return scheduled > 0 ? `${trainedDays}/${scheduled}` : String(trainedDays);
+}
+
+/** A kliens legutóbbi tényleges eseményei — edzés, PR, check-in, testsúly.
+    Kitalált szöveg nincs benne: ami nincs naplózva, az nem jelenik meg. */
+const ACTIVITY_LIMIT = 5;
+function recentActivity(userId, workouts) {
+  const events = [];
+
+  for (const workout of workouts) {
+    events.push({ date: workout.date, text: `${workout.name} — ${relativeDay(workout.date)}` });
+    for (const exercise of workout.exercises) {
+      if (exercise.pr) {
+        events.push({ date: workout.date, text: `Új PR: ${exercise.name} — ${relativeDay(workout.date)}` });
+      }
+    }
+  }
+  for (const checkin of getCheckins(userId, 10)) {
+    events.push({ date: checkin.date, text: `Check-in kitöltve — ${relativeDay(checkin.date)}` });
+  }
+  for (const entry of getWeightLog(userId).slice(-3)) {
+    events.push({ date: entry.date, text: `Testsúly: ${entry.kg} kg — ${relativeDay(entry.date)}` });
+  }
+
+  return events
+    .sort((a, b) => dayKey(b.date) - dayKey(a.date))
+    .slice(0, ACTIVITY_LIMIT)
+    .map((event) => event.text);
+}
+
+/** A figyelmeztetés SORRENDBEN: a legsürgetőbb ok nyer. Mindegyik tényleges
+    adathiányból vagy tényleges értékből jön, nem becslésből. */
+const STALE_WORKOUT_DAYS = 7;
+const STALE_CHECKIN_DAYS = 3;
+const LOW_READINESS = 60;
+function clientAlert({ workouts, checkins, overall, lastWorkoutDate }) {
+  if (workouts.length === 0 && checkins.length === 0) return 'Még nincs naplózott adata';
+  if (workouts.length === 0) return 'Még nem naplózott edzést';
+
+  const sinceWorkout = daysSince(lastWorkoutDate);
+  if (sinceWorkout >= STALE_WORKOUT_DAYS) return `${sinceWorkout} napja nem edzett`;
+  if (overall < LOW_READINESS) return `Alacsony készenlét (${overall})`;
+
+  const sinceCheckin = daysSince(checkins[0]?.date);
+  if (sinceCheckin === null || sinceCheckin >= STALE_CHECKIN_DAYS) return 'Nincs friss check-in';
+  return null;
+}
+
+/** Egy kliens kártyaadata az edzői panelhez — MINDEN mezője számolt érték.
+    A készenlét-motort kliensenként egyszer futtatjuk (~10-20 ms): pár
+    kliensnél ez rendben van, száznál már gyorsítótár kellene. */
+function clientCard(link) {
+  const userId = link.client.id;
+  const workouts = getWorkouts(userId);
+  const plans = getUserPlans(userId);
+  const checkins = getCheckins(userId, 30);
+  const readiness = readinessReport(userId, workouts);
+
+  const lastWorkoutDate = workouts.length
+    ? workouts.reduce((latest, w) => (dayKey(w.date) > dayKey(latest) ? w.date : latest), workouts[0].date)
+    : null;
+  const activePlan = getPlanForDay(userId, todayWeekday()) || plans[0] || null;
+
+  return {
+    linkId: link.id,
+    id: String(userId),
+    name: link.client.name,
+    username: link.client.username,
+    readiness: readiness.overall,
+    // A megbízhatóság végigkíséri a számot: az edző lássa, mennyi adat van mögötte.
+    readinessConfidence: readiness.confidence,
+    adherence: adherenceOf(workouts, plans),
+    streak: trainingStreak(workouts),
+    lastWorkout: relativeDay(lastWorkoutDate),
+    weekly: weeklyLabel(workouts, plans),
+    plan: activePlan ? activePlan.name : null,
+    alert: clientAlert({ workouts, checkins, overall: readiness.overall, lastWorkoutDate }),
+    recent: recentActivity(userId, workouts),
+  };
+}
+
+/** Az Edző oldal EGY lekérésben: a saját szerepköröm, a klienseim kártyái,
+    a kiküldött és a beérkezett meghívások, és az edzőim. */
+app.get('/api/coach/overview', (req, res) => {
+  const me = req.user;
+  res.json({
+    isCoach: me.isCoach,
+    clients: listClientsOfCoach(me.id).map(clientCard),
+    invitesSent: listClientsOfCoach(me.id, 'pending'),
+    coaches: listCoachesOfClient(me.id),
+    invitesReceived: listCoachesOfClient(me.id, 'pending'),
+  });
+});
+
+/** Edzői szerepkör be-/kikapcsolása. Ez CSAK a felületet nyitja meg — adatot
+    önmagában nem tesz elérhetővé, ahhoz elfogadott kapcsolat kell. */
+app.post('/api/coach/role', (req, res) => {
+  res.json(setCoachRole(req.user.id, Boolean(req.body?.isCoach)));
+});
+
+/** Meghívás felhasználónévre. A kliensnek el kell fogadnia — enélkül az edző
+    semmit nem lát belőle.
+    (A „nincs ilyen felhasználó" válasz elárulja, foglalt-e egy név. Ez a
+    regisztrációnál úgyis kiderül, a meghíváshoz viszont elengedhetetlen a
+    visszajelzés — különben az elgépelt név némán nyelődne el.) */
+app.post('/api/coach/invites', (req, res) => {
+  if (!req.user.isCoach) {
+    return res.status(403).json({ error: 'Ehhez előbb kapcsold be az edzői szerepkört a Beállításokban.' });
+  }
+  const username = normalizeUsername(req.body?.username);
+  if (!username) return res.status(400).json({ error: 'Adj meg egy felhasználónevet.' });
+
+  const target = findUserByUsername(username);
+  if (!target) return res.status(404).json({ error: 'Nincs ilyen felhasználó.' });
+  if (target.id === req.user.id) return res.status(400).json({ error: 'Magadat nem hívhatod meg kliensnek.' });
+
+  const { link, error } = inviteClient(req.user.id, target.id);
+  if (link) addNotification(target.id, 'invite', `${req.user.displayName} edzőként meghívott`);
+  if (error) {
+    return res.status(409).json({
+      error: error === 'already-active'
+        ? `${target.displayName} már a kliensed.`
+        : `${target.displayName} már kapott meghívást — még nem fogadta el.`,
+    });
+  }
+  res.status(201).json(link);
+});
+
+/** A kliens elfogadja a meghívást. Csak a SAJÁT, függő meghívása fogadható el. */
+app.post('/api/coach/invites/:id/accept', (req, res) => {
+  const link = acceptInvite(req.user.id, Number(req.params.id));
+  if (!link) return res.status(404).json({ error: 'A meghívás nem található, vagy már nem függőben van.' });
+  // Az EDZŐ kapja: neki kell megtudnia, hogy mostantól látja a klienst.
+  addNotification(link.coach.id, 'invite', `${link.client.name} elfogadta a meghívásodat`);
+  res.json(link);
+});
+
+/** Kapcsolat bontása: elutasított meghívás vagy lezárt együttműködés.
+    Mindkét fél kezdeményezheti — a kliens sem ragadhat bele. */
+app.delete('/api/coach/links/:id', (req, res) => {
+  if (!removeCoachLink(req.user.id, Number(req.params.id))) {
+    return res.status(404).json({ error: 'Nincs ilyen kapcsolatod.' });
+  }
+  res.status(204).end();
+});
+
+/** A KERESZT-FIÓK OLVASÁS EGYETLEN KAPUJA.
+    Visszaadja a kért fiók azonosítóját, ha a hívó jogosult rá (saját adat,
+    vagy elfogadott edző–kliens kapcsolat), különben null — és ilyenkor MÁR
+    KIÍRTA a hibaválaszt, tehát a hívónak csak vissza kell térnie.
+
+    A jogosulatlan kérés szándékosan 404-et kap, nem 403-at: a 403 elárulná,
+    hogy az adott azonosítón létezik fiók. */
+function resolveClientId(req, res) {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: 'Érvénytelen azonosító.' });
+    return null;
+  }
+  if (id !== req.user.id && !isCoachOf(req.user.id, id)) {
+    res.status(404).json({ error: 'Nincs ilyen kliensed.' });
+    return null;
+  }
+  return id;
+}
+
+/** A kliens teljes készenléti riportja az edzőnek — ugyanaz a számítás, amit
+    a kliens a Regeneráció oldalán lát. Ez az első kereszt-fiók olvasás az
+    appban; minden továbbinak ugyanezen a kapun kell átmennie. */
+app.get('/api/coach/clients/:id/readiness', (req, res) => {
+  const clientId = resolveClientId(req, res);
+  if (clientId === null) return;
+  res.json(readinessReport(clientId));
+});
+
+/* ======================================================================
+   Kiosztott edzéstervek
+   ----------------------------------------------------------------------
+   A kiosztott tervnek a KLIENS a tulajdonosa (plans.user_id), de az EDZŐ a
+   szerzője (plans.author_id). Ebből következik minden szabály:
+     · a kliens edzeni tud belőle, de nem szerkesztheti (PUT /api/plans/:id
+       403-at ad rá),
+     · az edző a saját szerzőségű tervet módosíthatja — de csak amíg él a
+       kapcsolat,
+     · a terven ott a nyom, hogy MIKOR és KI módosította utoljára.
+   ====================================================================== */
+
+/** Az edzőnek szánt kapu: a kliens azonosítója, ha TÉNYLEG a kliense.
+    A saját fiókot itt NEM engedjük át (arra a sima /api/plans való) — így a
+    kiosztás művelete sosem keveredhet a saját tervek kezelésével. */
+function resolveOwnClientId(req, res) {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    res.status(400).json({ error: 'Érvénytelen azonosító.' });
+    return null;
+  }
+  if (!isCoachOf(req.user.id, id)) {
+    res.status(404).json({ error: 'Nincs ilyen kliensed.' });
+    return null;
+  }
+  return id;
+}
+
+/** A kliens tervei az edzőnek — jelölve, melyiket ő osztotta ki. */
+app.get('/api/coach/clients/:id/plans', (req, res) => {
+  const clientId = resolveOwnClientId(req, res);
+  if (clientId === null) return;
+
+  res.json(getUserPlans(clientId).map((plan) => ({
+    id: plan.id,
+    name: plan.name,
+    days: plan.days,
+    exercises: plan.exercises,
+    // Csak a SAJÁT szerzőségű tervet szerkesztheti — a kliens saját tervéhez
+    // nem nyúlhat hozzá, azt csak látja.
+    mine: plan.authorId === req.user.id,
+    coachAuthored: plan.coachAuthored,
+    authorName: plan.authorName,
+    changeNote: plan.updatedAt ? `Módosítva ${relativeTime(plan.updatedAt)} · ${plan.updatedByName ?? '—'}` : null,
+  })));
+});
+
+/** Terv kiosztása a kliensnek. A terv a kliens fiókjába kerül, az edző
+    szerzőségével — a kliens azonnal látja a Tervek oldalán. */
+app.post('/api/coach/clients/:id/plans', (req, res) => {
+  const clientId = resolveOwnClientId(req, res);
+  if (clientId === null) return;
+
+  const plan = parsePlanBody(req.body);
+  if (plan.error) return res.status(400).json({ error: plan.error });
+
+  const created = addPlan(clientId, plan.name, today(), plan.exercises, plan.days, req.user.id);
+  addNotification(clientId, 'plan', `${req.user.displayName} kiosztotta a(z) „${created.name}" tervet`);
+  res.status(201).json(created);
+});
+
+/** A kiosztott terv módosítása. Két feltételnek KELL egyszerre állnia: az
+    edző a terv szerzője, ÉS a kapcsolat még él. A második nélkül egy
+    felmondott edző örökre szerkeszthetné a régi kliense tervét. */
+app.put('/api/coach/plans/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Érvénytelen terv-azonosító.' });
+
+  const existing = getPlanById(id);
+  if (!existing || existing.authorId !== req.user.id) {
+    return res.status(404).json({ error: 'Nincs ilyen általad kiosztott terv.' });
+  }
+  if (!isCoachOf(req.user.id, existing.userId)) {
+    return res.status(403).json({ error: 'A kapcsolat megszűnt — ezt a tervet már nem módosíthatod.' });
+  }
+
+  const plan = parsePlanBody(req.body);
+  if (plan.error) return res.status(400).json({ error: plan.error });
+
+  const updated = updateAssignedPlan(req.user.id, id, plan.name, plan.exercises, plan.days);
+  if (!updated) return res.status(404).json({ error: 'Nincs ilyen terv — lehet, hogy időközben törölték.' });
+
+  addNotification(existing.userId, 'planChange', `${req.user.displayName} módosította a(z) „${updated.name}" tervet`);
+  res.json(updated);
+});
+
+/* ======================================================================
+   Biztonsági átnézés — a készenlét felülírja a tervet
+   ----------------------------------------------------------------------
+   A kiosztott tervhez a kliens nem nyúlhat. Egyetlen dolog szólhat bele:
+   a mai készenléte. A rendszer NEM írja át a tervet (az elrejtené az edző
+   elől, mi történt) — hanem MEGJELÖLI, mi kockázatos ma, és miért.
+
+   A jelzés minden gyakorlatra működik, nem csak arra, amire van előzmény:
+   a gyakorlat → izomcsoport leképezésből dolgozik, nem a naplóból.
+   ====================================================================== */
+
+/** 7/10 vagy afölötti fájdalom = tiltás. Ugyanaz a küszöb, amivel a
+    Recovery Engine a gyakorlat-ajánlásokat is letiltja — egy helyen kell
+    igaznak lennie, nem kettőn. */
+const PAIN_BLOCK = 7;
+/** E alatti izom-készenlétnél óvatosságra intünk (de nem tiltunk).
+
+    A szám a MOTOR SKÁLÁJÁHOZ igazodik, nem érzésre van megválasztva. Ahol a
+    terhelés-modellnek VAN adata a csoportról, ott a bejelentett izomlázat
+    0.4 súllyal keveri be (recovery.js → muscleReadiness). Ha tehát a modell
+    frissnek látja az izmot (100), de a felhasználó 5/5-ös izomlázat jelez,
+    az eredmény 60 — vagyis egy 45%-os küszöb ezt az esetet néma maradna,
+    pedig pont ilyenkor kell visszavenni.
+    (Ha a modellnek NINCS adata a csoportról, a bejelentett érzet önmagában
+    adja a pontszámot — ott az 5/5 már 0-t ad.)
+    A 70 egyben a recovery.js recommend() létrájának ugyanazon foka, ahol az
+    „normál súly, −1 szett"-re vált. */
+const LOW_MUSCLE_READINESS = 70;
+/** Egy gyakorlatot akkor tekintünk az izomcsoport terhelőjének, ha a terhelés
+    legalább ennyi — a jelentéktelen másodlagos terhelésre nem figyelmeztetünk. */
+const RELEVANT_LOAD = 0.2;
+
+/** Egy fiókhoz egyszer elkészített átnéző. Visszaad egy függvényt, ami egy
+    gyakorlat-listára megmondja, mi tiltott és mi kockázatos MA. */
+function planSafetyChecker(userId) {
+  const report = readinessReport(userId);
+  const catalog = getCollection('exerciseCatalog') || [];
+  const byKey = Object.fromEntries(report.muscles.map((m) => [m.key, m]));
+
+  return (exercises) => {
+    const blocked = [];
+    const caution = [];
+
+    for (const exercise of exercises) {
+      const load = resolveExerciseLoad(exercise.name, catalog);
+      const groups = Object.entries(load).filter(([, share]) => share >= RELEVANT_LOAD);
+
+      const painful = groups.filter(([key]) => (byKey[key]?.pain ?? 0) >= PAIN_BLOCK);
+      if (painful.length > 0) {
+        blocked.push({
+          name: exercise.name,
+          reason: `fájdalmat jeleztél ide: ${painful.map(([key]) => MUSCLE_GROUPS[key]).join(', ')}`,
+        });
+        continue;
+      }
+
+      const tired = groups.filter(([key]) => (byKey[key]?.readiness ?? 100) < LOW_MUSCLE_READINESS);
+      if (tired.length > 0) {
+        caution.push({
+          name: exercise.name,
+          reason: `még nem állt helyre: ${tired.map(([key]) => MUSCLE_GROUPS[key]).join(', ')}`,
+        });
+      }
+    }
+
+    if (blocked.length === 0 && caution.length === 0) return null;
+    return { blocked, caution };
+  };
+}
+
+/* ======================================================================
+   Készenlét-alapú javaslat a MAI edzésre
+   ----------------------------------------------------------------------
+   A terv-kártya jelzése („ma kerüld ezt") passzív: látni kell, de nem
+   csinál semmit. Ez a réteg konkrét, ELFOGADHATÓ javaslatot ad a mai
+   naplóra — a check-in után felugró ablakban, Elfogadom / Most nem
+   gombbal.
+
+   Amit a javaslat MÓDOSÍT, az a mai edzésnapló (a piszkozat), SOHA nem a
+   terv. A terv az edzőé; ha a rendszer belenyúlna, az edző azt hinné, a
+   kliens az ő tervét csinálta végig.
+
+   Két dolgot sosem bánt:
+     · a MÁR TELJESÍTETT szetteket — azok megtörténtek,
+     · a nem szám súlyokat (saját testsúlyos gyakorlat) — ott nincs mit levenni.
+   ====================================================================== */
+
+/** A súlycsökkentés a konditerem valóságához igazodik: 2,5 kg-os lépcső,
+    lefelé kerekítve. Egy „87,3 kg" javaslat használhatatlan volna. */
+const PLATE_STEP_KG = 2.5;
+/** E alatti izom-készenlétnél nagyobb levételt javaslunk. Ide már csak
+    tényleges terhelés-halmozódással lehet lejutni (az izomláz önmagában
+    60-ig visz), ezért indokolt a nagyobb lépés. */
+const VERY_LOW_MUSCLE = 55;
+const REDUCE_HARD = 0.15;
+const REDUCE_SOFT = 0.10;
+
+const reduceWeight = (kg, ratio) => Math.max(0, Math.floor((kg * (1 - ratio)) / PLATE_STEP_KG) * PLATE_STEP_KG);
+/** Szám → a naplóban használt szöveges alak (fölösleges tizedes nélkül). */
+const weightText = (value) => String(Math.round(value * 10) / 10);
+
+/** A mai edzésre vonatkozó javaslatok. A MAI NAPLÓ tartalmából dolgozik
+    (piszkozat vagy a napra ütemezett terv) — tehát abból, amit a felhasználó
+    ténylegesen csinálni fog, nem egy elvont terv-listából.
+
+    A visszatérés { name, items }; üres items = nincs mit javasolni, és
+    ilyenkor a felület fel sem dobja az ablakot. */
+function sessionAdvice(userId) {
+  const template = workoutTemplate(userId);
+  if (!template || !Array.isArray(template.exercises) || template.exercises.length === 0) {
+    return { name: null, items: [] };
+  }
+
+  const report = readinessReport(userId);
+  const catalog = getCollection('exerciseCatalog') || [];
+  const byKey = Object.fromEntries(report.muscles.map((m) => [m.key, m]));
+  const items = [];
+
+  template.exercises.forEach((exercise, index) => {
+    const pending = (exercise.sets ?? []).filter((set) => !set.done);
+    if (pending.length === 0) return; // már kész — nincs mit javasolni
+
+    const groups = Object.entries(resolveExerciseLoad(exercise.name, catalog))
+      .filter(([, share]) => share >= RELEVANT_LOAD)
+      .map(([key]) => byKey[key])
+      .filter(Boolean);
+
+    const painful = groups.filter((group) => (group.pain ?? 0) >= PAIN_BLOCK);
+    if (painful.length > 0) {
+      /* Ha már van teljesített szett, a gyakorlatot nem lehet meg nem
+         történtté tenni — ilyenkor a maradék marad el ('stop'). */
+      const started = pending.length < exercise.sets.length;
+      items.push({
+        index,
+        name: exercise.name,
+        action: started ? 'stop' : 'skip',
+        reason: `fájdalmat jeleztél ide: ${painful.map((g) => g.label).join(', ')}`,
+        detail: started
+          ? `a hátralévő ${pending.length} szett kimarad`
+          : 'a gyakorlat kimarad a mai naplóból',
+      });
+      return;
+    }
+
+    const worst = groups.slice().sort((a, b) => a.readiness - b.readiness)[0];
+    if (!worst || worst.readiness >= LOW_MUSCLE_READINESS) return;
+
+    const ratio = worst.readiness < VERY_LOW_MUSCLE ? REDUCE_HARD : REDUCE_SOFT;
+    // Csak akkor van értelme javasolni, ha tényleg lejjebb tudunk menni.
+    const weights = pending
+      .map((set) => Number(set.weight))
+      .filter((kg) => Number.isFinite(kg) && kg > 0);
+    const heaviest = Math.max(0, ...weights);
+    if (heaviest === 0 || reduceWeight(heaviest, ratio) >= heaviest) return;
+
+    items.push({
+      index,
+      name: exercise.name,
+      action: 'reduce',
+      percent: Math.round(ratio * 100),
+      reason: `${worst.label} még nem állt helyre (${worst.readiness}%)`,
+      detail: `a legnehezebb szett ${weightText(heaviest)} kg → ${weightText(reduceWeight(heaviest, ratio))} kg`,
+    });
+  });
+
+  return { name: template.name, items };
+}
+
+/** A javaslat alkalmazása a mai naplóra.
+
+    A javaslatokat ÚJRASZÁMOLJUK — a kliens listáját nem fogadjuk el
+    bemenetként. Enélkül egy hamisított kérés tetszőleges gyakorlatot
+    törölhetne a naplóból. */
+function applySessionAdvice(userId) {
+  const template = workoutTemplate(userId);
+  const { items } = sessionAdvice(userId);
+  if (items.length === 0) return { applied: 0 };
+
+  const byIndex = new Map(items.map((item) => [item.index, item]));
+  const exercises = [];
+
+  template.exercises.forEach((exercise, index) => {
+    const advice = byIndex.get(index);
+    if (!advice) {
+      exercises.push(exercise);
+      return;
+    }
+    if (advice.action === 'skip') return;                       // kimarad a naplóból
+    if (advice.action === 'stop') {
+      exercises.push({ ...exercise, sets: exercise.sets.filter((set) => set.done) });
+      return;
+    }
+    const ratio = advice.percent / 100;
+    exercises.push({
+      ...exercise,
+      sets: exercise.sets.map((set) => {
+        const kg = Number(set.weight);
+        if (set.done || !Number.isFinite(kg) || kg <= 0) return set;
+        return { ...set, weight: weightText(reduceWeight(kg, ratio)) };
+      }),
+    });
+  });
+
+  /* A piszkozat DÁTUMA marad, ami volt — ha ma még nincs piszkozat (a terv
+     töltődött be), akkor mai. Így az elfogadás nem datálja át némán egy
+     korábbi, félbehagyott edzést. */
+  const draft = getWorkoutDraft(userId);
+  saveWorkoutDraft(userId, template.name, exercises, draft?.date ?? today(), template.planId ?? null);
+  return { applied: items.length };
+}
+
+app.get('/api/readiness/advice', (req, res) => res.json(sessionAdvice(req.user.id)));
+
+/** Elfogadás. A válasz a friss napló, hogy a felület egy körből frissüljön. */
+app.post('/api/readiness/advice/apply', (req, res) => {
+  const result = applySessionAdvice(req.user.id);
+  res.json({ ...result, template: workoutTemplate(req.user.id) });
+});
+
+/* ======================================================================
+   Értesítések
+   ----------------------------------------------------------------------
+   Valódi eseményekből, fiókonként. Az „olvasott" állapot a szerveren él
+   (users.notifications_read_at), nem a böngésző localStorage-ában — így
+   nem tűnik el a lista attól, hogy egyszer rányomtak az „olvasottra".
+   ====================================================================== */
+
+/** Emberi időmegjelölés az UTC-időbélyegből. A DB 'ÉÉÉÉ-HH-NN ÓÓ:PP:MM'
+    alakot tárol UTC-ben — a 'Z' nélkül a böngésző helyi időnek venné, és
+    a friss értesítés órákkal ezelőttinek látszana. */
+function relativeTime(stamp) {
+  const ms = Date.now() - new Date(`${String(stamp).replace(' ', 'T')}Z`).getTime();
+  const minutes = Math.floor(ms / 60000);
+  if (minutes < 1) return 'az imént';
+  if (minutes < 60) return `${minutes} perce`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} órája`;
+  const days = Math.floor(hours / 24);
+  return days === 1 ? 'tegnap' : `${days} napja`;
+}
+
+app.get('/api/notifications', (req, res) => {
+  res.json(getNotifications(req.user.id).map((item) => ({
+    id: item.id,
+    cat: item.cat,
+    text: item.text,
+    time: relativeTime(item.createdAt),
+    unread: item.unread,
+  })));
+});
+
+/** „Mindet olvasottnak." A lista NEM ürül ki tőle — csak az „új" jelzés
+    tűnik el. A korábbi viselkedés (minden eltüntetése) valódi eseményeknél
+    előzmény-vesztés lenne. */
+app.post('/api/notifications/read', (req, res) => {
+  markNotificationsRead(req.user.id);
+  res.status(204).end();
 });
 
 /** Az Edzés oldal induló tartalma, prioritás szerint: aznapi piszkozat →
@@ -410,16 +1005,30 @@ app.get('/api/plans', (req, res) => {
     }
     return 0;
   };
-  res.json(getUserPlans(userId).map((plan) => {
+  /* A biztonsági átnézéshez a készenléti riport KELL, de fejenként egyszer
+     elég: minden terv ugyanazt a mai állapotot méri. */
+  const plans = getUserPlans(userId);
+  const safetyOf = plans.length ? planSafetyChecker(userId) : () => null;
+
+  res.json(plans.map((plan) => {
     const daysLabel = plan.days.length
       ? ` · ${plan.days.map((d) => DAY_LABELS[d]).join(', ')}`
       : '';
+    const owner = plan.coachAuthored ? `${plan.authorName} terve` : 'Saját terv';
     return {
       id: plan.id,
       name: plan.name,
-      meta: `Saját terv · ${plan.exercises.length} gyakorlat${daysLabel}`,
+      meta: `${owner} · ${plan.exercises.length} gyakorlat${daysLabel}`,
       progress: progressFor(plan),
-      own: true,
+      /* own = szerkesztheti-e a felületen. A kiosztott tervet csak az edző
+         állíthatja; a kliens edzeni tud belőle, átírni nem. */
+      own: !plan.coachAuthored,
+      coachAuthored: plan.coachAuthored,
+      // „Mikor, ki módosította" — csak a kiosztott terveknél érdekes.
+      changeNote: plan.coachAuthored && plan.updatedAt
+        ? `Módosítva ${relativeTime(plan.updatedAt)} · ${plan.updatedByName ?? '—'}`
+        : null,
+      safety: safetyOf(plan.exercises),
       exercises: plan.exercises,
       days: plan.days,
     };
@@ -714,6 +1323,20 @@ const normalizeSetType = (raw, index, prevType) => {
 /** A beküldött gyakorlat-lista mezőnkénti normalizálása. A kliens a DOM-ból
     olvassa az értékeket, ezért itt kényszerítjük ki az elvárt alakot;
     érvénytelen szerkezetre null-t ad (→ 400-as válasz). */
+/** Egy szett szám-mezője (ism./súly) normalizálva.
+
+    A mező SZÖVEG marad — a régi, mértékegységgel együtt mentett értékeket
+    („12 rep", „60% TM") a migráció alakítja számmá, azokat itt nem bántjuk.
+    Ami viszont számként olvasható, az nem lehet negatív: a negatív súly
+    negatív tonnatömeget adna, és a fáradtság-modellben LEVONÓDNA — egy
+    hamis sorral felfelé lehetne tolni a saját készenléti pontszámot. */
+function nonNegativeField(value) {
+  const text = String(value ?? '').slice(0, 20);
+  const parsed = Number(text);
+  if (Number.isFinite(parsed) && parsed < 0) return '0';
+  return text;
+}
+
 function normalizeExercises(raw) {
   if (!Array.isArray(raw) || raw.length === 0) return null;
   const exercises = [];
@@ -728,8 +1351,8 @@ function normalizeExercises(raw) {
     const sets = [];
     for (const [index, set] of entry.sets.entries()) {
       sets.push({
-        reps: String(set?.reps ?? '').slice(0, 20),
-        weight: String(set?.weight ?? '').slice(0, 20),
+        reps: nonNegativeField(set?.reps),
+        weight: nonNegativeField(set?.weight),
         rpe: normalizeRpe(set?.rpe),
         type: normalizeSetType(set?.type, index, sets[index - 1]?.type),
         done: Boolean(set?.done),
@@ -775,9 +1398,21 @@ app.put('/api/plans/:id', (req, res) => {
   if (!Number.isInteger(id)) return res.status(400).json({ error: 'Érvénytelen terv-azonosító.' });
   const plan = parsePlanBody(req.body);
   if (plan.error) return res.status(400).json({ error: plan.error });
+
   const updated = updatePlan(req.user.id, id, plan.name, plan.exercises, plan.days);
-  if (!updated) return res.status(404).json({ error: 'Nincs ilyen terv — lehet, hogy időközben törölték.' });
-  res.json(updated);
+  if (updated) return res.json(updated);
+
+  /* Nem ment át. Két oka lehet, és a kettőt meg kell különböztetni: az edzői
+     tervnél a felhasználó a SAJÁT tervét látja, csak nem szerkesztheti —
+     erre a „nincs ilyen terv" félrevezető volna. Idegen fiók tervéről
+     viszont nem árulunk el semmit: az marad 404. */
+  const existing = getPlanById(id);
+  if (existing && existing.userId === req.user.id && existing.coachAuthored) {
+    return res.status(403).json({
+      error: `Ezt a tervet ${existing.authorName} osztotta ki — csak ő módosíthatja. Edzeni tudsz belőle.`,
+    });
+  }
+  res.status(404).json({ error: 'Nincs ilyen terv — lehet, hogy időközben törölték.' });
 });
 
 /** Edzés mentése. Törzs: { name, exercises }. A dátumot a szerver adja. */

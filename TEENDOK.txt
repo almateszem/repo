@@ -6,7 +6,7 @@ Nem hibajegy-rendszer: rövid, cselekvésre kész sorok, prioritás szerint.
 Jelölések:   [ ] nyitott    [~] részben kész    [x] kész (a következő
              takarításig marad itt, hogy lássuk, mi történt)
 
-Utolsó frissítés: 2026-08-17
+Utolsó frissítés: 2026-08-30
 Legutóbbi takarítás: 2026-08-17 — az elkészült [x] tételek kivezetve
 (a részletek a git előzményben maradtak meg).
 
@@ -159,3 +159,297 @@ NYITOTT APRÓSÁG — a check-in varázslóból maradt
     A szerver 0–24-et fogad el. Szándékos-e az eltérés, még eldöntendő.
     Hely: public/script.js → CI_SLEEP_MIN / CI_SLEEP_MAX,
           public/index.html → #ci-sleep
+
+
+==========================================================================
+RECOVERY ENGINE — a 2026-08-30-i átvizsgálás eredménye
+==========================================================================
+A kérdés az volt, nincs-e baj magával a készenlét-számítással. De volt,
+kettő is. Mindkettő javítva, tesztekkel rögzítve.
+
+[x] „Nincs adat" ≠ „tökéletes állapot"
+    Az izom- és a terhelés-komponens SOSEM lehetett hiányzó: adat híján
+    „nincs károsodás" → 100 ment a képletbe. Egy vadonatúj fiók így
+    100%-os készenlétet kapott — a lehető legrosszabb irányba tévedve.
+    Most: nincs adat → overall = null, a felület „—"-t mutat. Aki viszont
+    naplóz és rég edzett, annál a 100 továbbra is helyes (az érvényes
+    következtetés, nem adathiány) — a kettőt a „naplózott-e valaha edzést"
+    kérdés választja el. Izomcsoportonként ugyanez: known jelző a riportban.
+
+[x] A modell elnyomta a bejelentett izomlázat
+    A keverés fix 0.6 (modell) / 0.4 (érzet) volt akkor is, ha a modellnek
+    NULLA információja volt a csoportról. Terhelés-előzmény nélkül így az
+    5/5-ös izomláz is csak 60%-ig vitt le. Most: ha nincs naplózott terhelés
+    a csoporton, az érzet önmagában adja a pontszámot.
+
+[x] A szerver elfogadta a negatív súlyt és ismétlést
+    Negatív súly = negatív tonnatömeg, ami a fáradtság-modellben LEVONÓDIK:
+    egy hamis sorral felfelé lehetett tolni a saját készenléti pontszámot.
+    Most nullára szorul (server.js → nonNegativeField).
+
+    AMI RENDBEN VAN (megmérve, hogy ne vizsgáljuk újra):
+      · hibás és jövőbeli dátumok: kiszűrődnek, nem torzítanak,
+      · a fájdalom-sapkák (csoport 30%, összesített 45%) helyesen ütnek,
+      · a terhelés-modell VALÓDI adaton jól viselkedik (kemény lábnap után
+        a quad 31%, a farizom 26% — a soft-min átlag miatt ez az
+        összesítőn is meglátszik),
+      · a hiányzó komponensek súlyának újraosztása pontos (100%-ra jön ki).
+
+
+==========================================================================
+HIÁNYZÓ FUNKCIÓK — az edző–kliens réteg (felvéve: 2026-08-30)
+==========================================================================
+Ezek NEM hibák, hanem meg nem épített funkciók. A lista eredetileg 29
+soros volt, sok átfedéssel; itt hat blokkba rendezve áll, függőségi
+sorrendben. A 0. blokk MINDEN továbbinak előfeltétele.
+
+Ami ma van: az Edző oldal (#coach) teljes egészében DEMO. A sportolók, a
+készenlétük, az edzői megjegyzések, a chat-válaszok és a táplálkozási cél
+mind a server/data.js-ből jön, fix értékként. Nincs olyan adatszerkezet,
+ami két VALÓDI fiókot összekötne — tehát a lista nagy része nem bővítés,
+hanem új réteg.
+
+MEGBESZÉLT DÖNTÉSEK (2026-08-30):
+  · Az alapréteg VALÓDI fiókokkal épül: szerepkör + coach_clients tábla +
+    meghívás, amit a kliens fogad el. Nem egyfiókos látszatmegoldás.
+  · A videók a szerver melletti HELYI LEMEZRE kerülnek, méret- és
+    formátumkorláttal, fiókonkénti kvótával. (Az üzemeltetési kockázatot
+    ld. a „DB fájl elveszhet" pontnál — videóra hatványozottan igaz.)
+  · Az építés sorrendje: 0 → 1 → 2 → 3 → 5 → 4. A videó a legdrágább és
+    a legkevésbé blokkoló, ezért megy a végére.
+
+
+--- 0. ALAP: valódi edző–kliens kapcsolat -------------- ELKÉSZÜLT ------
+    2026-08-30. Ez volt minden további pont előfeltétele. A részletek a
+    READMÉ „Edző–kliens kapcsolat" fejezetében.
+
+[x] Szerepkör a users táblán
+    users.is_coach (migrációval a meglévő adatbázisokon is). A Beállítások
+    szerepkör-kapcsolója a szerverre ír, nem localStorage-ba.
+    A „van edződ" NEM lett külön jelző: az az elfogadott coach_clients
+    sorból következik, tehát nem lehet olyan szerepkört mutatni, ami mögött
+    nincs tényleges kapcsolat.
+
+[x] coach_clients kapcsolótábla + meghívás/elfogadás folyamat
+    Az edző felhasználónévre hív meg (status='pending'), a kliens fogadja el
+    ('active'). Bontani MINDKÉT fél tud, bármikor; utána új meghívás
+    küldhető. Végpontok: POST /api/coach/invites, POST .../:id/accept,
+    DELETE /api/coach/links/:id, GET /api/coach/overview.
+
+[x] Kereszt-fiók olvasási jog
+    A szabály EGY helyen él: isCoachOf (db.js) + resolveClientId
+    (server.js). Csak elfogadott kapcsolat számít; a függő meghívás nem ad
+    semmit. A jogosulatlan kérés 404-et kap, nem 403-at — a 403 elárulná,
+    hogy az adott azonosítón létezik fiók.
+    Az izolációt server/coach.test.js méri (14 teszt, HTTP-szinten).
+    MINDEN további kereszt-fiók végpontnak ezen a kapun kell átmennie.
+
+[x] Az edzői panel átkötése valódi adatra
+    A demo sportolók (data.js → athletes) és a beégetett edzői üzenetek
+    (coachNotes) TÖRÖLVE, a /api/athletes és /api/coach-notes végpontokkal
+    együtt. A kártyák minden száma számolt: készenlét a Recovery Engine-ből,
+    sorozat, heti edzésnapok, aktív terv, legutóbbi aktivitás a naplókból.
+    Amit nem lehet kiszámolni, az „—" — pl. a terv-követés csak a terv
+    létrejötte UTÁNI napokra vonatkozik (egy ma regisztrált kliens nem
+    kaphat 0%-ot olyan napokért, amikor még terve sem volt).
+
+[x] Az értesítések valódi eseményekből állnak
+    2026-08-30. notifications tábla; egy sor = egy megtörtént esemény,
+    annak a fióknak, AKIT érint: meghívás, elfogadás, terv kiosztva, terv
+    módosítva. A data.js hat beégetett sora törölve.
+    Az „olvasott" állapot a szerveren él (users.notifications_read_at),
+    és az olvasottnak jelölés MÁR NEM üríti ki a listát — csak az „új"
+    jelzés tűnik el. (Korábban a teljes előzmény eltűnt.)
+    A beállítások értesítés-kapcsolói is csak létező kategóriákat
+    sorolnak fel; a „Sorozat mérföldkő" és a „Heti riport" mögött soha
+    nem állt esemény, ezért kikerültek.
+
+[ ] Értesítés a kommentekre és az edzés utáni visszajelzésre
+    A 2. blokkal együtt: új kategória (comment), és a hozzá tartozó
+    esemény-kiváltás.
+
+
+--- 1. TERVEK: kiosztás és módosítás ------------------- ELKÉSZÜLT ------
+    2026-08-30. Döntések: a kiosztott terv a KLIENSÉ (tulajdonos), de az
+    EDZŐ a szerzője; a kliens csak edzeni tud belőle. A részletek a
+    READMÉ „Kiosztott edzéstervek" fejezetében.
+
+[x] Edzésterv kiosztása kliensnek
+    POST /api/coach/clients/:id/plans — a terv a kliens fiókjába kerül,
+    plans.author_id = az edző. A kliens Tervek oldalán azonnal megjelenik,
+    „Kovács Bence terve" felirattal, ceruza nélkül.
+    Az edzői modál terv-listájából indul (+ Terv kiosztása), a terv-építő
+    edzői módban nyílik — a fejléc kiírja, KINEK készül a terv.
+
+[x] Edzésterv módosítása az edző által (kiosztás után is)
+    PUT /api/coach/plans/:id. KÉT feltétel kell egyszerre: az edző a terv
+    szerzője, ÉS él a kapcsolat. A szerzőség önmagában nem jogosultság —
+    felmondás után a volt edző már nem írhat bele (a terv viszont a
+    kliensnél marad, tovább használható).
+    A kliens PUT /api/plans/:id-ja a kiosztott tervre 403-at ad (nem
+    404-et: a SAJÁT tervét látja, csak nem szerkesztheti), és a hibaüzenet
+    megnevezi, kihez forduljon.
+
+[x] „Mikor, ki módosította" a terven
+    plans.updated_at + updated_by, a kártyán „Módosítva 2 órája · Kovács
+    Bence". A LÉTREHOZÁS szándékosan nem számít módosításnak: friss terven
+    nincs nyom, így az utólagos átírás tényleg feltűnik.
+    Teljes verziózás (mi változott, gyakorlat-szintű diff) NEM készült —
+    a megbeszélés szerint a „mikor, ki" elég.
+
+[x] A készenlét felülírja a tervet — de kérdez
+    Két réteg. (1) PASSZÍV jelzés a terv-kártyán: mi kockázatos ma és
+    miért. (2) JAVASLAT-ABLAK a check-in mentése után, tételes listával és
+    Elfogadom / Most nem gombbal.
+    Három művelet: LEVESZ (−10%, 55% alatti izom-készenlétnél −15%, 2,5
+    kg-ra lefelé kerekítve), KIHAGY (7/10 fájdalom, még nincs teljesített
+    szett), LEÁLL (7/10 fájdalom, de már van teljesített szett → csak a
+    hátralévő marad el).
+    Amit az elfogadás módosít, az a MAI NAPLÓ — a terv soha. A teljesített
+    szetteket és a nem szám súlyokat semmi nem bántja. A javaslatot
+    elfogadáskor a szerver ÚJRASZÁMOLJA (a kliens listája nem bemenet).
+
+    KALIBRÁCIÓ — ezt ne írjuk át gondolkodás nélkül: a küszöb 70% (nem 45).
+    Ahol a modellnek VAN adata a csoportról, ott az izomláz 0.4 súllyal
+    keveredik be, tehát a „modell szerint friss + 5/5 izomláz" eset 60-at ad.
+    45-tel ez az ág HOLT ÁG volt — a füstteszt mutatta ki.
+
+[ ] Az edző lássa, ha a kliens elfogadott egy javaslatot
+    Ma a kliens naplója némán eltér a kiosztott tervtől. Az edzőnek látnia
+    kellene, hogy aznap miért — ehhez az edzés utáni visszajelzés
+    (2. blokk) a természetes hordozó.
+
+
+--- 2. KOMMUNIKÁCIÓ: kommentek és visszajelzés ---------------------------
+    A négy eredeti sor (edzői kommentek, gyakorlatonkénti megjegyzések,
+    edzés utáni visszajelzés, edzői visszajelzés) egyetlen mechanizmus:
+    egy kommenttábla, ami különböző dolgokra tud hivatkozni.
+
+[ ] comments tábla: (szerző, célfiók, cél típusa, cél id, szöveg, idő)
+    Céltípusok: edzés (workout), gyakorlat egy edzésen belül, szett,
+    videó, terv. Egy tábla, egy végpontcsalád — ne épüljön négy külön.
+
+[ ] Megjegyzés gyakorlathoz — a KLIENS oldaláról
+    Edzés közben/után a kliens megjegyzést fűzhet egy gyakorlathoz
+    („fájt a vállam a 3. szettnél”). Ma a workouts sorban erre nincs hely.
+
+[ ] Megjegyzés gyakorlathoz — az EDZŐ oldaláról
+    Ugyanaz a tábla, más szerző. A kliensnek jelölve kell lennie, hogy
+    edzői megjegyzés érkezett (ma a data.js coachNotes tömbje utánozza).
+
+[ ] Edzés utáni visszajelzés küldése
+    Az „Edzés befejezése” után a kliens rövid visszajelzést küld az
+    edzőnek (nehézség, közérzet, szabad szöveg). Eldöntendő: külön mező
+    a workouts soron, vagy komment a workout célra? (Javaslat: mező,
+    mert strukturált — így az elemzésbe is bekerülhet.)
+
+[ ] Valódi chat az edzővel
+    Ma a #coach kliens-nézet chatje szimulált, a data.js coachReplies
+    sorait pörgeti körbe, és a szál a lap újratöltésével elvész. A felület
+    ezt 2026-08-30 óta ki is írja („Az üzenetváltás egyelőre szimulált").
+    Kell: perzisztens üzenettábla két fiók között.
+    Eldöntendő: valós idejű (SSE/WS) vagy pollozó — demóhoz elég a poll.
+    MEGJEGYZÉS: a kapcsolat már megvan (coach_clients), tehát a küldés
+    jogosultsága eldönthető — ez a blokk innentől olcsóbb, mint volt.
+
+
+--- 3. TÁPLÁLKOZÁSI CÉLOK -----------------------------------------------
+
+[ ] Saját táplálkozási cél beállítása
+    Ma a napi cél FIX: data.js → nutritionGoal { calories: 2900,
+    protein: 170 } — minden fióknak ugyanaz, és sehol nem szerkeszthető.
+    Kell: fiókonkénti cél (kalória, fehérje; eldöntendő: szénhidrát/zsír
+    is?), a Táplálkozás oldalon szerkeszthetően.
+
+[ ] Edző által meghatározott cél kezelése
+    Az edző kitűzhet célt a kliensnek. Eldöntendő és FONTOS: mi történik,
+    ha a kliens is át akarja írni? Javaslat: az edzői cél a „kitűzött”,
+    a kliensé felülírhatja, de látszik, hogy eltért az edzőitől — a néma
+    felülírás mindkét irányban rossz.
+
+[ ] Az edzői cél megjelenítése a kliensnél
+    A Táplálkozás oldalon látszódjon, hogy a cél az edzőtől jön, és
+    mikortól érvényes.
+
+
+--- 4. VIDEÓ: technikaellenőrzés ----------------------------------------
+    Ez a legnagyobb blokk, és az egyetlen, ami ÚJ INFRASTRUKTÚRÁT igényel:
+    az appban ma nincs semmilyen fájlfeltöltés. Videót az SQLite-ba tenni
+    nem járható út. DÖNTÉS: helyi lemez a szerver mellett.
+
+[ ] Videófeltöltés gyakorlathoz
+    Helyi tárolás a szerver melletti könyvtárban, a DB-ben csak a
+    metaadat (fiók, gyakorlat, edzés, fájlnév, méret, idő).
+    Kell hozzá: méretkorlát, formátum-allowlist, fiókonkénti kvóta, és
+    a fájlok NEM lehetnek nyersen kiszolgálva a public/-ból — csak
+    jogosultság-ellenőrzés után adhatók vissza.
+
+[ ] Videó hozzárendelése konkrét sorozathoz (szetthez)
+    Nem elég az edzéshez kötni: a szettsor mellé kerüljön a videó
+    jelzése. A szettsor ma nem hivatkozható elem — azonosító kell rá.
+
+[ ] Videó megtekintése az edző által
+    A kliensmodálban a videók listája, lejátszóval.
+
+[ ] Technika értékelése
+    Az edző pontozza a végrehajtást. Eldöntendő: skála (1–5? 1–10?) és
+    van-e külön szempont (mélység, gerinctartás, tempó), vagy egy szám.
+
+[ ] Kommentek a videóhoz
+    A 2. blokk kommenttáblájának egy céltípusa. Eldöntendő: időbélyeges
+    komment a videón belül (pl. 0:12-nél) — hasznos, de több munka.
+
+[ ] Korábbi videók visszanézése
+    Gyakorlatonkénti videótár a kliensnek is, időrendben.
+
+[ ] Technika összehasonlítása időben
+    Két videó egymás mellett, ugyanahhoz a gyakorlathoz, más dátumról,
+    az értékelésekkel együtt. Ez a blokk csúcsa — az összes fenti kell
+    hozzá.
+
+
+--- 5. ELEMZÉS: grafikonok, terhelés, deload, előrejelzés ----------------
+    Az eredeti listából ide tartozik: fejlődési grafikonok, fejlődési
+    statisztikák, teljesítmény-grafikonok, regeneráció értékelése,
+    automatikus terhelés-elemzés, deload-javaslatok, teljesítmény-
+    előrejelzés, fejlettebb edzői elemzőfelület, kliens fejlődésének
+    követése és elemzése.
+
+[~] Regeneráció értékelése
+    MEGVAN, és ez a projekt legkidolgozottabb része: a Recovery Engine
+    (server/recovery.js) a saját fiókra 0–100-as pontot, izomcsoportonkénti
+    regenerációt, CNS-becslést és gyakorlat-ajánlást ad.
+    HIÁNYZIK: az edzői nézet — az edző nem látja a kliense készenlétét
+    (a panel readiness értéke ma fix szám a data.js-ben).
+
+[~] Fejlődési / teljesítmény-grafikonok gyakorlatonként (becsült 1RM)
+    MEGVAN: heti volumen-diagram (volumeCharts), testsúlytrend a
+    Regeneráció oldalon, PR-előzmény (GET /api/prs/history), és az adat
+    is (exercise_maxes + a szettek Epley-becslése).
+    HIÁNYZIK: gyakorlatonkénti 1RM-görbe az időben. Ez a legolcsóbb pont
+    a blokkban — nem új adat kell hozzá, csak rajzolás.
+
+[~] Összesített fejlődési statisztikák
+    MEGVAN: a dashboard statjai, a sorozat, a heti volumen, a PR-lista.
+    HIÁNYZIK: egy helyre gyűjtve. Eldöntendő: önálló „Statisztika” oldal
+    legyen, vagy a meglévők bővüljenek?
+
+[ ] Automatikus terhelés-elemzés (akut/krónikus arány)
+    A CHRONIC_WINDOW_DAYS = 28 ablak és a csillapított tonnatömeg már
+    megvan a motorban; hiányzik a heti terhelés trendje és a „túl gyorsan
+    emelted a volument” jelzés.
+
+[ ] Deload-javaslat
+    Feltétel-alapú javaslat (tartósan alacsony készenlét + emelkedő
+    terhelés + stagnáló vagy eső teljesítmény). Eldöntendő: csak jelzés,
+    vagy az app tényleg legenerálja a könnyített hetet?
+
+[ ] Teljesítmény-előrejelzés
+    ÓVATOSAN. Kevés adatból lineáris trendet extrapolálni félrevezető, és
+    ez a projekt eddig következetesen NEM tett kitalált számot a
+    felületre (ld. a HRV-döntést a READMÉ-ben). Csak akkor épüljön meg,
+    ha van hozzá adatküszöb, és kiírjuk a bizonytalanságot.
+
+[ ] Fejlettebb edzői elemzőfelület
+    A fentiek edzői nézete: kliensenként és klienseken átívelően.
+    Ez a legutolsó lépés — az összes előző pontra épül.
