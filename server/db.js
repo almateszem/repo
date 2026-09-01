@@ -678,6 +678,13 @@ export function getCheckins(userId, limit = 60) {
     .map(toCheckin);
 }
 
+/** Volt-e ennek a fióknak VALAHA check-inje. A felület ebből tudja, hogy a
+    friss fiókot a check-in varázslóra kell terelnie: a regisztráció ténye
+    csak pillanatnyi kliens-állapot, ez viszont túléli az oldal-újratöltést. */
+export function hasAnyCheckin(userId) {
+  return Boolean(db.prepare('SELECT 1 FROM checkins WHERE user_id = ? LIMIT 1').get(userId));
+}
+
 /** Egy nap check-injének mentése/felülírása. A megadott mezők közül csak az
     érvényeseket írjuk; a hiányzók NULL-ként maradnak (ld. a tábla kommentjét).
     Ismételt mentéskor a sor frissül — a felület így szerkeszthetőként kezeli

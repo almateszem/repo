@@ -71,6 +71,29 @@ Régi, fiók nélküli adatbázis: az első induláskor a meglévő sorok egy ar
 fiókhoz kerülnek (üres jelszó-hash, belépni nem lehet vele), és az ELSŐ
 regisztráció megörökli az egészet. A második regisztráló már nem kap belőle.
 
+ELSŐ CHECK-IN (onboarding): a regisztráció után a felhasználó NEM az üres
+Áttekintésre érkezik, hanem a check-in varázslóra (ld. 3.7), és amíg ki nem
+tölti, az app többi oldala zárva van. Enélkül a friss fiók egy üres "—"
+gyűrűt látna: a Recovery Engine helyesen null-t ad, amíg nincs mire
+alapoznia (ld. 5. pont).
+- A jelzőt a szerver adja: az /api/auth/me, a /register és a /login válasza
+  is hordozza az `onboarding` mezőt. Igaz, amíg a fióknak MÉG SOHA nem volt
+  check-inje. Azért ez a feltétel, és nem a "most regisztrált" tény: annak
+  az oldal-újratöltést is túl kell élnie, különben a félbehagyott első
+  check-in után az F5 kiengedné a felhasználót.
+- A felület két őrrel zárja a lapot: a navigate() a nav gyűrűt és az 1–6
+  gyorsbillentyűket fogja, a hashchange-kezelő a desktop side-nav sima
+  linkjeit és a címsorba írt hash-t. A nem-oldalnév hash (a #app-main skip
+  link) érintetlen marad. A navigáció CSS-ből is rejtve (body[data-onboarding]).
+- Kijárat: az intro "Mégse" linkje itt "Kijelentkezés" — a check-in kötelező,
+  de a lap nem csapda (a #checkin-en nincs beállítás- vagy kilépés-gomb, azok
+  a dashboard fejlécében ülnek).
+- A varázsló előrehaladó útja magától kikényszeríti a motor négy kulcsmezőjét:
+  a skála-lépések "Tovább" gombja tiltott, amíg nincs válasz. Az első check-in
+  után tehát garantáltan van valódi készenléti pontszám.
+- A NAPI check-in nem ugrik fel magától: a későbbi napokon az Áttekintés
+  emlékeztető gombja visz a varázslóba (ld. 3.1).
+
 
 ==========================================================================
 3. OLDALAK
@@ -221,6 +244,12 @@ szándékosan nem tölti ki előre a legutóbbi méréssel — egy előre beírt
 
 Mentés után azonnal látszik a friss készenléti pontszám, és — ha van mit
 javasolni — felugrik a készenlét-javaslat ablaka (ld. 10. pont).
+
+A varázsló EZ AZ EGYETLEN oldal a regisztráció után, amíg az első check-in
+el nem készül (ld. 2. pont, "Első check-in"). Ilyenkor az intro szövege más
+(bemutatja, miért kérdezünk), és a mentés — a pontszám kirajzolása mellett —
+fel is oldja a zárat; a felhasználó az összegzésen marad, hogy lássa az első
+készenléti pontszámát. A mezőkészlet ugyanaz, mint a napi kitöltésnél.
 
 
 --- 3.8 EDZÉS-ÖSSZEGZŐ (#summary) ----------------------------------------

@@ -5714,6 +5714,23 @@ details[open] > .rc-details-summary::before {
   --ci-fs-number: clamp(44px, 13vw, 56px);
 }
 
+/* ---- Onboarding: az ELSŐ check-in ----
+   A frissen regisztrált fiók csak ezen a lapon jár, amíg ki nem tölti (a
+   script.js `onboardingLock`-ja teszi a [data-onboarding] jelzőt a body-ra).
+   A navigációt el is rejtjük: a JS-őr enélkül is visszaterelne, de egy
+   kattintásra némán visszapattanó menü rossz élmény. A nav gyűrű helyének
+   fenntartott alsó térköz így fölöslegessé válik. */
+body[data-onboarding] .side-nav,
+body[data-onboarding] .nav-ring-wrap,
+body[data-onboarding] .nav-ring-fade,
+body[data-onboarding] .nav-hint {
+  display: none;
+}
+
+body[data-onboarding] .app-page.ci-page {
+  padding-bottom: var(--sp-12);
+}
+
 /* ---- Fejléc: vissza gomb + folyamatsáv + lépésszám ---- */
 
 .ci-head {
