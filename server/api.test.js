@@ -80,10 +80,12 @@ after(async () => {
    A munkamenetet süti hordozza, ezért a hívó átadhatja a sajátját; a válaszból
    kiolvasott új sütit visszaadjuk, hogy a belépés után tovább lehessen adni. */
 
-async function request(method, urlPath, { body, cookie } = {}) {
+async function request(method, urlPath, { body, cookie, zone } = {}) {
   const headers = {};
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (cookie) headers.Cookie = cookie;
+  // A böngésző időzónája — ebből képzi a szerver a NAPOT (todayInZone).
+  if (zone) headers['X-Time-Zone'] = zone;
 
   const res = await fetch(`${baseUrl}${urlPath}`, {
     method,
@@ -475,6 +477,61 @@ test('a belépés is hozza az onboarding jelzőt, a már check-inelt fióknál h
   });
   assert.equal(res.status, 200);
   assert.equal(res.json.onboarding, false);
+});
+
+/* ---- Időzóna: a nap a KLIENS zónájában dől el ----
+   A szerver helyi ideje nem a felhasználóé. A két zóna alább 25 ÓRÁRA van
+   egymástól (UTC+14 és UTC-11), tehát SOHA nincsenek ugyanazon a naptári
+   napon — a teszt így nem függ attól, mikor fut. */
+
+const ZONE_KELET = 'Pacific/Kiritimati';   // UTC+14
+const ZONE_NYUGAT = 'Pacific/Midway';      // UTC-11
+
+let zonaCookie = '';
+
+test('a check-in a kliens zónájának napjára kerül, nem a szerverére', async () => {
+  const reg = await request('POST', '/api/auth/register', {
+    body: { username: 'zoltan', displayName: 'Zóna Zoltán', password: 'jelszo321' },
+  });
+  assert.equal(reg.status, 201);
+  zonaCookie = cookieFrom(reg);
+
+  const kelet = await request('PUT', '/api/checkin', {
+    cookie: zonaCookie, zone: ZONE_KELET, body: { sleepHours: 8 },
+  });
+  const nyugat = await request('PUT', '/api/checkin', {
+    cookie: zonaCookie, zone: ZONE_NYUGAT, body: { sleepHours: 6 },
+  });
+
+  assert.equal(kelet.status, 200);
+  assert.equal(nyugat.status, 200);
+  assert.notEqual(kelet.json.checkin.date, nyugat.json.checkin.date,
+    'a 25 órányi eltérés MINDIG külön naptári napot jelent');
+
+  /* És a két sor tényleg külön él: a keleti zóna napján a 8 órás check-in
+     maradt meg, nem írta felül a nyugati. */
+  const vissza = await request('GET', '/api/checkin', { cookie: zonaCookie, zone: ZONE_KELET });
+  assert.equal(vissza.json.sleepHours, 8);
+});
+
+test('fejléc nélkül a szerver helyi napja marad', async () => {
+  const res = await request('PUT', '/api/checkin', {
+    cookie: zonaCookie, body: { sleepHours: 7 },
+  });
+  const pad = (n) => String(n).padStart(2, '0');
+  const d = new Date();
+  const helyi = `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`;
+  assert.equal(res.json.checkin.date, helyi);
+});
+
+test('ismeretlen zónanév nem hiba — a szerver helyi napjára esik vissza', async () => {
+  /* Elgépelt vagy hamisított fejléc: az Intl RangeError-t dob rá. Ezt
+     elnyeljük, mert egy rossz fejléc nem tehet elérhetetlenné egy végpontot. */
+  const res = await request('GET', '/api/checkin', {
+    cookie: zonaCookie, zone: 'Nincs/Ilyen_Zona',
+  });
+  assert.equal(res.status, 200);
+  assert.equal(res.json.sleepHours, 7, 'ugyanaz, mint fejléc nélkül');
 });
 
 /* ======================================================================

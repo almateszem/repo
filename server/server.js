@@ -179,6 +179,9 @@ app.use('/api', (req, res, next) => {
   const user = token ? getSessionUser(hashToken(token)) : null;
   if (!user) return res.status(401).json({ error: 'Nincs bejelentkezve.' });
   req.user = user;
+  /* A kérés napja a KLIENS zónájában — innentől minden dátum ebből képződik.
+     Egy helyen áll elő, hogy a végpontok ne csússzanak el egymástól. */
+  req.today = todayInZone(req.get('X-Time-Zone'));
   next();
 });
 
@@ -194,6 +197,29 @@ const formatDate = (date) => {
   return `${date.getFullYear()}.${pad(date.getMonth() + 1)}.${pad(date.getDate())}`;
 };
 
+/* A nap a KLIENS időzónájában. A SZERVER helyi ideje nem a felhasználóé:
+   UTC-s szerveren a magyar felhasználónak hajnali 2-kor váltana a nap, tehát
+   az éjszakai edzés, check-in és étkezés a KÖVETKEZŐ naphoz könyvelődne.
+   A zónát a böngésző küldi (X-Time-Zone fejléc, public/script.js → apiHeaders).
+
+   A kliens ezzel legfeljebb a SAJÁT napját tolhatja el — más fiók adatához
+   nem fér hozzá —, ezért ez elfogadható bemenet. Hiányzó vagy ismeretlen
+   zónanévnél a szerver helyi ideje marad. */
+function todayInZone(zone) {
+  if (!zone) return formatDate(new Date());
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: String(zone), year: 'numeric', month: '2-digit', day: '2-digit',
+    }).formatToParts(new Date());
+    const part = (type) => parts.find((p) => p.type === type)?.value;
+    const [year, month, day] = [part('year'), part('month'), part('day')];
+    if (year && month && day) return `${year}.${month}.${day}`;
+  } catch { /* elgépelt vagy hamisított zónanév — esünk vissza */ }
+  return formatDate(new Date());
+}
+
+/** A szerver helyi mai napja. CSAK visszaesésként: a végpontok a req.today-t
+    használják, ami a kliens zónájában áll elő. */
 const today = () => formatDate(new Date());
 
 /** Egy "ÉÉÉÉ.HH.NN" dátum eltolása napokkal (negatív = visszafelé). */
@@ -203,8 +229,9 @@ const shiftDate = (dateStr, days) => {
   return formatDate(date);
 };
 
-/** A mai hétnap indexe, hétfőtől számolva (0 = hétfő … 6 = vasárnap). */
-const todayWeekday = () => (new Date().getDay() + 6) % 7;
+/** Egy "ÉÉÉÉ.HH.NN" nap hétnap-indexe, hétfőtől számolva (0 = hétfő … 6 = vasárnap).
+    A DÁTUMBÓL számol, nem a szerver órájából — a nap a kliens zónájában dől el. */
+const weekdayOf = (dateStr) => (parseDate(dateStr).getDay() + 6) % 7;
 
 /** A tervek hétnap-címkéi — a kártya-metában és a kliens chipjein is ez a sorrend. */
 const DAY_LABELS = ['H', 'K', 'Sze', 'Cs', 'P', 'Szo', 'V'];
@@ -281,11 +308,11 @@ app.get('/api/user', (req, res) => {
    ====================================================================== */
 
 /** Hány napja volt az adott dátum? (0 = ma). Ismeretlen dátumra null. */
-const daysSince = (dateStr) => (dateStr ? Math.round((dayKey(today()) - dayKey(dateStr)) / DAY_MS) : null);
+const daysSince = (dateStr, todayDate) => (dateStr ? Math.round((dayKey(todayDate) - dayKey(dateStr)) / DAY_MS) : null);
 
 /** Emberi címke a napok számából — a kártya „Utolsó edzés" statjához. */
-function relativeDay(dateStr) {
-  const days = daysSince(dateStr);
+function relativeDay(dateStr, todayDate) {
+  const days = daysSince(dateStr, todayDate);
   if (days === null) return 'nincs';
   if (days <= 0) return 'ma';
   if (days === 1) return 'tegnap';
@@ -303,12 +330,12 @@ function relativeDay(dateStr) {
     napra tett terv), az eredmény null: a felület „—"-t ír, nem 0%-ot.
     Egy kitalált 0% ugyanis pontosan az ellenkezőjét állítaná a valóságnak. */
 const ADHERENCE_DAYS = 28;
-function adherenceOf(workouts, plans) {
+function adherenceOf(workouts, plans, todayDate) {
   const scheduled = plans.filter((plan) => plan.days.length > 0);
   if (scheduled.length === 0) return null;
 
   const trained = new Set(workouts.map((workout) => dayKey(workout.date)));
-  const todayKeyValue = dayKey(today());
+  const todayKeyValue = dayKey(todayDate);
   let expected = 0;
   let done = 0;
   for (let i = 1; i <= ADHERENCE_DAYS; i += 1) {
@@ -326,8 +353,8 @@ function adherenceOf(workouts, plans) {
 
 /** „3/4" — ezen a héten hány NAPON edzett, a heti ütemezett napokhoz mérve.
     Ütemezés nélkül csak a megtett edzésnapok száma látszik. */
-function weeklyLabel(workouts, plans) {
-  const thisMonday = mondayOf(new Date());
+function weeklyLabel(workouts, plans, todayDate) {
+  const thisMonday = mondayOf(parseDate(todayDate));
   const trainedDays = new Set(
     workouts.filter((w) => mondayOf(parseDate(w.date)) === thisMonday).map((w) => dayKey(w.date)),
   ).size;
@@ -338,22 +365,22 @@ function weeklyLabel(workouts, plans) {
 /** A kliens legutóbbi tényleges eseményei — edzés, PR, check-in, testsúly.
     Kitalált szöveg nincs benne: ami nincs naplózva, az nem jelenik meg. */
 const ACTIVITY_LIMIT = 5;
-function recentActivity(userId, workouts) {
+function recentActivity(userId, workouts, todayDate) {
   const events = [];
 
   for (const workout of workouts) {
-    events.push({ date: workout.date, text: `${workout.name} — ${relativeDay(workout.date)}` });
+    events.push({ date: workout.date, text: `${workout.name} — ${relativeDay(workout.date, todayDate)}` });
     for (const exercise of workout.exercises) {
       if (exercise.pr) {
-        events.push({ date: workout.date, text: `Új PR: ${exercise.name} — ${relativeDay(workout.date)}` });
+        events.push({ date: workout.date, text: `Új PR: ${exercise.name} — ${relativeDay(workout.date, todayDate)}` });
       }
     }
   }
   for (const checkin of getCheckins(userId, 10)) {
-    events.push({ date: checkin.date, text: `Check-in kitöltve — ${relativeDay(checkin.date)}` });
+    events.push({ date: checkin.date, text: `Check-in kitöltve — ${relativeDay(checkin.date, todayDate)}` });
   }
   for (const entry of getWeightLog(userId).slice(-3)) {
-    events.push({ date: entry.date, text: `Testsúly: ${entry.kg} kg — ${relativeDay(entry.date)}` });
+    events.push({ date: entry.date, text: `Testsúly: ${entry.kg} kg — ${relativeDay(entry.date, todayDate)}` });
   }
 
   return events
@@ -367,15 +394,15 @@ function recentActivity(userId, workouts) {
 const STALE_WORKOUT_DAYS = 7;
 const STALE_CHECKIN_DAYS = 3;
 const LOW_READINESS = 60;
-function clientAlert({ workouts, checkins, overall, lastWorkoutDate }) {
+function clientAlert({ workouts, checkins, overall, lastWorkoutDate, todayDate }) {
   if (workouts.length === 0 && checkins.length === 0) return 'Még nincs naplózott adata';
   if (workouts.length === 0) return 'Még nem naplózott edzést';
 
-  const sinceWorkout = daysSince(lastWorkoutDate);
+  const sinceWorkout = daysSince(lastWorkoutDate, todayDate);
   if (sinceWorkout >= STALE_WORKOUT_DAYS) return `${sinceWorkout} napja nem edzett`;
   if (overall < LOW_READINESS) return `Alacsony készenlét (${overall})`;
 
-  const sinceCheckin = daysSince(checkins[0]?.date);
+  const sinceCheckin = daysSince(checkins[0]?.date, todayDate);
   if (sinceCheckin === null || sinceCheckin >= STALE_CHECKIN_DAYS) return 'Nincs friss check-in';
   return null;
 }
@@ -383,17 +410,17 @@ function clientAlert({ workouts, checkins, overall, lastWorkoutDate }) {
 /** Egy kliens kártyaadata az edzői panelhez — MINDEN mezője számolt érték.
     A készenlét-motort kliensenként egyszer futtatjuk (~10-20 ms): pár
     kliensnél ez rendben van, száznál már gyorsítótár kellene. */
-function clientCard(link) {
+function clientCard(link, todayDate) {
   const userId = link.client.id;
   const workouts = getWorkouts(userId);
   const plans = getUserPlans(userId);
   const checkins = getCheckins(userId, 30);
-  const readiness = readinessReport(userId, workouts);
+  const readiness = readinessReport(userId, todayDate, workouts);
 
   const lastWorkoutDate = workouts.length
     ? workouts.reduce((latest, w) => (dayKey(w.date) > dayKey(latest) ? w.date : latest), workouts[0].date)
     : null;
-  const activePlan = getPlanForDay(userId, todayWeekday()) || plans[0] || null;
+  const activePlan = getPlanForDay(userId, weekdayOf(todayDate)) || plans[0] || null;
 
   return {
     linkId: link.id,
@@ -403,13 +430,13 @@ function clientCard(link) {
     readiness: readiness.overall,
     // A megbízhatóság végigkíséri a számot: az edző lássa, mennyi adat van mögötte.
     readinessConfidence: readiness.confidence,
-    adherence: adherenceOf(workouts, plans),
-    streak: trainingStreak(workouts),
-    lastWorkout: relativeDay(lastWorkoutDate),
-    weekly: weeklyLabel(workouts, plans),
+    adherence: adherenceOf(workouts, plans, todayDate),
+    streak: trainingStreak(workouts, todayDate),
+    lastWorkout: relativeDay(lastWorkoutDate, todayDate),
+    weekly: weeklyLabel(workouts, plans, todayDate),
     plan: activePlan ? activePlan.name : null,
-    alert: clientAlert({ workouts, checkins, overall: readiness.overall, lastWorkoutDate }),
-    recent: recentActivity(userId, workouts),
+    alert: clientAlert({ workouts, checkins, overall: readiness.overall, lastWorkoutDate, todayDate }),
+    recent: recentActivity(userId, workouts, todayDate),
   };
 }
 
@@ -419,7 +446,10 @@ app.get('/api/coach/overview', (req, res) => {
   const me = req.user;
   res.json({
     isCoach: me.isCoach,
-    clients: listClientsOfCoach(me.id).map(clientCard),
+    /* A kliens kártyája az EDZŐ napjában áll elő: a kliens saját zónáját nem
+       tároljuk. Azonos országban ez pontos; eltérő zónáknál a „ma" legfeljebb
+       egy napot csúszhat. */
+    clients: listClientsOfCoach(me.id).map((link) => clientCard(link, req.today)),
     invitesSent: listClientsOfCoach(me.id, 'pending'),
     coaches: listCoachesOfClient(me.id),
     invitesReceived: listCoachesOfClient(me.id, 'pending'),
@@ -504,7 +534,7 @@ function resolveClientId(req, res) {
 app.get('/api/coach/clients/:id/readiness', (req, res) => {
   const clientId = resolveClientId(req, res);
   if (clientId === null) return;
-  res.json(readinessReport(clientId));
+  res.json(readinessReport(clientId, req.today));
 });
 
 /* ======================================================================
@@ -563,7 +593,7 @@ app.post('/api/coach/clients/:id/plans', (req, res) => {
   const plan = parsePlanBody(req.body);
   if (plan.error) return res.status(400).json({ error: plan.error });
 
-  const created = addPlan(clientId, plan.name, today(), plan.exercises, plan.days, req.user.id);
+  const created = addPlan(clientId, plan.name, req.today, plan.exercises, plan.days, req.user.id);
   addNotification(clientId, 'plan', `${req.user.displayName} kiosztotta a(z) „${created.name}" tervet`);
   res.status(201).json(created);
 });
@@ -627,8 +657,8 @@ const RELEVANT_LOAD = 0.2;
 
 /** Egy fiókhoz egyszer elkészített átnéző. Visszaad egy függvényt, ami egy
     gyakorlat-listára megmondja, mi tiltott és mi kockázatos MA. */
-function planSafetyChecker(userId) {
-  const report = readinessReport(userId);
+function planSafetyChecker(userId, todayDate) {
+  const report = readinessReport(userId, todayDate);
   const catalog = getCollection('exerciseCatalog') || [];
   const byKey = Object.fromEntries(report.muscles.map((m) => [m.key, m]));
 
@@ -700,13 +730,13 @@ const weightText = (value) => String(Math.round(value * 10) / 10);
 
     A visszatérés { name, items }; üres items = nincs mit javasolni, és
     ilyenkor a felület fel sem dobja az ablakot. */
-function sessionAdvice(userId) {
-  const template = workoutTemplate(userId);
+function sessionAdvice(userId, todayDate) {
+  const template = workoutTemplate(userId, todayDate);
   if (!template || !Array.isArray(template.exercises) || template.exercises.length === 0) {
     return { name: null, items: [] };
   }
 
-  const report = readinessReport(userId);
+  const report = readinessReport(userId, todayDate);
   const catalog = getCollection('exerciseCatalog') || [];
   const byKey = Object.fromEntries(report.muscles.map((m) => [m.key, m]));
   const items = [];
@@ -766,9 +796,9 @@ function sessionAdvice(userId) {
     A javaslatokat ÚJRASZÁMOLJUK — a kliens listáját nem fogadjuk el
     bemenetként. Enélkül egy hamisított kérés tetszőleges gyakorlatot
     törölhetne a naplóból. */
-function applySessionAdvice(userId) {
-  const template = workoutTemplate(userId);
-  const { items } = sessionAdvice(userId);
+function applySessionAdvice(userId, todayDate) {
+  const template = workoutTemplate(userId, todayDate);
+  const { items } = sessionAdvice(userId, todayDate);
   if (items.length === 0) return { applied: 0 };
 
   const byIndex = new Map(items.map((item) => [item.index, item]));
@@ -800,16 +830,16 @@ function applySessionAdvice(userId) {
      töltődött be), akkor mai. Így az elfogadás nem datálja át némán egy
      korábbi, félbehagyott edzést. */
   const draft = getWorkoutDraft(userId);
-  saveWorkoutDraft(userId, template.name, exercises, draft?.date ?? today(), template.planId ?? null);
+  saveWorkoutDraft(userId, template.name, exercises, draft?.date ?? todayDate, template.planId ?? null);
   return { applied: items.length };
 }
 
-app.get('/api/readiness/advice', (req, res) => res.json(sessionAdvice(req.user.id)));
+app.get('/api/readiness/advice', (req, res) => res.json(sessionAdvice(req.user.id, req.today)));
 
 /** Elfogadás. A válasz a friss napló, hogy a felület egy körből frissüljön. */
 app.post('/api/readiness/advice/apply', (req, res) => {
-  const result = applySessionAdvice(req.user.id);
-  res.json({ ...result, template: workoutTemplate(req.user.id) });
+  const result = applySessionAdvice(req.user.id, req.today);
+  res.json({ ...result, template: workoutTemplate(req.user.id, req.today) });
 });
 
 /* ======================================================================
@@ -857,12 +887,12 @@ app.post('/api/notifications/read', (req, res) => {
     (ilyenkor a kliens üres edzésnaplót mutat). Így éjfél után a napra
     beállított terv automatikusan az edzésnaplóba töltődik, de egy megkezdett
     mai edzést sosem ír felül. A dashboard edzésneve is ebből jön. */
-function workoutTemplate(userId) {
+function workoutTemplate(userId, todayDate) {
   const draft = getWorkoutDraft(userId);
-  if (draft && draft.date === today()) {
+  if (draft && draft.date === todayDate) {
     return { source: 'draft', name: draft.name, exercises: draft.exercises, planId: draft.planId };
   }
-  const plan = getPlanForDay(userId, todayWeekday());
+  const plan = getPlanForDay(userId, weekdayOf(todayDate));
   if (plan) {
     return { source: 'plan', name: plan.name, exercises: plan.exercises, planId: plan.id };
   }
@@ -883,14 +913,14 @@ const parsePlanId = (raw) => (Number.isInteger(raw) && raw > 0 ? raw : null);
 app.get('/api/dashboard', (req, res) => {
   const userId = req.user.id;
   const dashboard = getCollection('dashboard') || {};
-  const totals = getNutritionTotals(userId, today());
+  const totals = getNutritionTotals(userId, req.today);
   // A mentett edzéseket egyszer olvassuk be, és mindkét fogyasztónak átadjuk:
   // korábban a streak és a készenléti riport külön-külön beolvasta és
   // JSON-ből visszafejtette a TELJES workouts táblát.
   const workouts = getWorkouts(userId);
-  const readiness = readinessReport(userId, workouts);
+  const readiness = readinessReport(userId, req.today, workouts);
 
-  dashboard.streak = trainingStreak(workouts);
+  dashboard.streak = trainingStreak(workouts, req.today);
   dashboard.readiness = readiness.overall;
   dashboard.recovery = readiness.recovery;
   // A készenlét-kártya feliratához: mennyire megbízható a szám, és van-e
@@ -902,7 +932,7 @@ app.get('/api/dashboard', (req, res) => {
     caloriesTarget: totals.goal.calories,
     protein: Math.round(totals.protein),
   };
-  dashboard.workoutName = workoutTemplate(userId)?.name?.trim() || null;
+  dashboard.workoutName = workoutTemplate(userId, req.today)?.name?.trim() || null;
   res.json(dashboard);
 });
 
@@ -912,10 +942,10 @@ app.get('/api/dashboard', (req, res) => {
 
 // A teljes riport: összesített készenlét, komponens-bontás, izomcsoportok,
 // CNS, gyakorlat-ajánlások, megbízhatóság.
-app.get('/api/readiness', (req, res) => res.json(readinessReport(req.user.id)));
+app.get('/api/readiness', (req, res) => res.json(readinessReport(req.user.id, req.today)));
 
 // A mai check-in (vagy null, ha még nem töltötted ki)
-app.get('/api/checkin', (req, res) => res.json(getCheckin(req.user.id, today())));
+app.get('/api/checkin', (req, res) => res.json(getCheckin(req.user.id, req.today)));
 
 /** Egy opcionális szám-mező beolvasása tartomány-ellenőrzéssel.
     Üres/hiányzó érték → null (a motor ezt „nem adta meg"-ként kezeli, nem
@@ -982,13 +1012,13 @@ app.put('/api/checkin', (req, res) => {
     if (!Number.isFinite(kg) || kg < 30 || kg > 300) {
       return res.status(400).json({ error: 'Érvénytelen testsúly — 30 és 300 kg között adható meg.' });
     }
-    weightEntry = addWeightEntry(userId, kg, today());
+    weightEntry = addWeightEntry(userId, kg, req.today);
   }
 
-  const checkin = saveCheckin(userId, today(), fields);
+  const checkin = saveCheckin(userId, req.today, fields);
   // Rögtön a friss riportot is visszaadjuk, hogy a kliensnek ne kelljen
   // külön kérnie — a mentés után azonnal frissülhet a gyűrű.
-  res.json({ checkin, weightEntry, readiness: readinessReport(userId) });
+  res.json({ checkin, weightEntry, readiness: readinessReport(userId, req.today) });
 });
 
 // Tervek — a felhasználó saját (terv-építőben mentett) tervei, legújabb elöl.
@@ -998,7 +1028,7 @@ app.put('/api/checkin', (req, res) => {
 // naplóban van (aznapi piszkozat) — a pipált szettek aránya; máskülönben 0.
 app.get('/api/plans', (req, res) => {
   const userId = req.user.id;
-  const todayDate = today();
+  const todayDate = req.today;
   const draft = getWorkoutDraft(userId);
   const workoutsToday = getWorkouts(userId).filter((w) => w.date === todayDate);
   // Azonosító szerint párosítunk, névre csak a plan_id oszlop előtt mentett
@@ -1021,7 +1051,7 @@ app.get('/api/plans', (req, res) => {
   /* A biztonsági átnézéshez a készenléti riport KELL, de fejenként egyszer
      elég: minden terv ugyanazt a mai állapotot méri. */
   const plans = getUserPlans(userId);
-  const safetyOf = plans.length ? planSafetyChecker(userId) : () => null;
+  const safetyOf = plans.length ? planSafetyChecker(userId, todayDate) : () => null;
 
   res.json(plans.map((plan) => {
     const daysLabel = plan.days.length
@@ -1048,7 +1078,7 @@ app.get('/api/plans', (req, res) => {
   }));
 });
 
-app.get('/api/workout-template', (req, res) => res.json(workoutTemplate(req.user.id)));
+app.get('/api/workout-template', (req, res) => res.json(workoutTemplate(req.user.id, req.today)));
 
 /** Egy PR-jelölt gyakorlat-előfordulás listaelemmé alakítása: a detail a
     rekordot hozó szett összegzése, valamint a becsült 1RM az Epley-képlettel.
@@ -1142,9 +1172,9 @@ app.get('/api/exercise-maxes', (req, res) => {
     mai edzés még előtted áll.
     A mentett edzéseket a hívó adja át: a getWorkouts() a fiókok bevezetése óta
     kötelező `userId`-t vár, tehát paraméter nélküli alapérték nem képezhető. */
-function trainingStreak(workouts) {
+function trainingStreak(workouts, todayDate) {
   const trainedDays = new Set(workouts.map((w) => dayKey(w.date)));
-  const todayKey = dayKey(today());
+  const todayKey = dayKey(todayDate);
 
   let streak = 0;
   let cursor = trainedDays.has(todayKey) ? todayKey : todayKey - DAY_MS;
@@ -1158,8 +1188,7 @@ function trainingStreak(workouts) {
 /** A teljes készenléti riport összeállítása. Az adatgyűjtés itt van, a
     SZÁMÍTÁS a recovery.js-ben — az a modul nem ismeri az adatbázist, ezért
     külön tesztelhető (server/recovery.test.js). */
-function readinessReport(userId, workouts = getWorkouts(userId)) {
-  const todayDate = today();
+function readinessReport(userId, todayDate = today(), workouts = getWorkouts(userId)) {
   return computeReadiness({
     checkins: getCheckins(userId, 60),
     workouts,
@@ -1185,8 +1214,8 @@ const mondayOf = (date) => {
 /** Heti volumen-összehasonlítás a mentett edzésekből: teljesített szettek
     naponta, erre és a múlt hétre. A két hét közös skálán van, hogy a
     váltógombbal az oszlopok összevethetők legyenek. */
-function volumeCharts(userId) {
-  const thisMonday = mondayOf(new Date());
+function volumeCharts(userId, todayDate) {
+  const thisMonday = mondayOf(parseDate(todayDate));
   const lastMonday = thisMonday - 7 * 24 * 60 * 60 * 1000;
   const thisWeek = Array(7).fill(0);
   const lastWeek = Array(7).fill(0);
@@ -1230,16 +1259,16 @@ function volumeCharts(userId) {
 
 // Chartok — a seed-görbék mellé a szerver számolja a heti volumen-
 // összehasonlítást a mentett edzésekből.
-app.get('/api/charts', (req, res) => res.json({ ...getCollection('charts'), ...volumeCharts(req.user.id) }));
+app.get('/api/charts', (req, res) => res.json({ ...getCollection('charts'), ...volumeCharts(req.user.id, req.today) }));
 
 // Testsúly-napló — a valódi weight_log táblából
 app.get('/api/weight-log', (req, res) => res.json(getWeightLog(req.user.id)));
 
 // Napi táplálkozási összesítő (alap + a MAI naplózott ételek)
-app.get('/api/nutrition', (req, res) => res.json(getNutritionTotals(req.user.id, today())));
+app.get('/api/nutrition', (req, res) => res.json(getNutritionTotals(req.user.id, req.today)));
 
 // A MAI naplózott ételek tételesen — a Táplálkozás oldal „Mai napló" listájához
-app.get('/api/nutrition/log', (req, res) => res.json(getNutritionLogForDate(req.user.id, today())));
+app.get('/api/nutrition/log', (req, res) => res.json(getNutritionLogForDate(req.user.id, req.today)));
 
 // Mentett edzések (legújabb elöl)
 app.get('/api/workouts', (req, res) => res.json(getWorkouts(req.user.id)));
@@ -1265,7 +1294,7 @@ app.post('/api/weight-log', (req, res) => {
     return res.status(400).json({ error: 'Érvénytelen testsúly — 30 és 300 kg között adható meg.' });
   }
   // 200, nem 201: a mentés a nap meglévő bejegyzését is felülírhatja.
-  res.json(addWeightEntry(req.user.id, kg, today()));
+  res.json(addWeightEntry(req.user.id, kg, req.today));
 });
 
 /** Étel naplózása. Törzs: { name, grams }. A szerver a foods-ból keresi ki a
@@ -1288,7 +1317,7 @@ app.post('/api/nutrition/log', (req, res) => {
     });
   }
 
-  res.status(201).json(addNutritionEntry(req.user.id, food, today(), Math.round(grams)));
+  res.status(201).json(addNutritionEntry(req.user.id, food, req.today, Math.round(grams)));
 });
 
 /** Naplóbejegyzés törlése (visszavonás). Csak a mai bejegyzés törölhető;
@@ -1298,7 +1327,7 @@ app.delete('/api/nutrition/log/:id', (req, res) => {
   if (!Number.isInteger(id) || id <= 0) {
     return res.status(400).json({ error: 'Érvénytelen bejegyzés-azonosító.' });
   }
-  const totals = deleteNutritionEntry(req.user.id, id, today());
+  const totals = deleteNutritionEntry(req.user.id, id, req.today);
   if (!totals) {
     return res.status(404).json({ error: 'Ez a bejegyzés nem törölhető — csak a mai napló módosítható.' });
   }
@@ -1402,7 +1431,7 @@ function parsePlanBody(body) {
 app.post('/api/plans', (req, res) => {
   const plan = parsePlanBody(req.body);
   if (plan.error) return res.status(400).json({ error: plan.error });
-  res.status(201).json(addPlan(req.user.id, plan.name, today(), plan.exercises, plan.days));
+  res.status(201).json(addPlan(req.user.id, plan.name, req.today, plan.exercises, plan.days));
 });
 
 /** Meglévő terv szerkesztése. Törzs: { name, exercises, days }. */
@@ -1438,7 +1467,7 @@ app.post('/api/workouts', (req, res) => {
   if (!exercises) {
     return res.status(400).json({ error: 'Az edzésnek legalább egy érvényes gyakorlatot kell tartalmaznia.' });
   }
-  res.status(201).json(addWorkout(req.user.id, name, today(), exercises, parsePlanId(req.body?.planId)));
+  res.status(201).json(addWorkout(req.user.id, name, req.today, exercises, parsePlanId(req.body?.planId)));
 });
 
 /** Piszkozat automatikus mentése minden változtatáskor. Törzs: { name, exercises }.
@@ -1451,7 +1480,7 @@ app.put('/api/workout-draft', (req, res) => {
   if (!exercises) {
     return res.status(400).json({ error: 'Érvénytelen piszkozat-szerkezet.' });
   }
-  res.json(saveWorkoutDraft(req.user.id, name, exercises, today(), parsePlanId(req.body?.planId)));
+  res.json(saveWorkoutDraft(req.user.id, name, exercises, req.today, parsePlanId(req.body?.planId)));
 });
 
 /** A piszkozat törlése — az edzés lezárása után hívja a kliens. Így ugyanaznap
