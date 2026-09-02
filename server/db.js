@@ -96,6 +96,38 @@ db.exec(`
   );
   CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, id DESC);
 
+  -- Kommentek. EGY tábla mindenféle megjegyzésre — edzésre, egy edzésen
+  -- belüli gyakorlatra, tervre, és az edző–kliens üzenetváltásra is. A
+  -- TEENDOK.txt kikötése: „Egy tábla, egy végpontcsalád — ne épüljön négy
+  -- külön."
+  --
+  -- A három azonosító-oszlop jelentése (ez a tábla egész logikája):
+  --   author_id   — KI írta.
+  --   subject_id  — KINEK az adatáról szól. Edző–kliens viszonyban MINDIG a
+  --                 kliens: a hozzáférés is ebből dől el (a subject maga és
+  --                 az ELFOGADOTT edzője lát rá, más senki).
+  --   target_type/target_id — MIRE mutat a subject adatán belül:
+  --                 'workout'  → workouts.id
+  --                 'exercise' → "workoutId:index" (a workouts.exercises
+  --                              tömbön belüli pozíció; a mentett edzés már
+  --                              nem változik, ezért az index stabil)
+  --                 'plan'     → plans.id
+  --                 'chat'     → az EDZŐ user-id-ja. Egy kliensnek több
+  --                              edzője lehet, ezért a szálat a
+  --                              (subject_id, target_id) pár azonosítja —
+  --                              az író bármelyik fél lehet.
+  CREATE TABLE IF NOT EXISTS comments (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    author_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    subject_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    target_type TEXT NOT NULL,
+    target_id   TEXT NOT NULL DEFAULT '',
+    text        TEXT NOT NULL,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_comments_target
+    ON comments(subject_id, target_type, target_id, id);
+
   CREATE TABLE IF NOT EXISTS weight_log (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -678,6 +710,73 @@ export function getCheckins(userId, limit = 60) {
     .map(toCheckin);
 }
 
+/* ======================================================================
+   Kommentek
+   ----------------------------------------------------------------------
+   A hozzáférést NEM ez a modul dönti el — az a server.js kapuja
+   (resolveClientId / isCoachOf). Itt csak az olvasás és az írás van.
+   ====================================================================== */
+
+/** Egy DB-sor → a felület által várt alak. A szerző nevét is hozzuk, hogy a
+    lista egyetlen lekérésből kirajzolható legyen. */
+const toComment = (row) => ({
+  id: row.id,
+  authorId: row.author_id,
+  authorName: row.author_name,
+  subjectId: row.subject_id,
+  targetType: row.target_type,
+  targetId: row.target_id,
+  text: row.text,
+  createdAt: row.created_at,
+});
+
+const COMMENT_SELECT = `
+  SELECT c.id, c.author_id, c.subject_id, c.target_type, c.target_id, c.text,
+         c.created_at, u.display_name AS author_name
+  FROM comments c JOIN users u ON u.id = c.author_id`;
+
+/** Egy cél kommentjei, időrendben (a legrégebbi elöl — a chat így olvasható,
+    és a megjegyzés-lista is így természetes). */
+export function getComments(subjectId, targetType, targetId = '') {
+  return db.prepare(`${COMMENT_SELECT}
+    WHERE c.subject_id = ? AND c.target_type = ? AND c.target_id = ?
+    ORDER BY c.id ASC`).all(subjectId, targetType, String(targetId)).map(toComment);
+}
+
+/** Egy subject ÖSSZES kommentje egy típusból, célonként csoportosítva.
+    Az edzés-oldal így egyetlen kérésből tudja, melyik gyakorlathoz van
+    megjegyzés — nem kell gyakorlatonként külön kört futni. */
+export function getCommentsByTarget(subjectId, targetType) {
+  const rows = db.prepare(`${COMMENT_SELECT}
+    WHERE c.subject_id = ? AND c.target_type = ?
+    ORDER BY c.id ASC`).all(subjectId, targetType).map(toComment);
+  const grouped = {};
+  for (const row of rows) (grouped[row.targetId] ??= []).push(row);
+  return grouped;
+}
+
+/** Új komment. Visszaadja a mentett sort (a szerző nevével együtt). */
+export function addComment(authorId, subjectId, targetType, targetId, text) {
+  const { lastInsertRowid } = db.prepare(`
+    INSERT INTO comments (author_id, subject_id, target_type, target_id, text)
+    VALUES (?, ?, ?, ?, ?)`).run(authorId, subjectId, targetType, String(targetId ?? ''), text);
+  return toComment(db.prepare(`${COMMENT_SELECT} WHERE c.id = ?`).get(lastInsertRowid));
+}
+
+/** Egy subject ÖSSZES kommentje — az adat-exporthoz. */
+export function getAllComments(subjectId) {
+  return db.prepare(`${COMMENT_SELECT} WHERE c.subject_id = ? ORDER BY c.id ASC`)
+    .all(subjectId).map(toComment);
+}
+
+/** Komment törlése. CSAK a szerző törölhet, ezért az author_id is feltétel —
+    így egy idegen id-vel küldött kérés nem talál sort, és 404-et kap.
+    Visszaadja, törölt-e ténylegesen. */
+export function deleteComment(commentId, authorId) {
+  return db.prepare('DELETE FROM comments WHERE id = ? AND author_id = ?')
+    .run(commentId, authorId).changes > 0;
+}
+
 /** Volt-e ennek a fióknak VALAHA check-inje. A felület ebből tudja, hogy a
     friss fiókot a check-in varázslóra kell terelnie: a regisztráció ténye
     csak pillanatnyi kliens-állapot, ez viszont túléli az oldal-újratöltést. */
@@ -864,6 +963,9 @@ export function getSnapshot(userId) {
   snapshot.workoutDraft = getWorkoutDraft(userId);
   snapshot.userPlans = getUserPlans(userId);
   snapshot.checkins = getCheckins(userId, 1000);
+  /* A kommentek a SUBJECT adatához tartoznak: a saját üzenetszálai és a saját
+     edzéseihez fűzött megjegyzések — az edzőé is, mert azok róla szólnak. */
+  snapshot.comments = getAllComments(userId);
   /* Az egyéni csúcsok is a felhasználó adata. Az edzésekből elvileg
      visszaszámolhatók (ezt teszi a backfillExerciseMaxes), de a „teljes
      pillanatkép" akkor teljes, ha nem kell hozzá újraszámolni semmit — és a
