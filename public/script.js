@@ -40,6 +40,20 @@
   let onSessionLost = () => {};
   const SESSION_LOST = 'session-lost';
 
+  /* A böngésző IANA időzónája (pl. "Europe/Budapest"). MINDEN /api kérés
+     fejlécében elmegy, mert a NAPOT a szerver ebből képzi: a szerver helyi
+     ideje nem a felhasználóé, és UTC-s szerveren a magyar felhasználónak
+     hajnali 2-kor váltana a nap — az éjszakai edzés, check-in és étkezés a
+     KÖVETKEZŐ naphoz könyvelődne. (server/server.js → todayInZone) */
+  const TIME_ZONE = (() => {
+    try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; }
+    catch { return ''; }
+  })();
+
+  /** Az API-hívások közös fejlécei. Ismeretlen zónánál a fejléc elmarad, és
+      a szerver a saját helyi idejére esik vissza. */
+  const apiHeaders = (extra) => (TIME_ZONE ? { ...extra, 'X-Time-Zone': TIME_ZONE } : { ...extra });
+
   /** 401 esetén elindítja a visszaterelést, és jelzett hibát dob. */
   function handleUnauthorized() {
     onSessionLost();
@@ -50,7 +64,7 @@
 
   /** GET egy JSON-végpontra, egységes hibakezeléssel. */
   async function getJson(path) {
-    const res = await fetch(path);
+    const res = await fetch(path, { headers: apiHeaders() });
     if (res.status === 401) throw handleUnauthorized();
     if (!res.ok) throw new Error(`GET ${path} → ${res.status}`);
     return res.json();
@@ -61,7 +75,7 @@
   async function sendJson(method, path, body) {
     const res = await fetch(path, {
       method,
-      headers: { 'Content-Type': 'application/json' },
+      headers: apiHeaders({ 'Content-Type': 'application/json' }),
       body: JSON.stringify(body),
     });
     if (res.status === 401) throw handleUnauthorized();
@@ -76,7 +90,7 @@
 
   /** Törlő kérés — a válasz üres (204), ezért nem próbáljuk JSON-ként olvasni. */
   async function del(path) {
-    const res = await fetch(path, { method: 'DELETE' });
+    const res = await fetch(path, { method: 'DELETE', headers: apiHeaders() });
     if (res.status === 401) throw handleUnauthorized();
     if (!res.ok) throw new Error(`DELETE ${path} → ${res.status}`);
   }

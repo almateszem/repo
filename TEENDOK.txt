@@ -75,11 +75,25 @@ EREDMÉNY (1 éves adat, azonos gépen), megtartva jövőbeli összevetéshez:
     ephemeral, és újradeploykor törlődik a server/fittrack.db — vele az
     összes felhasználói adat. A seed újraépül, a naplók NEM.
 
-[ ] Időzóna: a today() a SZERVER helyi ideje
-    Hely: server/server.js:38-43. UTC-s szerveren a magyar
-    felhasználóknak hajnali 2-kor vált a nap, tehát éjszaka rossz
-    naphoz könyvelődik az edzés, a check-in és az étkezés.
-    A dátumot a kliens időzónájából kell venni.
+[x] Időzóna: a today() a SZERVER helyi ideje
+    2026-09-02. A nap immár a KLIENS zónájában dől el. A böngésző minden
+    /api kérésben elküldi az IANA zónanevet (X-Time-Zone fejléc,
+    public/script.js → apiHeaders), a szerver ebből képzi a napot
+    (server/server.js → todayInZone), és a hitelesítő middleware egyetlen
+    helyen teszi a kérésre (req.today). Minden nap-alapú végpont és
+    segédfüggvény ezt kapja meg paraméterként — a szerver órájára már csak
+    fejléc hiányában esünk vissza.
+    A todayWeekday() helyére weekdayOf(dateStr) lépett: a hétnap is a
+    dátumból jön, nem a szerver órájából.
+    Amit a kliens ezzel elérhet: legfeljebb a SAJÁT napját tolhatja el —
+    más fiók adatához nem fér hozzá —, ezért a zóna elfogadható bemenet.
+    KORLÁT: a kliens saját zónáját nem tároljuk, ezért az edzői panelen a
+    kliens kártyája az EDZŐ napjában áll elő. Azonos országban pontos;
+    eltérő zónáknál a „ma" egy napot csúszhat. Ha ez zavaró lesz, a zónát
+    a users sorra kell menteni.
+    Tesztek: server/api.test.js — két, 25 órára lévő zóna (UTC+14 / UTC-11)
+    mindig külön naptári napra ír; fejléc nélkül és ismeretlen zónanévnél
+    a szerver helyi napja marad.
 
 [~] Rate limit
     A BELÉPÉS most korlátozott (15 percen belül 10 sikertelen próbálkozás
