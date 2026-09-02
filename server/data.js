@@ -55,22 +55,10 @@ export const data = {
   /* Az étel-katalógus sem itt él: server/data/foods.hu.js (437 étel,
      kategóriákkal és reális adagokkal). Összeállítás: server/data/catalog.js. */
 
-  /* Az edzői panel sportolói KIKERÜLTEK innen: a panel valódi kliensekből
-     épül (users + coach_clients), a kártyák minden számát a szerver számolja
-     a kliens tényleges naplóiból. Ami itt maradt, az kizárólag a még
-     szimulált üzenetváltás szövegkészlete. */
-  /* Szimulált sportoló-válaszok az üzenetküldéshez (körbeforgó sorrendben). */
-  athleteReplies: [
-    '„Rendben, köszi a visszajelzést!”',
-    '„Vettem, holnap eszerint csinálom. 💪”',
-    '„Köszönöm! Este küldök róla videót.”',
-  ],
-  /* Szimulált edző-válaszok a kliens chathez (körbeforgó sorrendben). */
-  coachReplies: [
-    '„Rendben, ránézek ma este a naplódra!”',
-    '„Jó kérdés — a következő heti tervben módosítom.”',
-    '„Vettem! A csütörtöki check-innél átbeszéljük. 💪”',
-  ],
+  /* Az edzői panel sportolói és a szimulált üzenetváltás szövegkészlete is
+     KIKERÜLT innen: a panel valódi kliensekből épül (users + coach_clients),
+     az üzenetváltás pedig valódi (comments tábla, 'chat' céltípus). Beégetett
+     válasz egy valódi edző nevében hazugság volna. */
   /* Az edző által kitűzött napi táplálkozási cél. */
   nutritionGoal: { calories: 2900, protein: 170 },
 };
