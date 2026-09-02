@@ -352,13 +352,25 @@ MEGBESZÉLT DÖNTÉSEK (2026-08-30):
     FELÜL a két résztvevőre szűkít.
     A kommentek bekerülnek az adat-exportba is.
 
-[ ] Megjegyzés gyakorlathoz — a KLIENS oldaláról
-    Edzés közben/után a kliens megjegyzést fűzhet egy gyakorlathoz
-    („fájt a vállam a 3. szettnél”). Ma a workouts sorban erre nincs hely.
+[x] Megjegyzés gyakorlathoz — a KLIENS oldaláról
+    2026-09-02. Az összegző oldal alján (#summary), közvetlenül a lezárás
+    után: gyakorlat-választó + szöveg. A komment a MENTETT edzés adott
+    gyakorlatára mutat ("edzésId:index"), ezért csak frissen lezárt edzésnél
+    van értelme — a mély-linkkel megnyitott összegzőn a blokk rejtve marad.
+    Edző nélkül is látszik: a saját naplód része marad.
+    A gyakorlatnevek a mentett sorrendből jönnek (a POST /api/workouts
+    válaszából), mert a komment a tömbön belüli INDEXRE hivatkozik — a
+    kettőnek együtt kell járnia.
 
-[ ] Megjegyzés gyakorlathoz — az EDZŐ oldaláról
-    Ugyanaz a tábla, más szerző. A kliensnek jelölve kell lennie, hogy
-    edzői megjegyzés érkezett (ma a data.js coachNotes tömbje utánozza).
+[x] Megjegyzés gyakorlathoz — az EDZŐ oldaláról
+    2026-09-02. Ugyanaz a tábla, más szerző — a válasz UGYANABBA a szálba
+    megy, tehát egy beszélgetés lesz a gyakorlatról, nem két külön lista.
+    A sportoló-modálban külön blokk sorolja a kliens megjegyzéseit, soronkénti
+    válasz-mezővel. A gyakorlat NEVÉT a szerver oldja fel (a nyers
+    "edzésId:index" célból az edző semmit nem tudna kiolvasni) — a kliens
+    edzésnaplója csak ott van meg.
+    A kliens jelzést kap: 'comment' értesítés, céltípus szerinti szöveggel
+    („megjegyzést fűzött egy gyakorlatodhoz").
 
 [x] Edzés utáni visszajelzés küldése
     2026-09-02. A javaslat szerint MEZŐ lett, nem komment: a workouts sor

@@ -409,6 +409,33 @@ function clientAlert({ workouts, checkins, overall, lastWorkoutDate, todayDate }
   return null;
 }
 
+/** A kliens legutóbbi gyakorlat-megjegyzései, FELOLDOTT gyakorlatnévvel.
+    A komment célja "edzésId:index" — ebből az edző önmagában semmit nem
+    tudna kiolvasni, a nevet pedig csak a kliens edzésnaplója ismeri.
+    A hiányzó célt kihagyjuk: ha az edzés időközben eltűnt, a megjegyzésnek
+    nincs mihez tartoznia — kitalált nevet nem teszünk alá. */
+const EXERCISE_NOTE_LIMIT = 6;
+function exerciseNotes(userId, workouts) {
+  const byTarget = getCommentsByTarget(userId, 'exercise');
+  const notes = [];
+
+  for (const [target, list] of Object.entries(byTarget)) {
+    const [workoutId, index] = String(target).split(':');
+    const workout = workouts.find((w) => String(w.id) === workoutId);
+    const exercise = workout?.exercises?.[Number(index)];
+    if (!workout || !exercise) continue;
+
+    for (const comment of list) {
+      notes.push({
+        ...comment, target, exercise: exercise.name,
+        workout: workout.name, date: workout.date,
+      });
+    }
+  }
+  // A legfrissebb elöl: a sor-azonosító a beszúrás sorrendje.
+  return notes.sort((a, b) => b.id - a.id).slice(0, EXERCISE_NOTE_LIMIT);
+}
+
 /** Egy kliens kártyaadata az edzői panelhez — MINDEN mezője számolt érték.
     A készenlét-motort kliensenként egyszer futtatjuk (~10-20 ms): pár
     kliensnél ez rendben van, száznál már gyorsítótár kellene. */
@@ -449,6 +476,10 @@ function clientCard(link, todayDate) {
         ? { ...workout.feedback, workout: workout.name, date: workout.date }
         : null;
     })(),
+    /* Gyakorlat-megjegyzések. Itt oldjuk fel a nevet, mert a kliens
+       edzésnaplója csak a szerveren van meg — az edző a nyers célazonosítóból
+       semmit nem tudna kezdeni. */
+    exerciseNotes: exerciseNotes(userId, workouts).map(commentOut),
   };
 }
 
@@ -869,6 +900,16 @@ app.post('/api/readiness/advice/apply', (req, res) => {
 /** A megengedett céltípusok. Ismeretlen típust nem írunk le: a tábla
     különben lassan szemétgyűjtővé válna. */
 const COMMENT_TYPES = ['chat', 'workout', 'exercise', 'plan'];
+
+/** Az értesítés szövege céltípusonként. A címzett szemszögéből fogalmaz (ez a
+    ház szabálya az addNotification-nél), és megmondja, MIRE érkezett a sor —
+    egy általános „üzenetet írt" a gyakorlat-megjegyzésnél félrevezető volna. */
+const COMMENT_EVENT_TEXT = {
+  chat: 'üzenetet írt',
+  exercise: 'megjegyzést fűzött egy gyakorlatodhoz',
+  workout: 'megjegyzést fűzött egy edzésedhez',
+  plan: 'megjegyzést fűzött egy tervedhez',
+};
 const COMMENT_MAX_LENGTH = 1000;
 
 /** A chat-szál két résztvevője: a kliens (subject) és EGY edzője (target).
@@ -945,7 +986,8 @@ app.post('/api/comments/:id', (req, res) => {
     ? (req.user.id === resolved.subjectId ? Number(resolved.target) : resolved.subjectId)
     : resolved.subjectId;
   if (recipient !== req.user.id) {
-    addNotification(recipient, 'comment', `${req.user.displayName} üzenetet írt`);
+    addNotification(recipient, 'comment',
+      `${req.user.displayName} ${COMMENT_EVENT_TEXT[resolved.type]}`);
   }
 
   res.status(201).json(commentOut(saved));

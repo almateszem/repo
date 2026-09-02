@@ -553,6 +553,23 @@
           <p class="su-feedback-done" data-su-feedback-done hidden>Elküldve ✓ — az edződ látja.</p>
         </section>
 
+        <!-- Megjegyzés egy gyakorlathoz. A komment a MENTETT edzés adott
+             gyakorlatára mutat ("edzésId:index"), ezért csak frissen lezárt
+             edzésnél van értelme. Edző nélkül is hasznos: a saját naplód
+             része marad. -->
+        <section class="su-note" data-su-note hidden aria-labelledby="su-note-title">
+          <h3 class="su-feedback-title" id="su-note-title">Megjegyzés egy gyakorlathoz</h3>
+          <form class="su-note-form" data-form="exercise-note">
+            <label class="sr-only" for="su-note-exercise">Melyik gyakorlathoz?</label>
+            <select class="su-note-select" id="su-note-exercise"></select>
+            <label class="sr-only" for="su-note-text">A megjegyzés szövege</label>
+            <input class="su-note-text" id="su-note-text" type="text" maxlength="1000"
+                   placeholder="Pl. fájt a vállam a 3. szettnél…" autocomplete="off">
+            <button class="su-feedback-send" type="submit">Hozzáfűzöm</button>
+          </form>
+          <ul class="su-note-list" data-su-note-list></ul>
+        </section>
+
         <div class="su-actions">
           <button class="su-cta" type="button" data-action="summary-dashboard">
             <span>Vissza az áttekintéshez</span>
@@ -922,6 +939,14 @@
         <h4 class="co-modal-section-title" id="co-modal-feedback-title">Visszajelzés az edzésről</h4>
         <p class="co-feedback-meta" data-feedback-meta></p>
         <p class="co-feedback-note" data-feedback-note hidden></p>
+      </section>
+
+      <!-- A kliens gyakorlat-megjegyzései, feloldott gyakorlatnévvel (a nyers
+           "edzésId:index" célból az edző semmit nem tudna kiolvasni). Minden
+           sorra lehet válaszolni — ugyanabba a szálba, más szerzővel. -->
+      <section class="co-modal-notes" data-modal-notes hidden aria-labelledby="co-modal-notes-title">
+        <h4 class="co-modal-section-title" id="co-modal-notes-title">Megjegyzések gyakorlatokhoz</h4>
+        <ul class="co-note-list" data-modal-note-list></ul>
       </section>
 
       <section class="co-modal-activity" aria-labelledby="co-modal-activity-title">
