@@ -360,11 +360,20 @@ MEGBESZÉLT DÖNTÉSEK (2026-08-30):
     Ugyanaz a tábla, más szerző. A kliensnek jelölve kell lennie, hogy
     edzői megjegyzés érkezett (ma a data.js coachNotes tömbje utánozza).
 
-[ ] Edzés utáni visszajelzés küldése
-    Az „Edzés befejezése” után a kliens rövid visszajelzést küld az
-    edzőnek (nehézség, közérzet, szabad szöveg). Eldöntendő: külön mező
-    a workouts soron, vagy komment a workout célra? (Javaslat: mező,
-    mert strukturált — így az elemzésbe is bekerülhet.)
+[x] Edzés utáni visszajelzés küldése
+    2026-09-02. A javaslat szerint MEZŐ lett, nem komment: a workouts sor
+    kapott feedback_difficulty / feedback_mood (1-5) / feedback_note /
+    feedback_at oszlopokat. Így a nehézség és a közérzet szám marad, tehát
+    az 5. blokk elemzéseibe is bekerülhet — egy szabad szövegből ez nem
+    jönne ki.
+    Felület: az összegző oldal alján (#summary), közvetlenül a lezárás után,
+    amíg az élmény friss. Csak akkor látszik, ha MOST zárult le egy edzés
+    (van azonosító) ÉS van edző, akinek szólna.
+    Írni CSAK a saját edzésére lehet: az UPDATE a user_id-re is szűr, tehát
+    idegen edzés id-jével nincs találat (404, nem 403).
+    Az edző az értesítésen kívül a sportoló-modálban is látja a legutóbbi
+    visszajelzést (lastFeedback a kártyaadatban).
+    Mindhárom mező elhagyható, és a hiányzó NULL marad — nem nulla.
 
 [x] Valódi chat az edzővel
     2026-09-02. A szimuláció megszűnt: a data.js coachReplies/athleteReplies

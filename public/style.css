@@ -4703,6 +4703,105 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   letter-spacing: .02em;
 }
 
+/* ---- Edzés utáni visszajelzés ----
+   Az összegző alján, a záró gombok ELŐTT: itt még az edzés élménye friss.
+   A skálák a közös .rc-scale / .rc-chip primitívre épülnek (ugyanaz, amit a
+   Regeneráció oldal és a check-in használ), ezért itt csak az elrendezés van. */
+.su-feedback {
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-2xl);
+  padding: var(--sp-8) var(--sp-7);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  text-align: left;
+}
+
+.su-feedback-title {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+
+.su-feedback-lead {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.su-feedback-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+}
+
+.su-feedback-scales {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+}
+
+.su-feedback-note {
+  width: 100%;
+  resize: vertical;
+  min-height: 62px;
+  padding: var(--sp-5);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border-card);
+  background: var(--surface-strong);
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.su-feedback-note::placeholder { color: var(--text-muted); }
+
+.su-feedback-note:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+
+.su-feedback-send {
+  align-self: flex-start;
+  padding: var(--sp-4) var(--sp-8);
+  border: 0;
+  border-radius: 999px;
+  background: var(--c-accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity var(--t-base);
+}
+
+.su-feedback-send:hover { opacity: .9; }
+.su-feedback-send:disabled { opacity: .5; cursor: default; }
+
+.su-feedback-done {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--c-ok);
+}
+
+/* A kliens edzés utáni visszajelzése a sportoló-modálban. */
+.co-modal-feedback {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  background: var(--surface-strong);
+  border-radius: var(--r-lg);
+  padding: var(--sp-6);
+}
+
+.co-feedback-meta {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.co-feedback-note {
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
 .su-actions {
   display: flex;
   flex-direction: column;

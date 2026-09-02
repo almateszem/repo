@@ -143,6 +143,7 @@ test('bejelentkezés nélkül az edzői végpontok is 401-et adnak', async () =>
     ['DELETE', '/api/coach/links/1'],
     ['GET', '/api/coach/clients/1/readiness'],
     ['GET', '/api/comments/1'], ['GET', '/api/comments/1/by-target'],
+    ['PUT', '/api/workouts/1/feedback'],
     ['POST', '/api/comments/1'], ['DELETE', '/api/comments/1/1'],
   ];
   for (const [method, urlPath] of endpoints) {
@@ -810,4 +811,89 @@ test('a kapcsolat bontása a kommentekhez való hozzáférést is elveszi', asyn
     cookie: petra.cookie,
   });
   assert.equal(sajat.status, 200);
+});
+
+/* ======================================================================
+   8. Edzés utáni visszajelzés
+   ----------------------------------------------------------------------
+   STRUKTURÁLT mező a workouts soron, nem komment — így a nehézség és a
+   közérzet szám marad, tehát később elemezhető. A kockázat itt is a
+   kereszt-fiók írás: a visszajelzés a SAJÁT edzésre szól, idegenére nem.
+   ====================================================================== */
+
+test('a kliens visszajelzést küld a saját edzéséről, és az edzője LÁTJA', async () => {
+  const kuldes = await request('PUT', `/api/workouts/${petraWorkoutId}/feedback`, {
+    cookie: petra.cookie,
+    body: { difficulty: 4, mood: 2, note: 'Nehéz volt, de kibírtam.' },
+  });
+  assert.equal(kuldes.status, 200);
+  assert.equal(kuldes.json.feedback.difficulty, 4);
+  assert.equal(kuldes.json.feedback.mood, 2);
+  assert.equal(kuldes.json.feedback.note, 'Nehéz volt, de kibírtam.');
+  assert.ok(kuldes.json.feedback.at, 'a küldés ideje is rögzül');
+
+  const view = await overview(bence.cookie);
+  const kartya = view.clients.find((c) => c.username === 'petra');
+  assert.equal(kartya.lastFeedback.difficulty, 4, 'az edzői kártyán ott a legutóbbi visszajelzés');
+  assert.equal(kartya.lastFeedback.note, 'Nehéz volt, de kibírtam.');
+  assert.ok(kartya.lastFeedback.workout, 'és az is látszik, MELYIK edzésről szól');
+});
+
+test('a visszajelzés az edzőnek értesítést szül', async () => {
+  const elotte = (await request('GET', '/api/notifications', { cookie: bence.cookie })).json;
+  await request('PUT', `/api/workouts/${petraWorkoutId}/feedback`, {
+    cookie: petra.cookie, body: { difficulty: 3, mood: 4, note: '' },
+  });
+  const utana = (await request('GET', '/api/notifications', { cookie: bence.cookie })).json;
+  assert.equal(utana.length, elotte.length + 1);
+  assert.equal(utana[0].cat, 'comment');
+  assert.match(utana[0].text, /visszajelzést küldött/);
+});
+
+test('az újraküldés FELÜLÍR, nem halmoz — és az üres megjegyzés null lesz', async () => {
+  const res = await request('GET', '/api/workouts', { cookie: petra.cookie });
+  const workout = res.json.find((w) => w.id === petraWorkoutId);
+  assert.equal(workout.feedback.difficulty, 3, 'a legutóbbi küldés értéke él');
+  assert.equal(workout.feedback.note, null, 'az üres szöveg nem üres string, hanem null');
+});
+
+test('IDEGEN edzésre nem lehet visszajelzést küldeni', async () => {
+  /* Bence Petra edzője, tehát OLVASNI lát nála — írni viszont nem az ő
+     naplójába. A user_id feltétel miatt nem talál sort: 404, nem 403. */
+  const res = await request('PUT', `/api/workouts/${petraWorkoutId}/feedback`, {
+    cookie: bence.cookie, body: { difficulty: 1, mood: 1, note: 'nem az enyém' },
+  });
+  assert.equal(res.status, 404);
+
+  const kivulallo = await request('PUT', `/api/workouts/${petraWorkoutId}/feedback`, {
+    cookie: marton.cookie, body: { difficulty: 1, mood: 1 },
+  });
+  assert.equal(kivulallo.status, 404);
+
+  // A korábbi visszajelzés érintetlen.
+  const workouts = (await request('GET', '/api/workouts', { cookie: petra.cookie })).json;
+  assert.equal(workouts.find((w) => w.id === petraWorkoutId).feedback.difficulty, 3);
+});
+
+test('a visszajelzés validál, és a HIÁNYZÓ mező null marad — nem nulla', async () => {
+  const rossz = [
+    [{ difficulty: 0 }, 'nehézség a tartomány alatt'],
+    [{ mood: 6 }, 'közérzet a tartomány felett'],
+    [{ note: 'x'.repeat(501) }, 'túl hosszú megjegyzés'],
+  ];
+  for (const [body, eset] of rossz) {
+    const res = await request('PUT', `/api/workouts/${petraWorkoutId}/feedback`, {
+      cookie: petra.cookie, body,
+    });
+    assert.equal(res.status, 400, eset);
+    assert.ok(res.json.error, `${eset}: beszédes hibaüzenet`);
+  }
+
+  // Csak a közérzet — a nehézség NULL marad, nem 0.
+  const csakMood = await request('PUT', `/api/workouts/${petraWorkoutId}/feedback`, {
+    cookie: petra.cookie, body: { mood: 5 },
+  });
+  assert.equal(csakMood.status, 200);
+  assert.equal(csakMood.json.feedback.mood, 5);
+  assert.equal(csakMood.json.feedback.difficulty, null, 'a meg nem adott nehézség null');
 });

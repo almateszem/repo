@@ -532,6 +532,27 @@
           </div>
         </div>
 
+        <!-- Edzés utáni visszajelzés az edzőnek. Csak akkor látszik, ha az
+             edzés MOST zárult le (van mentett azonosító) ÉS van edződ —
+             magadnak visszajelzést küldeni értelmetlen volna. A nehézség és a
+             közérzet strukturált mező (1-5), a megjegyzés szabad szöveg. -->
+        <section class="su-feedback" data-su-feedback hidden aria-labelledby="su-feedback-title">
+          <h3 class="su-feedback-title" id="su-feedback-title">Hogy ment?</h3>
+          <p class="su-feedback-lead" data-su-feedback-lead>Az edződ ezt látni fogja.</p>
+
+          <form class="su-feedback-form" data-form="workout-feedback">
+            <div class="su-feedback-scales" data-su-feedback-scales></div>
+
+            <label class="sr-only" for="su-feedback-note">Megjegyzés az edzőnek</label>
+            <textarea class="su-feedback-note" id="su-feedback-note" rows="2" maxlength="500"
+                      placeholder="Bármi, amit érdemes tudnia (nem kötelező)…"></textarea>
+
+            <button class="su-feedback-send" type="submit">Visszajelzés küldése</button>
+          </form>
+
+          <p class="su-feedback-done" data-su-feedback-done hidden>Elküldve ✓ — az edződ látja.</p>
+        </section>
+
         <div class="su-actions">
           <button class="su-cta" type="button" data-action="summary-dashboard">
             <span>Vissza az áttekintéshez</span>
@@ -892,6 +913,16 @@
       <p class="co-modal-alert" data-modal-alert hidden></p>
 
       <dl class="co-modal-stats" data-modal-stats></dl>
+
+      <!-- A kliens LEGUTÓBBI edzés utáni visszajelzése. Ez az egyetlen hely,
+           ahol nem számított adat áll: azt mutatja, hogyan ÉLTE MEG az edzést.
+           Ha még nem küldött, a blokk nem látszik — üres kerettel nem
+           sugalljuk, hogy van mit nézni. -->
+      <section class="co-modal-feedback" data-modal-feedback hidden aria-labelledby="co-modal-feedback-title">
+        <h4 class="co-modal-section-title" id="co-modal-feedback-title">Visszajelzés az edzésről</h4>
+        <p class="co-feedback-meta" data-feedback-meta></p>
+        <p class="co-feedback-note" data-feedback-note hidden></p>
+      </section>
 
       <section class="co-modal-activity" aria-labelledby="co-modal-activity-title">
         <h4 class="co-modal-section-title" id="co-modal-activity-title">Legutóbbi aktivitás</h4>
