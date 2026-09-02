@@ -149,6 +149,8 @@ test('bejelentkezés nélkül MINDEN /api végpont 401-et ad', async () => {
     ['PUT', '/api/checkin'], ['DELETE', '/api/workout-draft'], ['DELETE', '/api/nutrition/log/1'],
     ['GET', '/api/comments/1'], ['GET', '/api/comments/1/by-target'],
     ['PUT', '/api/workouts/1/feedback'],
+    ['GET', '/api/nutrition/goal'], ['PUT', '/api/nutrition/goal'],
+    ['DELETE', '/api/nutrition/goal'], ['PUT', '/api/coach/clients/1/nutrition-goal'],
     ['POST', '/api/comments/1'], ['DELETE', '/api/comments/1/1'],
   ];
 

@@ -192,6 +192,16 @@
     // kérdi, és a PUT /api/checkin weightKg mezője rögzíti (naponta egy sor).
     getWeightLog:      () => getJson('/api/weight-log'),
     getNutrition:      () => getJson('/api/nutrition'),
+    /* ---- Napi cél ----
+       Két forrás lehet (edzői / saját); a válasz mindkettőt hozza, hogy a
+       felület ki tudja írni, honnan jön a szám és eltértél-e az edzőitől. */
+    getNutritionGoal:  () => getJson('/api/nutrition/goal'),
+    saveNutritionGoal: (calories, protein) => putJson('/api/nutrition/goal', { calories, protein }),
+    // A válasz a FRISS cél (a visszaállás utáni állapot), ezért sendJson —
+    // ugyanaz a minta, mint a naplóbejegyzés törlésénél.
+    clearNutritionGoal: () => sendJson('DELETE', '/api/nutrition/goal'),
+    setClientNutritionGoal: (clientId, calories, protein) =>
+      putJson(`/api/coach/clients/${clientId}/nutrition-goal`, { calories, protein }),
     // A mai naplózott tételek — a Táplálkozás oldal „Mai napló" listájához
     getNutritionLog:   () => getJson('/api/nutrition/log'),
     // Étel naplózása név + adag (gramm) alapján — a válasz { entry, totals }.
@@ -260,6 +270,7 @@
     { key: 'plan', label: 'Terv kiosztva' },
     { key: 'planChange', label: 'Terv módosítva' },
     { key: 'comment', label: 'Üzenet, megjegyzés' },
+    { key: 'goal', label: 'Táplálkozási cél' },
   ];
 
   /** Az oldalak, a nav gyűrű irányai és a gyorsbillentyűk megfeleltetése.
@@ -5018,6 +5029,10 @@
         if (animateFrom) animateNumber(el, totals[key], { from: animateFrom[key], duration: 600 });
         else el.textContent = formatNumber(totals[key]);
       });
+      /* A fejléc „Cél" száma is innen jön: a cél mostantól szerkeszthető,
+         tehát nem elég egyszer, betöltéskor kiírni. */
+      const goalCalEl = $('[data-goal="calories"]');
+      if (goalCalEl) goalCalEl.textContent = formatNumber(totals.goal.calories);
     };
     applyTotals(await api.getNutrition());
 
@@ -5089,13 +5104,99 @@
       await reloadLog();
     });
 
-    // A napi cél a szerverről (Cél kcal + edző célja szöveg)
-    const goalCalEl = $('[data-goal="calories"]');
-    if (goalCalEl) goalCalEl.textContent = totals.goal.calories;
-    const goalTextEl = $('[data-nu-goal-text]');
-    if (goalTextEl) {
-      goalTextEl.textContent = `napi ${totals.goal.calories} kcal, ${totals.goal.protein} g fehérje a tömegnövelő fázisban.`;
-    }
+    /* ---- Napi cél ----
+       Két forrásból jöhet: amit az EDZŐ tűzött ki, és amit a felhasználó maga
+       állított be. A sajátja az erősebb, de az edzőé megmarad — ha eltér tőle,
+       azt ki is írjuk, és egy kattintással visszaállhat rá. */
+    const goalSection = $('.nu-goal');
+    const goalValueEl = $('[data-nu-goal-value]', goalSection);
+    const goalSourceEl = $('[data-nu-goal-source]', goalSection);
+    const goalDiffEl = $('[data-nu-goal-diff]', goalSection);
+    const goalDiffTextEl = $('[data-nu-goal-diff-text]', goalSection);
+    const goalForm = $('[data-form="nutrition-goal"]', goalSection);
+    const goalEditBtn = $('[data-action="edit-goal"]', goalSection);
+    const goalRevertBtn = $('[data-action="revert-goal"]', goalSection);
+    const goalCaloriesInput = $('#nu-goal-calories');
+    const goalProteinInput = $('#nu-goal-protein');
+    const goalSaveBtn = $('.nu-goal-save', goalSection);
+
+    /** Honnan jön a szám — ezt mindig kiírjuk, mert a puszta érték nem
+        mondaná meg, hogy az edződ tűzte-e ki vagy te magad. */
+    const GOAL_SOURCE_TEXT = {
+      own: () => 'A saját célod.',
+      coach: (goal) => `${goal.setBy ?? 'Az edződ'} tűzte ki.`,
+      default: () => 'Alapértelmezett cél — állítsd be a sajátodat.',
+    };
+
+    const renderGoal = (goal) => {
+      if (!goal) return;
+      goalValueEl.textContent = `${formatNumber(goal.calories)} kcal · ${formatNumber(goal.protein)} g fehérje`;
+      goalSourceEl.textContent = (GOAL_SOURCE_TEXT[goal.source] ?? GOAL_SOURCE_TEXT.default)(goal);
+
+      /* Az eltérés csak akkor jelenik meg, ha tényleg van edzői cél ÉS más a
+         szám. Az azonos érték nem eltérés — arról hallgatunk. */
+      goalDiffEl.hidden = !goal.differs;
+      if (goal.differs) {
+        goalDiffTextEl.textContent =
+          `${goal.coach.setBy ?? 'Az edződ'} célja: ${formatNumber(goal.coach.calories)} kcal · `
+          + `${formatNumber(goal.coach.protein)} g fehérje — eltértél tőle.`;
+      }
+
+      // A szerkesztő mezői mindig az ÉRVÉNYES célról indulnak.
+      goalCaloriesInput.value = Math.round(goal.calories);
+      goalProteinInput.value = Math.round(goal.protein);
+    };
+
+    const setGoalFormOpen = (open) => {
+      goalForm.hidden = !open;
+      goalEditBtn.setAttribute('aria-expanded', String(open));
+      goalEditBtn.textContent = open ? 'Mégse' : 'Módosítom';
+      if (open) goalCaloriesInput.focus();
+    };
+
+    goalEditBtn.addEventListener('click', () => setGoalFormOpen(goalForm.hidden));
+
+    goalForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      goalSaveBtn.disabled = true;
+      try {
+        renderGoal(await api.saveNutritionGoal(
+          Number(goalCaloriesInput.value), Number(goalProteinInput.value),
+        ));
+        setGoalFormOpen(false);
+        // A napi összesítő ugyanezt a célt méri — újra le kell kérni.
+        applyTotals(await api.getNutrition());
+        refreshDailyStats().catch(console.error);
+        showToast('Napi cél mentve');
+      } catch (err) {
+        if (err.code !== SESSION_LOST) {
+          console.error(err);
+          showToast(err.message || 'A célt nem sikerült menteni', 'error');
+        }
+      } finally {
+        goalSaveBtn.disabled = false;
+      }
+    });
+
+    goalRevertBtn.addEventListener('click', async () => {
+      goalRevertBtn.disabled = true;
+      try {
+        renderGoal(await api.clearNutritionGoal());
+        setGoalFormOpen(false);
+        applyTotals(await api.getNutrition());
+        refreshDailyStats().catch(console.error);
+        showToast('Visszaálltál az edződ céljára');
+      } catch (err) {
+        if (err.code !== SESSION_LOST) {
+          console.error(err);
+          showToast(err.message || 'A visszaállítás nem sikerült', 'error');
+        }
+      } finally {
+        goalRevertBtn.disabled = false;
+      }
+    });
+
+    renderGoal(totals.goal);
 
     searchInput.addEventListener('input', () => {
       const query = searchInput.value.trim().toLowerCase();
@@ -5334,6 +5435,10 @@
     const statsEl = $('[data-modal-stats]', modal);
     const feedbackEl = $('[data-modal-feedback]', modal);
     const notesEl = $('[data-modal-notes]', modal);
+    const goalStateEl = $('[data-modal-goal-state]', modal);
+    const goalForm = $('[data-form="client-nutrition-goal"]', modal);
+    const goalCaloriesInput = $('#co-goal-calories');
+    const goalProteinInput = $('#co-goal-protein');
     const noteListEl = $('[data-modal-note-list]', modal);
     const feedbackMetaEl = $('[data-feedback-meta]', modal);
     const feedbackNoteEl = $('[data-feedback-note]', modal);
@@ -5365,6 +5470,57 @@
       input,
       getThread: () => (current ? { subjectId: Number(current.id), coachId: myUserId } : null),
       isFeedVisible: () => !msgSection.hidden,
+    });
+
+    /** A kliens napi célja az edző szemszögéből. Három eset van, és mind a
+        hármat ki kell mondani: még nincs kitűzött cél; a kitűzött cél él; vagy
+        a kliens mást állított be — ez utóbbi a legfontosabb, mert némán
+        egyikük sem írhatja felül a másikat. */
+    function renderClientGoal(athlete) {
+      const goal = athlete.nutritionGoal;
+      if (!goal) { goalStateEl.textContent = ''; return; }
+
+      if (goal.source === 'own') {
+        goalStateEl.textContent = goal.coach
+          ? `A kitűzött célod ${formatNumber(goal.coach.calories)} kcal · `
+            + `${formatNumber(goal.coach.protein)} g, de ${athlete.name} `
+            + `${formatNumber(goal.calories)} kcal · ${formatNumber(goal.protein)} g-ot állított be magának.`
+          : `${athlete.name} saját célja: ${formatNumber(goal.calories)} kcal · `
+            + `${formatNumber(goal.protein)} g fehérje. Amit kitűzöl, azt ő látni fogja.`;
+      } else if (goal.source === 'coach') {
+        goalStateEl.textContent = `Érvényben: ${formatNumber(goal.calories)} kcal · `
+          + `${formatNumber(goal.protein)} g fehérje — ezt te tűzted ki.`;
+      } else {
+        goalStateEl.textContent = 'Még nincs kitűzött cél — az alapértelmezett szám szól.';
+      }
+
+      // A mezők a jelenleg ÉRVÉNYES célról indulnak.
+      goalCaloriesInput.value = Math.round(goal.calories);
+      goalProteinInput.value = Math.round(goal.protein);
+    }
+
+    goalForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!current) return;
+      const submit = $('button[type="submit"]', goalForm);
+      submit.disabled = true;
+      try {
+        const saved = await api.setClientNutritionGoal(
+          Number(current.id), Number(goalCaloriesInput.value), Number(goalProteinInput.value),
+        );
+        /* A helyi másolatot is frissítjük, hogy a modál újranyitása nélkül is
+           a friss állapot látsszon (a kártyák a következő refresh-kor jönnek). */
+        current.nutritionGoal = saved;
+        renderClientGoal(current);
+        showToast('Napi cél kitűzve');
+      } catch (err) {
+        if (err.code !== SESSION_LOST) {
+          console.error(err);
+          showToast(err.message || 'A célt nem sikerült kitűzni', 'error');
+        }
+      } finally {
+        submit.disabled = false;
+      }
     });
 
     /** Egy megjegyzés-sor a modálban, saját válasz-mezővel. A válasz UGYANABBA
@@ -5539,6 +5695,7 @@
         }
 
         renderExerciseNotes(athlete);
+        renderClientGoal(athlete);
 
         activityEl.replaceChildren();
         athlete.recent.forEach((entry, index) => {

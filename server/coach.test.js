@@ -144,6 +144,8 @@ test('bejelentkezés nélkül az edzői végpontok is 401-et adnak', async () =>
     ['GET', '/api/coach/clients/1/readiness'],
     ['GET', '/api/comments/1'], ['GET', '/api/comments/1/by-target'],
     ['PUT', '/api/workouts/1/feedback'],
+    ['GET', '/api/nutrition/goal'], ['PUT', '/api/nutrition/goal'],
+    ['DELETE', '/api/nutrition/goal'], ['PUT', '/api/coach/clients/1/nutrition-goal'],
     ['POST', '/api/comments/1'], ['DELETE', '/api/comments/1/1'],
   ];
   for (const [method, urlPath] of endpoints) {
@@ -896,4 +898,115 @@ test('a visszajelzés validál, és a HIÁNYZÓ mező null marad — nem nulla',
   assert.equal(csakMood.status, 200);
   assert.equal(csakMood.json.feedback.mood, 5);
   assert.equal(csakMood.json.feedback.difficulty, null, 'a meg nem adott nehézség null');
+});
+
+/* ======================================================================
+   9. Napi táplálkozási cél
+   ----------------------------------------------------------------------
+   Korábban EGY fix érték szolgálta ki az összes fiókot. Most kettő lehet: az
+   edző kitűzött célja és a felhasználó sajátja. A blokk legfontosabb
+   állítása, hogy a kettő EGYÜTT él tovább — sem az edző nem írja felül némán
+   a kliensét, sem fordítva. Aki eltér, arról látszik, hogy eltért.
+   ====================================================================== */
+
+test('cél nélkül a közös alapérték szól, és látszik, hogy alapérték', async () => {
+  const res = await request('GET', '/api/nutrition/goal', { cookie: marton.cookie });
+  assert.equal(res.status, 200);
+  assert.equal(res.json.source, 'default', 'még senki nem állított be semmit');
+  assert.equal(res.json.coach, null);
+  assert.equal(res.json.differs, false);
+  assert.ok(res.json.calories > 0, 'a seed alapérték jön');
+});
+
+test('a saját cél felülírja az alapértéket — fiókonként külön', async () => {
+  const res = await request('PUT', '/api/nutrition/goal', {
+    cookie: petra.cookie, body: { calories: 2400, protein: 150 },
+  });
+  assert.equal(res.status, 200);
+  assert.equal(res.json.calories, 2400);
+  assert.equal(res.json.source, 'own');
+
+  // Márton célja ettől nem változik — a cél nem közös többé.
+  const martone = await request('GET', '/api/nutrition/goal', { cookie: marton.cookie });
+  assert.equal(martone.json.source, 'default');
+  assert.notEqual(martone.json.calories, 2400);
+
+  // A napi összesítő ugyanezt a célt hozza (a felület ahhoz méri a bevitelt).
+  const totals = await request('GET', '/api/nutrition', { cookie: petra.cookie });
+  assert.equal(totals.json.goal.calories, 2400);
+});
+
+test('az edzői cél NEM írja felül némán a kliensét — de látszik az eltérés', async () => {
+  const kituzes = await request('PUT', `/api/coach/clients/${petra.id}/nutrition-goal`, {
+    cookie: bence.cookie, body: { calories: 2900, protein: 170 },
+  });
+  assert.equal(kituzes.status, 200);
+
+  const petraCelja = await request('GET', '/api/nutrition/goal', { cookie: petra.cookie });
+  assert.equal(petraCelja.json.calories, 2400, 'a SAJÁT cél marad érvényben');
+  assert.equal(petraCelja.json.source, 'own');
+  assert.equal(petraCelja.json.coach.calories, 2900, 'de az edzőé is látszik');
+  assert.equal(petraCelja.json.coach.setBy, 'Kovács Bence', 'és az is, KI tűzte ki');
+  assert.equal(petraCelja.json.differs, true, 'az eltérés jelezve van');
+});
+
+test('a kliens értesítést kap a kitűzött célról, saját kategóriában', async () => {
+  const ertesitesek = (await request('GET', '/api/notifications', { cookie: petra.cookie })).json;
+  assert.match(ertesitesek[0].text, /napi célt tűzött ki/);
+  // Saját kategória: a cél nem terv, tehát külön némíthatónak kell lennie.
+  assert.equal(ertesitesek[0].cat, 'goal');
+});
+
+test('a saját cél elvetésével visszaáll az edzőé', async () => {
+  const res = await request('DELETE', '/api/nutrition/goal', { cookie: petra.cookie });
+  assert.equal(res.status, 200);
+  assert.equal(res.json.calories, 2900, 'innentől az edzői cél az érvényes');
+  assert.equal(res.json.source, 'coach');
+  assert.equal(res.json.differs, false, 'nincs mitől eltérni');
+  assert.equal(res.json.setBy, 'Kovács Bence');
+});
+
+test('az AZONOS érték nem számít eltérésnek', async () => {
+  await request('PUT', '/api/nutrition/goal', {
+    cookie: petra.cookie, body: { calories: 2900, protein: 170 },
+  });
+  const res = await request('GET', '/api/nutrition/goal', { cookie: petra.cookie });
+  assert.equal(res.json.source, 'own', 'saját sor jött létre');
+  assert.equal(res.json.differs, false, 'de ugyanaz a szám — nem „eltértél"');
+});
+
+test('KÍVÜLÁLLÓ nem tűzhet ki célt, és a kliens célját sem éri el', async () => {
+  const res = await request('PUT', `/api/coach/clients/${petra.id}/nutrition-goal`, {
+    cookie: marton.cookie, body: { calories: 1000, protein: 50 },
+  });
+  assert.equal(res.status, 404, 'nem 403 — a fiók létezése sem derülhet ki');
+
+  // Petra célja érintetlen.
+  const petraCelja = await request('GET', '/api/nutrition/goal', { cookie: petra.cookie });
+  assert.equal(petraCelja.json.calories, 2900);
+});
+
+test('a cél validál: hiányzó mező, tartományon kívüli érték', async () => {
+  const rossz = [
+    [{ protein: 150 }, 'hiányzó kalória'],
+    [{ calories: 2400 }, 'hiányzó fehérje'],
+    [{ calories: 100, protein: 150 }, 'irreálisan alacsony kalória'],
+    [{ calories: 2400, protein: 900 }, 'irreálisan magas fehérje'],
+  ];
+  for (const [body, eset] of rossz) {
+    const res = await request('PUT', '/api/nutrition/goal', { cookie: petra.cookie, body });
+    assert.equal(res.status, 400, eset);
+    assert.ok(res.json.error, `${eset}: beszédes hibaüzenet`);
+  }
+});
+
+test('a kapcsolat bontása után a volt edző nem tűzhet ki új célt', async () => {
+  const view = await overview(bence.cookie);
+  const link = view.clients.find((c) => c.username === 'petra');
+  await request('DELETE', `/api/coach/links/${link.linkId}`, { cookie: bence.cookie });
+
+  const res = await request('PUT', `/api/coach/clients/${petra.id}/nutrition-goal`, {
+    cookie: bence.cookie, body: { calories: 1500, protein: 100 },
+  });
+  assert.equal(res.status, 404);
 });

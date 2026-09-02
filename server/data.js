@@ -59,6 +59,9 @@ export const data = {
      KIKERÜLT innen: a panel valódi kliensekből épül (users + coach_clients),
      az üzenetváltás pedig valódi (comments tábla, 'chat' céltípus). Beégetett
      válasz egy valódi edző nevében hazugság volna. */
-  /* Az edző által kitűzött napi táplálkozási cél. */
+  /* A napi táplálkozási cél ALAPÉRTÉKE. Ez már nem „az edző célja": a cél
+     fiókonként él (nutrition_goals tábla), és két forrása lehet — amit az
+     edző tűzött ki, és amit a felhasználó maga állított be. Ez a szám csak
+     akkor szól, ha egyik sincs. */
   nutritionGoal: { calories: 2900, protein: 170 },
 };

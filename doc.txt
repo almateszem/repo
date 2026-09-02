@@ -27,7 +27,7 @@ Node 22.5+ kell (a beépített node:sqlite modul miatt).
     npm install
     npm start          → http://localhost:3000
     npm run dev        → ugyanaz, fájlfigyeléssel
-    npm test           → 179 teszt (node --test, nulla függőség)
+    npm test           → 188 teszt (node --test, nulla függőség)
 
 Környezeti változók:
     PORT          alapérték 3000
@@ -222,6 +222,31 @@ EDZŐI NÉZET ("Edzetteim")
     terv-követés, sorozat, utolsó edzés. Minden szám a kliens tényleges
     naplóiból számolódik.
   · Kártyára koppintva részletmodál nyílik (ld. 4.1).
+
+
+--- 3.6a NAPI TÁPLÁLKOZÁSI CÉL -------------------------------------------
+A cél FIÓKONKÉNT él (korábban egyetlen fix érték szolgálta ki az összes
+fiókot). Két forrása lehet, és mindkettő megmarad egymás mellett:
+  'coach' — amit az edző tűzött ki,
+  'own'   — amit a felhasználó maga állított be.
+
+Az ÉRVÉNYES cél: 'own', ha van; különben 'coach'; különben a seed alapérték
+(data.js → nutritionGoal). A felület mindig kiírja, honnan jön a szám.
+
+A lényeg, hogy egyik fél sem írja felül némán a másikat:
+  · az edzői kitűzés NEM törli a kliens saját sorát — ha ő állított be
+    célt, az marad érvényben,
+  · a kliens saját célja nem tünteti el az edzőét — ezért tudjuk kiírni,
+    hogy eltért tőle, és ezért lehet egy kattintással visszaállni rá.
+Az AZONOS érték nem számít eltérésnek.
+
+Csak kalória és fehérje. A felület (a napi összesítő, az étel-modál sávjai és
+az áttekintő) ezt a kettőt méri célhoz; szénhidrát/zsír célt nem veszünk fel,
+amíg nincs, ami megjelenítse.
+
+Az edző a sportoló-modálban tűz ki célt, és ott látja a kliens aktuális
+állapotát is (kitűzött cél él / a kliens mást állított be / még nincs cél).
+A kitűzés 'goal' kategóriájú értesítést szül a kliensnél.
 
 
 --- 3.6b KOMMENTEK ÉS ÜZENETVÁLTÁS ---------------------------------------

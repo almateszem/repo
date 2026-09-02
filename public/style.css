@@ -1646,15 +1646,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   margin-left: 1px;
 }
 
-.nu-coach-goal {
-  font-size: var(--fs-sm);
-  color: var(--fg-60);
-  background: var(--surface-soft);
-  border-left: 2px solid var(--fg-30);
-  padding: var(--sp-4) var(--sp-5);
-  border-radius: 0 var(--r-md) var(--r-md) 0;
-  margin: 0 0 var(--sp-9);
-}
+.nu-goal { margin-bottom: var(--sp-9); }
 
 /* ---- Mai napló — a ténylegesen naplózott tételek, törléssel ----
    A felület korábban csak összesített: nem lehetett megnézni, mit ettél, és
@@ -4782,6 +4774,114 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--c-ok);
 }
 
+/* ---- Napi táplálkozási cél (nu-goal-*) ----
+   A cél két forrásból jöhet (edzői / saját), ezért nem elég egy szám: a
+   származást és az esetleges eltérést is ki kell írni. */
+.nu-goal {
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-2xl);
+  padding: var(--sp-6) var(--sp-7);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.nu-goal-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
+
+.nu-goal-title {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+
+.nu-goal-edit,
+.nu-goal-revert {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--c-accent);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.nu-goal-value {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+
+.nu-goal-source,
+.nu-goal-diff {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.nu-goal-diff {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-3);
+}
+
+.nu-goal-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-4);
+  margin-top: var(--sp-2);
+}
+
+.nu-goal-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+  flex: 1 1 110px;
+}
+
+.nu-goal-field label {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.nu-goal-field input {
+  width: 100%;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border-card);
+  background: var(--surface-strong);
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.nu-goal-field input:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+
+.nu-goal-save {
+  border: 0;
+  border-radius: 999px;
+  padding: var(--sp-3) var(--sp-7);
+  background: var(--c-accent);
+  color: #fff;
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.nu-goal-save:disabled { opacity: .5; cursor: default; }
+
 /* Gyakorlat-megjegyzés az összegzőn. */
 .su-note {
   background: var(--surface-card);
@@ -4836,6 +4936,27 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .su-note-item b {
   color: var(--fg-100);
   font-weight: 600;
+}
+
+/* Célkitűzés a sportoló-modálban. A mezők a Táplálkozás oldal
+   .nu-goal-field primitívjét használják — egy űrlap-recept, két helyen. */
+.co-modal-goal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.co-goal-state {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.co-goal-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-4);
 }
 
 /* Gyakorlat-megjegyzések a sportoló-modálban, soronkénti válasz-mezővel. */
