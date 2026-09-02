@@ -167,8 +167,18 @@
       putJson(`/api/coach/plans/${planId}`, { name, exercises, days }),
     getDefaultSet:     () => getJsonCached('/api/default-set'),
     getExerciseCatalog: () => getJsonCached('/api/exercise-catalog'),
-    getAthleteReplies: () => getJsonCached('/api/athlete-replies'),
-    getCoachReplies:   () => getJsonCached('/api/coach-replies'),
+    /* ---- Kommentek ----
+       EGY végpontcsalád mindenre: megjegyzés edzéshez/gyakorlathoz/tervhez,
+       és az edző–kliens üzenetváltás is. A `subjectId` az a fiók, AKINEK az
+       adatáról szó van — edző–kliens viszonyban mindig a kliens. Nincs
+       cache: ezek élő, változó szálak. */
+    getComments: (subjectId, type, target = '') =>
+      getJson(`/api/comments/${subjectId}?type=${type}&target=${encodeURIComponent(target)}`),
+    getCommentsByTarget: (subjectId, type) =>
+      getJson(`/api/comments/${subjectId}/by-target?type=${type}`),
+    addComment: (subjectId, targetType, targetId, text) =>
+      postJson(`/api/comments/${subjectId}`, { targetType, targetId, text }),
+    deleteComment: (subjectId, commentId) => del(`/api/comments/${subjectId}/${commentId}`),
 
     /* ---- Edző–kliens kapcsolat ----
        Egyik sem cache-elt: a kapcsolatok és a kliensek kártyaadatai minden
@@ -246,6 +256,7 @@
     { key: 'invite', label: 'Meghívás, kapcsolat' },
     { key: 'plan', label: 'Terv kiosztva' },
     { key: 'planChange', label: 'Terv módosítva' },
+    { key: 'comment', label: 'Üzenet, megjegyzés' },
   ];
 
   /** Az oldalak, a nav gyűrű irányai és a gyorsbillentyűk megfeleltetése.
@@ -1021,10 +1032,15 @@
   /** A megjelenített felhasználónév: a saját (localStorage) név, különben a
       szerveré. Külön renderelő, mert korábban csak a beállítások modal
       felépítése írta ki — ha az a lépés elhasalt, a név helye üresen maradt. */
+  /** A bejelentkezett fiók azonosítója. A chat ebből tudja, melyik üzenet a
+      sajátunk a KÖZÖS szálban (a szálat mindkét fél ugyanúgy kéri le). */
+  let myUserId = null;
+
   async function renderUserName() {
     const el = $('.db-username');
     if (!el) return;
     const user = await api.getUser();
+    myUserId = user.id ?? null;
     el.textContent = prefs.get('displayName', user.name);
   }
 
@@ -5000,70 +5016,119 @@
     });
   }
 
-  /** Közös chat-szimuláció: saját üzenet azonnal megjelenik, majd „gépel…”
-      jelző után szimulált válasz érkezik (körbeforgó válaszlista). A sportoló-
-      modál chatje és a kliens nézet edző-chatje is erre épül. A beszélgetés
-      objektum: { name, thread, replyPending } — az előzmény a session alatt
-      memóriában marad. */
-  function createChatController({ feed, form, input, replies, getConversation, isFeedVisible }) {
-    const TYPING_DELAY_MS = 700;
-    const REPLY_DELAY_MS = 1900;
-    let replyIndex = 0;
+  /** Közös chat-vezérlő. MINDKÉT nézet ezt használja: az edző a sportoló-
+      modálban, a kliens az Edző oldalon — a szál ugyanaz a sor a comments
+      táblában, csak más szemszögből. A szálat a (kliens, edző) pár azonosítja,
+      ezért egy több edzővel dolgozó kliens szálai nem keverednek.
+
+      Frissítés POLLOZÁSSAL: a TEENDOK.txt szerint erre a méretre ez elég, és
+      nem kér új infrastruktúrát (SSE/WS). Csak akkor kérdez, ha a szál
+      LÁTSZIK — zárt modál mögött nincs értelme hálózatot enni.
+
+      A `getThread()` a szál azonosítóját adja: { subjectId, coachId, name },
+      vagy null, ha épp nincs kiválasztva beszélgetés. */
+  const CHAT_POLL_MS = 8000;
+
+  function createChatController({ feed, form, input, getThread, isFeedVisible }) {
+    let messages = [];
+    /* Melyik szál látszik ÉPPEN. Beszélgetés-váltáskor ebből tudjuk, hogy a
+       képernyőn még az előző kliens üzenetei vannak — azokat azonnal le kell
+       törölni, nem a hálózat válaszáig mutogatni. */
+    let shownThread = null;
+    /* Versenyhelyzet ellen: a felhasználó válthat beszélgetést, amíg egy
+       lekérés fut. Csak a LEGUTÓBB indított betöltés rajzolhat. */
+    let loadToken = 0;
+
+    const sameThread = (a, b) => Boolean(a && b
+      && a.subjectId === b.subjectId && a.coachId === b.coachId);
 
     const scrollFeedToEnd = () => { feed.scrollTop = feed.scrollHeight; };
 
-    const renderThread = (conversation) => {
+    const render = () => {
       feed.replaceChildren();
-      conversation.thread.forEach((note) => feed.appendChild(createCoachNote(note)));
+      if (messages.length === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'co-empty';
+        empty.textContent = 'Még nincs üzenet ebben a beszélgetésben.';
+        feed.appendChild(empty);
+        return;
+      }
+      for (const message of messages) {
+        const me = message.authorId === myUserId;
+        feed.appendChild(createCoachNote({
+          meta: `${me ? 'Te' : message.authorName} · ${message.time}`,
+          text: message.text,
+          me,
+        }));
+      }
       scrollFeedToEnd();
     };
 
-    form.addEventListener('submit', (event) => {
-      event.preventDefault(); // required-validáció után futunk, nincs valódi backend
+    /** A szál betöltése a szerverről. `quiet` esetén a hiba nem szól bele a
+        felületbe — a háttér-pollozás ne dobáljon hibaüzenetet a felhasználóra. */
+    async function load({ quiet = false } = {}) {
+      const thread = getThread();
+      if (!thread) { messages = []; shownThread = null; render(); return; }
 
-      const message = input.value.trim();
-      if (!message) return;
+      /* Szálváltás: a régi üzenetek AZONNAL eltűnnek. Enélkül a válasz
+         megérkezéséig az előző kliens üzenetei látszanának. */
+      if (!sameThread(shownThread, thread)) {
+        messages = [];
+        shownThread = thread;
+        render();
+      }
 
-      const conversation = getConversation();
-      const myNote = { meta: 'Te · most', text: message, me: true };
-      conversation.thread.push(myNote);
-      feed.appendChild(createCoachNote(myNote));
-      scrollFeedToEnd();
-      form.reset();
-      input.focus();
+      const token = (loadToken += 1);
+      try {
+        const list = await api.getComments(thread.subjectId, 'chat', thread.coachId);
+        // Közben másik beszélgetésre válthattak — az elavult válasz nem rajzol.
+        if (token !== loadToken || !sameThread(thread, getThread())) return;
+        messages = list;
+        shownThread = thread;
+        render();
+      } catch (err) {
+        if (err.code === SESSION_LOST || quiet) return;
+        console.error('Az üzenetek betöltése nem sikerült:', err);
+        showToast('Nem sikerült betölteni az üzeneteket', 'error');
+      }
+    }
 
-      if (conversation.replyPending) return; // beszélgetésenként egy szimulált válasz fusson
-      conversation.replyPending = true;
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const text = input.value.trim();
+      const thread = getThread();
+      if (!text || !thread) return;
 
-      setTimeout(() => {
-        // "Gépel…" jelző — csak ha még mindig ez a beszélgetés látszik
-        const typingNote = createCoachNote({ meta: conversation.name, text: '' });
-        const typing = document.createElement('span');
-        typing.className = 'co-typing';
-        typing.setAttribute('aria-label', `${conversation.name} éppen ír`);
-        for (let i = 0; i < 3; i += 1) typing.appendChild(document.createElement('span'));
-        $('.co-note-text', typingNote).appendChild(typing);
-        if (getConversation() === conversation && isFeedVisible()) {
-          feed.appendChild(typingNote);
-          scrollFeedToEnd();
+      const submit = $('button[type="submit"]', form);
+      if (submit) submit.disabled = true;
+      try {
+        const saved = await api.addComment(thread.subjectId, 'chat', thread.coachId, text);
+        form.reset();
+        // Csak akkor fűzzük hozzá, ha még mindig ez a szál látszik.
+        if (sameThread(thread, getThread())) {
+          messages = [...messages, saved];
+          render();
         }
-
-        setTimeout(() => {
-          const reply = {
-            meta: `${conversation.name} · most`,
-            text: replies[replyIndex % replies.length],
-          };
-          replyIndex += 1;
-          conversation.thread.push(reply);
-          conversation.replyPending = false;
-          if (typingNote.isConnected) typingNote.replaceWith(createCoachNote(reply));
-          else if (getConversation() === conversation && isFeedVisible()) feed.appendChild(createCoachNote(reply));
-          scrollFeedToEnd();
-        }, REPLY_DELAY_MS - TYPING_DELAY_MS);
-      }, TYPING_DELAY_MS);
+        input.focus();
+      } catch (err) {
+        if (err.code !== SESSION_LOST) {
+          console.error(err);
+          showToast(err.message || 'Az üzenetet nem sikerült elküldeni', 'error');
+        }
+      } finally {
+        if (submit) submit.disabled = false;
+      }
     });
 
-    return { renderThread };
+    /* Egyetlen időzítő szolgálja ki az összes chat-felületet: ha a szál nem
+       látszik, egyszerűen kihagyjuk a kört. Az unref-nek itt nincs párja —
+       a böngészőben az interval nem tart életben semmit. */
+    setInterval(() => {
+      if (!isFeedVisible() || !getThread()) return;
+      load({ quiet: true });
+    }, CHAT_POLL_MS);
+
+    return { load };
   }
 
   /** A modálban megjelenő részletes statok (a kártya statjai + extra mezők). */
@@ -5076,12 +5141,11 @@
     ['Készenlét alapja', (a) => CONFIDENCE_LABELS[a.readinessConfidence] ?? '—'],
   ];
 
-  /** Sportoló részletmodál: összegzés, gyors műveletek és üzenetküldés
-      szimulált sportoló-válasszal. A modal-plumbing a közös vezérlőé. */
+  /** Sportoló részletmodál: összegzés, gyors műveletek és VALÓDI üzenetváltás
+      a klienssel. A modal-plumbing a közös vezérlőé. */
   async function setupAthleteModal() {
     const modal = $('#athleteModal');
     const controller = createModalController(modal);
-    const athleteReplies = await api.getAthleteReplies();
     const badge = $('.co-modal-badge', modal);
     const titleEl = $('#athleteModalTitle');
     const tierEl = $('.co-modal-tier', modal);
@@ -5107,13 +5171,13 @@
 
     let current = null;
 
-    // A chat-mechanika (küldés, „gépel…", szimulált válasz) a közös vezérlőé
+    /* A szálat a (kliens, edző) pár azonosítja. Ebben a nézetben MI vagyunk
+       az edző, a subject pedig a megnyitott sportoló. */
     const chat = createChatController({
       feed,
       form,
       input,
-      replies: athleteReplies,
-      getConversation: () => current,
+      getThread: () => (current ? { subjectId: Number(current.id), coachId: myUserId } : null),
       isFeedVisible: () => !msgSection.hidden,
     });
 
@@ -5121,7 +5185,7 @@
       msgSection.hidden = !open;
       msgButton.setAttribute('aria-expanded', String(open));
       if (open) {
-        chat.renderThread(current);
+        chat.load();
         if (focus) input.focus();
       }
     };
@@ -5358,27 +5422,24 @@
     const sentList = $('[data-list="invites-sent"]', page);
     const clientFeed = $('[data-client-feed]', page);
     const composer = $('[data-form="coach-message"]', page);
-    const demoNote = $('.co-demo-note', page);
     const inviteForm = $('[data-form="invite-client"]', page);
     const inviteInput = $('#co-invite-username');
-
-    const coachReplies = await api.getCoachReplies();
 
     /* A szerver által látott állapot. Üresen indul: ha a lekérés hibázik, az
        oldal üres állapotot mutat — nem korábbi, esetleg már nem érvényes adatot. */
     let state = { isCoach: false, clients: [], invitesSent: [], coaches: [], invitesReceived: [] };
 
-    /* Az edzővel folytatott üzenetváltás EGYELŐRE szimulált (a felület ki is
-       írja). A szál üresen indul: beégetett „korábbi üzenetek" egy valódi
-       edző nevében hazugságok volnának. */
-    const coachConversation = { name: '', thread: [] };
-
+    /* Itt MI vagyunk a kliens: a subject a saját fiókunk, a partner az
+       edzőnk. Több edző esetén az elsővel folyik a szál — a nézet egyelőre
+       egy edzőt mutat. Edző nélkül nincs szál, és a szerkesztő is rejtve van. */
     const chat = createChatController({
       feed: clientFeed,
       form: composer,
       input: $('#coach-message'),
-      replies: coachReplies,
-      getConversation: () => coachConversation,
+      getThread: () => {
+        const link = state.coaches[0];
+        return link && myUserId ? { subjectId: myUserId, coachId: link.coach.id } : null;
+      },
       isFeedVisible: () => !views.client.hidden,
     });
 
@@ -5399,14 +5460,14 @@
       return item;
     }
 
-    /** Kliens nézet: az edződ, a beérkezett meghívások és a (szimulált) chat. */
+    /** Kliens nézet: az edződ, a beérkezett meghívások és a vele folytatott
+        üzenetváltás. */
     function renderClientView() {
       const link = state.coaches[0] ?? null;
 
       coachHead.hidden = !link;
       clientFeed.hidden = !link;
       composer.hidden = !link;
-      demoNote.hidden = !link;
       // A „még nincs edződ" szöveg felesleges, ha épp döntened kell egy meghívásról.
       noCoachText.hidden = Boolean(link) || state.invitesReceived.length > 0;
 
@@ -5414,8 +5475,7 @@
         $('[data-coach-name]', page).textContent = link.coach.name;
         $('[data-coach-role]', page).textContent = `Edződ · @${link.coach.username}`;
         $('[data-action="end-coach-link"]', page).dataset.link = link.id;
-        coachConversation.name = link.coach.name;
-        chat.renderThread(coachConversation);
+        chat.load();
       }
 
       receivedPanel.hidden = state.invitesReceived.length === 0;

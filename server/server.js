@@ -255,8 +255,6 @@ const READ_ENDPOINTS = {
   '/api/foods': 'foods',
   '/api/default-set': 'defaultSet',
   '/api/exercise-catalog': 'exerciseCatalog',
-  '/api/athlete-replies': 'athleteReplies',
-  '/api/coach-replies': 'coachReplies',
 };
 
 /* Mezőszűrés a válaszhoz. A kollekció a DB-ben TELJES marad (a Recovery
@@ -289,6 +287,8 @@ app.get('/api/user', (req, res) => {
   const seedUser = getCollection('user') || {};
   res.json({
     ...seedUser,
+    // A felület ebből tudja, MELYIK üzenet a sajátja a közös szálban.
+    id: req.user.id,
     name: req.user.displayName,
     username: req.user.username,
     coachesAthletes: req.user.isCoach,
@@ -885,11 +885,16 @@ function resolveCommentTarget(req, res, { type, target }) {
   return { subjectId, type, target: String(target ?? '') };
 }
 
+/** Emberi időmegjelöléssel kiegészített komment. A relativeTime az
+    értesítéseké — szándékosan ugyanaz, hogy a két felület ne csússzon szét.
+    (Függvénydeklaráció, tehát lentebb is definiálható.) */
+const commentOut = (comment) => ({ ...comment, time: relativeTime(comment.createdAt) });
+
 /** Egy cél kommentjei, időrendben. */
 app.get('/api/comments/:id', (req, res) => {
   const resolved = resolveCommentTarget(req, res, { type: req.query.type, target: req.query.target });
   if (!resolved) return;
-  res.json(getComments(resolved.subjectId, resolved.type, resolved.target));
+  res.json(getComments(resolved.subjectId, resolved.type, resolved.target).map(commentOut));
 });
 
 /** Egy típus ÖSSZES kommentje célonként csoportosítva — az edzés-oldal így
@@ -902,7 +907,9 @@ app.get('/api/comments/:id/by-target', (req, res) => {
   if (!COMMENT_TYPES.includes(type) || type === 'chat') {
     return res.status(400).json({ error: 'Ismeretlen komment-típus.' });
   }
-  res.json(getCommentsByTarget(subjectId, type));
+  const grouped = getCommentsByTarget(subjectId, type);
+  for (const key of Object.keys(grouped)) grouped[key] = grouped[key].map(commentOut);
+  res.json(grouped);
 });
 
 /** Új komment. A szerző MINDIG a bejelentkezett fiók — a törzsből nem
@@ -930,7 +937,7 @@ app.post('/api/comments/:id', (req, res) => {
     addNotification(recipient, 'comment', `${req.user.displayName} üzenetet írt`);
   }
 
-  res.status(201).json(saved);
+  res.status(201).json(commentOut(saved));
 });
 
 /** Saját komment törlése. Az adatréteg az author_id-re is szűr, tehát idegen

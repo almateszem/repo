@@ -278,9 +278,11 @@ MEGBESZÉLT DÖNTÉSEK (2026-08-30):
     sorolnak fel; a „Sorozat mérföldkő" és a „Heti riport" mögött soha
     nem állt esemény, ezért kikerültek.
 
-[ ] Értesítés a kommentekre és az edzés utáni visszajelzésre
-    A 2. blokkal együtt: új kategória (comment), és a hozzá tartozó
-    esemény-kiváltás.
+[~] Értesítés a kommentekre és az edzés utáni visszajelzésre
+    2026-09-02. A 'comment' kategória megvan: minden új komment értesítést
+    szül a MÁSIK félnél (az írónak magának nem), és a Beállításokban külön
+    némítható. Az edzés utáni visszajelzés saját eseménye akkor jön, amikor
+    maga a visszajelzés elkészül.
 
 
 --- 1. TERVEK: kiosztás és módosítás ------------------- ELKÉSZÜLT ------
@@ -339,9 +341,16 @@ MEGBESZÉLT DÖNTÉSEK (2026-08-30):
     edzés utáni visszajelzés, edzői visszajelzés) egyetlen mechanizmus:
     egy kommenttábla, ami különböző dolgokra tud hivatkozni.
 
-[ ] comments tábla: (szerző, célfiók, cél típusa, cél id, szöveg, idő)
-    Céltípusok: edzés (workout), gyakorlat egy edzésen belül, szett,
-    videó, terv. Egy tábla, egy végpontcsalád — ne épüljön négy külön.
+[x] comments tábla: (szerző, célfiók, cél típusa, cél id, szöveg, idő)
+    2026-09-02. Egy tábla (server/db.js → comments) és EGY végpontcsalád
+    (/api/comments/:subjectId). Céltípusok: 'workout', 'exercise'
+    ("workoutId:index"), 'plan', 'chat'. A szett és a videó akkor kerül be,
+    amikor lesz mire mutatniuk (a szettsornak ma nincs azonosítója, videó
+    pedig még nincs — ld. 4. blokk).
+    Hozzáférés: a subject maga és az ELFOGADOTT edzője; a kapu ugyanaz a
+    resolveClientId, amin a többi kereszt-fiók olvasás megy. A chat ezen
+    FELÜL a két résztvevőre szűkít.
+    A kommentek bekerülnek az adat-exportba is.
 
 [ ] Megjegyzés gyakorlathoz — a KLIENS oldaláról
     Edzés közben/után a kliens megjegyzést fűzhet egy gyakorlathoz
@@ -357,14 +366,17 @@ MEGBESZÉLT DÖNTÉSEK (2026-08-30):
     a workouts soron, vagy komment a workout célra? (Javaslat: mező,
     mert strukturált — így az elemzésbe is bekerülhet.)
 
-[ ] Valódi chat az edzővel
-    Ma a #coach kliens-nézet chatje szimulált, a data.js coachReplies
-    sorait pörgeti körbe, és a szál a lap újratöltésével elvész. A felület
-    ezt 2026-08-30 óta ki is írja („Az üzenetváltás egyelőre szimulált").
-    Kell: perzisztens üzenettábla két fiók között.
-    Eldöntendő: valós idejű (SSE/WS) vagy pollozó — demóhoz elég a poll.
-    MEGJEGYZÉS: a kapcsolat már megvan (coach_clients), tehát a küldés
-    jogosultsága eldönthető — ez a blokk innentől olcsóbb, mint volt.
+[x] Valódi chat az edzővel
+    2026-09-02. A szimuláció megszűnt: a data.js coachReplies/athleteReplies
+    sorai és a /api/athlete-replies + /api/coach-replies végpontok törölve, a
+    felület „egyelőre szimulált" figyelmeztetése is. Az üzenetek a comments
+    táblában élnek ('chat' céltípus), tehát túlélik az újratöltést.
+    A szálat a (kliens, edző) pár azonosítja — egy több edzővel dolgozó
+    kliens szálai nem keverednek, és az egyik edző nem olvashat bele a
+    másikéba (külön teszt őrzi).
+    Frissítés POLLOZÁSSAL (8 mp), a döntés szerint. Csak akkor kérdez, ha a
+    szál látszik. Beszélgetés-váltáskor a felület azonnal ürül, nem mutatja
+    a válaszig az előző kliens üzeneteit.
 
 
 --- 3. TÁPLÁLKOZÁSI CÉLOK -----------------------------------------------
