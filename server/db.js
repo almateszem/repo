@@ -242,6 +242,15 @@ ensureColumn('plans', 'author_id', 'author_id INTEGER');
 // „Mikor, ki módosította" — ennél részletesebb verziózást nem tartunk.
 ensureColumn('plans', 'updated_at', 'updated_at TEXT');
 ensureColumn('plans', 'updated_by', 'updated_by INTEGER');
+/* Edzés utáni visszajelzés. STRUKTURÁLT mező, nem komment (TEENDOK.txt 2.
+   blokk döntése): a nehézség és a közérzet így számmá válik, tehát később
+   elemezhető — egy szabad szöveges kommentből ez nem jönne ki.
+   Mindhárom NULL-ozható: a „nem küldött visszajelzést" és a „rosszat
+   jelzett" két külön dolog, ugyanúgy, mint a check-innél. */
+ensureColumn('workouts', 'feedback_difficulty', 'feedback_difficulty INTEGER');
+ensureColumn('workouts', 'feedback_mood', 'feedback_mood INTEGER');
+ensureColumn('workouts', 'feedback_note', 'feedback_note TEXT');
+ensureColumn('workouts', 'feedback_at', 'feedback_at TEXT');
 
 /* ---- Migráció: egyfelhasználós → többfelhasználós ----
 
@@ -942,12 +951,50 @@ export function getWorkoutDraft(userId) {
 
 /** A mentett edzések, legújabb elöl (a gyakorlatok JSON-ból visszafejtve). */
 export function getWorkouts(userId) {
-  return db.prepare('SELECT id, name, date, exercises, plan_id FROM workouts WHERE user_id = ? ORDER BY id DESC')
+  return db.prepare(`SELECT id, name, date, exercises, plan_id,
+                            feedback_difficulty, feedback_mood, feedback_note, feedback_at
+                     FROM workouts WHERE user_id = ? ORDER BY id DESC`)
     .all(userId)
-    .map((row) => ({
-      id: row.id, name: row.name, date: row.date,
-      exercises: JSON.parse(row.exercises), planId: row.plan_id,
-    }));
+    .map(toWorkout);
+}
+
+/** Egy DB-sor → a felület által várt edzés-alak. A visszajelzés csak akkor
+    kerül bele, ha tényleg érkezett — üres objektum helyett `null`, hogy a
+    „nem küldött" eset egyértelmű maradjon. */
+const toWorkout = (row) => ({
+  id: row.id,
+  name: row.name,
+  date: row.date,
+  exercises: JSON.parse(row.exercises),
+  planId: row.plan_id,
+  feedback: row.feedback_at ? {
+    difficulty: row.feedback_difficulty,
+    mood: row.feedback_mood,
+    note: row.feedback_note,
+    at: row.feedback_at,
+  } : null,
+});
+
+/** Egy edzés a saját naplóból, vagy null. A user_id feltétel nem elhagyható:
+    enélkül idegen edzés id-jével is lehetne dolgozni. */
+export function getWorkout(userId, workoutId) {
+  const row = db.prepare(`SELECT id, name, date, exercises, plan_id,
+                                 feedback_difficulty, feedback_mood, feedback_note, feedback_at
+                          FROM workouts WHERE id = ? AND user_id = ?`).get(workoutId, userId);
+  return row ? toWorkout(row) : null;
+}
+
+/** Az edzés utáni visszajelzés mentése/felülírása. CSAK a saját edzésére —
+    az UPDATE a user_id-re is szűr, tehát idegen sorra nem talál semmit.
+    Visszaadja a frissített edzést, vagy null-t, ha nem volt ilyen sor. */
+export function saveWorkoutFeedback(userId, workoutId, { difficulty, mood, note }) {
+  const changed = db.prepare(`
+    UPDATE workouts
+       SET feedback_difficulty = ?, feedback_mood = ?, feedback_note = ?,
+           feedback_at = datetime('now')
+     WHERE id = ? AND user_id = ?`)
+    .run(difficulty ?? null, mood ?? null, note ?? null, workoutId, userId).changes;
+  return changed ? getWorkout(userId, workoutId) : null;
 }
 
 /** Teljes pillanatkép a beállítások exportjához: a közös referencia-adat és a
@@ -1085,7 +1132,9 @@ export function addWorkout(userId, name, date, exercises, planId = null) {
   const { lastInsertRowid } = db
     .prepare('INSERT INTO workouts (user_id, name, date, exercises, plan_id) VALUES (?, ?, ?, ?, ?)')
     .run(userId, name, date, JSON.stringify(processedExercises), planId);
-  return { id: Number(lastInsertRowid), name, date, exercises: processedExercises, planId };
+  // A friss edzésen még nincs visszajelzés — a mező alakja mégis azonos a
+  // getWorkouts sorával, hogy a felületnek ne kelljen két esetre készülnie.
+  return { id: Number(lastInsertRowid), name, date, exercises: processedExercises, planId, feedback: null };
 }
 
 /** Edzésterv mentése. Az authorId az, AKI készítette:

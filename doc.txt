@@ -27,7 +27,7 @@ Node 22.5+ kell (a beépített node:sqlite modul miatt).
     npm install
     npm start          → http://localhost:3000
     npm run dev        → ugyanaz, fájlfigyeléssel
-    npm test           → 157 teszt (node --test, nulla függőség)
+    npm test           → 179 teszt (node --test, nulla függőség)
 
 Környezeti változók:
     PORT          alapérték 3000
@@ -222,6 +222,47 @@ EDZŐI NÉZET ("Edzetteim")
     terv-követés, sorozat, utolsó edzés. Minden szám a kliens tényleges
     naplóiból számolódik.
   · Kártyára koppintva részletmodál nyílik (ld. 4.1).
+
+
+--- 3.6b KOMMENTEK ÉS ÜZENETVÁLTÁS ---------------------------------------
+Egy tábla (comments) és egy végpontcsalád (/api/comments/:subjectId) szolgál
+ki mindenféle megjegyzést. A három azonosító-oszlop adja a logikát:
+  author_id   — ki írta,
+  subject_id  — KINEK az adatáról szól (a hozzáférés ebből dől el: a subject
+                maga és az ELFOGADOTT edzője),
+  target_type/target_id — mire mutat: 'workout' (edzés id), 'exercise'
+                ("edzésId:index"), 'plan' (terv id), 'chat' (az EDZŐ id-ja).
+
+A chat ezen FELÜL szűkít: a szálat a (kliens, edző) pár azonosítja, és CSAK
+a két résztvevő látja. Egy kliensnek több edzője lehet — a resolveClientId
+mindegyiket átengedné, ezért kell a külön szabály. Enélkül az egyik edző
+beleolvashatna a másikkal folytatott beszélgetésbe.
+
+Az üzenetváltás valódi és perzisztens (2026-09-02 óta; korábban szimulált
+volt, körbeforgó válasz-sorokkal). A felület 8 másodpercenként pollozik, de
+csak akkor, ha a szál látszik. Beszélgetés-váltáskor a lista azonnal ürül,
+nem mutatja a válaszig az előző kliens üzeneteit.
+
+Minden új komment 'comment' kategóriájú értesítést szül a MÁSIK félnél; az
+írónak magának nem. A kategória a Beállításokban külön némítható.
+
+Törölni csak a SZERZŐ tud: az adatréteg az author_id-re is szűr.
+
+
+--- 3.6c EDZÉS UTÁNI VISSZAJELZÉS ----------------------------------------
+Az „Edzés befejezése" után az összegző oldal alján a kliens visszajelzést
+küldhet az edzőnek: nehézség (1-5), közérzet (1-5) és szabad szöveg.
+
+STRUKTURÁLT mező a workouts soron, nem komment — így a két szám elemezhető
+marad. Mindhárom elhagyható, a hiányzó NULL (nem nulla), ugyanaz az elv,
+mint a check-innél. Teljesen üres visszajelzést a felület nem küld el: az
+edzőnek semmit nem mondana, viszont értesítést szülne.
+
+A blokk csak akkor látszik, ha MOST zárult le egy edzés (van mentett
+azonosító — mély-linkkel megnyitott összegzőn nincs) ÉS van edző.
+
+Írni csak a SAJÁT edzésre lehet. Az edző látja: értesítést kap, és a
+sportoló-modálban ott a legutóbbi visszajelzés.
 
 
 --- 3.7 CHECK-IN VARÁZSLÓ (#checkin) -------------------------------------

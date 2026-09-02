@@ -204,6 +204,9 @@
     // A planId azt rögzíti, melyik tervből indult az edzés (a Tervek oldali
     // haladás ebből párosít, nem névegyezésből).
     saveWorkout:       (name, exercises, planId) => postJson('/api/workouts', { name, exercises, planId }),
+    /* Edzés utáni visszajelzés az edzőnek: strukturált (nehézség, közérzet) +
+       szabad szöveg. Ugyanarra az edzésre újraküldve felülír. */
+    saveWorkoutFeedback: (workoutId, feedback) => putJson(`/api/workouts/${workoutId}/feedback`, feedback),
     // Az épp szerkesztett edzés piszkozata — betöltéskor visszaáll, minden változtatás menti
     getWorkoutDraft:   () => getJson('/api/workout-draft'),
     saveWorkoutDraft:  (name, exercises, planId) => putJson('/api/workout-draft', { name, exercises, planId }),
@@ -454,6 +457,13 @@
 
   /** A check-in varázsló frissítője — a setupCheckinWizard állítja be. */
   let refreshCheckinWizard = null;
+
+  /** Az összegző visszajelzés-blokkjának frissítője — a setupSummary állítja be. */
+  let refreshSummaryFeedback = null;
+
+  /** Van-e elfogadott edződ. Az edzés utáni visszajelzés blokkja ebből dől el:
+      edző nélkül nincs kinek küldeni. A renderUserName tölti fel. */
+  let hasCoachLink = false;
 
   /** A mentett check-in kirajzolása a Regeneráció oldalra — a setupRecovery
       állítja be. A hosszú űrlap ÉS a varázsló is ezt hívja mentés után, így
@@ -1041,6 +1051,7 @@
     if (!el) return;
     const user = await api.getUser();
     myUserId = user.id ?? null;
+    hasCoachLink = Boolean(user.hasCoach);
     el.textContent = prefs.get('displayName', user.name);
   }
 
@@ -1782,6 +1793,10 @@
 
     animateNumber($('[data-su-sets-done]'), summary.done, { from: 0, duration: 700 });
     animateNumber($('[data-su-duration]'), summary.minutes, { from: 0, duration: 800 });
+
+    // A visszajelzés-blokk minden megnyitáskor újraszinkronizál (más edzés,
+    // vagy már elküldött visszajelzés).
+    refreshSummaryFeedback?.();
   }
 
   /* ---- Regeneráció (Recovery Engine) ---- */
@@ -4304,7 +4319,9 @@
         currentPlanId = null;
         prefs.set(WORKOUT_START_KEY, null); // az edzés-óra a következő első pipával indul
         syncEmpty();
-        setLastSummary(summary);
+        /* A mentett edzés AZONOSÍTÓJA is bekerül: az összegző visszajelzés-
+           blokkja erre az edzésre küld. Enélkül nem tudná, mire hivatkozzon. */
+        setLastSummary({ ...summary, workoutId: saved.id, feedbackSent: false });
 
         // A naplózott edzés azonnal megjelenik a „Korábbi edzések" tetején,
         // a PR-lista, a heti volumen és az áttekintő számai is frissülnek
@@ -4766,8 +4783,88 @@
 
   /** Összegző oldal: a fő gomb zárja a kört az áttekintés felé
       (a „Vissza az edzéshez" link sima #workout hash-hivatkozás). */
+  /** Az edzés utáni visszajelzés két skálája: [mező, címke, [1-es, 5-ös vég]].
+      A buildScale ugyanaz a chip-primitív, amit a check-in használ — így a
+      két felület egyformán viselkedik (a `null` itt is „nem adta meg"). */
+  const FEEDBACK_SCALES = [
+    ['difficulty', 'Mennyire volt nehéz?', ['könnyű', 'nagyon nehéz']],
+    ['mood', 'Hogy érezted magad?', ['rosszul', 'remekül']],
+  ];
+
   function setupSummary() {
     $('[data-action="summary-dashboard"]').addEventListener('click', () => navigate('dashboard'));
+
+    const section = $('[data-su-feedback]');
+    const form = $('[data-form="workout-feedback"]', section);
+    const scalesWrap = $('[data-su-feedback-scales]', section);
+    const noteInput = $('#su-feedback-note');
+    const doneEl = $('[data-su-feedback-done]', section);
+    const leadEl = $('[data-su-feedback-lead]', section);
+    const submit = $('.su-feedback-send', section);
+
+    FEEDBACK_SCALES.forEach(([name, label, [low, high]]) => {
+      scalesWrap.appendChild(buildScale({ name, label, min: 1, max: 5, hint: `1 = ${low} · 5 = ${high}` }));
+    });
+
+    // A buildScale a `data-field` attribútumba teszi a mező nevét.
+    const scaleFor = (name) => $(`[data-field="${name}"]`, scalesWrap);
+
+    /** A blokk állapotának beállítása a friss összegzésből. A `refreshSummaryFeedback`
+        néven kívülről is hívható — a renderSummary minden megnyitáskor hívja. */
+    refreshSummaryFeedback = () => {
+      /* Két feltétel kell: (1) MOST zárult le egy edzés, tehát van azonosító
+         (mély-linkkel megnyitott összegzőn nincs), és (2) van edző, akinek a
+         visszajelzés szólna. */
+      const workoutId = lastSummary?.workoutId ?? null;
+      const visible = Boolean(workoutId) && hasCoachLink;
+      section.hidden = !visible;
+      if (!visible) return;
+
+      // Új edzés → tiszta lap. A már elküldött visszajelzést nem írjuk felül.
+      const alreadySent = lastSummary.feedbackSent === true;
+      form.hidden = alreadySent;
+      doneEl.hidden = !alreadySent;
+      leadEl.hidden = alreadySent;
+      if (alreadySent) return;
+
+      FEEDBACK_SCALES.forEach(([name]) => writeScale(scaleFor(name), null));
+      noteInput.value = '';
+    };
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const workoutId = lastSummary?.workoutId;
+      if (!workoutId) return;
+
+      const body = {
+        difficulty: readScale(scaleFor('difficulty')),
+        mood: readScale(scaleFor('mood')),
+        note: noteInput.value.trim(),
+      };
+      /* Üres visszajelzést nem küldünk el: az edzőnek egy csupa-null sor
+         semmit nem mond, viszont értesítést szülne. */
+      if (body.difficulty === null && body.mood === null && !body.note) {
+        showToast('Adj meg legalább egy értéket vagy írj pár szót', 'error');
+        return;
+      }
+
+      submit.disabled = true;
+      try {
+        await api.saveWorkoutFeedback(workoutId, body);
+        lastSummary.feedbackSent = true;
+        refreshSummaryFeedback();
+        showToast('Visszajelzés elküldve');
+      } catch (err) {
+        if (err.code !== SESSION_LOST) {
+          console.error(err);
+          showToast(err.message || 'A visszajelzést nem sikerült elküldeni', 'error');
+        }
+      } finally {
+        submit.disabled = false;
+      }
+    });
+
+    refreshSummaryFeedback();
   }
 
   /** Heti volumen-összehasonlítás: a váltógomb újrarendereli a chartot
@@ -5151,6 +5248,9 @@
     const tierEl = $('.co-modal-tier', modal);
     const alertEl = $('[data-modal-alert]', modal);
     const statsEl = $('[data-modal-stats]', modal);
+    const feedbackEl = $('[data-modal-feedback]', modal);
+    const feedbackMetaEl = $('[data-feedback-meta]', modal);
+    const feedbackNoteEl = $('[data-feedback-note]', modal);
     const activityEl = $('[data-modal-activity]', modal);
     const msgButton = $('[data-action="message"]', modal);
     const msgSection = $('[data-msg-section]', modal);
@@ -5250,10 +5350,6 @@
     return {
       open(athlete) {
         current = athlete;
-        /* Az üzenetváltás előzménye a session alatt megmarad (memóriában).
-           Üresen indul: valódi kliensnél nincs mit betölteni, a perzisztens
-           üzenetküldés a következő lépés. */
-        if (!athlete.thread) athlete.thread = [];
 
         const rating = athleteRating(athlete);
         const tier = athleteTier(rating);
@@ -5277,6 +5373,20 @@
           stat.append(dt, dd);
           statsEl.appendChild(stat);
         });
+
+        /* A legutóbbi edzés utáni visszajelzés. A számok mellett ez az
+           egyetlen olyan sor, ami a kliens SAJÁT megélését hozza — ezért van
+           külön blokkban, nem a statok között. */
+        const feedback = athlete.lastFeedback;
+        feedbackEl.hidden = !feedback;
+        if (feedback) {
+          const parts = [`„${feedback.workout}" · ${feedback.date}`];
+          if (feedback.difficulty !== null) parts.push(`nehézség ${feedback.difficulty}/5`);
+          if (feedback.mood !== null) parts.push(`közérzet ${feedback.mood}/5`);
+          feedbackMetaEl.textContent = parts.join(' · ');
+          feedbackNoteEl.hidden = !feedback.note;
+          feedbackNoteEl.textContent = feedback.note ?? '';
+        }
 
         activityEl.replaceChildren();
         athlete.recent.forEach((entry, index) => {

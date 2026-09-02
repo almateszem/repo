@@ -27,6 +27,7 @@ import {
   getPlanById, updateAssignedPlan,
   addNotification, getNotifications, markNotificationsRead,
   getComments, getCommentsByTarget, addComment, deleteComment,
+  saveWorkoutFeedback,
 } from './db.js';
 import {
   hashPassword, verifyPassword, createSessionToken, hashToken,
@@ -438,6 +439,16 @@ function clientCard(link, todayDate) {
     plan: activePlan ? activePlan.name : null,
     alert: clientAlert({ workouts, checkins, overall: readiness.overall, lastWorkoutDate, todayDate }),
     recent: recentActivity(userId, workouts, todayDate),
+    /* A LEGUTÓBBI edzés utáni visszajelzés. Enélkül az edző csak a számokat
+       látná: hogy a kliens hogyan ÉLTE MEG az edzést, csak tőle tudható meg.
+       A getWorkouts id szerint csökkenő sorrendű, tehát az első találat a
+       legfrissebb. */
+    lastFeedback: (() => {
+      const workout = workouts.find((w) => w.feedback);
+      return workout
+        ? { ...workout.feedback, workout: workout.name, date: workout.date }
+        : null;
+    })(),
   };
 }
 
@@ -1581,6 +1592,46 @@ app.post('/api/workouts', (req, res) => {
     return res.status(400).json({ error: 'Az edzésnek legalább egy érvényes gyakorlatot kell tartalmaznia.' });
   }
   res.status(201).json(addWorkout(req.user.id, name, req.today, exercises, parsePlanId(req.body?.planId)));
+});
+
+/* ---- Edzés utáni visszajelzés ----
+   STRUKTURÁLT mező, nem komment (TEENDOK.txt 2. blokk döntése): a nehézség és
+   a közérzet számként tárolódik, tehát később elemezhető. A szabad szöveg
+   mellette fut. Mindhárom elhagyható — a „nem küldött" és a „rosszat jelzett"
+   két külön dolog. */
+const FEEDBACK_NOTE_MAX = 500;
+
+/** Edzés utáni visszajelzés küldése a SAJÁT edzésre. Az adatréteg a user_id-re
+    is szűr, tehát idegen edzés id-jére nem talál sort → 404. */
+app.put('/api/workouts/:id/feedback', (req, res) => {
+  const workoutId = Number(req.params.id);
+  if (!Number.isInteger(workoutId) || workoutId <= 0) {
+    return res.status(400).json({ error: 'Érvénytelen azonosító.' });
+  }
+
+  const fields = {};
+  for (const [key, label] of [['difficulty', 'nehézség'], ['mood', 'közérzet']]) {
+    const parsed = readOptionalNumber(req.body?.[key], { min: 1, max: 5, integer: true });
+    if (parsed.error) return res.status(400).json({ error: `${label}: ${parsed.error}` });
+    fields[key] = parsed.value;
+  }
+  const note = String(req.body?.note ?? '').trim();
+  if (note.length > FEEDBACK_NOTE_MAX) {
+    return res.status(400).json({ error: `A megjegyzés legfeljebb ${FEEDBACK_NOTE_MAX} karakter.` });
+  }
+  fields.note = note || null;
+
+  const updated = saveWorkoutFeedback(req.user.id, workoutId, fields);
+  if (!updated) return res.status(404).json({ error: 'Nincs ilyen edzésed.' });
+
+  /* Az edzők értesítést kapnak — ez az a jelzés, amiből megtudják, hogy a
+     kliens aznap hogyan élte meg az edzést. Csak elfogadott kapcsolatra. */
+  for (const link of listCoachesOfClient(req.user.id)) {
+    addNotification(link.coach.id, 'comment',
+      `${req.user.displayName} visszajelzést küldött a(z) „${updated.name}" edzésről`);
+  }
+
+  res.json(updated);
 });
 
 /** Piszkozat automatikus mentése minden változtatáskor. Törzs: { name, exercises }.
