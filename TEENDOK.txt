@@ -402,21 +402,38 @@ MEGBESZÉLT DÖNTÉSEK (2026-08-30):
 
 --- 3. TÁPLÁLKOZÁSI CÉLOK -----------------------------------------------
 
-[ ] Saját táplálkozási cél beállítása
-    Ma a napi cél FIX: data.js → nutritionGoal { calories: 2900,
-    protein: 170 } — minden fióknak ugyanaz, és sehol nem szerkeszthető.
-    Kell: fiókonkénti cél (kalória, fehérje; eldöntendő: szénhidrát/zsír
-    is?), a Táplálkozás oldalon szerkeszthetően.
+[x] Saját táplálkozási cél beállítása
+    2026-09-02. Fiókonkénti cél a nutrition_goals táblában, a Táplálkozás
+    oldal „Napi cél" blokkjában szerkeszthetően. A data.js értéke innentől
+    csak ALAPÉRTÉK: akkor szól, ha se saját, se edzői cél nincs.
+    ELDÖNTVE — szénhidrát/zsír NEM: a felület (a napi összesítő, az
+    étel-modál sávjai és az áttekintő) kalóriát és fehérjét mér célhoz.
+    Olyan célt nem veszünk fel, amit semmi nem jelenít meg; ha egyszer lesz
+    makró-bontás a felületen, a tábla két oszloppal bővíthető.
 
-[ ] Edző által meghatározott cél kezelése
-    Az edző kitűzhet célt a kliensnek. Eldöntendő és FONTOS: mi történik,
-    ha a kliens is át akarja írni? Javaslat: az edzői cél a „kitűzött”,
-    a kliensé felülírhatja, de látszik, hogy eltért az edzőitől — a néma
-    felülírás mindkét irányban rossz.
+[x] Edző által meghatározott cél kezelése
+    2026-09-02. A javaslat szerint. Fiókonként KÉT sor létezhet ('coach' és
+    'own'), és mindkettő megmarad:
+      · az érvényes cél a saját, ha van; különben az edzőé; különben az
+        alapérték,
+      · az edzői kitűzés NEM törli a kliens sorát (nem írja felül némán),
+      · a kliens saját célja nem tünteti el az edzőét — ezért tudjuk kiírni,
+        hogy eltért tőle, és ezért lehet egy kattintással visszaállni rá.
+    Az AZONOS érték nem számít eltérésnek — arról hallgatunk.
+    Végpontok: GET/PUT/DELETE /api/nutrition/goal (saját),
+    PUT /api/coach/clients/:id/nutrition-goal (edzői).
+    A kitűzés 'goal' kategóriájú értesítést szül a kliensnél (a cél nem
+    terv, tehát külön némítható).
 
-[ ] Az edzői cél megjelenítése a kliensnél
-    A Táplálkozás oldalon látszódjon, hogy a cél az edzőtől jön, és
-    mikortól érvényes.
+[x] Az edzői cél megjelenítése a kliensnél
+    2026-09-02. A „Napi cél" blokk mindig kiírja, HONNAN jön a szám: „A saját
+    célod." / „Kovács Bence tűzte ki." / „Alapértelmezett cél". Eltérésnél
+    külön sor mondja meg az edzői értéket és a „Visszaállok rá" gombot.
+    A korábbi, beégetett „Edző célja: napi 2900 kcal … a tömegnövelő
+    fázisban" mondat kikerült — az valótlan volt, mert semmilyen edzőtől nem
+    származott.
+    Az edző a sportoló-modálban ugyanezt a három esetet látja a saját
+    szemszögéből, és onnan tűzhet ki célt.
 
 
 --- 4. VIDEÓ: technikaellenőrzés ----------------------------------------

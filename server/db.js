@@ -128,6 +128,29 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_comments_target
     ON comments(subject_id, target_type, target_id, id);
 
+  -- Napi táplálkozási cél, FELHASZNÁLÓNKÉNT. Korábban egyetlen fix érték volt
+  -- a seed adatban, minden fióknak ugyanaz.
+  --
+  -- Fiókonként KÉT sor lehet, és ez a lényeg:
+  --   'coach' — amit az edző tűzött ki,
+  --   'own'   — amit a felhasználó maga állított be.
+  -- Az érvényes cél az 'own', ha van; különben a 'coach'; különben a seed
+  -- alapérték. A két sor EGYÜTT él tovább: így látszik, hogy a felhasználó
+  -- eltért az edzői céltól — a néma felülírás mindkét irányban rossz volna.
+  --
+  -- Csak kalória és fehérje: a felület (a napi összesítő, az étel-modál
+  -- sávjai és az áttekintő) ezt a kettőt méri célhoz. Szénhidrát/zsír célt
+  -- nem veszünk fel, amíg nincs, ami megjelenítse.
+  CREATE TABLE IF NOT EXISTS nutrition_goals (
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    source     TEXT NOT NULL,        -- 'own' | 'coach'
+    calories   REAL NOT NULL,
+    protein    REAL NOT NULL,
+    set_by     INTEGER REFERENCES users(id) ON DELETE SET NULL,  -- ki állította be
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, source)
+  );
+
   CREATE TABLE IF NOT EXISTS weight_log (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -672,9 +695,76 @@ export function getNutritionLogForDate(userId, date) {
                      FROM nutrition_log WHERE user_id = ? AND date = ? ORDER BY id`).all(userId, date);
 }
 
+/* ---- Napi táplálkozási cél ----
+   Az érvényes cél: 'own' → 'coach' → seed alapérték. A két sor egymás mellett
+   marad, hogy az eltérés LÁTSZÓDJON. */
+
+/** Egy cél-sor a felület alakjában (a szerző nevével együtt). */
+const toGoalRow = (row) => (row ? {
+  calories: row.calories,
+  protein: row.protein,
+  setBy: row.set_by_name ?? null,
+  setAt: row.updated_at,
+} : null);
+
+const GOAL_SELECT = `
+  SELECT g.calories, g.protein, g.updated_at, u.display_name AS set_by_name
+  FROM nutrition_goals g LEFT JOIN users u ON u.id = g.set_by`;
+
+/** Egy fiók cél-sora forrás szerint ('own' vagy 'coach'), vagy null. */
+export function getNutritionGoalRow(userId, source) {
+  return toGoalRow(db.prepare(`${GOAL_SELECT} WHERE g.user_id = ? AND g.source = ?`)
+    .get(userId, source));
+}
+
+/** A felhasználóra ÉRVÉNYES cél, a származásával együtt. A felület ebből
+    tudja kiírni, honnan jön a szám, és hogy eltért-e az edzőitől. */
+export function getNutritionGoal(userId) {
+  const own = getNutritionGoalRow(userId, 'own');
+  const coach = getNutritionGoalRow(userId, 'coach');
+  const fallback = getCollection('nutritionGoal') || { calories: 0, protein: 0 };
+
+  const active = own ?? coach ?? { ...fallback, setBy: null, setAt: null };
+  const source = own ? 'own' : (coach ? 'coach' : 'default');
+
+  return {
+    calories: active.calories,
+    protein: active.protein,
+    source,
+    setBy: active.setBy,
+    setAt: active.setAt,
+    coach,
+    /* Eltérés CSAK akkor, ha mindkettő létezik és tényleg más. Enélkül a
+       felület akkor is „eltértél"-t írna, ha a saját célod történetesen
+       megegyezik az edzőével. */
+    differs: Boolean(own && coach
+      && (own.calories !== coach.calories || own.protein !== coach.protein)),
+  };
+}
+
+/** Cél mentése/felülírása egy forrásra. A `setBy` az, AKI beállította — az
+    edzői sornál az edző, a sajátnál a felhasználó maga. */
+export function saveNutritionGoal(userId, source, { calories, protein }, setBy) {
+  db.prepare(`
+    INSERT INTO nutrition_goals (user_id, source, calories, protein, set_by, updated_at)
+    VALUES (?, ?, ?, ?, ?, datetime('now'))
+    ON CONFLICT(user_id, source) DO UPDATE SET
+      calories = excluded.calories, protein = excluded.protein,
+      set_by = excluded.set_by, updated_at = excluded.updated_at
+  `).run(userId, source, calories, protein, setBy);
+  return getNutritionGoal(userId);
+}
+
+/** A SAJÁT cél törlése — ezzel a felhasználó visszaáll az edzői célra (vagy
+    az alapértékre). Az edzői sort ez nem bántja. */
+export function clearOwnNutritionGoal(userId) {
+  db.prepare("DELETE FROM nutrition_goals WHERE user_id = ? AND source = 'own'").run(userId);
+  return getNutritionGoal(userId);
+}
+
 /** A napi táplálkozási összesítő egy adott napra: az AZNAP naplózott ételek
-    összege, valamint az edző által kitűzött napi cél (a felület a célhoz
-    méri a bevitelt). */
+    összege, valamint az érvényes napi cél (a felület a célhoz méri a
+    bevitelt). */
 export function getNutritionTotals(userId, date) {
   const sum = db.prepare(`
     SELECT COALESCE(SUM(kcal), 0)    AS intake,
@@ -684,7 +774,7 @@ export function getNutritionTotals(userId, date) {
     FROM nutrition_log
     WHERE user_id = ? AND date = ?
   `).get(userId, date);
-  return { ...sum, goal: getCollection('nutritionGoal') || { calories: 0, protein: 0 } };
+  return { ...sum, goal: getNutritionGoal(userId) };
 }
 
 /** Egy DB-sor → a Recovery Engine által várt check-in alak (JSON-mezők

@@ -28,6 +28,7 @@ import {
   addNotification, getNotifications, markNotificationsRead,
   getComments, getCommentsByTarget, addComment, deleteComment,
   saveWorkoutFeedback,
+  getNutritionGoal, saveNutritionGoal, clearOwnNutritionGoal,
 } from './db.js';
 import {
   hashPassword, verifyPassword, createSessionToken, hashToken,
@@ -480,6 +481,9 @@ function clientCard(link, todayDate) {
        edzésnaplója csak a szerveren van meg — az edző a nyers célazonosítóból
        semmit nem tudna kezdeni. */
     exerciseNotes: exerciseNotes(userId, workouts).map(commentOut),
+    /* A kliens napi célja a származásával együtt: az edző így látja, hogy
+       a kitűzött célja érvényben van-e, vagy a kliens mást állított be. */
+    nutritionGoal: getNutritionGoal(userId),
   };
 }
 
@@ -1432,6 +1436,69 @@ app.get('/api/weight-log', (req, res) => res.json(getWeightLog(req.user.id)));
 
 // Napi táplálkozási összesítő (alap + a MAI naplózott ételek)
 app.get('/api/nutrition', (req, res) => res.json(getNutritionTotals(req.user.id, req.today)));
+
+/* ---- Napi táplálkozási cél ----
+   Korábban EGY fix érték szolgálta ki az összes fiókot (data.js →
+   nutritionGoal), és sehol nem lehetett szerkeszteni.
+
+   Két forrás van, és mindkettő megmarad: amit az EDZŐ tűzött ki, és amit a
+   felhasználó MAGA állított be. Az érvényes cél a sajátja, ha van; különben
+   az edzőé. A kettő együtt él tovább, hogy az eltérés látsszon — a néma
+   felülírás mindkét irányban rossz volna. */
+const GOAL_RANGES = {
+  calories: { min: 500, max: 10000, label: 'napi kalória' },
+  protein: { min: 0, max: 500, label: 'napi fehérje' },
+};
+
+/** A cél törzsének beolvasása. Mindkét mező KÖTELEZŐ: egy fél célhoz nem
+    lehet mérni a bevitelt. Hibánál { error }-t ad. */
+function parseGoalBody(body) {
+  const goal = {};
+  for (const [key, { min, max, label }] of Object.entries(GOAL_RANGES)) {
+    const raw = body?.[key];
+    if (raw === null || raw === undefined || raw === '') {
+      return { error: `A(z) ${label} megadása kötelező.` };
+    }
+    const parsed = readOptionalNumber(raw, { min, max });
+    if (parsed.error) return { error: `${label}: ${parsed.error}` };
+    goal[key] = Math.round(parsed.value);
+  }
+  return { goal };
+}
+
+/** A rám érvényes cél, a származásával együtt. */
+app.get('/api/nutrition/goal', (req, res) => res.json(getNutritionGoal(req.user.id)));
+
+/** A SAJÁT cél beállítása. Ez felülírja az edzőit — de nem törli: az edzői
+    sor megmarad, és a felület kiírja, hogy eltértél tőle. */
+app.put('/api/nutrition/goal', (req, res) => {
+  const { goal, error } = parseGoalBody(req.body);
+  if (error) return res.status(400).json({ error });
+  res.json(saveNutritionGoal(req.user.id, 'own', goal, req.user.id));
+});
+
+/** A saját cél elvetése — ezzel visszaállsz az edzői célra (vagy az
+    alapértékre). Az edzői sort nem érinti. */
+app.delete('/api/nutrition/goal', (req, res) => res.json(clearOwnNutritionGoal(req.user.id)));
+
+/** Az EDZŐ tűz ki célt a kliensnek. A kliens saját célját szándékosan NEM
+    töröljük: ha ő korábban beállított egyet, az marad érvényben, és a felület
+    jelzi neki, hogy az edző mást szeretne. Az edző nem írja felül némán. */
+app.put('/api/coach/clients/:id/nutrition-goal', (req, res) => {
+  const clientId = resolveClientId(req, res);
+  if (clientId === null) return;
+  if (clientId === req.user.id) {
+    return res.status(400).json({ error: 'A saját célodat a Táplálkozás oldalon állítsd be.' });
+  }
+
+  const { goal, error } = parseGoalBody(req.body);
+  if (error) return res.status(400).json({ error });
+
+  const saved = saveNutritionGoal(clientId, 'coach', goal, req.user.id);
+  addNotification(clientId, 'goal',
+    `${req.user.displayName} napi célt tűzött ki: ${goal.calories} kcal, ${goal.protein} g fehérje`);
+  res.json(saved);
+});
 
 // A MAI naplózott ételek tételesen — a Táplálkozás oldal „Mai napló" listájához
 app.get('/api/nutrition/log', (req, res) => res.json(getNutritionLogForDate(req.user.id, req.today)));
