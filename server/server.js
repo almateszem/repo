@@ -26,6 +26,7 @@ import {
   listClientsOfCoach, listCoachesOfClient,
   getPlanById, updateAssignedPlan,
   addNotification, getNotifications, markNotificationsRead,
+  getComments, getCommentsByTarget, addComment, deleteComment,
 } from './db.js';
 import {
   hashPassword, verifyPassword, createSessionToken, hashToken,
@@ -840,6 +841,111 @@ app.get('/api/readiness/advice', (req, res) => res.json(sessionAdvice(req.user.i
 app.post('/api/readiness/advice/apply', (req, res) => {
   const result = applySessionAdvice(req.user.id, req.today);
   res.json({ ...result, template: workoutTemplate(req.user.id, req.today) });
+});
+
+/* ======================================================================
+   Kommentek — megjegyzések és az edző–kliens üzenetváltás
+   ----------------------------------------------------------------------
+   EGY végpontcsalád mindenre (TEENDOK.txt 2. blokk): a `subject` az a fiók,
+   AKINEK az adatáról szó van, és a hozzáférés is ebből dől el — a
+   resolveClientId ugyanaz a kapu, amin a többi kereszt-fiók olvasás megy.
+
+   A 'chat' külön szabályt kap: ott a target a MÁSIK fél (az edző) id-ja, és
+   a szálat CSAK a két résztvevő látja. Enélkül a kliens egyik edzője
+   beleolvashatna a másik edzőjével folytatott beszélgetésbe.
+   ====================================================================== */
+
+/** A megengedett céltípusok. Ismeretlen típust nem írunk le: a tábla
+    különben lassan szemétgyűjtővé válna. */
+const COMMENT_TYPES = ['chat', 'workout', 'exercise', 'plan'];
+const COMMENT_MAX_LENGTH = 1000;
+
+/** A chat-szál két résztvevője: a kliens (subject) és EGY edzője (target).
+    Igaz, ha a hívó az egyik fél, és a kapcsolat tényleg él. */
+function canUseChatThread(userId, subjectId, coachId) {
+  if (!Number.isInteger(coachId) || coachId <= 0) return false;
+  if (userId !== subjectId && userId !== coachId) return false;
+  return isCoachOf(coachId, subjectId);
+}
+
+/** A kért komment-cél feloldása. A választ hiba esetén MÁR KIÍRTA. */
+function resolveCommentTarget(req, res, { type, target }) {
+  const subjectId = resolveClientId(req, res);
+  if (subjectId === null) return null;
+
+  if (!COMMENT_TYPES.includes(type)) {
+    res.status(400).json({ error: 'Ismeretlen komment-típus.' });
+    return null;
+  }
+  if (type === 'chat' && !canUseChatThread(req.user.id, subjectId, Number(target))) {
+    // 404, nem 403 — a 403 elárulná, hogy a szál létezik.
+    res.status(404).json({ error: 'Nincs ilyen beszélgetésed.' });
+    return null;
+  }
+  return { subjectId, type, target: String(target ?? '') };
+}
+
+/** Egy cél kommentjei, időrendben. */
+app.get('/api/comments/:id', (req, res) => {
+  const resolved = resolveCommentTarget(req, res, { type: req.query.type, target: req.query.target });
+  if (!resolved) return;
+  res.json(getComments(resolved.subjectId, resolved.type, resolved.target));
+});
+
+/** Egy típus ÖSSZES kommentje célonként csoportosítva — az edzés-oldal így
+    egy kérésből tudja, melyik gyakorlathoz tartozik megjegyzés. A 'chat' itt
+    nem értelmes (szálanként külön jogosultság kell), ezért nem engedjük. */
+app.get('/api/comments/:id/by-target', (req, res) => {
+  const subjectId = resolveClientId(req, res);
+  if (subjectId === null) return;
+  const type = String(req.query.type ?? '');
+  if (!COMMENT_TYPES.includes(type) || type === 'chat') {
+    return res.status(400).json({ error: 'Ismeretlen komment-típus.' });
+  }
+  res.json(getCommentsByTarget(subjectId, type));
+});
+
+/** Új komment. A szerző MINDIG a bejelentkezett fiók — a törzsből nem
+    vesszük át, különben más nevében lehetne írni. */
+app.post('/api/comments/:id', (req, res) => {
+  const resolved = resolveCommentTarget(req, res, {
+    type: req.body?.targetType, target: req.body?.targetId,
+  });
+  if (!resolved) return;
+
+  const text = String(req.body?.text ?? '').trim();
+  if (!text) return res.status(400).json({ error: 'Üres üzenetet nem küldünk el.' });
+  if (text.length > COMMENT_MAX_LENGTH) {
+    return res.status(400).json({ error: `Legfeljebb ${COMMENT_MAX_LENGTH} karakter.` });
+  }
+
+  const saved = addComment(req.user.id, resolved.subjectId, resolved.type, resolved.target, text);
+
+  /* Értesítés a MÁSIK félnek. Chatnél a szál másik résztvevője, egyébként a
+     subject — kivéve, ha ő maga írta (magának nem küldünk értesítést). */
+  const recipient = resolved.type === 'chat'
+    ? (req.user.id === resolved.subjectId ? Number(resolved.target) : resolved.subjectId)
+    : resolved.subjectId;
+  if (recipient !== req.user.id) {
+    addNotification(recipient, 'comment', `${req.user.displayName} üzenetet írt`);
+  }
+
+  res.status(201).json(saved);
+});
+
+/** Saját komment törlése. Az adatréteg az author_id-re is szűr, tehát idegen
+    sorra nem talál semmit — a válasz ilyenkor 404. */
+app.delete('/api/comments/:id/:commentId', (req, res) => {
+  const subjectId = resolveClientId(req, res);
+  if (subjectId === null) return;
+  const commentId = Number(req.params.commentId);
+  if (!Number.isInteger(commentId) || commentId <= 0) {
+    return res.status(400).json({ error: 'Érvénytelen azonosító.' });
+  }
+  if (!deleteComment(commentId, req.user.id)) {
+    return res.status(404).json({ error: 'Nincs ilyen kommented.' });
+  }
+  res.status(204).end();
 });
 
 /* ======================================================================
