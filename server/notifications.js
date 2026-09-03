@@ -50,10 +50,11 @@ function preview(text) {
  * @param {object[]} input.planOffers     { id, plan, coach, at } — nekem felajánlott terv
  * @param {object[]} input.answeredPlans  { id, plan, athlete, accepted, at } — az én tervem, megválaszolva
  * @param {object[]} input.recentPrs      { exercise, max1rm, at }
+ * @param {object[]} input.athleteFeedback { id, workout, athlete, difficulty, at }
  */
 export function buildNotifications({
   unreadThreads = [], incomingInvites = [], acceptedLinks = [],
-  planOffers = [], answeredPlans = [], recentPrs = [],
+  planOffers = [], answeredPlans = [], recentPrs = [], athleteFeedback = [],
 } = {}) {
   const items = [];
 
@@ -116,6 +117,20 @@ export function buildNotifications({
       // amit ténylegesen megemelt, és ezt nem mossuk el.
       text: `Új egyéni csúcs: ${pr.exercise} — ${Math.round(pr.max1rm)} kg (becsült 1RM)`,
       at: pr.at,
+    });
+  }
+
+  /* Az edző oldala: a sportoló elmondta, hogyan élte meg az edzést. Valódi
+     esemény, valódi időbélyeggel (feedback_at) — ezért kerülhet a panelre. */
+  for (const feedback of athleteFeedback) {
+    const nehezseg = feedback.difficulty === null || feedback.difficulty === undefined
+      ? ''
+      : ` (nehézség ${feedback.difficulty}/5)`;
+    items.push({
+      id: `feedback:${feedback.id}`,
+      cat: 'feedback',
+      text: `${feedback.athlete} visszajelzést küldött: „${feedback.workout}"${nehezseg}`,
+      at: feedback.at,
     });
   }
 

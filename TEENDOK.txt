@@ -630,3 +630,31 @@ kettő is. Mindkettő javítva, tesztekkel rögzítve.
     oldalunkról maradt — minden más közös részen a main verziója nyert.
     A szerver oldali párja (nonNegativeField a normalizeExercises-ben)
     is visszakerült.
+
+
+==========================================================================
+VISSZAÜLTETETT FUNKCIÓK — a 2026-09-02-i összefésülés után
+==========================================================================
+Ezek a Viktor/funkciok ágon készültek, a main-en nem voltak benne. Az
+összefésüléskor a KÖZÖS rétegen a main verziója nyert, ezek pedig a main
+sémáira átkötve kerültek vissza.
+
+[x] Regisztráció utáni kötelező első check-in
+    A friss fiók a check-in varázslóra érkezik, és amíg ki nem tölti, az app
+    többi oldala zárva. A jelzőt a szerver adja (`onboarding`): igaz, amíg a
+    fióknak SOHA nem volt check-inje — így az oldal-újratöltést is túléli.
+
+[x] Készenlét-javaslat
+    Passzív jelzés a terv-kártyán (mi kockázatos ma és miért) + javaslat-ablak
+    a check-in mentése után. Az elfogadás a MAI NAPLÓT írja át, a tervet soha,
+    és a szerver újraszámol — a kliens listája nem bemenet.
+
+[x] Fiókonkénti táplálkozási cél (ld. fentebb is)
+
+[x] Edzés utáni visszajelzés
+    Strukturált mező a workouts soron (nehézség / közérzet 1-5 + szabad
+    szöveg), nem üzenet: így a két szám elemezhető marad. Az összegző oldal
+    alján, közvetlenül a lezárás után. Írni csak a SAJÁT edzésre lehet.
+    Az edző két helyen látja: a sportoló-modálban, és a származtatott
+    értesítés-panelen új 'feedback' forrásként (valódi időbélyeggel — ezért
+    kerülhet oda).
