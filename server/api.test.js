@@ -494,6 +494,50 @@ test('a check-in csak ismert izomkulcsot és érvényes értéket vesz át', asy
   assert.deepEqual(res.json.checkin.pain, { general: 4 });
 });
 
+/* ---- Onboarding: a friss fiókot a felület a check-in varázslóra tereli ----
+   A jelző azért „soha nem volt check-inje" és nem „most regisztrált", mert
+   túl kell élnie az oldal-újratöltést: a /me-nek is ugyanazt kell mondania,
+   amit a regisztráció válasza mondott. */
+
+let onbCookie = '';
+
+test('a friss fiók onboarding jelzővel jön vissza — regisztrációkor és a /me-n is', async () => {
+  const reg = await request('POST', '/api/auth/register', {
+    body: { username: 'onboard', displayName: 'Onboard Ottó', password: 'jelszo789' },
+  });
+  assert.equal(reg.status, 201);
+  assert.equal(reg.json.onboarding, true, 'új fiók: még egyetlen check-in sincs');
+
+  onbCookie = cookieFrom(reg);
+  const me = await request('GET', '/api/auth/me', { cookie: onbCookie });
+  assert.equal(me.json.onboarding, true, 'újratöltés után is a varázsló jön');
+});
+
+test('az első check-in lekapcsolja az onboarding jelzőt, és készenlétet ad', async () => {
+  /* Ez a funkció lényege: a friss fiók készenléte NULL, amíg nincs adat —
+     a varázsló négy kötelező mezője után viszont már valódi pontszám van. */
+  const elotte = await request('GET', '/api/readiness', { cookie: onbCookie });
+  assert.equal(elotte.json.overall, null, 'adat nélkül nincs pontszám (nem 0 és nem 100)');
+
+  const mentes = await request('PUT', '/api/checkin', {
+    cookie: onbCookie,
+    body: { sleepHours: 7, sleepQuality: 4, energy: 4, stress: 2 },
+  });
+  assert.equal(mentes.status, 200);
+  assert.notEqual(mentes.json.readiness.overall, null, 'a varázsló mezőiből már számol a motor');
+
+  const me = await request('GET', '/api/auth/me', { cookie: onbCookie });
+  assert.equal(me.json.onboarding, false, 'az app kinyílik — nincs több terelés');
+});
+
+test('a belépés is hozza az onboarding jelzőt, a már check-inelt fióknál hamisat', async () => {
+  const res = await request('POST', '/api/auth/login', {
+    body: { username: 'onboard', password: 'jelszo789' },
+  });
+  assert.equal(res.status, 200);
+  assert.equal(res.json.onboarding, false);
+});
+
 /* ======================================================================
    5. Normalizálás — a tárolt adat nem függ a kliens jóindulatától
    ====================================================================== */

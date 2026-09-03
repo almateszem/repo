@@ -19,7 +19,7 @@ import {
   addWorkout, updateWorkout, deleteWorkout,
   getWorkoutDraft, saveWorkoutDraft, clearWorkoutDraft,
   getUserPlans, addPlan, updatePlan, getPlanForDay,
-  getCheckin, getCheckins, saveCheckin,
+  getCheckin, getCheckins, saveCheckin, hasAnyCheckin,
   calculateEpley1RM, bestCompletedSet, getExerciseMax, getAllExerciseMaxes,
   createUser, getUser, getUserWithHash, hasAnyUser, getUserCreatedAt,
   updateUserPassword, deleteUserSessions, deleteUser,
@@ -144,11 +144,19 @@ function startSession(req, res, userId) {
 /** Beléptetve vagyok-e? A felület ezzel dönti el, mutassa-e a belépő
     képernyőt. A firstRun jelzi, hogy még egyetlen fiók sincs — ilyenkor a
     felület rögtön a regisztrációt kínálja. */
+/** A fiók-objektum kiegészítése az `onboarding` jelzővel: igaz, amíg a fiók
+    egyetlen check-int sem mentett. A felület ilyenkor a check-in varázslóra
+    tereli — enélkül a friss fiók üres Áttekintésre érkezne, ahol a Recovery
+    Engine (helyesen) `null` készenlétet mutat, mert nincs mire alapoznia.
+    Azért „soha nem volt check-inje" és nem „most regisztrált": ez utóbbi
+    csak a kliens pillanatnyi állapota lenne, ez viszont túléli a frissítést. */
+const withOnboarding = (user) => ({ ...user, onboarding: !hasAnyCheckin(user.id) });
+
 app.get('/api/auth/me', (req, res) => {
   const token = sessionToken(req);
   const user = token ? getSessionUser(hashToken(token)) : null;
   if (!user) return res.status(401).json({ error: 'Nincs bejelentkezve.', firstRun: !hasAnyUser() });
-  res.json(user);
+  res.json(withOnboarding(user));
 });
 
 /** A regisztrációs/belépési törzs ellenőrzése. Hibánál { error }-t ad. */
@@ -187,7 +195,7 @@ app.post('/api/auth/register', async (req, res) => {
   if (!created) return res.status(409).json({ error: 'Ez a felhasználónév már foglalt.' });
 
   startSession(req, res, created.user.id);
-  res.status(201).json({ ...created.user, adoptedLegacy: created.adoptedLegacy });
+  res.status(201).json({ ...withOnboarding(created.user), adoptedLegacy: created.adoptedLegacy });
 });
 
 /** Belépés. A hibaüzenet szándékosan nem árulja el, a név vagy a jelszó
@@ -213,7 +221,7 @@ app.post('/api/auth/login', async (req, res) => {
 
   clearFailures(username);
   startSession(req, res, row.id);
-  res.json({ id: row.id, username: row.username, displayName: row.display_name });
+  res.json(withOnboarding({ id: row.id, username: row.username, displayName: row.display_name }));
 });
 
 /** Kijelentkezés — a munkamenet törlődik az adatbázisból és a sütiből is. */
