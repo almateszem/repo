@@ -6,13 +6,9 @@ Nem hibajegy-rendszer: rövid, cselekvésre kész sorok, prioritás szerint.
 Jelölések:   [ ] nyitott    [~] részben kész    [x] kész (a következő
              takarításig marad itt, hogy lássuk, mi történt)
 
-<<<<<<< HEAD
-Utolsó frissítés: 2026-08-30
-=======
 Utolsó frissítés: 2026-08-27 (végpont- és séma-átnézésből felderített
                   hiányok — új szakasz; közülük az első, a mentett edzés
                   javíthatósága, el is készült)
->>>>>>> 972acc045ef0e4ac7403f732efc6e5bb404bc263
 Legutóbbi takarítás: 2026-08-17 — az elkészült [x] tételek kivezetve
 (a részletek a git előzményben maradtak meg).
 
@@ -439,27 +435,6 @@ EREDMÉNY (1 éves adat, azonos gépen), megtartva jövőbeli összevetéshez:
         a hibának a tünete — eddig ez némán történt.
     Ami hátravan: a valódi kötet beállítása a választott hostingon.
 
-<<<<<<< HEAD
-[x] Időzóna: a today() a SZERVER helyi ideje
-    2026-09-02. A nap immár a KLIENS zónájában dől el. A böngésző minden
-    /api kérésben elküldi az IANA zónanevet (X-Time-Zone fejléc,
-    public/script.js → apiHeaders), a szerver ebből képzi a napot
-    (server/server.js → todayInZone), és a hitelesítő middleware egyetlen
-    helyen teszi a kérésre (req.today). Minden nap-alapú végpont és
-    segédfüggvény ezt kapja meg paraméterként — a szerver órájára már csak
-    fejléc hiányában esünk vissza.
-    A todayWeekday() helyére weekdayOf(dateStr) lépett: a hétnap is a
-    dátumból jön, nem a szerver órájából.
-    Amit a kliens ezzel elérhet: legfeljebb a SAJÁT napját tolhatja el —
-    más fiók adatához nem fér hozzá —, ezért a zóna elfogadható bemenet.
-    KORLÁT: a kliens saját zónáját nem tároljuk, ezért az edzői panelen a
-    kliens kártyája az EDZŐ napjában áll elő. Azonos országban pontos;
-    eltérő zónáknál a „ma" egy napot csúszhat. Ha ez zavaró lesz, a zónát
-    a users sorra kell menteni.
-    Tesztek: server/api.test.js — két, 25 órára lévő zóna (UTC+14 / UTC-11)
-    mindig külön naptári napra ír; fejléc nélkül és ismeretlen zónanévnél
-    a szerver helyi napja marad.
-=======
 [x] Időzóna: a nap már a KLIENS naptárából jön   (2026-08-25)
     Minden kérés viszi az X-Client-Date fejlécet (public/script.js →
     requestHeaders), a szerver pedig ebből képzi a kérés napját
@@ -468,7 +443,6 @@ EREDMÉNY (1 éves adat, azonos gépen), megtartva jövőbeli összevetéshez:
     napjától — ennyi minden időzónára elég (UTC-12…UTC+14), viszont nem
     lehet vele tetszőleges napra visszaírni. Hiányzó/gyanús fejlécnél marad
     a szerver napja. Tesztek: server/timezone.test.js.
->>>>>>> 972acc045ef0e4ac7403f732efc6e5bb404bc263
 
 [~] Rate limit   (2026-08-26: a hiányzó korlátok pótolva)
     Ami MEGVAN:
@@ -610,13 +584,10 @@ ADATMINŐSÉG — fokozatosan bővíthető, nincs határidő
 NYITOTT APRÓSÁG — a check-in varázslóból maradt
 ==========================================================================
 
-<<<<<<< HEAD
-[ ] A varázsló és a részletes űrlap alvás-tartománya eltér
-    A részletes szerkesztő űrlap 0–24 órával fut, a varázsló 0–12-vel.
-    A szerver 0–24-et fogad el. Szándékos-e az eltérés, még eldöntendő.
-    Hely: public/script.js → CI_SLEEP_MIN / CI_SLEEP_MAX,
-          public/index.html → #ci-sleep
-
+[x] A varázsló alvás-tartománya is 0–24   (2026-08-25)
+    Korábban a varázsló 12 óránál némán elvágta a bevitelt, pedig a
+    részletes űrlap és a szerver is 24-ig fogad el. Most mindhárom helyen
+    0–24 (public/script.js → CI_SLEEP_MAX, public/index.html → #ci-sleep).
 
 ==========================================================================
 RECOVERY ENGINE — a 2026-08-30-i átvizsgálás eredménye
@@ -652,317 +623,9 @@ kettő is. Mindkettő javítva, tesztekkel rögzítve.
         összesítőn is meglátszik),
       · a hiányzó komponensek súlyának újraosztása pontos (100%-ra jön ki).
 
-
-==========================================================================
-HIÁNYZÓ FUNKCIÓK — az edző–kliens réteg (felvéve: 2026-08-30)
-==========================================================================
-Ezek NEM hibák, hanem meg nem épített funkciók. A lista eredetileg 29
-soros volt, sok átfedéssel; itt hat blokkba rendezve áll, függőségi
-sorrendben. A 0. blokk MINDEN továbbinak előfeltétele.
-
-Ami ma van: az Edző oldal (#coach) teljes egészében DEMO. A sportolók, a
-készenlétük, az edzői megjegyzések, a chat-válaszok és a táplálkozási cél
-mind a server/data.js-ből jön, fix értékként. Nincs olyan adatszerkezet,
-ami két VALÓDI fiókot összekötne — tehát a lista nagy része nem bővítés,
-hanem új réteg.
-
-MEGBESZÉLT DÖNTÉSEK (2026-08-30):
-  · Az alapréteg VALÓDI fiókokkal épül: szerepkör + coach_clients tábla +
-    meghívás, amit a kliens fogad el. Nem egyfiókos látszatmegoldás.
-  · A videók a szerver melletti HELYI LEMEZRE kerülnek, méret- és
-    formátumkorláttal, fiókonkénti kvótával. (Az üzemeltetési kockázatot
-    ld. a „DB fájl elveszhet" pontnál — videóra hatványozottan igaz.)
-  · Az építés sorrendje: 0 → 1 → 2 → 3 → 5 → 4. A videó a legdrágább és
-    a legkevésbé blokkoló, ezért megy a végére.
-
-
---- 0. ALAP: valódi edző–kliens kapcsolat -------------- ELKÉSZÜLT ------
-    2026-08-30. Ez volt minden további pont előfeltétele. A részletek a
-    READMÉ „Edző–kliens kapcsolat" fejezetében.
-
-[x] Szerepkör a users táblán
-    users.is_coach (migrációval a meglévő adatbázisokon is). A Beállítások
-    szerepkör-kapcsolója a szerverre ír, nem localStorage-ba.
-    A „van edződ" NEM lett külön jelző: az az elfogadott coach_clients
-    sorból következik, tehát nem lehet olyan szerepkört mutatni, ami mögött
-    nincs tényleges kapcsolat.
-
-[x] coach_clients kapcsolótábla + meghívás/elfogadás folyamat
-    Az edző felhasználónévre hív meg (status='pending'), a kliens fogadja el
-    ('active'). Bontani MINDKÉT fél tud, bármikor; utána új meghívás
-    küldhető. Végpontok: POST /api/coach/invites, POST .../:id/accept,
-    DELETE /api/coach/links/:id, GET /api/coach/overview.
-
-[x] Kereszt-fiók olvasási jog
-    A szabály EGY helyen él: isCoachOf (db.js) + resolveClientId
-    (server.js). Csak elfogadott kapcsolat számít; a függő meghívás nem ad
-    semmit. A jogosulatlan kérés 404-et kap, nem 403-at — a 403 elárulná,
-    hogy az adott azonosítón létezik fiók.
-    Az izolációt server/coach.test.js méri (14 teszt, HTTP-szinten).
-    MINDEN további kereszt-fiók végpontnak ezen a kapun kell átmennie.
-
-[x] Az edzői panel átkötése valódi adatra
-    A demo sportolók (data.js → athletes) és a beégetett edzői üzenetek
-    (coachNotes) TÖRÖLVE, a /api/athletes és /api/coach-notes végpontokkal
-    együtt. A kártyák minden száma számolt: készenlét a Recovery Engine-ből,
-    sorozat, heti edzésnapok, aktív terv, legutóbbi aktivitás a naplókból.
-    Amit nem lehet kiszámolni, az „—" — pl. a terv-követés csak a terv
-    létrejötte UTÁNI napokra vonatkozik (egy ma regisztrált kliens nem
-    kaphat 0%-ot olyan napokért, amikor még terve sem volt).
-
-[x] Az értesítések valódi eseményekből állnak
-    2026-08-30. notifications tábla; egy sor = egy megtörtént esemény,
-    annak a fióknak, AKIT érint: meghívás, elfogadás, terv kiosztva, terv
-    módosítva. A data.js hat beégetett sora törölve.
-    Az „olvasott" állapot a szerveren él (users.notifications_read_at),
-    és az olvasottnak jelölés MÁR NEM üríti ki a listát — csak az „új"
-    jelzés tűnik el. (Korábban a teljes előzmény eltűnt.)
-    A beállítások értesítés-kapcsolói is csak létező kategóriákat
-    sorolnak fel; a „Sorozat mérföldkő" és a „Heti riport" mögött soha
-    nem állt esemény, ezért kikerültek.
-
-[~] Értesítés a kommentekre és az edzés utáni visszajelzésre
-    2026-09-02. A 'comment' kategória megvan: minden új komment értesítést
-    szül a MÁSIK félnél (az írónak magának nem), és a Beállításokban külön
-    némítható. Az edzés utáni visszajelzés saját eseménye akkor jön, amikor
-    maga a visszajelzés elkészül.
-
-
---- 1. TERVEK: kiosztás és módosítás ------------------- ELKÉSZÜLT ------
-    2026-08-30. Döntések: a kiosztott terv a KLIENSÉ (tulajdonos), de az
-    EDZŐ a szerzője; a kliens csak edzeni tud belőle. A részletek a
-    READMÉ „Kiosztott edzéstervek" fejezetében.
-
-[x] Edzésterv kiosztása kliensnek
-    POST /api/coach/clients/:id/plans — a terv a kliens fiókjába kerül,
-    plans.author_id = az edző. A kliens Tervek oldalán azonnal megjelenik,
-    „Kovács Bence terve" felirattal, ceruza nélkül.
-    Az edzői modál terv-listájából indul (+ Terv kiosztása), a terv-építő
-    edzői módban nyílik — a fejléc kiírja, KINEK készül a terv.
-
-[x] Edzésterv módosítása az edző által (kiosztás után is)
-    PUT /api/coach/plans/:id. KÉT feltétel kell egyszerre: az edző a terv
-    szerzője, ÉS él a kapcsolat. A szerzőség önmagában nem jogosultság —
-    felmondás után a volt edző már nem írhat bele (a terv viszont a
-    kliensnél marad, tovább használható).
-    A kliens PUT /api/plans/:id-ja a kiosztott tervre 403-at ad (nem
-    404-et: a SAJÁT tervét látja, csak nem szerkesztheti), és a hibaüzenet
-    megnevezi, kihez forduljon.
-
-[x] „Mikor, ki módosította" a terven
-    plans.updated_at + updated_by, a kártyán „Módosítva 2 órája · Kovács
-    Bence". A LÉTREHOZÁS szándékosan nem számít módosításnak: friss terven
-    nincs nyom, így az utólagos átírás tényleg feltűnik.
-    Teljes verziózás (mi változott, gyakorlat-szintű diff) NEM készült —
-    a megbeszélés szerint a „mikor, ki" elég.
-
-[x] A készenlét felülírja a tervet — de kérdez
-    Két réteg. (1) PASSZÍV jelzés a terv-kártyán: mi kockázatos ma és
-    miért. (2) JAVASLAT-ABLAK a check-in mentése után, tételes listával és
-    Elfogadom / Most nem gombbal.
-    Három művelet: LEVESZ (−10%, 55% alatti izom-készenlétnél −15%, 2,5
-    kg-ra lefelé kerekítve), KIHAGY (7/10 fájdalom, még nincs teljesített
-    szett), LEÁLL (7/10 fájdalom, de már van teljesített szett → csak a
-    hátralévő marad el).
-    Amit az elfogadás módosít, az a MAI NAPLÓ — a terv soha. A teljesített
-    szetteket és a nem szám súlyokat semmi nem bántja. A javaslatot
-    elfogadáskor a szerver ÚJRASZÁMOLJA (a kliens listája nem bemenet).
-
-    KALIBRÁCIÓ — ezt ne írjuk át gondolkodás nélkül: a küszöb 70% (nem 45).
-    Ahol a modellnek VAN adata a csoportról, ott az izomláz 0.4 súllyal
-    keveredik be, tehát a „modell szerint friss + 5/5 izomláz" eset 60-at ad.
-    45-tel ez az ág HOLT ÁG volt — a füstteszt mutatta ki.
-
-[ ] Az edző lássa, ha a kliens elfogadott egy javaslatot
-    Ma a kliens naplója némán eltér a kiosztott tervtől. Az edzőnek látnia
-    kellene, hogy aznap miért — ehhez az edzés utáni visszajelzés
-    (2. blokk) a természetes hordozó.
-
-
---- 2. KOMMUNIKÁCIÓ: kommentek és visszajelzés ---------------------------
-    A négy eredeti sor (edzői kommentek, gyakorlatonkénti megjegyzések,
-    edzés utáni visszajelzés, edzői visszajelzés) egyetlen mechanizmus:
-    egy kommenttábla, ami különböző dolgokra tud hivatkozni.
-
-[x] comments tábla: (szerző, célfiók, cél típusa, cél id, szöveg, idő)
-    2026-09-02. Egy tábla (server/db.js → comments) és EGY végpontcsalád
-    (/api/comments/:subjectId). Céltípusok: 'workout', 'exercise'
-    ("workoutId:index"), 'plan', 'chat'. A szett és a videó akkor kerül be,
-    amikor lesz mire mutatniuk (a szettsornak ma nincs azonosítója, videó
-    pedig még nincs — ld. 4. blokk).
-    Hozzáférés: a subject maga és az ELFOGADOTT edzője; a kapu ugyanaz a
-    resolveClientId, amin a többi kereszt-fiók olvasás megy. A chat ezen
-    FELÜL a két résztvevőre szűkít.
-    A kommentek bekerülnek az adat-exportba is.
-
-[x] Megjegyzés gyakorlathoz — a KLIENS oldaláról
-    2026-09-02. Az összegző oldal alján (#summary), közvetlenül a lezárás
-    után: gyakorlat-választó + szöveg. A komment a MENTETT edzés adott
-    gyakorlatára mutat ("edzésId:index"), ezért csak frissen lezárt edzésnél
-    van értelme — a mély-linkkel megnyitott összegzőn a blokk rejtve marad.
-    Edző nélkül is látszik: a saját naplód része marad.
-    A gyakorlatnevek a mentett sorrendből jönnek (a POST /api/workouts
-    válaszából), mert a komment a tömbön belüli INDEXRE hivatkozik — a
-    kettőnek együtt kell járnia.
-
-[x] Megjegyzés gyakorlathoz — az EDZŐ oldaláról
-    2026-09-02. Ugyanaz a tábla, más szerző — a válasz UGYANABBA a szálba
-    megy, tehát egy beszélgetés lesz a gyakorlatról, nem két külön lista.
-    A sportoló-modálban külön blokk sorolja a kliens megjegyzéseit, soronkénti
-    válasz-mezővel. A gyakorlat NEVÉT a szerver oldja fel (a nyers
-    "edzésId:index" célból az edző semmit nem tudna kiolvasni) — a kliens
-    edzésnaplója csak ott van meg.
-    A kliens jelzést kap: 'comment' értesítés, céltípus szerinti szöveggel
-    („megjegyzést fűzött egy gyakorlatodhoz").
-
-[x] Edzés utáni visszajelzés küldése
-    2026-09-02. A javaslat szerint MEZŐ lett, nem komment: a workouts sor
-    kapott feedback_difficulty / feedback_mood (1-5) / feedback_note /
-    feedback_at oszlopokat. Így a nehézség és a közérzet szám marad, tehát
-    az 5. blokk elemzéseibe is bekerülhet — egy szabad szövegből ez nem
-    jönne ki.
-    Felület: az összegző oldal alján (#summary), közvetlenül a lezárás után,
-    amíg az élmény friss. Csak akkor látszik, ha MOST zárult le egy edzés
-    (van azonosító) ÉS van edző, akinek szólna.
-    Írni CSAK a saját edzésére lehet: az UPDATE a user_id-re is szűr, tehát
-    idegen edzés id-jével nincs találat (404, nem 403).
-    Az edző az értesítésen kívül a sportoló-modálban is látja a legutóbbi
-    visszajelzést (lastFeedback a kártyaadatban).
-    Mindhárom mező elhagyható, és a hiányzó NULL marad — nem nulla.
-
-[x] Valódi chat az edzővel
-    2026-09-02. A szimuláció megszűnt: a data.js coachReplies/athleteReplies
-    sorai és a /api/athlete-replies + /api/coach-replies végpontok törölve, a
-    felület „egyelőre szimulált" figyelmeztetése is. Az üzenetek a comments
-    táblában élnek ('chat' céltípus), tehát túlélik az újratöltést.
-    A szálat a (kliens, edző) pár azonosítja — egy több edzővel dolgozó
-    kliens szálai nem keverednek, és az egyik edző nem olvashat bele a
-    másikéba (külön teszt őrzi).
-    Frissítés POLLOZÁSSAL (8 mp), a döntés szerint. Csak akkor kérdez, ha a
-    szál látszik. Beszélgetés-váltáskor a felület azonnal ürül, nem mutatja
-    a válaszig az előző kliens üzeneteit.
-
-
---- 3. TÁPLÁLKOZÁSI CÉLOK -----------------------------------------------
-
-[x] Saját táplálkozási cél beállítása
-    2026-09-02. Fiókonkénti cél a nutrition_goals táblában, a Táplálkozás
-    oldal „Napi cél" blokkjában szerkeszthetően. A data.js értéke innentől
-    csak ALAPÉRTÉK: akkor szól, ha se saját, se edzői cél nincs.
-    ELDÖNTVE — szénhidrát/zsír NEM: a felület (a napi összesítő, az
-    étel-modál sávjai és az áttekintő) kalóriát és fehérjét mér célhoz.
-    Olyan célt nem veszünk fel, amit semmi nem jelenít meg; ha egyszer lesz
-    makró-bontás a felületen, a tábla két oszloppal bővíthető.
-
-[x] Edző által meghatározott cél kezelése
-    2026-09-02. A javaslat szerint. Fiókonként KÉT sor létezhet ('coach' és
-    'own'), és mindkettő megmarad:
-      · az érvényes cél a saját, ha van; különben az edzőé; különben az
-        alapérték,
-      · az edzői kitűzés NEM törli a kliens sorát (nem írja felül némán),
-      · a kliens saját célja nem tünteti el az edzőét — ezért tudjuk kiírni,
-        hogy eltért tőle, és ezért lehet egy kattintással visszaállni rá.
-    Az AZONOS érték nem számít eltérésnek — arról hallgatunk.
-    Végpontok: GET/PUT/DELETE /api/nutrition/goal (saját),
-    PUT /api/coach/clients/:id/nutrition-goal (edzői).
-    A kitűzés 'goal' kategóriájú értesítést szül a kliensnél (a cél nem
-    terv, tehát külön némítható).
-
-[x] Az edzői cél megjelenítése a kliensnél
-    2026-09-02. A „Napi cél" blokk mindig kiírja, HONNAN jön a szám: „A saját
-    célod." / „Kovács Bence tűzte ki." / „Alapértelmezett cél". Eltérésnél
-    külön sor mondja meg az edzői értéket és a „Visszaállok rá" gombot.
-    A korábbi, beégetett „Edző célja: napi 2900 kcal … a tömegnövelő
-    fázisban" mondat kikerült — az valótlan volt, mert semmilyen edzőtől nem
-    származott.
-    Az edző a sportoló-modálban ugyanezt a három esetet látja a saját
-    szemszögéből, és onnan tűzhet ki célt.
-
-
---- 4. VIDEÓ: technikaellenőrzés ----------------------------------------
-    Ez a legnagyobb blokk, és az egyetlen, ami ÚJ INFRASTRUKTÚRÁT igényel:
-    az appban ma nincs semmilyen fájlfeltöltés. Videót az SQLite-ba tenni
-    nem járható út. DÖNTÉS: helyi lemez a szerver mellett.
-
-[ ] Videófeltöltés gyakorlathoz
-    Helyi tárolás a szerver melletti könyvtárban, a DB-ben csak a
-    metaadat (fiók, gyakorlat, edzés, fájlnév, méret, idő).
-    Kell hozzá: méretkorlát, formátum-allowlist, fiókonkénti kvóta, és
-    a fájlok NEM lehetnek nyersen kiszolgálva a public/-ból — csak
-    jogosultság-ellenőrzés után adhatók vissza.
-
-[ ] Videó hozzárendelése konkrét sorozathoz (szetthez)
-    Nem elég az edzéshez kötni: a szettsor mellé kerüljön a videó
-    jelzése. A szettsor ma nem hivatkozható elem — azonosító kell rá.
-
-[ ] Videó megtekintése az edző által
-    A kliensmodálban a videók listája, lejátszóval.
-
-[ ] Technika értékelése
-    Az edző pontozza a végrehajtást. Eldöntendő: skála (1–5? 1–10?) és
-    van-e külön szempont (mélység, gerinctartás, tempó), vagy egy szám.
-
-[ ] Kommentek a videóhoz
-    A 2. blokk kommenttáblájának egy céltípusa. Eldöntendő: időbélyeges
-    komment a videón belül (pl. 0:12-nél) — hasznos, de több munka.
-
-[ ] Korábbi videók visszanézése
-    Gyakorlatonkénti videótár a kliensnek is, időrendben.
-
-[ ] Technika összehasonlítása időben
-    Két videó egymás mellett, ugyanahhoz a gyakorlathoz, más dátumról,
-    az értékelésekkel együtt. Ez a blokk csúcsa — az összes fenti kell
-    hozzá.
-
-
---- 5. ELEMZÉS: grafikonok, terhelés, deload, előrejelzés ----------------
-    Az eredeti listából ide tartozik: fejlődési grafikonok, fejlődési
-    statisztikák, teljesítmény-grafikonok, regeneráció értékelése,
-    automatikus terhelés-elemzés, deload-javaslatok, teljesítmény-
-    előrejelzés, fejlettebb edzői elemzőfelület, kliens fejlődésének
-    követése és elemzése.
-
-[~] Regeneráció értékelése
-    MEGVAN, és ez a projekt legkidolgozottabb része: a Recovery Engine
-    (server/recovery.js) a saját fiókra 0–100-as pontot, izomcsoportonkénti
-    regenerációt, CNS-becslést és gyakorlat-ajánlást ad.
-    HIÁNYZIK: az edzői nézet — az edző nem látja a kliense készenlétét
-    (a panel readiness értéke ma fix szám a data.js-ben).
-
-[~] Fejlődési / teljesítmény-grafikonok gyakorlatonként (becsült 1RM)
-    MEGVAN: heti volumen-diagram (volumeCharts), testsúlytrend a
-    Regeneráció oldalon, PR-előzmény (GET /api/prs/history), és az adat
-    is (exercise_maxes + a szettek Epley-becslése).
-    HIÁNYZIK: gyakorlatonkénti 1RM-görbe az időben. Ez a legolcsóbb pont
-    a blokkban — nem új adat kell hozzá, csak rajzolás.
-
-[~] Összesített fejlődési statisztikák
-    MEGVAN: a dashboard statjai, a sorozat, a heti volumen, a PR-lista.
-    HIÁNYZIK: egy helyre gyűjtve. Eldöntendő: önálló „Statisztika” oldal
-    legyen, vagy a meglévők bővüljenek?
-
-[ ] Automatikus terhelés-elemzés (akut/krónikus arány)
-    A CHRONIC_WINDOW_DAYS = 28 ablak és a csillapított tonnatömeg már
-    megvan a motorban; hiányzik a heti terhelés trendje és a „túl gyorsan
-    emelted a volument” jelzés.
-
-[ ] Deload-javaslat
-    Feltétel-alapú javaslat (tartósan alacsony készenlét + emelkedő
-    terhelés + stagnáló vagy eső teljesítmény). Eldöntendő: csak jelzés,
-    vagy az app tényleg legenerálja a könnyített hetet?
-
-[ ] Teljesítmény-előrejelzés
-    ÓVATOSAN. Kevés adatból lineáris trendet extrapolálni félrevezető, és
-    ez a projekt eddig következetesen NEM tett kitalált számot a
-    felületre (ld. a HRV-döntést a READMÉ-ben). Csak akkor épüljön meg,
-    ha van hozzá adatküszöb, és kiírjuk a bizonytalanságot.
-
-[ ] Fejlettebb edzői elemzőfelület
-    A fentiek edzői nézete: kliensenként és klienseken átívelően.
-    Ez a legutolsó lépés — az összes előző pontra épül.
-=======
-[x] A varázsló alvás-tartománya is 0–24   (2026-08-25)
-    Korábban a varázsló 12 óránál némán elvágta a bevitelt, pedig a
-    részletes űrlap és a szerver is 24-ig fogad el. Most mindhárom helyen
-    0–24 (public/script.js → CI_SLEEP_MAX, public/index.html → #ci-sleep).
->>>>>>> 972acc045ef0e4ac7403f732efc6e5bb404bc263
+    MEGJEGYZÉS a 2026-09-02-i összefésüléshez: ezek a javítások a
+    Viktor/funkciok ágon készültek, és a main-en NEM voltak benne. Az
+    összefésülésnél ezért a recovery.js és a recovery.test.js a mi
+    oldalunkról maradt — minden más közös részen a main verziója nyert.
+    A szerver oldali párja (nonNegativeField a normalizeExercises-ben)
+    is visszakerült.

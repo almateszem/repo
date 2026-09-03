@@ -3,7 +3,7 @@
  * ------------------------------------------------------
  * Pragmatikus hibrid séma + világos adatszétválasztás:
  *   - collections: kulcs-érték tábla a CSAK OLVASHATÓ referencia/seed adatnak
- *     (dashboard, charts, foods, exerciseCatalog…). Ez minden indításkor a data.js-ből
+ *     (dashboard, charts, foods, athletes…). Ez minden indításkor a data.js-ből
  *     szinkronizálódik (INSERT OR REPLACE) — így a data.js a forrása, a
  *     módosítások (és séma-bővítések) maguktól érvényre jutnak. Ez az adat
  *     MINDEN felhasználónak közös, mert referencia-adat.
@@ -75,91 +75,6 @@ db.exec(`
     user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     expires_at TEXT NOT NULL       -- ISO-8601 UTC
-  );
-
-  -- Edző–kliens kapcsolat. EZ AZ EGYETLEN TÁBLA, ami két fiókot összeköt,
-  -- tehát ez a kereszt-fiók hozzáférés egyetlen forrása: aki nem szerepel
-  -- itt 'active' sorral, az a másik fiók adatából semmit nem lát.
-  -- A kapcsolatot az EDZŐ kezdeményezi (status = 'pending'), és a KLIENS
-  -- fogadja el ('active') — enélkül bárki ráülhetne más adatára.
-  CREATE TABLE IF NOT EXISTS coach_clients (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    coach_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    client_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    status      TEXT NOT NULL DEFAULT 'pending',   -- 'pending' | 'active'
-    created_at  TEXT NOT NULL DEFAULT (datetime('now')),
-    accepted_at TEXT,
-    UNIQUE (coach_id, client_id)
-  );
-  CREATE INDEX IF NOT EXISTS idx_coach_clients_coach  ON coach_clients(coach_id, status);
-  CREATE INDEX IF NOT EXISTS idx_coach_clients_client ON coach_clients(client_id, status);
-
-  -- Értesítések. Egy sor = egy MEGTÖRTÉNT esemény (terv kiosztva, meghívás
-  -- elfogadva…). Az „olvasott" állapot NEM soronként él, hanem egyetlen
-  -- időbélyegként a users táblán: az ennél frissebb sor számít újnak. Így a
-  -- listát nem kell átírni olvasáskor, és az előzmény sem vész el.
-  CREATE TABLE IF NOT EXISTS notifications (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    cat        TEXT NOT NULL,
-    text       TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-  CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, id DESC);
-
-  -- Kommentek. EGY tábla mindenféle megjegyzésre — edzésre, egy edzésen
-  -- belüli gyakorlatra, tervre, és az edző–kliens üzenetváltásra is. A
-  -- TEENDOK.txt kikötése: „Egy tábla, egy végpontcsalád — ne épüljön négy
-  -- külön."
-  --
-  -- A három azonosító-oszlop jelentése (ez a tábla egész logikája):
-  --   author_id   — KI írta.
-  --   subject_id  — KINEK az adatáról szól. Edző–kliens viszonyban MINDIG a
-  --                 kliens: a hozzáférés is ebből dől el (a subject maga és
-  --                 az ELFOGADOTT edzője lát rá, más senki).
-  --   target_type/target_id — MIRE mutat a subject adatán belül:
-  --                 'workout'  → workouts.id
-  --                 'exercise' → "workoutId:index" (a workouts.exercises
-  --                              tömbön belüli pozíció; a mentett edzés már
-  --                              nem változik, ezért az index stabil)
-  --                 'plan'     → plans.id
-  --                 'chat'     → az EDZŐ user-id-ja. Egy kliensnek több
-  --                              edzője lehet, ezért a szálat a
-  --                              (subject_id, target_id) pár azonosítja —
-  --                              az író bármelyik fél lehet.
-  CREATE TABLE IF NOT EXISTS comments (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    author_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    subject_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    target_type TEXT NOT NULL,
-    target_id   TEXT NOT NULL DEFAULT '',
-    text        TEXT NOT NULL,
-    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
-  );
-  CREATE INDEX IF NOT EXISTS idx_comments_target
-    ON comments(subject_id, target_type, target_id, id);
-
-  -- Napi táplálkozási cél, FELHASZNÁLÓNKÉNT. Korábban egyetlen fix érték volt
-  -- a seed adatban, minden fióknak ugyanaz.
-  --
-  -- Fiókonként KÉT sor lehet, és ez a lényeg:
-  --   'coach' — amit az edző tűzött ki,
-  --   'own'   — amit a felhasználó maga állított be.
-  -- Az érvényes cél az 'own', ha van; különben a 'coach'; különben a seed
-  -- alapérték. A két sor EGYÜTT él tovább: így látszik, hogy a felhasználó
-  -- eltért az edzői céltól — a néma felülírás mindkét irányban rossz volna.
-  --
-  -- Csak kalória és fehérje: a felület (a napi összesítő, az étel-modál
-  -- sávjai és az áttekintő) ezt a kettőt méri célhoz. Szénhidrát/zsír célt
-  -- nem veszünk fel, amíg nincs, ami megjelenítse.
-  CREATE TABLE IF NOT EXISTS nutrition_goals (
-    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    source     TEXT NOT NULL,        -- 'own' | 'coach'
-    calories   REAL NOT NULL,
-    protein    REAL NOT NULL,
-    set_by     INTEGER REFERENCES users(id) ON DELETE SET NULL,  -- ki állította be
-    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-    PRIMARY KEY (user_id, source)
   );
 
   CREATE TABLE IF NOT EXISTS weight_log (
@@ -356,31 +271,6 @@ ensureColumn('workout_draft', 'plan_id', 'plan_id INTEGER');
 // A naplózás korábban fix 100 g-os adaggal ment — a régi sorok makrói tehát
 // 100 g-ra vonatkoznak, ezért a default érték helyes a meglévő adatokra is.
 ensureColumn('nutrition_log', 'grams', 'grams REAL NOT NULL DEFAULT 100');
-<<<<<<< HEAD
-// Edzői szerepkör. Alapból senki nem edző — a szerepkört a felhasználó maga
-// kapcsolja be a Beállításokban. A „van edződ" NEM oszlop: az a coach_clients
-// tábla aktív sorából következik, tehát nem lehet hazudni róla.
-ensureColumn('users', 'is_coach', 'is_coach INTEGER NOT NULL DEFAULT 0');
-// Meddig olvasta el a felhasználó az értesítéseit (ISO-8601 UTC, NULL = még sosem).
-ensureColumn('users', 'notifications_read_at', 'notifications_read_at TEXT');
-/* Ki készítette a tervet. NULL = a tulajdonos maga (minden korábbi sor ilyen).
-   Ha ki van töltve ÉS nem a tulajdonos, akkor EDZŐI terv: a kliens nem
-   szerkesztheti, csak edzeni tud belőle. Nincs külön „locked" oszlop — egy
-   származtatott szabály nem tud elcsúszni attól, amiből származik. */
-ensureColumn('plans', 'author_id', 'author_id INTEGER');
-// „Mikor, ki módosította" — ennél részletesebb verziózást nem tartunk.
-ensureColumn('plans', 'updated_at', 'updated_at TEXT');
-ensureColumn('plans', 'updated_by', 'updated_by INTEGER');
-/* Edzés utáni visszajelzés. STRUKTURÁLT mező, nem komment (TEENDOK.txt 2.
-   blokk döntése): a nehézség és a közérzet így számmá válik, tehát később
-   elemezhető — egy szabad szöveges kommentből ez nem jönne ki.
-   Mindhárom NULL-ozható: a „nem küldött visszajelzést" és a „rosszat
-   jelzett" két külön dolog, ugyanúgy, mint a check-innél. */
-ensureColumn('workouts', 'feedback_difficulty', 'feedback_difficulty INTEGER');
-ensureColumn('workouts', 'feedback_mood', 'feedback_mood INTEGER');
-ensureColumn('workouts', 'feedback_note', 'feedback_note TEXT');
-ensureColumn('workouts', 'feedback_at', 'feedback_at TEXT');
-=======
 // Edzés-cél: a fiók sajátja, az edzői panel kártyáján címkeként látszik.
 // Üresen hagyható (NULL) — a felület ilyenkor „—"-t mutat.
 ensureColumn('users', 'goal', 'goal TEXT');
@@ -388,7 +278,6 @@ ensureColumn('users', 'goal', 'goal TEXT');
 // át — ez a helyes: nem tudhatjuk, látta-e őket a címzett. Aki megnyitja a
 // szálat, egy lépésben olvasottá teszi a régi hátralékot is.
 ensureColumn('messages', 'read_at', 'read_at TEXT');
->>>>>>> 972acc045ef0e4ac7403f732efc6e5bb404bc263
 
 /* ---- Migráció: egyfelhasználós → többfelhasználós ----
 
@@ -668,14 +557,7 @@ if (!dbExisted) {
 
 /** Egy felhasználó sora → a felület által látott alak (jelszó nélkül!). */
 const toUser = (row) => (row
-  ? {
-    id: row.id,
-    username: row.username,
-    displayName: row.display_name,
-    // A régi sorokon (és azokon a lekérdezéseken, amik nem kérik le) hiányzik
-    // az oszlop — a hiány „nem edző", nem pedig kimaradó mező.
-    isCoach: Boolean(row.is_coach),
-  }
+  ? { id: row.id, username: row.username, displayName: row.display_name }
   : null);
 
 /** Egy felhasználó NYILVÁNOS alakja: ennyit lát róla a kapcsolat másik
@@ -694,7 +576,7 @@ export function getUserWithHash(username) {
 
 /** Felhasználó azonosító alapján (jelszó nélkül). */
 export function getUser(id) {
-  return toUser(db.prepare('SELECT id, username, display_name, is_coach FROM users WHERE id = ?').get(id));
+  return toUser(db.prepare('SELECT id, username, display_name FROM users WHERE id = ?').get(id));
 }
 
 /** A fiók létrehozásának időpontja, ahogy a users.created_at tárolja
@@ -825,7 +707,7 @@ export function createSession(tokenHash, userId, expiresAt) {
     token). A lejárt sorokat menet közben takarítjuk. */
 export function getSessionUser(tokenHash) {
   const row = db.prepare(`
-    SELECT u.id, u.username, u.display_name, u.is_coach, s.expires_at
+    SELECT u.id, u.username, u.display_name, s.expires_at
     FROM sessions s JOIN users u ON u.id = s.user_id
     WHERE s.token_hash = ?
   `).get(tokenHash);
@@ -1185,76 +1067,9 @@ export function getNutritionLogForDate(userId, date) {
                      FROM nutrition_log WHERE user_id = ? AND date = ? ORDER BY id`).all(userId, date);
 }
 
-/* ---- Napi táplálkozási cél ----
-   Az érvényes cél: 'own' → 'coach' → seed alapérték. A két sor egymás mellett
-   marad, hogy az eltérés LÁTSZÓDJON. */
-
-/** Egy cél-sor a felület alakjában (a szerző nevével együtt). */
-const toGoalRow = (row) => (row ? {
-  calories: row.calories,
-  protein: row.protein,
-  setBy: row.set_by_name ?? null,
-  setAt: row.updated_at,
-} : null);
-
-const GOAL_SELECT = `
-  SELECT g.calories, g.protein, g.updated_at, u.display_name AS set_by_name
-  FROM nutrition_goals g LEFT JOIN users u ON u.id = g.set_by`;
-
-/** Egy fiók cél-sora forrás szerint ('own' vagy 'coach'), vagy null. */
-export function getNutritionGoalRow(userId, source) {
-  return toGoalRow(db.prepare(`${GOAL_SELECT} WHERE g.user_id = ? AND g.source = ?`)
-    .get(userId, source));
-}
-
-/** A felhasználóra ÉRVÉNYES cél, a származásával együtt. A felület ebből
-    tudja kiírni, honnan jön a szám, és hogy eltért-e az edzőitől. */
-export function getNutritionGoal(userId) {
-  const own = getNutritionGoalRow(userId, 'own');
-  const coach = getNutritionGoalRow(userId, 'coach');
-  const fallback = getCollection('nutritionGoal') || { calories: 0, protein: 0 };
-
-  const active = own ?? coach ?? { ...fallback, setBy: null, setAt: null };
-  const source = own ? 'own' : (coach ? 'coach' : 'default');
-
-  return {
-    calories: active.calories,
-    protein: active.protein,
-    source,
-    setBy: active.setBy,
-    setAt: active.setAt,
-    coach,
-    /* Eltérés CSAK akkor, ha mindkettő létezik és tényleg más. Enélkül a
-       felület akkor is „eltértél"-t írna, ha a saját célod történetesen
-       megegyezik az edzőével. */
-    differs: Boolean(own && coach
-      && (own.calories !== coach.calories || own.protein !== coach.protein)),
-  };
-}
-
-/** Cél mentése/felülírása egy forrásra. A `setBy` az, AKI beállította — az
-    edzői sornál az edző, a sajátnál a felhasználó maga. */
-export function saveNutritionGoal(userId, source, { calories, protein }, setBy) {
-  db.prepare(`
-    INSERT INTO nutrition_goals (user_id, source, calories, protein, set_by, updated_at)
-    VALUES (?, ?, ?, ?, ?, datetime('now'))
-    ON CONFLICT(user_id, source) DO UPDATE SET
-      calories = excluded.calories, protein = excluded.protein,
-      set_by = excluded.set_by, updated_at = excluded.updated_at
-  `).run(userId, source, calories, protein, setBy);
-  return getNutritionGoal(userId);
-}
-
-/** A SAJÁT cél törlése — ezzel a felhasználó visszaáll az edzői célra (vagy
-    az alapértékre). Az edzői sort ez nem bántja. */
-export function clearOwnNutritionGoal(userId) {
-  db.prepare("DELETE FROM nutrition_goals WHERE user_id = ? AND source = 'own'").run(userId);
-  return getNutritionGoal(userId);
-}
-
 /** A napi táplálkozási összesítő egy adott napra: az AZNAP naplózott ételek
-    összege, valamint az érvényes napi cél (a felület a célhoz méri a
-    bevitelt). */
+    összege, valamint az edző által kitűzött napi cél (a felület a célhoz
+    méri a bevitelt). */
 export function getNutritionTotals(userId, date) {
   const sum = db.prepare(`
     SELECT COALESCE(SUM(kcal), 0)    AS intake,
@@ -1264,7 +1079,7 @@ export function getNutritionTotals(userId, date) {
     FROM nutrition_log
     WHERE user_id = ? AND date = ?
   `).get(userId, date);
-  return { ...sum, goal: getNutritionGoal(userId) };
+  return { ...sum, goal: getCollection('nutritionGoal') || { calories: 0, protein: 0 } };
 }
 
 /* ======================================================================
@@ -1433,80 +1248,6 @@ export function getCheckins(userId, limit = 60) {
                      WHERE user_id = ? ORDER BY date DESC LIMIT ?`)
     .all(userId, limit)
     .map(toCheckin);
-}
-
-/* ======================================================================
-   Kommentek
-   ----------------------------------------------------------------------
-   A hozzáférést NEM ez a modul dönti el — az a server.js kapuja
-   (resolveClientId / isCoachOf). Itt csak az olvasás és az írás van.
-   ====================================================================== */
-
-/** Egy DB-sor → a felület által várt alak. A szerző nevét is hozzuk, hogy a
-    lista egyetlen lekérésből kirajzolható legyen. */
-const toComment = (row) => ({
-  id: row.id,
-  authorId: row.author_id,
-  authorName: row.author_name,
-  subjectId: row.subject_id,
-  targetType: row.target_type,
-  targetId: row.target_id,
-  text: row.text,
-  createdAt: row.created_at,
-});
-
-const COMMENT_SELECT = `
-  SELECT c.id, c.author_id, c.subject_id, c.target_type, c.target_id, c.text,
-         c.created_at, u.display_name AS author_name
-  FROM comments c JOIN users u ON u.id = c.author_id`;
-
-/** Egy cél kommentjei, időrendben (a legrégebbi elöl — a chat így olvasható,
-    és a megjegyzés-lista is így természetes). */
-export function getComments(subjectId, targetType, targetId = '') {
-  return db.prepare(`${COMMENT_SELECT}
-    WHERE c.subject_id = ? AND c.target_type = ? AND c.target_id = ?
-    ORDER BY c.id ASC`).all(subjectId, targetType, String(targetId)).map(toComment);
-}
-
-/** Egy subject ÖSSZES kommentje egy típusból, célonként csoportosítva.
-    Az edzés-oldal így egyetlen kérésből tudja, melyik gyakorlathoz van
-    megjegyzés — nem kell gyakorlatonként külön kört futni. */
-export function getCommentsByTarget(subjectId, targetType) {
-  const rows = db.prepare(`${COMMENT_SELECT}
-    WHERE c.subject_id = ? AND c.target_type = ?
-    ORDER BY c.id ASC`).all(subjectId, targetType).map(toComment);
-  const grouped = {};
-  for (const row of rows) (grouped[row.targetId] ??= []).push(row);
-  return grouped;
-}
-
-/** Új komment. Visszaadja a mentett sort (a szerző nevével együtt). */
-export function addComment(authorId, subjectId, targetType, targetId, text) {
-  const { lastInsertRowid } = db.prepare(`
-    INSERT INTO comments (author_id, subject_id, target_type, target_id, text)
-    VALUES (?, ?, ?, ?, ?)`).run(authorId, subjectId, targetType, String(targetId ?? ''), text);
-  return toComment(db.prepare(`${COMMENT_SELECT} WHERE c.id = ?`).get(lastInsertRowid));
-}
-
-/** Egy subject ÖSSZES kommentje — az adat-exporthoz. */
-export function getAllComments(subjectId) {
-  return db.prepare(`${COMMENT_SELECT} WHERE c.subject_id = ? ORDER BY c.id ASC`)
-    .all(subjectId).map(toComment);
-}
-
-/** Komment törlése. CSAK a szerző törölhet, ezért az author_id is feltétel —
-    így egy idegen id-vel küldött kérés nem talál sort, és 404-et kap.
-    Visszaadja, törölt-e ténylegesen. */
-export function deleteComment(commentId, authorId) {
-  return db.prepare('DELETE FROM comments WHERE id = ? AND author_id = ?')
-    .run(commentId, authorId).changes > 0;
-}
-
-/** Volt-e ennek a fióknak VALAHA check-inje. A felület ebből tudja, hogy a
-    friss fiókot a check-in varázslóra kell terelnie: a regisztráció ténye
-    csak pillanatnyi kliens-állapot, ez viszont túléli az oldal-újratöltést. */
-export function hasAnyCheckin(userId) {
-  return Boolean(db.prepare('SELECT 1 FROM checkins WHERE user_id = ? LIMIT 1').get(userId));
 }
 
 /** Egy nap check-injének mentése/felülírása. A megadott mezők közül csak az
@@ -1736,46 +1477,13 @@ export function getPlan(userId, id) {
 }
 
 /** A felhasználó által készített edzéstervek, legújabb elöl. */
-/* A terv sorai a szerzővel és az utolsó módosítóval együtt. A LEFT JOIN
-   szándékos: a saját terveknél mindkét név üres, és ez nem hiba. */
-const PLAN_SELECT = `
-  SELECT p.id, p.user_id, p.name, p.date, p.exercises, p.days,
-         p.author_id, p.updated_at, p.updated_by,
-         author.display_name AS author_name,
-         editor.display_name AS editor_name
-  FROM plans p
-  LEFT JOIN users author ON author.id = p.author_id
-  LEFT JOIN users editor ON editor.id = p.updated_by
-`;
-
-/** Egy terv sora → a felület alakja.
-    A coachAuthored az EGYETLEN helye annak a szabálynak, hogy mit nevezünk
-    edzői tervnek: van szerzője, és az nem a tulajdonos. */
-const toPlan = (row) => (row ? {
-  id: row.id,
-  userId: row.user_id,
-  name: row.name,
-  date: row.date,
-  exercises: JSON.parse(row.exercises),
-  days: JSON.parse(row.days),
-  authorId: row.author_id,
-  authorName: row.author_name,
-  coachAuthored: row.author_id !== null && row.author_id !== row.user_id,
-  updatedAt: row.updated_at,
-  updatedByName: row.editor_name,
-} : null);
-
 export function getUserPlans(userId) {
-  return db.prepare(`${PLAN_SELECT} WHERE p.user_id = ? ORDER BY p.id DESC`)
+  return db.prepare('SELECT id, name, date, exercises, days FROM plans WHERE user_id = ? ORDER BY id DESC')
     .all(userId)
-    .map(toPlan);
-}
-
-/** Egy terv azonosító alapján, tulajdonossal és szerzővel — a végpontok ebből
-    döntik el, ki nyúlhat hozzá. Szűrés NÉLKÜL olvas, ezért a hívó KÖTELES
-    ellenőrizni a jogosultságot. */
-export function getPlanById(id) {
-  return toPlan(db.prepare(`${PLAN_SELECT} WHERE p.id = ?`).get(id));
+    .map((row) => ({
+      id: row.id, name: row.name, date: row.date,
+      exercises: JSON.parse(row.exercises), days: JSON.parse(row.days),
+    }));
 }
 
 /** A megadott hétnapra (0 = hétfő) ütemezett terv, vagy null. Ha több terv is
@@ -1805,52 +1513,6 @@ const toWorkout = (row) => ({
 
 /** A mentett edzések, legújabb elöl (a gyakorlatok JSON-ból visszafejtve). */
 export function getWorkouts(userId) {
-<<<<<<< HEAD
-  return db.prepare(`SELECT id, name, date, exercises, plan_id,
-                            feedback_difficulty, feedback_mood, feedback_note, feedback_at
-                     FROM workouts WHERE user_id = ? ORDER BY id DESC`)
-    .all(userId)
-    .map(toWorkout);
-}
-
-/** Egy DB-sor → a felület által várt edzés-alak. A visszajelzés csak akkor
-    kerül bele, ha tényleg érkezett — üres objektum helyett `null`, hogy a
-    „nem küldött" eset egyértelmű maradjon. */
-const toWorkout = (row) => ({
-  id: row.id,
-  name: row.name,
-  date: row.date,
-  exercises: JSON.parse(row.exercises),
-  planId: row.plan_id,
-  feedback: row.feedback_at ? {
-    difficulty: row.feedback_difficulty,
-    mood: row.feedback_mood,
-    note: row.feedback_note,
-    at: row.feedback_at,
-  } : null,
-});
-
-/** Egy edzés a saját naplóból, vagy null. A user_id feltétel nem elhagyható:
-    enélkül idegen edzés id-jével is lehetne dolgozni. */
-export function getWorkout(userId, workoutId) {
-  const row = db.prepare(`SELECT id, name, date, exercises, plan_id,
-                                 feedback_difficulty, feedback_mood, feedback_note, feedback_at
-                          FROM workouts WHERE id = ? AND user_id = ?`).get(workoutId, userId);
-  return row ? toWorkout(row) : null;
-}
-
-/** Az edzés utáni visszajelzés mentése/felülírása. CSAK a saját edzésére —
-    az UPDATE a user_id-re is szűr, tehát idegen sorra nem talál semmit.
-    Visszaadja a frissített edzést, vagy null-t, ha nem volt ilyen sor. */
-export function saveWorkoutFeedback(userId, workoutId, { difficulty, mood, note }) {
-  const changed = db.prepare(`
-    UPDATE workouts
-       SET feedback_difficulty = ?, feedback_mood = ?, feedback_note = ?,
-           feedback_at = datetime('now')
-     WHERE id = ? AND user_id = ?`)
-    .run(difficulty ?? null, mood ?? null, note ?? null, workoutId, userId).changes;
-  return changed ? getWorkout(userId, workoutId) : null;
-=======
   return db.prepare('SELECT id, name, date, exercises, plan_id FROM workouts WHERE user_id = ? ORDER BY id DESC')
     .all(userId).map(toWorkout);
 }
@@ -1886,7 +1548,6 @@ export function getWorkoutsSince(userId, sinceDate) {
 export function getWorkoutDates(userId) {
   return db.prepare('SELECT DISTINCT date FROM workouts WHERE user_id = ? ORDER BY date DESC')
     .all(userId).map((row) => row.date);
->>>>>>> 972acc045ef0e4ac7403f732efc6e5bb404bc263
 }
 
 /** Teljes pillanatkép a beállítások exportjához: a közös referencia-adat és a
@@ -1905,9 +1566,6 @@ export function getSnapshot(userId) {
   snapshot.workoutDraft = getWorkoutDraft(userId);
   snapshot.userPlans = getUserPlans(userId);
   snapshot.checkins = getCheckins(userId, 1000);
-  /* A kommentek a SUBJECT adatához tartoznak: a saját üzenetszálai és a saját
-     edzéseihez fűzött megjegyzések — az edzőé is, mert azok róla szólnak. */
-  snapshot.comments = getAllComments(userId);
   /* Az egyéni csúcsok is a felhasználó adata. Az edzésekből elvileg
      visszaszámolhatók (ezt teszi a backfillExerciseMaxes), de a „teljes
      pillanatkép" akkor teljes, ha nem kell hozzá újraszámolni semmit — és a
@@ -2028,22 +1686,9 @@ export function addWorkout(userId, name, date, exercises, planId = null) {
   const { lastInsertRowid } = db
     .prepare('INSERT INTO workouts (user_id, name, date, exercises, plan_id) VALUES (?, ?, ?, ?, ?)')
     .run(userId, name, date, JSON.stringify(processedExercises), planId);
-  // A friss edzésen még nincs visszajelzés — a mező alakja mégis azonos a
-  // getWorkouts sorával, hogy a felületnek ne kelljen két esetre készülnie.
-  return { id: Number(lastInsertRowid), name, date, exercises: processedExercises, planId, feedback: null };
+  return { id: Number(lastInsertRowid), name, date, exercises: processedExercises, planId };
 }
 
-<<<<<<< HEAD
-/** Edzésterv mentése. Az authorId az, AKI készítette:
-      · null → a tulajdonos saját terve (szerkesztheti),
-      · egy edző azonosítója → kiosztott terv (a kliens nem szerkesztheti).
-    A visszatérés a teljes, felolvasott terv-sor. */
-export function addPlan(userId, name, date, exercises, days, authorId = null) {
-  /* Az updated_at/updated_by SZÁNDÉKOSAN üresen marad: a létrehozás nem
-     módosítás. Ha itt kitöltenénk, minden friss terven ott állna a
-     „Módosítva az imént" sor, és pont az veszne el, amiért ez a nyom van —
-     hogy a kliens észrevegye, ha az edző UTÓLAG átírta a tervét. */
-=======
 /**
  * Mentett edzés törlése. Csak a SAJÁT sorát törli — idegen id-re false jön,
  * ugyanaz a minta, mint az updatePlan null-ja.
@@ -2104,201 +1749,21 @@ export function updateWorkout(userId, id, name, exercises) {
 
 /** Edzésterv mentése; visszaadja a létrejött { id, name, date, exercises, days } sort. */
 export function addPlan(userId, name, date, exercises, days) {
->>>>>>> 972acc045ef0e4ac7403f732efc6e5bb404bc263
   const { lastInsertRowid } = db
-    .prepare(`INSERT INTO plans (user_id, name, date, exercises, days, author_id)
-              VALUES (?, ?, ?, ?, ?, ?)`)
-    .run(userId, name, date, JSON.stringify(exercises), JSON.stringify(days), authorId);
-  return getPlanById(Number(lastInsertRowid));
+    .prepare('INSERT INTO plans (user_id, name, date, exercises, days) VALUES (?, ?, ?, ?, ?)')
+    .run(userId, name, date, JSON.stringify(exercises), JSON.stringify(days));
+  return { id: Number(lastInsertRowid), name, date, exercises, days };
 }
 
-/* A terv-felülírásnak két útja van, és pont a FELTÉTELÜK a lényeg. Ezért
-   nincs közös „updatePlanBy(actor)" függvény: abban egy rossz paraméter
-   átbillentené a jogosultságot, itt viszont mindkét SQL magában hordozza,
-   kinek szól. Aki nem felel meg, null-t kap — a végpont ebből ad 403-at
-   vagy 404-et. */
-
-/** A SAJÁT terv felülírása (név, gyakorlatok, napok — a létrehozás dátuma marad).
-    Kiosztott (edzői) tervre szándékosan null-t ad: abból a kliens csak edzeni
-    tud, szerkeszteni nem. Más felhasználó tervére szintén null. */
+/** Meglévő terv felülírása (név, gyakorlatok, napok — a létrehozás dátuma marad).
+    A frissített sort adja vissza, vagy null-t, ha nincs ilyen id — MÁS
+    felhasználó tervére is null jön, azt nem lehet átírni. */
 export function updatePlan(userId, id, name, exercises, days) {
-  const { changes } = db.prepare(`
-    UPDATE plans SET name = ?, exercises = ?, days = ?, updated_at = datetime('now'), updated_by = ?
-    WHERE id = ? AND user_id = ? AND (author_id IS NULL OR author_id = user_id)
-  `).run(name, JSON.stringify(exercises), JSON.stringify(days), userId, id, userId);
-  return changes === 0 ? null : getPlanById(id);
-}
-
-/** A KIOSZTOTT terv felülírása az EDZŐ által. Csak arra a sorra megy át,
-    amelynek ő a szerzője — más edző tervéhez ő sem nyúlhat. Azt, hogy a
-    kapcsolat még él, a végpont ellenőrzi (isCoachOf): felmondás után az edző
-    már nem szerkeszthet. */
-export function updateAssignedPlan(coachId, id, name, exercises, days) {
-  const { changes } = db.prepare(`
-    UPDATE plans SET name = ?, exercises = ?, days = ?, updated_at = datetime('now'), updated_by = ?
-    WHERE id = ? AND author_id = ?
-  `).run(name, JSON.stringify(exercises), JSON.stringify(days), coachId, id, coachId);
-  return changes === 0 ? null : getPlanById(id);
-}
-
-/* ======================================================================
-   Edző–kliens kapcsolat
-   ----------------------------------------------------------------------
-   A kereszt-fiók hozzáférés EGYETLEN forrása. A szabály egy helyen él
-   (isCoachOf), és minden olyan végpontnak ezen kell átmennie, amelyik nem a
-   saját fiók adatát olvassa. Ha ez a függvény hazudik, az egész izoláció
-   megbukik — ezért van rá külön tesztfájl (server/coach.test.js).
-   ====================================================================== */
-
-/** A kapcsolat sora → a felület alakja. */
-const toLink = (row) => ({
-  id: row.id,
-  status: row.status,
-  createdAt: row.created_at,
-  acceptedAt: row.accepted_at,
-  coach: { id: row.coach_id, name: row.coach_name, username: row.coach_username },
-  client: { id: row.client_id, name: row.client_name, username: row.client_username },
-});
-
-/** Felhasználó keresése a (már kisbetűsített) felhasználónév alapján.
-    Meghíváskor kell: az edző névre hív meg valakit. Jelszót nem ad vissza. */
-export function findUserByUsername(username) {
-  return toUser(
-    db.prepare('SELECT id, username, display_name, is_coach FROM users WHERE username = ?')
-      .get(username),
-  );
-}
-
-/** Az edzői szerepkör be-/kikapcsolása. A meglévő kapcsolatokat NEM bántja:
-    a szerepkör visszavonása után a kapcsolatok megmaradnak, csak a felület
-    nem kínálja fel az edzői nézetet. A hozzáférést a KAPCSOLAT adja, nem ez a
-    jelző — a kikapcsolás tehát önmagában nem adatvédelmi művelet. */
-export function setCoachRole(userId, isCoach) {
-  db.prepare('UPDATE users SET is_coach = ? WHERE id = ?').run(isCoach ? 1 : 0, userId);
-  return getUser(userId);
-}
-
-/** Edzi-e A a B-t? CSAK az elfogadott (active) kapcsolat számít — a még el
-    nem fogadott meghívás semmilyen adathoz nem ad hozzáférést. */
-export function isCoachOf(coachId, clientId) {
-  return Boolean(db.prepare(
-    "SELECT 1 FROM coach_clients WHERE coach_id = ? AND client_id = ? AND status = 'active'",
-  ).get(coachId, clientId));
-}
-
-/** Egy kapcsolat sora azonosító alapján (mindkét résztvevő nevével). */
-export function getCoachLink(id) {
-  const row = db.prepare(`
-    SELECT cc.id, cc.coach_id, cc.client_id, cc.status, cc.created_at, cc.accepted_at,
-           coach.display_name AS coach_name, coach.username AS coach_username,
-           client.display_name AS client_name, client.username AS client_username
-    FROM coach_clients cc
-    JOIN users coach  ON coach.id  = cc.coach_id
-    JOIN users client ON client.id = cc.client_id
-    WHERE cc.id = ?
-  `).get(id);
-  return row ? toLink(row) : null;
-}
-
-/** Meghívás: az edző felkéri a klienst, a kliensnek el kell fogadnia.
-    Visszatérés: { link } sikerre, { error } ha már van ilyen kapcsolat. */
-export function inviteClient(coachId, clientId) {
-  const existing = db.prepare('SELECT id, status FROM coach_clients WHERE coach_id = ? AND client_id = ?')
-    .get(coachId, clientId);
-  if (existing) {
-    return { error: existing.status === 'active' ? 'already-active' : 'already-pending' };
-  }
-  const { lastInsertRowid } = db
-    .prepare('INSERT INTO coach_clients (coach_id, client_id) VALUES (?, ?)')
-    .run(coachId, clientId);
-  return { link: getCoachLink(Number(lastInsertRowid)) };
-}
-
-/** A kliens elfogadja a meghívást. CSAK a SAJÁT, még függő meghívása
-    fogadható el — más nevében nem lehet, és az edző sem hagyhatja jóvá
-    a saját meghívását. */
-export function acceptInvite(clientId, linkId) {
-  const { changes } = db.prepare(
-    "UPDATE coach_clients SET status = 'active', accepted_at = datetime('now') "
-    + "WHERE id = ? AND client_id = ? AND status = 'pending'",
-  ).run(linkId, clientId);
-  return changes === 0 ? null : getCoachLink(linkId);
-}
-
-/** Kapcsolat megszüntetése: elutasított meghívás vagy felmondott együttműködés.
-    MINDKÉT fél kezdeményezheti — a kliens nem ragadhat bele egy kapcsolatba,
-    és az edző is lezárhatja. */
-export function removeCoachLink(userId, linkId) {
-  const { changes } = db.prepare(
-    'DELETE FROM coach_clients WHERE id = ? AND (coach_id = ? OR client_id = ?)',
-  ).run(linkId, userId, userId);
-  return changes > 0;
-}
-
-/** Egy edző kliensei (alapból csak az elfogadottak; 'pending' = a kiküldött,
-    még el nem fogadott meghívásai). */
-export function listClientsOfCoach(coachId, status = 'active') {
-  return db.prepare(`
-    SELECT cc.id, cc.coach_id, cc.client_id, cc.status, cc.created_at, cc.accepted_at,
-           coach.display_name AS coach_name, coach.username AS coach_username,
-           client.display_name AS client_name, client.username AS client_username
-    FROM coach_clients cc
-    JOIN users coach  ON coach.id  = cc.coach_id
-    JOIN users client ON client.id = cc.client_id
-    WHERE cc.coach_id = ? AND cc.status = ?
-    ORDER BY client.display_name COLLATE NOCASE
-  `).all(coachId, status).map(toLink);
-}
-
-/** Egy kliens edzői (alapból csak az elfogadottak; 'pending' = a hozzá
-    beérkezett, még el nem fogadott meghívások). */
-export function listCoachesOfClient(clientId, status = 'active') {
-  return db.prepare(`
-    SELECT cc.id, cc.coach_id, cc.client_id, cc.status, cc.created_at, cc.accepted_at,
-           coach.display_name AS coach_name, coach.username AS coach_username,
-           client.display_name AS client_name, client.username AS client_username
-    FROM coach_clients cc
-    JOIN users coach  ON coach.id  = cc.coach_id
-    JOIN users client ON client.id = cc.client_id
-    WHERE cc.client_id = ? AND cc.status = ?
-    ORDER BY cc.created_at DESC
-  `).all(clientId, status).map(toLink);
-}
-
-/* ======================================================================
-   Értesítések
-   ----------------------------------------------------------------------
-   Csak MEGTÖRTÉNT eseményre keletkezik sor, és mindig annak a fióknak,
-   AKIT érint. Ezért nincs köztük „a heti riportod elkészült" típusú szöveg,
-   amíg olyan esemény nincs is.
-   ====================================================================== */
-
-/** Értesítés rögzítése. A hívó felel azért, hogy a szöveg a CÍMZETT
-    szemszögéből legyen megfogalmazva. */
-export function addNotification(userId, cat, text) {
-  db.prepare('INSERT INTO notifications (user_id, cat, text) VALUES (?, ?, ?)')
-    .run(userId, cat, text);
-}
-
-/** A legutóbbi értesítések, helyes „új" jelzéssel: az olvasás-időbélyegnél
-    frissebb sor számít újnak. */
-export function getNotifications(userId, limit = 30) {
-  const readAt = db.prepare('SELECT notifications_read_at AS at FROM users WHERE id = ?').get(userId)?.at ?? null;
-  return db.prepare(`SELECT id, cat, text, created_at FROM notifications
-                     WHERE user_id = ? ORDER BY id DESC LIMIT ?`)
-    .all(userId, limit)
-    .map((row) => ({
-      id: row.id,
-      cat: row.cat,
-      text: row.text,
-      createdAt: row.created_at,
-      unread: readAt === null || row.created_at > readAt,
-    }));
-}
-
-/** „Mindet olvasottnak" — egyetlen időbélyeg, nem soronkénti írás. */
-export function markNotificationsRead(userId) {
-  db.prepare("UPDATE users SET notifications_read_at = datetime('now') WHERE id = ?").run(userId);
+  const { changes } = db.prepare('UPDATE plans SET name = ?, exercises = ?, days = ? WHERE id = ? AND user_id = ?')
+    .run(name, JSON.stringify(exercises), JSON.stringify(days), id, userId);
+  if (changes === 0) return null;
+  const row = db.prepare('SELECT id, name, date, exercises, days FROM plans WHERE id = ?').get(id);
+  return { ...row, exercises: JSON.parse(row.exercises), days: JSON.parse(row.days) };
 }
 
 /** Az adatbázis-kapcsolat lezárása.

@@ -60,9 +60,7 @@ const annaFood = db.addCustomFood(anna.id, {
 });
 
 test('a fiók létrehozása nem adja vissza a jelszót, és a név foglalt lesz', () => {
-  // A jelszó-hash SOSEM kerül bele; az isCoach az edzői szerepkör jelzője.
-  assert.deepEqual(Object.keys(anna).sort(), ['displayName', 'id', 'isCoach', 'username']);
-  assert.equal(anna.isCoach, false, 'új fiók alapból nem edző');
+  assert.deepEqual(Object.keys(anna).sort(), ['displayName', 'id', 'username']);
   assert.equal(db.createUser('anna', 'Másik Anna', 'scrypt$1$1$1$x$y'), null, 'foglalt név');
   assert.ok(db.hasAnyUser());
 });
