@@ -464,7 +464,39 @@
           <div class="nu-macro"><span class="nu-macro-label">Zsír</span><span class="nu-macro-value"><span data-stat="fat"></span><span class="nu-macro-unit">g</span></span></div>
         </div>
 
-        <p class="nu-coach-goal"><strong>Edző célja:</strong> <span data-nu-goal-text></span></p>
+        <!-- Napi cél. Két forrás lehet: amit az EDZŐ tűzött ki, és amit te
+             magad állítottál be. A sajátod az erősebb, de az edzőé megmarad,
+             és ha eltérsz tőle, azt kiírjuk — a néma felülírás mindkét
+             irányban rossz volna. -->
+        <section class="nu-goal" aria-labelledby="nu-goal-title">
+          <div class="nu-goal-head">
+            <h3 class="nu-goal-title" id="nu-goal-title">Napi cél</h3>
+            <button class="nu-goal-edit" type="button" data-action="edit-goal"
+                    aria-expanded="false">Módosítom</button>
+          </div>
+
+          <p class="nu-goal-value" data-nu-goal-value></p>
+          <p class="nu-goal-source" data-nu-goal-source></p>
+
+          <p class="nu-goal-diff" data-nu-goal-diff hidden>
+            <span data-nu-goal-diff-text></span>
+            <button class="nu-goal-revert" type="button" data-action="revert-goal">Visszaállok rá</button>
+          </p>
+
+          <form class="nu-goal-form" data-form="nutrition-goal" hidden>
+            <div class="nu-goal-field">
+              <label for="nu-goal-calories">Kalória</label>
+              <input id="nu-goal-calories" type="number" inputmode="numeric"
+                     min="500" max="10000" step="10" required autocomplete="off">
+            </div>
+            <div class="nu-goal-field">
+              <label for="nu-goal-protein">Fehérje (g)</label>
+              <input id="nu-goal-protein" type="number" inputmode="numeric"
+                     min="0" max="500" step="5" required autocomplete="off">
+            </div>
+            <button class="nu-goal-save" type="submit">Mentés</button>
+          </form>
+        </section>
 
         <!-- Mai napló — a ténylegesen naplózott tételek, törlés-lehetőséggel.
              Enélkül a felület csak összesített, és egy téves koppintás
@@ -1038,6 +1070,27 @@
       <p class="co-modal-alert" data-modal-alert hidden></p>
 
       <dl class="co-modal-stats" data-modal-stats></dl>
+
+      <!-- Napi táplálkozási cél kitűzése a sportolónak. A sportoló saját
+           célját ez NEM törli: ha ő állított be egyet, az marad érvényben, és
+           ő látja, hogy eltért az edzőitől. Némán nem írjuk felül. -->
+      <section class="co-modal-goal" aria-labelledby="co-modal-goal-title">
+        <h4 class="co-modal-section-title" id="co-modal-goal-title">Napi táplálkozási cél</h4>
+        <p class="co-goal-state" data-modal-goal-state></p>
+        <form class="co-goal-form" data-form="athlete-nutrition-goal">
+          <div class="nu-goal-field">
+            <label for="co-goal-calories">Kalória</label>
+            <input id="co-goal-calories" type="number" inputmode="numeric"
+                   min="500" max="10000" step="10" required autocomplete="off">
+          </div>
+          <div class="nu-goal-field">
+            <label for="co-goal-protein">Fehérje (g)</label>
+            <input id="co-goal-protein" type="number" inputmode="numeric"
+                   min="0" max="500" step="5" required autocomplete="off">
+          </div>
+          <button class="nu-goal-save" type="submit">Kitűzöm</button>
+        </form>
+      </section>
 
       <section class="co-modal-activity" aria-labelledby="co-modal-activity-title">
         <h4 class="co-modal-section-title" id="co-modal-activity-title">Legutóbbi aktivitás</h4>

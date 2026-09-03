@@ -777,3 +777,125 @@ test('a kapcsolat bontásával a függő terv-ajánlat is eltűnik', async () =>
   const after = await request('GET', '/api/coach', { cookie: client.cookie });
   assert.deepEqual(after.json.planOffers, [], 'a bontott kapcsolat ajánlata nem marad ott');
 });
+
+/* ======================================================================
+   Napi táplálkozási cél — az edző kitűz, a sportoló felülírhatja
+   ----------------------------------------------------------------------
+   Korábban EGY fix érték szolgálta ki az összes fiókot. Most kettő lehet: az
+   edző kitűzött célja és a sportoló sajátja. A blokk legfontosabb állítása,
+   hogy a kettő EGYÜTT él tovább — sem az edző nem írja felül némán a
+   sportolóét, sem fordítva. Aki eltér, arról látszik, hogy eltért.
+   ====================================================================== */
+
+/* A cél-tesztek szereplői: külön edző–sportoló pár, hogy a fenti blokkok
+   kapcsolat-bontásai ne zavarjanak bele. */
+let celLink = 0;
+let celTrainer = null;
+let celClient = null;
+
+test('cél nélkül a közös alapérték szól, és látszik, hogy alapérték', async () => {
+  const res = await request('GET', '/api/nutrition/goal', { cookie: outsider.cookie });
+  assert.equal(res.status, 200);
+  assert.equal(res.json.source, 'default', 'még senki nem állított be semmit');
+  assert.equal(res.json.coach, null);
+  assert.equal(res.json.differs, false);
+  assert.ok(res.json.calories > 0, 'a seed alapérték jön');
+});
+
+test('a saját cél felülírja az alapértéket — fiókonként külön', async () => {
+  const trainer = { cookie: await register('cel-edzo', 'Cél Csaba') };
+  const client = { cookie: await register('cel-sportolo', 'Cél Cecília') };
+
+  const invite = await request('POST', '/api/athletes', {
+    cookie: trainer.cookie, body: { username: 'cel-sportolo' },
+  });
+  assert.equal(invite.status, 201);
+  await request('POST', `/api/coach/invites/${invite.json.linkId}/accept`, { cookie: client.cookie });
+
+  const res = await request('PUT', '/api/nutrition/goal', {
+    cookie: client.cookie, body: { calories: 2400, protein: 150 },
+  });
+  assert.equal(res.status, 200);
+  assert.equal(res.json.calories, 2400);
+  assert.equal(res.json.source, 'own');
+
+  // Az edző célja ettől nem változik — a cél nem közös többé.
+  const edzoe = await request('GET', '/api/nutrition/goal', { cookie: trainer.cookie });
+  assert.equal(edzoe.json.source, 'default');
+
+  // A napi összesítő ugyanezt a célt hozza (a felület ahhoz méri a bevitelt).
+  const totals = await request('GET', '/api/nutrition', { cookie: client.cookie });
+  assert.equal(totals.json.goal.calories, 2400);
+
+  celLink = invite.json.linkId;
+  celTrainer = trainer;
+  celClient = client;
+});
+
+test('az edzői cél NEM írja felül némán a sportolóét — de látszik az eltérés', async () => {
+  const kituzes = await request('PUT', `/api/athletes/${celLink}/nutrition-goal`, {
+    cookie: celTrainer.cookie, body: { calories: 2900, protein: 170 },
+  });
+  assert.equal(kituzes.status, 200);
+
+  const celja = await request('GET', '/api/nutrition/goal', { cookie: celClient.cookie });
+  assert.equal(celja.json.calories, 2400, 'a SAJÁT cél marad érvényben');
+  assert.equal(celja.json.source, 'own');
+  assert.equal(celja.json.coach.calories, 2900, 'de az edzőé is látszik');
+  assert.equal(celja.json.coach.setBy, 'Cél Csaba', 'és az is, KI tűzte ki');
+  assert.equal(celja.json.differs, true, 'az eltérés jelezve van');
+
+  // Az edző a sportoló-kártyáján is látja az állapotot.
+  const kartyak = await request('GET', '/api/athletes', { cookie: celTrainer.cookie });
+  const kartya = kartyak.json.athletes.find((a) => a.name === 'Cél Cecília');
+  assert.equal(kartya.nutritionGoal.source, 'own', 'az edző látja, hogy a sportoló mást állított be');
+});
+
+test('a saját cél elvetésével visszaáll az edzőé', async () => {
+  const res = await request('DELETE', '/api/nutrition/goal', { cookie: celClient.cookie });
+  assert.equal(res.status, 200);
+  assert.equal(res.json.calories, 2900, 'innentől az edzői cél az érvényes');
+  assert.equal(res.json.source, 'coach');
+  assert.equal(res.json.differs, false, 'nincs mitől eltérni');
+  assert.equal(res.json.setBy, 'Cél Csaba');
+});
+
+test('az AZONOS érték nem számít eltérésnek', async () => {
+  await request('PUT', '/api/nutrition/goal', {
+    cookie: celClient.cookie, body: { calories: 2900, protein: 170 },
+  });
+  const res = await request('GET', '/api/nutrition/goal', { cookie: celClient.cookie });
+  assert.equal(res.json.source, 'own', 'saját sor jött létre');
+  assert.equal(res.json.differs, false, 'de ugyanaz a szám — nem „eltértél"');
+});
+
+test('csak az EDZŐ oldala tűzhet ki célt, és csak élő kapcsolatba', async () => {
+  // A sportoló a saját linkjén nem edző.
+  const sajatMaga = await request('PUT', `/api/athletes/${celLink}/nutrition-goal`, {
+    cookie: celClient.cookie, body: { calories: 1000, protein: 50 },
+  });
+  assert.equal(sajatMaga.status, 404, 'nem 403 — a kapcsolat létezése sem derülhet ki');
+
+  const kivulallo = await request('PUT', `/api/athletes/${celLink}/nutrition-goal`, {
+    cookie: outsider.cookie, body: { calories: 1000, protein: 50 },
+  });
+  assert.equal(kivulallo.status, 404);
+
+  // A cél érintetlen.
+  const celja = await request('GET', '/api/nutrition/goal', { cookie: celClient.cookie });
+  assert.equal(celja.json.calories, 2900);
+});
+
+test('a cél validál: hiányzó mező, tartományon kívüli érték', async () => {
+  const rossz = [
+    [{ protein: 150 }, 'hiányzó kalória'],
+    [{ calories: 2400 }, 'hiányzó fehérje'],
+    [{ calories: 100, protein: 150 }, 'irreálisan alacsony kalória'],
+    [{ calories: 2400, protein: 900 }, 'irreálisan magas fehérje'],
+  ];
+  for (const [body, eset] of rossz) {
+    const res = await request('PUT', '/api/nutrition/goal', { cookie: celClient.cookie, body });
+    assert.equal(res.status, 400, eset);
+    assert.ok(res.json.error, `${eset}: beszédes hibaüzenet`);
+  }
+});

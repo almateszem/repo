@@ -20,6 +20,7 @@ import {
   getWorkoutDraft, saveWorkoutDraft, clearWorkoutDraft,
   getUserPlans, addPlan, updatePlan, getPlanForDay,
   getCheckin, getCheckins, saveCheckin, hasAnyCheckin,
+  getNutritionGoal, saveNutritionGoal, clearOwnNutritionGoal,
   calculateEpley1RM, bestCompletedSet, getExerciseMax, getAllExerciseMaxes,
   createUser, getUser, getUserWithHash, hasAnyUser, getUserCreatedAt,
   updateUserPassword, deleteUserSessions, deleteUser,
@@ -602,7 +603,12 @@ function athleteCard(athlete, today, viewerId, unread = 0) {
   });
 
   const lastMessage = getLastMessage(athlete.linkId);
-  return buildAthleteCard({
+  /* A sportoló napi célja a származásával együtt: az edző így látja, hogy a
+     kitűzött célja érvényben van-e, vagy a sportoló mást állított be. A
+     buildAthleteCard-on KÍVÜL adjuk hozzá, mert az a modul tiszta függvény —
+     nem ismeri az adatbázist. */
+  const nutritionGoal = getNutritionGoal(athlete.userId);
+  return Object.assign(buildAthleteCard({
     athlete: { ...athlete, goal: goalTag(athlete.goal) },
     workouts,
     workoutDates,
@@ -615,7 +621,7 @@ function athleteCard(athlete, today, viewerId, unread = 0) {
     lastMessage: lastMessage && { ...lastMessage, mine: lastMessage.senderId === viewerId },
     unread,
     today,
-  });
+  }), { nutritionGoal });
 }
 
 /** Egy függő meghívó felületi alakja (mindkét irányban ugyanaz a mezőkészlet). */
@@ -1581,6 +1587,68 @@ app.get('/api/foods', (req, res) => res.json(getFoodsForUser(req.user.id)));
 app.get('/api/nutrition', (req, res) => res.json(getNutritionTotals(req.user.id, req.today)));
 
 // A MAI naplózott ételek tételesen — a Táplálkozás oldal „Mai napló" listájához
+
+/* ---- Napi táplálkozási cél ----
+   Korábban EGY fix érték szolgálta ki az összes fiókot (data.js →
+   nutritionGoal), és sehol nem lehetett szerkeszteni.
+
+   Két forrás van, és mindkettő megmarad: amit az EDZŐ tűzött ki, és amit a
+   felhasználó MAGA állított be. Az érvényes cél a sajátja, ha van; különben
+   az edzőé. A kettő együtt él tovább, hogy az eltérés látsszon — a néma
+   felülírás mindkét irányban rossz volna. */
+const GOAL_RANGES = {
+  calories: { min: 500, max: 10000, label: 'napi kalória' },
+  protein: { min: 0, max: 500, label: 'napi fehérje' },
+};
+
+/** A cél törzsének beolvasása. Mindkét mező KÖTELEZŐ: egy fél célhoz nem
+    lehet mérni a bevitelt. Hibánál { error }-t ad. */
+function parseGoalBody(body) {
+  const goal = {};
+  for (const [key, { min, max, label }] of Object.entries(GOAL_RANGES)) {
+    const raw = body?.[key];
+    if (raw === null || raw === undefined || raw === '') {
+      return { error: `A(z) ${label} megadása kötelező.` };
+    }
+    const value = Number(raw);
+    if (!Number.isFinite(value) || value < min || value > max) {
+      return { error: `${label}: az érték ${min} és ${max} között adható meg.` };
+    }
+    goal[key] = Math.round(value);
+  }
+  return { goal };
+}
+
+/** A rám érvényes cél, a származásával együtt. */
+app.get('/api/nutrition/goal', (req, res) => res.json(getNutritionGoal(req.user.id)));
+
+/** A SAJÁT cél beállítása. Ez felülírja az edzőit — de nem törli: az edzői
+    sor megmarad, és a felület kiírja, hogy eltértél tőle. */
+app.put('/api/nutrition/goal', (req, res) => {
+  const { goal, error } = parseGoalBody(req.body);
+  if (error) return res.status(400).json({ error });
+  res.json(saveNutritionGoal(req.user.id, 'own', goal, req.user.id));
+});
+
+/** A saját cél elvetése — ezzel visszaállsz az edzői célra (vagy az
+    alapértékre). Az edzői sort nem érinti. */
+app.delete('/api/nutrition/goal', (req, res) => res.json(clearOwnNutritionGoal(req.user.id)));
+
+/** Az EDZŐ tűz ki célt a sportolójának. A sportoló saját célját szándékosan
+    NEM töröljük: ha ő korábban beállított egyet, az marad érvényben, és a
+    felület jelzi neki, hogy az edző mást szeretne.
+    A kapu ugyanaz, mint a terv-kiosztásé: csak az edző oldala, csak ÉLŐ
+    kapcsolatba. */
+app.put('/api/athletes/:linkId/nutrition-goal', (req, res) => {
+  const link = getCoachLink(Number(req.params.linkId));
+  if (!link || link.coachId !== req.user.id || link.status !== 'active') {
+    return res.status(404).json({ error: 'Nincs ilyen kapcsolat.' });
+  }
+  const { goal, error } = parseGoalBody(req.body);
+  if (error) return res.status(400).json({ error });
+  res.json(saveNutritionGoal(link.athleteId, 'coach', goal, req.user.id));
+});
+
 app.get('/api/nutrition/log', (req, res) => res.json(getNutritionLogForDate(req.user.id, req.today)));
 
 // Mentett edzések (legújabb elöl)
