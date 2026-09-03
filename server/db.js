@@ -1248,7 +1248,8 @@ const GOAL_SELECT = `
   FROM nutrition_goals g LEFT JOIN users u ON u.id = g.set_by`;
 
 /** Egy fiók cél-sora forrás szerint ('own' vagy 'coach'), vagy null. */
-export function getNutritionGoalRow(userId, source) {
+/* Modulon belüli segéd — kifelé a getNutritionGoal ad teljes képet. */
+function getNutritionGoalRow(userId, source) {
   return toGoalRow(db.prepare(`${GOAL_SELECT} WHERE g.user_id = ? AND g.source = ?`)
     .get(userId, source));
 }
@@ -2094,7 +2095,8 @@ export function getAthleteFeedbackSince(coachId, sinceDate) {
   }));
 }
 
-export function getWorkout(userId, workoutId) {
+/* Modulon belüli segéd — a saveWorkoutFeedback ezen adja vissza a friss sort. */
+function getWorkout(userId, workoutId) {
   const row = db.prepare(`SELECT id, name, date, exercises, plan_id,
           feedback_difficulty, feedback_mood, feedback_note, feedback_at FROM workouts WHERE id = ? AND user_id = ?`)
     .get(workoutId, userId);

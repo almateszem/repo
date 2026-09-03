@@ -1,10 +1,16 @@
 FitTrack Pro — MI MIT CSINÁL
 ============================
-Az alkalmazás összes funkciója és működése, egy helyen.
-Utolsó frissítés: 2026-08-30
+Az alkalmazás funkciói és működése, egy helyen.
+Utolsó frissítés: 2026-09-03
 
 Ez a fájl azt írja le, MI VAN KÉSZ és HOGYAN MŰKÖDIK. Ami még hiányzik, az
 a TEENDOK.txt-ben van; ami tervezési döntés és indoklás, az a README.md-ben.
+
+FIGYELEM: a 2026-09-02-i összefésülés (main → Viktor/funkciok) az edző–
+sportoló réteget, az értesítéseket és az üzenetváltást ÁTÍRTA. A 12. és a
+13. szakasz (adatmodell, végpontok) azóta a KÓDBÓL van generálva, tehát
+megbízható. A többi szakaszt átnéztük, de kétség esetén a README.md és a
+kód az irányadó.
 
 
 ==========================================================================
@@ -27,7 +33,7 @@ Node 22.5+ kell (a beépített node:sqlite modul miatt).
     npm install
     npm start          → http://localhost:3000
     npm run dev        → ugyanaz, fájlfigyeléssel
-    npm test           → 188 teszt (node --test, nulla függőség)
+    npm test           → 304 teszt (node --test, nulla függőség)
 
 Környezeti változók:
     PORT          alapérték 3000
@@ -43,6 +49,10 @@ Fájlok:
     server/recovery.js  Recovery Engine — a készenlét-számítás, DB nélkül
     server/muscles.js   izomcsoport-taxonómia + gyakorlat → izom leképezés
     server/data.js      seed / referencia-adat
+    server/coaching.js  a sportoló-összegző (tiszta függvények, DB nélkül)
+    server/notifications.js  az értesítés-panel tartalma (szintén tiszta)
+    server/ratelimit.js      kérés-korlátozás
+    server/openfoodfacts.js  vonalkód → termék (Open Food Facts proxy)
 
 A frontend egyoldalas: a "#hash" router váltja az oldalakat, minden oldal a
 DOM-ban van, csak rejtve.
@@ -98,8 +108,8 @@ alapoznia (ld. 5. pont).
 ==========================================================================
 3. OLDALAK
 ==========================================================================
-Hat fő oldal a navigációban (Áttekintés, Regeneráció, Edző, Tervek, Edzés,
-Táplálkozás) és négy "flow-oldal", amikre csak gombbal lehet eljutni
+Hét fő oldal a navigációban (Áttekintés, Regeneráció, Edző, Tervek, Edzés,
+Táplálkozás, Profil) és négy "flow-oldal", amikre csak gombbal lehet eljutni
 (check-in varázsló, edzés-összegző, terv-építő, gyakorlat-választó).
 
 Navigáció: oldalsó menü, alul egy húzható "nav gyűrű" (fel/le/balra/jobbra),
@@ -445,65 +455,38 @@ fiókonként külön sorban állnak.
 
 
 ==========================================================================
-8. EDZŐ–KLIENS KAPCSOLAT
+8. EDZŐ–SPORTOLÓ KAPCSOLAT
 ==========================================================================
 A KAPCSOLAT ÚTJA
-  1. Aki edzőként akar dolgozni, bekapcsolja a Beállításokban az "Edzek
-     másokat" kapcsolót.
-  2. Az edző MEGHÍVJA a klienst a felhasználónevével. A kapcsolat ekkor
-     függőben van — az edző ettől MÉG SEMMIT NEM LÁT.
-  3. A kliens a saját Edző oldalán ELFOGADJA. Innentől látja az edző az
+  1. Az edző MEGHÍVJA a sportolót a felhasználónevével (POST /api/athletes).
+     A kapcsolat ekkor függőben van — az edző ettől MÉG SEMMIT NEM LÁT.
+  2. A sportoló a saját Edző oldalán ELFOGADJA. Innentől látja az edző az
      adatait.
-  4. Bontani MINDKÉT fél tud, bármikor; a hozzáférés azonnal megszűnik.
-     Bontás után új meghívás küldhető — a kapcsolat nem éled fel magától.
+  3. Bontani MINDKÉT fél tud, bármikor; a hozzáférés azonnal megszűnik.
 
-A "van edződ" jelző ezért nem beállítás, hanem az elfogadott kapcsolatból
-következik: nem lehet olyan szerepkört mutatni, ami mögött nincs semmi.
+A kapcsolat a `coach_links` táblában él (coach_id, athlete_id, status).
+Egyszerre EGY edző lehet: előbb le kell válni a régiről, különben nem lenne
+eldönthető, kinek a felülete a „kliens nézet".
 
-A KERESZT-FIÓK HOZZÁFÉRÉS
-  Ez a rendszer legkockázatosabb pontja, ezért a szabály EGY helyen él:
-    · isCoachOf(coachId, clientId) — csak ELFOGADOTT kapcsolatra igaz,
-    · resolveClientId(req, res) — a végpontok egyetlen kapuja: saját fiók,
-      vagy elfogadott kapcsolat, különben 404.
-  A jogosulatlan kérés szándékosan 404-et kap, nem 403-at: a 403 elárulná,
-  hogy az adott azonosítón létezik fiók, és az id-k végigpróbálhatók
-  lennének. A server/coach.test.js ezt tételesen méri.
+A CÍMZÉS a kapcsolat azonosítójával megy (/api/athletes/:linkId/...), NEM a
+sportoló user-id-jével. Ez tudatos: a belső azonosító nem kerül ki az
+edzőhöz — külön teszt is őrzi (coach.test.js).
 
-AMIT AZ EDZŐ LÁT
-  A kliens-kártya minden száma a kliens tényleges naplóiból számolódik:
-  készenlét, sorozat, heti edzésnapok, aktív terv, legutóbbi aktivitás.
-  Amit nem lehet kiszámolni, az nem jelenik meg kitalált számként:
-    · terv-követés csak akkor van, ha a kliensnek van napra ütemezett
-      terve, és CSAK a terv létrejötte utáni napokra vonatkozik. Egy ma
-      regisztrált kliens nem kaphat 0%-ot azért, mert nem edzett olyan
-      napokon, amikor még terve sem volt;
-    · a készenlét megbízhatósága ott van a részletmodálban;
-    · nincs cél-címke (ERŐ / TÖM / FIT): a profilban nem kérünk edzéscélt.
-
+Az üzenetváltás a `messages` táblában él, a kapcsolathoz kötve, olvasottság-
+jelöléssel (read_at). A kapcsolat bontásakor CASCADE törli az üzeneteket: a
+levált sportoló előzménye nem marad az edzőnél.
 
 ==========================================================================
-9. KIOSZTOTT EDZÉSTERVEK
+9. TERV-AJÁNLATOK
 ==========================================================================
-A kiosztott tervnek a KLIENS a tulajdonosa, de az EDZŐ a szerzője. Ebből
-következik minden szabály — nincs külön "zárolt" jelző, ami elcsúszhatna:
+Az edző nem ír közvetlenül a sportoló terveibe: FELAJÁNL, a sportoló pedig
+ELFOGADJA vagy ELUTASÍTJA (`plan_assignments`, status pending/accepted/
+declined). Elfogadáskor a terv MÁSOLATKÉNT kerül a sportoló tervei közé —
+a meglévőkhöz nem nyúlunk, ez mindig hozzáadás, sosem felülírás.
 
-  · a kliens EDZENI tud belőle, de nem szerkesztheti. A módosítási kísérlet
-    403-at kap (nem 404-et: a saját tervét látja, csak nem az övé a
-    szerkesztés joga), és a hibaüzenet megnevezi, kihez forduljon;
-  · az edző módosíthatja, AMÍG ÉL A KAPCSOLAT. A szerzőség önmagában nem
-    jogosultság: bontás után a volt edző már nem írhatja át a tervet — a
-    terv viszont a kliensnél marad, és tovább használható;
-  · a terven ott a nyom, hogy MIKOR és KI módosította utoljára. A
-    LÉTREHOZÁS szándékosan nem számít módosításnak: a friss terven nincs
-    nyom, így az utólagos átírás tényleg feltűnik.
-
-Az edző a kliens SAJÁT terveit látja, de nem szerkesztheti — a modál
-terv-listáján csak az általa kiosztottakon van "Szerkesztés" gomb.
-
-Kiosztás menete: kliens-modál → "+ Terv kiosztása" → a terv-építő edzői
-módban nyílik, és a fejléc kiírja, KINEK készül a terv (enélkül a mentés
-némán más fiókjába írna).
-
+Ebből következik, hogy az elfogadott terv a SPORTOLÓÉ: szerkesztheti és
+törölheti is (DELETE /api/plans/:id). Az elutasított ajánlat sora megmarad
+lezárt állapotban, hogy az edző lássa a választ.
 
 ==========================================================================
 10. KÉSZENLÉT-JAVASLAT — a rendszer kérdez, nem cselekszik
@@ -547,104 +530,182 @@ mai készenléte. Ez két rétegben jelenik meg.
 ==========================================================================
 11. ÉRTESÍTÉSEK
 ==========================================================================
-Egy sor = egy MEGTÖRTÉNT esemény, mindig annak a fióknak, AKIT érint:
-meghívás, meghívás elfogadása, terv kiosztása, terv módosítása. Ami nem
-történt meg, arról nincs értesítés.
+NINCS `notifications` tábla. A panel VALÓDI eseményekből áll össze
+OLVASÁSKOR (server/notifications.js — tiszta függvény, DB nélkül):
 
-Az "olvasott" állapot a SZERVEREN él, egyetlen időbélyegként — nem a
-böngésző localStorage-ában. Az "olvasottnak jelölés" ezért NEM üríti ki a
-listát, csak az "új" jelzés tűnik el róla.
+  · olvasatlan üzenet szálanként egy sorban,
+  · hozzám érkezett, még függő edző-meghívó,
+  · az én meghívóm elfogadása,
+  · nekem felajánlott terv, és az én tervemre érkezett válasz,
+  · friss egyéni csúcs (PR),
+  · a sportolóm edzés utáni visszajelzése.
 
-A beállításokban kategóriánként némíthatók (Meghívás/kapcsolat, Terv
-kiosztva, Terv módosítva). A némított kategória nem számít bele az "új"
-darabszámba.
+MINDEGYIK SORNAK VALÓDI IDŐBÉLYEGE VAN, és ez a szűrő döntötte el, mi
+kerülhet ide: a „töltsd ki a check-int" és a „sorozat mérföldkő" kimaradt,
+mert azok ÁLLAPOTOK, nem események — csak kitalált időponttal lehetne
+kiírni őket.
 
+Az „olvasott" állapot LÁTOTT-IDŐPONT (prefs → notifSeenAt): a „mind
+olvasott" a sorokat megtartja, csak az újdonság-jelzés tűnik el.
 
 ==========================================================================
 12. ADATMODELL
 ==========================================================================
-Kétféle adat:
+Ez a szakasz a KÓDBÓL van generálva (server/db.js CREATE TABLE sorai) —
+2026-09-03. Ha a séma változik, ezt is frissíteni kell.
 
 REFERENCIA (közös, csak olvasható) — a `collections` kulcs-érték táblában,
 minden induláskor a data.js-ből szinkronizálva:
-    exerciseCatalog (1401 gyakorlat), foods (437 étel), charts, dashboard,
-    defaultSet, nutritionGoal, athleteReplies, coachReplies
+    exerciseCatalog, foods, charts, dashboard, defaultSet, goals,
+    nutritionGoal (ez utóbbi már csak ALAPÉRTÉK — ld. nutrition_goals)
 
-FELHASZNÁLÓI ADAT (saját táblák, minden sor egy fiókhoz tartozik):
-    users            fiókok (+ is_coach, notifications_read_at)
-    sessions         munkamenetek (csak a token SHA-256 lenyomata)
-    coach_clients    edző–kliens kapcsolat (pending / active)
-    notifications    értesítések
-    weight_log       testsúly-bejegyzések (naponta egy)
-    nutrition_log    naplózott ételek
-    workouts         lezárt edzések (JSON gyakorlat-tömbbel)
-    plans            edzéstervek (+ author_id, updated_at, updated_by)
-    workout_draft    az épp szerkesztett edzés — fiókonként EGY sor
-    checkins         napi check-inek
-    exercise_maxes   egyéni csúcsok gyakorlatonként
+FELHASZNÁLÓI ADAT (minden sor egy fiókhoz tartozik):
+    users              fiókok (+ goal, is_coach)
+    sessions           munkamenetek (csak a token SHA-256 lenyomata)
+    weight_log         testsúly-bejegyzések (naponta egy)
+    body_measurements  körfogatok és testzsír (naponta és helyenként egy)
+    nutrition_log      naplózott ételek (a makrók MÁSOLATBAN)
+    nutrition_goals    napi cél fiókonként — 'own' és 'coach' sor is lehet
+    custom_foods       saját ételek (kézi makró vagy vonalkódról)
+    workouts           lezárt edzések (+ edzés utáni visszajelzés mezői)
+    plans              edzéstervek
+    workout_draft      az épp szerkesztett edzés — fiókonként EGY sor
+    checkins           napi check-inek
+    exercise_maxes     egyéni csúcsok (+ source: 'measured' | 'declared')
+    comments           megjegyzések egy gyakorlathoz
+
+KAPCSOLAT KÉT FIÓK KÖZÖTT:
+    coach_links        edző–sportoló kapcsolat (pending / active)
+    messages           üzenetek a kapcsolaton belül (+ read_at)
+    plan_assignments   terv-ajánlatok (pending / accepted / declined)
+
+GYORSÍTÓTÁR:
+    barcode_cache      az Open Food Facts válaszai
+
+NINCS `notifications` tábla: az értesítés-panel VALÓDI eseményekből
+származtatva áll össze olvasáskor (server/notifications.js).
 
 MIGRÁCIÓK: a séma bővítései minden induláskor lefutnak a meglévő
 adatbázisfájlon is, tehát nem kell törölni a fittrack.db-t.
 
-
 ==========================================================================
 13. API — VÉGPONTOK
 ==========================================================================
-AUTH (nem igényel bejelentkezést)
-    GET    /api/auth/me                    beléptetve vagyok-e (+ firstRun)
-    POST   /api/auth/register              regisztráció
-    POST   /api/auth/login                 belépés
-    POST   /api/auth/logout                kilépés
+Ez a lista a KÓDBÓL van generálva (server/server.js) — 2026-09-03.
 
-OLVASÓ
-    GET    /api/user                       profil + valódi szerepkörök
-    GET    /api/dashboard                  az áttekintő minden mezője
-    GET    /api/readiness                  a teljes készenléti riport
-    GET    /api/checkin                    a mai check-in
-    GET    /api/plans                      saját + kapott tervek
-    GET    /api/workouts                   lezárt edzések
-    GET    /api/workout-draft              az aktuális piszkozat
-    GET    /api/workout-template           az Edzés oldal induló tartalma
-    GET    /api/prs                        egyéni csúcsok
-    GET    /api/prs/history?exercise=…     egy gyakorlat PR-előzménye
-    GET    /api/exercise-maxes             a nyers csúcsértékek
-    GET    /api/charts                     heti volumen + testsúly-görbe
-    GET    /api/weight-log                 testsúly-napló
-    GET    /api/nutrition                  napi összesítő
-    GET    /api/nutrition/log              a mai naplózott tételek
-    GET    /api/foods                      étel-katalógus
-    GET    /api/exercise-catalog           gyakorlat-katalógus
-    GET    /api/default-set                alapértelmezett szett
-    GET    /api/notifications              értesítések
-    GET    /api/export                     teljes adat-pillanatkép
+Az /api/auth/* KIVÉTELÉVEL minden végpont bejelentkezést követel; a
+védelem az összes útvonal ELŐTT áll, tehát egy később felvett végpont
+automatikusan védett. A kereszt-fiók hozzáférés a KAPCSOLAT azonosítójával
+megy (/api/athletes/:linkId/...) — a sportoló belső user-id-je nem kerül ki
+az edzőhöz.
 
-ÍRÓ
-    PUT    /api/checkin                    check-in mentése (TELJES sort cserél)
-    POST   /api/workouts                   edzés lezárása
-    PUT    /api/workout-draft              piszkozat mentése
-    DELETE /api/workout-draft              piszkozat törlése
-    POST   /api/plans                      új saját terv
-    PUT    /api/plans/:id                  saját terv módosítása
-    POST   /api/weight-log                 testsúly rögzítése
-    POST   /api/nutrition/log              étel naplózása
-    DELETE /api/nutrition/log/:id          naplóbejegyzés visszavonása
-    POST   /api/notifications/read         mindet olvasottnak
-
-EDZŐ–KLIENS
-    GET    /api/coach/overview             klienseim, edzőim, meghívások
-    POST   /api/coach/role                 edzői szerepkör be/ki
-    POST   /api/coach/invites              meghívás felhasználónévre
-    POST   /api/coach/invites/:id/accept   meghívás elfogadása
-    DELETE /api/coach/links/:id            kapcsolat bontása
-    GET    /api/coach/clients/:id/readiness  a kliens készenléti riportja
-    GET    /api/coach/clients/:id/plans    a kliens tervei
-    POST   /api/coach/clients/:id/plans    terv kiosztása
-    PUT    /api/coach/plans/:id            kiosztott terv módosítása
-
-KÉSZENLÉT-JAVASLAT
-    GET    /api/readiness/advice           mit érdemes ma visszavenni
-    POST   /api/readiness/advice/apply     a javaslat elfogadása
-
+  AUTH
+    GET    /api/auth/me
+    POST   /api/auth/delete-account
+    POST   /api/auth/login
+    POST   /api/auth/logout
+    POST   /api/auth/register
+    PUT    /api/auth/password
+  USER
+    GET    /api/user
+    PUT    /api/user
+  PROFILE
+    GET    /api/profile
+  DASHBOARD
+    GET    /api/dashboard
+  READINESS
+    GET    /api/readiness
+    GET    /api/readiness/advice
+    POST   /api/readiness/advice/apply
+  CHECKIN
+    GET    /api/checkin
+    PUT    /api/checkin
+  WORKOUTS
+    DELETE /api/workouts/:id
+    GET    /api/workouts
+    POST   /api/workouts
+    PUT    /api/workouts/:id
+    PUT    /api/workouts/:id/feedback
+  WORKOUT-DRAFT
+    DELETE /api/workout-draft
+    GET    /api/workout-draft
+    PUT    /api/workout-draft
+  WORKOUT-TEMPLATE
+    GET    /api/workout-template
+  PLANS
+    DELETE /api/plans/:id
+    GET    /api/plans
+    POST   /api/plans
+    PUT    /api/plans/:id
+  PRS
+    GET    /api/prs
+    GET    /api/prs/history
+  EXERCISE-MAXES
+    GET    /api/exercise-maxes
+  STRENGTH-ASSESSMENT
+    GET    /api/strength-assessment
+    POST   /api/strength-assessment
+  NUTRITION
+    DELETE /api/nutrition/goal
+    DELETE /api/nutrition/log/:id
+    GET    /api/nutrition
+    GET    /api/nutrition/goal
+    GET    /api/nutrition/log
+    POST   /api/nutrition/log
+    PUT    /api/nutrition/goal
+    PUT    /api/nutrition/log/:id
+  FOODS
+    DELETE /api/foods/custom/:id
+    GET    /api/foods
+    GET    /api/foods/barcode/:code
+    POST   /api/foods/custom
+  WEIGHT-LOG
+    DELETE /api/weight-log/:id
+    GET    /api/weight-log
+    POST   /api/weight-log
+    PUT    /api/weight-log/:id
+  MEASUREMENTS
+    DELETE /api/measurements/:id
+    GET    /api/measurements
+    GET    /api/measurements/sites
+    PUT    /api/measurements
+  COMMENTS
+    DELETE /api/comments/:commentId
+    GET    /api/comments
+    GET    /api/comments/by-target
+    POST   /api/comments
+  COACH
+    DELETE /api/coach
+    DELETE /api/coach/invites/:linkId
+    GET    /api/coach
+    POST   /api/coach/invites/:linkId/accept
+  ATHLETES
+    DELETE /api/athletes/:linkId
+    GET    /api/athletes
+    GET    /api/athletes/:linkId/comments
+    POST   /api/athletes
+    POST   /api/athletes/:linkId/comments
+    POST   /api/athletes/:linkId/plan
+    PUT    /api/athletes/:linkId/nutrition-goal
+  PLAN-OFFERS
+    DELETE /api/plan-offers/:id
+    POST   /api/plan-offers/:id/accept
+  MESSAGES
+    GET    /api/messages/:linkId
+    POST   /api/messages/:linkId
+    POST   /api/messages/:linkId/read
+  NOTIFICATIONS
+    GET    /api/notifications
+  CHARTS
+    GET    /api/charts
+  EXERCISE-CATALOG
+    GET    /api/exercise-catalog
+  DEFAULT-SET
+    GET    /api/default-set
+  GOALS
+    GET    /api/goals
+  EXPORT
+    GET    /api/export
 
 ==========================================================================
 14. AKADÁLYMENTESSÉG ÉS ÉRINTÉS
