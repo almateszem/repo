@@ -218,6 +218,8 @@ test('bejelentkezés nélkül MINDEN /api végpont 401-et ad', async () => {
     ['GET', '/api/strength-assessment'], ['POST', '/api/strength-assessment'],
     ['DELETE', '/api/plans/1'], ['PUT', '/api/weight-log/1'],
     ['DELETE', '/api/weight-log/1'], ['PUT', '/api/nutrition/log/1'],
+    ['GET', '/api/measurements'], ['GET', '/api/measurements/sites'],
+    ['PUT', '/api/measurements'], ['DELETE', '/api/measurements/1'],
   ];
 
   for (const [method, urlPath] of endpoints) {
@@ -1716,4 +1718,78 @@ test('a javító végpontok idegen sorra 404-et adnak', async () => {
   // A saját adat érintetlen.
   const tervek = await request('GET', '/api/plans', { cookie: fixCookie });
   assert.ok(tervek.json.some((p) => p.name === 'Enyém'));
+});
+
+/* ======================================================================
+   Testösszetétel — körfogat és testzsír
+   ----------------------------------------------------------------------
+   A weight_log egyetlen számot tárol, de a puszta kilogramm nem mondja meg,
+   MI épült és mi fogyott. A mérési helyek értékkészlete zárt: elgépelt
+   kulcsra a trend szétesne.
+   ====================================================================== */
+
+let mesCookie = '';
+
+test('a mérési helyek listája a szerverről jön, címkével és tartománnyal', async () => {
+  const reg = await request('POST', '/api/auth/register', {
+    body: { username: 'meres', displayName: 'Mérő Márta', password: 'jelszo321' },
+  });
+  mesCookie = cookieFrom(reg);
+
+  const res = await request('GET', '/api/measurements/sites', { cookie: mesCookie });
+  assert.equal(res.status, 200);
+  const waist = res.json.find((s) => s.key === 'waist');
+  assert.ok(waist, 'a derék mérési hely');
+  assert.equal(waist.unit, 'cm');
+  assert.ok(waist.min > 0 && waist.max > waist.min, 'van tartomány, amihez validálni lehet');
+  assert.ok(res.json.some((s) => s.key === 'bodyfat' && s.unit === '%'), 'a testzsír százalék');
+});
+
+test('az aznapi újramérés FELÜLÍR, nem duplikál', async () => {
+  const elso = await request('PUT', '/api/measurements', {
+    cookie: mesCookie, body: { values: { waist: 84, arm: 38.5, bodyfat: 12.5 } },
+  });
+  assert.equal(elso.status, 200);
+  assert.equal(elso.json.length, 3);
+
+  const masodik = await request('PUT', '/api/measurements', {
+    cookie: mesCookie, body: { values: { waist: 83 } },
+  });
+  assert.equal(masodik.json.length, 3, 'ugyanaz a három sor — nem lett negyedik');
+  assert.equal(masodik.json.find((m) => m.site === 'waist').value, 83);
+  assert.equal(masodik.json.find((m) => m.site === 'arm').value, 38.5,
+    'amit nem adtunk meg, azt nem bántjuk — az üres mező nem törlés');
+});
+
+test('a mérés validál: ismeretlen hely, tartományon kívüli érték, üres törzs', async () => {
+  const rossz = [
+    [{ values: { kitalalt: 50 } }, 'ismeretlen mérési hely'],
+    [{ values: { arm: 300 } }, 'irreális felkar'],
+    [{ values: { bodyfat: 90 } }, 'irreális testzsír'],
+    [{ values: {} }, 'üres mérés'],
+    [{}, 'hiányzó values'],
+  ];
+  for (const [body, eset] of rossz) {
+    const res = await request('PUT', '/api/measurements', { cookie: mesCookie, body });
+    assert.equal(res.status, 400, eset);
+    assert.ok(res.json.error, `${eset}: beszédes hibaüzenet`);
+  }
+});
+
+test('a mérés törölhető, és idegen sorra 404 jön', async () => {
+  const sajat = (await request('GET', '/api/measurements', { cookie: mesCookie })).json[0];
+
+  const masik = await request('POST', '/api/auth/register', {
+    body: { username: 'meres2', displayName: 'Másik Mérő', password: 'jelszo321' },
+  });
+  const idegen = await request('DELETE', `/api/measurements/${sajat.id}`, {
+    cookie: cookieFrom(masik),
+  });
+  assert.equal(idegen.status, 404, 'idegen mérést nem lehet törölni');
+
+  const torles = await request('DELETE', `/api/measurements/${sajat.id}`, { cookie: mesCookie });
+  assert.equal(torles.status, 204);
+
+  const utana = await request('GET', '/api/measurements', { cookie: mesCookie });
+  assert.equal(utana.json.find((m) => m.id === sajat.id), undefined);
 });

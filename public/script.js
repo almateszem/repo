@@ -165,6 +165,10 @@
     // Az edzés-cél mentése — a válasz a fiók frissített felületi alakja
     saveGoal:          (goal) => putJson('/api/user', { goal }),
     // Nem cache-elt: a profiloldal összesítői minden edzés-mentés után változnak
+    getMeasurementSites: () => getJsonCached('/api/measurements/sites'),
+    getMeasurements:   () => getJson('/api/measurements'),
+    saveMeasurements:  (values) => putJson('/api/measurements', { values }),
+    deleteMeasurement: (id) => del(`/api/measurements/${id}`),
     deletePlan:        (id) => del(`/api/plans/${id}`),
     updateWeightEntry: (id, kg) => putJson(`/api/weight-log/${id}`, { kg }),
     deleteWeightEntry: (id) => del(`/api/weight-log/${id}`),
@@ -3981,6 +3985,111 @@
       időrendi volna, de a számot a diagram is használja. */
   const dayKeyOf = (dateStr) => Number(String(dateStr).replace(/\./g, ''));
 
+  /* ---- Testösszetétel ----
+     A testsúly egyetlen szám: nem mondja meg, MI épült és mi fogyott. A
+     mérési helyek listája (címke, mértékegység, tartomány) a SZERVERTŐL jön —
+     egy helyen él, nem sodródik szét a két oldal között. */
+  let measurementSites = [];
+  let measurements = [];
+
+  /** Egy mérési hely legutóbbi és legelső értéke — a delta ebből jön. */
+  const measurementHistory = (site) => measurements
+    .filter((entry) => entry.site === site)
+    .sort((a, b) => dayKeyOf(b.date) - dayKeyOf(a.date));
+
+  function renderMeasurements() {
+    const fields = $('[data-body-fields]');
+    const list = $('[data-body-list]');
+    const empty = $('[data-body-empty]');
+    if (!fields || !list) return;
+
+    // Mezők — a legutóbbi mérésből előtöltve.
+    fields.replaceChildren(...measurementSites.map((site) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'rc-body-field';
+
+      const label = document.createElement('label');
+      label.setAttribute('for', `rc-body-${site.key}`);
+      label.textContent = `${site.label} (${site.unit})`;
+
+      const input = document.createElement('input');
+      input.id = `rc-body-${site.key}`;
+      input.type = 'number';
+      input.inputMode = 'decimal';
+      input.step = '0.1';
+      input.min = String(site.min);
+      input.max = String(site.max);
+      input.dataset.site = site.key;
+      const latest = measurementHistory(site.key)[0];
+      input.value = latest ? String(latest.value) : '';
+
+      wrap.append(label, input);
+      return wrap;
+    }));
+
+    // Aktuális értékek + változás az első mérés óta.
+    const rows = measurementSites
+      .map((site) => ({ site, history: measurementHistory(site.key) }))
+      .filter(({ history }) => history.length > 0);
+
+    empty.hidden = rows.length > 0;
+    list.replaceChildren(...rows.map(({ site, history }) => {
+      const latest = history[0];
+      const first = history[history.length - 1];
+
+      const li = document.createElement('li');
+      li.className = 'rc-body-row';
+
+      const label = document.createElement('span');
+      label.className = 'rc-body-row-label';
+      label.textContent = `${site.label} · ${latest.date}`;
+
+      const value = document.createElement('span');
+      value.className = 'rc-body-row-value';
+      value.textContent = `${formatNumber(latest.value)} ${site.unit}`;
+
+      const delta = document.createElement('span');
+      delta.className = 'rc-body-row-delta';
+      /* A változás CSAK akkor jelenik meg, ha van mihez mérni: egyetlen
+         mérésből nem képezünk 0-t — az azt állítaná, hogy nem változott. */
+      const diff = history.length > 1 ? latest.value - first.value : null;
+      delta.textContent = diff === null
+        ? ''
+        : `${diff > 0 ? '+' : ''}${formatNumber(diff)} ${site.unit}`;
+
+      const del = document.createElement('button');
+      del.className = 'rc-body-del';
+      del.type = 'button';
+      del.textContent = '✕';
+      del.title = 'A legutóbbi mérés törlése';
+      del.setAttribute('aria-label', `${site.label} legutóbbi mérésének törlése`);
+      del.addEventListener('click', async () => {
+        del.disabled = true;
+        try {
+          await api.deleteMeasurement(latest.id);
+          measurements = measurements.filter((entry) => entry.id !== latest.id);
+          renderMeasurements();
+          showToast('Mérés törölve');
+        } catch (err) {
+          console.error(err);
+          del.disabled = false;
+          showToast(err.message || 'Nem sikerült törölni a mérést', 'error');
+        }
+      });
+
+      li.append(label, value, delta, del);
+      return li;
+    }));
+  }
+
+  /** A mérések betöltése. A Regeneráció oldal megnyitása hívja — a helyek
+      listája csak egyszer kell, az nem változik futás közben. */
+  async function refreshMeasurements() {
+    if (measurementSites.length === 0) measurementSites = await api.getMeasurementSites();
+    measurements = await api.getMeasurements();
+    renderMeasurements();
+  }
+
   /** A napló újratöltése a szerverről + újrarajzolás. A Regeneráció oldal
       megnyitása hívja (az adat máshol — akár másik fülön — is változhatott). */
   async function refreshWeightLog() {
@@ -4006,6 +4115,33 @@
       (server/recovery.js) fut — a kliens csak beküld és megjelenít. */
   async function setupRecovery() {
     const page = $('[data-page="recovery"]');
+    /* Testösszetétel-mérés mentése. Az üresen hagyott mező NEM törlés, csak
+       „most nem mértem" — a szerver is így kezeli. */
+    const bodyForm = $('[data-form="measurements"]', page);
+    const bodySave = $('.rc-body-save', page);
+    bodyForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const values = {};
+      $$('[data-body-fields] input', page).forEach((input) => {
+        if (input.value !== '') values[input.dataset.site] = Number(input.value);
+      });
+      if (Object.keys(values).length === 0) {
+        showToast('Adj meg legalább egy mérést', 'error');
+        return;
+      }
+      bodySave.disabled = true;
+      try {
+        measurements = await api.saveMeasurements(values);
+        renderMeasurements();
+        showToast('Mérés mentve');
+      } catch (err) {
+        console.error(err);
+        showToast(err.message || 'Nem sikerült menteni a mérést', 'error');
+      } finally {
+        bodySave.disabled = false;
+      }
+    });
+
     if (!page) return;
 
     const form = $('[data-form="checkin"]', page);
@@ -4144,6 +4280,8 @@
       // és a fillForm a mai bejegyzésből tölti a testsúly-mezőt.
       const [report, checkin] = await Promise.all([
         api.getReadiness(), api.getCheckin(), refreshWeightLog(),
+        // A testösszetétel is ezen az oldalon él, a testsúly-kártya mellett.
+        refreshMeasurements(),
       ]);
       fillForm(checkin);
       renderRecovery(report);

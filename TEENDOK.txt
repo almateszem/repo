@@ -330,12 +330,19 @@ maga után. Az appban ma bőven lehet írni, javítani viszont alig.
     terhelés-komponensét is érinti (ma a tonnatömegből számol, aminek egy
     futásnál nincs értelme). Külön át kell beszélni, mielőtt bárki elkezdi.
 
-[ ] Csak testsúly van, körfogat és testzsír nincs
-    A checkins táblában nincs testösszetétel-mező, a weight_log pedig egyetlen
-    számot tárol. Egy versenyző nem a testsúlyát követi, hanem a mellette futó
-    körfogatot — a puszta kilogramm nem mondja meg, mi épült és mi fogyott.
-    A 3. funkció-ötlet (on/off szezon célsúly) mellett ez a hiány feltűnő:
-    a célsúly önmagában kevesebbet mond, mint amennyit ígér.
+[x] Csak testsúly van, körfogat és testzsír nincs   (2026-09-03)
+    Új tábla: body_measurements (user_id, date, site, value). Hét mérési hely
+    — mell, felkar, derék, csípő, comb, vádli — plusz a testzsír százalék.
+    Naponta és helyenként EGY sor: az aznapi újramérés felülír, nem duplikál
+    (ugyanaz az elv, mint a weight_log-nál). Az üresen hagyott mező NEM
+    törlés, csak „most nem mértem".
+    A helyek értékkészlete ZÁRT (MEASUREMENT_SITES a server.js-ben), és a
+    címke, a mértékegység meg a tartomány is onnan jön — a felület nem
+    tartja külön, tehát a két oldal nem sodródhat szét.
+    Felület: Regeneráció oldal, a testsúly-kártya mellett. A lista az
+    aktuális értéket és az ELSŐ mérés óta történt változást mutatja; egyetlen
+    mérésből nem képezünk 0-t — az azt állítaná, hogy nem változott.
+    A készenlét-motort NEM érinti: ez követési adat, mint a testsúly-trend.
 
 [ ] Nincs import — csak export
     A GET /api/export (getSnapshot) teljes pillanatképet ad, de nincs párja:
