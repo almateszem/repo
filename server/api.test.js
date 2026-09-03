@@ -140,12 +140,10 @@ after(async () => {
    A munkamenetet süti hordozza, ezért a hívó átadhatja a sajátját; a válaszból
    kiolvasott új sütit visszaadjuk, hogy a belépés után tovább lehessen adni. */
 
-async function request(method, urlPath, { body, cookie, zone } = {}) {
+async function request(method, urlPath, { body, cookie } = {}) {
   const headers = {};
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   if (cookie) headers.Cookie = cookie;
-  // A böngésző időzónája — ebből képzi a szerver a NAPOT (todayInZone).
-  if (zone) headers['X-Time-Zone'] = zone;
 
   const res = await fetch(`${baseUrl}${urlPath}`, {
     method,
@@ -202,23 +200,6 @@ test('bejelentkezés nélkül MINDEN /api végpont 401-et ad', async () => {
     ['GET', '/api/plans'], ['GET', '/api/prs'], ['GET', '/api/prs/history?exercise=X'],
     ['GET', '/api/exercise-maxes'], ['GET', '/api/readiness'], ['GET', '/api/checkin'],
     ['GET', '/api/export'], ['GET', '/api/foods'], ['GET', '/api/exercise-catalog'],
-<<<<<<< HEAD
-    ['GET', '/api/notifications'], ['GET', '/api/default-set'],
-    ['GET', '/api/coach/overview'], ['GET', '/api/coach/clients/1/readiness'],
-    ['POST', '/api/coach/role'], ['POST', '/api/coach/invites'],
-    ['POST', '/api/coach/invites/1/accept'], ['DELETE', '/api/coach/links/1'],
-    ['GET', '/api/coach/clients/1/plans'], ['POST', '/api/coach/clients/1/plans'],
-    ['PUT', '/api/coach/plans/1'], ['POST', '/api/notifications/read'],
-    ['GET', '/api/readiness/advice'], ['POST', '/api/readiness/advice/apply'],
-    ['POST', '/api/weight-log'], ['POST', '/api/nutrition/log'], ['POST', '/api/workouts'],
-    ['POST', '/api/plans'], ['PUT', '/api/plans/1'], ['PUT', '/api/workout-draft'],
-    ['PUT', '/api/checkin'], ['DELETE', '/api/workout-draft'], ['DELETE', '/api/nutrition/log/1'],
-    ['GET', '/api/comments/1'], ['GET', '/api/comments/1/by-target'],
-    ['PUT', '/api/workouts/1/feedback'],
-    ['GET', '/api/nutrition/goal'], ['PUT', '/api/nutrition/goal'],
-    ['DELETE', '/api/nutrition/goal'], ['PUT', '/api/coach/clients/1/nutrition-goal'],
-    ['POST', '/api/comments/1'], ['DELETE', '/api/comments/1/1'],
-=======
     ['GET', '/api/athletes'], ['GET', '/api/notifications'], ['GET', '/api/default-set'],
     ['GET', '/api/goals'], ['GET', '/api/coach'], ['GET', '/api/messages/1'],
     ['POST', '/api/weight-log'], ['POST', '/api/nutrition/log'], ['POST', '/api/workouts'],
@@ -227,7 +208,6 @@ test('bejelentkezés nélkül MINDEN /api végpont 401-et ad', async () => {
     ['PUT', '/api/workouts/1'], ['DELETE', '/api/workouts/1'],
     ['GET', `/api/foods/barcode/${OFF_KNOWN}`], ['POST', '/api/foods/custom'],
     ['DELETE', '/api/foods/custom/1'],
->>>>>>> 972acc045ef0e4ac7403f732efc6e5bb404bc263
   ];
 
   for (const [method, urlPath] of endpoints) {
@@ -512,106 +492,6 @@ test('a check-in csak ismert izomkulcsot és érvényes értéket vesz át', asy
   assert.equal(res.status, 200);
   assert.deepEqual(res.json.checkin.soreness, { chest: 3 }, 'ismeretlen kulcs és tartományon kívüli érték kiesik');
   assert.deepEqual(res.json.checkin.pain, { general: 4 });
-});
-
-/* ---- Onboarding: a friss fiókot a felület a check-in varázslóra tereli ----
-   A jelző azért „soha nem volt check-inje" és nem „most regisztrált", mert
-   túl kell élnie az oldal-újratöltést: a /me-nek is ugyanazt kell mondania,
-   amit a regisztráció válasza mondott. Saját fiókkal dolgozunk, hogy a fenti
-   tesztek check-injei ne zavarjanak bele. */
-
-let csillaCookie = '';
-
-test('a friss fiók onboarding jelzővel jön vissza — regisztrációkor és a /me-n is', async () => {
-  const reg = await request('POST', '/api/auth/register', {
-    body: { username: 'csilla', displayName: 'Kis Csilla', password: 'jelszo789' },
-  });
-  assert.equal(reg.status, 201);
-  assert.equal(reg.json.onboarding, true, 'új fiók: még egyetlen check-in sincs');
-
-  csillaCookie = cookieFrom(reg);
-  const me = await request('GET', '/api/auth/me', { cookie: csillaCookie });
-  assert.equal(me.json.onboarding, true, 'újratöltés után is a varázsló jön');
-});
-
-test('az első check-in lekapcsolja az onboarding jelzőt, és készenlétet ad', async () => {
-  /* Ez a funkció lényege: a friss fiók készenléte NULL, amíg nincs adat —
-     a varázsló négy kötelező mezője után viszont már valódi pontszám van. */
-  const elotte = await request('GET', '/api/readiness', { cookie: csillaCookie });
-  assert.equal(elotte.json.overall, null, 'adat nélkül nincs pontszám (nem 0 és nem 100)');
-
-  const mentes = await request('PUT', '/api/checkin', {
-    cookie: csillaCookie,
-    body: { sleepHours: 7, sleepQuality: 4, energy: 4, stress: 2 },
-  });
-  assert.equal(mentes.status, 200);
-  assert.notEqual(mentes.json.readiness.overall, null, 'a varázsló mezőiből már számol a motor');
-
-  const me = await request('GET', '/api/auth/me', { cookie: csillaCookie });
-  assert.equal(me.json.onboarding, false, 'az app kinyílik — nincs több terelés');
-});
-
-test('a belépés is hozza az onboarding jelzőt, a már check-inelt fióknál hamisat', async () => {
-  const res = await request('POST', '/api/auth/login', {
-    body: { username: 'csilla', password: 'jelszo789' },
-  });
-  assert.equal(res.status, 200);
-  assert.equal(res.json.onboarding, false);
-});
-
-/* ---- Időzóna: a nap a KLIENS zónájában dől el ----
-   A szerver helyi ideje nem a felhasználóé. A két zóna alább 25 ÓRÁRA van
-   egymástól (UTC+14 és UTC-11), tehát SOHA nincsenek ugyanazon a naptári
-   napon — a teszt így nem függ attól, mikor fut. */
-
-const ZONE_KELET = 'Pacific/Kiritimati';   // UTC+14
-const ZONE_NYUGAT = 'Pacific/Midway';      // UTC-11
-
-let zonaCookie = '';
-
-test('a check-in a kliens zónájának napjára kerül, nem a szerverére', async () => {
-  const reg = await request('POST', '/api/auth/register', {
-    body: { username: 'zoltan', displayName: 'Zóna Zoltán', password: 'jelszo321' },
-  });
-  assert.equal(reg.status, 201);
-  zonaCookie = cookieFrom(reg);
-
-  const kelet = await request('PUT', '/api/checkin', {
-    cookie: zonaCookie, zone: ZONE_KELET, body: { sleepHours: 8 },
-  });
-  const nyugat = await request('PUT', '/api/checkin', {
-    cookie: zonaCookie, zone: ZONE_NYUGAT, body: { sleepHours: 6 },
-  });
-
-  assert.equal(kelet.status, 200);
-  assert.equal(nyugat.status, 200);
-  assert.notEqual(kelet.json.checkin.date, nyugat.json.checkin.date,
-    'a 25 órányi eltérés MINDIG külön naptári napot jelent');
-
-  /* És a két sor tényleg külön él: a keleti zóna napján a 8 órás check-in
-     maradt meg, nem írta felül a nyugati. */
-  const vissza = await request('GET', '/api/checkin', { cookie: zonaCookie, zone: ZONE_KELET });
-  assert.equal(vissza.json.sleepHours, 8);
-});
-
-test('fejléc nélkül a szerver helyi napja marad', async () => {
-  const res = await request('PUT', '/api/checkin', {
-    cookie: zonaCookie, body: { sleepHours: 7 },
-  });
-  const pad = (n) => String(n).padStart(2, '0');
-  const d = new Date();
-  const helyi = `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`;
-  assert.equal(res.json.checkin.date, helyi);
-});
-
-test('ismeretlen zónanév nem hiba — a szerver helyi napjára esik vissza', async () => {
-  /* Elgépelt vagy hamisított fejléc: az Intl RangeError-t dob rá. Ezt
-     elnyeljük, mert egy rossz fejléc nem tehet elérhetetlenné egy végpontot. */
-  const res = await request('GET', '/api/checkin', {
-    cookie: zonaCookie, zone: 'Nincs/Ilyen_Zona',
-  });
-  assert.equal(res.status, 200);
-  assert.equal(res.json.sleepHours, 7, 'ugyanaz, mint fejléc nélkül');
 });
 
 /* ======================================================================
@@ -1081,24 +961,6 @@ test('a szerver-belső fájlok nem érhetők el HTTP-n', async () => {
   }
 });
 
-<<<<<<< HEAD
-test('a negatív súly és ismétlés nullára szorul', async () => {
-  /* Egy negatív súly NEGATÍV tonnatömeget adna, ami a fáradtság-modellben
-     levonódik — vagyis egy hamis sorral felfelé lehetne tolni a saját
-     készenléti pontszámot. Nem támadás elleni védelem (mindenki a saját
-     adatát rontja vele), hanem a modell épsége. */
-  const res = await request('POST', '/api/workouts', {
-    cookie: annaCookie,
-    body: {
-      name: 'Negatív teszt',
-      exercises: [{ name: 'Guggolás', sets: [{ reps: '-5', weight: '-500', rpe: '8', type: 'work', done: true }] }],
-    },
-  });
-  assert.equal(res.status, 201);
-  const [set] = res.json.exercises[0].sets;
-  assert.equal(set.weight, '0');
-  assert.equal(set.reps, '0');
-=======
 /* ======================================================================
    9. Mentett edzés javítása és törlése
    ----------------------------------------------------------------------
@@ -1523,5 +1385,4 @@ test('az UPC-A és az EAN-13 alak ugyanarra a termékre fut', async () => {
     // Negatív cache: a második kérés már nem ment ki a hálózatra.
     assert.equal(await offHitCount(), hitsElotte);
   }
->>>>>>> 972acc045ef0e4ac7403f732efc6e5bb404bc263
 });

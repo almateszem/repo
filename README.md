@@ -13,10 +13,9 @@ ami ettől a verziótól érhető el.
 npm install
 npm start          # http://localhost:3000
 npm run dev        # ugyanaz, fájlfigyeléssel (node --watch)
-npm test           # unit- és végponti tesztek (node --test, nulla függőség):
+npm test           # unit-tesztek (node --test, nulla függőség):
                    #   a Recovery Engine, a jelszó-/munkamenet-kezelés,
-                   #   a felhasználók közti adatizoláció, a migráció, és
-                   #   az edző–kliens kereszt-fiók hozzáférés
+                   #   a felhasználók közti adatizoláció és a migráció
 ```
 
 Környezeti változók:
@@ -103,16 +102,11 @@ server/
   auth.js        jelszó-hash (scrypt), munkamenet-tokenek, sütik — tiszta függvények
   auth.test.js   a jelszó- és munkamenet-kezelés tesztjei (npm test)
   users.test.js  a felhasználók közti adatizoláció tesztjei (npm test)
-  coach.test.js  az edző–kliens kapcsolat és a KERESZT-FIÓK hozzáférés tesztjei
   migration.test.js  a fiókok előtti adatbázis migrációjának tesztje (npm test)
   db.js          SQLite adatréteg — az egyetlen modul, ami a tárolást ismeri
-<<<<<<< HEAD
-  data.js        seed / referencia-adat (ételek, gyakorlat-katalógus)
-=======
   data.js        seed / referencia-adat (ételek, gyakorlat-katalógus, edzés-célok)
   openfoodfacts.js  vonalkód-ellenőrzés + Open Food Facts proxy (a kliens nem hívja közvetlenül)
   openfoodfacts.test.js  a leképezés és a vonalkód-normalizálás tesztjei (npm test)
->>>>>>> 972acc045ef0e4ac7403f732efc6e5bb404bc263
   recovery.js    Recovery Engine — a készenlét-számítás (tiszta függvények, DB nélkül)
   recovery.test.js  a motor unit-tesztjei (npm test)
   coaching.js    az edzői panel sportoló-összegzője (tiszta függvények, DB nélkül)
@@ -174,139 +168,6 @@ regisztráció megörökli az egészet** — utána ugyanazt az előzményt lát
 korábban. A második regisztráló már nem kap belőle semmit. A `workout_draft` és
 a `checkins` táblát ilyenkor a szerver újraépíti, mert az elsődleges kulcsuk is
 megváltozott; a művelet idempotens, újraindításkor nem fut le mégegyszer.
-
-## Edző–kliens kapcsolat
-
-Az Edző oldal korábban végig **demo** volt: hat kitalált sportoló fix
-készenléti számmal, és egy beégetett „edződ" fejléc. Mostantól valódi fiókok
-állnak mögötte.
-
-### A kapcsolat útja
-
-1. Aki edzőként akar dolgozni, bekapcsolja a **Beállítások → Szerepkör** alatt
-   az „Edzek másokat" kapcsolót (`users.is_coach`).
-2. Az edző **meghívja a klienst a felhasználónevével** (`POST /api/coach/invites`).
-   A kapcsolat ekkor `pending` — az edző ettől **még semmit nem lát**.
-3. A kliens a saját Edző oldalán **elfogadja** a meghívást. Ekkor lesz
-   `active`, és innentől látja az edző a kliens adatait.
-4. Bontani **mindkét fél** tudja, bármikor; a hozzáférés azonnal megszűnik.
-   Bontás után új meghívás küldhető — a kapcsolat nem éled fel magától.
-
-A „van edződ" jelző ezért **nem beállítás**: az elfogadott `coach_clients`
-sorból következik. Így nem lehet olyan szerepkört mutatni a felületen, ami
-mögött nem áll tényleges kapcsolat.
-
-### A kereszt-fiók hozzáférés — a legkockázatosabb pont
-
-Idáig a szabály egyszerű volt: **minden lekérdezés a bejelentkezett fiókra
-szűr**. Az edzőnek viszont látnia kell a kliense adatát, tehát mostantól
-létezik egy legális út idegen fiók adatához — és pontosan ez az a felület, ahol
-egy hiba adatot szivárogtat.
-
-Ezért a szabály **egy helyen** él, és minden ilyen végpontnak ezen kell
-átmennie:
-
-- `isCoachOf(coachId, clientId)` (`server/db.js`) — csak **elfogadott**
-  kapcsolatra igaz;
-- `resolveClientId(req, res)` (`server/server.js`) — a végpontok egyetlen
-  kapuja: saját fiók, vagy elfogadott kapcsolat, különben **404**.
-
-A jogosulatlan kérés szándékosan **404**-et kap, nem 403-at: a 403 elárulná,
-hogy az adott azonosítón létezik fiók, és az azonosítók végigpróbálhatók
-lennének. A `server/coach.test.js` ezt tételesen méri — a létező és a nem
-létező fiókra adott válasznak **bájtra azonosnak** kell lennie.
-
-### Amit az edző lát
-
-Az edzői panel minden száma **számolt érték**, a kliens tényleges naplóiból:
-készenlét (Recovery Engine), sorozat, heti edzésnapok, aktív terv, legutóbbi
-aktivitás. Amit nem lehet kiszámolni, az nem jelenik meg kitalált számként:
-
-- **Terv-követés** csak akkor van, ha a kliensnek van napra ütemezett terve, és
-  a mérés **csak a terv létrejötte utáni napokra** vonatkozik. Egy ma
-  regisztrált kliens nem kaphat 0%-ot azért, mert nem edzett olyan napokon,
-  amikor még nem is volt terve. Ilyenkor a kártyán „—" áll.
-- A **készenlét megbízhatósága** (Tájékoztató / Közepes / Megbízható) ott van a
-  kliens részletmodáljában: az edző lássa, mennyi adat van a szám mögött.
-- A kártya jelvényén **nincs cél-címke** (ERŐ / TÖM / FIT): a profilban nem
-  kérünk edzéscélt, kitalálni pedig nem fogunk.
-
-### Kiosztott edzéstervek
-
-A kiosztott tervnek a **kliens a tulajdonosa**, de az **edző a szerzője**
-(`plans.user_id` / `plans.author_id`). Ebből következik minden szabály, és
-nincs külön „locked" jelző, ami elcsúszhatna ettől:
-
-- a **kliens edzeni tud belőle, de nem szerkesztheti**. A `PUT /api/plans/:id`
-  ilyenkor **403**-at ad (nem 404-et: a saját tervét látja, csak nem az övé a
-  szerkesztés joga), és a hibaüzenet megnevezi, kihez forduljon;
-- az **edző módosíthatja**, amíg **él a kapcsolat**. A szerzőség önmagában nem
-  jogosultság: kapcsolatbontás után a volt edző már nem írhatja át a tervet —
-  a terv viszont a kliensnél marad, és tovább használható;
-- a terven ott a nyom, hogy **mikor és ki módosította** utoljára. A
-  *létrehozás* szándékosan **nem** számít módosításnak: a friss terven nincs
-  nyom, így az utólagos átírás tényleg feltűnik.
-
-Az edző a kliens **saját** terveit látja, de nem szerkesztheti — a modál
-terv-listáján csak az általa kiosztottakon van „Szerkesztés" gomb.
-
-### A készenlét felülírja a tervet — de kérdez, és nem írja át a tervet
-
-A kiosztott tervhez a kliens nem nyúlhat. Egyetlen dolog szólhat bele: a **mai
-készenléte**. Ez két rétegben jelenik meg.
-
-**1. Passzív jelzés a terv-kártyán.** Kiírja, mi kockázatos ma, és miért.
-
-- **Tiltás:** a gyakorlat olyan izomcsoportot terhel, amire a kliens **7/10
-  vagy afölötti fájdalmat** jelzett. Ugyanaz a küszöb, amivel a Recovery
-  Engine a gyakorlat-ajánlásokat is letiltja.
-- **Óvatosság:** a terhelt izomcsoport készenléte **70% alatt** van.
-
-A jelzés **minden** gyakorlatra működik, nem csak arra, amire van előzmény: a
-gyakorlat → izomcsoport leképezésből dolgozik (`server/muscles.js`), nem a
-naplóból.
-
-**2. Javaslat-ablak a check-in után.** Ha a mai naplóban van mit visszavenni,
-a check-in mentése után felugrik egy ablak tételes listával — mit venne
-lejjebb és mennyivel, mit hagyna ki, és miért —, az alján **Elfogadom** és
-**Most nem** gombbal. Elutasításkor nem történik semmi; a következő check-in
-újra felveti, ha még indokolt.
-
-Három művelet létezik, és mindegyik alkalmazható:
-
-| Művelet | Mikor | Mit csinál |
-| --- | --- | --- |
-| **Levesz** | a terhelt izom készenléte 70% alatt | a **még nem teljesített** szettek súlya −10% (55% alatt −15%), 2,5 kg-ra lefelé kerekítve |
-| **Kihagy** | 7/10 fájdalom, és még nincs teljesített szett | a gyakorlat kimarad a mai naplóból |
-| **Leáll** | 7/10 fájdalom, de már van teljesített szett | csak a **hátralévő** szettek maradnak el |
-
-Amit az elfogadás módosít, az a **mai edzésnapló** (a piszkozat) — a **terv
-soha**. Ha a rendszer a tervbe nyúlna, az edző azt hinné, a kliens az ő tervét
-csinálta végig, miközben más súlyokkal edzett. A **már teljesített szetteket**
-és a **nem szám súlyokat** (saját testsúlyos gyakorlat) semmi nem bántja.
-
-A javaslatot az elfogadás pillanatában a **szerver számolja újra** — a kliens
-listáját nem fogadja el bemenetként, különben egy hamisított kérés tetszőleges
-gyakorlatot törölhetne a naplóból.
-
-**A küszöbök a motor skálájához igazodnak, nem érzésre.** Ahol a terhelés-
-modellnek van adata a csoportról, ott a bejelentett izomláz 0,4 súllyal
-keveredik be: ha a modell frissnek látja az izmot, de a felhasználó 5/5-ös
-izomlázat jelez, az eredmény **60%**. Egy 45%-os küszöb tehát pont ezt az
-esetet hagyná szó nélkül.
-
-### Értesítések
-
-Egy sor = egy **megtörtént esemény**, mindig annak a fióknak, **akit érint**:
-meghívás, meghívás elfogadása, terv kiosztása, terv módosítása. Ami nem
-történt meg, arról nincs értesítés — ezért nincs köztük „heti riportod
-elkészült" típusú szöveg.
-
-Az „olvasott" állapot a **szerveren** él, egyetlen időbélyegként
-(`users.notifications_read_at`), nem a böngésző localStorage-ában. Az
-„olvasottnak jelölés" ezért **nem üríti ki** a listát — csak az „új" jelzés
-tűnik el róla. (Korábban a teljes lista eltűnt, ami beégetett demo-adaton
-elment, valódi eseményeknél viszont előzmény-vesztés lenne.)
 
 ## Kódtérkép — graphify (opcionális fejlesztői eszköz)
 
@@ -457,29 +318,6 @@ bejegyzése, a tényleges értékekhez igazított skálával); az áttekintőn c
 „Testsúly Δ" stat maradt. Amíg nincs egyetlen saját bejegyzés sem, a kártya a
 seed-görbét mutatja, és ki is írja, hogy az demo-adat.
 
-**„Nincs adat" ≠ „tökéletes állapot".** Ez a motor legfontosabb szabálya, és
-sokáig meg volt szegve: az izom- és a terhelés-komponens sosem lehetett
-hiányzó, adat híján „nincs károsodás" → 100 ment a képletbe. Egy **vadonatúj
-fiók így 100%-os készenlétet kapott** — a lehető legrosszabb irányba tévedve,
-mert pont az ismeretlen állapotú embernek mondta, hogy nyomhatja. Ma:
-
-- **nincs semmilyen adat** (se check-in, se naplózott edzés) → az `overall`
-  **`null`**, és a felület „—"-t mutat, nem 0-t és nem 100-at;
-- **aki naplóz, de rég edzett** → a 100 továbbra is helyes, mert az már
-  érvényes következtetés, nem az adat hiánya. A kettőt a „naplózott-e valaha
-  edzést" kérdés választja el;
-- **izomcsoportonként** ugyanez: a riport minden csoportnál jelzi (`known`),
-  hogy tudunk-e róla bármit.
-
-**A bejelentett izomlázat nem nyomhatja el a modell.** A keverés súlya attól
-függ, van-e a modellnek egyáltalán mondanivalója az adott izomcsoportról:
-
-- **van naplózott terhelés a csoporton** → a modell dominál (0,6 / 0,4), mert
-  az objektív terhelést ismeri;
-- **nincs** → a „100% friss" nem tudás, hanem az információ hiánya, ezért a
-  felhasználó saját jelzése önmagában adja a pontszámot. Korábban a fix 0,6-os
-  modell-súly miatt az 5/5-ös izomláz is csak 60%-ig vitt le.
-
 **A képlet** súlyozott átlag, de csak a *jelen lévő* komponensekre:
 
 | Komponens | Súly | Miből |
@@ -519,8 +357,7 @@ szét, mint bármelyik ki nem töltött mezőé.
   gyakorlatokat, és a teljes pontszámot is korlátozza — ezt egy súlyozott átlag
   elmosná.
 
-**Adatigény.** Ami nem számolható, az nem jelenik meg kitalált számként — sem
-0-ként, sem 100-ként (ld. fentebb). A
+**Adatigény.** Ami nem számolható, az nem jelenik meg kitalált számként. A
 személyre szabott (saját előzményhez mért) referenciához 14 nap edzés-előzmény és
 7 check-in kell; addig testsúlyra skálázott általános referenciával fut, és a
 felület `Tájékoztató` / `Közepes` / `Megbízható` jelzéssel kiírja, mire épül a szám.
@@ -643,19 +480,6 @@ Ezek szándékos egyszerűsítések, nem hibák:
   gyanús fejléc esetén a szerver saját napja marad.
 - **Nincs pulzus/HRV adatforrás.** Nincs okosóra-integráció, ezért a Recovery
   Engine hat komponensből számol, nem hétből (lásd fentebb).
-<<<<<<< HEAD
-- **Az üzenetváltás szimulált.** Az edzőnek (és a kliensnek) küldött üzenet
-  nem jut el a másik félhez: a válaszok előre megírt sorokból forognak körbe, és
-  az egész szál a lap újratöltésével elvész. A felület ezt ki is írja. A
-  perzisztens üzenetküldés a következő lépés — ld. `TEENDOK.txt`, 2. blokk.
-- **A készenlét-javaslat kérdez, nem cselekszik magától.** Elfogadás nélkül
-  semmi nem változik, és a terv akkor sem — csak a mai napló. Az edző egyelőre
-  **nem látja**, hogy a kliens elfogadott-e javaslatot; ez az edzés utáni
-  visszajelzéssel együtt jön (`TEENDOK.txt`, 2. blokk).
-- **Az edzői panelen nincs kliensenkénti regeneráció-nézet.** A végpont megvan
-  (`GET /api/coach/clients/:id/readiness`), a felület még nem — ld.
-  `TEENDOK.txt`, 5. blokk.
-=======
 - **Az üzenetek frissítése lekérdezéssel megy**, nem websockettel: a látható
   beszélgetés 20 másodpercenként és minden oldalra lépéskor frissül. Kis
   felhasználószámnál ez elég; sok egyidejű felhasználónál SSE vagy websocket
@@ -669,4 +493,3 @@ Ezek szándékos egyszerűsítések, nem hibák:
   mérföldkő" — azoknak nincs valódi időpontjuk, csak kitalálni lehetne, és a
   panel minden sora relatív időt ír ki. (A check-in emlékeztetője az
   áttekintőn van.)
->>>>>>> 972acc045ef0e4ac7403f732efc6e5bb404bc263
