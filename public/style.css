@@ -5896,6 +5896,94 @@ details[open] > .rc-details-summary::before {
   gap: var(--sp-4);
 }
 
+/* ---- Erőfelmérés a profilon (pf-assess-*) ----
+   A mezők a .nu-goal-field receptjét követik — egy űrlap-alak, több helyen. */
+.pf-assess {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-9);
+}
+
+.pf-assess-lead,
+.pf-assess-note,
+.pf-assess-empty {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.pf-assess-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  list-style: none;
+}
+
+.pf-assess-item {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  background: var(--surface-strong);
+  border-radius: var(--r-lg);
+  padding: var(--sp-4) var(--sp-5);
+  font-size: var(--fs-sm);
+}
+
+.pf-assess-item b { font-weight: 600; }
+
+.pf-assess-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-4);
+}
+
+.pf-assess-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+  flex: 1 1 96px;
+}
+
+.pf-assess-field--wide { flex: 2 1 180px; }
+
+.pf-assess-field label {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.pf-assess-field input {
+  width: 100%;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border-card);
+  background: var(--surface-strong);
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.pf-assess-field input:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+
+.pf-assess-save {
+  border: 0;
+  border-radius: 999px;
+  padding: var(--sp-3) var(--sp-7);
+  background: var(--c-accent);
+  color: #fff;
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pf-assess-save:disabled { opacity: .5; cursor: default; }
+
 /* ---- Gyakorlat-megjegyzések (su-note-*, co-note-*) ---- */
 .co-note--plan {
   border-color: var(--fg-20);

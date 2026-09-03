@@ -532,13 +532,41 @@ function recommend(readiness, { prWindow }) {
   return { verdict: 'skip', loadDelta: '−15%', volumeDelta: '−50%', text: 'technikai nap vagy hagyd ki' };
 }
 
-function exerciseReadiness({ exercises, muscles, cns, catalog }) {
+/**
+ * Gyakorlat-ajánlások.
+ *
+ * A jelöltek KÉT forrásból jönnek:
+ *   · naplózott edzésekből (`exercises`) — itt van frissesség-adat is,
+ *   · az erőfelmérésen BEMONDOTT gyakorlatokból (`declared`) — ezekről csak
+ *     annyit tudunk, hogy a felhasználó ismeri őket. Enélkül a friss fiók
+ *     hetekig egyetlen ajánlást sem kapna: a naplózott út három alkalmat kér
+ *     (MIN_SESSIONS), a három fő emelés kivételével.
+ *
+ * A BEMONDOTT gyakorlatról viszont CSAK annyit tudunk, hogy a felhasználó
+ * ismeri. Se frissesség, se izomcsoport-szintű regeneráció nincs mögötte —
+ * ezért az ilyen ajánlás az ÖSSZESÍTETT készenlétre épül, ami a mai check-int
+ * tükrözi. Ha az sincs (`overall === null`), a gyakorlat KIMARAD: semmit nem
+ * tudunk, és a „nincs adat" nem lehet „tökéletes állapot". A `basis` mező
+ * mindkét esetben kimondja, min alapul a szám.
+ */
+function exerciseReadiness({ exercises, muscles, cns, catalog, declared = [], overall = null }) {
   const byKey = Object.fromEntries(muscles.map((m) => [m.key, m.readiness]));
   const painfulGroups = new Set(muscles.filter((m) => m.pain !== null && m.pain >= 7).map((m) => m.key));
 
-  const candidates = [...exercises.values()]
+  const logged = [...exercises.values()]
     .map((entry) => ({ ...entry, isMain: MAIN_LIFTS.includes(normalizeName(entry.name)) }))
-    .filter((entry) => entry.isMain || entry.sessions.length >= MIN_SESSIONS)
+    .filter((entry) => entry.isMain || entry.sessions.length >= MIN_SESSIONS);
+
+  /* A bemondott gyakorlatok csak akkor kerülnek be, ha naplózott adat NINCS
+     róluk — ahol van, ott a mérés a jobb forrás. */
+  const loggedNames = new Set(logged.map((entry) => normalizeName(entry.name)));
+  /* Összesített készenlét nélkül a bemondott gyakorlatról semmit nem tudnánk
+     mondani — ilyenkor inkább nem mondunk semmit. */
+  const declaredOnly = overall === null ? [] : declared
+    .filter((entry) => !loggedNames.has(normalizeName(entry.name)))
+    .map((entry) => ({ name: entry.name, sessions: [], isMain: MAIN_LIFTS.includes(normalizeName(entry.name)) }));
+
+  const candidates = [...logged, ...declaredOnly]
     .sort((a, b) => (Number(b.isMain) - Number(a.isMain)) || (b.sessions.length - a.sessions.length))
     .slice(0, MAX_EXERCISE_RECS);
 
@@ -553,14 +581,26 @@ function exerciseReadiness({ exercises, muscles, cns, catalog }) {
       ? groups.reduce((sum, [group, share]) => sum + byKey[group] * share, 0)
       : mean(muscles.map((m) => m.readiness));
 
-    // Frissesség: eltelt-e annyi idő, amennyi ehhez a gyakorlathoz szokott.
+    /* Frissesség: eltelt-e annyi idő, amennyi ehhez a gyakorlathoz szokott.
+       BEMONDOTT gyakorlatnál nincs ilyen adat — a súlya ilyenkor a másik két
+       tényező között oszlik szét, nem tippelünk helyette értéket. */
     const sorted = [...entry.sessions].sort((a, b) => a.daysAgo - b.daysAgo);
-    const sinceLast = sorted[0].daysAgo;
-    const gaps = sorted.slice(1).map((session, i) => session.daysAgo - sorted[i].daysAgo);
-    const typicalGap = gaps.length ? clamp(median(gaps), 2, 7) : 3.5;
-    const freshness = clamp01(sinceLast / typicalGap) * 100;
+    const hasSessions = sorted.length > 0;
+    const sinceLast = hasSessions ? sorted[0].daysAgo : null;
 
-    let readiness = 0.45 * muscleScore + 0.30 * cns + 0.25 * freshness;
+    let readiness;
+    if (hasSessions) {
+      const gaps = sorted.slice(1).map((session, i) => session.daysAgo - sorted[i].daysAgo);
+      const typicalGap = gaps.length ? clamp(median(gaps), 2, 7) : 3.5;
+      const freshness = clamp01(sinceLast / typicalGap) * 100;
+      readiness = 0.45 * muscleScore + 0.30 * cns + 0.25 * freshness;
+    } else {
+      /* Bemondott gyakorlat: az izomcsoport-szintű regeneráció és a frissesség
+         is hiányzik, ezért az ÖSSZESÍTETT készenlétet vesszük — az legalább a
+         mai check-inre épül. A muscleScore itt 100 volna (a „nem terhelted"
+         alapértelmezés), ami ismeretlen izomra hamis biztonságérzet. */
+      readiness = overall;
+    }
 
     // Ha a gyakorlat fájdalmas izomcsoportot terhel, letiltjuk — a fájdalom
     // felülír minden terhelés-alapú becslést.
@@ -578,6 +618,10 @@ function exerciseReadiness({ exercises, muscles, cns, catalog }) {
       readiness: rounded,
       sessions: entry.sessions.length,
       daysSinceLast: sinceLast,
+      /* Mire épül a szám: naplózott alkalmakra, vagy csak a bemondott
+         erőfelmérésre. A felületnek ezt ki kell mondania — a bemondás nem
+         mérés. */
+      basis: hasSessions ? 'logged' : 'declared',
       painBlocked: hitsPainful,
       ...(hitsPainful
         ? { verdict: 'avoid', loadDelta: '—', volumeDelta: '—', text: 'kerüld ma — fájdalmat jeleztél' }
@@ -628,9 +672,12 @@ const QUICK_FIELDS = [
  * @param {Array}    input.weightLog  testsúly-bejegyzések ({ kg, date })
  * @param {Array}    input.catalog    gyakorlat-katalógus (izom-súlyokkal)
  * @param {string}   input.today      a mai nap "ÉÉÉÉ.HH.NN" alakban
+ * @param {Array}    input.declaredMaxes  az erőfelmérésen bemondott csúcsok
+ *                                       ({ name, max1rm }) — ezekből is lesz ajánlás
  */
 export function computeReadiness({
   checkins = [], workouts = [], nutrition = null, weightLog = [], catalog = [], today,
+  declaredMaxes = [],
 }) {
   const todayKey = dayKey(today);
 
@@ -786,7 +833,10 @@ export function computeReadiness({
     components,
     muscles,
     cns: { readiness: cns.readiness },
-    exercises: exerciseReadiness({ exercises, muscles, cns: cns.readiness ?? 100, catalog }),
+    exercises: exerciseReadiness({
+      exercises, muscles, cns: cns.readiness ?? 100, catalog,
+      declared: declaredMaxes, overall,
+    }),
     caps,
     // Az áttekintő „Regeneráció" kártyájának három sora — a mérésekből
     // képzett szöveg, nem demo-adat.
