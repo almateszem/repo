@@ -487,19 +487,20 @@ SZETT-TÍPUSOK — a régebbi elemek átvezetése
 NYITOTT — döntést vagy külső lépést igényel
 ==========================================================================
 
-[ ] A napi kalória- és fehérjecél BEÉGETETT demo-adat
-    Hely: server/data.js -> nutritionGoal { calories: 2900, protein: 170 }.
-    Mindenkinek UGYANAZ, az első indítástól kezdve — függetlenül a
-    testsúlytól, a céltól és a nemtől. Ugyanaz a fajta hiba, mint amit az
-    értesítés-panelnél kivezettünk, csak ez nem látszik ránézésre.
-    És nem csak kijelzés: a Recovery Engine táplálkozás-komponense (0.05
-    súly) EHHEZ méri a tegnapi bevitelt, tehát egy kitalált szám megy bele
-    a készenléti pontszámba.
-    Ami eldöntendő: mi számolja ki helyette. Az ÚJ FUNKCIÓ-ÖTLETEK 3.
-    tétele (on/off szezon célsúly) pont ezt hajtaná — de ha az nem épül
-    meg, akkor is kell egy értelmes alap (testsúly + cél + aktivitás).
-    Addig legalább azt érdemes kimondani a felületen, hogy ez irányszám,
-    nem a felhasználóra szabott cél.
+[x] A napi kalória- és fehérjecél FIÓKONKÉNTI (2026-09-02)
+    Korábban egy fix érték szolgálta ki az összes fiókot (data.js →
+    nutritionGoal), és sehol nem lehetett szerkeszteni. Most a
+    nutrition_goals táblában él, fiókonként KÉT sorral:
+      'coach' — amit az edző tűzött ki, 'own' — amit a felhasználó maga.
+    Az érvényes cél az 'own', ha van; különben a 'coach'; különben a seed
+    alapérték. A kettő EGYÜTT marad, hogy az eltérés látsszon — a néma
+    felülírás mindkét irányban rossz volna. Az azonos érték nem eltérés.
+    Végpontok: GET/PUT/DELETE /api/nutrition/goal (saját),
+    PUT /api/athletes/:linkId/nutrition-goal (edzői, ugyanazon a kapun,
+    mint a terv-kiosztás).
+    ELDÖNTVE — szénhidrát/zsír cél NEM készült: a felület kalóriát és
+    fehérjét mér célhoz; olyan célt nem veszünk fel, amit semmi nem
+    jelenít meg.
 
 [ ] Gym visual licenc tisztázása, MIELŐTT ez élesbe/nyilvánosra megy
     EZT NEM LEHET KÓDBÓL MEGOLDANI — meg kell keresni a jogtulajdonost.
