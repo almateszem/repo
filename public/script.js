@@ -565,6 +565,30 @@
       'dashboard'-ra fordult, ezért az „Ugrás a tartalomhoz" link — pont az
       akadálymentességi segédeszköz — bármelyik oldalról az Áttekintésre
       dobta a felhasználót. */
+  /* ---- Onboarding-zár ----
+     Amíg áll, a #checkin az EGYETLEN elérhető oldal. A frissen regisztrált
+     fiók így nem üres Áttekintésre érkezik: kitölti az első check-int, és
+     rögtön valódi adatból kapja az első készenléti pontszámot. (Enélkül a
+     Recovery Engine — helyesen — `null`-t ad, mert nincs mire alapoznia.)
+
+     A zár állapotát a SZERVER mondja meg (`user.onboarding` = a fióknak még
+     soha nem volt check-inje), nem a „most regisztráltam" pillanatnyi tény —
+     így az oldal-újratöltést is túléli.
+
+     Négy kijárat van a lapról, és kettő őr fedi le mind a négyet:
+       - a `navigate()` őre: nav gyűrű (mobil) + a gyorsbillentyűk,
+       - a `hashchange` őre: a desktop side-nav sima <a href="#…"> linkjei,
+         és a címsorba kézzel írt hash.
+     A hidegindítást a setupRouter külön ága intézi. */
+  let onboardingLock = false;
+
+  /** A zár be-/kikapcsolása. A body attribútuma a CSS-nek szól: az is elrejti
+      a navigációt, mert egy kattintásra visszapattanó menü rossz élmény. */
+  function setOnboardingLock(on) {
+    onboardingLock = on;
+    document.body.toggleAttribute('data-onboarding', on);
+  }
+
   function pageFromHash() {
     const hash = location.hash.replace(/^#\/?/, '');
     return PAGES.includes(hash) ? hash : null;
@@ -662,6 +686,8 @@
   }
 
   function navigate(name) {
+    // Onboarding alatt a check-in az egyetlen úti cél (nav gyűrű, gyorsbillentyűk).
+    if (onboardingLock && name !== 'checkin') return;
     if (pageFromHash() === name) showPage(name); // azonos hash-nél nem jön hashchange event
     else location.hash = name;
   }
@@ -672,8 +698,26 @@
     // felhasználót az Áttekintésre.
     window.addEventListener('hashchange', () => {
       const page = pageFromHash();
+      /* Onboarding alatt a side-nav sima linkjei és a kézzel írt hash is ide
+         fut be — a navigate() őre azokat nem látja, ezért itt terelünk vissza.
+         A `page &&` nem elhagyható: a nem-oldalnév hash (a `#app-main` skip
+         link, a `#title-…` horgonyok) NEM oldalváltás, azt békén hagyjuk —
+         különben pont az akadálymentességi ugrólink törne el. */
+      if (onboardingLock && page && page !== 'checkin') {
+        location.hash = 'checkin';
+        return;
+      }
       if (page) showPage(page);
     });
+
+    /* Onboarding: a lastPage visszaállítása előtt döntünk, és a flow-hash
+       törlése ELŐTT — az kitörölné a #checkin-t. Egyben azt is megelőzi, hogy
+       az új fiók az ELŐZŐ felhasználó utolsó oldalára essen: a prefs.lastPage
+       böngésző-globális, nem fiókonkénti. */
+    if (onboardingLock) {
+      navigate('checkin');
+      return;
+    }
 
     // A flow-oldalak (összegző / terv-építő / gyakorlat-választó) csak a
     // saját indító gombjukon át nyílnak meg helyesen — az állítja be az
@@ -4049,6 +4093,39 @@
       $('[data-ci-date]', step).textContent = ciDateStr();
       // Félbehagyott munkamenetnél a „Kezdés" félrevezető lenne.
       if (ci.hadCheckin) $('[data-ci-start-label]', step).textContent = 'Folytatás';
+      if (onboardingLock) applyOnboardingIntro(step);
+      return applyIntroActions(step);
+    }
+
+    /* Az első check-in introja. Ugyanaz a sablon, más szöveg: itt még nem
+       „napi rutin" a dolog, hanem az egyetlen út befelé — a kezdőnek azt kell
+       megértenie, MIÉRT kérdezünk, mielőtt bármit kitöltene. */
+    function applyOnboardingIntro(step) {
+      // Csak a felvezető szó cserélődik — a dátum-span a helyén marad.
+      $('.ci-eyebrow', step).firstChild.nodeValue = 'Első lépés · ';
+      $('.ci-display', step).replaceChildren(
+        'Kezdjük', document.createElement('br'), 'a készenléttel',
+      );
+      $('.ci-lead', step).textContent = 'Ez az első check-ined. Ebből számolja ki a rendszer, '
+        + 'mennyire vagy ma terhelhető — pár gyors kérdés, kevesebb mint egy perc.';
+      $('.ci-footnote', step).textContent = 'Az adataid csak hozzád tartoznak.';
+
+      /* A „Mégse" itt sehová nem vezetne: az app többi oldala zárva van. A
+         kijárat ezért a kijelentkezés — a check-in kötelező, de a lap nem
+         csapda (a #checkin-en nincs se beállítás-, se kilépés-gomb, azok a
+         dashboard fejlécében ülnek). */
+      const exit = $('.ci-exit', step);
+      exit.textContent = 'Kijelentkezés';
+      exit.href = '#';
+      exit.addEventListener('click', async (event) => {
+        event.preventDefault();
+        try { await api.logout(); } catch { /* a kilépést akkor is bevisszük */ }
+        window.location.reload();
+      });
+    }
+
+    /** Az intro gombjának bekötése — a két ág után közös. */
+    function applyIntroActions(step) {
       $('[data-action="checkin-next"]', step).addEventListener('click', () => goNext());
       return step;
     }
@@ -4614,6 +4691,11 @@
         ci.saved = true;
         ci.dirty = false;
         ci.hadCheckin = true;
+
+        /* Az első check-in megvan — az app kinyílik. Navigálni NEM kell: a
+           felhasználó az összegzésen marad, és itt látja meg az első valódi
+           készenléti pontszámát. */
+        if (onboardingLock) setOnboardingLock(false);
 
         // A Regeneráció oldal és az áttekintő ugyanebből a motorból él
         applyCheckinSaved?.(checkin, readiness);
@@ -6734,6 +6816,10 @@
     // A setupRecovery UTÁN: a varázsló mentése az ott beállított
     // applyCheckinSaved-en keresztül frissíti a Regeneráció oldalt.
     await safe(setupCheckinWizard);
+    /* Onboarding: a setupRouter (ami ELŐBB fut) már a check-inre navigált, de
+       a `pageEffects.checkin` akkor még egy null frissítőt talált — a lap a
+       setup-időben rajzolt introt mutatja, szerver-állapot nélkül. Itt pótoljuk. */
+    if (onboardingLock) await safe(refreshCheckinWizard);
     // A közös gyakorlat-választó — az edzésnapló és a terv-építő is ezt célozza át
     const picker = await safe(() => setupExercisePicker(confirmAction));
     const workout = await safe(() => setupWorkout(videoModal, prModal, picker, confirmAction));
@@ -6849,8 +6935,13 @@
       showError('');
       submitBtn.disabled = true;
       try {
-        if (mode === 'register') await api.register(username, displayName, password);
-        else await api.login(username, password);
+        /* A válasz `onboarding` mezője dönti el, kell-e első check-in. A
+           belépés is hozza — így az a fiók is a varázslóra kerül, amelyik
+           regisztrált, de a check-int félbehagyta és később lépett vissza. */
+        const account = mode === 'register'
+          ? await api.register(username, displayName, password)
+          : await api.login(username, password);
+        setOnboardingLock(Boolean(account?.onboarding));
 
         form.reset();
         screen.hidden = true;
@@ -6901,6 +6992,10 @@
     try {
       const { user, firstRun } = await api.me();
       if (user) {
+        // A zár az init ELŐTT áll be: a setupRouter már ebből választ induló
+        // oldalt. Ez adja az újratöltés-túlélést is — a félbehagyott első
+        // check-in után a frissítés megint a varázslóra tesz le.
+        setOnboardingLock(Boolean(user.onboarding));
         await init();
       } else {
         // Az első betöltésnél még nincs mit eldobni, ezért itt elég az init.
