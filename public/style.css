@@ -5896,6 +5896,14 @@ details[open] > .rc-details-summary::before {
   gap: var(--sp-4);
 }
 
+/* Mire épül a gyakorlat-ajánlás — csak a bemondott felmérésnél látszik. */
+.rc-lift-basis {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-top: var(--sp-2);
+}
+
 /* ---- Testösszetétel (rc-body-*) ---- */
 .rc-body-form {
   display: flex;
@@ -6194,6 +6202,7 @@ details[open] > .rc-details-summary::before {
   gap: var(--sp-4);
 }
 
+.su-note-select,
 .su-note-text {
   width: 100%;
   padding: var(--sp-4) var(--sp-5);
@@ -6207,6 +6216,7 @@ details[open] > .rc-details-summary::before {
 
 .su-note-text::placeholder { color: var(--text-muted); }
 
+.su-note-select:focus-visible,
 .su-note-text:focus-visible {
   outline: 2px solid var(--c-accent);
   outline-offset: 1px;

@@ -236,7 +236,6 @@
     /* ---- Napi cél ----
        Két forrás lehet (edzői / saját); a válasz mindkettőt hozza, hogy a
        felület ki tudja írni, honnan jön a szám és eltértél-e az edzőitől. */
-    getNutritionGoal:  () => getJson('/api/nutrition/goal'),
     saveNutritionGoal: (calories, protein) => putJson('/api/nutrition/goal', { calories, protein }),
     // A válasz a FRISS cél (a visszaállás utáni állapot), ezért sendJson.
     clearNutritionGoal: () => sendJson('DELETE', '/api/nutrition/goal'),
@@ -267,11 +266,8 @@
     /* ---- Megjegyzések egy gyakorlathoz ----
        A címzés a ház szabályát követi: a sajátodat id nélkül éred el, a
        sportolódét a KAPCSOLAT azonosítójával — a belső user-id nem kerül ki. */
-    getMyComments: (target) => getJson(`/api/comments?target=${encodeURIComponent(target)}`),
     getMyCommentsByTarget: () => getJson('/api/comments/by-target'),
     addMyComment: (targetId, text) => postJson('/api/comments', { targetId, text }),
-    getAthleteComments: (linkId, target) =>
-      getJson(`/api/athletes/${linkId}/comments?target=${encodeURIComponent(target)}`),
     addAthleteComment: (linkId, targetId, text) =>
       postJson(`/api/athletes/${linkId}/comments`, { targetId, text }),
     saveWorkoutFeedback: (workoutId, feedback) => putJson(`/api/workouts/${workoutId}/feedback`, feedback),
@@ -283,7 +279,6 @@
     // ezért utána a PR-lista és a diagramok is frissítendők.
     deleteWorkout:     (id) => del(`/api/workouts/${id}`),
     // Az épp szerkesztett edzés piszkozata — betöltéskor visszaáll, minden változtatás menti
-    getWorkoutDraft:   () => getJson('/api/workout-draft'),
     saveWorkoutDraft:  (name, exercises, planId, workoutId) =>
       putJson('/api/workout-draft', { name, exercises, planId, workoutId }),
     // Az edzés lezárása után a piszkozat törlődik — új edzés kezdhető ugyanaznap
@@ -2252,6 +2247,15 @@
       $('.rc-lift-score', item).textContent = `${lift.readiness}%`;
       $('.rc-lift-score', item).dataset.tone = readinessTone(lift.readiness);
       $('.rc-lift-text', item).textContent = lift.text;
+      /* A bemondott erőfelmérésen alapuló ajánlás mögött nincs naplózott
+         alkalom: se frissesség, se izomcsoport-szintű regeneráció. A szám az
+         összesített készenlétre épül — ezt kimondjuk, mert a bemondás nem mérés. */
+      const basisEl = $('[data-lift-basis]', item);
+      basisEl.hidden = lift.basis !== 'declared';
+      if (!basisEl.hidden) {
+        basisEl.textContent = 'A bemondott erőfelmérésed alapján — a mai összesített készenlétedre mérve.';
+      }
+
       $('[data-lift-load]', item).textContent = lift.loadDelta;
       $('[data-lift-volume]', item).textContent = lift.volumeDelta;
       lifts.appendChild(item);
