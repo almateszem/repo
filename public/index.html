@@ -1330,6 +1330,23 @@
        A natív window.confirm helyett: az app saját design-nyelvén szólal
        meg, és a fókuszkezelése a többi modáléval azonos.
        ================================================================ -->
+  <div class="confirm-modal advice-modal" id="adviceModal" aria-hidden="true">
+    <div class="confirm-modal-backdrop" data-close-modal></div>
+    <div class="confirm-modal-card" role="alertdialog" aria-modal="true"
+         aria-labelledby="adviceModalTitle" aria-describedby="adviceModalText">
+      <div class="confirm-modal-head">
+        <h3 id="adviceModalTitle">A mai készenléted alapján</h3>
+        <button class="confirm-modal-close tap-target" type="button" data-close-modal aria-label="Bezárás">✕</button>
+      </div>
+      <p class="confirm-modal-text" id="adviceModalText"></p>
+      <ul class="ad-list" data-advice-list></ul>
+      <p class="ad-note">A terved nem változik — csak a mai naplód. Bármikor visszaírhatod kézzel.</p>
+      <div class="confirm-modal-actions">
+        <button class="confirm-cancel" type="button" data-advice-decline>Most nem</button>
+        <button class="confirm-ok" type="button" data-advice-accept>Elfogadom</button>
+      </div>
+    </div>
+
   <div class="confirm-modal" id="confirmModal" aria-hidden="true">
     <div class="confirm-modal-backdrop" data-close-modal></div>
     <div class="confirm-modal-card" role="alertdialog" aria-modal="true"
@@ -1514,6 +1531,8 @@
       <div class="pl-card-info">
         <span class="pl-card-name"></span>
         <span class="pl-card-meta"></span>
+        <!-- A mai készenlét figyelmeztetése (tiltott / óvatos gyakorlatok) -->
+        <span class="pl-card-safety" hidden></span>
         <div class="pl-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100">
           <span class="pl-progress-fill"></span>
         </div>
@@ -1583,6 +1602,16 @@
   <!-- Egy 0–5 vagy 1–5 skála chip-csoportként. A választott érték az
        aria-pressed attribútumban él (ugyanaz a minta, mint a terv-építő
        nap-chipjeinél) — nincs külön állapot a DOM mellett. -->
+  <template id="tpl-advice-item">
+    <li class="ad-item">
+      <span class="ad-item-action"></span>
+      <span class="ad-item-body">
+        <span class="ad-item-name"></span>
+        <span class="ad-item-detail"></span>
+      </span>
+    </li>
+  </template>
+
   <template id="tpl-scale">
     <div class="rc-scale">
       <span class="rc-scale-label field-label"></span>

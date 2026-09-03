@@ -51,7 +51,7 @@ import { buildAthleteCard } from './coaching.js';
 // Az értesítés-panel sorai. Szintén tiszta összeállítás: a végpont gyűjti az
 // eseményeket, a modul formázza őket (server/notifications.js).
 import { buildNotifications } from './notifications.js';
-import { MUSCLE_KEYS } from './muscles.js';
+import { MUSCLE_KEYS, MUSCLE_GROUPS, resolveExerciseLoad } from './muscles.js';
 // Kérés-korlátozás. Tiszta számláló, adatbázis és Express nélkül — a limitek
 // és a kulcsválasztás itt, a szerveren dőlnek el (server/ratelimit.js).
 import { createRateLimiter } from './ratelimit.js';
@@ -1025,6 +1025,225 @@ app.get('/api/dashboard', (req, res) => {
 // CNS, gyakorlat-ajánlások, megbízhatóság.
 app.get('/api/readiness', (req, res) => res.json(readinessReport(req.user.id, req.today)));
 
+/* ======================================================================
+   Biztonsági átnézés — a készenlét felülírja a tervet
+   ----------------------------------------------------------------------
+   A kiosztott tervhez a kliens nem nyúlhat. Egyetlen dolog szólhat bele:
+   a mai készenléte. A rendszer NEM írja át a tervet (az elrejtené az edző
+   elől, mi történt) — hanem MEGJELÖLI, mi kockázatos ma, és miért.
+
+   A jelzés minden gyakorlatra működik, nem csak arra, amire van előzmény:
+   a gyakorlat → izomcsoport leképezésből dolgozik, nem a naplóból.
+   ====================================================================== */
+
+/** 7/10 vagy afölötti fájdalom = tiltás. Ugyanaz a küszöb, amivel a
+    Recovery Engine a gyakorlat-ajánlásokat is letiltja — egy helyen kell
+    igaznak lennie, nem kettőn. */
+const PAIN_BLOCK = 7;
+/** E alatti izom-készenlétnél óvatosságra intünk (de nem tiltunk).
+
+    A szám a MOTOR SKÁLÁJÁHOZ igazodik, nem érzésre van megválasztva. Ahol a
+    terhelés-modellnek VAN adata a csoportról, ott a bejelentett izomlázat
+    0.4 súllyal keveri be (recovery.js → muscleReadiness). Ha tehát a modell
+    frissnek látja az izmot (100), de a felhasználó 5/5-ös izomlázat jelez,
+    az eredmény 60 — vagyis egy 45%-os küszöb ezt az esetet néma maradna,
+    pedig pont ilyenkor kell visszavenni.
+    (Ha a modellnek NINCS adata a csoportról, a bejelentett érzet önmagában
+    adja a pontszámot — ott az 5/5 már 0-t ad.)
+    A 70 egyben a recovery.js recommend() létrájának ugyanazon foka, ahol az
+    „normál súly, −1 szett"-re vált. */
+const LOW_MUSCLE_READINESS = 70;
+/** Egy gyakorlatot akkor tekintünk az izomcsoport terhelőjének, ha a terhelés
+    legalább ennyi — a jelentéktelen másodlagos terhelésre nem figyelmeztetünk. */
+const RELEVANT_LOAD = 0.2;
+
+/** Egy fiókhoz egyszer elkészített átnéző. Visszaad egy függvényt, ami egy
+    gyakorlat-listára megmondja, mi tiltott és mi kockázatos MA. */
+function planSafetyChecker(userId, todayDate) {
+  const report = readinessReport(userId, todayDate);
+  const catalog = getCollection('exerciseCatalog') || [];
+  const byKey = Object.fromEntries(report.muscles.map((m) => [m.key, m]));
+
+  return (exercises) => {
+    const blocked = [];
+    const caution = [];
+
+    for (const exercise of exercises) {
+      const load = resolveExerciseLoad(exercise.name, catalog);
+      const groups = Object.entries(load).filter(([, share]) => share >= RELEVANT_LOAD);
+
+      const painful = groups.filter(([key]) => (byKey[key]?.pain ?? 0) >= PAIN_BLOCK);
+      if (painful.length > 0) {
+        blocked.push({
+          name: exercise.name,
+          reason: `fájdalmat jeleztél ide: ${painful.map(([key]) => MUSCLE_GROUPS[key]).join(', ')}`,
+        });
+        continue;
+      }
+
+      const tired = groups.filter(([key]) => (byKey[key]?.readiness ?? 100) < LOW_MUSCLE_READINESS);
+      if (tired.length > 0) {
+        caution.push({
+          name: exercise.name,
+          reason: `még nem állt helyre: ${tired.map(([key]) => MUSCLE_GROUPS[key]).join(', ')}`,
+        });
+      }
+    }
+
+    if (blocked.length === 0 && caution.length === 0) return null;
+    return { blocked, caution };
+  };
+}
+
+/* ======================================================================
+   Készenlét-alapú javaslat a MAI edzésre
+   ----------------------------------------------------------------------
+   A terv-kártya jelzése („ma kerüld ezt") passzív: látni kell, de nem
+   csinál semmit. Ez a réteg konkrét, ELFOGADHATÓ javaslatot ad a mai
+   naplóra — a check-in után felugró ablakban, Elfogadom / Most nem
+   gombbal.
+
+   Amit a javaslat MÓDOSÍT, az a mai edzésnapló (a piszkozat), SOHA nem a
+   terv. A terv az edzőé; ha a rendszer belenyúlna, az edző azt hinné, a
+   kliens az ő tervét csinálta végig.
+
+   Két dolgot sosem bánt:
+     · a MÁR TELJESÍTETT szetteket — azok megtörténtek,
+     · a nem szám súlyokat (saját testsúlyos gyakorlat) — ott nincs mit levenni.
+   ====================================================================== */
+
+/** A súlycsökkentés a konditerem valóságához igazodik: 2,5 kg-os lépcső,
+    lefelé kerekítve. Egy „87,3 kg" javaslat használhatatlan volna. */
+const PLATE_STEP_KG = 2.5;
+/** E alatti izom-készenlétnél nagyobb levételt javaslunk. Ide már csak
+    tényleges terhelés-halmozódással lehet lejutni (az izomláz önmagában
+    60-ig visz), ezért indokolt a nagyobb lépés. */
+const VERY_LOW_MUSCLE = 55;
+const REDUCE_HARD = 0.15;
+const REDUCE_SOFT = 0.10;
+
+const reduceWeight = (kg, ratio) => Math.max(0, Math.floor((kg * (1 - ratio)) / PLATE_STEP_KG) * PLATE_STEP_KG);
+/** Szám → a naplóban használt szöveges alak (fölösleges tizedes nélkül). */
+const weightText = (value) => String(Math.round(value * 10) / 10);
+
+/** A mai edzésre vonatkozó javaslatok. A MAI NAPLÓ tartalmából dolgozik
+    (piszkozat vagy a napra ütemezett terv) — tehát abból, amit a felhasználó
+    ténylegesen csinálni fog, nem egy elvont terv-listából.
+
+    A visszatérés { name, items }; üres items = nincs mit javasolni, és
+    ilyenkor a felület fel sem dobja az ablakot. */
+function sessionAdvice(userId, todayDate) {
+  const template = workoutTemplate(userId, todayDate);
+  if (!template || !Array.isArray(template.exercises) || template.exercises.length === 0) {
+    return { name: null, items: [] };
+  }
+
+  const report = readinessReport(userId, todayDate);
+  const catalog = getCollection('exerciseCatalog') || [];
+  const byKey = Object.fromEntries(report.muscles.map((m) => [m.key, m]));
+  const items = [];
+
+  template.exercises.forEach((exercise, index) => {
+    const pending = (exercise.sets ?? []).filter((set) => !set.done);
+    if (pending.length === 0) return; // már kész — nincs mit javasolni
+
+    const groups = Object.entries(resolveExerciseLoad(exercise.name, catalog))
+      .filter(([, share]) => share >= RELEVANT_LOAD)
+      .map(([key]) => byKey[key])
+      .filter(Boolean);
+
+    const painful = groups.filter((group) => (group.pain ?? 0) >= PAIN_BLOCK);
+    if (painful.length > 0) {
+      /* Ha már van teljesített szett, a gyakorlatot nem lehet meg nem
+         történtté tenni — ilyenkor a maradék marad el ('stop'). */
+      const started = pending.length < exercise.sets.length;
+      items.push({
+        index,
+        name: exercise.name,
+        action: started ? 'stop' : 'skip',
+        reason: `fájdalmat jeleztél ide: ${painful.map((g) => g.label).join(', ')}`,
+        detail: started
+          ? `a hátralévő ${pending.length} szett kimarad`
+          : 'a gyakorlat kimarad a mai naplóból',
+      });
+      return;
+    }
+
+    const worst = groups.slice().sort((a, b) => a.readiness - b.readiness)[0];
+    if (!worst || worst.readiness >= LOW_MUSCLE_READINESS) return;
+
+    const ratio = worst.readiness < VERY_LOW_MUSCLE ? REDUCE_HARD : REDUCE_SOFT;
+    // Csak akkor van értelme javasolni, ha tényleg lejjebb tudunk menni.
+    const weights = pending
+      .map((set) => Number(set.weight))
+      .filter((kg) => Number.isFinite(kg) && kg > 0);
+    const heaviest = Math.max(0, ...weights);
+    if (heaviest === 0 || reduceWeight(heaviest, ratio) >= heaviest) return;
+
+    items.push({
+      index,
+      name: exercise.name,
+      action: 'reduce',
+      percent: Math.round(ratio * 100),
+      reason: `${worst.label} még nem állt helyre (${worst.readiness}%)`,
+      detail: `a legnehezebb szett ${weightText(heaviest)} kg → ${weightText(reduceWeight(heaviest, ratio))} kg`,
+    });
+  });
+
+  return { name: template.name, items };
+}
+
+/** A javaslat alkalmazása a mai naplóra.
+
+    A javaslatokat ÚJRASZÁMOLJUK — a kliens listáját nem fogadjuk el
+    bemenetként. Enélkül egy hamisított kérés tetszőleges gyakorlatot
+    törölhetne a naplóból. */
+function applySessionAdvice(userId, todayDate) {
+  const template = workoutTemplate(userId, todayDate);
+  const { items } = sessionAdvice(userId, todayDate);
+  if (items.length === 0) return { applied: 0 };
+
+  const byIndex = new Map(items.map((item) => [item.index, item]));
+  const exercises = [];
+
+  template.exercises.forEach((exercise, index) => {
+    const advice = byIndex.get(index);
+    if (!advice) {
+      exercises.push(exercise);
+      return;
+    }
+    if (advice.action === 'skip') return;                       // kimarad a naplóból
+    if (advice.action === 'stop') {
+      exercises.push({ ...exercise, sets: exercise.sets.filter((set) => set.done) });
+      return;
+    }
+    const ratio = advice.percent / 100;
+    exercises.push({
+      ...exercise,
+      sets: exercise.sets.map((set) => {
+        const kg = Number(set.weight);
+        if (set.done || !Number.isFinite(kg) || kg <= 0) return set;
+        return { ...set, weight: weightText(reduceWeight(kg, ratio)) };
+      }),
+    });
+  });
+
+  /* A piszkozat DÁTUMA marad, ami volt — ha ma még nincs piszkozat (a terv
+     töltődött be), akkor mai. Így az elfogadás nem datálja át némán egy
+     korábbi, félbehagyott edzést. */
+  const draft = getWorkoutDraft(userId);
+  saveWorkoutDraft(userId, template.name, exercises, draft?.date ?? todayDate, template.planId ?? null);
+  return { applied: items.length };
+}
+
+app.get('/api/readiness/advice', (req, res) => res.json(sessionAdvice(req.user.id, req.today)));
+
+/** Elfogadás. A válasz a friss napló, hogy a felület egy körből frissüljön. */
+app.post('/api/readiness/advice/apply', (req, res) => {
+  const result = applySessionAdvice(req.user.id, req.today);
+  res.json({ ...result, template: workoutTemplate(req.user.id, req.today) });
+});
+
 // A mai check-in (vagy null, ha még nem töltötted ki)
 app.get('/api/checkin', (req, res) => res.json(getCheckin(req.user.id, req.today)));
 
@@ -1129,7 +1348,12 @@ app.get('/api/plans', (req, res) => {
     }
     return 0;
   };
-  res.json(getUserPlans(userId).map((plan) => {
+  /* A biztonsági átnézéshez a készenléti riport KELL, de fejenként egyszer
+     elég: minden terv ugyanazt a mai állapotot méri. */
+  const plans = getUserPlans(userId);
+  const safetyOf = plans.length ? planSafetyChecker(userId, todayDate) : () => null;
+
+  res.json(plans.map((plan) => {
     const daysLabel = plan.days.length
       ? ` · ${plan.days.map((d) => DAY_LABELS[d]).join(', ')}`
       : '';
@@ -1139,6 +1363,9 @@ app.get('/api/plans', (req, res) => {
       meta: `Saját terv · ${plan.exercises.length} gyakorlat${daysLabel}`,
       progress: progressFor(plan),
       own: true,
+      /* Mi kockázatos MA ebben a tervben, és miért. A terv NEM íródik át —
+         csak megjelöljük; az átírás elrejtené az edző elől, mi történt. */
+      safety: safetyOf(plan.exercises),
       exercises: plan.exercises,
       days: plan.days,
     };
