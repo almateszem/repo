@@ -286,6 +286,42 @@
           </p>
         </section>
 
+        <!-- Erőfelmérés. A friss fiók enélkül hetekig nem kap
+             gyakorlat-ajánlást: a naplózott út három alkalmat kér. A bemondott
+             érték NEM mérés — a felület ezt ki is mondja, és a naplózott
+             csúcsot nem írja felül. -->
+        <section class="pf-assess" aria-labelledby="pf-title-assess">
+          <h3 class="pf-section-title" id="pf-title-assess">Erőfelmérés</h3>
+          <p class="pf-assess-lead">Mondd meg, mit tudsz egy-két gyakorlatban — a rendszer
+            ebből azonnal tud ajánlani, nem kell megvárnod pár hét naplózást.</p>
+
+          <ul class="pf-assess-list" data-pf-assess-list></ul>
+          <p class="pf-assess-empty" data-pf-assess-empty hidden>Még nincs felmérésed.</p>
+
+          <form class="pf-assess-form" data-form="strength-assessment">
+            <div class="pf-assess-field pf-assess-field--wide">
+              <label for="pf-assess-exercise">Gyakorlat</label>
+              <input id="pf-assess-exercise" list="pf-assess-options" type="text"
+                     placeholder="pl. Fekvenyomás" autocomplete="off" required>
+              <datalist id="pf-assess-options"></datalist>
+            </div>
+            <div class="pf-assess-field">
+              <label for="pf-assess-weight">Súly (kg)</label>
+              <input id="pf-assess-weight" type="number" inputmode="decimal"
+                     min="1" max="500" step="2.5" required autocomplete="off">
+            </div>
+            <div class="pf-assess-field">
+              <label for="pf-assess-reps">Ismétlés</label>
+              <input id="pf-assess-reps" type="number" inputmode="numeric"
+                     min="1" max="30" step="1" required autocomplete="off">
+            </div>
+            <button class="pf-assess-save" type="submit">Hozzáadom</button>
+          </form>
+
+          <p class="pf-assess-note">A bemondott szám nem mérés: viszonyítási alapnak
+            használjuk, és a naplózott edzésed felülírja.</p>
+        </section>
+
         <div class="pf-actions">
           <button class="pf-action" type="button" data-action="settings">Beállítások</button>
           <button class="pf-action pf-action--danger" type="button" data-action="logout">Kijelentkezés</button>

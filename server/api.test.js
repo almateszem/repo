@@ -215,6 +215,7 @@ test('bejelentkezés nélkül MINDEN /api végpont 401-et ad', async () => {
     ['GET', '/api/nutrition/goal'], ['PUT', '/api/nutrition/goal'],
     ['DELETE', '/api/nutrition/goal'], ['PUT', '/api/athletes/1/nutrition-goal'],
     ['GET', '/api/readiness/advice'], ['POST', '/api/readiness/advice/apply'],
+    ['GET', '/api/strength-assessment'], ['POST', '/api/strength-assessment'],
   ];
 
   for (const [method, urlPath] of endpoints) {
@@ -1514,4 +1515,102 @@ test('a javaslat nem ismétli magát: amit elfogadtál, arra nem szól újra', a
   const res = await request('GET', '/api/readiness/advice', { cookie: advCookie });
   assert.equal(res.json.items.length, 0,
     'a kihagyott gyakorlat már nincs a naplóban, tehát nincs is mit javasolni rá');
+});
+
+/* ======================================================================
+   Erőfelmérés (fresh start)
+   ----------------------------------------------------------------------
+   A friss fiók ma hetekig „vakon" használja az appot: a gyakorlat-ajánlások
+   három naplózott alkalmat kérnek. A felmérésen BEMONDOTT csúcsokból a motor
+   azonnal tud ajánlani — de csak azt mondhatja ki, amit tényleg tud.
+   ====================================================================== */
+
+let assessCookie = '';
+
+test('a felmérés Epley-vel számol, és nem szül hamis PR-t', async () => {
+  const reg = await request('POST', '/api/auth/register', {
+    body: { username: 'felmeres', displayName: 'Felmérő Feri', password: 'jelszo321' },
+  });
+  assessCookie = cookieFrom(reg);
+
+  const res = await request('POST', '/api/strength-assessment', {
+    cookie: assessCookie,
+    body: { entries: [{ exercise: 'Fekvenyomás', weight: 100, reps: 3 }] },
+  });
+  assert.equal(res.status, 201);
+  // Epley: 100 × (1 + 3/30) = 110
+  assert.equal(res.json.entries[0].max1rm, 110);
+  assert.equal(res.json.entries[0].stored, true);
+
+  const prs = await request('GET', '/api/prs', { cookie: assessCookie });
+  assert.deepEqual(prs.json, [], 'a PR-lista a naplózott edzésekből épül — a bemondás nem PR');
+});
+
+test('bemondás önmagában NEM ad ajánlást: check-in nélkül semmit nem tudunk', async () => {
+  const res = await request('GET', '/api/readiness', { cookie: assessCookie });
+  assert.equal(res.json.overall, null, 'nincs mire alapozni');
+  assert.deepEqual(res.json.exercises, [],
+    'a „nincs adat" nem lehet „tökéletes állapot" — inkább nem mondunk semmit');
+});
+
+test('check-in után a bemondott gyakorlat ajánlást kap, megjelölt alappal', async () => {
+  await request('PUT', '/api/checkin', {
+    cookie: assessCookie,
+    body: { sleepHours: 8.5, sleepQuality: 5, energy: 5, stress: 1 },
+  });
+  const res = await request('GET', '/api/readiness', { cookie: assessCookie });
+  const bench = res.json.exercises.find((e) => e.name === 'Fekvenyomás');
+  assert.ok(bench, 'a bemondott gyakorlat bekerül az ajánlások közé');
+  assert.equal(bench.basis, 'declared', 'és kimondja, hogy bemondáson alapul');
+  assert.equal(bench.sessions, 0, 'naplózott alkalom nélkül');
+  assert.equal(bench.readiness, res.json.overall,
+    'az összesített készenlétre épül — izomcsoport-szintű adat nincs mögötte');
+});
+
+test('a rossz check-in a bemondott gyakorlat ajánlását is lehúzza', async () => {
+  await request('PUT', '/api/checkin', {
+    cookie: assessCookie,
+    body: { sleepHours: 4, sleepQuality: 1, energy: 1, stress: 5 },
+  });
+  const res = await request('GET', '/api/readiness', { cookie: assessCookie });
+  const bench = res.json.exercises.find((e) => e.name === 'Fekvenyomás');
+  assert.ok(bench.readiness < 60, 'a mai állapotot követi, nem a bemondott erőt');
+  assert.match(bench.text, /hagyd ki|csökkentett/i);
+});
+
+test('a MÉRT csúcsot nem írja felül a bemondás, és a PR-nek meg kell haladnia', async () => {
+  // Naplózott edzés: 120 kg × 1 → Epley 124 kg, ez MÉRT csúcs.
+  await request('POST', '/api/workouts', {
+    cookie: assessCookie,
+    body: {
+      name: 'Mellnap',
+      exercises: [{
+        name: 'Fekvenyomás',
+        sets: [{ reps: '1', weight: '120', rpe: '10', type: 'work', done: true }],
+      }],
+    },
+  });
+
+  // Most bemondunk egy ALACSONYABB értéket — nem törölheti a mérést.
+  const res = await request('POST', '/api/strength-assessment', {
+    cookie: assessCookie,
+    body: { entries: [{ exercise: 'Fekvenyomás', weight: 80, reps: 1 }] },
+  });
+  assert.equal(res.status, 201);
+  assert.equal(res.json.entries[0].stored, false, 'a mérés erősebb bizonyíték');
+  assert.ok(res.json.entries[0].max1rm > 120, 'a mért csúcs marad érvényben');
+});
+
+test('a felmérés validál: ismeretlen gyakorlat, tartományon kívüli érték', async () => {
+  const rossz = [
+    [{ entries: [] }, 'üres lista'],
+    [{ entries: [{ exercise: 'Kitalált Gyakorlat', weight: 100, reps: 3 }] }, 'ismeretlen gyakorlat'],
+    [{ entries: [{ exercise: 'Fekvenyomás', weight: 0, reps: 3 }] }, 'nulla súly'],
+    [{ entries: [{ exercise: 'Fekvenyomás', weight: 100, reps: 99 }] }, 'irreális ismétlésszám'],
+  ];
+  for (const [body, eset] of rossz) {
+    const res = await request('POST', '/api/strength-assessment', { cookie: assessCookie, body });
+    assert.equal(res.status, 400, eset);
+    assert.ok(res.json.error, `${eset}: beszédes hibaüzenet`);
+  }
 });

@@ -166,6 +166,11 @@
     saveGoal:          (goal) => putJson('/api/user', { goal }),
     // Nem cache-elt: a profiloldal összesítői minden edzés-mentés után változnak
     getProfile:        () => getJson('/api/profile'),
+    /* ---- Erőfelmérés ----
+       A BEMONDOTT csúcsok. Nem mérés: viszonyítási alap, amit a naplózott
+       edzés felülír — a riport `basis` mezője ki is mondja, min alapul. */
+    getStrengthAssessment: () => getJson('/api/strength-assessment'),
+    saveStrengthAssessment: (entries) => postJson('/api/strength-assessment', { entries }),
     // Nem cache-elt: a dailyStats a naplózással és a nap váltásával változik
     getDashboard:      () => getJson('/api/dashboard'),
     getCharts:         () => getJsonCached('/api/charts'),
@@ -3676,7 +3681,80 @@
       if (text !== null) $(`[data-pf-value="${key}"]`, page).textContent = text;
     };
 
+    /* ---- Erőfelmérés ----
+       A friss fiók enélkül hetekig nem kap gyakorlat-ajánlást: a naplózott út
+       három alkalmat kér (recovery.js → MIN_SESSIONS). A bemondott érték nem
+       mérés — a felület ezt ki is mondja. */
+    const assessList = $('[data-pf-assess-list]', page);
+    const assessEmpty = $('[data-pf-assess-empty]', page);
+    const assessForm = $('[data-form="strength-assessment"]', page);
+    const assessExercise = $('#pf-assess-exercise');
+    const assessWeight = $('#pf-assess-weight');
+    const assessReps = $('#pf-assess-reps');
+    const assessSave = $('.pf-assess-save', page);
+    const assessOptions = $('#pf-assess-options');
+
+    /* A gyakorlat-nevek a katalógusból: a szerver csak ismert nevet fogad el
+       (kitalált névre az izomcsoportokat sem ismernénk, tehát ajánlani sem
+       tudnánk belőle). A lista cache-elt, egyszer töltjük le. */
+    let catalogLoaded = false;
+    const loadCatalogOptions = async () => {
+      if (catalogLoaded) return;
+      try {
+        const catalog = await api.getExerciseCatalog();
+        assessOptions.replaceChildren(...catalog.map((item) => {
+          const option = document.createElement('option');
+          option.value = item.name;
+          return option;
+        }));
+        catalogLoaded = true;
+      } catch (err) {
+        // A datalist csak kényelem — nélküle is be lehet gépelni a nevet.
+        console.error('A gyakorlat-lista betöltése nem sikerült:', err);
+      }
+    };
+
+    const renderAssessment = (entries) => {
+      assessEmpty.hidden = entries.length > 0;
+      assessList.replaceChildren(...entries.map((entry) => {
+        const li = document.createElement('li');
+        li.className = 'pf-assess-item';
+        const name = document.createElement('b');
+        name.textContent = entry.name;
+        const value = document.createElement('span');
+        value.textContent = `${formatNumber(entry.max1rm)} kg (becsült 1RM)`;
+        li.append(name, value);
+        return li;
+      }));
+    };
+
+    assessForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      assessSave.disabled = true;
+      try {
+        const res = await api.saveStrengthAssessment([{
+          exercise: assessExercise.value.trim(),
+          weight: Number(assessWeight.value),
+          reps: Number(assessReps.value),
+        }]);
+        assessForm.reset();
+        renderAssessment(await api.getStrengthAssessment());
+        // A készenléti riport azonnal változik: innentől van mit ajánlani.
+        refreshRecovery?.().catch((err) => console.error('Regeneráció frissítési hiba:', err));
+        showToast(res.entries[0].stored
+          ? 'Felmérés mentve'
+          : 'A naplózott csúcsod magasabb — az marad érvényben');
+      } catch (err) {
+        console.error(err);
+        showToast(err.message || 'A felmérést nem sikerült menteni', 'error');
+      } finally {
+        assessSave.disabled = false;
+      }
+    });
+
     refreshProfile = async () => {
+      loadCatalogOptions();
+      renderAssessment(await api.getStrengthAssessment());
       const profile = await api.getProfile();
       const { stats } = profile;
 

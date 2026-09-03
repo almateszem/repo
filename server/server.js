@@ -22,6 +22,7 @@ import {
   getCheckin, getCheckins, saveCheckin, hasAnyCheckin,
   getNutritionGoal, saveNutritionGoal, clearOwnNutritionGoal,
   saveWorkoutFeedback, getAthleteFeedbackSince,
+  setDeclaredMax, getDeclaredMaxes,
   getComments, getCommentsByTarget, addComment, deleteComment,
   calculateEpley1RM, bestCompletedSet, getExerciseMax, getAllExerciseMaxes,
   createUser, getUser, getUserWithHash, hasAnyUser, getUserCreatedAt,
@@ -54,7 +55,7 @@ import { buildAthleteCard } from './coaching.js';
 // Az értesítés-panel sorai. Szintén tiszta összeállítás: a végpont gyűjti az
 // eseményeket, a modul formázza őket (server/notifications.js).
 import { buildNotifications } from './notifications.js';
-import { MUSCLE_KEYS, MUSCLE_GROUPS, resolveExerciseLoad } from './muscles.js';
+import { MUSCLE_KEYS, MUSCLE_GROUPS, resolveExerciseLoad, normalizeName } from './muscles.js';
 // Kérés-korlátozás. Tiszta számláló, adatbázis és Express nélkül — a limitek
 // és a kulcsválasztás itt, a szerveren dőlnek el (server/ratelimit.js).
 import { createRateLimiter } from './ratelimit.js';
@@ -1552,6 +1553,9 @@ function readinessReport(userId, todayDate, workouts = getWorkouts(userId)) {
     },
     weightLog: getWeightLog(userId),
     catalog: getCollection('exerciseCatalog') || [],
+    // Az erőfelmérésen bemondott csúcsok: ezekből is lesz gyakorlat-ajánlás,
+    // akkor is, ha a fiók még egyetlen edzést sem naplózott.
+    declaredMaxes: getDeclaredMaxes(userId),
     today: todayDate,
   });
 }
@@ -2170,6 +2174,67 @@ app.post('/api/athletes/:linkId/comments', (req, res) => {
   const target = String(req.body?.targetId ?? '');
   res.status(201).json(addComment(req.user.id, athleteId, COMMENT_TYPE, target, text));
 });
+
+
+/* ---- Erőfelmérés (fresh start) ----
+   A friss fiók ma hetekig „vakon" használja az appot: a gyakorlat-ajánlások
+   három naplózott alkalmat kérnek (recovery.js → MIN_SESSIONS), a három fő
+   emelés kivételével. Az erőfelmérésen a felhasználó BEMONDJA, mit tud —
+   ebből a motor azonnal tud ajánlani.
+
+   Amit NEM teszünk: a felmérést nem írjuk be edzésként a naplóba. Az
+   hazudna egy meg nem történt edzést a sorozatba és a volumen-diagramba.
+   A bemondott érték külön forrásként él (exercise_maxes.source = 'declared'),
+   és a riport `basis` mezője kimondja, min alapul az ajánlás. */
+const ASSESSMENT_MAX_ENTRIES = 12;
+const ASSESSMENT_RANGES = { weight: [1, 500], reps: [1, 30] };
+
+/** Az erőfelmérés rögzítése. Törzs: { entries: [{ exercise, weight, reps }] }.
+    A gyakorlatnak a KATALÓGUSBAN kell lennie — kitalált névre nem építünk
+    ajánlást, mert az izomcsoportjait sem ismernénk. */
+app.post('/api/strength-assessment', (req, res) => {
+  const raw = req.body?.entries;
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return res.status(400).json({ error: 'Adj meg legalább egy gyakorlatot.' });
+  }
+  if (raw.length > ASSESSMENT_MAX_ENTRIES) {
+    return res.status(400).json({ error: `Legfeljebb ${ASSESSMENT_MAX_ENTRIES} gyakorlat.` });
+  }
+
+  const catalog = getCollection('exerciseCatalog') || [];
+  const known = new Map(catalog.map((item) => [normalizeName(item.name), item.name]));
+
+  const parsed = [];
+  for (const entry of raw) {
+    const name = known.get(normalizeName(String(entry?.exercise ?? '')));
+    if (!name) {
+      return res.status(400).json({ error: `Ismeretlen gyakorlat: ${String(entry?.exercise ?? '')}` });
+    }
+    for (const [key, [min, max]] of Object.entries(ASSESSMENT_RANGES)) {
+      const value = Number(entry?.[key]);
+      if (!Number.isFinite(value) || value < min || value > max) {
+        return res.status(400).json({ error: `${name}: a(z) ${key} ${min} és ${max} között adható meg.` });
+      }
+    }
+    // Ugyanaz az Epley-képlet, amivel a naplózott szettek is számolnak.
+    parsed.push({ name, max1rm: calculateEpley1RM(entry.weight, entry.reps) });
+  }
+
+  const stored = parsed.map(({ name, max1rm }) => {
+    const result = setDeclaredMax(req.user.id, name, max1rm, req.today);
+    return {
+      exercise: name,
+      // A ténylegesen ÉRVÉNYES csúcs kerekítve — ha volt mért érték, az marad.
+      max1rm: Math.round(result.max1rm * 10) / 10,
+      stored: result.stored,
+    };
+  });
+
+  res.status(201).json({ entries: stored, readiness: readinessReport(req.user.id, req.today) });
+});
+
+/** A bemondott csúcsok — a felmérés űrlapja ebből tölti fel magát újranyitáskor. */
+app.get('/api/strength-assessment', (req, res) => res.json(getDeclaredMaxes(req.user.id)));
 
 /* ---- Edzés utáni visszajelzés ----
    STRUKTURÁLT mező, nem üzenet: a nehézség és a közérzet számként tárolódik,

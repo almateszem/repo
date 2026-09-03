@@ -152,25 +152,33 @@ hibát javít), és FELOLDÁS a gyakorlat-ajánláshoz — enélkül friss
 felhasználónak nincs miből ajánlani. A többi három egymástól független.
 
 
-[ ] 1. Erőfelmérés / fresh start   (javasolt első lépés)
-    A user megadja pár gyakorlatban a maxát, és a motor ebből azonnal tud
-    személyre szabottan számolni.
-    MIT JAVÍT: a friss felhasználó ma hetekig „vakon" használja az appot. A
-    személyre szabott referenciához 14 nap edzés-előzmény és 7 check-in kell
-    (recovery.js -> PERSONAL_REF_MIN_DAYS), egy gyakorlat pedig 3 naplózott
-    alkalom után kap ajánlást (MIN_SESSIONS) — csak a három fő emelés
-    (fekvenyomás, guggolás, felhúzás) kivétel. Addig általános, testsúlyra
-    skálázott referenciával fut, „Tájékoztató" jelzéssel.
-    A BUKTATÓ, amit tervezéskor tudni kell: az ajánló a MENTETT EDZÉSEKBŐL
-    építi az alkalmakat (summarizeWorkouts), nem az exercise_maxes-ből —
-    egy bemondott max önmagában tehát NEM hozná elő az ajánlásokat. Vagy a
-    motor kap külön „bemondott" bemenetet, vagy a felmérés edzésként
-    íródna be (utóbbi viszont hazudna egy meg nem történt edzést a naplóba,
-    a sorozatba és a volumen-diagramba).
-    És: a bemondott szám NEM mérés. Ugyanaz a megkülönböztetés kell rá, ami
-    a katalógusban már megvan (loadSource: 'derived' vs. kurált), és a
-    megbízhatóság-jelzésnek is ki kell mondania, min alapul.
-    Kapcsolódó, már meglévő gépezet: calculateEpley1RM, updateExerciseMax.
+[x] 1. Erőfelmérés / fresh start   (2026-09-02)
+    A felhasználó bemondja pár gyakorlatban, mit tud (súly + ismétlés), a
+    szerver Epley-vel 1RM-et számol, és a motor ebből AZONNAL tud ajánlani —
+    nem kell megvárni a három naplózott alkalmat (MIN_SESSIONS).
+    Végpontok: POST/GET /api/strength-assessment. Felület: Profil oldal.
+
+    A DOKUMENTÁLT BUKTATÓRA a válasz: a felmérés NEM íródik be edzésként.
+    Az hazudna egy meg nem történt edzést a sorozatba és a volumen-diagramba.
+    Helyette külön forrás: exercise_maxes.source = 'declared', és a motor
+    külön bemenetként kapja (computeReadiness → declaredMaxes).
+
+    A bemondott szám NEM mérés, és ezt három dolog tartja be:
+      · a riport `basis` mezője kimondja ('declared' / 'logged'),
+      · a naplózott szett FELÜLÍRJA a bemondott alapot (a mérés erősebb
+        bizonyíték), és egy alacsonyabb bemondás nem törölheti a rekordot,
+      · a PR-lista változatlanul a naplózott edzésekből épül — a bemondás nem
+        szül PR-t, de egy későbbi emelésnek meg kell haladnia.
+
+    FONTOS, amit tervezéskor nem láttunk előre: a bemondott gyakorlatnál se
+    frissesség, se izomcsoport-szintű regeneráció nincs, és a muscleScore
+    alapértelmezése 100 volna — ami ismeretlen izomra hamis biztonságérzet
+    (pont a „nincs adat ≠ tökéletes állapot" csapda). Ezért az ilyen ajánlás
+    az ÖSSZESÍTETT készenlétre épül, ami a mai check-int tükrözi; ha az sincs
+    (overall === null), a gyakorlat KIMARAD az ajánlásokból.
+
+    FELOLDÁS a 4. ponthoz (ajánlott gyakorlat): innentől friss fióknak is van
+    miből ajánlani.
 
 
 [ ] 2. SOS sérülés gomb

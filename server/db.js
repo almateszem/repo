@@ -330,6 +330,12 @@ ensureColumn('workouts', 'feedback_difficulty', 'feedback_difficulty INTEGER');
 ensureColumn('workouts', 'feedback_mood', 'feedback_mood INTEGER');
 ensureColumn('workouts', 'feedback_note', 'feedback_note TEXT');
 ensureColumn('workouts', 'feedback_at', 'feedback_at TEXT');
+/* Mire épül a csúcs: 'measured' — naplózott szettből számolt (Epley), vagy
+   'declared' — az erőfelmérésen BEMONDOTT érték. A kettő nem ugyanaz, és a
+   felületnek ki is kell mondania, min alapul: a bemondott szám nem mérés.
+   (Ugyanaz a megkülönböztetés, ami a gyakorlat-katalógusban a loadSource.)
+   A meglévő sorok mind naplózott szettből születtek, tehát a default helyes. */
+ensureColumn('exercise_maxes', 'source', "source TEXT NOT NULL DEFAULT 'measured'");
 // Olvasás-jelölés az üzeneteken. A régi sorok NULL-lal (olvasatlanul) jönnek
 // át — ez a helyes: nem tudhatjuk, látta-e őket a címzett. Aki megnyitja a
 // szálat, egy lépésben olvasottá teszi a régi hátralékot is.
@@ -1505,9 +1511,11 @@ export function bestCompletedSet(sets = []) {
 
 /** A felhasználó jelenlegi maximális 1RM-je egy gyakorlatban, vagy null ha még nincs. */
 export function getExerciseMax(userId, exerciseName) {
-  const row = db.prepare('SELECT max_1rm, date FROM exercise_maxes WHERE user_id = ? AND exercise_name = ?')
+  const row = db.prepare(`SELECT max_1rm, date, source FROM exercise_maxes
+                          WHERE user_id = ? AND exercise_name = ?`)
     .get(userId, exerciseName);
-  return row ? { max1rm: row.max_1rm, date: row.date } : null;
+  // A `source` megmondja, mire épül a szám: naplózott szett vagy bemondás.
+  return row ? { max1rm: row.max_1rm, date: row.date, source: row.source } : null;
 }
 
 /** A felhasználó összes nyomon követett maximális 1RM-je. */
@@ -1545,17 +1553,55 @@ export function getRecentExerciseMaxes(userId, sinceDate, limit = 5) {
 
 /** Egy gyakorlat maximum 1RM-jének frissítése, ha az új érték nagyobb.
     Visszaadja az objektumot { max1rm, date, isPr } formában (isPr = true ha PR-t ütöttünk). */
+/**
+ * Az erőfelmérésen BEMONDOTT csúcs rögzítése.
+ *
+ * A bemondott szám nem mérés, ezért két dolgot NEM tesz:
+ *   · nem ír felül MÉRT csúcsot — a naplózott szett erősebb bizonyíték, és
+ *     egy alacsonyabb bemondás nem tüntetheti el a valódi rekordot;
+ *   · nem hoz létre PR-bejegyzést: a PR-lista a naplózott edzésekből épül
+ *     (/api/prs), ide csak a viszonyítási alap kerül. Egy KÉSŐBBI emelésnek
+ *     viszont meg kell haladnia — a felmérés így valódi kiindulópont.
+ *
+ * Visszaadja, hogy tényleg beírtuk-e.
+ */
+export function setDeclaredMax(userId, exerciseName, max1rm, date) {
+  const existing = getExerciseMax(userId, exerciseName);
+  if (existing && existing.source === 'measured') return { stored: false, max1rm: existing.max1rm };
+
+  db.prepare(`
+    INSERT INTO exercise_maxes (user_id, exercise_name, max_1rm, date, source, updated_at)
+    VALUES (?, ?, ?, ?, 'declared', datetime('now'))
+    ON CONFLICT(user_id, exercise_name) DO UPDATE SET
+      max_1rm = excluded.max_1rm, date = excluded.date,
+      source = 'declared', updated_at = excluded.updated_at
+  `).run(userId, exerciseName, max1rm, date);
+  return { stored: true, max1rm };
+}
+
+/** A BEMONDOTT csúcsok. A készenlét-motor ezekből tudja, hogy a felhasználó
+    egy gyakorlatot ismer és nagyjából milyen szinten — akkor is, ha még
+    egyetlen edzést sem naplózott ide. */
+export function getDeclaredMaxes(userId) {
+  return db.prepare(`SELECT exercise_name, max_1rm, date FROM exercise_maxes
+                     WHERE user_id = ? AND source = 'declared'`)
+    .all(userId)
+    .map((row) => ({ name: row.exercise_name, max1rm: row.max_1rm, date: row.date }));
+}
+
 export function updateExerciseMax(userId, exerciseName, new1rm, currentDate) {
   const existing = getExerciseMax(userId, exerciseName);
   const isPr = !existing || new1rm > existing.max1rm;
 
   if (isPr) {
     db.prepare(`
-      INSERT INTO exercise_maxes (user_id, exercise_name, max_1rm, date, updated_at)
-      VALUES (?, ?, ?, ?, datetime('now'))
+      INSERT INTO exercise_maxes (user_id, exercise_name, max_1rm, date, source, updated_at)
+      VALUES (?, ?, ?, ?, 'measured', datetime('now'))
       ON CONFLICT(user_id, exercise_name) DO UPDATE SET
         max_1rm = excluded.max_1rm,
         date = excluded.date,
+        -- A naplózott szett FELÜLÍRJA a bemondott alapot: a mérés erősebb bizonyíték.
+        source = 'measured',
         updated_at = excluded.updated_at
     `).run(userId, exerciseName, new1rm, currentDate);
   }
