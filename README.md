@@ -1,7 +1,7 @@
 # FitTrack Pro
 
 Edző–kliens edzésmenedzsment demo: edzésnapló, tervkészítő, táplálkozás-követés
-és edzői panel. Egyetlen Express szerver szolgálja ki a statikus frontendet és a
+és edzői panel — utóbbi valódi, több fiók közti edző–sportoló kapcsolattal. Egyetlen Express szerver szolgálja ki a statikus frontendet és a
 REST API-t, az adat SQLite-ban perzisztál.
 
 ## Indítás
@@ -31,6 +31,66 @@ Környezeti változók:
 PORT=3999 FITTRACK_DB=/tmp/proba.db npm start
 ```
 
+## Élesítés
+
+Két dolgot kell elintézni, mielőtt az app másokhoz is kikerül. Egyik sem
+kódkérdés — a telepítés környezetén múlnak.
+
+### 1. Az adatbázisnak perzisztens tárolón kell lennie
+
+Sok hostingon (Heroku, Render, Fly volume nélkül) a fájlrendszer **ephemeral**:
+minden újradeploynál üres lappal indul. A `server/fittrack.db` ilyenkor
+eltűnik, és vele az összes felhasználó edzésnaplója. A seed adat (gyakorlat- és
+étel-katalógus) újraépül a `data.js`-ből, a **naplók nem**.
+
+Állítsd a `FITTRACK_DB`-t egy csatolt kötetre:
+
+```bash
+# Fly.io — a fly.toml-ban létrehozott volume mountja alá
+FITTRACK_DB=/data/fittrack.db
+
+# Docker — nevesített kötettel
+docker run -v fittrack-data:/data -e FITTRACK_DB=/data/fittrack.db …
+```
+
+A szerver indításkor kiírja a feloldott útvonalat és azt is, hogy meglévő
+adatbázist nyitott-e meg vagy újat hozott létre:
+
+```
+SQLite kész → /data/fittrack.db (meglévő)
+```
+
+Ha ehelyett **minden indításkor** `(ÚJ adatbázis jött létre)` látszik, akkor a
+tároló nem perzisztens — ez a hiba pontos tünete.
+
+A WAL mód miatt a `fittrack.db` mellé `-wal` és `-shm` fájlok is kerülnek;
+mentésnél/másolásnál a hármat együtt kell kezelni (vagy leállított szerverrel
+másolni).
+
+### 2. A gyakorlat-illusztrációk licence
+
+A `public/exercises/` alatti gifek és képek **nem a projekt tulajdona**
+(© Gym visual). A repo klónozása nem ad rájuk jogot. Saját/tanulós használatra
+a feltételek rendben vannak (az attribúció ki van téve a gyakorlat-választó
+alján), **kereskedelmi felhasználáshoz viszont saját engedély kell** a
+jogtulajdonostól. Részletek: `public/exercises/ATTRIBUTION.txt`.
+
+### Kérés-korlátok
+
+Alapból be vannak kapcsolva, memóriában (nem elosztott — újraindításkor
+nullázódnak, több példánynál példányonként számolnak):
+
+| Mi | Kulcs | Korlát |
+| --- | --- | --- |
+| Sikertelen belépés | felhasználónév | 10 / 15 perc után zárolás |
+| Regisztráció | kérés forrása | 30 / óra |
+| Írások (`POST`/`PUT`/`PATCH`/`DELETE`) | fiók | 240 / perc |
+| Üzenetküldés | fiók | 20 / perc |
+
+Reverse proxy mögött a *regisztrációs* korláthoz `app.set('trust proxy', …)`
+kell, különben minden kérés a proxy címéről érkezőnek látszik, és a korlát az
+egész forgalomra közösen számol.
+
 ## Felépítés
 
 ```
@@ -46,9 +106,18 @@ server/
   coach.test.js  az edző–kliens kapcsolat és a KERESZT-FIÓK hozzáférés tesztjei
   migration.test.js  a fiókok előtti adatbázis migrációjának tesztje (npm test)
   db.js          SQLite adatréteg — az egyetlen modul, ami a tárolást ismeri
+<<<<<<< HEAD
   data.js        seed / referencia-adat (ételek, gyakorlat-katalógus)
+=======
+  data.js        seed / referencia-adat (ételek, gyakorlat-katalógus, edzés-célok)
+  openfoodfacts.js  vonalkód-ellenőrzés + Open Food Facts proxy (a kliens nem hívja közvetlenül)
+  openfoodfacts.test.js  a leképezés és a vonalkód-normalizálás tesztjei (npm test)
+>>>>>>> 972acc045ef0e4ac7403f732efc6e5bb404bc263
   recovery.js    Recovery Engine — a készenlét-számítás (tiszta függvények, DB nélkül)
   recovery.test.js  a motor unit-tesztjei (npm test)
+  coaching.js    az edzői panel sportoló-összegzője (tiszta függvények, DB nélkül)
+  coaching.test.js  az összegző unit-tesztjei (npm test)
+  coach.test.js  az edző–sportoló kapcsolat végponti tesztjei (npm test)
   muscles.js     izomcsoport-taxonómia + gyakorlat → izom leképezés
   fittrack.db    az adatbázisfájl (nem verziókövetett, a szerver hozza létre)
 ```
@@ -57,8 +126,16 @@ Az adat kétféle: a `collections` táblában a **csak olvasható** referencia-a
 amit a szerver minden induláskor a `data.js`-ből szinkronizál (tehát a `data.js`
 az egyetlen szerkesztési hely) — ez minden fióknak közös —, illetve a
 **felhasználói adat** saját táblákban (`weight_log`, `nutrition_log`, `workouts`,
-`plans`, `workout_draft`, `checkins`). Ezeket a seed nem írja felül, és minden
-soruk egy fiókhoz tartozik (`user_id`).
+`plans`, `workout_draft`, `checkins`, `exercise_maxes`, `custom_foods`). Ezeket a
+seed nem írja felül, és minden soruk egy fiókhoz tartozik (`user_id`). A fiókok
+KÖZTI adat — az edző–sportoló kapcsolatok (`coach_links`) és az üzenetek
+(`messages`) — külön táblákban áll; ezekhez mindkét érintett fél hozzáfér, más
+senki.
+
+Egy kivétel van: a `barcode_cache` (vonalkód → Open Food Facts termék) tudatosan
+**nem** felhasználói adat és nincs rajta `user_id` — ugyanaz a vonalkód
+mindenkinek ugyanazt a terméket jelenti. A `/api/foods` viszont innentől
+fiókfüggő: elöl a hívó saját ételei, utánuk a közös katalógus.
 
 ## Fiókok
 
@@ -74,6 +151,20 @@ látják és nem írhatják egymás adatát, id-re hivatkozva sem.
   HTTPS-en (vagy `x-forwarded-proto: https` mögött) a süti `Secure` jelzőt is kap.
 - **Belépési kísérlet-korlát:** 15 percen belül 10 sikertelen próbálkozás után a
   felhasználónév átmenetileg zárolódik.
+- **Jelszóváltoztatás** (`PUT /api/auth/password`): a JELENLEGI jelszót is kéri —
+  a munkamenet-süti önmagában nem elég hozzá. Sikeres csere után a fiók összes
+  korábbi munkamenete megszűnik (más eszközök, esetleg egy megszerzett token), a
+  változtató böngészője viszont friss sütit kap, tehát bent marad.
+- **Fióktörlés** (`POST /api/auth/delete-account`): szintén jelszóval erősítendő,
+  és végleges. A naplók, tervek, check-inek, rekordok, edző-kapcsolatok és
+  üzenetek is törlődnek — az üzenetek a MÁSIK félnél is. A törlés szándékosan nem
+  bízza magát az idegenkulcs-CASCADE-re: a fiókok előtti adatbázisokban a
+  `user_id` oszlopokon nincs megszorítás, ott gazdátlan sorok maradnának.
+  A felhasználónév a törlés után újra kiadható, és az új fiók üresen indul.
+
+Ami **nincs**: az elfelejtett jelszó önkiszolgáló visszaállítása. E-mail-cím
+nélkül nincs mihez küldeni a visszaállító linket — ez terméki döntés, nem
+elmaradt munka.
 
 ### Ha korábbi, fiók nélküli adatbázisod van
 
@@ -260,12 +351,45 @@ tartja ki a gráfból magát a vendorolt skillt (különben a saját dokumentác
 - **Táplálkozás — mai napló.** A bevitt tételek listája a napi összesítő alatt
   látszik, bármelyik egy koppintással törölhető. Csak az aznapi bejegyzés
   módosítható: a korábbi napok összesítői már beépültek a készenlét-számításba.
+- **Saját étel + vonalkód-olvasó.** A beépített katalógus általános referencia-
+  értékeket ad, egy konkrét bolti termék ettől 100 kcal-t is eltérhet — ezért
+  fel lehet vinni sajátot. A makrókat külön-külön adod meg, a **kalóriát az app
+  számolja** (Atwater 4/4/9) és élőben mutatja; ha a csomagoláson más áll (rost,
+  poliolok), felülírható, és egy ↻ gomb visszakapcsol az automatikusra. A
+  szerver mindkét ágat validálja — a napi bevitelt a kliensből nem lehet hazudni.
+
+  A vonalkód-olvasó három szinten működik, ebben a sorrendben: natív
+  `BarcodeDetector` → lustán letöltött ZXing (`/vendor/zxing`, csak szkenneléskor,
+  a `node_modules`-ból kiszolgálva) → **kézi kódbeírás**, ami mindig elérhető. Ez
+  utóbbi nem vészmegoldás: a `getUserMedia` csak https-en vagy localhoston él, a
+  gép LAN-IP-jéről nyitva a böngésző a kamerát oda sem adja (a felület ezt meg is
+  mondja). A beolvasott kódot a **szerver** oldja fel — saját étel → gyorsítótár →
+  Open Food Facts —, és a találat előre kitölti az űrlapot. Egyszer felvitt
+  termék újraolvasásakor rögtön az adagválasztó jön.
+
+  A már lenaplózott tételeket a saját étel törlése **nem** írja át: a
+  `nutrition_log` a nevet és a makrókat másolatban tárolja.
 - **Megerősítés adatvesztés előtt.** Ha egy terv betöltése megkezdett edzést
   írna felül, vagy egy teljesített szetteket tartalmazó gyakorlatot vennél ki,
   az app rákérdez (saját modállal, nem natív `confirm`-mal).
 - **Az „Edzés befejezése" lezárja az edzést**: a napló bekerül a Korábbi
   edzésekhez, a piszkozat törlődik, az Edzés oldal pedig üresen áll készen a
   következőre. Ugyanaznap így nyugodtan kezdhető második edzés is.
+- **Mentett edzés javítása és törlése.** A Korábbi edzések minden sorának van
+  *Javítás* és *törlés* gombja. A javítás a szerkesztőbe nyitja vissza az
+  edzést (`workout_draft.workout_id`), és a mentés a **meglévő sort frissíti a
+  saját napján** — `PUT /api/workouts/:id`, dátum nélkül: a javítás nem
+  helyezi át az edzést a mai napra, különben elcsúszna a sorozat, a heti
+  volumen és a készenlét 28 napos ablaka. A visszanyitás ténye a piszkozattal
+  utazik, tehát újratöltés után is megmarad; a sáv a szerkesztő tetején végig
+  kiírja, melyik napot javítod.
+  **Mindkét művelet újraszámolja az egyéni csúcsokat** (`recomputeExerciseMaxes`,
+  `server/db.js`), és ez nem elhagyható: az `updateExerciseMax` csak felfelé
+  lép, tehát a megszűnt teljesítmény rekordja bent ragadna, és elzárná a
+  jövőbeli valódi PR-t. A csúcs mellett a mentett edzésekben tárolt `pr`
+  jelzők is újraépülnek — a PR-lista azokból dolgozik, nem a táblából —, így a
+  törölt rekord helyére a következő legjobb edzés lép be. A művelet
+  tranzakcióban fut: a napló és a rekordok csak együtt igazak.
 - **Napra ütemezett tervek.** A tervkészítőben kijelölt hétnapokon az adott terv
   automatikusan betöltődik az Edzés oldalra — de egy már megkezdett edzést soha
   nem ír felül.
@@ -401,6 +525,89 @@ személyre szabott (saját előzményhez mért) referenciához 14 nap edzés-el�
 7 check-in kell; addig testsúlyra skálázott általános referenciával fut, és a
 felület `Tájékoztató` / `Közepes` / `Megbízható` jelzéssel kiírja, mire épül a szám.
 
+## Edző–sportoló kapcsolat
+
+Az Edző oldal (`#coach`) **valódi fiókok kapcsolatából** él, nem demo-adatból.
+Mindkét nézete mindig elérhető, mert ugyanaz a fiók lehet valakinek az edzője és
+valaki másnak a sportolója:
+
+- **Edződ** — a saját edződdel folytatott üzenetváltás, és a hozzád érkezett,
+  még el nem fogadott meghívók.
+- **Edzetteim** — a sportolóid kártyái és a kiküldött meghívóid.
+
+**A kapcsolat beleegyezéssel jön létre.** Az edző a sportoló *felhasználónevével*
+küld meghívót; az `pending` állapotban áll, amíg a másik fél el nem fogadja.
+**Elfogadás előtt az edző semmit nem lát az adataiból.** A sportolónak egyszerre
+egy edzője lehet (a felület is egy edzőt mutat); edzőként viszont bárki tarthat
+több sportolót. Bontani mindkét fél tud: az edző a részletmodálból, a sportoló a
+„Leválás" gombbal — a kapcsolattal az üzenetváltás is törlődik (`ON DELETE
+CASCADE`), tehát a levált sportoló előzménye nem marad az edzőnél.
+
+**A sportoló-kártya minden száma számolt érték** (`server/coaching.js`), a
+sportoló saját naplójából:
+
+| Mező | Miből |
+| --- | --- |
+| Készenlét | a sportolóra lefuttatott Recovery Engine (`overall`) |
+| Terv-követés | az elmúlt 4 hét ütemezett napjaihoz mért edzésnapok, 100%-on tetőzve |
+| Összpontszám | a kettő átlaga (terv híján maga a készenlét) → ebből jön az arany/ezüst/bronz szint |
+| Sorozat / utolsó edzés / heti állás | a mentett edzésekből és a tervek hétnapjaiból |
+| Állapot-sáv | kihagyott edzés, leállás, gyenge készenlét, hiányzó check-in — a két legsúlyosabb ok |
+| Legutóbbi aktivitás | edzések, PR-ek, check-inek és testsúly-bejegyzések összefésülve |
+
+Terv nélkül nincs terv-követés: ilyenkor a mező `null`, és a felület `—`-t ír ki,
+nem 0%-ot — az azt hazudná, hogy elmaradt valami. Ugyanez a szabály a
+riasztásoknál: a HIÁNYZÓ adat (nincs check-in, nincs naplózott edzés) csak akkor
+kerül az állapot-sávba, ha már lett volna ideje meglenni — a ma csatlakozott
+sportoló nem „lemaradt". A készenlét mellé a részletmodál kiírja a becslés
+alapját is (`Tájékoztató` / `Közepes` / `Megbízható`): napló nélküli fiókra a
+motor 100%-ot ad, és enélkül az „arany szintnek" látszana. A **cél-címke** (ERŐ, TÖM, FIT,
+FGY, ÁLL) a fiók saját beállítása (Beállítások → Edzés-cél); a választható értékek
+a `data.js` `goals` listájában élnek egy helyen.
+
+**Üzenetek.** A szál a kapcsolathoz tartozik, és mindkét oldalról ugyanaz — a
+szerver a *néző* szemszögéből jelöli meg a saját üzeneteket. Nincs websocket: a
+**látható** beszélgetés 20 másodpercenként (és minden oldalra lépéskor) frissül.
+
+Az olvasottságot a `messages.read_at` tartja nyilván. Ebből lesz a kártya és a
+nézetváltó jelvénye, a szálban az „Új üzenet" elválasztó, a küldő oldalán pedig
+az „olvasva" jelölés. A nyugtázás **külön végponton** megy
+(`POST /api/messages/:linkId/read`), nem a lekérésen: a 20 másodperces halk
+frissítés nem jelenti, hogy a felhasználó látta is a szálat, és rejtett szálra a
+felület nem küld nyugtázást — az „olvasva" különben azt hazudná a másik félnek,
+hogy elolvasták az üzenetét.
+
+**Terv-kiosztás.** Az edző a **saját tervei** közül ajánl fel egyet a sportolónak
+(részletmodál → *Terv kiosztása*), akár kísérő sorral. A terv **nem íródik** a
+sportoló tervei közé: az ajánlat `pending` állapotban áll, amíg a sportoló el nem
+fogadja — és akkor is **másolatként, a meglévő tervei mellé** kerül. Két okból:
+tervet törölni nem lehet az appban (amit egyszer belepakolnánk, azt nem tudná
+kiszedni), és ugyanaz az elv, mint a kapcsolaté — ami a másik fiókjában
+megjelenik, ahhoz a másik beleegyezése kell. A kiosztott gyakorlat-lista
+**pillanatkép**: az edző későbbi szerkesztése nem változtatja meg némán a
+sportolónál lévő példányt.
+
+**Végpontok**
+
+| Végpont | Mit csinál |
+| --- | --- |
+| `GET /api/athletes` | a sportolóim kártyái + a kiküldött meghívóim |
+| `POST /api/athletes` | meghívó felhasználónévre |
+| `DELETE /api/athletes/:linkId` | meghívó visszavonása vagy a kapcsolat bontása (edzőként) |
+| `POST /api/athletes/:linkId/plan` | terv felajánlása a sportolónak (`{ planId, note }`) |
+| `GET /api/coach` | a saját edzőm, a hozzám érkezett meghívók és a felajánlott tervek |
+| `POST /api/coach/invites/:linkId/accept` | meghívó elfogadása |
+| `DELETE /api/coach/invites/:linkId` | meghívó elutasítása |
+| `DELETE /api/coach` | leválás az edzőről |
+| `POST /api/plan-offers/:id/accept` | felajánlott terv elfogadása (másolatként bekerül) |
+| `DELETE /api/plan-offers/:id` | felajánlott terv elutasítása |
+| `GET` / `POST /api/messages/:linkId` | a kapcsolat üzenet-szála |
+| `POST /api/messages/:linkId/read` | a szál nyugtázása (a másik fél üzenetei olvasottá válnak) |
+| `GET /api/notifications` | az értesítés-panel sorai a hívó valódi eseményeiből |
+
+Minden végpont ellenőrzi, hogy a hívó a kapcsolat melyik oldala: a `linkId`
+önmagában semmire nem jogosít (`server/coach.test.js`).
+
 ## Felület — akadálymentesség és érintés
 
 A frontend néhány szabályt szándékosan tokenszinten tart be, hogy ne
@@ -425,14 +632,18 @@ komponensenként kelljen újratárgyalni:
 
 Ezek szándékos egyszerűsítések, nem hibák:
 
-- **Nincs jelszó-visszaállítás és nincs fióktörlés.** Elfelejtett jelszónál az
-  adatbázisban kell a `users` sort javítani.
-- **A belépési kísérlet-korlát memóriában él**, tehát a szerver újraindításakor
-  nullázódik, és több példány futtatásakor példányonként külön számol.
-- **A dátumot a szerver helyi ideje adja.** Ha a szerver és a böngésző más
-  időzónában van, a „mai nap" elcsúszhat.
+- **Nincs jelszó-visszaállítás** az elfelejtett jelszóra (e-mail-cím nélkül nem
+  megoldható). Jelszóváltoztatás és fióktörlés viszont van — lásd a *Fiókok*
+  szakaszt.
+- **A napot a kliens mondja meg.** Minden kérés viszi a böngésző szerinti mai
+  napot (`X-Client-Date`), és a naplózás ehhez igazodik — így egy UTC-s szerver
+  sem tolja el a „mai napot". A szerver ellenőrzi a fejlécet: alakilag pontos
+  dátum kell, és legfeljebb egy napra térhet el a szerver napjától (ennyi minden
+  időzónára elég, visszadátumozásra viszont nem használható). Hiányzó vagy
+  gyanús fejléc esetén a szerver saját napja marad.
 - **Nincs pulzus/HRV adatforrás.** Nincs okosóra-integráció, ezért a Recovery
   Engine hat komponensből számol, nem hétből (lásd fentebb).
+<<<<<<< HEAD
 - **Az üzenetváltás szimulált.** Az edzőnek (és a kliensnek) küldött üzenet
   nem jut el a másik félhez: a válaszok előre megírt sorokból forognak körbe, és
   az egész szál a lap újratöltésével elvész. A felület ezt ki is írja. A
@@ -444,3 +655,18 @@ Ezek szándékos egyszerűsítések, nem hibák:
 - **Az edzői panelen nincs kliensenkénti regeneráció-nézet.** A végpont megvan
   (`GET /api/coach/clients/:id/readiness`), a felület még nem — ld.
   `TEENDOK.txt`, 5. blokk.
+=======
+- **Az üzenetek frissítése lekérdezéssel megy**, nem websockettel: a látható
+  beszélgetés 20 másodpercenként és minden oldalra lépéskor frissül. Kis
+  felhasználószámnál ez elég; sok egyidejű felhasználónál SSE vagy websocket
+  kellene.
+- **A kérés-korlátok memóriában élnek**, tehát a szerver újraindításakor
+  nullázódnak, és több példány futtatásakor példányonként külön számolnak —
+  lásd az *Élesítés* szakaszt.
+- **Az értesítés-panel csak eseményeket mutat**, állapotokat nem. Ami bekerül:
+  olvasatlan üzenet, edző-meghívó, terv-kiosztás és -válasz, friss egyéni
+  csúcs. Ami szándékosan nem: a „töltsd ki a check-int" és a „sorozat
+  mérföldkő" — azoknak nincs valódi időpontjuk, csak kitalálni lehetne, és a
+  panel minden sora relatív időt ír ki. (A check-in emlékeztetője az
+  áttekintőn van.)
+>>>>>>> 972acc045ef0e4ac7403f732efc6e5bb404bc263

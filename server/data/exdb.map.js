@@ -186,6 +186,7 @@ export const COMPOUND_PATTERNS = [
   /\bgood morning\b/, /\bhip thrust\b/, /\bmuscle-?up\b/, /\bswing\b/,
   /\bbridge\b/, /\bcarry\b/, /\bwalk\b/, /\bcrawl\b/, /\bget-?up\b/, /\bclimber\b/,
   /\bhandstand\b/, /\bplanche\b/, /\bpike\b/, /\binchworm\b/, /\bjumping jack\b/,
+  /\bjack jump\b/,   // ugyanaz a mozdulat, a forrás így is nevezi
 ];
 
 /** Izolációs mozgásra utaló kulcsszavak. Csak akkor számít, ha a
@@ -203,6 +204,26 @@ export const ISOLATION_PATTERNS = [
     ami a szűrésnél is beszédesebb. */
 export const MOBILITY_PATTERNS = [
   /\bstretch\b/, /\bmobility\b/, /\bpose\b/,
+  // A jóga-testhelyzetek akkor is nyújtások, ha a nevükben nincs ott a `pose`
+  /\bfacing dog\b/,
+];
+
+/**
+ * A „… on X machine / cage" farok a FELSZERELÉST írja le, nem a mozgást — a
+ * címkézés előtt le kell vágni. Enélkül a gép neve dönt a gyakorlat helyett:
+ * a „lever seated squat calf raise on leg press machine" egy vádliemelés, de
+ * a `press` és a `squat` miatt összetettnek látszott, az „inverse leg curl
+ * (on pull-up cable machine)" pedig a `pull-up` miatt.
+ */
+const APPARATUS_SUFFIX = /\bon\b[^,]*?\b(machine|cage)\b/;
+
+/**
+ * Izolációs mozgások, amiknek a nevében összetett kulcsszó áll. Ezek MEGELŐZIK
+ * a COMPOUND_PATTERNS-t: a vádlinyomás egyetlen izületet mozgat és egyetlen
+ * izomcsoportot terhel — attól, hogy „press", még nem összetett gyakorlat.
+ */
+export const ISOLATION_FIRST_PATTERNS = [
+  /\bcalf press\b/,
 ];
 
 /** Felszerelés → magyar címke. A build ezt a `equipmentHu` mezőbe teszi (a
@@ -311,8 +332,11 @@ export function deriveTag(name, load) {
   // A nyújtás megelőzi a többit: a „standing hamstring stretch” a `standing`
   // miatt könnyen erőgyakorlatnak látszana.
   if (MOBILITY_PATTERNS.some((re) => re.test(lower))) return 'Nyújtás';
-  if (COMPOUND_PATTERNS.some((re) => re.test(lower))) return 'Összetett';
-  if (ISOLATION_PATTERNS.some((re) => re.test(lower))) return 'Izolációs';
+  if (ISOLATION_FIRST_PATTERNS.some((re) => re.test(lower))) return 'Izolációs';
+  // A gép neve ne döntsön a gyakorlat helyett (ld. APPARATUS_SUFFIX)
+  const movement = lower.replace(APPARATUS_SUFFIX, ' ');
+  if (COMPOUND_PATTERNS.some((re) => re.test(movement))) return 'Összetett';
+  if (ISOLATION_PATTERNS.some((re) => re.test(movement))) return 'Izolációs';
   // Tartalék: háromnál több terhelt izomcsoport már összetett mozgás.
   return Object.keys(load || {}).length >= 3 ? 'Összetett' : 'Izolációs';
 }
