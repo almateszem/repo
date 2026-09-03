@@ -1430,3 +1430,81 @@ test('az UPC-A és az EAN-13 alak ugyanarra a termékre fut', async () => {
     assert.equal(await offHitCount(), hitsElotte);
   }
 });
+
+/* ======================================================================
+   Készenlét-javaslat — a rendszer KÉRDEZ, nem cselekszik
+   ----------------------------------------------------------------------
+   A legfontosabb állítás: az elfogadás a MAI NAPLÓT írja át, a TERVET soha.
+   Ha ez elromlik, az edző azt hiszi, a kliens az ő tervét csinálta végig,
+   miközben más súlyokkal edzett.
+   ====================================================================== */
+
+let advCookie = '';
+
+test('a javaslat a fájdalmas izomcsoport gyakorlatát jelöli meg', async () => {
+  const reg = await request('POST', '/api/auth/register', {
+    body: { username: 'javaslat', displayName: 'Javaslat Jenő', password: 'jelszo321' },
+  });
+  advCookie = cookieFrom(reg);
+
+  // 8/10 fájdalom a mellre — a motor 7-től tiltó szintnek veszi.
+  await request('PUT', '/api/checkin', {
+    cookie: advCookie,
+    body: { sleepHours: 7, sleepQuality: 3, energy: 3, stress: 3, pain: { chest: 8 } },
+  });
+  await request('PUT', '/api/workout-draft', {
+    cookie: advCookie,
+    body: {
+      name: 'Mellnap',
+      exercises: [{
+        name: 'Fekvenyomás',
+        sets: [{ reps: '8', weight: '60', rpe: '8', type: 'work', done: false }],
+      }],
+    },
+  });
+
+  const res = await request('GET', '/api/readiness/advice', { cookie: advCookie });
+  assert.equal(res.status, 200);
+  assert.equal(res.json.items.length, 1, 'egy tétel: a fájdalmas csoport gyakorlata');
+  assert.equal(res.json.items[0].action, 'skip', 'még nincs teljesített szett → kihagyás');
+  assert.match(res.json.items[0].name, /Fekvenyom/);
+});
+
+test('az ELFOGADÁS a mai naplót írja át — a tervet nem', async () => {
+  // Legyen terv is, ugyanazzal a gyakorlattal: annak érintetlenül kell maradnia.
+  const terv = await request('POST', '/api/plans', {
+    cookie: advCookie,
+    body: {
+      name: 'Mellnap',
+      days: [],
+      exercises: [{
+        name: 'Fekvenyomás',
+        sets: [{ reps: '8', weight: '60', rpe: '8', type: 'work', done: false }],
+      }],
+    },
+  });
+  assert.equal(terv.status, 201);
+
+  const res = await request('POST', '/api/readiness/advice/apply', { cookie: advCookie, body: {} });
+  assert.equal(res.status, 200);
+  assert.equal(res.json.applied, 1);
+  assert.equal(res.json.template.exercises.length, 0, 'a naplóból kikerült a gyakorlat');
+
+  const tervek = await request('GET', '/api/plans', { cookie: advCookie });
+  const mellnap = tervek.json.find((p) => p.name === 'Mellnap');
+  assert.equal(mellnap.exercises.length, 1, 'a TERV érintetlen — csak a napló változott');
+});
+
+test('a terv-kártya passzívan is jelzi, mi kockázatos ma', async () => {
+  const tervek = await request('GET', '/api/plans', { cookie: advCookie });
+  const mellnap = tervek.json.find((p) => p.name === 'Mellnap');
+  assert.ok(mellnap.safety, 'a kártya kap biztonsági jelzést');
+  assert.equal(mellnap.safety.blocked.length, 1, 'a fájdalmas csoport gyakorlata tiltott');
+  assert.match(mellnap.safety.blocked[0].reason, /fájdalm/i, 'és megmondja, miért');
+});
+
+test('a javaslat nem ismétli magát: amit elfogadtál, arra nem szól újra', async () => {
+  const res = await request('GET', '/api/readiness/advice', { cookie: advCookie });
+  assert.equal(res.json.items.length, 0,
+    'a kihagyott gyakorlat már nincs a naplóban, tehát nincs is mit javasolni rá');
+});

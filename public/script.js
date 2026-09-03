@@ -262,6 +262,11 @@
     // Recovery Engine — egyik sem cache-elt: naponta (és minden check-in,
     // ill. edzés-mentés után) változnak.
     getReadiness:      () => getJson('/api/readiness'),
+    /* Készenlét-alapú javaslat a MAI naplóra. Az apply ÚJRASZÁMOLJA a
+       javaslatot a szerveren — a kliens listáját nem fogadja el bemenetként,
+       különben egy hamisított kérés tetszőleges gyakorlatot törölhetne. */
+    getSessionAdvice:  () => getJson('/api/readiness/advice'),
+    applySessionAdvice: () => postJson('/api/readiness/advice/apply'),
     getCheckin:        () => getJson('/api/checkin'),
     // A mentés a friss riportot is visszaadja, hogy a felület egy körből frissüljön
     saveCheckin:       (fields) => putJson('/api/checkin', fields),
@@ -534,6 +539,12 @@
   /** A heti volumen-diagram frissítője — a setupWeeklyCompare állítja be.
       Az edzés lezárása hívja, hogy a friss szettek azonnal látszódjanak. */
   let refreshVolumeChart = null;
+
+  /** A készenlét-javaslat ablaka — az init állítja be. A check-in mentése
+      után ugrik fel, ha van mit javasolni. Azért modul-szintű, mert a
+      setupRecovery-nél KÉSŐBB épül fel (az edzésnapló vezérlője kell hozzá),
+      a check-in mentése viszont onnan fut. */
+  let adviceModal = null;
 
   /** A check-in varázsló frissítője — a setupCheckinWizard állítja be. */
   let refreshCheckinWizard = null;
@@ -1594,6 +1605,22 @@
     $('.pl-card-name', card).textContent = plan.name;
     $('.pl-card-meta', card).textContent = plan.meta;
 
+    /* A mai készenlét figyelmeztetése. A terv NEM íródik át tőle — az
+       elrejtené az edző elől, mi történt —, csak megjelöljük, mi kockázatos. */
+    const safety = $('.pl-card-safety', card);
+    const blocked = plan.safety?.blocked ?? [];
+    const caution = plan.safety?.caution ?? [];
+    safety.hidden = blocked.length === 0 && caution.length === 0;
+    if (!safety.hidden) {
+      const parts = [];
+      if (blocked.length) {
+        parts.push(`Ma kerüld: ${blocked.map((e) => `${e.name} (${e.reason})`).join('; ')}`);
+      }
+      if (caution.length) parts.push(`Óvatosan: ${caution.map((e) => e.name).join(', ')}`);
+      safety.textContent = parts.join(' · ');
+      safety.classList.toggle('is-blocked', blocked.length > 0);
+    }
+
     const progress = $('.pl-progress', card);
     progress.setAttribute('aria-valuenow', String(plan.progress));
     progress.setAttribute('aria-label', `${plan.name} — ${plan.progress}% teljesítve`);
@@ -2264,6 +2291,85 @@
    * A fókusz szándékosan a „Mégse" gombra kerül: a megerősítendő művelet
    * visszafordíthatatlan, a véletlen Enter ne hajtsa végre.
    */
+  function setupAdviceModal() {
+    const modal = $('#adviceModal');
+    const controller = createModalController(modal);
+    const lead = $('#adviceModalText');
+    const list = $('[data-advice-list]', modal);
+
+    // Az edzésnapló vezérlője később épül fel — utólag kapcsoljuk be.
+    let workout = null;
+
+    /** A művelet emberi neve. A „kihagyás" és a „leállás" nem ugyanaz:
+        az utóbbinál már van teljesített szett, azt nem tesszük meg nem
+        történtté — csak a hátralévő rész marad el. */
+    const ACTION_LABELS = {
+      reduce: 'Levesz',
+      skip: 'Kihagy',
+      stop: 'Leáll',
+    };
+
+    const render = (advice) => {
+      lead.textContent = advice.name
+        ? `A(z) „${advice.name}" mai naplójában ${advice.items.length} gyakorlatot érdemes visszavenni:`
+        : `${advice.items.length} gyakorlatot érdemes ma visszavenni:`;
+
+      list.replaceChildren();
+      advice.items.forEach((item) => {
+        const el = cloneTemplate('tpl-advice-item');
+        if (item.action !== 'reduce') el.classList.add('ad-item--drop');
+        $('.ad-item-action', el).textContent = ACTION_LABELS[item.action] ?? item.action;
+        $('.ad-item-name', el).textContent = item.action === 'reduce'
+          ? `${item.name} — −${item.percent}%`
+          : item.name;
+        $('.ad-item-detail', el).textContent = `${item.detail} · ${item.reason}`;
+        list.appendChild(el);
+      });
+    };
+
+    $('[data-advice-decline]', modal).addEventListener('click', () => controller.close());
+
+    $('[data-advice-accept]', modal).addEventListener('click', async (event) => {
+      const button = event.currentTarget;
+      button.disabled = true;
+      try {
+        const { applied } = await api.applySessionAdvice();
+        // A szerver a piszkozatot írta át — a képernyőn lévő napló elavult.
+        await workout?.reloadFromServer();
+        showToast(applied === 1
+          ? 'A mai naplód egy gyakorlaton módosult'
+          : `A mai naplód ${applied} gyakorlaton módosult`);
+        controller.close();
+      } catch (err) {
+        console.error('A javaslat alkalmazása nem sikerült:', err);
+        showToast(err.message || 'A javaslat alkalmazása nem sikerült', 'error');
+      } finally {
+        button.disabled = false;
+      }
+    });
+
+    return {
+      /** Lekéri a javaslatot, és CSAK akkor nyit ablakot, ha van mit mondani.
+          Hiba esetén csendben nem történik semmi: a check-in mentése sikerült,
+          azt nem szabad egy másodlagos lekérés hibájával elrontani. */
+      async maybeShow() {
+        try {
+          const advice = await api.getSessionAdvice();
+          if (!advice?.items?.length) return;
+          render(advice);
+          controller.open();
+        } catch (err) {
+          console.error('A készenlét-javaslat lekérése nem sikerült:', err);
+        }
+      },
+
+      /** Az edzésnapló vezérlőjének utólagos bekötése (az init hívja). */
+      attachWorkout(controllerRef) {
+        workout = controllerRef;
+      },
+    };
+  }
+
   function setupConfirmDialog() {
     const modal = $('#confirmModal');
     const controller = createModalController(modal);
@@ -3817,6 +3923,10 @@
     applyCheckinSaved = (checkin, readiness) => {
       fillForm(checkin);
       renderRecovery(readiness);
+      /* A friss check-in új képet ad a mai állapotról — ez az a pillanat,
+         amikor a mai edzésre vonatkozó javaslatnak értelme van. Ha nincs mit
+         javasolni, az ablak fel sem ugrik. */
+      adviceModal?.maybeShow();
     };
 
     /** Friss riport + check-in a szerverről. A pageEffects és az edzés
@@ -6772,6 +6882,9 @@
 
     // Megerősítő ablak — szinkron felépítésű, mert több setup is erre épül
     const confirmAction = setupConfirmDialog();
+    /* A készenlét-javaslat ablaka. A setupRecovery ELŐTT kell felépülnie:
+       a check-in mentése onnan hívja a maybeShow-t. */
+    adviceModal = setupAdviceModal();
 
     /* Az Edző oldal a router ELŐTT épül fel, hogy az induló oldal effektjei
        (pl. a kártya-pontszámok animációja) már a jó nézetet lássák. A
@@ -6823,6 +6936,9 @@
     // A közös gyakorlat-választó — az edzésnapló és a terv-építő is ezt célozza át
     const picker = await safe(() => setupExercisePicker(confirmAction));
     const workout = await safe(() => setupWorkout(videoModal, prModal, picker, confirmAction));
+    // A javaslat elfogadása a szerveren írja át a piszkozatot — a naplót
+    // utána újra kell tölteni, ezért kell a modálnak az edzés vezérlője.
+    adviceModal.attachWorkout(workout);
     await safe(setupWeeklyCompare);
     // Az étel-modál és a Táplálkozás oldal kölcsönösen hivatkoznak egymásra
     // (a nyíl nyitja a modált, a modál naplóz az oldal állapotán keresztül),

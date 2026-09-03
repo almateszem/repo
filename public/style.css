@@ -5872,6 +5872,85 @@ details[open] > .rc-details-summary::before {
   --ci-fs-number: clamp(44px, 13vw, 56px);
 }
 
+/* ---- Készenlét-javaslat (ad-*) + terv-kártya biztonsági jelzése ---- */
+.ad-list {
+  list-style: none;
+  margin: var(--sp-5) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  /* Sok gyakorlatnál se nőjön ki az ablak a képernyőből. */
+  max-height: 42vh;
+  overflow-y: auto;
+}
+
+.ad-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-4);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-lg);
+  padding: var(--sp-4) var(--sp-5);
+}
+
+.ad-item-action {
+  flex-shrink: 0;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: var(--sp-1) var(--sp-3);
+  border-radius: var(--r-2xs);
+  background: var(--surface-strong);
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.ad-item--drop .ad-item-action {
+  background: var(--c-accent);
+  color: var(--c-paper-bright);
+}
+
+.ad-item-body {
+  min-width: 0;
+}
+
+.ad-item-name {
+  display: block;
+  font-size: var(--fs-base);
+  font-weight: 600;
+}
+
+.ad-item-detail {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.ad-note {
+  margin: var(--sp-5) 0 0;
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  color: var(--text-faint);
+}
+
+.pl-card-safety {
+  display: block;
+  margin-top: var(--sp-2);
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.pl-card-safety.is-blocked {
+  color: var(--c-accent);
+  font-weight: 600;
+}
+
 /* ---- Onboarding: az ELSŐ check-in ----
    A frissen regisztrált fiók csak ezen a lapon jár, amíg ki nem tölti (a
    script.js `onboardingLock`-ja teszi a [data-onboarding] jelzőt a body-ra).
