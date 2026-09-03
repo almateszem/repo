@@ -21,6 +21,7 @@ import {
   getUserPlans, addPlan, updatePlan, getPlanForDay,
   getCheckin, getCheckins, saveCheckin, hasAnyCheckin,
   getNutritionGoal, saveNutritionGoal, clearOwnNutritionGoal,
+  saveWorkoutFeedback, getAthleteFeedbackSince,
   calculateEpley1RM, bestCompletedSet, getExerciseMax, getAllExerciseMaxes,
   createUser, getUser, getUserWithHash, hasAnyUser, getUserCreatedAt,
   updateUserPassword, deleteUserSessions, deleteUser,
@@ -608,6 +609,13 @@ function athleteCard(athlete, today, viewerId, unread = 0) {
      buildAthleteCard-on KÍVÜL adjuk hozzá, mert az a modul tiszta függvény —
      nem ismeri az adatbázist. */
   const nutritionGoal = getNutritionGoal(athlete.userId);
+  /* A LEGUTÓBBI edzés utáni visszajelzés. Enélkül az edző csak a számokat
+     látná: hogy a sportoló hogyan ÉLTE MEG az edzést, csak tőle tudható meg.
+     A workouts id szerint csökkenő sorrendű, tehát az első találat a legfrissebb. */
+  const fedback = workouts.find((w) => w.feedback);
+  const lastFeedback = fedback
+    ? { ...fedback.feedback, workout: fedback.name, date: fedback.date }
+    : null;
   return Object.assign(buildAthleteCard({
     athlete: { ...athlete, goal: goalTag(athlete.goal) },
     workouts,
@@ -621,7 +629,7 @@ function athleteCard(athlete, today, viewerId, unread = 0) {
     lastMessage: lastMessage && { ...lastMessage, mine: lastMessage.senderId === viewerId },
     unread,
     today,
-  }), { nutritionGoal });
+  }), { nutritionGoal, lastFeedback });
 }
 
 /** Egy függő meghívó felületi alakja (mindkét irányban ugyanaz a mezőkészlet). */
@@ -960,6 +968,8 @@ app.get('/api/notifications', (req, res) => {
       at: offer.respondedAt,
     })),
     recentPrs: getRecentExerciseMaxes(userId, since),
+    // Az edző oldala: a sportolói friss edzés-visszajelzései.
+    athleteFeedback: getAthleteFeedbackSince(userId, since),
   }));
 });
 
@@ -2042,6 +2052,45 @@ app.post('/api/workouts', (req, res) => {
   res.status(201).json(
     addWorkout(req.user.id, workout.name, req.today, workout.exercises, parseRowId(req.body?.planId)),
   );
+});
+
+
+/* ---- Edzés utáni visszajelzés ----
+   STRUKTURÁLT mező, nem üzenet: a nehézség és a közérzet számként tárolódik,
+   tehát később elemezhető. A szabad szöveg mellette fut. Mindhárom
+   elhagyható — a „nem küldött" és a „rosszat jelzett" két külön dolog. */
+const FEEDBACK_NOTE_MAX = 500;
+
+/** Edzés utáni visszajelzés küldése a SAJÁT edzésre. Az adatréteg a user_id-re
+    is szűr, tehát idegen edzés id-jére nem talál sort → 404. */
+app.put('/api/workouts/:id/feedback', (req, res) => {
+  const workoutId = Number(req.params.id);
+  if (!Number.isInteger(workoutId) || workoutId <= 0) {
+    return res.status(400).json({ error: 'Érvénytelen azonosító.' });
+  }
+
+  const fields = {};
+  for (const [key, label] of [['difficulty', 'nehézség'], ['mood', 'közérzet']]) {
+    const raw = req.body?.[key];
+    if (raw === null || raw === undefined || raw === '') {
+      fields[key] = null;
+      continue;
+    }
+    const value = Number(raw);
+    if (!Number.isInteger(value) || value < 1 || value > 5) {
+      return res.status(400).json({ error: `${label}: az érték 1 és 5 között adható meg.` });
+    }
+    fields[key] = value;
+  }
+  const note = String(req.body?.note ?? '').trim();
+  if (note.length > FEEDBACK_NOTE_MAX) {
+    return res.status(400).json({ error: `A megjegyzés legfeljebb ${FEEDBACK_NOTE_MAX} karakter.` });
+  }
+  fields.note = note || null;
+
+  const updated = saveWorkoutFeedback(req.user.id, workoutId, fields);
+  if (!updated) return res.status(404).json({ error: 'Nincs ilyen edzésed.' });
+  res.json(updated);
 });
 
 /**

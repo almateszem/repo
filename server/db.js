@@ -297,6 +297,15 @@ ensureColumn('nutrition_log', 'grams', 'grams REAL NOT NULL DEFAULT 100');
 // Edzés-cél: a fiók sajátja, az edzői panel kártyáján címkeként látszik.
 // Üresen hagyható (NULL) — a felület ilyenkor „—"-t mutat.
 ensureColumn('users', 'goal', 'goal TEXT');
+/* Edzés utáni visszajelzés. STRUKTURÁLT mező, nem komment: a nehézség és a
+   közérzet így számmá válik, tehát később elemezhető — egy szabad szöveges
+   kommentből ez nem jönne ki. Mindhárom NULL-ozható: a „nem küldött
+   visszajelzést" és a „rosszat jelzett" két külön dolog, ugyanúgy, mint a
+   check-innél. */
+ensureColumn('workouts', 'feedback_difficulty', 'feedback_difficulty INTEGER');
+ensureColumn('workouts', 'feedback_mood', 'feedback_mood INTEGER');
+ensureColumn('workouts', 'feedback_note', 'feedback_note TEXT');
+ensureColumn('workouts', 'feedback_at', 'feedback_at TEXT');
 // Olvasás-jelölés az üzeneteken. A régi sorok NULL-lal (olvasatlanul) jönnek
 // át — ez a helyes: nem tudhatjuk, látta-e őket a címzett. Aki megnyitja a
 // szálat, egy lépésben olvasottá teszi a régi hátralékot is.
@@ -1610,11 +1619,20 @@ export function getWorkoutDraft(userId) {
 const toWorkout = (row) => ({
   id: row.id, name: row.name, date: row.date,
   exercises: JSON.parse(row.exercises), planId: row.plan_id,
+  /* A visszajelzés csak akkor kerül bele, ha tényleg érkezett — üres objektum
+     helyett `null`, hogy a „nem küldött" eset egyértelmű maradjon. */
+  feedback: row.feedback_at ? {
+    difficulty: row.feedback_difficulty,
+    mood: row.feedback_mood,
+    note: row.feedback_note,
+    at: row.feedback_at,
+  } : null,
 });
 
 /** A mentett edzések, legújabb elöl (a gyakorlatok JSON-ból visszafejtve). */
 export function getWorkouts(userId) {
-  return db.prepare('SELECT id, name, date, exercises, plan_id FROM workouts WHERE user_id = ? ORDER BY id DESC')
+  return db.prepare(`SELECT id, name, date, exercises, plan_id,
+          feedback_difficulty, feedback_mood, feedback_note, feedback_at FROM workouts WHERE user_id = ? ORDER BY id DESC`)
     .all(userId).map(toWorkout);
 }
 
@@ -1631,7 +1649,9 @@ export function getWorkouts(userId) {
  */
 export function getWorkoutsSince(userId, sinceDate) {
   return db.prepare(`
-    SELECT id, name, date, exercises, plan_id FROM workouts
+    SELECT id, name, date, exercises, plan_id,
+           feedback_difficulty, feedback_mood, feedback_note, feedback_at
+    FROM workouts
     WHERE user_id = ? AND date >= ? ORDER BY id DESC
   `).all(userId, sinceDate).map(toWorkout);
 }
@@ -1787,7 +1807,9 @@ export function addWorkout(userId, name, date, exercises, planId = null) {
   const { lastInsertRowid } = db
     .prepare('INSERT INTO workouts (user_id, name, date, exercises, plan_id) VALUES (?, ?, ?, ?, ?)')
     .run(userId, name, date, JSON.stringify(processedExercises), planId);
-  return { id: Number(lastInsertRowid), name, date, exercises: processedExercises, planId };
+  // A friss edzésen még nincs visszajelzés — a mező alakja mégis azonos a
+  // getWorkouts sorával, hogy a felületnek ne kelljen két esetre készülnie.
+  return { id: Number(lastInsertRowid), name, date, exercises: processedExercises, planId, feedback: null };
 }
 
 /**
@@ -1829,6 +1851,50 @@ export function deleteWorkout(userId, id) {
  * felhasználó edzését sem lehet átírni. A sort a csúcsok újraszámolása UTÁN
  * olvassuk vissza, tehát a válasz már a friss `pr` jelzőket viszi.
  */
+/** Egy edzés a saját naplóból, vagy null. A user_id feltétel nem elhagyható:
+    enélkül idegen edzés id-jével is lehetne dolgozni. */
+/** Az edző sportolóinak friss edzés-visszajelzései (a `sinceDate` óta).
+    Ez az edzői oldal egyik értesítés-forrása: hogy a sportoló hogyan ÉLTE MEG
+    az edzést, a naplóból nem számolható ki — csak tőle tudható meg.
+    Csak ÉLŐ kapcsolat számít, ugyanúgy, mint mindenhol máshol. */
+export function getAthleteFeedbackSince(coachId, sinceDate) {
+  return db.prepare(`
+    SELECT w.id, w.name, w.feedback_difficulty, w.feedback_at,
+           u.display_name AS athlete_name
+    FROM workouts w
+    JOIN coach_links cl ON cl.athlete_id = w.user_id AND cl.status = 'active'
+    JOIN users u ON u.id = w.user_id
+    WHERE cl.coach_id = ? AND w.feedback_at IS NOT NULL AND w.date >= ?
+    ORDER BY w.feedback_at DESC
+  `).all(coachId, sinceDate).map((row) => ({
+    id: row.id,
+    workout: row.name,
+    athlete: row.athlete_name,
+    difficulty: row.feedback_difficulty,
+    at: row.feedback_at,
+  }));
+}
+
+export function getWorkout(userId, workoutId) {
+  const row = db.prepare(`SELECT id, name, date, exercises, plan_id,
+          feedback_difficulty, feedback_mood, feedback_note, feedback_at FROM workouts WHERE id = ? AND user_id = ?`)
+    .get(workoutId, userId);
+  return row ? toWorkout(row) : null;
+}
+
+/** Az edzés utáni visszajelzés mentése/felülírása. CSAK a saját edzésére —
+    az UPDATE a user_id-re is szűr, tehát idegen sorra nem talál semmit.
+    Visszaadja a frissített edzést, vagy null-t, ha nem volt ilyen sor. */
+export function saveWorkoutFeedback(userId, workoutId, { difficulty, mood, note }) {
+  const changed = db.prepare(`
+    UPDATE workouts
+       SET feedback_difficulty = ?, feedback_mood = ?, feedback_note = ?,
+           feedback_at = datetime('now')
+     WHERE id = ? AND user_id = ?`)
+    .run(difficulty ?? null, mood ?? null, note ?? null, workoutId, userId).changes;
+  return changed ? getWorkout(userId, workoutId) : null;
+}
+
 export function updateWorkout(userId, id, name, exercises) {
   db.exec('BEGIN IMMEDIATE');
   try {

@@ -899,3 +899,97 @@ test('a cél validál: hiányzó mező, tartományon kívüli érték', async ()
     assert.ok(res.json.error, `${eset}: beszédes hibaüzenet`);
   }
 });
+
+/* ======================================================================
+   Edzés utáni visszajelzés
+   ----------------------------------------------------------------------
+   STRUKTURÁLT mező a workouts soron, nem üzenet — így a nehézség és a
+   közérzet szám marad, tehát később elemezhető. A kockázat itt is a
+   kereszt-fiók írás: a visszajelzés a SAJÁT edzésre szól, idegenére nem.
+   ====================================================================== */
+
+let fbLink = 0;
+let fbTrainer = null;
+let fbClient = null;
+let fbWorkoutId = 0;
+
+test('a sportoló visszajelzést küld a saját edzéséről, és az edzője LÁTJA', async () => {
+  fbTrainer = { cookie: await register('vj-edzo', 'Vissza Viktor') };
+  fbClient = { cookie: await register('vj-sportolo', 'Vissza Vera') };
+  const invite = await request('POST', '/api/athletes', {
+    cookie: fbTrainer.cookie, body: { username: 'vj-sportolo' },
+  });
+  fbLink = invite.json.linkId;
+  await request('POST', `/api/coach/invites/${fbLink}/accept`, { cookie: fbClient.cookie });
+
+  const edzes = await request('POST', '/api/workouts', {
+    cookie: fbClient.cookie,
+    body: { name: 'Lábnap', exercises: [gyakorlat('Guggolás', 100)] },
+  });
+  assert.equal(edzes.status, 201);
+  fbWorkoutId = edzes.json.id;
+  assert.equal(edzes.json.feedback, null, 'friss edzésen még nincs visszajelzés');
+
+  const kuldes = await request('PUT', `/api/workouts/${fbWorkoutId}/feedback`, {
+    cookie: fbClient.cookie,
+    body: { difficulty: 4, mood: 2, note: 'Nehéz volt, de kibírtam.' },
+  });
+  assert.equal(kuldes.status, 200);
+  assert.equal(kuldes.json.feedback.difficulty, 4);
+  assert.equal(kuldes.json.feedback.mood, 2);
+  assert.ok(kuldes.json.feedback.at, 'a küldés ideje is rögzül');
+
+  const kartyak = await request('GET', '/api/athletes', { cookie: fbTrainer.cookie });
+  const kartya = kartyak.json.athletes.find((a) => a.name === 'Vissza Vera');
+  assert.equal(kartya.lastFeedback.difficulty, 4, 'az edzői kártyán ott a visszajelzés');
+  assert.equal(kartya.lastFeedback.note, 'Nehéz volt, de kibírtam.');
+  assert.equal(kartya.lastFeedback.workout, 'Lábnap', 'és az is, MELYIK edzésről szól');
+});
+
+test('a visszajelzés megjelenik az edző értesítés-panelján', async () => {
+  const ertesitesek = await request('GET', '/api/notifications', { cookie: fbTrainer.cookie });
+  const sor = ertesitesek.json.find((n) => n.cat === 'feedback');
+  assert.ok(sor, 'a származtatott panel új forrásból is épít');
+  assert.match(sor.text, /Vissza Vera visszajelzést küldött/);
+  assert.match(sor.text, /Lábnap/);
+  assert.ok(sor.at, 'valódi időbélyeggel — enélkül nem kerülhetne a panelre');
+});
+
+test('IDEGEN edzésre nem lehet visszajelzést küldeni', async () => {
+  /* Az edző OLVASNI lát a sportolójánál — írni a naplójába nem. A user_id
+     feltétel miatt nem talál sort: 404, nem 403. */
+  const edzoe = await request('PUT', `/api/workouts/${fbWorkoutId}/feedback`, {
+    cookie: fbTrainer.cookie, body: { difficulty: 1, mood: 1, note: 'nem az enyém' },
+  });
+  assert.equal(edzoe.status, 404);
+
+  const kivulallo = await request('PUT', `/api/workouts/${fbWorkoutId}/feedback`, {
+    cookie: outsider.cookie, body: { difficulty: 1, mood: 1 },
+  });
+  assert.equal(kivulallo.status, 404);
+});
+
+test('az újraküldés FELÜLÍR, és a HIÁNYZÓ mező null marad — nem nulla', async () => {
+  const res = await request('PUT', `/api/workouts/${fbWorkoutId}/feedback`, {
+    cookie: fbClient.cookie, body: { mood: 5 },
+  });
+  assert.equal(res.status, 200);
+  assert.equal(res.json.feedback.mood, 5);
+  assert.equal(res.json.feedback.difficulty, null, 'a meg nem adott nehézség null');
+  assert.equal(res.json.feedback.note, null, 'az üres szöveg nem üres string, hanem null');
+});
+
+test('a visszajelzés validál: tartományon kívüli érték, túl hosszú megjegyzés', async () => {
+  const rossz = [
+    [{ difficulty: 0 }, 'nehézség a tartomány alatt'],
+    [{ mood: 6 }, 'közérzet a tartomány felett'],
+    [{ note: 'x'.repeat(501) }, 'túl hosszú megjegyzés'],
+  ];
+  for (const [body, eset] of rossz) {
+    const res = await request('PUT', `/api/workouts/${fbWorkoutId}/feedback`, {
+      cookie: fbClient.cookie, body,
+    });
+    assert.equal(res.status, 400, eset);
+    assert.ok(res.json.error, `${eset}: beszédes hibaüzenet`);
+  }
+});
