@@ -250,6 +250,16 @@
     // haladás ebből párosít, nem névegyezésből).
     /* Edzés utáni visszajelzés az edzőnek: strukturált (nehézség, közérzet) +
        szabad szöveg. Ugyanarra az edzésre újraküldve felülír. */
+    /* ---- Megjegyzések egy gyakorlathoz ----
+       A címzés a ház szabályát követi: a sajátodat id nélkül éred el, a
+       sportolódét a KAPCSOLAT azonosítójával — a belső user-id nem kerül ki. */
+    getMyComments: (target) => getJson(`/api/comments?target=${encodeURIComponent(target)}`),
+    getMyCommentsByTarget: () => getJson('/api/comments/by-target'),
+    addMyComment: (targetId, text) => postJson('/api/comments', { targetId, text }),
+    getAthleteComments: (linkId, target) =>
+      getJson(`/api/athletes/${linkId}/comments?target=${encodeURIComponent(target)}`),
+    addAthleteComment: (linkId, targetId, text) =>
+      postJson(`/api/athletes/${linkId}/comments`, { targetId, text }),
     saveWorkoutFeedback: (workoutId, feedback) => putJson(`/api/workouts/${workoutId}/feedback`, feedback),
     saveWorkout:       (name, exercises, planId) => postJson('/api/workouts', { name, exercises, planId }),
     // Mentett edzés javítása. A dátumot NEM küldjük: az edzés a saját napján
@@ -5480,7 +5490,14 @@
         await clearEditor();
         /* A mentett edzés AZONOSÍTÓJA is bekerül: az összegző visszajelzés-
            blokkja erre az edzésre küld. Enélkül nem tudná, mire hivatkozzon. */
-        setLastSummary({ ...summary, workoutId: saved.id, feedbackSent: false });
+        setLastSummary({
+          ...summary,
+          workoutId: saved.id,
+          feedbackSent: false,
+          /* A gyakorlatnevek a MENTETT sorrendben: a megjegyzés a tömbön
+             belüli INDEXRE hivatkozik, ezért a kettőnek együtt kell járnia. */
+          exercises: saved.exercises.map((exercise) => exercise.name),
+        });
 
         // A naplózott edzés azonnal megjelenik a „Korábbi edzések" tetején,
         // a PR-lista, a heti volumen és az áttekintő számai is frissülnek.
@@ -6013,7 +6030,81 @@
 
     /** A blokk állapotának beállítása a friss összegzésből. A `refreshSummaryFeedback`
         néven kívülről is hívható — a renderSummary minden megnyitáskor hívja. */
+    /* ---- Megjegyzés egy gyakorlathoz ---- */
+    const noteSection = $('[data-su-note]');
+    const noteForm = $('[data-form="exercise-note"]', noteSection);
+    const noteSelect = $('#su-note-exercise');
+    const noteText = $('#su-note-text');
+    const noteList = $('[data-su-note-list]', noteSection);
+    const noteSend = $('.su-feedback-send', noteSection);
+
+    /** A lezárt edzéshez tartozó megjegyzések kirajzolása. Csak az EHHEZ az
+        edzéshez tartozókat mutatjuk: a cél "edzésId:index" alakú. */
+    const renderNotes = (byTarget) => {
+      const workoutId = lastSummary?.workoutId;
+      const rows = [];
+      for (const [target, list] of Object.entries(byTarget ?? {})) {
+        const [id, index] = String(target).split(':');
+        if (Number(id) !== workoutId) continue;
+        const name = lastSummary.exercises?.[Number(index)] ?? 'Gyakorlat';
+        for (const comment of list) rows.push({ name, comment });
+      }
+      noteList.replaceChildren(...rows.map(({ name, comment }) => {
+        const li = document.createElement('li');
+        li.className = 'su-note-item';
+        const who = document.createElement('b');
+        who.textContent = name;
+        li.append(who, document.createTextNode(` — ${comment.text}`));
+        return li;
+      }));
+    };
+
+    const loadNotes = async () => {
+      try {
+        renderNotes(await api.getMyCommentsByTarget());
+      } catch (err) {
+        // A megjegyzés-lista másodlagos: a hiánya ne rontsa el az összegzőt.
+        console.error('A megjegyzések betöltése nem sikerült:', err);
+      }
+    };
+
+    noteForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const workoutId = lastSummary?.workoutId;
+      const text = noteText.value.trim();
+      if (!workoutId || !text) return;
+
+      noteSend.disabled = true;
+      try {
+        await api.addMyComment(`${workoutId}:${noteSelect.value}`, text);
+        noteText.value = '';
+        await loadNotes();
+        showToast('Megjegyzés hozzáfűzve');
+      } catch (err) {
+        console.error(err);
+        showToast(err.message || 'A megjegyzést nem sikerült menteni', 'error');
+      } finally {
+        noteSend.disabled = false;
+      }
+    });
+
     refreshSummaryFeedback = () => {
+      /* A megjegyzés-blokk edző NÉLKÜL is látszik: a saját naplód része
+         marad. Csak mentett edzés kell hozzá — a mély-linkkel megnyitott
+         összegzőn nincs mire hivatkozni. */
+      const names = lastSummary?.exercises ?? [];
+      noteSection.hidden = !lastSummary?.workoutId || names.length === 0;
+      if (!noteSection.hidden) {
+        noteSelect.replaceChildren(...names.map((name, index) => {
+          const option = document.createElement('option');
+          option.value = String(index);
+          option.textContent = name;
+          return option;
+        }));
+        noteText.value = '';
+        loadNotes();
+      }
+
 
       /* Két feltétel kell: (1) MOST zárult le egy edzés, tehát van azonosító
          (mély-linkkel megnyitott összegzőn nincs), és (2) van edző, akinek a
@@ -6625,6 +6716,8 @@
     const tierEl = $('.co-modal-tier', modal);
     const alertEl = $('[data-modal-alert]', modal);
     const statsEl = $('[data-modal-stats]', modal);
+    const notesEl = $('[data-modal-notes]', modal);
+    const noteListEl = $('[data-modal-note-list]', modal);
     const feedbackEl = $('[data-modal-feedback]', modal);
     const feedbackMetaEl = $('[data-feedback-meta]', modal);
     const feedbackNoteEl = $('[data-feedback-note]', modal);
@@ -6745,6 +6838,68 @@
       }
     });
 
+    /** Egy megjegyzés-sor a modálban, saját válasz-mezővel. A válasz UGYANABBA
+        a szálba megy (azonos cél), csak más szerzővel — ettől lesz egy
+        beszélgetés a gyakorlatról, nem két külön lista. */
+    function noteRow(note, athlete) {
+      const item = document.createElement('li');
+      item.className = 'co-note-item';
+
+      const head = document.createElement('p');
+      head.className = 'co-note-head';
+      head.textContent = `${note.exercise} · „${note.workout}" ${note.date} · ${note.authorName} · ${relativeTime(note.at)}`;
+
+      const body = document.createElement('p');
+      body.className = 'co-note-body';
+      body.textContent = note.text;
+
+      const form = document.createElement('form');
+      form.className = 'co-note-reply';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.maxLength = 1000;
+      input.placeholder = 'Válasz erre a gyakorlatra…';
+      input.setAttribute('aria-label', `Válasz — ${note.exercise}`);
+      const send = document.createElement('button');
+      send.type = 'submit';
+      send.textContent = 'Küldés';
+      form.append(input, send);
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const text = input.value.trim();
+        if (!text) return;
+        send.disabled = true;
+        try {
+          await api.addAthleteComment(athlete.linkId, note.target, text);
+          input.value = '';
+          showToast('Megjegyzés elküldve');
+          // A friss sor a következő megnyitáskor jön le a szerverről; itt
+          // azonnal kiírjuk, hogy a küldés látható eredményt adjon.
+          const mine = document.createElement('p');
+          mine.className = 'co-note-body';
+          mine.textContent = `Te: ${text}`;
+          item.insertBefore(mine, form);
+        } catch (err) {
+          console.error(err);
+          showToast(err.message || 'A megjegyzést nem sikerült elküldeni', 'error');
+        } finally {
+          send.disabled = false;
+        }
+      });
+
+      item.append(head, body, form);
+      return item;
+    }
+
+    /** A sportoló gyakorlat-megjegyzései. Ha nincs egy sem, a blokk rejtve
+        marad — üres kerettel nem sugalljuk, hogy van mit nézni. */
+    function renderExerciseNotes(athlete) {
+      const notes = athlete.exerciseNotes ?? [];
+      notesEl.hidden = notes.length === 0;
+      noteListEl.replaceChildren(...notes.map((note) => noteRow(note, athlete)));
+    }
+
     /** A sportoló legutóbbi edzés utáni visszajelzése. A számok mellett ez az
         egyetlen olyan sor, ami a sportoló SAJÁT megélését hozza — ezért van
         külön blokkban, nem a statok között. */
@@ -6812,6 +6967,7 @@
 
         renderAthleteGoal(athlete);
         renderAthleteFeedback(athlete);
+        renderExerciseNotes(athlete);
 
         const tier = athleteTier(athlete.rating);
         badge.className = `co-modal-badge co-tier--${tier.key}`;

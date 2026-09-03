@@ -208,6 +208,13 @@ test('bejelentkezés nélkül MINDEN /api végpont 401-et ad', async () => {
     ['PUT', '/api/workouts/1'], ['DELETE', '/api/workouts/1'],
     ['GET', `/api/foods/barcode/${OFF_KNOWN}`], ['POST', '/api/foods/custom'],
     ['DELETE', '/api/foods/custom/1'],
+    ['GET', '/api/comments'], ['GET', '/api/comments/by-target'],
+    ['POST', '/api/comments'], ['DELETE', '/api/comments/1'],
+    ['GET', '/api/athletes/1/comments'], ['POST', '/api/athletes/1/comments'],
+    ['PUT', '/api/workouts/1/feedback'],
+    ['GET', '/api/nutrition/goal'], ['PUT', '/api/nutrition/goal'],
+    ['DELETE', '/api/nutrition/goal'], ['PUT', '/api/athletes/1/nutrition-goal'],
+    ['GET', '/api/readiness/advice'], ['POST', '/api/readiness/advice/apply'],
   ];
 
   for (const [method, urlPath] of endpoints) {

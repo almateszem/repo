@@ -118,6 +118,13 @@ test('bejelentkezés nélkül a kapcsolat- és üzenet-végpontok is 401-et adna
     ['POST', '/api/coach/invites/1/accept'], ['DELETE', '/api/coach/invites/1'],
     ['GET', '/api/messages/1'], ['POST', '/api/messages/1'], ['POST', '/api/messages/1/read'],
     ['GET', '/api/goals'], ['PUT', '/api/user'],
+    ['GET', '/api/comments'], ['GET', '/api/comments/by-target'],
+    ['POST', '/api/comments'], ['DELETE', '/api/comments/1'],
+    ['GET', '/api/athletes/1/comments'], ['POST', '/api/athletes/1/comments'],
+    ['PUT', '/api/workouts/1/feedback'],
+    ['GET', '/api/nutrition/goal'], ['PUT', '/api/nutrition/goal'],
+    ['DELETE', '/api/nutrition/goal'], ['PUT', '/api/athletes/1/nutrition-goal'],
+    ['GET', '/api/readiness/advice'], ['POST', '/api/readiness/advice/apply'],
   ];
   for (const [method, urlPath] of endpoints) {
     const res = await request(method, urlPath, { body: method === 'GET' ? undefined : {} });
@@ -992,4 +999,134 @@ test('a visszajelzés validál: tartományon kívüli érték, túl hosszú megj
     assert.equal(res.status, 400, eset);
     assert.ok(res.json.error, `${eset}: beszédes hibaüzenet`);
   }
+});
+
+/* ======================================================================
+   Megjegyzések egy gyakorlathoz
+   ----------------------------------------------------------------------
+   Nem üzenetek: a beszélgetés a messages táblában él, ez egy konkrét
+   gyakorlathoz tapad. A címzés a ház szabályát követi — a saját
+   megjegyzéseidet id nélkül éred el, a sportolódéit a KAPCSOLAT
+   azonosítójával, tehát a belső user-id nem kerül ki az edzőhöz.
+   ====================================================================== */
+
+let mgLink = 0;
+let mgTrainer = null;
+let mgClient = null;
+let mgWorkoutId = 0;
+
+test('a sportoló megjegyzést fűz a saját gyakorlatához, és az edzője LÁTJA', async () => {
+  mgTrainer = { cookie: await register('mg-edzo', 'Megj Miklós') };
+  mgClient = { cookie: await register('mg-sportolo', 'Megj Mária') };
+  const invite = await request('POST', '/api/athletes', {
+    cookie: mgTrainer.cookie, body: { username: 'mg-sportolo' },
+  });
+  mgLink = invite.json.linkId;
+  await request('POST', `/api/coach/invites/${mgLink}/accept`, { cookie: mgClient.cookie });
+
+  const edzes = await request('POST', '/api/workouts', {
+    cookie: mgClient.cookie,
+    body: { name: 'Felsőtest', exercises: [gyakorlat('Fekvenyomás', 60)] },
+  });
+  mgWorkoutId = edzes.json.id;
+
+  const created = await request('POST', '/api/comments', {
+    cookie: mgClient.cookie,
+    body: { targetId: `${mgWorkoutId}:0`, text: 'Fájt a vállam a 3. szettnél.' },
+  });
+  assert.equal(created.status, 201);
+  assert.equal(created.json.authorName, 'Megj Mária', 'a szerző a bejelentkezett fiók');
+  assert.ok(created.json.at, 'ISO időbélyeggel — a relatív időt a kliens képzi');
+
+  const edzoiNezet = await request('GET', `/api/athletes/${mgLink}/comments?target=${mgWorkoutId}:0`, {
+    cookie: mgTrainer.cookie,
+  });
+  assert.equal(edzoiNezet.status, 200);
+  assert.equal(edzoiNezet.json.length, 1);
+  assert.equal(edzoiNezet.json[0].text, 'Fájt a vállam a 3. szettnél.');
+});
+
+test('az edzői megjegyzés UGYANABBA a szálba kerül, más szerzővel', async () => {
+  const created = await request('POST', `/api/athletes/${mgLink}/comments`, {
+    cookie: mgTrainer.cookie,
+    body: { targetId: `${mgWorkoutId}:0`, text: 'Vidd lejjebb a könyököd.' },
+  });
+  assert.equal(created.status, 201);
+
+  const szal = await request('GET', `/api/comments?target=${mgWorkoutId}:0`, {
+    cookie: mgClient.cookie,
+  });
+  assert.equal(szal.json.length, 2, 'egy szál, két szerző');
+  assert.deepEqual(szal.json.map((c) => c.authorName), ['Megj Mária', 'Megj Miklós'],
+    'időrendben, a legrégebbi elöl');
+});
+
+test('az edzői kártya FELOLDOTT gyakorlatnevet ad — és nem szivárogtat user-id-t', async () => {
+  const kartyak = await request('GET', '/api/athletes', { cookie: mgTrainer.cookie });
+  const kartya = kartyak.json.athletes.find((a) => a.name === 'Megj Mária');
+  assert.equal(kartya.userId, undefined, 'a belső azonosító nem kerül ki');
+  assert.equal(kartya.exerciseNotes.length, 2);
+  assert.equal(kartya.exerciseNotes[0].exercise, 'Fekvenyomás',
+    'a nyers "edzésId:index" célból az edző semmit nem tudna kiolvasni');
+  assert.equal(kartya.exerciseNotes[0].workout, 'Felsőtest');
+});
+
+test('a csoportosított lekérés egy körből megadja, hol VAN megjegyzés', async () => {
+  const res = await request('GET', '/api/comments/by-target', { cookie: mgClient.cookie });
+  assert.equal(res.status, 200);
+  assert.equal(res.json[`${mgWorkoutId}:0`].length, 2);
+});
+
+test('a KÍVÜLÁLLÓ és a sportoló sem írhat a kapcsolat edzői oldalán', async () => {
+  // A sportoló a SAJÁT linkjén nem edző.
+  const sajat = await request('POST', `/api/athletes/${mgLink}/comments`, {
+    cookie: mgClient.cookie, body: { targetId: `${mgWorkoutId}:0`, text: 'x' },
+  });
+  assert.equal(sajat.status, 404, 'nem 403 — a kapcsolat létezése sem derülhet ki');
+
+  const kivulallo = await request('GET', `/api/athletes/${mgLink}/comments?target=${mgWorkoutId}:0`, {
+    cookie: outsider.cookie,
+  });
+  assert.equal(kivulallo.status, 404);
+
+  const szal = await request('GET', `/api/comments?target=${mgWorkoutId}:0`, { cookie: mgClient.cookie });
+  assert.equal(szal.json.length, 2, 'nem került be semmi');
+});
+
+test('megjegyzést CSAK a szerzője törölhet', async () => {
+  const szal = await request('GET', `/api/comments?target=${mgWorkoutId}:0`, { cookie: mgClient.cookie });
+  const edzoie = szal.json.find((c) => c.authorName === 'Megj Miklós');
+
+  // A sportoló a SAJÁT adatán van, mégsem törölheti az edző megjegyzését.
+  const sportoloTorol = await request('DELETE', `/api/comments/${edzoie.id}`, { cookie: mgClient.cookie });
+  assert.equal(sportoloTorol.status, 404, 'nem a szerzője — nem talál sort');
+
+  const sajatja = szal.json.find((c) => c.authorName === 'Megj Mária');
+  const torles = await request('DELETE', `/api/comments/${sajatja.id}`, { cookie: mgClient.cookie });
+  assert.equal(torles.status, 204);
+
+  const utana = await request('GET', `/api/comments?target=${mgWorkoutId}:0`, { cookie: mgClient.cookie });
+  assert.equal(utana.json.length, 1);
+});
+
+test('a megjegyzés validál: üres és túl hosszú szöveg', async () => {
+  for (const [body, eset] of [[{ text: '   ' }, 'csak szóköz'], [{ text: 'x'.repeat(1001) }, 'túl hosszú']]) {
+    const res = await request('POST', '/api/comments', {
+      cookie: mgClient.cookie, body: { targetId: `${mgWorkoutId}:0`, ...body },
+    });
+    assert.equal(res.status, 400, eset);
+    assert.ok(res.json.error, `${eset}: beszédes hibaüzenet`);
+  }
+});
+
+test('a kapcsolat bontása után a volt edző nem éri el a megjegyzéseket', async () => {
+  await request('DELETE', `/api/athletes/${mgLink}`, { cookie: mgTrainer.cookie });
+  const res = await request('GET', `/api/athletes/${mgLink}/comments?target=${mgWorkoutId}:0`, {
+    cookie: mgTrainer.cookie,
+  });
+  assert.equal(res.status, 404);
+
+  // A sportoló viszont továbbra is látja a SAJÁT adatát.
+  const sajat = await request('GET', `/api/comments?target=${mgWorkoutId}:0`, { cookie: mgClient.cookie });
+  assert.equal(sajat.status, 200);
 });

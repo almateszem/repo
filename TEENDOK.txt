@@ -658,3 +658,18 @@ sémáira átkötve kerültek vissza.
     Az edző két helyen látja: a sportoló-modálban, és a származtatott
     értesítés-panelen új 'feedback' forrásként (valódi időbélyeggel — ezért
     kerülhet oda).
+
+[x] Megjegyzések egy gyakorlathoz (mindkét oldalról)
+    Nem üzenetek: az edző–sportoló beszélgetés a messages táblában él, ez egy
+    konkrét gyakorlathoz tapad („fájt a vállam a 3. szettnél"). Egy szálban
+    látszik mindkét fél megjegyzése.
+    A CÍMZÉS a ház szabályát követi: a sajátodat id nélkül éred el
+    (/api/comments), a sportolódét a KAPCSOLAT azonosítójával
+    (/api/athletes/:linkId/comments) — a belső user-id nem kerül ki az
+    edzőhöz. Erre a main-nek külön tesztje van, és az első port-változat
+    éppen ezen bukott el; a végpontok ezért lettek linkId-alapúak.
+    A gyakorlat NEVÉT a szerver oldja fel: a nyers "edzésId:index" célból az
+    edző semmit nem tudna kiolvasni, a naplót pedig csak a szerver ismeri.
+    Felület: a kliens az összegző oldalon fűz megjegyzést a most lezárt edzés
+    gyakorlataihoz; az edző a sportoló-modálban látja őket, soronkénti
+    válasz-mezővel.
