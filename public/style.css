@@ -22,8 +22,8 @@
     17.  Beállítások modal tartalma (st-*)
     18.  Analitika — testsúly trend, heti összehasonlítás, PR lista
     19.  Sportoló részletmodál (athlete-modal-*, co-modal-*, co-action, co-msg)
-    20.  Edző oldal — szerepkör-nézetek: nézetváltó, kliens chat, üres állapot
-         (co-toggle, co-view, co-coach-*, co-client-feed, co-empty)
+    20.  Edző oldal — a két nézet: nézetváltó, kliens chat, meghívók, üres állapotok
+         (co-toggle, co-view, co-coach-*, co-invite-*, co-client-feed, co-empty)
     21.  Edzés-összegző oldal (su-*) + edzés-befejezés gomb (wk-finish)
     22.  Regeneráció — Recovery Engine oldal (rc-*)
     24.  Étel részlet-modál (fd-*)
@@ -367,6 +367,8 @@ input.wk-chip:focus-visible {
 .co-toggle-btn,
 .co-banner-item,
 .co-action,
+.co-invite-btn,
+.co-invite-form button,
 .rc-save,
 .st-export,
 .ci-preset,
@@ -467,18 +469,22 @@ input.wk-chip:focus-visible {
   margin-bottom: var(--sp-12);
 }
 
+/* Az avatar és a név egyetlen gomb — a profiloldalra visz. Gombként is a
+   korábbi sor kinézetét tartja: nincs saját háttere és kerete. */
 .db-profile {
   display: flex;
   align-items: center;
   gap: var(--sp-4);
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  color: inherit;
 }
 
 .db-avatar {
-  position: relative;
   width: 34px;
   height: 34px;
-  border: none;
-  padding: 0;
   border-radius: var(--r-full);
   background: var(--c-neutral);
   display: flex;
@@ -488,8 +494,34 @@ input.wk-chip:focus-visible {
   transition: transform var(--t-fast);
 }
 
-.db-avatar:hover {
+.db-profile:hover .db-avatar {
   transform: scale(1.05);
+}
+
+/* A jobb oldali ikonpár (harang + fogaskerék) */
+.db-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.db-notif {
+  position: relative; /* a jelvény horgonya */
+  background: none;
+  border: none;
+  padding: var(--sp-3);
+  color: var(--fg-75);
+  transition: color var(--t-fast);
+}
+
+.db-notif:hover {
+  color: var(--fg-100);
+}
+
+.db-notif svg {
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
 }
 
 .db-avatar-icon {
@@ -498,10 +530,13 @@ input.wk-chip:focus-visible {
   fill: var(--fg-70);
 }
 
+/* A harang gomb jobb felső sarkában. A 0/0 a gomb PADDING-éléhez igazít, tehát
+   a jelvény a 22px-es ikon sarkára ül — a gomb tap-területén belül marad, nem
+   lóg rá a szomszédos fogaskerékre. */
 .db-badge {
   position: absolute;
-  top: -4px;
-  right: -4px;
+  top: 0;
+  right: 0;
   min-width: 16px;
   height: 16px;
   padding: 0 var(--sp-1);
@@ -1571,6 +1606,77 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   flex-shrink: 0;
 }
 
+/* A sor műveletei (javítás, törlés). A detail-mező viszi a maradék helyet,
+   így a gombok akkor is a jobb szélen maradnak, ha rövid az edzésnév. */
+.wk-history-detail {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wk-history-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-shrink: 0;
+}
+
+.wk-history-btn {
+  padding: 0 var(--sp-3);
+  height: 26px;
+  border: none;
+  border-radius: var(--r-full);
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+  line-height: 1;
+  cursor: pointer;
+  transition: color var(--t-fast), background var(--t-fast);
+}
+
+.wk-history-btn:hover {
+  color: var(--c-accent);
+  background: var(--surface-hover);
+}
+
+.wk-history-remove {
+  width: 26px;
+  padding: 0;
+}
+
+/* Visszanyitott edzés sávja. Ugyanaz a hangsúly, mint az autosave-jelzésé:
+   halk, de a naplózás előtt szem előtt van. */
+.wk-editing {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  margin: var(--sp-4) 0 0;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-md);
+  background: var(--surface-soft);
+  border: 1px dashed var(--fg-15);
+  font-size: var(--fs-sm);
+  color: var(--fg-70);
+}
+
+.wk-editing-cancel {
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  text-decoration: underline;
+  cursor: pointer;
+  transition: color var(--t-fast);
+}
+
+.wk-editing-cancel:hover { color: var(--c-accent); }
+
 /* ==========================================================================
    8. Nutrition tracker
    ========================================================================== */
@@ -1749,6 +1855,52 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   border-radius: var(--r-lg);
 }
 
+/* Saját étel felvitele / vonalkód-beolvasás — a kereső fölött, mert ez a
+   listával egyenrangú belépő, nem a keresés alárendeltje. */
+.nu-actions {
+  display: flex;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-6);
+}
+
+.nu-action {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  border: none;
+  border-radius: var(--r-lg);
+  padding: var(--sp-5) var(--sp-6);
+  background: var(--c-accent);
+  color: #fff;
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter var(--t-fast), background var(--t-fast);
+}
+
+.nu-action:hover { filter: brightness(1.08); }
+
+.nu-action--ghost {
+  background: none;
+  border: 1px solid var(--fg-15);
+  color: var(--text-primary);
+}
+
+.nu-action--ghost:hover {
+  filter: none;
+  background: var(--surface-hover);
+}
+
+.nu-action-icon {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
 .nu-search {
   display: flex;
   align-items: center;
@@ -1842,6 +1994,51 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 
 .nu-food-add:hover {
   background: var(--fg-15);
+}
+
+/* Saját étel: bal oldali akcentus-sáv — a 437 elemű listában a felhasználó
+   ránézésre megtalálja, amit ő vitt fel. */
+.nu-food--custom {
+  box-shadow: inset 3px 0 0 var(--c-accent);
+}
+
+.nu-food-badge {
+  flex-shrink: 0;
+  padding: 2px var(--sp-4);
+  border-radius: var(--r-full);
+  background: var(--fg-10);
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+}
+
+/* Törlés — a nu-log-remove mintájára, de halványabban: a lista fő művelete a
+   naplózás (→), a törlés csak ráközelítéskor kérje a figyelmet. */
+.nu-food-remove {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: var(--r-full);
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+  line-height: 1;
+  opacity: .5;
+  transition: color var(--t-fast), background var(--t-fast), opacity var(--t-fast);
+}
+
+.nu-food-remove:hover,
+.nu-food-remove:focus-visible {
+  opacity: 1;
+  color: var(--c-accent);
+  background: var(--surface-hover);
+}
+
+.nu-food-remove:disabled {
+  opacity: .3;
+  cursor: default;
 }
 
 .nu-empty {
@@ -2207,6 +2404,45 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   justify-content: center;
 }
 
+/* Olvasatlan-jelvény: a riasztás ALATT, hogy a kettő egyszerre is elférjen
+   (a figyelmet igénylő sportoló írhat is). A darabszámot a kártya
+   aria-label-je mondja el — a jelvény maga aria-hidden. */
+.co-card-unread {
+  position: absolute;
+  top: calc(var(--sp-5) + 22px);
+  right: var(--sp-5);
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--r-full);
+  background: var(--c-accent);
+  color: var(--fg-100);
+  font-size: var(--fs-2xs);
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* A szál utolsó üzenete a kártya alján, egy sorban levágva — a kártya
+   magassága nem függhet attól, milyen hosszút írt valaki. */
+.co-card-msg {
+  width: 100%;
+  margin-top: var(--sp-1);
+  font-size: var(--fs-2xs);
+  line-height: 1.4;
+  color: var(--text-faint);
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.co-card-msg--unread {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
 .co-card-avatar {
   width: 56px;
   height: 56px;
@@ -2267,10 +2503,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   border: 1px solid var(--border-card);
   border-radius: var(--r-xl);
   padding: var(--sp-6);
-}
-
-.co-note--plan {
-  border-color: var(--fg-20);
 }
 
 .co-note-meta {
@@ -2474,6 +2706,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .athlete-modal,
 .food-modal,
 .confirm-modal,
+.custom-food-modal,
+.scanner-modal,
 .pr-modal {
   position: fixed;
   inset: 0;
@@ -2489,6 +2723,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .athlete-modal.is-open,
 .food-modal.is-open,
 .confirm-modal.is-open,
+.custom-food-modal.is-open,
+.scanner-modal.is-open,
 .pr-modal.is-open {
   display: flex;
 }
@@ -2498,6 +2734,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .athlete-modal-backdrop,
 .food-modal-backdrop,
 .confirm-modal-backdrop,
+.custom-food-modal-backdrop,
+.scanner-modal-backdrop,
 .pr-modal-backdrop {
   position: absolute;
   inset: 0;
@@ -2512,6 +2750,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .athlete-modal-card,
 .food-modal-card,
 .confirm-modal-card,
+.custom-food-modal-card,
+.scanner-modal-card,
 .pr-modal-card {
   position: relative;
   width: 100%;
@@ -2542,6 +2782,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .athlete-modal-head,
 .food-modal-head,
 .confirm-modal-head,
+.custom-food-modal-head,
+.scanner-modal-head,
 .pr-modal-head {
   display: flex;
   align-items: flex-start;
@@ -2555,6 +2797,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .athlete-modal-head h3,
 .food-modal-head h3,
 .confirm-modal-head h3,
+.custom-food-modal-head h3,
+.scanner-modal-head h3,
 .pr-modal-head h3 {
   margin: 0;
   font-size: var(--fs-lg);
@@ -2566,6 +2810,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .athlete-modal-close,
 .food-modal-close,
 .confirm-modal-close,
+.custom-food-modal-close,
+.scanner-modal-close,
 .pr-modal-close {
   background: none;
   border: none;
@@ -2580,6 +2826,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .athlete-modal-close:hover,
 .food-modal-close:hover,
 .confirm-modal-close:hover,
+.custom-food-modal-close:hover,
+.scanner-modal-close:hover,
 .pr-modal-close:hover {
   color: var(--fg-100);
 }
@@ -3045,10 +3293,12 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 /* ---- Értesítés-panel ---- */
+/* A panel a harang alá lóg le — az a fejléc JOBB szélén van, ezért jobbra
+   horgonyzunk (korábban az avatar volt a nyitógomb, és balra igazodott). */
 .notif-panel {
   position: absolute;
   top: calc(100% + var(--sp-3));
-  left: 0;
+  right: 0;
   width: min(320px, 88vw);
   background: var(--c-bg-raised);
   border: 1px solid var(--fg-10);
@@ -3158,31 +3408,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   margin-left: var(--sp-13); /* enyhén jobbra tolva, chat-szerűen */
 }
 
-.co-typing {
-  display: inline-flex;
-  gap: 4px;
-  align-items: center;
-  height: 1em;
-}
-
-.co-typing span {
-  width: 5px;
-  height: 5px;
-  border-radius: var(--r-full);
-  background: var(--fg-45);
-  animation: typing-bounce 1s ease-in-out infinite;
-}
-
-.co-typing span:nth-child(2) { animation-delay: .15s; }
-.co-typing span:nth-child(3) { animation-delay: .3s; }
-
-@keyframes typing-bounce {
-  30% {
-    transform: translateY(-3px);
-    opacity: 1;
-  }
-}
-
 /* ---- Validációs hibaállapot (edzésnév) ---- */
 .wk-error {
   font-size: var(--fs-sm);
@@ -3257,6 +3482,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .athlete-modal.is-closing,
 .food-modal.is-closing,
 .confirm-modal.is-closing,
+.custom-food-modal.is-closing,
+.scanner-modal.is-closing,
 .pr-modal.is-closing {
   display: flex;
 }
@@ -3266,6 +3493,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .athlete-modal.is-closing .athlete-modal-card,
 .food-modal.is-closing .food-modal-card,
 .confirm-modal.is-closing .confirm-modal-card,
+.custom-food-modal.is-closing .custom-food-modal-card,
+.scanner-modal.is-closing .scanner-modal-card,
 .pr-modal.is-closing .pr-modal-card {
   animation: modal-out .18s ease both;
 }
@@ -3275,6 +3504,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .athlete-modal.is-closing .athlete-modal-backdrop,
 .food-modal.is-closing .food-modal-backdrop,
 .confirm-modal.is-closing .confirm-modal-backdrop,
+.custom-food-modal.is-closing .custom-food-modal-backdrop,
+.scanner-modal.is-closing .scanner-modal-backdrop,
 .pr-modal.is-closing .pr-modal-backdrop {
   animation: fade-out .18s ease both;
 }
@@ -3359,6 +3590,13 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .st-input:focus {
   background: var(--surface-hover);
   border-color: var(--fg-40);
+}
+
+/* A legördülő ugyanaz a mező-forma, mint a szövegmezők. A natív nyilat
+   SZÁNDÉKOSAN meghagyjuk: az az egyetlen jelzés, hogy ez választható mező. */
+.st-select {
+  width: 100%;
+  cursor: pointer;
 }
 
 .st-toggle-list {
@@ -3475,6 +3713,13 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .notif-item--muted .notif-dot {
+  background: var(--fg-30);
+}
+
+/* Már látott értesítés: a sor marad, csak az újdonságot jelző pötty halkul el.
+   (Korábban a „mind olvasott" az egész listát eltüntette — a valódi
+   eseményekkel az azt jelentené, hogy a panel a tartalmát is elveszti.) */
+.notif-item--seen .notif-dot {
   background: var(--fg-30);
 }
 
@@ -4114,6 +4359,18 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--c-ink);
 }
 
+/* Kapcsolat bontása — visszafordíthatatlan, ezért elkülönül a többitől */
+.co-action--danger {
+  border-color: var(--fg-20);
+  color: var(--text-muted);
+}
+
+.co-action--danger:hover {
+  border-color: var(--c-accent);
+  color: var(--c-accent);
+  background: none;
+}
+
 /* ---- Üzenetváltás (az „Üzenet" gomb nyitja) ---- */
 .co-msg {
   margin-top: var(--sp-7);
@@ -4135,8 +4392,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 /* ==========================================================================
-   20. Edző oldal — szerepkör-nézetek
-   (nézetváltó, kliens chat a saját edzővel, üres állapot)
+   20. Edző oldal — a két nézet
+   (nézetváltó, kliens chat a saját edzővel, meghívók, üres állapotok)
    ========================================================================== */
 .co-toggle {
   margin-bottom: var(--sp-9);
@@ -4146,6 +4403,23 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .co-toggle-btn {
   flex: 1;
   padding: var(--sp-3) var(--sp-5);
+}
+
+/* Jelvény a nézetváltón: hány függő meghívó vár a másik nézetben. Enélkül
+   a megjegyzett nézetválasztás elrejthetné a beérkezett meghívót. */
+.co-toggle-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: var(--sp-2);
+  padding: 0 5px;
+  border-radius: var(--r-full);
+  background: var(--c-accent);
+  color: var(--fg-100);
+  font-size: var(--fs-2xs);
+  font-weight: 800;
 }
 
 /* ---- Kliens nézet: edző-fejléc ---- */
@@ -4195,6 +4469,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--text-muted);
 }
 
+<<<<<<< HEAD
 /* ---- Kapcsolat bontása (a kliens nézet fejlécében) ----
    Szándékosan halk: ritka, visszafordítható, de nem véletlenül nyomandó. */
 .co-coach-end {
@@ -4535,6 +4810,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   border-color: var(--c-accent);
 }
 
+=======
+>>>>>>> 972acc045ef0e4ac7403f732efc6e5bb404bc263
 /* ---- Kliens nézet: hírfolyam — oldal-kontextusban nem korlátozzuk 200px-re ---- */
 .co-client-feed {
   max-height: none;
@@ -4561,7 +4838,249 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   margin: 0;
 }
 
-/* ---- Beállítások: a szerepkör-szekció magyarázó sora ---- */
+/* ---- Meghívók (mindkét irányban ugyanaz a sorminta) ---- */
+.co-invite-lead {
+  margin: 0 0 var(--sp-4);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.co-invite-list {
+  list-style: none;
+  /* A margó a listáé, nem a következő elemé: üresen a lista display:none, és
+     így a rés is vele tűnik el. */
+  margin: 0 0 var(--sp-6);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+/* Üresen ne hagyjon rést maga után a flex-elrendezésben */
+.co-invite-list:empty {
+  display: none;
+}
+
+.co-invite {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-xl);
+  padding: var(--sp-4) var(--sp-5);
+}
+
+.co-invite-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.co-invite-name {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+
+.co-invite-meta {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+/* Az edző kísérő sora a felajánlott tervnél. Idézet-jellegű, tehát dőlt és
+   halványabb — a terv neve marad a sor főszereplője. */
+.co-invite-note {
+  margin-top: 2px;
+  font-size: var(--fs-xs);
+  font-style: italic;
+  color: var(--text-faint);
+}
+
+.co-invite-actions {
+  display: flex;
+  gap: var(--sp-2);
+  flex-shrink: 0;
+}
+
+.co-invite-btn {
+  padding: var(--sp-2) var(--sp-5);
+  border: 1px solid var(--fg-20);
+  border-radius: var(--r-md);
+  background: none;
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+}
+
+.co-invite-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.co-invite-btn--primary {
+  background: var(--c-paper);
+  border-color: transparent;
+  color: var(--c-ink);
+}
+
+.co-invite-btn--primary:hover {
+  background: var(--c-paper-bright);
+  color: var(--c-ink);
+}
+
+/* ---- Meghívó űrlap (edzői nézet) ---- */
+.co-invite-form {
+  display: flex;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-6);
+}
+
+.co-invite-form input {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface-input);
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  padding: var(--sp-3) var(--sp-5);
+  color: var(--text-primary);
+  font-size: var(--fs-input);
+  transition: background var(--t-fast), border-color var(--t-fast);
+}
+
+.co-invite-form input:focus {
+  background: var(--surface-hover);
+  border-color: var(--fg-40);
+}
+
+.co-invite-form input::placeholder {
+  color: var(--text-faint);
+}
+
+.co-invite-form button {
+  flex-shrink: 0;
+  padding: var(--sp-3) var(--sp-6);
+  border: none;
+  border-radius: var(--r-md);
+  background: var(--c-paper);
+  color: var(--c-ink);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  transition: background var(--t-fast);
+}
+
+.co-invite-form button:hover {
+  background: var(--c-paper-bright);
+}
+
+/* ---- Leválás az edzőről (a kliens fejléc jobb szélén) ---- */
+.co-unlink {
+  flex-shrink: 0;
+  padding: var(--sp-2) var(--sp-4);
+  border: 1px solid var(--fg-20);
+  border-radius: var(--r-md);
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  transition: color var(--t-fast), border-color var(--t-fast);
+}
+
+.co-unlink:hover {
+  color: var(--c-accent);
+  border-color: var(--c-accent);
+}
+
+/* ---- Terv kiosztása (a sportoló részletmodáljában) ---- */
+.co-assign {
+  margin-top: var(--sp-6);
+  padding-top: var(--sp-6);
+  border-top: 1px solid var(--fg-08);
+}
+
+.co-assign-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.co-assign-label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.co-assign-select,
+.co-assign-note {
+  width: 100%;
+  min-height: 44px;
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--surface-input);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-lg);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.co-assign-hint,
+.co-assign-empty {
+  margin: 0;
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+  color: var(--text-faint);
+}
+
+.co-assign-form button[type="submit"] {
+  margin-top: var(--sp-2);
+}
+
+/* ---- Üres üzenet-szál ---- */
+.co-msg-empty {
+  margin: 0;
+  padding: var(--sp-6) 0;
+  text-align: center;
+  font-size: var(--fs-sm);
+  color: var(--text-faint);
+}
+
+/* ---- Olvasatlan üzenetek ----
+   Az elválasztó egy címkézett vonal: innentől lefelé újdonság a tartalom.
+   A vonalat a ::before/::after húzza, hogy a felirat középen üljön benne. */
+.co-msg-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  margin: var(--sp-2) 0;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--c-accent);
+}
+
+.co-msg-divider::before,
+.co-msg-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--c-accent);
+  opacity: .35;
+}
+
+/* Az olvasatlan BEÉRKEZŐ üzenet bal oldali sávot kap. A jelölés így nem
+   színezi át a buborékot (a szöveg kontrasztja marad), csak megmutatja,
+   meddig tart az újdonság. */
+.co-note--unread {
+  border-color: var(--c-accent);
+  box-shadow: inset 3px 0 0 var(--c-accent);
+}
+
+/* ---- Beállítások: a szekciók magyarázó sora ---- */
 .st-section-hint {
   margin: var(--sp-3) 0 0;
   font-size: var(--fs-xs);
@@ -6864,3 +7383,624 @@ body[data-onboarding] .app-page.ci-page {
 }
 
 .st-logout:hover { background: rgba(224, 67, 90, .12); }
+
+/* ---- Fiók-műveletek: jelszóváltoztatás és fióktörlés ----
+   Mindkettő külön nyíló űrlap: a jelenlegi jelszó is kell hozzájuk, és a
+   törlés visszafordíthatatlan — ezért nem fér el egy sima gombban. */
+.st-account-btn {
+  width: 100%;
+  min-height: 44px;
+  margin-bottom: var(--sp-4);
+  background: none;
+  border: 1px solid var(--fg-20);
+  border-radius: var(--r-md);
+  padding: var(--sp-4);
+  color: var(--fg-70);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  transition: border-color var(--t-fast), color var(--t-fast);
+}
+
+.st-account-btn:hover {
+  border-color: var(--fg-40);
+  color: var(--text-secondary);
+}
+
+.st-account-btn--danger {
+  margin-top: var(--sp-4);
+  margin-bottom: 0;
+  color: var(--text-faint);
+}
+
+.st-account-btn--danger:hover {
+  border-color: var(--c-accent);
+  color: var(--c-accent);
+}
+
+.st-account-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-5);
+  padding: var(--sp-5);
+  background: var(--surface-soft);
+  border-radius: var(--r-lg);
+}
+
+.st-account-form .st-input {
+  margin-bottom: var(--sp-2);
+}
+
+.st-account-hint,
+.st-account-warning {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.st-account-warning {
+  color: var(--c-accent);
+}
+
+.st-account-error {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--c-accent);
+}
+
+.st-account-save {
+  min-height: 44px;
+  border: none;
+  border-radius: var(--r-md);
+  background: var(--c-paper);
+  color: var(--c-ink);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  transition: background var(--t-fast);
+}
+
+.st-account-save:hover {
+  background: var(--c-paper-bright);
+}
+
+.st-account-save--danger {
+  background: var(--c-accent);
+  color: var(--fg-100);
+}
+
+.st-account-save--danger:hover {
+  background: var(--c-accent);
+  filter: brightness(1.1);
+}
+
+/* ==========================================================================
+   27. Profiloldal (pf-*)
+   --------------------------------------------------------------------------
+   Az áttekintő avatarja nyitja. Csak megjelenít: a fiók adatai és a naplózott
+   edzésekből számolt összesítők (GET /api/profile). A szerkeszthető
+   beállítások a fogaskerék-modalban maradtak, ide csak egy gomb vezet.
+   ========================================================================== */
+.pf-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  margin: var(--sp-9) 0 var(--sp-13);
+}
+
+.pf-avatar {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  border-radius: var(--r-full);
+  background: var(--c-neutral);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pf-avatar svg {
+  width: 34px;
+  height: 34px;
+  fill: var(--fg-70);
+}
+
+.pf-ident {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0; /* hosszú név is törhessen, ne feszítse szét a sort */
+}
+
+.pf-name {
+  font-size: var(--fs-4xl);
+  font-weight: 800;
+  overflow-wrap: break-word;
+}
+
+.pf-username {
+  font-size: var(--fs-base);
+  color: var(--text-muted);
+}
+
+.pf-joined {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+.pf-section-title {
+  margin: 0 0 var(--sp-6);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.pf-stats,
+.pf-facts {
+  margin-bottom: var(--sp-13);
+}
+
+/* Két oszlop: négy összesítő fér el két sorban, telefonon is olvashatóan. */
+.pf-stat-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--sp-5);
+}
+
+.pf-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-xl);
+  padding: var(--sp-8);
+}
+
+.pf-stat-value {
+  font-size: var(--fs-5xl);
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums; /* a felpörgetés ne ugráltassa a szélességet */
+}
+
+.pf-stat-label {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+.pf-fact-list {
+  margin: 0;
+}
+
+.pf-fact {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-6);
+  padding: var(--sp-6) 0;
+  border-bottom: 1px solid var(--fg-08);
+}
+
+.pf-fact:last-child {
+  border-bottom: none;
+}
+
+.pf-fact dt {
+  font-size: var(--fs-base);
+  color: var(--text-muted);
+}
+
+.pf-fact dd {
+  margin: 0;
+  font-size: var(--fs-base);
+  font-weight: 700;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pf-empty {
+  margin: 0;
+  font-size: var(--fs-md);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.pf-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+.pf-action {
+  width: 100%;
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-md);
+  padding: var(--sp-6) var(--sp-9);
+  color: var(--text-primary);
+  font-size: var(--fs-base);
+  font-weight: 700;
+  font-family: inherit;
+  transition: background var(--t-fast);
+}
+
+.pf-action:hover {
+  background: var(--surface-hover);
+}
+
+/* A kijelentkezés a beállítások modal gombjának mintáját követi. */
+.pf-action--danger {
+  background: none;
+  border-color: var(--c-accent);
+  color: var(--c-accent);
+}
+
+.pf-action--danger:hover {
+  background: rgba(224, 67, 90, .12);
+}
+
+/* ==========================================================================
+   28. Saját étel modál (cf-*) + vonalkód-olvasó (sc-*)
+   ========================================================================== */
+
+/* A közös 420 px-es modál-szélesség az űrlapnak szűk: három makró-mező egy
+   sorban 460 px alatt már összenyomódna. (A 24. szekció a .food-modal-card-ot
+   ugyanígy írja felül.) */
+.custom-food-modal-card,
+.scanner-modal-card {
+  max-width: 460px;
+}
+
+/* ---- Űrlap ---- */
+.cf-form {
+  display: grid;
+  gap: var(--sp-5);
+}
+
+.cf-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--sp-4);
+}
+
+.cf-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.cf-field--narrow { width: 88px; }
+
+.cf-label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.cf-optional {
+  font-weight: 400;
+  opacity: .75;
+}
+
+/* Az input-formanyelvet a beállítások .st-input-jától örököljük — nem
+   születik harmadik mezőstílus az appban. */
+.cf-input {
+  width: 100%;
+  background: var(--surface-input);
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  padding: var(--sp-4) var(--sp-5);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: var(--fs-input);
+  transition: background var(--t-fast), border-color var(--t-fast);
+}
+
+.cf-input:focus {
+  outline: none;
+  background: var(--surface-hover);
+  border-color: var(--fg-40);
+}
+
+.cf-input::placeholder { color: var(--text-muted); }
+
+.cf-select { cursor: pointer; }
+
+.cf-num { font-variant-numeric: tabular-nums; }
+
+/* ---- Makró-blokk ---- */
+.cf-macros {
+  border: 1px solid var(--fg-10);
+  border-radius: var(--r-lg);
+  padding: var(--sp-5) var(--sp-6) var(--sp-6);
+  margin: 0;
+}
+
+.cf-legend {
+  padding: 0 var(--sp-3);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.cf-macro-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-4);
+}
+
+/* Keskeny telefonon a három mező egymás alá kerül — összenyomva a „Szénhidrát"
+   címke amúgy is olvashatatlan lenne. */
+@media (max-width: 400px) {
+  .cf-macro-grid { grid-template-columns: 1fr; }
+}
+
+/* ---- Kalória ---- */
+.cf-kcal {
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  align-items: end;
+  gap: var(--sp-5);
+}
+
+/* Látható jelzés arról, hogy a kézi érték „ragad", és nem számolódik újra. */
+.cf-kcal-input.is-manual {
+  border-color: var(--c-accent);
+}
+
+.cf-kcal-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding-bottom: var(--sp-2);
+}
+
+.cf-kcal-state {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.cf-kcal-reset {
+  border: 1px solid var(--fg-15);
+  border-radius: var(--r-full);
+  background: none;
+  padding: 2px var(--sp-4);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--t-fast);
+}
+
+.cf-kcal-reset:hover { background: var(--surface-hover); }
+
+.cf-hint {
+  margin: calc(var(--sp-3) * -1) 0 0;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+/* ---- Vonalkód ---- */
+.cf-barcode {
+  display: flex;
+  gap: var(--sp-4);
+}
+
+.cf-barcode .cf-input { flex: 1; }
+
+.cf-scan {
+  flex-shrink: 0;
+  border: 1px solid var(--fg-15);
+  border-radius: var(--r-md);
+  background: none;
+  padding: 0 var(--sp-6);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--t-fast);
+}
+
+.cf-scan:hover { background: var(--surface-hover); }
+
+/* ---- Visszajelzések ---- */
+.cf-source {
+  margin: 0;
+  padding: var(--sp-4) var(--sp-5);
+  border-radius: var(--r-md);
+  background: var(--fg-06);
+  border: 1px solid var(--fg-10);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.cf-error,
+.sc-error {
+  margin: 0;
+  padding: var(--sp-5) var(--sp-6);
+  border-radius: var(--r-md);
+  background: rgba(224, 67, 90, .12);
+  border: 1px solid var(--c-accent);
+  color: var(--c-accent);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+.cf-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--sp-4);
+  margin-top: var(--sp-3);
+}
+
+.cf-cancel,
+.cf-save,
+.cf-save-log {
+  border-radius: var(--r-md);
+  padding: var(--sp-5) var(--sp-7);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background var(--t-fast), filter var(--t-fast);
+}
+
+.cf-cancel,
+.cf-save {
+  background: none;
+  border: 1px solid var(--fg-15);
+  color: var(--text-primary);
+}
+
+.cf-cancel:hover,
+.cf-save:hover { background: var(--surface-hover); }
+
+.cf-save-log {
+  border: none;
+  background: var(--c-accent);
+  color: #fff;
+}
+
+.cf-save-log:hover { filter: brightness(1.08); }
+
+.cf-save:disabled,
+.cf-save-log:disabled {
+  opacity: .5;
+  cursor: default;
+  filter: none;
+}
+
+/* ==========================================================================
+   Vonalkód-olvasó (sc-*)
+   ========================================================================== */
+.sc-stage {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--r-xl);
+  overflow: hidden;
+  background: var(--surface-input);
+  margin-bottom: var(--sp-6);
+}
+
+.sc-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Célkeret: megmondja, hova kell tartani a csomagolást. A vonalkód fekvő,
+   ezért a keret is széles és alacsony. */
+.sc-frame {
+  position: absolute;
+  inset: 28% 8%;
+  border: 2px solid rgba(255, 255, 255, .85);
+  border-radius: var(--r-md);
+  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .35);
+  pointer-events: none;
+}
+
+/* Pásztázó vonal — a „dolgozik" jelzése; enélkül a felhasználó nem tudja,
+   hogy a szkennelés fut-e egyáltalán. */
+.sc-laser {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  height: 2px;
+  background: var(--c-accent);
+  box-shadow: 0 0 8px var(--c-accent);
+  animation: sc-scan 1.6s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes sc-scan {
+  from { top: 30%; }
+  to   { top: 70%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sc-laser {
+    animation: none;
+    top: 50%;
+  }
+}
+
+.sc-torch {
+  position: absolute;
+  top: var(--sp-5);
+  right: var(--sp-5);
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: var(--r-full);
+  background: rgba(0, 0, 0, .5);
+  font-size: var(--fs-base);
+  line-height: 1;
+  cursor: pointer;
+  transition: background var(--t-fast);
+}
+
+.sc-torch[aria-pressed="true"] {
+  background: var(--c-accent);
+}
+
+.sc-status {
+  margin: 0 0 var(--sp-5);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.sc-status:empty { display: none; }
+
+.sc-error { margin-bottom: var(--sp-6); }
+
+/* A kézi beírás mindig látszik: sima http-n a kamera nem is indul el, és a
+   karcos csomagolást a legjobb dekóder sem olvassa le. */
+.sc-manual {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding-top: var(--sp-6);
+  border-top: 1px solid var(--fg-10);
+}
+
+.sc-manual-row {
+  display: flex;
+  gap: var(--sp-4);
+}
+
+.sc-manual-row .cf-input {
+  flex: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.sc-manual-go {
+  flex-shrink: 0;
+  border: none;
+  border-radius: var(--r-md);
+  background: var(--c-accent);
+  color: #fff;
+  padding: 0 var(--sp-7);
+  font-family: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  cursor: pointer;
+  transition: filter var(--t-fast);
+}
+
+.sc-manual-go:hover { filter: brightness(1.08); }

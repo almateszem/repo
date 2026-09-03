@@ -6,7 +6,13 @@ Nem hibajegy-rendszer: rövid, cselekvésre kész sorok, prioritás szerint.
 Jelölések:   [ ] nyitott    [~] részben kész    [x] kész (a következő
              takarításig marad itt, hogy lássuk, mi történt)
 
+<<<<<<< HEAD
 Utolsó frissítés: 2026-08-30
+=======
+Utolsó frissítés: 2026-08-27 (végpont- és séma-átnézésből felderített
+                  hiányok — új szakasz; közülük az első, a mentett edzés
+                  javíthatósága, el is készült)
+>>>>>>> 972acc045ef0e4ac7403f732efc6e5bb404bc263
 Legutóbbi takarítás: 2026-08-17 — az elkészült [x] tételek kivezetve
 (a részletek a git előzményben maradtak meg).
 
@@ -15,10 +21,353 @@ Legutóbbi takarítás: 2026-08-17 — az elkészült [x] tételek kivezetve
 KIADÁS ELŐTT — BLOKKOLÓ, ha az app másokhoz is kikerül
 ==========================================================================
 
-[ ] Nincs jelszó-visszaállítás és nincs fióktörlés
-    Elfelejtett jelszónál kézzel kell javítani a users sort. Kis
-    felhasználószámnál elfogadható, de e-mail-cím nélkül nem is lehet
-    önkiszolgáló visszaállítást csinálni — ez terméki döntés.
+[~] Nincs jelszó-VISSZAÁLLÍTÁS (az elfelejtett jelszóra)
+    Ami MEGVAN (2026-08-25): a belépett felhasználó megváltoztathatja a
+    jelszavát (PUT /api/auth/password — a jelenlegi jelszót is kéri, és a
+    csere után a többi eszköz munkamenete megszűnik), és véglegesen
+    törölheti a fiókját mindenestül (POST /api/auth/delete-account).
+    Ami NEM: az elfelejtett jelszó önkiszolgáló visszaállítása. E-mail-cím
+    nélkül ez nem is megoldható — vagy e-mail kell a fiókhoz, vagy marad a
+    kézi javítás a users sorban. Terméki döntés.
+
+
+==========================================================================
+EDZŐ–SPORTOLÓ KAPCSOLAT — a 2026-08-25-i átállás után maradt tételek
+==========================================================================
+
+[x] Az értesítés-panel valódi eseményekből épül   (2026-08-26)
+    A beégetett lista (server/data.js -> notifications) kikerült. A panel négy
+    VALÓDI eseményt mutat: olvasatlan üzenet szálanként egy sorban, hozzám
+    érkezett meghívó, az én meghívóm elfogadása, és a friss egyéni csúcs.
+    Az összeállítás tiszta függvény (server/notifications.js), a végpont a
+    GET /api/notifications — nem referencia-adat többé, tehát a kliens sem
+    cache-eli, a panel minden megnyitáskor frisset kér.
+    MINDEGYIK SORNAK VALÓDI IDŐBÉLYEGE VAN, és ez a szűrő döntötte el, mi
+    kerülhet ide: a „töltsd ki a check-int" és a „sorozat mérföldkő" kimaradt,
+    mert azok ÁLLAPOTOK, nem események — csak kitalált időponttal lehetne
+    kiírni őket, és a panel megint azt mutatná, ami nem igaz. (A check-in
+    emlékeztetője ott van az áttekintőn, ahol dolga van.)
+    A kategória-kapcsolók is azt követik, ami tényleg létezik (új üzenet,
+    edző-kapcsolat, egyéni csúcs — a „terv kiosztva" a terv-kiosztással
+    visszatért); a korábbi hatból a többihez (terv módosítva, edzői
+    megjegyzés, heti riport) továbbra sem tartozik esemény.
+    Az „olvasott" állapot mostantól LÁTOTT-IDŐPONT (prefs -> notifSeenAt), nem
+    mindent elrejtő kapcsoló: a „mind olvasott" a sorokat megtartja, csak az
+    újdonság-pötty és a jelvény tűnik el. Az elolvasott üzenet-szál értesítése
+    magától kiesik.
+    Tesztek: server/notifications.test.js, server/coach.test.js (5. szakasz).
+
+[x] „Olvasatlan" jelölés az üzeneteken   (2026-08-26)
+    A messages tábla kapott egy read_at oszlopot (NULL = olvasatlan), és erre
+    épül minden: a sportoló-kártya és a nézetváltó jelvénye, a szálban az
+    „Új üzenet" elválasztó és a kiemelt buborék, a küldő oldalán pedig az
+    „olvasva" jelölés a saját üzenetén. A kártya végre IDÉZI is az utolsó
+    üzenetet — a szerver eddig is küldte (lastMessage), csak a felület sosem
+    rajzolta ki.
+    A nyugtázás KÜLÖN végponton megy (POST /api/messages/:linkId/read), nem a
+    lekérésen: a 20 másodperces halk frissítés nem jelenti, hogy a felhasználó
+    látta is a szálat, és a rejtett szálra nem küldünk nyugtázást — különben az
+    „olvasva" azt hazudná a másik félnek, hogy elolvasták az üzenetét.
+    A számláló szálanként EGY lekérdezésből jön az egész panelre
+    (db.js -> getUnreadCounts), részleges indexszel; kártyánkénti COUNT sok
+    sportolónál a szinkron SQLite miatt érezhető lett volna.
+    Tesztek: server/messages.test.js (migráció + adatréteg), server/coach.test.js.
+
+[~] Az üzenetek lekérdezéssel frissülnek (20 mp), nem push-sal
+    Hely: public/script.js -> COACH_POLL_MS. Kis felhasználószámnál ez
+    rendben van; ha sokan lesznek egyszerre bent, SSE vagy websocket kell.
+    2026-08-26: a frissítés maga megjavult. Eddig CSAK a kliens nézet szála
+    frissült — az edzői részletmodál chatje egyszer betöltött, és a sportoló
+    válasza csak a modál újranyitásakor jelent meg. A ciklus átkerült a
+    chat-vezérlőbe (createChatController), tehát mindkét szál frissül, de csak
+    amíg TÉNYLEG látszik: rejtett fülön, másik nézetben és csukott
+    üzenet-blokkban nem kérdezünk. Az elküldött üzenet ujjlenyomata is
+    vezetve van, így a következő kör nem rajzolja újra a szálat (eddig a
+    hírfolyam aljára rántotta az olvasót olvasás közben).
+
+[x] Az edzői panel ára a sportolók számával nő   (2026-08-26)
+    A javítás a két javasolt válasz közül a MÁSODIK lett: a napló ablakozva
+    jön be, gyorsítótár nélkül. A kártya minden számítása belefér 28 napba (a
+    készenlét-motor a személyes referenciát ennyiből képzi és a régebbit el is
+    dobja, a terv-követés ablaka szintén 28 nap, a heti állás egy hét), az
+    olvasás viszont eddig a TELJES naplót felhozta és JSON-ból visszafejtette
+    — sportolónként, minden panel-frissítésnél.
+    Ami kilóg az ablakból, azt az EDZÉSNAPOK listája adja (getWorkoutDates):
+    az a teljes előzményt látja, de gyakorlat-listát nem olvas, tehát olcsó.
+    Két dolog múlik rajta, és mindkettőt elrontotta volna a puszta ablak:
+    a sorozat hossza tetszőlegesen régre nyúlhat, és az „utolsó edzés" akkor
+    is létezik, ha két hónapja volt — enélkül a kártya „még nincs naplózott
+    edzés"-t írt volna egy rég nem edző sportolóra.
+    Ugyanígy ablakozva jön a check-in (a motor 3 napot néz az alvásadóssághoz,
+    28-at a megbízhatósághoz) és a testsúly (a motort csak az UTOLSÓ mérés
+    érdekli); a tervekből pedig csak az ütemezés (getUserPlanSchedules) —
+    a gyakorlat-listájukat a kártya sosem használta.
+    Mérve 2026-08-26, 1 éves naplókkal, azonos gépen:
+        20 sportoló:  107,6 ms → 38,2 ms   (~5,4 → ~1,9 ms/sportoló)
+        10 párhuzamos kérés:  1051 ms → 379 ms
+        30 sportoló (az új mérce):  57,6 ms
+    A gyorsítótár így megspórolva: ~2 ms/sportolónál nincs mit érvényteleníteni.
+
+[x] Az edző tervet tud kiosztani a sportolónak   (2026-08-26)
+    A helyén a részletmodál „Terv kiosztása" gombja áll: az edző a SAJÁT
+    tervei közül választ, és írhat mellé egy kísérő sort.
+    A három feltétel, amit a tétel kért:
+      · JOGOSULTSÁG: csak élő kapcsolatba, és csak a kapcsolat EDZŐ-oldaláról
+        (a sportoló nem oszthat ki visszafelé); a terv-azonosítóval más
+        tervére sem lehet hivatkozni.
+      · ÉRTESÍTÉS: a sportoló a felajánlott tervről, az edző a válaszról kap
+        sort a panelen — az ELUTASÍTÁSRÓL is, mert a hallgatás rosszabb.
+      · FELÜLÍRÁS-VÉDELEM: a terv NEM íródik a sportoló plans táblájába. Az
+        edző FELAJÁNL, a sportoló elfogadja vagy elutasítja (plan_assignments
+        tábla), és elfogadáskor is MÁSOLATKÉNT, a meglévő tervei MELLÉ kerül.
+    Miért ajánlat és nem közvetlen írás: tervet TÖRÖLNI nem lehet az appban,
+    tehát amit egyszer belepakolnánk a fiókjába, azt nem tudná kiszedni. És
+    ugyanaz az elv, mint a kapcsolaté: ami a másik fiókjában megjelenik,
+    ahhoz a másik beleegyezése kell.
+    A kiosztott gyakorlat-lista PILLANATKÉP: ha az edző később átírja a saját
+    tervét, a sportolónál lévő példány nem változik meg némán alatta.
+    Végpontok: POST /api/athletes/:linkId/plan, POST /api/plan-offers/:id/accept,
+    DELETE /api/plan-offers/:id; a függő ajánlatok a GET /api/coach-ban jönnek.
+    Tesztek: server/coach.test.js 8. szakasz + böngésző-végigjátszás.
+
+
+==========================================================================
+ÚJ FUNKCIÓ-ÖTLETEK — átbeszélve, még egy sor kód sem íródott
+==========================================================================
+
+Négy ötlet, 2026-08-26-án átbeszélve. Az itt szereplő döntéseket NEM kell
+újra levezetni — azért vannak leírva, hogy ne kelljen.
+
+KÖZÖS MEGKÖTÉS, mind a négyre: a célközönség a profi versenyző, EDZŐVEL VAGY
+ANÉLKÜL. Ebből két dolog következik:
+  · az „on/off szezon" a helyes szóhasználat (nem „tömegelés/szálkásítás"),
+  · minden funkciónak EDZŐ NÉLKÜL is teljes értékűnek kell lennie. A
+    felhasználók nagy részének soha nem lesz edzője; ha egy funkció fele
+    csak edzővel működik, az a többségnél üresen fog kongani.
+
+Ami közös még bennük: HÁROM olyasmire épül, ami a motorban MÁR MEGVAN, csak
+a felületről nem érhető el. A Recovery Engine izomcsoportonként kezel
+fájdalmat (0–10), 7/10 felett letiltja az érintett gyakorlatokat, és számol
+gyakorlat-szintű ajánlást konkrét súly/volumen javaslattal. Nem új motor
+kell hozzájuk, hanem hiányzó belépési pontok.
+
+SORRENDJAVASLAT: az erőfelmérés az első (a legkisebb kockázat, dokumentált
+hibát javít), és FELOLDÁS a gyakorlat-ajánláshoz — enélkül friss
+felhasználónak nincs miből ajánlani. A többi három egymástól független.
+
+
+[ ] 1. Erőfelmérés / fresh start   (javasolt első lépés)
+    A user megadja pár gyakorlatban a maxát, és a motor ebből azonnal tud
+    személyre szabottan számolni.
+    MIT JAVÍT: a friss felhasználó ma hetekig „vakon" használja az appot. A
+    személyre szabott referenciához 14 nap edzés-előzmény és 7 check-in kell
+    (recovery.js -> PERSONAL_REF_MIN_DAYS), egy gyakorlat pedig 3 naplózott
+    alkalom után kap ajánlást (MIN_SESSIONS) — csak a három fő emelés
+    (fekvenyomás, guggolás, felhúzás) kivétel. Addig általános, testsúlyra
+    skálázott referenciával fut, „Tájékoztató" jelzéssel.
+    A BUKTATÓ, amit tervezéskor tudni kell: az ajánló a MENTETT EDZÉSEKBŐL
+    építi az alkalmakat (summarizeWorkouts), nem az exercise_maxes-ből —
+    egy bemondott max önmagában tehát NEM hozná elő az ajánlásokat. Vagy a
+    motor kap külön „bemondott" bemenetet, vagy a felmérés edzésként
+    íródna be (utóbbi viszont hazudna egy meg nem történt edzést a naplóba,
+    a sorozatba és a volumen-diagramba).
+    És: a bemondott szám NEM mérés. Ugyanaz a megkülönböztetés kell rá, ami
+    a katalógusban már megvan (loadSource: 'derived' vs. kurált), és a
+    megbízhatóság-jelzésnek is ki kell mondania, min alapul.
+    Kapcsolódó, már meglévő gépezet: calculateEpley1RM, updateExerciseMax.
+
+
+[ ] 2. SOS sérülés gomb
+    Edzés közben elérhető gomb: hol fáj, mennyire, mi közben. Rögzíti,
+    lezárja az edzést, és szól az edzőnek.
+    MIÉRT KELL, ha a fájdalom-kezelés már megvan: az IDŐZÍTÉS miatt. A
+    check-in napi, reggeli dolog — a sérülés viszont sorozat közben
+    történik, és ma nincs mód azt mondani, hogy „ez MOST történt". Ez a
+    hiányzó második bemeneti út ugyanahhoz a motorhoz.
+    ELDÖNTVE: a gomb NEM AD KEZELÉSI TANÁCSOT. Rögzít, lezárja az edzést,
+    letiltja az érintett izmot mára, szól az edzőnek, és VÉSZJELZÉSEKET
+    mutat (ropogást hallottál / nem tudsz ráterhelni / duzzad / zsibbad →
+    orvos). A „jegeld le és folytasd" típusú tanács kimarad: rossz esetben
+    árt, és a jegelés maga is vitatott ma már akut sérülésnél. A
+    vészjelzés biztonsági információ, nem kezelés — a termék értékéből
+    semmit nem veszít vele.
+    NYITOTT KÉRDÉS, amit meg kell tervezni: MIT CSINÁL A GOMB EDZŐ NÉLKÜL?
+    Edzővel a kör bezárul (sérülés → értesítés → az edző azonnal kioszt egy
+    módosított tervet; erre a terv-kiosztás óta van út). Edző nélkül marad
+    a rögzítés és az izom letiltása — ennek önmagában is értelmesnek kell
+    lennie, különben a funkció fele a felhasználók többségénél üres.
+    Az adat a mai check-in fájdalom-mezőjébe is beírható (saveCheckin) —
+    onnan a motor ingyen átveszi, nem kell új számítás.
+
+
+[ ] 3. On/off szezon célsúly → táplálkozási cél
+    Szezon-fázisonként külön optimális testsúly beállítása.
+    FONTOS, hogy ez NEM a meglévő users.goal átnevezése: versenyzőnél a
+    szezon-fázis és az edzés-cél KÉT KÜLÖN TENGELY (lehetsz szálkásításban
+    on és off szezonban is), és jellemzően két külön célsúly tartozik
+    hozzájuk. A szezon tehát önálló fogalom.
+    ELDÖNTVE: a célsúly A NAPI KALÓRIA/FEHÉRJE CÉLT HAJTJA. Enélkül csak egy
+    szám a képernyőn, ami nem csinál semmit. Így viszont egy meglévő hiányt
+    is befoltoz — ld. lentebb, a NYITOTT szakaszban a beégetett
+    nutritionGoal tételét.
+    MEGKÖTÉS: ütem-korlát kell. A modul számolja ki, mit jelent a cél heti
+    százalékban, és kb. 1%/hét testsúly fölött jelezzen. Nem kell megtiltani,
+    de egy „−15 kg 4 hét alatt" cél nem mehet át némán.
+
+
+[ ] 4. Ajánlott gyakorlat — a címből ÉS a regeneráltságból
+    A gyakorlat-választó ajánljon gyakorlatokat magától.
+    A CÍMBŐL OLVASÁS ÖNMAGÁBAN TÖRÉKENY: az emberek „Hétfő", „A nap",
+    „Push #3" néven mentenek. Ha nem talál, nem kapsz semmit, és azt sem
+    érted, miért.
+    A másik jel viszont már megvan, és ilyet más app nem tud: a
+    GET /api/readiness izomcsoportonkénti készenlétet ad. A választó pedig
+    már ismeri az edzés nevét (script.js -> setupExercisePicker, context.
+    nameInput), tehát a cím-egyezés is olcsó.
+    ELDÖNTVE: MINDKÉT JEL, EGYENRANGÚAN — de minden javaslat írja ki, MIÉRT
+    került oda („a címből: Láb" / „88% regenerált"). Két összekevert jel
+    indoklás nélkül kiszámíthatatlannak látszana.
+    MEGKÖTÉS: fájdalommal letiltott csoport (painBlocked) SOSEM kerülhet a
+    javaslatok közé — ezt a cím sem írhatja felül.
+    Ha a címből nincs értelmezhető szó, a lista essen vissza a
+    regeneráltságra, ne maradjon üres.
+
+
+==========================================================================
+FELDERÍTETT HIÁNYOK — a végpontlistából, 2026-08-27
+==========================================================================
+
+Ezek nem felhasználói bejelentésből jöttek, hanem egy végpont- és séma-
+átnézésből: azt kerestük, mit NEM lehet megcsinálni az appban. Egyikük sem
+szerepelt eddig sehol — se itt, se a README-ben —, tehát nem elmaradt munkák,
+hanem eddig fel nem tett kérdések.
+
+Ami a listát összeköti: majdnem mindegyik VISSZAFORDÍTHATATLAN adatot hagy
+maga után. Az appban ma bőven lehet írni, javítani viszont alig.
+
+
+[x] Mentett edzést nem lehet javítani vagy törölni   (2026-08-27)
+    A Korábbi edzések minden sora kapott egy „Javítás" és egy törlés gombot.
+    Ami a tétel LÉNYEGE volt: az elgépelt szám nem csak a listában maradt bent,
+    hanem az egyéni csúcsot is elvitte — és az updateExerciseMax csak FELFELÉ
+    lép, tehát onnantól a valódi PR-t is elzárta.
+
+    A JAVÍTÁS NEM ÚJRANAPLÓZÁS. A POST /api/workouts mindig a mai napra ír, így
+    a „töröld és vedd fel újra" megoldás áthelyezte volna az edzést — elcsúszva
+    a sorozat, a heti volumen és a készenlét 28 napos ablaka. Ehelyett a
+    piszkozat megjegyzi, melyik mentett edzésből nyitották vissza
+    (workout_draft.workout_id), és a befejezés ilyenkor PUT /api/workouts/:id-t
+    hív, ami a sor EREDETI dátumát megtartja. A dátumot a törzsben megadni nem
+    lehet: a javítás nem áthelyezés.
+
+    A CSÚCSOK ÚJRASZÁMOLÁSA a tétel nehezebbik fele, és két helyen kellett:
+      · exercise_maxes — különben a megszűnt teljesítmény rekordja bent ragad;
+      · a workouts sorokban tárolt `pr` JELZŐK — a /api/prs és a /api/prs/history
+        EZEKBŐL dolgozik, nem a táblából. Ha a törölt edzés vitte a rekordot, a
+        nála gyengébb, későbbi edzés lesz az új csúcs — de a jelzője false
+        maradt volna, és a PR-lista ÜRESEN állt volna egy olyan gyakorlatra,
+        aminek közben van értéke a táblában. A két tárolás csak együtt igaz.
+    A logika nem új: a backfillExerciseMaxes belső ciklusa volt, kiemelve
+    recomputeExerciseMaxes-ba — a migráció is azt hívja, tehát egy szabály
+    maradt. Három szándékos eltérés a régihez képest: a rendezés `date, id`
+    (nem `id` — a javított RÉGI edzés különben későbbinek látszana a beszúrási
+    sorrendben), a `pr` jelzők visszaírása, és hogy a rekord a FORRÁS-EDZÉS
+    napját viseli (a getRecentExerciseMaxes dátumra szűr, enélkül egy törlés
+    után az értesítés-panel régi csúcsokat zúdítana be „friss"-ként).
+
+    Amihez NEM kellett hozzányúlni, és ez a 2026-08-26-i döntés igazolása: a
+    készenlét, a heti volumen, a sorozat és az edzői kártya menet közben számol
+    a workouts-ból, gyorsítótár nélkül — nincs mit érvényteleníteni.
+
+    Két dolog derült ki menet közben, és mindkettő javítva:
+      · A rebuildWorkoutDraft ÚJRAÉPÍTI a workout_draft táblát, tehát a fölé
+        írt ensureColumn oszlopát eldobta volna. Az új oszlop ezért a rebuild
+        UTÁN kerül fel (a date/plan_id ma három helyen szerepel — ezt a
+        duplikálást nem vittük tovább).
+      · Az exerciseMaxes térkép a felületen CSAK induláskor töltődött, tehát az
+        edzés lezárása után is elavult maradt: a következő edzés PR-jelvénye a
+        régi csúcsokhoz mérődött. A közös frissítő (refreshAfterWorkoutChange)
+        ezt is rendezi, a lezárás ágán is.
+
+    Végpontok: PUT /api/workouts/:id, DELETE /api/workouts/:id; a piszkozat
+    workoutId-t is fogad.
+    Tesztek: prs.test.js (a visszaesés, a `pr` jelzők átbillenése, a dátum-
+    rendezés), api.test.js 9. szakasz, users.test.js (izoláció) + böngésző-
+    végigjátszás eldobható adatbázison.
+
+[ ] Tervet nem lehet törölni
+    Nincs DELETE /api/plans/:id (csak POST és PUT).
+    Ez NEM új felfedezés: a terv-kiosztás tervezésekor már megfogalmaztuk
+    korlátként — pont ezért lett a kiosztásból AJÁNLAT a közvetlen írás
+    helyett. Csak maga a hiány maradt meg, és a kiosztás óta a sportoló
+    terv-listája már kizárólag NŐNI tud: az edzőtől kapott, egyszer
+    elfogadott terv sem szedhető ki többé.
+
+[ ] Testsúly-bejegyzést nem lehet törölni vagy visszamenőleg javítani
+    Az addWeightEntry a mai napra felülír (ezért írhatja a varázsló és a
+    részletes űrlap is duplikátum nélkül), de a TEGNAPI elgépeléshez nincs út.
+    MI ROMLIK EL TŐLE: egy 188 kg-os sor a 12 elemű trend-kártya skáláját
+    lapos vonallá nyomja, és a Testsúly Δ statot is elviszi.
+
+[ ] Táplálkozás: csak a seed-katalógusból lehet naplózni
+    A POST /api/nutrition/log elutasít mindent, ami nincs a foods listában
+    („Ismeretlen étel"). Nincs saját étel, nincs kézi makró-bevitel, nincs
+    recept és nincs kedvenc; a mennyiség sem szerkeszthető, csak a tétel
+    törölhető, és az is csak aznap.
+    Egy versenyző étrendje nem fér bele egy fix listába — és amíg nem fér
+    bele, a napi bevitel alulmért marad, ami a készenlét táplálkozás-
+    komponensébe is beszivárog.
+
+[ ] Nincs kardió/állóképesség naplózás
+    A workouts.exercises szerkezete szett/ismétlés/kg — idő, táv és pulzus
+    mező sehol nincs a sémában. Az off-szezon kondimunka tehát nyomtalanul
+    elvész, pedig a terhelés-oldalon ott a helye.
+    FIGYELEM, ez nem felületi tétel: sémabővítés, és a Recovery Engine
+    terhelés-komponensét is érinti (ma a tonnatömegből számol, aminek egy
+    futásnál nincs értelme). Külön át kell beszélni, mielőtt bárki elkezdi.
+
+[ ] Csak testsúly van, körfogat és testzsír nincs
+    A checkins táblában nincs testösszetétel-mező, a weight_log pedig egyetlen
+    számot tárol. Egy versenyző nem a testsúlyát követi, hanem a mellette futó
+    körfogatot — a puszta kilogramm nem mondja meg, mi épült és mi fogyott.
+    A 3. funkció-ötlet (on/off szezon célsúly) mellett ez a hiány feltűnő:
+    a célsúly önmagában kevesebbet mond, mint amennyit ígér.
+
+[ ] Nincs import — csak export
+    A GET /api/export (getSnapshot) teljes pillanatképet ad, de nincs párja:
+    az adat kimegy, vissza nem jön. Fiókköltöztetésre nincs út, és az
+    ÜZEMELTETÉS szakasz „a DB fájl elveszhet" kockázatán sem enyhít semmit —
+    a felhasználónak lehet a kezében a saját exportja, mégsem tud vele mit
+    kezdeni.
+
+
+--- FELDERÍTVE, DE NEM TERVEZZÜK ---------------------------------------
+Azért állnak itt, hogy ne kelljen még egyszer felfedezni őket, és hogy
+látszódjon: döntés, nem elmaradt munka.
+
+    · PWA / offline. Nincs manifest és nincs service worker. Konditerem-
+      pincében az autosave a 3/8/20 mp-es újrapróbálás után feladja.
+      MIÉRT MARAD KI: az offline ÍRÁS ütközés-feloldást igényelne (két
+      eszköz ugyanarra a piszkozat-sorra), ami nagyságrenddel több munka,
+      mint amennyit ezen a felhasználószámon hoz.
+    · Pihenőidő-stopper a szettek között. Nincs.
+      MIÉRT MARAD KI: nem ez az app értékajánlata, és minden telefonon van
+      stopper. A készenlét-motor az, amit más nem tud — oda érdemes a munka.
+    · Push- vagy e-mail-értesítés. Az értesítés appon belüli és pull-alapú
+      (20 mp). Ha a sportoló nem nyitja meg az appot, az edzője üzenetéről
+      nem tud.
+      MIÉRT MARAD KI: a fiókhoz nincs e-mail-cím — ugyanaz a gyökér, mint a
+      jelszó-visszaállításnál, és azzal EGYÜTT eldöntendő, nem külön.
+    · Imperial mértékegység és többnyelvűség. Az app kg-only és magyar-only.
+      MIÉRT MARAD KI: a kettős mértékegység csak hibafelületet ad (a szám a
+      szettben van, a „kg" a táblázat fejlécében — ma pont ezért él egy
+      helyen), a fordítás pedig a célközönségnél nem hiányzik.
+
+
+SORRENDJAVASLAT az egész backlogra: a mentett edzés javíthatósága megvolt az
+első lépésnek (2026-08-27, ld. fent). A KÖVETKEZŐ a beégetett nutritionGoal
+kivezetése (ld. a NYITOTT szakaszt) — szintén dokumentált hazugságot javít, és
+szintén nem függ semmitől —, és csak ezután jöjjön a négy nagy funkció-ötlet.
 
 
 ==========================================================================
@@ -51,11 +400,16 @@ EREDMÉNY (1 éves adat, azonos gépen), megtartva jövőbeli összevetéshez:
 
 --- Amivel NEM kell foglalkozni (mérve, hogy ne vizsgáljuk újra) -------
     · A készenlét-motor NEM lassul az évek múlásával: a
-      CHRONIC_WINDOW_DAYS = 28 ablak korlátozza (recovery.js:224).
+      CHRONIC_WINDOW_DAYS = 28 ablak korlátozza (recovery.js:123).
       30 nap / 1 év / 3 év előzménnyel a számítás 245 / 237 / 227 ms.
     · A nyers DB-olvasás nő, de keveset: 6 ms (30 nap) → 27 ms (3 év).
     · A sok autosave-update rendben van: 9 ms/mentés, 500 ms debounce
-      mellett (public/script.js:3031). Ez nem probléma.
+      mellett (public/script.js:3684). Ez nem probléma. A piszkozat
+      felhasználónként EGY sor (db.js: saveWorkoutDraft upsert), tehát
+      az írások száma nem hizlalja az adatbázist.
+      2026-08-18 óta a debounce mellett van 5000 ms-os max-wait (a
+      folyamatos gépelés se tolhatja el korlátlanul a mentést), és a
+      változatlan állapot nem megy ki újra (lastSentBody).
     · Az indítás nagy adattal is gyors: ~140 ms, a minden induláskori
       migrációval együtt.
 
@@ -70,11 +424,22 @@ EREDMÉNY (1 éves adat, azonos gépen), megtartva jövőbeli összevetéshez:
 ÜZEMELTETÉS — élesítés előtt
 ==========================================================================
 
-[ ] A DB fájl elveszhet: perzisztens volume kell
+[~] A DB fájl elveszhet: perzisztens volume kell
     Sok hostingon (Heroku, Render, Fly volume nélkül) a fájlrendszer
     ephemeral, és újradeploykor törlődik a server/fittrack.db — vele az
     összes felhasználói adat. A seed újraépül, a naplók NEM.
+    EZT NEM LEHET KÓDBÓL MEGOLDANI: a telepítés környezetén múlik. Amit
+    2026-08-26-án meg lehetett tenni:
+      · A README kapott „Élesítés" szakaszt konkrét FITTRACK_DB példákkal
+        (Fly volume mount, Docker nevesített kötet), és a WAL-fájlok
+        (-wal, -shm) együttes kezeléséről is szól.
+      · A szerver indításkor kiírja a FELOLDOTT útvonalat, és azt is, hogy
+        meglévő adatbázist nyitott-e vagy újat hozott létre. Ha a naplóban
+        MINDEN indításnál „(ÚJ adatbázis jött létre)" áll, az pontosan ennek
+        a hibának a tünete — eddig ez némán történt.
+    Ami hátravan: a valódi kötet beállítása a választott hostingon.
 
+<<<<<<< HEAD
 [x] Időzóna: a today() a SZERVER helyi ideje
     2026-09-02. A nap immár a KLIENS zónájában dől el. A böngésző minden
     /api kérésben elküldi az IANA zónanevet (X-Time-Zone fejléc,
@@ -94,31 +459,73 @@ EREDMÉNY (1 éves adat, azonos gépen), megtartva jövőbeli összevetéshez:
     Tesztek: server/api.test.js — két, 25 órára lévő zóna (UTC+14 / UTC-11)
     mindig külön naptári napra ír; fejléc nélkül és ismeretlen zónanévnél
     a szerver helyi napja marad.
+=======
+[x] Időzóna: a nap már a KLIENS naptárából jön   (2026-08-25)
+    Minden kérés viszi az X-Client-Date fejlécet (public/script.js →
+    requestHeaders), a szerver pedig ebből képzi a kérés napját
+    (server/server.js → requestDate, req.today). A fejléc ellenőrzött:
+    alakilag pontos dátum kell, és legfeljebb EGY napra térhet el a szerver
+    napjától — ennyi minden időzónára elég (UTC-12…UTC+14), viszont nem
+    lehet vele tetszőleges napra visszaírni. Hiányzó/gyanús fejlécnél marad
+    a szerver napja. Tesztek: server/timezone.test.js.
+>>>>>>> 972acc045ef0e4ac7403f732efc6e5bb404bc263
 
-[~] Rate limit
-    A BELÉPÉS most korlátozott (15 percen belül 10 sikertelen próbálkozás
-    után a felhasználónév zárolódik, server/auth.js). Ez memóriában él,
-    tehát újraindításkor nullázódik, és több példánynál példányonként
-    számol. A többi végponton továbbra sincs korlát — bejelentkezést
-    viszont már mind követel, tehát nem nyilvánosan támadható.
+[~] Rate limit   (2026-08-26: a hiányzó korlátok pótolva)
+    Ami MEGVAN:
+      · BELÉPÉS: 15 percen belül 10 sikertelen próbálkozás után a
+        felhasználónév zárolódik (server/auth.js).
+      · REGISZTRÁCIÓ: forrásonként 30 óránként. Ez volt a legnagyobb rés —
+        az egyetlen írás, amihez nem kell fiók, tehát bárki gyárthatott
+        korlátlanul fiókot. A hibás próbálkozás is beleszámít, különben a
+        foglalt nevek végigpróbálása ingyen lenne. A szám tudatosan bőkezű:
+        egy edzőterem vagy iroda közös IP-je mögül többen is regisztrálhatnak.
+      · ÍRÁSOK: fiókonként 240 percenként, MINDEN /api/* POST/PUT/PATCH/
+        DELETE-re, köztes rétegként — egy később felvett író végpont
+        automatikusan védett lesz. A limit az autosave legrosszabb esetének
+        (500 ms debounce → 2 mentés/mp) a duplája.
+      · ÜZENETKÜLDÉS: fiókonként 20 percenként, az általánoson FELÜL. Itt a
+        szemetet egy másik ember nézi végig, nem csak a szerver nyeli le.
+    Az olvasás szándékosan korlátlan: ott nincs mit felhalmozni, míg az írás
+    sorokat hagy az adatbázisban, és a szinkron SQLite miatt blokkol is.
+    Elutasításnál 429 + Retry-After fejléc.
+    Hely: server/ratelimit.js (tiszta számláló, tesztelhető órával),
+    a limitek és a kulcsválasztás a server.js-ben.
+    Ami továbbra sem: a számláló MEMÓRIÁBAN él, tehát újraindításkor
+    nullázódik, és több példánynál példányonként számol. Egy elszánt,
+    elosztott támadó ellen ez kevés — közös tár (Redis vagy DB-tábla) kellene
+    hozzá. A cél most nem is ő volt, hanem az elszabadult kliens és a
+    fiók-gyártó szkript.
+    Reverse proxy mögött a regisztrációs korláthoz app.set('trust proxy', …)
+    kell, különben minden kérés a proxy címéről érkezőnek látszik.
 
 
 ==========================================================================
 SZETT-TÍPUSOK — a régebbi elemek átvezetése
 ==========================================================================
 
-[ ] Heti volumen-diagram: a bemelegítő szettek is beleszámolnak
-    Hely: server/server.js → volumeCharts. A számláló minden bepipált
-    szettet számol, a felirat is ezt mondja („teljesített szettek"), tehát
-    nem hibás — de a „volumen" edzéselméletben munkasorozatot jelent, és a
-    Recovery Engine már így is számol. Ha a diagram a munkasorozatokra vált,
-    a feliratot és az aria-label-t is át kell írni. Terméki döntés, ezért
-    maradt nyitva.
+[x] Heti volumen-diagram: már csak a munkasorozatokat számolja   (2026-08-25)
+    A bemelegítő kimarad, ahogy a Recovery Engine-ben és a profiloldalon is.
+    A szabály egy helyen él (server/server.js → isWorkSet), a feliratok és
+    az aria-label átírva („munkasorozat").
 
 
 ==========================================================================
 NYITOTT — döntést vagy külső lépést igényel
 ==========================================================================
+
+[ ] A napi kalória- és fehérjecél BEÉGETETT demo-adat
+    Hely: server/data.js -> nutritionGoal { calories: 2900, protein: 170 }.
+    Mindenkinek UGYANAZ, az első indítástól kezdve — függetlenül a
+    testsúlytól, a céltól és a nemtől. Ugyanaz a fajta hiba, mint amit az
+    értesítés-panelnél kivezettünk, csak ez nem látszik ránézésre.
+    És nem csak kijelzés: a Recovery Engine táplálkozás-komponense (0.05
+    súly) EHHEZ méri a tegnapi bevitelt, tehát egy kitalált szám megy bele
+    a készenléti pontszámba.
+    Ami eldöntendő: mi számolja ki helyette. Az ÚJ FUNKCIÓ-ÖTLETEK 3.
+    tétele (on/off szezon célsúly) pont ezt hajtaná — de ha az nem épül
+    meg, akkor is kell egy értelmes alap (testsúly + cél + aktivitás).
+    Addig legalább azt érdemes kimondani a felületen, hogy ez irányszám,
+    nem a felhasználóra szabott cél.
 
 [ ] Gym visual licenc tisztázása, MIELŐTT ez élesbe/nyilvánosra megy
     EZT NEM LEHET KÓDBÓL MEGOLDANI — meg kell keresni a jogtulajdonost.
@@ -134,40 +541,76 @@ NYITOTT — döntést vagy külső lépést igényel
 ADATMINŐSÉG — fokozatosan bővíthető, nincs határidő
 ==========================================================================
 
-[~] 53 gyakorlat nem fordult le, ezért kimaradt a katalógusból
-    (Korábban 80 volt; a szótár bővítésével 1201 gyakorlat van bent.)
-    A maradék nagyrészt tulajdonnév és a forrás elgépelése — a 100%-ot
-    nem érdemes hajszolni.
+[~] 13 gyakorlat nem fordult le, ezért kimaradt a katalógusból
+    (Korábban 80, majd 53; a szótár bővítésével most 1241 gyakorlat van bent.)
+    2026-08-26: a maradék 53-ból 40 bekerült. Amit hozzáadtunk, az vagy bevett
+    magyar szakszó (kozák guggolás, török felállás, T-rúdas evezés, V-ülés,
+    csillagugrás, elliptikus tréner, lépcsőzőgép, hasi kigördülés), vagy a
+    forrás egyértelműen kiolvasható elgépelése (`squad`=squat, `keens`=knees,
+    `rollerer`=roller). Ahol a szó szerinti összefűzés magyartalan lett volna
+    („Ölelés térd mell”), ott teljes névre szóló kivétel (NAME_OVERRIDES).
+    ELLENŐRIZVE: a generált fájl 1273 → 1313 sorra nőtt úgy, hogy egyetlen
+    KORÁBBI név sem változott meg — csak bővülés, és nincs duplikált név.
+    A maradék 13 szándékosan kint van, és a `MEGFEJTETLEN` blokk (a szótár
+    végén) soronként megmondja, miért: tulajdonnév, sérült forrás vagy
+    értelmezhetetlen kifejezés. Magyar nevet KITALÁLNI rosszabb lenne, mint
+    kihagyni: a hiányzót a felhasználó észre sem veszi, a rosszul elnevezettet
+    viszont rossz gyakorlatnak hiszi.
     Jelentés:  server/data/.exdb/report.txt
-    Bővítendő: server/data/exdb.names.hu.js → PHRASES
+    Bővítendő: server/data/exdb.names.hu.js → PHRASES / NAME_OVERRIDES
     Utána:     npm run exdb:build
 
 [ ] A származtatott `load` súlyok felülvizsgálata a gyakori gyakorlatoknál
-    Az 1201 generált sor súlyai BECSLÉSEK (loadSource: 'derived'):
+    (2026-08-26: szándékosan érintetlen. A felülvizsgálat mérést vagy
+    szakértői ítéletet igényel gyakorlatonként; a súlyok „ránézésre"
+    átírása nem javítaná az adatot, csak más — és ellenőrizetlen — becslést
+    tenne a mostani, legalább következetes becslés helyére.)
+    Az 1241 generált sor súlyai BECSLÉSEK (loadSource: 'derived'):
     elsődleges izom 60%, másodlagosak osztoznak a 40%-on. A forrásban
     nincs súlyozás, csak izomlista.
     A 200 kurált gyakorlat súlyai viszont kézzel megadottak, és a
     névütközésnél mindig azok nyernek — az alapgyakorlatok tehát rendben
     vannak. Ez a tétel a ritkábban használt generált sorokra vonatkozik.
 
-[ ] Címke-heurisztika: néhány vitatható Összetett/Izolációs besorolás
+[x] Címke-heurisztika: a vitatható Összetett/Izolációs besorolások   (2026-08-26)
     A dataset nem tartalmaz `mechanic` mezőt, ezért a címkét névből +
-    terhelt izomcsoportok számából becsüljük. A nyújtó gyakorlatok azóta
-    külön „Nyújtás” címkét kapnak (50 db), a minták bővültek.
-    Hely: server/data/exdb.map.js → COMPOUND_PATTERNS / ISOLATION_PATTERNS
-    Kis hatású (csak a kártyán látszó címke), ráér.
+    terhelt izomcsoportok számából becsüljük.
+    A hiba GYÖKERE megvolt: a FELSZERELÉS neve döntött a mozgás helyett. A
+    „… on leg press machine” és a „(on pull-up cable machine)” farok miatt egy
+    vádliemelés és egy combhajlítás is összetettnek látszott. A címkézés most
+    levágja ezt a farkot (APPARATUS_SUFFIX), a `calf press` pedig kivételként
+    izolációs — attól, hogy „press”, még egy izületet mozgat.
+    Módszer: a forrás mind az 1324 nevét végigmérve 25 olyan volt, ami
+    EGYSZERRE illeszkedett összetett és izolációs mintára; ebből 7 kapott
+    tényleg rossz címkét, és pontosan az a 7 változott meg. Kettő az újonnan
+    bekerültek közül is javult: a terpeszugrás összetett lett (kardió, nem
+    izolációs), a felfelé néző kutya pedig nyújtás.
+    Hely: server/data/exdb.map.js → COMPOUND_PATTERNS / ISOLATION_PATTERNS /
+          ISOLATION_FIRST_PATTERNS / MOBILITY_PATTERNS / APPARATUS_SUFFIX
 
 [ ] 128 kurált gyakorlathoz nincs illusztráció
     A 200-ból 72-höz sikerült médiát párosítani a generált katalógusból
     (névutótag + felszerelés-preferencia alapján). A többinek nincs
     megfelelője a forrásban, vagy más néven szerepel.
     Hely: scripts/build-exdb.js → matchCuratedBySuffix
+    MÉRVE 2026-08-26 — hogy ne fusson bele mindenki ugyanabba: a kézenfekvő
+    ötlet, hogy a kurált név ne csak a VÉGÉN, hanem bárhol szó-határon
+    illeszkedhessen, PONTOSAN NULLA új párosítást hoz. Nem a szabály szűk,
+    hanem a nevek térnek el érdemben: „Ferde kézisúlyzós nyomás" vs. a
+    generált „Kézisúlyzós ferde mellnyomás" — más a szórend ÉS más a
+    mozgásszó. „T-rúd evezés" vs. „Gépi T-rúdas evezés" — a toldalék tér el.
+    Ami valóban megoldaná: kurált gyakorlatonként EXPLICIT alias (a forrás
+    gyakorlat-azonosítójára), kézzel átnézve. Fuzzy párosítást szándékosan
+    NEM építettünk: rossz illusztráció rosszabb, mint a hiányzó — egy lehúzás
+    helyén futó evezés-animációt a felhasználó nem hibának néz, hanem
+    útmutatásnak.
 
 
 ==========================================================================
 NYITOTT APRÓSÁG — a check-in varázslóból maradt
 ==========================================================================
 
+<<<<<<< HEAD
 [ ] A varázsló és a részletes űrlap alvás-tartománya eltér
     A részletes szerkesztő űrlap 0–24 órával fut, a varázsló 0–12-vel.
     A szerver 0–24-et fogad el. Szándékos-e az eltérés, még eldöntendő.
@@ -517,3 +960,9 @@ MEGBESZÉLT DÖNTÉSEK (2026-08-30):
 [ ] Fejlettebb edzői elemzőfelület
     A fentiek edzői nézete: kliensenként és klienseken átívelően.
     Ez a legutolsó lépés — az összes előző pontra épül.
+=======
+[x] A varázsló alvás-tartománya is 0–24   (2026-08-25)
+    Korábban a varázsló 12 óránál némán elvágta a bevitelt, pedig a
+    részletes űrlap és a szerver is 24-ig fogad el. Most mindhárom helyen
+    0–24 (public/script.js → CI_SLEEP_MAX, public/index.html → #ci-sleep).
+>>>>>>> 972acc045ef0e4ac7403f732efc6e5bb404bc263

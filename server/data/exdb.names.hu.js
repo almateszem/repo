@@ -620,6 +620,54 @@ export const PHRASES = [
   ['peacher', 'Scott-pados'],     // a forrásban a `preacher` így is szerepel
 
   /* ==================================================================
+     A jelentésből (report.txt) pótolt hiányok — 2026-08-26
+     ------------------------------------------------------------------
+     Csak az kerül ide, aminek VAN bevett magyar megfelelője a szaknyelvben,
+     vagy ahol a forrás elgépelése egyértelműen kiolvasható. A maradékot
+     szándékosan hagytuk kint (ld. a fájl végén, a MEGFEJTETLEN listában):
+     tulajdonnév és értelmezhetetlen forrás-hiba, amihez magyar nevet
+     KITALÁLNI rosszabb lenne, mint kihagyni a katalógusból.
+     ================================================================== */
+  ['t bar', 'T-rúdas'],
+  ['cossack squat', 'kozák guggolás'],
+  ['cossack squats', 'kozák guggolás'],
+  ['superman', 'szuperember'],
+  ['full can', 'full can'],           // rotátorköpeny-gyakorlat, a magyar szaknyelv is így hívja
+  ['standing around world', 'álló körzés'],
+  ['pike-to-cobra', 'csúcstartásból kobra'],
+  ['v. 2', ''],                       // a forrás verzió-jelölése, nem a gyakorlat része
+  ['turkish get up', 'török felállás'],
+  ['upward facing dog', 'felfelé néző kutya'],
+  ['v-sit', 'V-ülés'],
+  ['v sit', 'V-ülés'],
+  ['star jump', 'csillagugrás'],
+  ['jack jump', 'terpeszugrás'],
+  ['jack burpee', 'terpeszugrásos burpee'],
+  ['elliptical cross trainer', 'elliptikus tréneren'],
+  ['stepmill', 'lépcsőzőgép'],
+  ['on stepmill', 'lépcsőzőgépen'],
+  ['abductor', 'távolítás'],
+  ['abdominal fallout', 'hasi kigördülés'],
+  ['swimmer kicks', 'úszó lábtempó'],
+  ['frankenstein squat', 'Frankenstein-guggolás'],
+  ['world greatest stretch', 'a világ legjobb nyújtása'],
+  ['impossible dips', 'lehetetlen tolódzkodás'],
+  ['cocoons', 'gubó'],
+  ['london bridge', 'London-híd'],
+  ['wind sprints', 'sprintfutás'],
+  ['twin handle', 'ikerfogantyús'],
+  ['on a staircase', 'lépcsőn'],
+  ['with strap', 'hevederrel'],
+  // Eponim gyakorlatok: a magyar szaknyelv is a névvel hivatkozik rájuk
+  ['janda sit-up', 'Janda-felülés'],
+  ['svend press', 'Svend-nyomás'],
+  ['stalder press', 'Stalder-nyomás'],
+  ['gironda sternum chin', 'Gironda szegycsontig húzódzkodás'],
+  ['thibaudeau kayak row', 'Thibaudeau kajakevezés'],
+  // A forrás elgépelései, egyértelmű olvasattal
+  ['squad', 'guggoló'],           // `all fours squad stretch` — a `squat` elírása
+
+  /* ==================================================================
      Kötőszavak és a forrás technikai zaja — kimaradnak a névből
      ================================================================== */
   ['with', ''],
@@ -682,6 +730,19 @@ export const NAME_OVERRIDES = {
   'high knees': 'Magas térdemelés',
   'bear crawl': 'Medvejárás',
   'turkish get-up': 'Török felállás',
+
+  /* 2026-08-26 — a jelentésből pótolva. Ezeknél a kifejezésenkénti fordítás
+     magyartalan szófüzért adna (`hug keens to chest` → „Ölelés térd mell"),
+     vagy a forrás elgépelése csak a TELJES névből olvasható ki. */
+  'hug keens to chest': 'Térdhúzás mellkashoz',        // `keens` = `knees`
+  'wrist rollerer': 'Csuklótekerő',                    // `rollerer` = `roller`
+  'walking on stepmill': 'Séta lépcsőzőgépen',
+  'left hook. boxing': 'Bal horog (boksz)',            // a forrásban a pont is benne van
+  'otis up': 'Otis-felülés',
+  'monster walk': 'Monster walk',                      // a magyar szaknyelv is így hivatkozik rá
+  'spell caster': 'Spell caster',
+  'body-up': 'Body-up',
+  'chest dip (on dip-pull-up cage)': 'Mell tolódzkodás (dip-húzódzkodó állványon)',
 };
 
 /**
@@ -701,3 +762,36 @@ export const PARENTHETICAL_DROP = {
   'side pov': true,
   'front pov': true,
 };
+
+/* ==========================================================================
+   MEGFEJTETLEN — ami 2026-08-26 után is kimarad a katalógusból
+   --------------------------------------------------------------------------
+   A jelentés (`.exdb/report.txt`) 53-ról 13-ra fogyott. A maradék NEM azért
+   van kint, mert nem jutott rá idő: mindegyiknél az a helyzet, hogy magyar
+   nevet csak KITALÁLNI lehetne, és egy kitalált név rosszabb, mint egy
+   hiányzó gyakorlat — a katalógusból hiányzót a felhasználó észre sem veszi,
+   a rosszul elnevezettet viszont rossz gyakorlatnak hiszi.
+
+   Ha valaki ránéz, itt tart a nyomozás:
+
+     arm slingers hanging …      `slingers` — nincs bevett magyar megfelelője,
+                                 és az angol jelentése sem egyértelmű
+     dumbbell incline breeding   a forrás láthatóan sérült (`breeding`?)
+     hyght dumbbell fly          `hyght` — vagy tulajdonnév, vagy a `height`
+                                 elírása; a kettő más gyakorlatot jelent
+     kettlebell pirate supper …  `pirate supper` — értelmezhetetlen
+     lever lying two-one leg …   `two-one` — nem derül ki, mit számol
+     medicine ball chest push
+       single/multiple response  a `response` itt dobás-visszafogást jelenthet,
+                                 de a két változat különbsége nem egyértelmű
+     potty squat                 mobilitási guggolás; a szó szerinti fordítás
+                                 („bili guggolás”) félrevinne
+     weighted round arm          `round arm` — nem azonosítható mozgás
+     … with bowling motion       a `bowling` mozdulat leírása hiányzik
+     chest dip (on dip-pull-up
+       cage)                     a zárójeles rész normalizálás után nem
+                                 illeszkedik a NAME_OVERRIDES kulcsára
+
+   A 100%-ot továbbra sem érdemes hajszolni: 1241 gyakorlat van bent, és ezek
+   ritkán keresett, részben sérült sorok.
+   ========================================================================== */

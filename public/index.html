@@ -15,6 +15,9 @@
   <!-- Közös SVG-ikonok — a use-hivatkozások innen klónoznak idevertemafaszt kuki-->
   <svg style="display:none" aria-hidden="true">
     <symbol id="icon-user" viewBox="0 0 24 24"><path d="M12 12c2.7 0 4.9-2.2 4.9-4.9S14.7 2.2 12 2.2 7.1 4.4 7.1 7.1 9.3 12 12 12zm0 2.4c-3.3 0-9.8 1.6-9.8 4.9v1.2c0 .7.5 1.2 1.2 1.2h17.2c.7 0 1.2-.5 1.2-1.2v-1.2c0-3.3-6.5-4.9-9.8-4.9z"/></symbol>
+    <!-- Az értesítés-harang. Korábban az avatar nyitotta az értesítéseket; amióta
+         az a profiloldalra visz, az értesítéseknek saját gombja (és ikonja) van. -->
+    <symbol id="icon-bell" viewBox="0 0 24 24"><path d="M12 2.2a1.4 1.4 0 0 1 1.4 1.4v.7a6 6 0 0 1 4.6 5.8v3.3l1.6 2.6a.9.9 0 0 1-.8 1.4H5.2a.9.9 0 0 1-.8-1.4L6 13.4v-3.3a6 6 0 0 1 4.6-5.8v-.7A1.4 1.4 0 0 1 12 2.2zm0 19.6a2.6 2.6 0 0 1-2.5-1.9h5a2.6 2.6 0 0 1-2.5 1.9z"/></symbol>
 
     <!-- Oldal-ikonok a nav gyűrű gombjához (lásd script.js → PAGE_ICONS).
          Az Edző oldal a fenti #icon-user-t használja, nincs külön szimbóluma. -->
@@ -101,29 +104,44 @@
         <h2 class="sr-only" id="title-dashboard">Áttekintés</h2>
 
         <header class="db-header">
-          <div class="db-profile">
-            <button class="db-avatar tap-target" type="button" data-action="notifications" title="Értesítések"
-                    aria-label="Értesítések" aria-haspopup="true" aria-expanded="false">
+          <!-- Az avatar és a név EGYÜTT visz a profiloldalra: a névre koppintani
+               ugyanolyan természetes szándék, mint az ikonra. -->
+          <button class="db-profile tap-target" type="button" data-action="profile"
+                  title="Profil" aria-label="Profil megnyitása">
+            <span class="db-avatar">
               <svg class="db-avatar-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-user"/></svg>
+            </span>
+            <span class="db-username"></span>
+          </button>
+
+          <div class="db-header-actions">
+            <button class="db-notif tap-target" type="button" data-action="notifications" title="Értesítések"
+                    aria-label="Értesítések" aria-haspopup="true" aria-expanded="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-bell"/></svg>
               <span class="db-badge" data-notif-badge>6</span>
             </button>
-            <span class="db-username"></span>
+
+            <button class="db-settings tap-target" type="button" aria-label="Beállítások" title="Beállítások" data-action="settings">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6a.5.5 0 0 0 .1-.6l-2-3.5a.5.5 0 0 0-.6-.2l-2.5 1a7.4 7.4 0 0 0-1.7-1l-.4-2.6a.5.5 0 0 0-.5-.4h-4a.5.5 0 0 0-.5.4l-.4 2.6a7.4 7.4 0 0 0-1.7 1l-2.5-1a.5.5 0 0 0-.6.2l-2 3.5a.5.5 0 0 0 .1.6L4.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6a.5.5 0 0 0-.1.6l2 3.5c.1.2.4.3.6.2l2.5-1a7.4 7.4 0 0 0 1.7 1l.4 2.6c0 .2.3.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.6a7.4 7.4 0 0 0 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5a.5.5 0 0 0-.1-.6L19.4 13zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z"/></svg>
+            </button>
           </div>
 
-          <!-- Értesítés-panel (az avatarra kattintva nyílik, a script.js tölti fel) -->
+          <!-- Értesítés-panel (a harangra kattintva nyílik, a script.js tölti fel) -->
           <div class="notif-panel" data-notif-panel aria-label="Értesítések" hidden>
             <div class="notif-head">
               <span class="notif-title">Értesítések</span>
               <button class="notif-clear tap-target" type="button" data-action="clear-notifications">Összes olvasott</button>
             </div>
             <ul class="notif-list" data-list="notifications"></ul>
+<<<<<<< HEAD
             <p class="notif-empty" hidden>Még nincs értesítésed. Itt jelennek meg a valódi
               események: meghívás, kiosztott vagy módosított terv.</p>
+=======
+            <!-- Üres állapot: a lista valódi eseményekből épül, tehát az
+                 „üres" itt azt jelenti, hogy tényleg nem történt semmi -->
+            <p class="notif-empty" hidden>Nincs értesítésed 🎉</p>
+>>>>>>> 972acc045ef0e4ac7403f732efc6e5bb404bc263
           </div>
-
-          <button class="db-settings tap-target" type="button" aria-label="Beállítások" title="Beállítások" data-action="settings">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6a.5.5 0 0 0 .1-.6l-2-3.5a.5.5 0 0 0-.6-.2l-2.5 1a7.4 7.4 0 0 0-1.7-1l-.4-2.6a.5.5 0 0 0-.5-.4h-4a.5.5 0 0 0-.5.4l-.4 2.6a7.4 7.4 0 0 0-1.7 1l-2.5-1a.5.5 0 0 0-.6.2l-2 3.5a.5.5 0 0 0 .1.6L4.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6a.5.5 0 0 0-.1.6l2 3.5c.1.2.4.3.6.2l2.5-1a7.4 7.4 0 0 0 1.7 1l.4 2.6c0 .2.3.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.6a7.4 7.4 0 0 0 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5a.5.5 0 0 0-.1-.6L19.4 13zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z"/></svg>
-          </button>
         </header>
 
         <!-- A kártya egésze átvisz a Regeneráció oldalra. Ez a mobil belépési
@@ -207,6 +225,79 @@
       </section>
 
       <!-- ================================================================
+           Profil (pf-*) — az áttekintő avatarja nyitja. A fiók adatai és az
+           eddigi teljesítmény összesítése; a tartalmát a script.js tölti fel
+           a GET /api/profile válaszából. A beállítások továbbra is a
+           fogaskerék-modalban laknak, ide csak egy gomb vezet.
+           ================================================================ -->
+      <section class="app-page pf-page" data-page="profile" aria-labelledby="title-profile" hidden>
+        <h2 class="sr-only" id="title-profile">Profil</h2>
+
+        <header class="pf-head">
+          <span class="pf-avatar" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><use href="#icon-user"/></svg>
+          </span>
+          <div class="pf-ident">
+            <span class="pf-name" data-pf-name></span>
+            <span class="pf-username" data-pf-username></span>
+            <span class="pf-joined" data-pf-joined></span>
+          </div>
+        </header>
+
+        <!-- A négy összesítő. A számokat a script.js írja be; a 0 nem
+             placeholder, hanem érvényes érték (új fióknál ez a helyes). -->
+        <section class="pf-stats" aria-labelledby="pf-title-stats">
+          <h3 class="pf-section-title" id="pf-title-stats">Összesítés</h3>
+          <ul class="pf-stat-grid">
+            <li class="pf-stat">
+              <span class="pf-stat-value" data-pf-stat="workouts">0</span>
+              <span class="pf-stat-label">naplózott edzés</span>
+            </li>
+            <li class="pf-stat">
+              <span class="pf-stat-value" data-pf-stat="streak">0</span>
+              <span class="pf-stat-label">napos sorozat</span>
+            </li>
+            <li class="pf-stat">
+              <span class="pf-stat-value" data-pf-stat="prs">0</span>
+              <span class="pf-stat-label">gyakorlat rekorddal</span>
+            </li>
+            <li class="pf-stat">
+              <span class="pf-stat-value" data-pf-stat="workSets">0</span>
+              <span class="pf-stat-label">teljesített munkasorozat</span>
+            </li>
+          </ul>
+        </section>
+
+        <!-- Sorok, amiknek nincs mindig értelmes értékük (nulla edzés, egyetlen
+             testsúly-mérés) — a script.js egyenként rejti el őket. -->
+        <section class="pf-facts" aria-labelledby="pf-title-facts">
+          <h3 class="pf-section-title" id="pf-title-facts">Részletek</h3>
+          <dl class="pf-fact-list">
+            <div class="pf-fact" data-pf-fact="firstWorkout" hidden>
+              <dt>Első edzés</dt><dd data-pf-value="firstWorkout"></dd>
+            </div>
+            <div class="pf-fact" data-pf-fact="lastWorkout" hidden>
+              <dt>Legutóbbi edzés</dt><dd data-pf-value="lastWorkout"></dd>
+            </div>
+            <div class="pf-fact" data-pf-fact="weight" hidden>
+              <dt>Testsúly</dt><dd data-pf-value="weight"></dd>
+            </div>
+            <div class="pf-fact" data-pf-fact="weightDelta" hidden>
+              <dt>Változás az első mérés óta</dt><dd data-pf-value="weightDelta"></dd>
+            </div>
+          </dl>
+          <p class="pf-empty" data-pf-empty hidden>
+            Még nincs naplózott edzésed. Az első mentés után itt jelennek meg az összesítők.
+          </p>
+        </section>
+
+        <div class="pf-actions">
+          <button class="pf-action" type="button" data-action="settings">Beállítások</button>
+          <button class="pf-action pf-action--danger" type="button" data-action="logout">Kijelentkezés</button>
+        </div>
+      </section>
+
+      <!-- ================================================================
            Workout Logger + Technique Video Log — edzésnapló
            (a gyakorlatkártyákat a script.js tölti fel az API-ból)
            ================================================================ -->
@@ -219,6 +310,13 @@
                  aria-describedby="workout-name-error">
         </header>
         <p class="wk-error" id="workout-name-error" hidden>Adj nevet az edzésnek a befejezéshez.</p>
+        <!-- Visszanyitott edzés jelzése. Enélkül a szerkesztő pontosan úgy néz
+             ki, mint egy új edzésnél — a felhasználó azt hinné, ma naplóz, és
+             nem értené, miért nem került új sor a Korábbi edzések tetejére. -->
+        <p class="wk-editing" data-editing-workout hidden>
+          <span data-editing-text></span>
+          <button class="wk-editing-cancel" type="button" data-action="cancel-workout-edit">Szerkesztés megszakítása</button>
+        </p>
         <!-- Automatikus mentés állapota. Élő régió: korábban csak egy statikus
              ígéret állt itt, a mentés hibáját pedig semmi nem jelezte — a
              felhasználó azt hitte, minden mentve van. -->
@@ -260,7 +358,7 @@
               <button class="wk-toggle-btn" type="button" data-period="volumeLastWeek" aria-pressed="false">Múlt hét</button>
             </div>
           </div>
-          <div class="chart" role="img" aria-label="Heti edzésvolumen naponta — ez a hét" data-chart="volumeThisWeek">
+          <div class="chart" role="img" aria-label="Munkasorozatok naponta — ez a hét" data-chart="volumeThisWeek">
             <div class="chart-bars" aria-hidden="true"></div>
             <div class="chart-axis" aria-hidden="true"></div>
           </div>
@@ -268,7 +366,7 @@
             <span>H</span><span>K</span><span>Sze</span><span>Cs</span><span>P</span><span>Szo</span><span>V</span>
           </div>
           <p class="wk-compare-note">Összvolumen:
-            <strong><span data-compare-total></span> szett</strong> ·
+            <strong><span data-compare-total></span> munkasorozat</strong> ·
             <span data-compare-note></span></p>
         </section>
 
@@ -420,6 +518,21 @@
             a lenti listából egy koppintással hozzáadhatsz.</p>
         </section>
 
+        <!-- Saját étel felvitele: kézzel vagy a csomagolás vonalkódjáról.
+             A beépített katalógus általános referencia-értékeket ad; egy
+             konkrét bolti termék ettől 100 kcal-t is eltérhet. -->
+        <div class="nu-actions">
+          <button class="nu-action" type="button" data-action="add-custom-food"
+                  aria-haspopup="dialog">+ Étel hozzáadása</button>
+          <button class="nu-action nu-action--ghost" type="button" data-action="scan-barcode"
+                  aria-haspopup="dialog">
+            <svg class="nu-action-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M3 5h2v14H3zm3 0h1v14H6zm2 0h2v14H8zm3 0h1v14h-1zm2 0h2v14h-2zm3 0h1v14h-1zm2 0h2v14h-2z"/>
+            </svg>
+            Vonalkód
+          </button>
+        </div>
+
         <div class="nu-search">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4a6 6 0 1 0 3.8 10.6l5 5 1.4-1.4-5-5A6 6 0 0 0 10 4zm0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8z"/></svg>
           <label class="sr-only" for="food-search">Étel keresése</label>
@@ -446,20 +559,24 @@
       </section>
 
       <!-- ================================================================
-           Edző oldal — szerepkör-alapú felületek
-           (kliens nézet: chat a saját edzővel; edzői nézet: sportoló-
-           menedzser. Mindkét szerepkörnél a váltógomb dönt, a script.js
-           a szerver user-adata + prefs alapján kapcsolja a nézeteket.)
+           Edző oldal — két nézet VALÓDI fiókok kapcsolatából
+           (kliens nézet: az edződdel váltott üzenetek; edzői nézet: a
+           sportolóid, akiket felhasználónévvel hívtál meg és elfogadták.
+           Mindkét nézet mindig elérhető: bárki lehet edző is, sportoló is —
+           a tartalmat a script.js tölti a /api/coach és /api/athletes
+           végpontokból.)
            ================================================================ -->
       <section class="app-page co-page" data-page="coach" aria-labelledby="title-coach" hidden>
         <h2 class="sr-only" id="title-coach">Edző</h2>
 
-        <!-- Nézetváltó — csak akkor látszik, ha mindkét szerepkör aktív -->
-        <div class="co-toggle" role="group" aria-label="Edző-nézet kiválasztása" data-coach-toggle hidden>
-          <button class="co-toggle-btn" type="button" data-coach-view="client" aria-pressed="true">Edződ</button>
-          <button class="co-toggle-btn" type="button" data-coach-view="manager" aria-pressed="false">Edzetteim</button>
+        <div class="co-toggle" role="group" aria-label="Edző-nézet kiválasztása" data-coach-toggle>
+          <button class="co-toggle-btn" type="button" data-coach-view="client" aria-pressed="true">Edződ<span
+            class="co-toggle-badge" data-invite-badge hidden></span></button>
+          <button class="co-toggle-btn" type="button" data-coach-view="manager" aria-pressed="false">Edzetteim<span
+            class="co-toggle-badge" data-athlete-badge hidden></span></button>
         </div>
 
+<<<<<<< HEAD
         <!-- Üres állapot — ha se edződ nincs, se nem edzel senkit -->
         <p class="co-empty" data-coach-empty hidden>Jelenleg nincs edződ, és te sem edzel senkit.
           Ha edző vagy, kapcsold be az edzői szerepkört a beállításokban (fogaskerék az áttekintésen),
@@ -497,6 +614,47 @@
             <input type="text" id="coach-message" placeholder="Írj az edződnek…" required maxlength="280" autocomplete="off">
             <button type="submit" aria-label="Küldés">→</button>
           </form>
+=======
+        <!-- Kliens nézet: a saját edződ (ha van) és a hozzád érkezett meghívók -->
+        <div class="co-view" data-view="client" hidden>
+
+          <!-- Beérkezett meghívók — elfogadásig az edző semmit nem lát az adataidból -->
+          <p class="co-invite-lead" data-invite-lead hidden>Meghívtak edzőnek. Elfogadás után látja
+            a naplóidból számolt összegzést, és üzenetet is tudtok váltani.</p>
+          <ul class="co-invite-list" data-list="coach-invites" aria-label="Beérkezett edző-meghívók"></ul>
+
+          <!-- Az edződ által felajánlott tervek. Elfogadásig SEMMI nem kerül
+               a terveid közé — a meglévőkhöz pedig sosem nyúlunk hozzá. -->
+          <p class="co-invite-lead" data-offer-lead hidden>Az edződ tervet osztott ki.
+            Elfogadás után új tervként jelenik meg a Tervek oldalon — a mostaniak megmaradnak.</p>
+          <ul class="co-invite-list" data-list="plan-offers" aria-label="Felajánlott tervek"></ul>
+
+          <!-- Van edződ: fejléc + üzenetváltás -->
+          <div data-coach-thread hidden>
+            <header class="co-coach-head">
+              <span class="co-coach-avatar" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><use href="#icon-user"/></svg>
+              </span>
+              <div class="co-coach-ident">
+                <h3 class="co-coach-name" data-coach-name>Edződ</h3>
+                <span class="co-coach-role" data-coach-role></span>
+              </div>
+              <button class="co-unlink tap-target" type="button" data-action="leave-coach">Leválás</button>
+            </header>
+
+            <div class="co-msg-feed co-client-feed" data-client-feed aria-label="Üzenetváltás az edződdel"></div>
+            <form class="co-composer" data-form="coach-message">
+              <label class="sr-only" for="coach-message">Üzenet az edzőnek</label>
+              <input type="text" id="coach-message" placeholder="Írj az edződnek…" required maxlength="280" autocomplete="off">
+              <button type="submit" aria-label="Küldés">→</button>
+            </form>
+          </div>
+
+          <!-- Nincs edződ: a felhasználóneved kell hozzá, azt az edző hívja meg -->
+          <p class="co-empty" data-coach-none hidden>Jelenleg nincs edződ.
+            Az edződ a felhasználóneveddel (<strong data-my-username></strong>) tud meghívni,
+            és a meghívó itt fog megjelenni — elfogadásig semmit nem lát az adataidból.</p>
+>>>>>>> 972acc045ef0e4ac7403f732efc6e5bb404bc263
         </div>
 
         <!-- Edzői nézet: sportoló-menedzser (script.js tölti fel) -->
@@ -505,6 +663,18 @@
             <h3 class="co-title">Edzői panel</h3>
             <p class="co-subtitle">Heti áttekintés · <span data-athlete-count>0</span> kliens</p>
           </header>
+
+          <!-- Meghívás: a sportoló felhasználónevével -->
+          <form class="co-invite-form" data-form="invite-athlete">
+            <label class="sr-only" for="co-invite-username">Sportoló felhasználóneve</label>
+            <input type="text" id="co-invite-username" placeholder="Sportoló felhasználóneve…"
+                   required maxlength="24" autocomplete="off" spellcheck="false">
+            <button type="submit">Meghívás</button>
+          </form>
+
+          <!-- Kiküldött, még el nem fogadott meghívók -->
+          <p class="co-invite-lead" data-sent-lead hidden>Kiküldött meghívók — elfogadásra várnak.</p>
+          <ul class="co-invite-list" data-list="sent-invites" aria-label="Kiküldött meghívók"></ul>
 
           <!-- Állapot-sáv: riasztás-összegzés vagy "minden rendben" (script.js tölti fel) -->
           <section class="co-banner" data-banner aria-live="polite" aria-label="Sportolók állapota">
@@ -532,6 +702,10 @@
           </section>
 
           <div class="co-grid" data-list="athletes"></div>
+
+          <p class="co-empty" data-athletes-empty hidden>Még nincs sportolód.
+            Hívj meg valakit a felhasználónevével — amint elfogadja, itt jelenik meg a kártyája
+            a saját naplójából számolt állapotával.</p>
         </div>
       </section>
 
@@ -912,12 +1086,24 @@
         <ul class="st-toggle-list" data-list="settings-toggles"></ul>
       </section>
 
+<<<<<<< HEAD
       <section class="st-section" aria-labelledby="st-title-roles">
         <h4 class="st-section-title" id="st-title-roles">Szerepkör</h4>
         <ul class="st-toggle-list" data-list="settings-roles"></ul>
         <!-- A „van edződ" NEM kapcsoló: az elfogadott kapcsolatból következik,
              ezért itt csak kiírjuk, nem állítható. -->
         <p class="st-section-hint" data-role-hint></p>
+=======
+      <section class="st-section" aria-labelledby="st-title-goal">
+        <h4 class="st-section-title" id="st-title-goal">Edzés-cél</h4>
+        <div class="st-field">
+          <label class="sr-only" for="st-goal">Edzés-cél</label>
+          <select class="st-input st-select" id="st-goal"></select>
+        </div>
+        <p class="st-section-hint">Ezt a címkét látja az edződ a kártyádon. A szerepkörök
+          (van-e edződ, edzel-e valakit) már nem itt állnak: az Edző oldalon tudsz sportolót
+          meghívni, illetve edző-meghívót elfogadni.</p>
+>>>>>>> 972acc045ef0e4ac7403f732efc6e5bb404bc263
       </section>
 
       <section class="st-section" aria-labelledby="st-title-data">
@@ -928,7 +1114,38 @@
       <section class="st-section" aria-labelledby="st-title-account">
         <h4 class="st-section-title" id="st-title-account">Fiók</h4>
         <p class="st-account" data-st-account></p>
+
+        <!-- Jelszóváltoztatás — a jelenlegi jelszó is kell hozzá -->
+        <button class="st-account-btn" type="button" data-action="toggle-password"
+                aria-expanded="false" aria-controls="st-password-form">Jelszó megváltoztatása</button>
+        <form class="st-account-form" id="st-password-form" data-form="change-password" hidden>
+          <label class="st-label" for="st-password-current">Jelenlegi jelszó</label>
+          <input class="st-input" id="st-password-current" type="password"
+                 autocomplete="current-password" required>
+          <label class="st-label" for="st-password-new">Új jelszó</label>
+          <input class="st-input" id="st-password-new" type="password"
+                 autocomplete="new-password" minlength="8" required>
+          <p class="st-account-hint">Legalább 8 karakter. Mentés után a többi eszközödön
+            ki fogsz jelentkezni — ezen a böngészőn bent maradsz.</p>
+          <p class="st-account-error" data-password-error role="alert" hidden></p>
+          <button class="st-account-save" type="submit">Jelszó mentése</button>
+        </form>
+
         <button class="st-logout" type="button" data-action="logout">Kijelentkezés</button>
+
+        <!-- Fióktörlés — végleges, ezért külön nyílik és jelszót kér -->
+        <button class="st-account-btn st-account-btn--danger" type="button" data-action="toggle-delete"
+                aria-expanded="false" aria-controls="st-delete-form">Fiók törlése</button>
+        <form class="st-account-form" id="st-delete-form" data-form="delete-account" hidden>
+          <p class="st-account-warning">A törlés végleges és nem vonható vissza: az edzésnaplód,
+            a terveid, a check-injeid, a rekordjaid, az edző-kapcsolataid és az üzenetváltásaitok
+            is eltűnnek — az utóbbiak a másik félnél is.</p>
+          <label class="st-label" for="st-delete-password">Jelszó a megerősítéshez</label>
+          <input class="st-input" id="st-delete-password" type="password"
+                 autocomplete="current-password" required>
+          <p class="st-account-error" data-delete-error role="alert" hidden></p>
+          <button class="st-account-save st-account-save--danger" type="submit">Fiók végleges törlése</button>
+        </form>
       </section>
 
       <div class="settings-modal-actions">
@@ -1016,10 +1233,35 @@
       </section>
 
       <div class="co-modal-actions">
+<<<<<<< HEAD
         <button class="co-action" type="button" data-action="assign-plan">+ Terv kiosztása</button>
+=======
+        <button class="co-action co-action--danger" type="button" data-action="remove-athlete">Kapcsolat bontása</button>
+        <button class="co-action" type="button" data-action="assign-plan"
+                aria-expanded="false" aria-controls="athletePlanSection">Terv kiosztása</button>
+>>>>>>> 972acc045ef0e4ac7403f732efc6e5bb404bc263
         <button class="co-action co-action--primary" type="button" data-action="message"
                 aria-expanded="false" aria-controls="athleteMsgSection">Üzenet</button>
       </div>
+
+      <!-- Terv kiosztása — a saját tervek közül. A sportoló ELFOGADJA vagy
+           elutasítja: közvetlenül nem írunk a fiókjába. -->
+      <section class="co-assign" id="athletePlanSection" data-plan-section aria-label="Terv kiosztása" hidden>
+        <form class="co-assign-form" data-form="assign-plan">
+          <label class="co-assign-label" for="assign-plan-select">Melyik tervet osztod ki?</label>
+          <select class="co-assign-select" id="assign-plan-select" data-plan-select required></select>
+
+          <label class="co-assign-label" for="assign-plan-note">Kísérő üzenet (nem kötelező)</label>
+          <input class="co-assign-note" type="text" id="assign-plan-note"
+                 placeholder="Pl. jövő héttől ezzel kezdjük…" maxlength="200" autocomplete="off">
+
+          <p class="co-assign-hint">A sportolód elfogadhatja vagy elutasíthatja — a meglévő
+            terveihez nem nyúlunk hozzá.</p>
+          <button class="co-action co-action--primary" type="submit">Kiosztás</button>
+        </form>
+        <p class="co-assign-empty" data-plan-empty hidden>Még nincs saját terved, amit kioszthatnál.
+          Készíts egyet a Tervek oldalon.</p>
+      </section>
 
       <!-- Üzenetváltás — az „Üzenet" gomb nyitja, a hírfolyam a tpl-coach-note-ból épül -->
       <section class="co-msg" id="athleteMsgSection" data-msg-section aria-label="Üzenetváltás a sportolóval" hidden>
@@ -1030,6 +1272,152 @@
           <button type="submit" aria-label="Küldés">→</button>
         </form>
       </section>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       Saját étel modál (cf-*) — a Táplálkozás oldal „+ Étel hozzáadása"
+       gombja nyitja, és a vonalkód-olvasó is ide tölti be a találatot.
+       A kalóriát a makrókból számoljuk (Atwater 4/4/9), de a mező
+       szerkeszthető: a csomagoláson lévő érték a rost és a poliolok miatt
+       jogosan eltérhet. A ↻ visszakapcsol az automatikus számolásra.
+
+       A DOM-ban a #foodModal ELŐTT áll: a „Mentés és naplózás" az
+       adagválasztót nyitja meg, aminek azonos z-index mellett fölé kell kerülnie.
+       ================================================================ -->
+  <div class="custom-food-modal" id="customFoodModal" aria-hidden="true">
+    <div class="custom-food-modal-backdrop" data-close-modal></div>
+    <div class="custom-food-modal-card" role="dialog" aria-modal="true"
+         aria-labelledby="customFoodModalTitle">
+      <div class="custom-food-modal-head">
+        <h3 id="customFoodModalTitle">Saját étel</h3>
+        <button class="custom-food-modal-close tap-target" type="button"
+                data-close-modal aria-label="Bezárás">✕</button>
+      </div>
+
+      <form class="cf-form" data-form="custom-food" novalidate>
+        <!-- Csak vonalkódról töltve látszik: honnan jött az adat -->
+        <p class="cf-source" data-cf-source hidden></p>
+
+        <div class="cf-field cf-field--wide">
+          <label class="cf-label" for="cf-name">Név</label>
+          <input class="cf-input" id="cf-name" name="name" type="text" maxlength="60"
+                 required autocomplete="off" placeholder="pl. Görög joghurt 2%">
+        </div>
+
+        <div class="cf-row">
+          <div class="cf-field">
+            <label class="cf-label" for="cf-group">Kategória</label>
+            <!-- Az opciókat a script.js tölti fel az étel-lista csoportjaiból -->
+            <select class="cf-input cf-select" id="cf-group" name="group">
+              <option value="">— nincs megadva —</option>
+            </select>
+          </div>
+          <div class="cf-field cf-field--narrow">
+            <label class="cf-label" for="cf-unit">Egység</label>
+            <select class="cf-input cf-select" id="cf-unit" name="unit">
+              <option value="g" selected>g</option>
+              <option value="ml">ml</option>
+            </select>
+          </div>
+        </div>
+
+        <fieldset class="cf-macros">
+          <legend class="cf-legend">Tápérték <span data-cf-basis>100 g</span>-ra</legend>
+          <div class="cf-macro-grid">
+            <div class="cf-field">
+              <label class="cf-label" for="cf-protein">Fehérje (g)</label>
+              <input class="cf-input cf-num" id="cf-protein" name="protein" type="number"
+                     inputmode="decimal" min="0" max="100" step="0.1" required autocomplete="off">
+            </div>
+            <div class="cf-field">
+              <label class="cf-label" for="cf-carbs">Szénhidrát (g)</label>
+              <input class="cf-input cf-num" id="cf-carbs" name="carbs" type="number"
+                     inputmode="decimal" min="0" max="100" step="0.1" required autocomplete="off">
+            </div>
+            <div class="cf-field">
+              <label class="cf-label" for="cf-fat">Zsír (g)</label>
+              <input class="cf-input cf-num" id="cf-fat" name="fat" type="number"
+                     inputmode="decimal" min="0" max="100" step="0.1" required autocomplete="off">
+            </div>
+          </div>
+        </fieldset>
+
+        <!-- Kalória: alapból a makrókból számolt, de felülírható -->
+        <div class="cf-kcal">
+          <div class="cf-field">
+            <label class="cf-label" for="cf-kcal">Kalória (kcal)</label>
+            <input class="cf-input cf-num cf-kcal-input" id="cf-kcal" name="kcal" type="number"
+                   inputmode="numeric" min="0" max="900" step="1" autocomplete="off">
+          </div>
+          <div class="cf-kcal-side">
+            <span class="cf-kcal-state" data-cf-kcal-state>a makrókból számolva</span>
+            <button class="cf-kcal-reset tap-target" type="button" data-cf-kcal-reset hidden
+                    aria-label="Kalória újraszámolása a makrókból">↻ újraszámol</button>
+          </div>
+        </div>
+        <p class="cf-hint">Atwater-tényezők: fehérje 4 · szénhidrát 4 · zsír 9 kcal/g.</p>
+
+        <div class="cf-field cf-field--wide">
+          <label class="cf-label" for="cf-barcode">Vonalkód
+            <span class="cf-optional">(nem kötelező)</span></label>
+          <div class="cf-barcode">
+            <input class="cf-input" id="cf-barcode" name="barcode" type="text"
+                   inputmode="numeric" pattern="[0-9]*" maxlength="14" autocomplete="off"
+                   placeholder="pl. 5998200310010">
+            <button class="cf-scan tap-target" type="button" data-cf-scan
+                    aria-haspopup="dialog" aria-label="Vonalkód beolvasása kamerával">Beolvasás</button>
+          </div>
+        </div>
+
+        <p class="cf-error" data-cf-error role="alert" hidden></p>
+
+        <div class="cf-actions">
+          <button class="cf-cancel" type="button" data-close-modal>Mégse</button>
+          <button class="cf-save" type="submit" data-cf-save>Mentés</button>
+          <button class="cf-save-log" type="button" data-cf-save-log>Mentés és naplózás</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================================================================
+       Vonalkód-olvasó (sc-*). Három szint, ebben a sorrendben:
+         1. natív BarcodeDetector (Chrome/Android, ChromeOS),
+         2. lustán betöltött ZXing UMD (/vendor/zxing),
+         3. kézi beírás — ez MINDIG látszik, mert a kamera hiányozhat, és
+            sima http-n (a gép LAN-IP-jén) a böngésző oda sem adja.
+       ================================================================ -->
+  <div class="scanner-modal" id="scannerModal" aria-hidden="true">
+    <div class="scanner-modal-backdrop" data-close-modal></div>
+    <div class="scanner-modal-card" role="dialog" aria-modal="true"
+         aria-labelledby="scannerModalTitle">
+      <div class="scanner-modal-head">
+        <h3 id="scannerModalTitle">Vonalkód beolvasása</h3>
+        <button class="scanner-modal-close tap-target" type="button"
+                data-close-modal aria-label="Bezárás">✕</button>
+      </div>
+
+      <div class="sc-stage" data-sc-stage hidden>
+        <video class="sc-video" data-sc-video playsinline muted
+               aria-label="Kamera képe — irányítsd a vonalkódra"></video>
+        <span class="sc-frame" aria-hidden="true"></span>
+        <span class="sc-laser" aria-hidden="true"></span>
+        <button class="sc-torch tap-target" type="button" data-sc-torch hidden
+                aria-pressed="false" aria-label="Vaku be- és kikapcsolása">🔦</button>
+      </div>
+
+      <p class="sc-status" data-sc-status role="status" aria-live="polite">Kamera indítása…</p>
+      <p class="sc-error" data-sc-error role="alert" hidden></p>
+
+      <form class="sc-manual" data-form="manual-barcode">
+        <label class="cf-label" for="sc-manual-code">Vagy írd be a kódot</label>
+        <div class="sc-manual-row">
+          <input class="cf-input" id="sc-manual-code" type="text" inputmode="numeric"
+                 pattern="[0-9]*" maxlength="14" autocomplete="off" placeholder="13 számjegy">
+          <button class="sc-manual-go" type="submit">Keresés</button>
+        </div>
+      </form>
     </div>
   </div>
 
@@ -1292,6 +1680,21 @@
     </article>
   </template>
 
+  <!-- Egy „Korábbi edzések" sor. Sablonból épül (nem kézzel összerakott
+       elemekből), mert két út is ír a listába: a teljes újrarajzolás és az
+       edzés lezárása utáni beszúrás — így nem csúszhatnak szét. -->
+  <template id="tpl-history-entry">
+    <li class="wk-history-item">
+      <span class="wk-history-date"></span>
+      <span class="wk-history-detail"></span>
+      <span class="wk-history-rpe"></span>
+      <span class="wk-history-actions">
+        <button class="wk-history-btn tap-target" type="button" data-action="reopen-workout">Javítás</button>
+        <button class="wk-history-btn wk-history-remove tap-target" type="button" data-action="delete-workout">✕</button>
+      </span>
+    </li>
+  </template>
+
   <template id="tpl-nutrition-entry">
     <li class="nu-log-item">
       <div class="nu-log-info">
@@ -1309,6 +1712,10 @@
         <span class="nu-food-name"><span class="nu-food-kcal"></span></span>
         <span class="nu-food-macros"></span>
       </div>
+      <!-- A jelvény és a törlés csak a SAJÁT ételeken látszik — a renderFoods
+           veszi le róluk a hidden-t, ha a food.custom igaz. -->
+      <span class="nu-food-badge" hidden>saját</span>
+      <button class="nu-food-remove tap-target" type="button" hidden>✕</button>
       <button class="nu-food-add tap-target" type="button">→</button>
     </li>
   </template>
@@ -1389,11 +1796,14 @@
         <span class="co-card-tag"></span>
       </span>
       <span class="co-card-alert" aria-hidden="true" hidden>!</span>
+      <span class="co-card-unread" aria-hidden="true" hidden></span>
       <span class="co-card-avatar" aria-hidden="true">
         <svg viewBox="0 0 24 24"><use href="#icon-user"/></svg>
       </span>
       <span class="co-card-name"></span>
       <span class="co-card-stats"></span>
+      <!-- A szál utolsó üzenete idézve (a szerver küldi, script.js tölti fel) -->
+      <span class="co-card-msg" hidden></span>
     </button>
   </template>
 
@@ -1519,7 +1929,7 @@
                     aria-label="Kevesebb alvás">−</button>
             <label class="sr-only" for="ci-sleep">Alvás órában</label>
             <input class="wk-num-input ci-num-input" id="ci-sleep" type="number"
-                   inputmode="decimal" min="0" max="12" step="0.5" autocomplete="off">
+                   inputmode="decimal" min="0" max="24" step="0.5" autocomplete="off">
             <button class="wk-num-step ci-round-btn" type="button" data-dir="1"
                     aria-label="Több alvás">+</button>
           </span>
