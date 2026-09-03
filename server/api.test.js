@@ -216,6 +216,8 @@ test('bejelentkezés nélkül MINDEN /api végpont 401-et ad', async () => {
     ['DELETE', '/api/nutrition/goal'], ['PUT', '/api/athletes/1/nutrition-goal'],
     ['GET', '/api/readiness/advice'], ['POST', '/api/readiness/advice/apply'],
     ['GET', '/api/strength-assessment'], ['POST', '/api/strength-assessment'],
+    ['DELETE', '/api/plans/1'], ['PUT', '/api/weight-log/1'],
+    ['DELETE', '/api/weight-log/1'], ['PUT', '/api/nutrition/log/1'],
   ];
 
   for (const [method, urlPath] of endpoints) {
@@ -1613,4 +1615,105 @@ test('a felmérés validál: ismeretlen gyakorlat, tartományon kívüli érték
     assert.equal(res.status, 400, eset);
     assert.ok(res.json.error, `${eset}: beszédes hibaüzenet`);
   }
+});
+
+/* ======================================================================
+   Javíthatóság — amit eddig csak írni lehetett
+   ----------------------------------------------------------------------
+   A TEENDOK „felderített hiányok" szakaszát egy dolog köti össze: az appban
+   bőven lehet írni, javítani viszont alig. Ez a három út ezen változtat.
+   ====================================================================== */
+
+let fixCookie = '';
+
+test('a tervet ki lehet törölni — a lista eddig csak nőni tudott', async () => {
+  const reg = await request('POST', '/api/auth/register', {
+    body: { username: 'javito', displayName: 'Javító Jolán', password: 'jelszo321' },
+  });
+  fixCookie = cookieFrom(reg);
+
+  const terv = await request('POST', '/api/plans', {
+    cookie: fixCookie,
+    body: { name: 'Törlendő', days: [], exercises: [gyakorlat('Guggolás', 100)] },
+  });
+  assert.equal(terv.status, 201);
+
+  const torles = await request('DELETE', `/api/plans/${terv.json.id}`, { cookie: fixCookie });
+  assert.equal(torles.status, 204);
+
+  const tervek = await request('GET', '/api/plans', { cookie: fixCookie });
+  assert.equal(tervek.json.find((p) => p.name === 'Törlendő'), undefined);
+
+  // Másodszorra már nincs mit törölni.
+  const ujra = await request('DELETE', `/api/plans/${terv.json.id}`, { cookie: fixCookie });
+  assert.equal(ujra.status, 404);
+});
+
+test('a testsúly-bejegyzés javítható és törölhető — a dátuma nem mozdul', async () => {
+  const felvitel = await request('POST', '/api/weight-log', { cookie: fixCookie, body: { kg: 188 } });
+  assert.equal(felvitel.status, 200);
+  const { id, date } = felvitel.json;
+
+  const javitas = await request('PUT', `/api/weight-log/${id}`, { cookie: fixCookie, body: { kg: 88 } });
+  assert.equal(javitas.status, 200);
+  assert.equal(javitas.json.kg, 88, 'az elgépelt 188 javítható');
+  assert.equal(javitas.json.date, date, 'a javítás NEM áthelyezés — a dátum marad');
+
+  const rossz = await request('PUT', `/api/weight-log/${id}`, { cookie: fixCookie, body: { kg: 5 } });
+  assert.equal(rossz.status, 400, 'a tartomány a javításnál is érvényes');
+
+  const torles = await request('DELETE', `/api/weight-log/${id}`, { cookie: fixCookie });
+  assert.equal(torles.status, 204);
+  const naplo = await request('GET', '/api/weight-log', { cookie: fixCookie });
+  assert.equal(naplo.json.find((e) => e.id === id), undefined);
+});
+
+test('a naplóbejegyzés adagja javítható, a makrók arányosan követik', async () => {
+  const foods = await request('GET', '/api/foods', { cookie: fixCookie });
+  const etel = foods.json[0];
+
+  const felvitel = await request('POST', '/api/nutrition/log', {
+    cookie: fixCookie, body: { name: etel.name, grams: 100 },
+  });
+  assert.equal(felvitel.status, 201);
+  const eredeti = felvitel.json.entry;
+
+  const javitas = await request('PUT', `/api/nutrition/log/${eredeti.id}`, {
+    cookie: fixCookie, body: { grams: 200 },
+  });
+  assert.equal(javitas.status, 200);
+
+  const naplo = await request('GET', '/api/nutrition/log', { cookie: fixCookie });
+  const sor = naplo.json.find((e) => e.id === eredeti.id);
+  assert.equal(sor.grams, 200);
+  assert.equal(sor.kcal, Math.round(eredeti.kcal * 2), 'a makrók arányosan nőttek');
+  // A napi összesítő is követi — a felület ehhez méri a célt.
+  assert.equal(javitas.json.totals.intake, sor.kcal);
+});
+
+test('a javító végpontok idegen sorra 404-et adnak', async () => {
+  const masik = await request('POST', '/api/auth/register', {
+    body: { username: 'javito2', displayName: 'Másik', password: 'jelszo321' },
+  });
+  const masikCookie = cookieFrom(masik);
+
+  const terv = await request('POST', '/api/plans', {
+    cookie: fixCookie, body: { name: 'Enyém', days: [], exercises: [gyakorlat('Guggolás', 100)] },
+  });
+  const suly = await request('POST', '/api/weight-log', { cookie: fixCookie, body: { kg: 80 } });
+
+  const probak = [
+    ['DELETE', `/api/plans/${terv.json.id}`, undefined],
+    ['PUT', `/api/weight-log/${suly.json.id}`, { kg: 90 }],
+    ['DELETE', `/api/weight-log/${suly.json.id}`, undefined],
+    ['PUT', '/api/nutrition/log/1', { grams: 50 }],
+  ];
+  for (const [method, urlPath, body] of probak) {
+    const res = await request(method, urlPath, { cookie: masikCookie, body });
+    assert.equal(res.status, 404, `${method} ${urlPath} idegen sorra`);
+  }
+
+  // A saját adat érintetlen.
+  const tervek = await request('GET', '/api/plans', { cookie: fixCookie });
+  assert.ok(tervek.json.some((p) => p.name === 'Enyém'));
 });

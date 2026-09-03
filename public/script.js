@@ -165,6 +165,11 @@
     // Az edzés-cél mentése — a válasz a fiók frissített felületi alakja
     saveGoal:          (goal) => putJson('/api/user', { goal }),
     // Nem cache-elt: a profiloldal összesítői minden edzés-mentés után változnak
+    deletePlan:        (id) => del(`/api/plans/${id}`),
+    updateWeightEntry: (id, kg) => putJson(`/api/weight-log/${id}`, { kg }),
+    deleteWeightEntry: (id) => del(`/api/weight-log/${id}`),
+    // A válasz az ÉRINTETT nap összesítője — régebbi nap is javítható.
+    updateNutritionEntry: (id, grams) => putJson(`/api/nutrition/log/${id}`, { grams }),
     getProfile:        () => getJson('/api/profile'),
     /* ---- Erőfelmérés ----
        A BEMONDOTT csúcsok. Nem mérés: viszonyítási alap, amit a naplózott
@@ -1664,6 +1669,10 @@
     progress.setAttribute('aria-valuenow', String(plan.progress));
     progress.setAttribute('aria-label', `${plan.name} — ${plan.progress}% teljesítve`);
     $('.pl-progress-fill', card).style.width = plan.progress + '%';
+
+    const deleteBtn = $('.pl-card-delete', card);
+    deleteBtn.dataset.planId = plan.id;
+    deleteBtn.setAttribute('aria-label', `${plan.name} törlése`);
 
     const editBtn = $('.pl-card-edit', card);
     if (plan.own) {
@@ -3890,11 +3899,94 @@
     }
   }
 
+
+  /** A testsúly-bejegyzések szerkeszthető listája. Egy elgépelt, kiugró érték
+      a trend-diagram skáláját lapos vonallá nyomja és a Δ statot is elviszi —
+      eddig nem volt út a javításához. A dátum NEM szerkeszthető: a javítás nem
+      áthelyezés (ugyanaz az elv, mint a mentett edzésnél). */
+  const WEIGHT_LIST_LIMIT = 8;
+
+  function renderWeightList() {
+    const list = $('[data-weight-list]');
+    if (!list) return;
+
+    const rows = [...weightLog].sort((a, b) => dayKeyOf(b.date) - dayKeyOf(a.date))
+      .slice(0, WEIGHT_LIST_LIMIT);
+
+    list.replaceChildren(...rows.map((entry) => {
+      const li = document.createElement('li');
+      li.className = 'rc-weight-row';
+
+      const date = document.createElement('span');
+      date.className = 'rc-weight-date';
+      date.textContent = entry.date;
+
+      const input = document.createElement('input');
+      input.className = 'rc-weight-input';
+      input.type = 'number';
+      input.inputMode = 'decimal';
+      input.min = '30';
+      input.max = '300';
+      input.step = '0.1';
+      input.value = String(entry.kg);
+      input.setAttribute('aria-label', `${entry.date} testsúlya kilogrammban`);
+
+      // Mentés a mező elhagyásakor, ha tényleg változott.
+      input.addEventListener('change', async () => {
+        const kg = Number(input.value);
+        if (!Number.isFinite(kg) || kg === entry.kg) { input.value = String(entry.kg); return; }
+        input.disabled = true;
+        try {
+          mergeWeightEntry(await api.updateWeightEntry(entry.id, kg));
+          renderWeightList();
+          refreshDailyStats().catch(console.error);
+          showToast('Testsúly javítva');
+        } catch (err) {
+          console.error(err);
+          input.value = String(entry.kg);
+          showToast(err.message || 'Nem sikerült javítani a bejegyzést', 'error');
+        } finally {
+          input.disabled = false;
+        }
+      });
+
+      const del = document.createElement('button');
+      del.className = 'rc-weight-del';
+      del.type = 'button';
+      del.textContent = '✕';
+      del.title = 'Bejegyzés törlése';
+      del.setAttribute('aria-label', `${entry.date} bejegyzésének törlése`);
+      del.addEventListener('click', async () => {
+        del.disabled = true;
+        try {
+          await api.deleteWeightEntry(entry.id);
+          weightLog = weightLog.filter((item) => item.id !== entry.id);
+          syncWeightViews({ animateDelta: true });
+          renderWeightList();
+          refreshDailyStats().catch(console.error);
+          showToast('Bejegyzés törölve');
+        } catch (err) {
+          console.error(err);
+          del.disabled = false;
+          showToast(err.message || 'Nem sikerült törölni a bejegyzést', 'error');
+        }
+      });
+
+      li.append(date, input, del);
+      return li;
+    }));
+  }
+
+  /** "ÉÉÉÉ.HH.NN" → rendezhető szám. A dátum szöveges összehasonlítása is
+      időrendi volna, de a számot a diagram is használja. */
+  const dayKeyOf = (dateStr) => Number(String(dateStr).replace(/\./g, ''));
+
   /** A napló újratöltése a szerverről + újrarajzolás. A Regeneráció oldal
       megnyitása hívja (az adat máshol — akár másik fülön — is változhatott). */
   async function refreshWeightLog() {
     weightLog = await api.getWeightLog();
     syncWeightViews();
+    renderWeightList();
   }
 
   /** A check-in válaszában érkező testsúly-bejegyzés beolvasztása. Naponta egy
@@ -6332,6 +6424,10 @@
           `${formatNumber(entry.grams)} g · ${formatNumber(entry.protein)} g F · ${formatNumber(entry.carbs)} g Cs · ${formatNumber(entry.fat)} g Zs`;
         $('.nu-log-kcal', item).textContent = `${formatNumber(entry.kcal)} kcal`;
 
+        const editBtn = $('.nu-log-edit', item);
+        editBtn.dataset.entryId = entry.id;
+        editBtn.setAttribute('aria-label', `${entry.name} adagjának javítása`);
+
         const removeBtn = $('.nu-log-remove', item);
         removeBtn.dataset.entryId = entry.id;
         removeBtn.title = 'Bejegyzés törlése';
@@ -6352,9 +6448,79 @@
     };
     await reloadLog();
 
+    /** Az adag beépített szerkesztője. A ház nem használ natív ablakot
+        (window.prompt/confirm), ezért a sorban nyílik egy mező: Enter ment,
+        Escape és a fókusz elvesztése elvet. */
+    function openPortionEditor(row, entry) {
+      const macros = $('.nu-log-macros', row);
+      const original = macros.textContent;
+
+      const input = document.createElement('input');
+      input.className = 'nu-log-grams';
+      input.type = 'number';
+      input.inputMode = 'numeric';
+      input.min = '1';
+      input.step = '1';
+      input.value = String(entry.grams);
+      input.setAttribute('aria-label', `${entry.name} adagja grammban`);
+
+      let done = false;
+      const cancel = () => {
+        if (done) return;
+        done = true;
+        macros.textContent = original;
+      };
+
+      const save = async () => {
+        if (done) return;
+        const grams = Number(input.value);
+        if (!Number.isFinite(grams) || grams < 1) {
+          showToast('Az adag egy pozitív szám legyen', 'error');
+          input.focus();
+          return;
+        }
+        done = true;
+        try {
+          const previous = totals;
+          const res = await api.updateNutritionEntry(entry.id, Math.round(grams));
+          applyTotals(res.totals, { animateFrom: previous });
+          await reloadLog();
+          refreshDailyStats().catch(console.error);
+          showToast('Adag javítva');
+        } catch (err) {
+          console.error(err);
+          macros.textContent = original;
+          showToast(err.message || 'Nem sikerült javítani az adagot', 'error');
+        }
+      };
+
+      input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') { event.preventDefault(); save(); }
+        if (event.key === 'Escape') { event.preventDefault(); cancel(); }
+      });
+      input.addEventListener('blur', cancel);
+
+      macros.replaceChildren(input);
+      input.focus();
+      input.select();
+    }
+
     // Törlés — a szerver a frissített összesítőt adja vissza, így egy körből
     // frissül a napló, a makrók és az áttekintő kalória-statja is.
     logList.addEventListener('click', async (event) => {
+      /* Adag javítása. Az elgépelt mennyiséget eddig csak törléssel lehetett
+         orvosolni, és addig a napi bevitel alulmért maradt — ami a készenlét
+         táplálkozás-komponensébe is beszivárog. */
+      const editBtn = event.target.closest('.nu-log-edit');
+      if (editBtn) {
+        const id = Number(editBtn.dataset.entryId);
+        const entry = logEntries.find((e) => e.id === id);
+        const row = editBtn.closest('.nu-log-item');
+        if (!entry || !row || $('.nu-log-grams', row)) return;
+        openPortionEditor(row, entry);
+        return;
+      }
+
       const removeBtn = event.target.closest('.nu-log-remove');
       if (!removeBtn) return;
       const id = Number(removeBtn.dataset.entryId);
@@ -6554,7 +6720,27 @@
 
   /** A Tervek oldal interakciói. A planBuilder és a workout a megfelelő setup
       függvények vezérlői — hiba esetén (safe-ből null) a gombok nem visznek át. */
-  function setupPlans(planBuilder, workout) {
+  function setupPlans(planBuilder, workout, confirmAction) {
+    /** Terv törlése a listából, megerősítéssel. A visszavonhatatlanságot ki is
+        mondjuk: az edzőtől kapott tervet újra kérni kell, ha kell. */
+    async function deletePlanFromList(id, name, button) {
+      const ok = await confirmAction?.(
+        `Biztosan törlöd a(z) „${name}" tervet? Ez nem vonható vissza.`,
+        { title: 'Terv törlése', confirmLabel: 'Törlöm' },
+      );
+      if (!ok) return;
+      button.disabled = true;
+      try {
+        await api.deletePlan(id);
+        await renderPlans();
+        showToast(`„${name}" törölve`);
+      } catch (err) {
+        console.error(err);
+        button.disabled = false;
+        showToast(err.message || 'Nem sikerült törölni a tervet', 'error');
+      }
+    }
+
     $('[data-list="plans"]').addEventListener('click', (event) => {
       // Szerkesztés — a saját terv a terv-építőbe töltődik
       const editBtn = event.target.closest('.pl-card-edit');
@@ -6563,6 +6749,16 @@
         if (!plan || !planBuilder) return;
         planBuilder.loadPlan(plan);
         navigate('plan-builder');
+        return;
+      }
+
+      /* Törlés. A terv-lista eddig kizárólag nőni tudott — az edzőtől kapott,
+         egyszer elfogadott terv sem volt kiszedhető. */
+      const deleteBtn = event.target.closest('.pl-card-delete');
+      if (deleteBtn) {
+        const id = Number(deleteBtn.dataset.planId);
+        const plan = plansData.find((p) => p.id === id);
+        deletePlanFromList(id, plan?.name ?? 'A terv', deleteBtn);
         return;
       }
 
@@ -7470,7 +7666,7 @@
     }));
 
     const planBuilder = await safe(() => setupPlanBuilder(picker));
-    setupPlans(planBuilder, workout);
+    setupPlans(planBuilder, workout, confirmAction);
     setupSummary();
     setupShortcuts();
     setupConnectivity();

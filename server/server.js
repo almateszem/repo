@@ -23,6 +23,7 @@ import {
   getNutritionGoal, saveNutritionGoal, clearOwnNutritionGoal,
   saveWorkoutFeedback, getAthleteFeedbackSince,
   setDeclaredMax, getDeclaredMaxes,
+  deletePlan, updateWeightEntry, deleteWeightEntry, updateNutritionEntry,
   getComments, getCommentsByTarget, addComment, deleteComment,
   calculateEpley1RM, bestCompletedSet, getExerciseMax, getAllExerciseMaxes,
   createUser, getUser, getUserWithHash, hasAnyUser, getUserCreatedAt,
@@ -1422,6 +1423,21 @@ app.get('/api/plans', (req, res) => {
   }));
 });
 
+
+/** Terv törlése. Csak a sajátodat — az elfogadott edzői terv is a te sorod
+    (az elfogadás másolatot hoz létre), tehát az is kiszedhető. A terv-lista
+    eddig KIZÁRÓLAG nőni tudott. */
+app.delete('/api/plans/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: 'Érvénytelen terv-azonosító.' });
+  }
+  if (!deletePlan(req.user.id, id)) {
+    return res.status(404).json({ error: 'Nincs ilyen terved — lehet, hogy időközben törölték.' });
+  }
+  res.status(204).end();
+});
+
 app.get('/api/workout-template', (req, res) => res.json(workoutTemplate(req.user.id, req.today)));
 
 /** Egy PR-jelölt gyakorlat-előfordulás listaelemmé alakítása: a detail a
@@ -1716,10 +1732,16 @@ app.get('/api/export', (req, res) => res.json(getSnapshot(req.user.id)));
     A felület ezt a végpontot már nem hívja — a testsúlyt a napi check-in
     kérdi, és a PUT /api/checkin írja ide. Nyitva marad, mert a testsúly-napló
     önálló erőforrás (GET + írás egy helyen). */
+/** A testsúly elfogadott tartománya. Egy helyen, mert három végpont méri:
+    a rögzítés, a javítás és a check-in. */
+const WEIGHT_RANGE = { min: 30, max: 300 };
+
 app.post('/api/weight-log', (req, res) => {
   const kg = Number(req.body?.kg);
-  if (!Number.isFinite(kg) || kg < 30 || kg > 300) {
-    return res.status(400).json({ error: 'Érvénytelen testsúly — 30 és 300 kg között adható meg.' });
+  if (!Number.isFinite(kg) || kg < WEIGHT_RANGE.min || kg > WEIGHT_RANGE.max) {
+    return res.status(400).json({
+      error: `Érvénytelen testsúly — ${WEIGHT_RANGE.min} és ${WEIGHT_RANGE.max} kg között adható meg.`,
+    });
   }
   // 200, nem 201: a mentés a nap meglévő bejegyzését is felülírhatja.
   res.json(addWeightEntry(req.user.id, kg, req.today));
@@ -1750,6 +1772,57 @@ app.post('/api/nutrition/log', (req, res) => {
   }
 
   res.status(201).json(addNutritionEntry(req.user.id, food, req.today, Math.round(grams)));
+});
+
+
+/** Testsúly-bejegyzés javítása. CSAK az érték — a dátum nem adható meg: a
+    javítás nem áthelyezés (ugyanaz az elv, mint a mentett edzésnél). */
+app.put('/api/weight-log/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: 'Érvénytelen bejegyzés-azonosító.' });
+  }
+  const kg = Number(req.body?.kg);
+  if (!Number.isFinite(kg) || kg < WEIGHT_RANGE.min || kg > WEIGHT_RANGE.max) {
+    return res.status(400).json({
+      error: `A testsúly ${WEIGHT_RANGE.min} és ${WEIGHT_RANGE.max} kg között adható meg.`,
+    });
+  }
+  const updated = updateWeightEntry(req.user.id, id, kg);
+  if (!updated) return res.status(404).json({ error: 'Nincs ilyen bejegyzésed.' });
+  res.json(updated);
+});
+
+/** Testsúly-bejegyzés törlése. Egy elgépelt, kiugró érték a trend-kártya
+    skáláját lapos vonallá nyomja — eddig nem volt út a javításához. */
+app.delete('/api/weight-log/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: 'Érvénytelen bejegyzés-azonosító.' });
+  }
+  if (!deleteWeightEntry(req.user.id, id)) {
+    return res.status(404).json({ error: 'Nincs ilyen bejegyzésed.' });
+  }
+  res.status(204).end();
+});
+
+
+/** Naplóbejegyzés adagjának javítása. A makrók arányosan számolódnak át a
+    tárolt értékekből — a nutrition_log szándékosan másolatban tárolja őket.
+    A RÉGEBBI napok is javíthatók: az elgépelt adag ott is alulméri a napi
+    bevitelt, ami a készenlét táplálkozás-komponensébe is beszivárog. */
+app.put('/api/nutrition/log/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: 'Érvénytelen bejegyzés-azonosító.' });
+  }
+  const grams = Number(req.body?.grams);
+  if (!Number.isFinite(grams) || grams < 1 || grams > MAX_PORTION_GRAMS) {
+    return res.status(400).json({ error: `Az adag 1 és ${MAX_PORTION_GRAMS} gramm között adható meg.` });
+  }
+  const updated = updateNutritionEntry(req.user.id, id, Math.round(grams));
+  if (!updated) return res.status(404).json({ error: 'Nincs ilyen bejegyzésed.' });
+  res.json(updated);
 });
 
 /** Naplóbejegyzés törlése (visszavonás). Csak a mai bejegyzés törölhető;

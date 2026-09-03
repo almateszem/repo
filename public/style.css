@@ -5896,6 +5896,84 @@ details[open] > .rc-details-summary::before {
   gap: var(--sp-4);
 }
 
+/* A napló-adag beépített szerkesztője (a ház nem használ natív ablakot). */
+.nu-log-grams {
+  width: 84px;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  border: 1px solid var(--c-accent);
+  background: var(--surface-strong);
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-2xs);
+}
+
+/* ---- Testsúly-bejegyzések javítása (rc-weight-list) ---- */
+.rc-weight-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  list-style: none;
+  margin-top: var(--sp-4);
+}
+
+.rc-weight-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  font-size: var(--fs-2xs);
+}
+
+.rc-weight-date {
+  color: var(--text-muted);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.rc-weight-input {
+  width: 72px;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-card);
+  background: var(--surface-strong);
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  text-align: right;
+}
+
+.rc-weight-input:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+
+.rc-weight-del {
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+  padding: var(--sp-2);
+  border-radius: var(--r-md);
+}
+
+.rc-weight-del:hover { color: var(--c-accent); }
+
+/* Terv törlése és naplóadag-javítás — a meglévő ikongombok testvérei. */
+.pl-card-delete,
+.nu-log-edit {
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+}
+
+.pl-card-delete:hover,
+.nu-log-edit:hover { color: var(--c-accent); }
+
 /* ---- Erőfelmérés a profilon (pf-assess-*) ----
    A mezők a .nu-goal-field receptjét követik — egy űrlap-alak, több helyen. */
 .pf-assess {
