@@ -22,6 +22,7 @@ import {
   getCheckin, getCheckins, saveCheckin, hasAnyCheckin,
   getNutritionGoal, saveNutritionGoal, clearOwnNutritionGoal,
   saveWorkoutFeedback, getAthleteFeedbackSince,
+  getComments, getCommentsByTarget, addComment, deleteComment,
   calculateEpley1RM, bestCompletedSet, getExerciseMax, getAllExerciseMaxes,
   createUser, getUser, getUserWithHash, hasAnyUser, getUserCreatedAt,
   updateUserPassword, deleteUserSessions, deleteUser,
@@ -571,6 +572,32 @@ const CARD_WINDOW_DAYS = 35;
 
     A `viewerId` az EDZŐ (a panelt néző fél): az utolsó üzenet `mine` jelölése
     és az olvasatlan-számláló is az ő szemszögéből értendő. */
+/** A sportoló legutóbbi gyakorlat-megjegyzései, FELOLDOTT gyakorlatnévvel.
+    A megjegyzés célja "edzésId:index" — ebből az edző önmagában semmit nem
+    tudna kiolvasni, a nevet pedig csak a sportoló edzésnaplója ismeri.
+    A hiányzó célt kihagyjuk: ha az edzés kicsúszott az ablakból vagy törölték,
+    a megjegyzésnek nincs mihez tartoznia — kitalált nevet nem teszünk alá. */
+const EXERCISE_NOTE_LIMIT = 6;
+function exerciseNotes(userId, workouts) {
+  const byTarget = getCommentsByTarget(userId, 'exercise');
+  const notes = [];
+
+  for (const [target, list] of Object.entries(byTarget)) {
+    const [workoutId, index] = String(target).split(':');
+    const workout = workouts.find((w) => String(w.id) === workoutId);
+    const exercise = workout?.exercises?.[Number(index)];
+    if (!workout || !exercise) continue;
+    for (const comment of list) {
+      notes.push({
+        ...comment, target, exercise: exercise.name,
+        workout: workout.name, date: workout.date,
+      });
+    }
+  }
+  // A legfrissebb elöl: a sor-azonosító a beszúrás sorrendje.
+  return notes.sort((a, b) => b.id - a.id).slice(0, EXERCISE_NOTE_LIMIT);
+}
+
 function athleteCard(athlete, today, viewerId, unread = 0) {
   /* Az edzés-napló ABLAKOZVA jön be. A kártya minden számítása belefér a
      CARD_WINDOW_DAYS ablakba: a készenlét-motor 28 napnál régebbit amúgy is
@@ -629,7 +656,13 @@ function athleteCard(athlete, today, viewerId, unread = 0) {
     lastMessage: lastMessage && { ...lastMessage, mine: lastMessage.senderId === viewerId },
     unread,
     today,
-  }), { nutritionGoal, lastFeedback });
+  }), {
+    nutritionGoal,
+    lastFeedback,
+    /* Gyakorlat-megjegyzések. Itt oldjuk fel a nevet, mert a sportoló
+       edzésnaplója csak a szerveren van meg. */
+    exerciseNotes: exerciseNotes(athlete.userId, workouts),
+  });
 }
 
 /** Egy függő meghívó felületi alakja (mindkét irányban ugyanaz a mezőkészlet). */
@@ -2054,6 +2087,89 @@ app.post('/api/workouts', (req, res) => {
   );
 });
 
+
+
+/* ======================================================================
+   Megjegyzések egy gyakorlathoz
+   ----------------------------------------------------------------------
+   Nem üzenetek: az edző–sportoló beszélgetés a messages táblában él. Ez egy
+   konkrét gyakorlathoz tapad („fájt a vállam a 3. szettnél"), és ugyanabban a
+   szálban látszik mindkét fél megjegyzése.
+
+   A CÍMZÉS a ház szabályát követi: a saját megjegyzéseidet id nélkül éred el,
+   a sportolódéit a KAPCSOLAT azonosítójával. A sportoló belső user-id-je nem
+   kerül ki az edzőhöz — erre külön teszt is van (coach.test.js).
+   ====================================================================== */
+
+const COMMENT_TYPE = 'exercise';
+const COMMENT_MAX_LENGTH = 1000;
+
+/** A szöveg beolvasása. Hibánál { error }-t ad. */
+function parseCommentBody(body) {
+  const text = String(body?.text ?? '').trim();
+  if (!text) return { error: 'Üres megjegyzést nem mentünk el.' };
+  if (text.length > COMMENT_MAX_LENGTH) {
+    return { error: `Legfeljebb ${COMMENT_MAX_LENGTH} karakter.` };
+  }
+  return { text };
+}
+
+/** A kapcsolat sportolójának azonosítója, ha a hívó az EDZŐ oldala és a
+    kapcsolat él — különben null (a válasz ilyenkor 404). */
+function athleteOfLink(user, rawLinkId) {
+  const link = getCoachLink(Number(rawLinkId));
+  if (!link || link.coachId !== user.id || link.status !== 'active') return null;
+  return link.athleteId;
+}
+
+/* ---- A saját megjegyzéseim ---- */
+
+app.get('/api/comments', (req, res) => {
+  const target = String(req.query.target ?? '');
+  res.json(getComments(req.user.id, COMMENT_TYPE, target));
+});
+
+app.get('/api/comments/by-target', (req, res) => {
+  res.json(getCommentsByTarget(req.user.id, COMMENT_TYPE));
+});
+
+app.post('/api/comments', (req, res) => {
+  const { text, error } = parseCommentBody(req.body);
+  if (error) return res.status(400).json({ error });
+  const target = String(req.body?.targetId ?? '');
+  res.status(201).json(addComment(req.user.id, req.user.id, COMMENT_TYPE, target, text));
+});
+
+app.delete('/api/comments/:commentId', (req, res) => {
+  const commentId = Number(req.params.commentId);
+  if (!Number.isInteger(commentId) || commentId <= 0) {
+    return res.status(400).json({ error: 'Érvénytelen azonosító.' });
+  }
+  if (!deleteComment(commentId, req.user.id)) {
+    return res.status(404).json({ error: 'Nincs ilyen megjegyzésed.' });
+  }
+  res.status(204).end();
+});
+
+/* ---- A sportolóm megjegyzései (az EDZŐ oldala) ---- */
+
+app.get('/api/athletes/:linkId/comments', (req, res) => {
+  const athleteId = athleteOfLink(req.user, req.params.linkId);
+  if (athleteId === null) return res.status(404).json({ error: 'Nincs ilyen kapcsolat.' });
+  const target = String(req.query.target ?? '');
+  res.json(getComments(athleteId, COMMENT_TYPE, target));
+});
+
+/** Az edzői megjegyzés UGYANABBA a szálba megy, csak más szerzővel — ettől
+    lesz egy beszélgetés a gyakorlatról, nem két külön lista. */
+app.post('/api/athletes/:linkId/comments', (req, res) => {
+  const athleteId = athleteOfLink(req.user, req.params.linkId);
+  if (athleteId === null) return res.status(404).json({ error: 'Nincs ilyen kapcsolat.' });
+  const { text, error } = parseCommentBody(req.body);
+  if (error) return res.status(400).json({ error });
+  const target = String(req.body?.targetId ?? '');
+  res.status(201).json(addComment(req.user.id, athleteId, COMMENT_TYPE, target, text));
+});
 
 /* ---- Edzés utáni visszajelzés ----
    STRUKTURÁLT mező, nem üzenet: a nehézség és a közérzet számként tárolódik,

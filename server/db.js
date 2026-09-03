@@ -145,6 +145,30 @@ db.exec(`
   -- Csak kalória és fehérje: a felület (a napi összesítő, az étel-modál
   -- sávjai és az áttekintő) ezt a kettőt méri célhoz. Szénhidrát/zsír célt
   -- nem veszünk fel, amíg nincs, ami megjelenítse.
+  -- Megjegyzések. Egy edzésen belüli GYAKORLATRA mutatnak — nem üzenetek: az
+  -- edző–sportoló beszélgetés a messages táblában él, ez pedig egy konkrét
+  -- gyakorlathoz tapad („fájt a vállam a 3. szettnél").
+  --
+  --   author_id   — ki írta,
+  --   subject_id  — KINEK az adatáról szól (a hozzáférés ebből dől el: a
+  --                 subject maga és az ÉLŐ kapcsolatban álló edzője),
+  --   target_type — egyelőre csak 'exercise'; a szett és a videó akkor kerül
+  --                 be, amikor lesz mire mutatniuk,
+  --   target_id   — "edzésId:index" (a workouts.exercises tömbön belüli
+  --                 pozíció; a mentett edzés gyakorlat-listája nem változik,
+  --                 ezért az index stabil).
+  CREATE TABLE IF NOT EXISTS comments (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    author_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    subject_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    target_type TEXT NOT NULL,
+    target_id   TEXT NOT NULL DEFAULT '',
+    text        TEXT NOT NULL,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_comments_target
+    ON comments(subject_id, target_type, target_id, id);
+
   CREATE TABLE IF NOT EXISTS nutrition_goals (
     user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     source     TEXT NOT NULL,        -- 'own' | 'coach'
@@ -1097,6 +1121,61 @@ export function getNutritionLog(userId) {
 export function getNutritionLogForDate(userId, date) {
   return db.prepare(`SELECT id, name, grams, kcal, protein, carbs, fat, date
                      FROM nutrition_log WHERE user_id = ? AND date = ? ORDER BY id`).all(userId, date);
+}
+
+/* ---- Megjegyzések ----
+   A hozzáférést NEM ez a modul dönti el — az a server.js kapuja. Itt csak az
+   olvasás és az írás van. */
+
+/** Egy DB-sor → a felület által várt alak. A szerző nevét is hozzuk, hogy a
+    lista egyetlen lekérésből kirajzolható legyen. */
+const toComment = (row) => ({
+  id: row.id,
+  authorId: row.author_id,
+  authorName: row.author_name,
+  targetId: row.target_id,
+  text: row.text,
+  // ISO-ra alakítva, mint az üzeneteknél: a relatív időt a KLIENS képzi, ő
+  // ismeri a felhasználó időzónáját.
+  at: toIso(row.created_at),
+});
+
+const COMMENT_SELECT = `
+  SELECT c.id, c.author_id, c.target_id, c.text, c.created_at,
+         u.display_name AS author_name
+  FROM comments c JOIN users u ON u.id = c.author_id`;
+
+/** Egy cél megjegyzései, időrendben (a legrégebbi elöl — így olvasható). */
+export function getComments(subjectId, targetType, targetId) {
+  return db.prepare(`${COMMENT_SELECT}
+    WHERE c.subject_id = ? AND c.target_type = ? AND c.target_id = ?
+    ORDER BY c.id ASC`).all(subjectId, targetType, String(targetId)).map(toComment);
+}
+
+/** Egy típus ÖSSZES megjegyzése célonként csoportosítva. Az összegző oldal így
+    egyetlen kérésből tudja, melyik gyakorlathoz tartozik megjegyzés. */
+export function getCommentsByTarget(subjectId, targetType) {
+  const rows = db.prepare(`${COMMENT_SELECT}
+    WHERE c.subject_id = ? AND c.target_type = ?
+    ORDER BY c.id ASC`).all(subjectId, targetType).map(toComment);
+  const grouped = {};
+  for (const row of rows) (grouped[row.targetId] ??= []).push(row);
+  return grouped;
+}
+
+/** Új megjegyzés. Visszaadja a mentett sort (a szerző nevével együtt). */
+export function addComment(authorId, subjectId, targetType, targetId, text) {
+  const { lastInsertRowid } = db.prepare(`
+    INSERT INTO comments (author_id, subject_id, target_type, target_id, text)
+    VALUES (?, ?, ?, ?, ?)`).run(authorId, subjectId, targetType, String(targetId ?? ''), text);
+  return toComment(db.prepare(`${COMMENT_SELECT} WHERE c.id = ?`).get(lastInsertRowid));
+}
+
+/** Megjegyzés törlése. CSAK a szerző törölhet, ezért az author_id is feltétel —
+    így egy idegen id-vel küldött kérés nem talál sort, és 404-et kap. */
+export function deleteComment(commentId, authorId) {
+  return db.prepare('DELETE FROM comments WHERE id = ? AND author_id = ?')
+    .run(commentId, authorId).changes > 0;
 }
 
 /* ---- Napi táplálkozási cél ----

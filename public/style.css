@@ -5896,6 +5896,143 @@ details[open] > .rc-details-summary::before {
   gap: var(--sp-4);
 }
 
+/* ---- Gyakorlat-megjegyzések (su-note-*, co-note-*) ---- */
+.co-note--plan {
+  border-color: var(--fg-20);
+}
+
+.co-note-meta {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  display: block;
+  margin-bottom: var(--sp-2);
+}
+
+.co-note-text {
+  margin: 0;
+  font-size: var(--fs-md);
+  line-height: 1.5;
+}
+
+.co-note--me {
+  background: var(--surface-input);
+  border-color: var(--border-strong);
+  margin-left: var(--sp-13); /* enyhén jobbra tolva, chat-szerűen */
+}
+
+.su-note {
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-2xl);
+  padding: var(--sp-8) var(--sp-7);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  text-align: left;
+}
+
+.su-note-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.su-note-text {
+  width: 100%;
+  padding: var(--sp-4) var(--sp-5);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border-card);
+  background: var(--surface-strong);
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.su-note-text::placeholder { color: var(--text-muted); }
+
+.su-note-text:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+
+.su-note-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  list-style: none;
+}
+
+.su-note-item {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.su-note-item b {
+  color: var(--fg-100);
+  font-weight: 600;
+}
+
+.co-modal-notes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.co-note-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  list-style: none;
+}
+
+.co-note-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  background: var(--surface-strong);
+  border-radius: var(--r-lg);
+  padding: var(--sp-5);
+}
+
+.co-note-head {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.co-note-body { font-size: var(--fs-sm); line-height: 1.5; }
+
+.co-note-reply {
+  display: flex;
+  gap: var(--sp-3);
+}
+
+.co-note-reply input {
+  flex: 1;
+  min-width: 0;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border-card);
+  background: var(--surface-card);
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-2xs);
+}
+
+.co-note-reply button {
+  border: 0;
+  border-radius: 999px;
+  padding: 0 var(--sp-6);
+  background: var(--c-accent);
+  color: #fff;
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.co-note-reply button:disabled { opacity: .5; cursor: default; }
+
 /* ---- Edzés utáni visszajelzés (su-feedback-*) + edzői megjelenítése ---- */
 .su-feedback {
   background: var(--surface-card);
