@@ -299,28 +299,28 @@ maga után. Az appban ma bőven lehet írni, javítani viszont alig.
     rendezés), api.test.js 9. szakasz, users.test.js (izoláció) + böngésző-
     végigjátszás eldobható adatbázison.
 
-[ ] Tervet nem lehet törölni
-    Nincs DELETE /api/plans/:id (csak POST és PUT).
-    Ez NEM új felfedezés: a terv-kiosztás tervezésekor már megfogalmaztuk
-    korlátként — pont ezért lett a kiosztásból AJÁNLAT a közvetlen írás
-    helyett. Csak maga a hiány maradt meg, és a kiosztás óta a sportoló
-    terv-listája már kizárólag NŐNI tud: az edzőtől kapott, egyszer
-    elfogadott terv sem szedhető ki többé.
+[x] Tervet nem lehet törölni   (2026-09-03)
+    DELETE /api/plans/:id, a terv-kártyán törlés gombbal, megerősítéssel.
+    Csak a SAJÁT sor törölhető — az edzőtől kapott, elfogadott terv is az
+    (az elfogadás másolatot hoz létre a sportoló tervei közé), tehát az is
+    kiszedhető. A terv-lista eddig kizárólag nőni tudott.
 
-[ ] Testsúly-bejegyzést nem lehet törölni vagy visszamenőleg javítani
-    Az addWeightEntry a mai napra felülír (ezért írhatja a varázsló és a
-    részletes űrlap is duplikátum nélkül), de a TEGNAPI elgépeléshez nincs út.
-    MI ROMLIK EL TŐLE: egy 188 kg-os sor a 12 elemű trend-kártya skáláját
-    lapos vonallá nyomja, és a Testsúly Δ statot is elviszi.
+[x] Testsúly-bejegyzést nem lehet törölni vagy visszamenőleg javítani   (2026-09-03)
+    PUT és DELETE /api/weight-log/:id. A Regeneráció oldal trend-kártyája alatt
+    a legutóbbi bejegyzések szerkeszthető listája: az érték helyben javítható,
+    a sor törölhető.
+    A DÁTUM nem adható meg — a javítás nem áthelyezés (ugyanaz az elv, mint a
+    mentett edzésnél). A tartomány (30-300 kg) egy helyen él, mert három
+    végpont méri: a rögzítés, a javítás és a check-in.
 
-[ ] Táplálkozás: csak a seed-katalógusból lehet naplózni
-    A POST /api/nutrition/log elutasít mindent, ami nincs a foods listában
-    („Ismeretlen étel"). Nincs saját étel, nincs kézi makró-bevitel, nincs
-    recept és nincs kedvenc; a mennyiség sem szerkeszthető, csak a tétel
-    törölhető, és az is csak aznap.
-    Egy versenyző étrendje nem fér bele egy fix listába — és amíg nem fér
-    bele, a napi bevitel alulmért marad, ami a készenlét táplálkozás-
-    komponensébe is beszivárog.
+[~] Táplálkozás: csak a seed-katalógusból lehet naplózni
+    AMI MEGVAN: saját étel kézi makrókkal és vonalkód-olvasóval (a main
+    2026-08-27-i munkája), és 2026-09-03 óta a naplózott ADAG is javítható
+    (PUT /api/nutrition/log/:id) — a régebbi napokon is, mert az elgépelt adag
+    ott is alulméri a bevitelt, ami a készenlét táplálkozás-komponensébe is
+    beszivárog. A makrók ARÁNYOSAN számolódnak át a tárolt értékekből, nem a
+    katalógusból: a nutrition_log szándékosan másolatban tárolja őket.
+    AMI NEM: recept és kedvenc. A törlés továbbra is csak az aznapi sorra megy.
 
 [ ] Nincs kardió/állóképesség naplózás
     A workouts.exercises szerkezete szett/ismétlés/kg — idő, táv és pulzus

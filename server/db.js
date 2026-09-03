@@ -1836,6 +1836,24 @@ export function getSnapshot(userId) {
     A testsúlyt a napi check-in kérdi (Regeneráció → check-in varázsló), amit
     a nap folyamán bármikor újra lehet menteni — sima INSERT-tel minden mentés
     új oszlopot rakott volna a trend-diagramra ugyanarról a napról. */
+/** Egy testsúly-bejegyzés javítása. CSAK az értéket — a dátumot nem: a
+    javítás nem áthelyezés (ugyanaz az elv, mint a mentett edzésnél). Idegen
+    sorra nem talál semmit. Visszaadja a frissített sort, vagy null-t. */
+export function updateWeightEntry(userId, id, kg) {
+  const { changes } = db.prepare('UPDATE weight_log SET kg = ? WHERE id = ? AND user_id = ?')
+    .run(kg, id, userId);
+  return changes > 0
+    ? db.prepare('SELECT id, kg, date FROM weight_log WHERE id = ?').get(id)
+    : null;
+}
+
+/** Testsúly-bejegyzés törlése. Egy elgépelt, kiugró érték a 12 elemű
+    trend-kártya skáláját lapos vonallá nyomja, és a Testsúly Δ statot is
+    elviszi — enélkül nem volt út a javításához. */
+export function deleteWeightEntry(userId, id) {
+  return db.prepare('DELETE FROM weight_log WHERE id = ? AND user_id = ?').run(id, userId).changes > 0;
+}
+
 export function addWeightEntry(userId, kg, date) {
   const existing = db.prepare('SELECT id FROM weight_log WHERE user_id = ? AND date = ? ORDER BY id DESC')
     .get(userId, date);
@@ -1874,6 +1892,35 @@ export function addNutritionEntry(userId, food, date, grams = 100) {
     bejegyzés törölhető: a korábbi napok összesítői már beépültek a
     készenlét-számításba, azokat visszamenőleg nem írjuk át. Ismeretlen, nem
     aznapi vagy MÁS FELHASZNÁLÓ id-jére null-t ad — a hívó ebből 404-et képez. */
+/** Egy naplóbejegyzés adagjának javítása.
+ *
+ * A makrókat ARÁNYOSAN számoljuk át a tárolt értékekből, nem az étel-
+ * katalógusból: a nutrition_log szándékosan MÁSOLATBAN tárolja a makrókat
+ * (ezért nem sérti a régi bejegyzéseket, ha egy saját étel később eltűnik).
+ * Ha a katalógusból számolnánk újra, ez az elv törne meg.
+ *
+ * A dátumra NEM szűrünk: a tegnapi elgépelést is javítani kell tudni. A
+ * válasz az ÉRINTETT NAP összesítője, nem a mai — különben a felület egy
+ * másik nap számait frissítené.
+ */
+export function updateNutritionEntry(userId, id, grams) {
+  const row = db.prepare(`SELECT grams, kcal, protein, carbs, fat, date
+                          FROM nutrition_log WHERE id = ? AND user_id = ?`).get(id, userId);
+  if (!row || !(row.grams > 0)) return null;
+
+  const ratio = grams / row.grams;
+  const round1 = (value) => Math.round(value * 10) / 10;
+  db.prepare(`UPDATE nutrition_log
+                 SET grams = ?, kcal = ?, protein = ?, carbs = ?, fat = ?
+               WHERE id = ? AND user_id = ?`)
+    .run(grams, Math.round(row.kcal * ratio), round1(row.protein * ratio),
+         round1(row.carbs * ratio), round1(row.fat * ratio), id, userId);
+
+  return { date: row.date, totals: getNutritionTotals(userId, row.date) };
+}
+
+/** Naplóbejegyzés törlése. A dátumot a hívó adja meg — a mai napló
+    visszavonásához ez elég, és a régebbi napokat véletlenül nem bántja. */
 export function deleteNutritionEntry(userId, id, date) {
   const { changes } = db.prepare('DELETE FROM nutrition_log WHERE id = ? AND user_id = ? AND date = ?')
     .run(id, userId, date);
@@ -2040,6 +2087,13 @@ export function updateWorkout(userId, id, name, exercises) {
 }
 
 /** Edzésterv mentése; visszaadja a létrejött { id, name, date, exercises, days } sort. */
+/** Terv törlése. Csak a SAJÁT sorát törli — idegen id-re false jön, tehát a
+    hívó 404-et képez belőle. Az edzőtől kapott, elfogadott terv a sportoló
+    saját sora (az elfogadás MÁSOLATOT hoz létre), ezért az is törölhető. */
+export function deletePlan(userId, id) {
+  return db.prepare('DELETE FROM plans WHERE id = ? AND user_id = ?').run(id, userId).changes > 0;
+}
+
 export function addPlan(userId, name, date, exercises, days) {
   const { lastInsertRowid } = db
     .prepare('INSERT INTO plans (user_id, name, date, exercises, days) VALUES (?, ?, ?, ?, ?)')

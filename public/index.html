@@ -897,6 +897,11 @@
             <div class="chart-axis" aria-hidden="true"></div>
           </div>
           <p class="rc-weight-last" data-weight-last hidden></p>
+
+          <!-- A bejegyzések javíthatók és törölhetők. Egy elgépelt, kiugró
+               érték a fenti diagram skáláját lapos vonallá nyomja, és a
+               Testsúly Δ statot is elviszi — eddig nem volt út a javításához. -->
+          <ul class="rc-weight-list" data-weight-list></ul>
           <p class="rc-hint" data-weight-empty hidden>Még nincs saját testsúly-bejegyzésed — a
             fenti diagram demo-görbe. A napi check-in megkérdezi a testsúlyodat; az első
             mérés után a saját adataid látszanak itt.</p>
@@ -1645,6 +1650,10 @@
         <span class="nu-log-macros"></span>
       </div>
       <span class="nu-log-kcal"></span>
+      <!-- Adag javítása: az elgépelt mennyiség eddig csak törléssel volt
+           orvosolható, és a napi bevitel addig alulmért maradt. -->
+      <button class="nu-log-edit tap-target" type="button"
+              aria-label="Adag javítása" title="Adag javítása">✎</button>
       <button class="nu-log-remove tap-target" type="button">✕</button>
     </li>
   </template>
@@ -1686,6 +1695,9 @@
       <button class="pl-card-edit tap-target" type="button" hidden>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10.5-10.5a2 2 0 0 0 0-2.8l-1.2-1.2a2 2 0 0 0-2.8 0L4 16v4zm13.8-13.8 1.4 1.4"/></svg>
       </button>
+      <!-- Törlés — a terv-lista eddig kizárólag nőni tudott -->
+      <button class="pl-card-delete tap-target" type="button"
+              aria-label="Terv törlése" title="Terv törlése">✕</button>
       <button class="pl-card-open tap-target" type="button">→</button>
     </li>
   </template>
