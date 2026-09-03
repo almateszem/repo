@@ -169,6 +169,25 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_comments_target
     ON comments(subject_id, target_type, target_id, id);
 
+  -- Testösszetétel: körfogatok és testzsír. A weight_log egyetlen számot tárol,
+  -- de a puszta kilogramm nem mondja meg, MI épült és mi fogyott — egy versenyző
+  -- a mellette futó körfogatot követi.
+  --
+  -- Naponta és mérési helyenként EGY sor (UNIQUE): az aznapi újramérés felülír,
+  -- nem duplikál — ugyanaz az elv, mint a weight_log-nál. A site értékkészletét
+  -- a szerver zárja (MEASUREMENT_SITES), hogy a trend ne essen szét elgépelt
+  -- kulcsokra.
+  CREATE TABLE IF NOT EXISTS body_measurements (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    date    TEXT NOT NULL,        -- "ÉÉÉÉ.HH.NN"
+    site    TEXT NOT NULL,        -- 'chest' | 'arm' | … | 'bodyfat'
+    value   REAL NOT NULL,        -- cm, a 'bodyfat'-nál százalék
+    UNIQUE (user_id, date, site)
+  );
+  CREATE INDEX IF NOT EXISTS idx_measurements_user
+    ON body_measurements(user_id, site, date);
+
   CREATE TABLE IF NOT EXISTS nutrition_goals (
     user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     source     TEXT NOT NULL,        -- 'own' | 'coach'
@@ -1182,6 +1201,34 @@ export function addComment(authorId, subjectId, targetType, targetId, text) {
 export function deleteComment(commentId, authorId) {
   return db.prepare('DELETE FROM comments WHERE id = ? AND author_id = ?')
     .run(commentId, authorId).changes > 0;
+}
+
+/* ---- Testösszetétel (körfogat, testzsír) ---- */
+
+/** Egy fiók mérései, legfrissebb elöl. A felület ebből rajzol trendet és
+    tölti fel az űrlapot a legutóbbi értékekkel. */
+export function getMeasurements(userId) {
+  return db.prepare(`SELECT id, date, site, value FROM body_measurements
+                     WHERE user_id = ? ORDER BY date DESC, id DESC`).all(userId);
+}
+
+/** Mérések mentése egy napra. Helyenként EGY sor van naponta: az aznapi
+    újramérés felülír, nem duplikál. A `values` csak az érintett helyeket
+    tartalmazza — amit nem adtak meg, azt nem bántjuk. */
+export function saveMeasurements(userId, date, values) {
+  const upsert = db.prepare(`
+    INSERT INTO body_measurements (user_id, date, site, value)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(user_id, date, site) DO UPDATE SET value = excluded.value
+  `);
+  for (const [site, value] of Object.entries(values)) upsert.run(userId, date, site, value);
+  return getMeasurements(userId);
+}
+
+/** Egy mérés törlése. Csak a SAJÁT sorát — idegen id-re false jön. */
+export function deleteMeasurement(userId, id) {
+  return db.prepare('DELETE FROM body_measurements WHERE id = ? AND user_id = ?')
+    .run(id, userId).changes > 0;
 }
 
 /* ---- Napi táplálkozási cél ----

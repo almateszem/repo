@@ -128,6 +128,8 @@ test('bejelentkezés nélkül a kapcsolat- és üzenet-végpontok is 401-et adna
     ['GET', '/api/strength-assessment'], ['POST', '/api/strength-assessment'],
     ['DELETE', '/api/plans/1'], ['PUT', '/api/weight-log/1'],
     ['DELETE', '/api/weight-log/1'], ['PUT', '/api/nutrition/log/1'],
+    ['GET', '/api/measurements'], ['GET', '/api/measurements/sites'],
+    ['PUT', '/api/measurements'], ['DELETE', '/api/measurements/1'],
   ];
   for (const [method, urlPath] of endpoints) {
     const res = await request(method, urlPath, { body: method === 'GET' ? undefined : {} });

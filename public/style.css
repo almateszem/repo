@@ -5896,6 +5896,97 @@ details[open] > .rc-details-summary::before {
   gap: var(--sp-4);
 }
 
+/* ---- Testösszetétel (rc-body-*) ---- */
+.rc-body-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+.rc-body-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+  gap: var(--sp-4);
+}
+
+.rc-body-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.rc-body-field label {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.rc-body-field input {
+  width: 100%;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border-card);
+  background: var(--surface-strong);
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.rc-body-field input:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+
+.rc-body-save {
+  align-self: flex-start;
+  border: 0;
+  border-radius: 999px;
+  padding: var(--sp-3) var(--sp-8);
+  background: var(--c-accent);
+  color: #fff;
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rc-body-save:disabled { opacity: .5; cursor: default; }
+
+.rc-body-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  list-style: none;
+  margin-top: var(--sp-5);
+}
+
+.rc-body-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-4);
+  font-size: var(--fs-2xs);
+}
+
+.rc-body-row-label { flex: 1 1 auto; min-width: 0; }
+.rc-body-row-value { font-weight: 600; }
+
+.rc-body-row-delta {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.rc-body-del {
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+  padding: var(--sp-2);
+  border-radius: var(--r-md);
+}
+
+.rc-body-del:hover { color: var(--c-accent); }
+
 /* A napló-adag beépített szerkesztője (a ház nem használ natív ablakot). */
 .nu-log-grams {
   width: 84px;

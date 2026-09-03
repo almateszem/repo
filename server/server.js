@@ -24,6 +24,7 @@ import {
   saveWorkoutFeedback, getAthleteFeedbackSince,
   setDeclaredMax, getDeclaredMaxes,
   deletePlan, updateWeightEntry, deleteWeightEntry, updateNutritionEntry,
+  getMeasurements, saveMeasurements, deleteMeasurement,
   getComments, getCommentsByTarget, addComment, deleteComment,
   calculateEpley1RM, bestCompletedSet, getExerciseMax, getAllExerciseMaxes,
   createUser, getUser, getUserWithHash, hasAnyUser, getUserCreatedAt,
@@ -1650,6 +1651,74 @@ app.get('/api/foods', (req, res) => res.json(getFoodsForUser(req.user.id)));
 app.get('/api/nutrition', (req, res) => res.json(getNutritionTotals(req.user.id, req.today)));
 
 // A MAI naplózott ételek tételesen — a Táplálkozás oldal „Mai napló" listájához
+
+
+/* ---- Testösszetétel: körfogat és testzsír ----
+   A weight_log egyetlen számot tárol, de a puszta kilogramm nem mondja meg,
+   MI épült és mi fogyott — egy versenyző a mellette futó körfogatot követi.
+
+   A mérési helyek értékkészlete ZÁRT: elgépelt kulcsra a trend szétesne. A
+   tartományok bőven megengedőek, csak a nyilvánvalóan hibás bevitelt fogják
+   meg (egy 300 cm-es felkar elgépelés, nem mérés). */
+const MEASUREMENT_SITES = {
+  chest: { label: 'Mell', unit: 'cm', min: 40, max: 200 },
+  arm: { label: 'Felkar', unit: 'cm', min: 15, max: 80 },
+  waist: { label: 'Derék', unit: 'cm', min: 40, max: 200 },
+  hip: { label: 'Csípő', unit: 'cm', min: 40, max: 200 },
+  thigh: { label: 'Comb', unit: 'cm', min: 25, max: 120 },
+  calf: { label: 'Vádli', unit: 'cm', min: 20, max: 80 },
+  bodyfat: { label: 'Testzsír', unit: '%', min: 3, max: 60 },
+};
+
+/** A mérési helyek listája a felületnek — a címkék és a mértékegységek is
+    innen jönnek, hogy a két oldal ne sodródjon szét. */
+app.get('/api/measurements/sites', (req, res) => res.json(
+  Object.entries(MEASUREMENT_SITES).map(([key, site]) => ({ key, ...site })),
+));
+
+app.get('/api/measurements', (req, res) => res.json(getMeasurements(req.user.id)));
+
+/** Mérések mentése a MAI napra. Törzs: { values: { waist: 84, bodyfat: 12.5 } }.
+    Csak az érintett helyeket írjuk — amit nem adtak meg, azt nem bántjuk.
+    Az aznapi újramérés felülír, nem duplikál. */
+app.put('/api/measurements', (req, res) => {
+  const raw = req.body?.values;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return res.status(400).json({ error: 'Adj meg legalább egy mérést.' });
+  }
+
+  const values = {};
+  for (const [site, input] of Object.entries(raw)) {
+    const spec = MEASUREMENT_SITES[site];
+    if (!spec) return res.status(400).json({ error: `Ismeretlen mérési hely: ${site}` });
+    // Az üres mező nem törlés — a felület azt hagyja ki, amit nem mértek.
+    if (input === null || input === undefined || input === '') continue;
+    const value = Number(input);
+    if (!Number.isFinite(value) || value < spec.min || value > spec.max) {
+      return res.status(400).json({
+        error: `${spec.label}: ${spec.min} és ${spec.max} ${spec.unit} között adható meg.`,
+      });
+    }
+    values[site] = Math.round(value * 10) / 10;
+  }
+  if (Object.keys(values).length === 0) {
+    return res.status(400).json({ error: 'Adj meg legalább egy mérést.' });
+  }
+
+  res.json(saveMeasurements(req.user.id, req.today, values));
+});
+
+/** Egy mérés törlése — az elgépelt sor a trendet is elviszi. */
+app.delete('/api/measurements/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: 'Érvénytelen azonosító.' });
+  }
+  if (!deleteMeasurement(req.user.id, id)) {
+    return res.status(404).json({ error: 'Nincs ilyen mérésed.' });
+  }
+  res.status(204).end();
+});
 
 /* ---- Napi táplálkozási cél ----
    Korábban EGY fix érték szolgálta ki az összes fiókot (data.js →

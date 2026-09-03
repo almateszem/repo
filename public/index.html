@@ -907,6 +907,22 @@
             mérés után a saját adataid látszanak itt.</p>
         </section>
 
+        <!-- Testösszetétel. A testsúly egyetlen szám — nem mondja meg, MI épült
+             és mi fogyott. A mezők a legutóbbi mérésből töltődnek; az üresen
+             hagyott hely nem törlés, csak „most nem mértem". -->
+        <section class="rc-card rc-body" aria-labelledby="title-rc-body">
+          <h3 class="rc-section-title" id="title-rc-body">Testösszetétel</h3>
+
+          <form class="rc-body-form" data-form="measurements">
+            <div class="rc-body-fields" data-body-fields></div>
+            <button class="rc-body-save" type="submit">Mérés mentése</button>
+          </form>
+
+          <p class="rc-hint" data-body-empty hidden>Még nincs mérésed. A körfogat
+            mellett a testsúly is beszédesebb: együtt megmondják, mi épült és mi fogyott.</p>
+          <ul class="rc-body-list" data-body-list></ul>
+        </section>
+
         <!-- Komponens-bontás: miből jött ki a pontszám -->
         <section class="rc-card" aria-labelledby="title-rc-components">
           <h3 class="rc-section-title" id="title-rc-components">Miből jön a pontszám</h3>
