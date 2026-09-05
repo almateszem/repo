@@ -8,7 +8,7 @@
   <title>FitTrack Pro</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💪</text></svg>">
   <link rel="stylesheet" href="style.css">
-  <script src="script.js" defer></script>
+  <script type="module" src="js/main.js"></script>
 </head>
 <body>
 
@@ -19,7 +19,7 @@
          az a profiloldalra visz, az értesítéseknek saját gombja (és ikonja) van. -->
     <symbol id="icon-bell" viewBox="0 0 24 24"><path d="M12 2.2a1.4 1.4 0 0 1 1.4 1.4v.7a6 6 0 0 1 4.6 5.8v3.3l1.6 2.6a.9.9 0 0 1-.8 1.4H5.2a.9.9 0 0 1-.8-1.4L6 13.4v-3.3a6 6 0 0 1 4.6-5.8v-.7A1.4 1.4 0 0 1 12 2.2zm0 19.6a2.6 2.6 0 0 1-2.5-1.9h5a2.6 2.6 0 0 1-2.5 1.9z"/></symbol>
 
-    <!-- Oldal-ikonok a nav gyűrű gombjához (lásd script.js → PAGE_ICONS).
+    <!-- Oldal-ikonok a nav gyűrű gombjához (lásd js/nav/router.js → PAGE_ICONS).
          Az Edző oldal a fenti #icon-user-t használja, nincs külön szimbóluma. -->
     <symbol id="icon-page-dashboard" viewBox="0 0 24 24"><path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z"/></symbol>
     <symbol id="icon-page-recovery" viewBox="0 0 24 24"><path d="M12 21s-8-4.9-8-10.2A4.8 4.8 0 0 1 12 7.4a4.8 4.8 0 0 1 8 3.4C20 16.1 12 21 12 21z"/></symbol>
@@ -35,7 +35,7 @@
   <a class="skip-link" href="#app-main">Ugrás a tartalomhoz</a>
 
   <!-- ================================================================
-       Belépő képernyő (au-*). A script.js nyitja, ha nincs érvényes
+       Belépő képernyő (au-*). A frontend nyitja, ha nincs érvényes
        munkamenet, és bezárja belépés/regisztráció után. Amíg nyitva van,
        a mögötte lévő app nem kap adatot — minden /api/* végpont 401-et ad.
        Alapból REJTETT: bejelentkezve senki ne lássa felvillanni.
@@ -126,7 +126,7 @@
             </button>
           </div>
 
-          <!-- Értesítés-panel (a harangra kattintva nyílik, a script.js tölti fel) -->
+          <!-- Értesítés-panel (a harangra kattintva nyílik, a frontend tölti fel) -->
           <div class="notif-panel" data-notif-panel aria-label="Értesítések" hidden>
             <div class="notif-head">
               <span class="notif-title">Értesítések</span>
@@ -221,7 +221,7 @@
 
       <!-- ================================================================
            Profil (pf-*) — az áttekintő avatarja nyitja. A fiók adatai és az
-           eddigi teljesítmény összesítése; a tartalmát a script.js tölti fel
+           eddigi teljesítmény összesítése; a tartalmát a frontend tölti fel
            a GET /api/profile válaszából. A beállítások továbbra is a
            fogaskerék-modalban laknak, ide csak egy gomb vezet.
            ================================================================ -->
@@ -239,7 +239,7 @@
           </div>
         </header>
 
-        <!-- A négy összesítő. A számokat a script.js írja be; a 0 nem
+        <!-- A négy összesítő. A számokat a frontend írja be; a 0 nem
              placeholder, hanem érvényes érték (új fióknál ez a helyes). -->
         <section class="pf-stats" aria-labelledby="pf-title-stats">
           <h3 class="pf-section-title" id="pf-title-stats">Összesítés</h3>
@@ -264,7 +264,7 @@
         </section>
 
         <!-- Sorok, amiknek nincs mindig értelmes értékük (nulla edzés, egyetlen
-             testsúly-mérés) — a script.js egyenként rejti el őket. -->
+             testsúly-mérés) — a frontend egyenként rejti el őket. -->
         <section class="pf-facts" aria-labelledby="pf-title-facts">
           <h3 class="pf-section-title" id="pf-title-facts">Részletek</h3>
           <dl class="pf-fact-list">
@@ -286,6 +286,42 @@
           </p>
         </section>
 
+        <!-- Erőfelmérés. A friss fiók enélkül hetekig nem kap
+             gyakorlat-ajánlást: a naplózott út három alkalmat kér. A bemondott
+             érték NEM mérés — a felület ezt ki is mondja, és a naplózott
+             csúcsot nem írja felül. -->
+        <section class="pf-assess" aria-labelledby="pf-title-assess">
+          <h3 class="pf-section-title" id="pf-title-assess">Erőfelmérés</h3>
+          <p class="pf-assess-lead">Mondd meg, mit tudsz egy-két gyakorlatban — a rendszer
+            ebből azonnal tud ajánlani, nem kell megvárnod pár hét naplózást.</p>
+
+          <ul class="pf-assess-list" data-pf-assess-list></ul>
+          <p class="pf-assess-empty" data-pf-assess-empty hidden>Még nincs felmérésed.</p>
+
+          <form class="pf-assess-form" data-form="strength-assessment">
+            <div class="pf-assess-field pf-assess-field--wide">
+              <label for="pf-assess-exercise">Gyakorlat</label>
+              <input id="pf-assess-exercise" list="pf-assess-options" type="text"
+                     placeholder="pl. Fekvenyomás" autocomplete="off" required>
+              <datalist id="pf-assess-options"></datalist>
+            </div>
+            <div class="pf-assess-field">
+              <label for="pf-assess-weight">Súly (kg)</label>
+              <input id="pf-assess-weight" type="number" inputmode="decimal"
+                     min="1" max="500" step="2.5" required autocomplete="off">
+            </div>
+            <div class="pf-assess-field">
+              <label for="pf-assess-reps">Ismétlés</label>
+              <input id="pf-assess-reps" type="number" inputmode="numeric"
+                     min="1" max="30" step="1" required autocomplete="off">
+            </div>
+            <button class="pf-assess-save" type="submit">Hozzáadom</button>
+          </form>
+
+          <p class="pf-assess-note">A bemondott szám nem mérés: viszonyítási alapnak
+            használjuk, és a naplózott edzésed felülírja.</p>
+        </section>
+
         <div class="pf-actions">
           <button class="pf-action" type="button" data-action="settings">Beállítások</button>
           <button class="pf-action pf-action--danger" type="button" data-action="logout">Kijelentkezés</button>
@@ -294,7 +330,7 @@
 
       <!-- ================================================================
            Workout Logger + Technique Video Log — edzésnapló
-           (a gyakorlatkártyákat a script.js tölti fel az API-ból)
+           (a gyakorlatkártyákat a frontend tölti fel az API-ból)
            ================================================================ -->
       <section class="app-page wk-page" data-page="workout" aria-labelledby="title-workout" hidden>
         <h2 class="sr-only" id="title-workout">Edzésnapló</h2>
@@ -409,7 +445,7 @@
            Exercise Picker — gyakorlat hozzáadása (flow-oldal)
            A terv-építő „+ Gyakorlat hozzáadása" gombja hozza be; a hash-router
            ismeri, de a nav gyűrűben és a gyorsbillentyűk között nincs — a ←
-           gomb visz vissza a terv-építőhöz. A katalógust a script.js tölti
+           gomb visz vissza a terv-építőhöz. A katalógust a frontend tölti
            fel az API-ból, a kereső és a chipek élőben szűrnek.
            ================================================================ -->
       <section class="app-page ep-page" data-page="exercise-picker" aria-labelledby="title-picker" hidden>
@@ -441,7 +477,7 @@
 
       <!-- ================================================================
            Nutrition Tracker — táplálkozás
-           (az étel-listát a script.js tölti fel, a kereső élőben szűr)
+           (az étel-listát a frontend tölti fel, a kereső élőben szűr)
            ================================================================ -->
       <section class="app-page nu-page" data-page="nutrition" aria-labelledby="title-nutrition" hidden>
         <h2 class="sr-only" id="title-nutrition">Táplálkozás</h2>
@@ -464,7 +500,39 @@
           <div class="nu-macro"><span class="nu-macro-label">Zsír</span><span class="nu-macro-value"><span data-stat="fat"></span><span class="nu-macro-unit">g</span></span></div>
         </div>
 
-        <p class="nu-coach-goal"><strong>Edző célja:</strong> <span data-nu-goal-text></span></p>
+        <!-- Napi cél. Két forrás lehet: amit az EDZŐ tűzött ki, és amit te
+             magad állítottál be. A sajátod az erősebb, de az edzőé megmarad,
+             és ha eltérsz tőle, azt kiírjuk — a néma felülírás mindkét
+             irányban rossz volna. -->
+        <section class="nu-goal" aria-labelledby="nu-goal-title">
+          <div class="nu-goal-head">
+            <h3 class="nu-goal-title" id="nu-goal-title">Napi cél</h3>
+            <button class="nu-goal-edit" type="button" data-action="edit-goal"
+                    aria-expanded="false">Módosítom</button>
+          </div>
+
+          <p class="nu-goal-value" data-nu-goal-value></p>
+          <p class="nu-goal-source" data-nu-goal-source></p>
+
+          <p class="nu-goal-diff" data-nu-goal-diff hidden>
+            <span data-nu-goal-diff-text></span>
+            <button class="nu-goal-revert" type="button" data-action="revert-goal">Visszaállok rá</button>
+          </p>
+
+          <form class="nu-goal-form" data-form="nutrition-goal" hidden>
+            <div class="nu-goal-field">
+              <label for="nu-goal-calories">Kalória</label>
+              <input id="nu-goal-calories" type="number" inputmode="numeric"
+                     min="500" max="10000" step="10" required autocomplete="off">
+            </div>
+            <div class="nu-goal-field">
+              <label for="nu-goal-protein">Fehérje (g)</label>
+              <input id="nu-goal-protein" type="number" inputmode="numeric"
+                     min="0" max="500" step="5" required autocomplete="off">
+            </div>
+            <button class="nu-goal-save" type="submit">Mentés</button>
+          </form>
+        </section>
 
         <!-- Mai napló — a ténylegesen naplózott tételek, törlés-lehetőséggel.
              Enélkül a felület csak összesített, és egy téves koppintás
@@ -506,7 +574,7 @@
 
       <!-- ================================================================
            Plans — kiosztott edzéstervek
-           (a kártyákat a script.js tölti fel az API-ból)
+           (a kártyákat a frontend tölti fel az API-ból)
            ================================================================ -->
       <section class="app-page pl-page" data-page="plans" aria-labelledby="title-plans" hidden>
         <header class="pl-header">
@@ -524,7 +592,7 @@
            (kliens nézet: az edződdel váltott üzenetek; edzői nézet: a
            sportolóid, akiket felhasználónévvel hívtál meg és elfogadták.
            Mindkét nézet mindig elérhető: bárki lehet edző is, sportoló is —
-           a tartalmat a script.js tölti a /api/coach és /api/athletes
+           a tartalmat a frontend tölti a /api/coach és /api/athletes
            végpontokból.)
            ================================================================ -->
       <section class="app-page co-page" data-page="coach" aria-labelledby="title-coach" hidden>
@@ -578,7 +646,7 @@
             és a meghívó itt fog megjelenni — elfogadásig semmit nem lát az adataidból.</p>
         </div>
 
-        <!-- Edzői nézet: sportoló-menedzser (script.js tölti fel) -->
+        <!-- Edzői nézet: sportoló-menedzser (js/render/coach.js tölti fel) -->
         <div class="co-view" data-view="manager" hidden>
           <header class="co-header">
             <h3 class="co-title">Edzői panel</h3>
@@ -597,7 +665,7 @@
           <p class="co-invite-lead" data-sent-lead hidden>Kiküldött meghívók — elfogadásra várnak.</p>
           <ul class="co-invite-list" data-list="sent-invites" aria-label="Kiküldött meghívók"></ul>
 
-          <!-- Állapot-sáv: riasztás-összegzés vagy "minden rendben" (script.js tölti fel) -->
+          <!-- Állapot-sáv: riasztás-összegzés vagy "minden rendben" (js/render/coach.js tölti fel) -->
           <section class="co-banner" data-banner aria-live="polite" aria-label="Sportolók állapota">
             <div class="co-banner-head">
               <span class="co-banner-icon" aria-hidden="true"></span>
@@ -618,7 +686,7 @@
       <!-- ================================================================
            Edzés-összegző — az „Edzés befejezése" gomb célja (#summary).
            Flow-oldal: nincs a side-navban, a nav gyűrűn és a gyors-
-           billentyűk között sem; az értékeit a script.js számolja az
+           billentyűk között sem; az értékeit a frontend számolja az
            edzésnapló élő DOM-állapotából.
            ================================================================ -->
       <section class="app-page su-page" data-page="summary" aria-labelledby="title-summary" hidden>
@@ -643,6 +711,44 @@
             <span class="su-stat-label">Időtartam</span>
           </div>
         </div>
+
+        <!-- Edzés utáni visszajelzés az edzőnek. Csak akkor látszik, ha az
+             edzés MOST zárult le (van mentett azonosító) ÉS van edződ —
+             magadnak visszajelzést küldeni értelmetlen volna. A nehézség és a
+             közérzet strukturált mező (1-5), a megjegyzés szabad szöveg. -->
+        <section class="su-feedback" data-su-feedback hidden aria-labelledby="su-feedback-title">
+          <h3 class="su-feedback-title" id="su-feedback-title">Hogy ment?</h3>
+          <p class="su-feedback-lead" data-su-feedback-lead>Az edződ ezt látni fogja.</p>
+
+          <form class="su-feedback-form" data-form="workout-feedback">
+            <div class="su-feedback-scales" data-su-feedback-scales></div>
+
+            <label class="sr-only" for="su-feedback-note">Megjegyzés az edzőnek</label>
+            <textarea class="su-feedback-note" id="su-feedback-note" rows="2" maxlength="500"
+                      placeholder="Bármi, amit érdemes tudnia (nem kötelező)…"></textarea>
+
+            <button class="su-feedback-send" type="submit">Visszajelzés küldése</button>
+          </form>
+
+          <p class="su-feedback-done" data-su-feedback-done hidden>Elküldve ✓ — az edződ látja.</p>
+        </section>
+
+        <!-- Megjegyzés egy gyakorlathoz. A komment a MENTETT edzés adott
+             gyakorlatára mutat ("edzésId:index"), ezért csak frissen lezárt
+             edzésnél van értelme. Edző nélkül is hasznos: a saját naplód
+             része marad. -->
+        <section class="su-note" data-su-note hidden aria-labelledby="su-note-title">
+          <h3 class="su-feedback-title" id="su-note-title">Megjegyzés egy gyakorlathoz</h3>
+          <form class="su-note-form" data-form="exercise-note">
+            <label class="sr-only" for="su-note-exercise">Melyik gyakorlathoz?</label>
+            <select class="su-note-select" id="su-note-exercise"></select>
+            <label class="sr-only" for="su-note-text">A megjegyzés szövege</label>
+            <input class="su-note-text" id="su-note-text" type="text" maxlength="1000"
+                   placeholder="Pl. fájt a vállam a 3. szettnél…" autocomplete="off">
+            <button class="su-feedback-send" type="submit">Hozzáfűzöm</button>
+          </form>
+          <ul class="su-note-list" data-su-note-list></ul>
+        </section>
 
         <div class="su-actions">
           <button class="su-cta" type="button" data-action="summary-dashboard">
@@ -696,7 +802,7 @@
              · a lenti „Részletes szerkesztés" a teljes űrlap, ezekkel együtt.
              Mindkettő a PUT /api/checkin-re megy; a varázsló a nem kérdezett
              mezőket változatlanul visszaküldi (lásd a `carried` kommentjét a
-             script.js-ben), hogy ne írja felül, amit itt adtál meg. -->
+             a frontendben), hogy ne írja felül, amit itt adtál meg. -->
         <a class="db-checkin-cta rc-checkin-cta" href="#checkin" data-rc-checkin-cta>
           <span class="db-checkin-cta-text">
             <span class="db-checkin-cta-title" data-rc-checkin-cta-title>Napi check-in kitöltése</span>
@@ -728,7 +834,7 @@
               <span class="rc-field-unit">óra</span>
             </div>
 
-            <!-- Az 1–5 skálákat a script.js építi fel chip-csoportként (a terv-
+            <!-- Az 1–5 skálákat a frontend építi fel chip-csoportként (a terv-
                  építő nap-chipjeivel azonos aria-pressed mintával). -->
             <div class="rc-scales" data-list="checkin-scales"></div>
 
@@ -744,7 +850,7 @@
                 érintett izomcsoportot terhelő gyakorlatokat.</p>
               <div class="rc-pain-inputs" data-list="checkin-pain"></div>
 
-              <!-- A közérzet-skálát a script.js SZÚRJA BE közvetlenül e blokk
+              <!-- A közérzet-skálát a frontend SZÚRJA BE közvetlenül e blokk
                    elé (setupRecovery) — az .rc-extra-fields osztály ezért nem
                    nevezhető át. -->
               <div class="rc-extra-fields">
@@ -791,9 +897,30 @@
             <div class="chart-axis" aria-hidden="true"></div>
           </div>
           <p class="rc-weight-last" data-weight-last hidden></p>
+
+          <!-- A bejegyzések javíthatók és törölhetők. Egy elgépelt, kiugró
+               érték a fenti diagram skáláját lapos vonallá nyomja, és a
+               Testsúly Δ statot is elviszi — eddig nem volt út a javításához. -->
+          <ul class="rc-weight-list" data-weight-list></ul>
           <p class="rc-hint" data-weight-empty hidden>Még nincs saját testsúly-bejegyzésed — a
             fenti diagram demo-görbe. A napi check-in megkérdezi a testsúlyodat; az első
             mérés után a saját adataid látszanak itt.</p>
+        </section>
+
+        <!-- Testösszetétel. A testsúly egyetlen szám — nem mondja meg, MI épült
+             és mi fogyott. A mezők a legutóbbi mérésből töltődnek; az üresen
+             hagyott hely nem törlés, csak „most nem mértem". -->
+        <section class="rc-card rc-body" aria-labelledby="title-rc-body">
+          <h3 class="rc-section-title" id="title-rc-body">Testösszetétel</h3>
+
+          <form class="rc-body-form" data-form="measurements">
+            <div class="rc-body-fields" data-body-fields></div>
+            <button class="rc-body-save" type="submit">Mérés mentése</button>
+          </form>
+
+          <p class="rc-hint" data-body-empty hidden>Még nincs mérésed. A körfogat
+            mellett a testsúly is beszédesebb: együtt megmondják, mi épült és mi fogyott.</p>
+          <ul class="rc-body-list" data-body-list></ul>
         </section>
 
         <!-- Komponens-bontás: miből jött ki a pontszám -->
@@ -835,7 +962,7 @@
            Egy kérdés / egy képernyő. A hash-router ismeri, de a nav gyűrűben
            és a gyorsbillentyűk között nincs: az áttekintő check-in
            emlékeztetője és a Regeneráció oldal gombja hozza ide.
-           A lépések törzsét a script.js rendereli a lap alján lévő tpl-ci-*
+           A lépések törzsét a frontend rendereli a lap alján lévő tpl-ci-*
            sablonokból — itt csak a keret statikus.
            A varázsló szándékosan nem kérdez közérzetet és folyadékot; azok a
            Regeneráció oldal részletes űrlapján maradnak. A napi testsúly
@@ -855,7 +982,7 @@
           <span class="ci-step-label" data-ci-step-label aria-hidden="true"></span>
         </header>
 
-        <!-- A data-step attribútum kulcsolja a lépés-animációt: a script.js
+        <!-- A data-step attribútum kulcsolja a lépés-animációt: a frontend
              minden váltáskor újraírja, ezért a keyframe újraindul. -->
         <div class="ci-body" data-ci-body data-step=""></div>
 
@@ -912,7 +1039,7 @@
 
   <!-- ================================================================
        Gyakorlat rekord-előzmény modal (a "Korábbi rekordok" listaelemre
-       kattintva nyílik, a tartalmát a script.js tölti fel)
+       kattintva nyílik, a tartalmát a frontend tölti fel)
        ================================================================ -->
   <div class="pr-modal" id="prModal" aria-hidden="true">
     <div class="pr-modal-backdrop" data-close-modal></div>
@@ -1016,7 +1143,7 @@
 
   <!-- ================================================================
        Sportoló részletmodál (az edzői panel kártyái nyitják,
-       a tartalmát a script.js tölti fel az aktuális sportoló adataiból)
+       a tartalmát a frontend tölti fel az aktuális sportoló adataiból)
        ================================================================ -->
   <div class="athlete-modal" id="athleteModal" aria-hidden="true">
     <div class="athlete-modal-backdrop" data-close-modal></div>
@@ -1038,6 +1165,45 @@
       <p class="co-modal-alert" data-modal-alert hidden></p>
 
       <dl class="co-modal-stats" data-modal-stats></dl>
+
+      <!-- A sportoló gyakorlat-megjegyzései, feloldott gyakorlatnévvel (a nyers
+           "edzésId:index" célból az edző semmit nem tudna kiolvasni). Minden
+           sorra lehet válaszolni — ugyanabba a szálba, más szerzővel. -->
+      <section class="co-modal-notes" data-modal-notes hidden aria-labelledby="co-modal-notes-title">
+        <h4 class="co-modal-section-title" id="co-modal-notes-title">Megjegyzések gyakorlatokhoz</h4>
+        <ul class="co-note-list" data-modal-note-list></ul>
+      </section>
+
+      <!-- Napi táplálkozási cél kitűzése a sportolónak. A sportoló saját
+           célját ez NEM törli: ha ő állított be egyet, az marad érvényben, és
+           ő látja, hogy eltért az edzőitől. Némán nem írjuk felül. -->
+      <!-- A sportoló LEGUTÓBBI edzés utáni visszajelzése. Ez az egyetlen hely,
+           ahol nem számított adat áll: azt mutatja, hogyan ÉLTE MEG az edzést.
+           Ha még nem küldött, a blokk nem látszik — üres kerettel nem
+           sugalljuk, hogy van mit nézni. -->
+      <section class="co-modal-feedback" data-modal-feedback hidden aria-labelledby="co-modal-feedback-title">
+        <h4 class="co-modal-section-title" id="co-modal-feedback-title">Visszajelzés az edzésről</h4>
+        <p class="co-feedback-meta" data-feedback-meta></p>
+        <p class="co-feedback-note" data-feedback-note hidden></p>
+      </section>
+
+      <section class="co-modal-goal" aria-labelledby="co-modal-goal-title">
+        <h4 class="co-modal-section-title" id="co-modal-goal-title">Napi táplálkozási cél</h4>
+        <p class="co-goal-state" data-modal-goal-state></p>
+        <form class="co-goal-form" data-form="athlete-nutrition-goal">
+          <div class="nu-goal-field">
+            <label for="co-goal-calories">Kalória</label>
+            <input id="co-goal-calories" type="number" inputmode="numeric"
+                   min="500" max="10000" step="10" required autocomplete="off">
+          </div>
+          <div class="nu-goal-field">
+            <label for="co-goal-protein">Fehérje (g)</label>
+            <input id="co-goal-protein" type="number" inputmode="numeric"
+                   min="0" max="500" step="5" required autocomplete="off">
+          </div>
+          <button class="nu-goal-save" type="submit">Kitűzöm</button>
+        </form>
+      </section>
 
       <section class="co-modal-activity" aria-labelledby="co-modal-activity-title">
         <h4 class="co-modal-section-title" id="co-modal-activity-title">Legutóbbi aktivitás</h4>
@@ -1116,7 +1282,7 @@
         <div class="cf-row">
           <div class="cf-field">
             <label class="cf-label" for="cf-group">Kategória</label>
-            <!-- Az opciókat a script.js tölti fel az étel-lista csoportjaiból -->
+            <!-- Az opciókat a frontend tölti fel az étel-lista csoportjaiból -->
             <select class="cf-input cf-select" id="cf-group" name="group">
               <option value="">— nincs megadva —</option>
             </select>
@@ -1233,7 +1399,7 @@
        Étel részlet-modál (fd-*) — a Táplálkozás oldal étel-kártyáin lévő
        nyíl nyitja. Itt választható meg az adag (görgethető gramm-választó
        + gyorsgombok), a makrók és a napi célhoz mért hatás élőben követi.
-       A tartalmát a script.js tölti fel a kiválasztott ételből.
+       A tartalmát a frontend tölti fel a kiválasztott ételből.
        ================================================================ -->
   <div class="food-modal" id="foodModal" aria-hidden="true">
     <div class="food-modal-backdrop" data-close-modal></div>
@@ -1262,7 +1428,7 @@
             <span class="fd-macro-value"><span data-fd-kcal>0</span><span class="fd-macro-unit">kcal</span></span>
             <span class="fd-macro-label">Kalória</span>
           </div>
-          <!-- Az egység ételfüggő (g vagy ml) — a script.js írja bele. -->
+          <!-- Az egység ételfüggő (g vagy ml) — a frontend írja bele. -->
           <p class="fd-portion"><span data-fd-portion>100</span> <span data-fd-unit>g</span> adag</p>
         </div>
       </div>
@@ -1330,6 +1496,23 @@
        A natív window.confirm helyett: az app saját design-nyelvén szólal
        meg, és a fókuszkezelése a többi modáléval azonos.
        ================================================================ -->
+  <div class="confirm-modal advice-modal" id="adviceModal" aria-hidden="true">
+    <div class="confirm-modal-backdrop" data-close-modal></div>
+    <div class="confirm-modal-card" role="alertdialog" aria-modal="true"
+         aria-labelledby="adviceModalTitle" aria-describedby="adviceModalText">
+      <div class="confirm-modal-head">
+        <h3 id="adviceModalTitle">A mai készenléted alapján</h3>
+        <button class="confirm-modal-close tap-target" type="button" data-close-modal aria-label="Bezárás">✕</button>
+      </div>
+      <p class="confirm-modal-text" id="adviceModalText"></p>
+      <ul class="ad-list" data-advice-list></ul>
+      <p class="ad-note">A terved nem változik — csak a mai naplód. Bármikor visszaírhatod kézzel.</p>
+      <div class="confirm-modal-actions">
+        <button class="confirm-cancel" type="button" data-advice-decline>Most nem</button>
+        <button class="confirm-ok" type="button" data-advice-accept>Elfogadom</button>
+      </div>
+    </div>
+
   <div class="confirm-modal" id="confirmModal" aria-hidden="true">
     <div class="confirm-modal-backdrop" data-close-modal></div>
     <div class="confirm-modal-card" role="alertdialog" aria-modal="true"
@@ -1346,7 +1529,7 @@
     </div>
   </div>
 
-  <!-- Toast notifications (a script.js tölti fel) -->
+  <!-- Toast notifications (a frontend tölti fel) -->
   <div class="toast-region" role="status" aria-live="polite"></div>
 
   <!-- Hibabejelentő élő régió. A hibaüzenet vizuálisan a fenti toast-stackben
@@ -1357,7 +1540,7 @@
   <div class="sr-only" role="alert" aria-live="assertive" data-error-announcer></div>
 
   <!-- ================================================================
-       Templates — ismétlődő listaelemek markupja (a script.js klónozza)
+       Templates — ismétlődő listaelemek markupja (a frontend klónozza)
        ================================================================ -->
   <template id="tpl-exercise">
     <article class="wk-exercise">
@@ -1411,14 +1594,14 @@
   <!-- Szám-mezők: az ismétlés és a súly léptetőgombokat is kap (a lépésköz az
        input step attribútumából jön: 1 ism., ill. 2.5 kg = a legkisebb tárcsa-
        pár), az RPE elfér sima mezőként: 1–10 közé írható (fél fokozatokkal),
-       üresen hagyható, és a script.js a beírt értéket is ebbe a tartományba
+       üresen hagyható, és a frontend a beírt értéket is ebbe a tartományba
        szorítja. A léptetők tabindex=-1-esek: a mezőben a fel/le nyíl natívan
        ugyanezt csinálja, így a Tab-sorrend rövid marad. -->
   <template id="tpl-set-row">
     <div class="wk-set-row">
       <!-- A sorszám egyben a szett típusának választója (bemelegítő /
            munkasorozat / drop set) — ugyanaz a saját lenyíló minta, mint a
-           gyakorlatok sorrendjénél (enableSetTypeSelect a script.js-ben). A
+           gyakorlatok sorrendjénél (enableSetTypeSelect — js/render/sets.js). A
            gomb felirata a sorszám marad, a típust a színe és az aria-label
            mondja meg; a lenyíló opcióit a script tölti fel. -->
       <div class="wk-set-type">
@@ -1448,7 +1631,7 @@
   <template id="tpl-picker-item">
     <article class="ep-item">
       <!-- Illusztráció: alapban az álló thumbnail, rámutatásra/fókuszra az
-           animált gif (a script.js cseréli a src-t). Dekoratív, ezért alt=""
+           animált gif (a frontend cseréli a src-t). Dekoratív, ezért alt=""
            — a gyakorlatot a mellette lévő név azonosítja. A katalógus nagy,
            ezért loading="lazy": a böngésző csak a látható kártyák képét tölti.
            Ha a média nincs letöltve (npm run exdb:media), a kép elrejti magát. -->
@@ -1483,6 +1666,10 @@
         <span class="nu-log-macros"></span>
       </div>
       <span class="nu-log-kcal"></span>
+      <!-- Adag javítása: az elgépelt mennyiség eddig csak törléssel volt
+           orvosolható, és a napi bevitel addig alulmért maradt. -->
+      <button class="nu-log-edit tap-target" type="button"
+              aria-label="Adag javítása" title="Adag javítása">✎</button>
       <button class="nu-log-remove tap-target" type="button">✕</button>
     </li>
   </template>
@@ -1514,6 +1701,8 @@
       <div class="pl-card-info">
         <span class="pl-card-name"></span>
         <span class="pl-card-meta"></span>
+        <!-- A mai készenlét figyelmeztetése (tiltott / óvatos gyakorlatok) -->
+        <span class="pl-card-safety" hidden></span>
         <div class="pl-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100">
           <span class="pl-progress-fill"></span>
         </div>
@@ -1522,6 +1711,9 @@
       <button class="pl-card-edit tap-target" type="button" hidden>
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l10.5-10.5a2 2 0 0 0 0-2.8l-1.2-1.2a2 2 0 0 0-2.8 0L4 16v4zm13.8-13.8 1.4 1.4"/></svg>
       </button>
+      <!-- Törlés — a terv-lista eddig kizárólag nőni tudott -->
+      <button class="pl-card-delete tap-target" type="button"
+              aria-label="Terv törlése" title="Terv törlése">✕</button>
       <button class="pl-card-open tap-target" type="button">→</button>
     </li>
   </template>
@@ -1546,7 +1738,7 @@
       </span>
       <span class="co-card-name"></span>
       <span class="co-card-stats"></span>
-      <!-- A szál utolsó üzenete idézve (a szerver küldi, script.js tölti fel) -->
+      <!-- A szál utolsó üzenete idézve (a szerver küldi, js/ui/chat.js tölti fel) -->
       <span class="co-card-msg" hidden></span>
     </button>
   </template>
@@ -1583,6 +1775,16 @@
   <!-- Egy 0–5 vagy 1–5 skála chip-csoportként. A választott érték az
        aria-pressed attribútumban él (ugyanaz a minta, mint a terv-építő
        nap-chipjeinél) — nincs külön állapot a DOM mellett. -->
+  <template id="tpl-advice-item">
+    <li class="ad-item">
+      <span class="ad-item-action"></span>
+      <span class="ad-item-body">
+        <span class="ad-item-name"></span>
+        <span class="ad-item-detail"></span>
+      </span>
+    </li>
+  </template>
+
   <template id="tpl-scale">
     <div class="rc-scale">
       <span class="rc-scale-label field-label"></span>
@@ -1623,6 +1825,9 @@
         <span class="rc-lift-score"></span>
       </div>
       <p class="rc-lift-text"></p>
+      <!-- Mire épül a szám: naplózott alkalmakra, vagy csak a bemondott
+           erőfelmérésre. A bemondás nem mérés — ezt ki kell mondani. -->
+      <p class="rc-lift-basis" data-lift-basis hidden></p>
       <div class="rc-lift-deltas">
         <span class="rc-lift-delta"><span class="rc-lift-delta-label">Súly</span><span data-lift-load></span></span>
         <span class="rc-lift-delta"><span class="rc-lift-delta-label">Volumen</span><span data-lift-volume></span></span>
@@ -1633,7 +1838,7 @@
   <!-- ====================================================================
        Napi check-in varázsló sablonjai (#checkin)
        Az egyszer előforduló szöveg itt él (mint minden más oldal szövege);
-       a példányonként változó szöveg a script.js egyetlen tábláiban
+       a példányonként változó szöveg a frontend egyetlen tábláiban
        (CHECKIN_SCALES, CI_GATES, CI_MAP_MODES) — így a variánsok egymás
        mellett olvashatók, nem majdnem-egyforma HTML-blokkokban.
        ==================================================================== -->
@@ -1656,7 +1861,7 @@
   </template>
 
   <!-- Alvás. A ± léptető a megosztott .wk-num primitív, hogy a min/max/step
-       kezelése egy helyen maradjon (handleStepClick a script.js-ben).
+       kezelése egy helyen maradjon (handleStepClick — js/render/sets.js).
        A .ci-num-* osztályok a nagy szám-beviteli lépések közös receptje —
        az alvás és a testsúly lépés is ezt használja. -->
   <template id="tpl-ci-sleep">
@@ -1690,7 +1895,7 @@
   <!-- Napi testsúly. A dashboard külön rögzítő űrlapja helyett ez a lépés írja
        a testsúly-naplót (a PUT /api/checkin weightKg mezőjén keresztül).
        Kihagyható: üres mező = ma nem mértél, ilyenkor nem születik bejegyzés.
-       A gyorsgombokat és a legutóbbi mérés sorát a script.js tölti fel. -->
+       A gyorsgombokat és a legutóbbi mérés sorát a frontend tölti fel. -->
   <template id="tpl-ci-weight">
     <div class="ci-step">
       <div class="ci-head-block">
@@ -1756,7 +1961,7 @@
   </template>
 
   <!-- Testtérkép (izomláz 1–5 / fájdalom 1–10). A régiókat és az alattuk lévő
-       érték-sorokat a script.js szúrja be. -->
+       érték-sorokat a frontend szúrja be. -->
   <template id="tpl-ci-map">
     <div class="ci-step">
       <div class="ci-head-block">

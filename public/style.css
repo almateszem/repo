@@ -1752,7 +1752,9 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   margin-left: 1px;
 }
 
-.nu-coach-goal {
+.nu-goal { margin-bottom: var(--sp-9); }
+
+.nu-coach-goal--torolt {
   font-size: var(--fs-sm);
   color: var(--fg-60);
   background: var(--surface-soft);
@@ -5870,6 +5872,731 @@ details[open] > .rc-details-summary::before {
      és a nyitócímet — ezért ez a kettő nem token, hanem helyi clamp. */
   --ci-fs-display: clamp(30px, 9vw, 36px);
   --ci-fs-number: clamp(44px, 13vw, 56px);
+}
+
+
+/* Célkitűzés a sportoló-modálban. A mezők a Táplálkozás oldal
+   .nu-goal-field primitívjét használják — egy űrlap-recept, két helyen. */
+.co-modal-goal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.co-goal-state {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.co-goal-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-4);
+}
+
+/* Mire épül a gyakorlat-ajánlás — csak a bemondott felmérésnél látszik. */
+.rc-lift-basis {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-top: var(--sp-2);
+}
+
+/* ---- Testösszetétel (rc-body-*) ---- */
+.rc-body-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+.rc-body-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+  gap: var(--sp-4);
+}
+
+.rc-body-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.rc-body-field label {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.rc-body-field input {
+  width: 100%;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border-card);
+  background: var(--surface-strong);
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.rc-body-field input:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+
+.rc-body-save {
+  align-self: flex-start;
+  border: 0;
+  border-radius: 999px;
+  padding: var(--sp-3) var(--sp-8);
+  background: var(--c-accent);
+  color: #fff;
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rc-body-save:disabled { opacity: .5; cursor: default; }
+
+.rc-body-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  list-style: none;
+  margin-top: var(--sp-5);
+}
+
+.rc-body-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-4);
+  font-size: var(--fs-2xs);
+}
+
+.rc-body-row-label { flex: 1 1 auto; min-width: 0; }
+.rc-body-row-value { font-weight: 600; }
+
+.rc-body-row-delta {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.rc-body-del {
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+  padding: var(--sp-2);
+  border-radius: var(--r-md);
+}
+
+.rc-body-del:hover { color: var(--c-accent); }
+
+/* A napló-adag beépített szerkesztője (a ház nem használ natív ablakot). */
+.nu-log-grams {
+  width: 84px;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  border: 1px solid var(--c-accent);
+  background: var(--surface-strong);
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-2xs);
+}
+
+/* ---- Testsúly-bejegyzések javítása (rc-weight-list) ---- */
+.rc-weight-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  list-style: none;
+  margin-top: var(--sp-4);
+}
+
+.rc-weight-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  font-size: var(--fs-2xs);
+}
+
+.rc-weight-date {
+  color: var(--text-muted);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.rc-weight-input {
+  width: 72px;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-card);
+  background: var(--surface-strong);
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  text-align: right;
+}
+
+.rc-weight-input:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+
+.rc-weight-del {
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+  padding: var(--sp-2);
+  border-radius: var(--r-md);
+}
+
+.rc-weight-del:hover { color: var(--c-accent); }
+
+/* Terv törlése és naplóadag-javítás — a meglévő ikongombok testvérei. */
+.pl-card-delete,
+.nu-log-edit {
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+}
+
+.pl-card-delete:hover,
+.nu-log-edit:hover { color: var(--c-accent); }
+
+/* ---- Erőfelmérés a profilon (pf-assess-*) ----
+   A mezők a .nu-goal-field receptjét követik — egy űrlap-alak, több helyen. */
+.pf-assess {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-9);
+}
+
+.pf-assess-lead,
+.pf-assess-note,
+.pf-assess-empty {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.pf-assess-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  list-style: none;
+}
+
+.pf-assess-item {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  background: var(--surface-strong);
+  border-radius: var(--r-lg);
+  padding: var(--sp-4) var(--sp-5);
+  font-size: var(--fs-sm);
+}
+
+.pf-assess-item b { font-weight: 600; }
+
+.pf-assess-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-4);
+}
+
+.pf-assess-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+  flex: 1 1 96px;
+}
+
+.pf-assess-field--wide { flex: 2 1 180px; }
+
+.pf-assess-field label {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.pf-assess-field input {
+  width: 100%;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border-card);
+  background: var(--surface-strong);
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.pf-assess-field input:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+
+.pf-assess-save {
+  border: 0;
+  border-radius: 999px;
+  padding: var(--sp-3) var(--sp-7);
+  background: var(--c-accent);
+  color: #fff;
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pf-assess-save:disabled { opacity: .5; cursor: default; }
+
+/* ---- Gyakorlat-megjegyzések (su-note-*, co-note-*) ---- */
+.co-note--plan {
+  border-color: var(--fg-20);
+}
+
+.co-note-meta {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  display: block;
+  margin-bottom: var(--sp-2);
+}
+
+.co-note-text {
+  margin: 0;
+  font-size: var(--fs-md);
+  line-height: 1.5;
+}
+
+.co-note--me {
+  background: var(--surface-input);
+  border-color: var(--border-strong);
+  margin-left: var(--sp-13); /* enyhén jobbra tolva, chat-szerűen */
+}
+
+.su-note {
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-2xl);
+  padding: var(--sp-8) var(--sp-7);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  text-align: left;
+}
+
+.su-note-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.su-note-select,
+.su-note-text {
+  width: 100%;
+  padding: var(--sp-4) var(--sp-5);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border-card);
+  background: var(--surface-strong);
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.su-note-text::placeholder { color: var(--text-muted); }
+
+.su-note-select:focus-visible,
+.su-note-text:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+
+.su-note-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  list-style: none;
+}
+
+.su-note-item {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.su-note-item b {
+  color: var(--fg-100);
+  font-weight: 600;
+}
+
+.co-modal-notes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.co-note-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  list-style: none;
+}
+
+.co-note-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  background: var(--surface-strong);
+  border-radius: var(--r-lg);
+  padding: var(--sp-5);
+}
+
+.co-note-head {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.co-note-body { font-size: var(--fs-sm); line-height: 1.5; }
+
+.co-note-reply {
+  display: flex;
+  gap: var(--sp-3);
+}
+
+.co-note-reply input {
+  flex: 1;
+  min-width: 0;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border-card);
+  background: var(--surface-card);
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-2xs);
+}
+
+.co-note-reply button {
+  border: 0;
+  border-radius: 999px;
+  padding: 0 var(--sp-6);
+  background: var(--c-accent);
+  color: #fff;
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.co-note-reply button:disabled { opacity: .5; cursor: default; }
+
+/* ---- Edzés utáni visszajelzés (su-feedback-*) + edzői megjelenítése ---- */
+.su-feedback {
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-2xl);
+  padding: var(--sp-8) var(--sp-7);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  text-align: left;
+}
+
+.su-feedback-title {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+
+.su-feedback-lead {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.su-feedback-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+}
+
+.su-feedback-scales {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+}
+
+.su-feedback-note {
+  width: 100%;
+  resize: vertical;
+  min-height: 62px;
+  padding: var(--sp-5);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border-card);
+  background: var(--surface-strong);
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.su-feedback-note::placeholder { color: var(--text-muted); }
+
+.su-feedback-note:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+
+.su-feedback-send {
+  align-self: flex-start;
+  padding: var(--sp-4) var(--sp-8);
+  border: 0;
+  border-radius: 999px;
+  background: var(--c-accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity var(--t-base);
+}
+
+.su-feedback-send:hover { opacity: .9; }
+
+.su-feedback-send:disabled { opacity: .5; cursor: default; }
+
+.su-feedback-done {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--c-ok);
+}
+
+.co-modal-feedback {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  background: var(--surface-strong);
+  border-radius: var(--r-lg);
+  padding: var(--sp-6);
+}
+
+.co-feedback-meta {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.co-feedback-note {
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+/* ---- Napi táplálkozási cél (nu-goal-*) ----
+   A cél két forrásból jöhet (edzői / saját), ezért nem elég egy szám: a
+   származást és az esetleges eltérést is ki kell írni. */
+.nu-goal {
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-2xl);
+  padding: var(--sp-6) var(--sp-7);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.nu-goal-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
+
+.nu-goal-title {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+
+.nu-goal-edit,
+.nu-goal-revert {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--c-accent);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.nu-goal-value {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+
+.nu-goal-source,
+.nu-goal-diff {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.nu-goal-diff {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-3);
+}
+
+.nu-goal-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-4);
+  margin-top: var(--sp-2);
+}
+
+.nu-goal-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+  flex: 1 1 110px;
+}
+
+.nu-goal-field label {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.nu-goal-field input {
+  width: 100%;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border-card);
+  background: var(--surface-strong);
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.nu-goal-field input:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+
+.nu-goal-save {
+  border: 0;
+  border-radius: 999px;
+  padding: var(--sp-3) var(--sp-7);
+  background: var(--c-accent);
+  color: #fff;
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.nu-goal-save:disabled { opacity: .5; cursor: default; }
+
+/* ---- Készenlét-javaslat (ad-*) + terv-kártya biztonsági jelzése ---- */
+.ad-list {
+  list-style: none;
+  margin: var(--sp-5) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  /* Sok gyakorlatnál se nőjön ki az ablak a képernyőből. */
+  max-height: 42vh;
+  overflow-y: auto;
+}
+
+.ad-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-4);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-lg);
+  padding: var(--sp-4) var(--sp-5);
+}
+
+.ad-item-action {
+  flex-shrink: 0;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: var(--sp-1) var(--sp-3);
+  border-radius: var(--r-2xs);
+  background: var(--surface-strong);
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.ad-item--drop .ad-item-action {
+  background: var(--c-accent);
+  color: var(--c-paper-bright);
+}
+
+.ad-item-body {
+  min-width: 0;
+}
+
+.ad-item-name {
+  display: block;
+  font-size: var(--fs-base);
+  font-weight: 600;
+}
+
+.ad-item-detail {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.ad-note {
+  margin: var(--sp-5) 0 0;
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  color: var(--text-faint);
+}
+
+.pl-card-safety {
+  display: block;
+  margin-top: var(--sp-2);
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.pl-card-safety.is-blocked {
+  color: var(--c-accent);
+  font-weight: 600;
+}
+
+/* ---- Onboarding: az ELSŐ check-in ----
+   A frissen regisztrált fiók csak ezen a lapon jár, amíg ki nem tölti (a
+   script.js `onboardingLock`-ja teszi a [data-onboarding] jelzőt a body-ra).
+   A navigációt el is rejtjük: a JS-őr enélkül is visszaterelne, de egy
+   kattintásra némán visszapattanó menü rossz élmény. */
+body[data-onboarding] .side-nav,
+body[data-onboarding] .nav-ring-wrap,
+body[data-onboarding] .nav-ring-fade,
+body[data-onboarding] .nav-hint {
+  display: none;
+}
+
+body[data-onboarding] .app-page.ci-page {
+  padding-bottom: var(--sp-12);
 }
 
 /* ---- Fejléc: vissza gomb + folyamatsáv + lépésszám ---- */
