@@ -10,7 +10,6 @@ import { setOnboardingLock } from '../nav/router.js';
 import { renderDashboard } from '../render/dashboard.js';
 import { CHECKIN_SCALES, readinessTone } from '../render/recovery.js';
 import { handleStepClick } from '../render/sets.js';
-import { renderSummary } from '../render/summary.js';
 import { CI_ADVANCE_MS, CI_BASE_STEPS, CI_BODY_REGIONS, CI_DRAG_PX_PER_STEP, CI_GATES, CI_MAP_MODES, CI_PAIN_BLOCK, CI_PRESET_ADVANCE_MS, CI_READINESS_VERDICTS, CI_SCALE_STEPS, CI_SLEEP_MAX, CI_SLEEP_MIN, CI_SLEEP_PRESETS, CI_WEIGHT_FALLBACK, CI_WEIGHT_MAX, CI_WEIGHT_MIN, CI_WEIGHT_PRESET_OFFSETS } from './checkin-constants.js';
 import { ciClamp, ciEmptyState, ciMuscleLabel, ciPickPositive } from './checkin-helpers.js';
 import { formatDelta, latestWeightEntry, mergeWeightEntry, refreshWeightLog, todayWeightEntry } from './weight.js';

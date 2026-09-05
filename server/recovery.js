@@ -804,7 +804,7 @@ export function computeReadiness({
 
   // — Megbízhatóság: mennyire van mire alapozni
   const checkinCount = normalized.filter((entry) => entry.daysAgo < CHRONIC_WINDOW_DAYS).length;
-  let confidence = 'low';
+  let confidence;
   let confidenceNote;
   if (checkin && historyDays >= PERSONAL_REF_MIN_DAYS && checkinCount >= 7) {
     confidence = 'high';

@@ -82,7 +82,6 @@ const PASSTHROUGH = /^[\d]+([/.,°-][\d°]*)*$/;
  * ha maradt lefordítatlan szó.
  */
 function translateName(rawName, phrases) {
-  const { map, maxWords } = phrases;
   let name = normalizeSourceName(rawName);
   let suffix = '';
 
