@@ -70,7 +70,7 @@ EDZŐ–SPORTOLÓ KAPCSOLAT — a 2026-08-25-i átállás után maradt tételek
     Tesztek: server/messages.test.js (migráció + adatréteg), server/coach.test.js.
 
 [~] Az üzenetek lekérdezéssel frissülnek (20 mp), nem push-sal
-    Hely: public/script.js -> COACH_POLL_MS. Kis felhasználószámnál ez
+    Hely: public/js/ui/chat.js -> COACH_POLL_MS. Kis felhasználószámnál ez
     rendben van; ha sokan lesznek egyszerre bent, SSE vagy websocket kell.
     2026-08-26: a frissítés maga megjavult. Eddig CSAK a kliens nézet szála
     frissült — az edzői részletmodál chatje egyszer betöltött, és a sportoló
@@ -226,7 +226,7 @@ felhasználónak nincs miből ajánlani. A többi három egymástól független.
     érted, miért.
     A másik jel viszont már megvan, és ilyet más app nem tud: a
     GET /api/readiness izomcsoportonkénti készenlétet ad. A választó pedig
-    már ismeri az edzés nevét (script.js -> setupExercisePicker, context.
+    már ismeri az edzés nevét (js/ui/exercise-picker.js -> setupExercisePicker, context.
     nameInput), tehát a cím-egyezés is olcsó.
     ELDÖNTVE: MINDKÉT JEL, EGYENRANGÚAN — de minden javaslat írja ki, MIÉRT
     került oda („a címből: Láb" / „88% regenerált"). Két összekevert jel
@@ -415,7 +415,7 @@ EREDMÉNY (1 éves adat, azonos gépen), megtartva jövőbeli összevetéshez:
       30 nap / 1 év / 3 év előzménnyel a számítás 245 / 237 / 227 ms.
     · A nyers DB-olvasás nő, de keveset: 6 ms (30 nap) → 27 ms (3 év).
     · A sok autosave-update rendben van: 9 ms/mentés, 500 ms debounce
-      mellett (public/script.js:3684). Ez nem probléma. A piszkozat
+      mellett (public/js/ui/workout.js, setupWorkout → autosave). Ez nem probléma. A piszkozat
       felhasználónként EGY sor (db.js: saveWorkoutDraft upsert), tehát
       az írások száma nem hizlalja az adatbázist.
       2026-08-18 óta a debounce mellett van 5000 ms-os max-wait (a
@@ -451,7 +451,7 @@ EREDMÉNY (1 éves adat, azonos gépen), megtartva jövőbeli összevetéshez:
     Ami hátravan: a valódi kötet beállítása a választott hostingon.
 
 [x] Időzóna: a nap már a KLIENS naptárából jön   (2026-08-25)
-    Minden kérés viszi az X-Client-Date fejlécet (public/script.js →
+    Minden kérés viszi az X-Client-Date fejlécet (public/js/core/api.js →
     requestHeaders), a szerver pedig ebből képzi a kérés napját
     (server/server.js → requestDate, req.today). A fejléc ellenőrzött:
     alakilag pontos dátum kell, és legfeljebb EGY napra térhet el a szerver
@@ -603,7 +603,8 @@ NYITOTT APRÓSÁG — a check-in varázslóból maradt
 [x] A varázsló alvás-tartománya is 0–24   (2026-08-25)
     Korábban a varázsló 12 óránál némán elvágta a bevitelt, pedig a
     részletes űrlap és a szerver is 24-ig fogad el. Most mindhárom helyen
-    0–24 (public/script.js → CI_SLEEP_MAX, public/index.html → #ci-sleep).
+    0–24 (public/js/ui/checkin-constants.js → CI_SLEEP_MAX,
+    public/index.html → #ci-sleep).
 
 ==========================================================================
 RECOVERY ENGINE — a 2026-08-30-i átvizsgálás eredménye
