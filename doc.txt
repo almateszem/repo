@@ -33,7 +33,9 @@ Node 22.5+ kell (a beépített node:sqlite modul miatt).
     npm install
     npm start          → http://localhost:3000
     npm run dev        → ugyanaz, fájlfigyeléssel
-    npm test           → 304 teszt (node --test, nulla függőség)
+    npm test           → 313 teszt (node --test, nulla függőség)
+    npm run lint       → ESLint (nincs build-lépés, ez az egyetlen védőháló)
+    npm run format     → Prettier
 
 Környezeti változók:
     PORT          alapérték 3000
@@ -56,6 +58,7 @@ Fájlok:
     server/muscles.js   izomcsoport-taxonómia + gyakorlat → izom leképezés
     server/data.js      seed / referencia-adat
     server/coaching.js  a sportoló-összegző (tiszta függvények, DB nélkül)
+    server/errors.js    hibakezelő védőháló (kezelő-becsomagolás, JSON-hiba, őrök)
     server/notifications.js  az értesítés-panel tartalma (szintén tiszta)
     server/ratelimit.js      kérés-korlátozás
     server/openfoodfacts.js  vonalkód → termék (Open Food Facts proxy)

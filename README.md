@@ -109,6 +109,8 @@ server/
   auth.test.js   a jelszó- és munkamenet-kezelés tesztjei (npm test)
   users.test.js  a felhasználók közti adatizoláció tesztjei (npm test)
   migration.test.js  a fiókok előtti adatbázis migrációjának tesztje (npm test)
+  errors.js      hibakezelő védőháló: kezelő-becsomagolás, JSON-hibaválasz, folyamat-őrök
+  errors.test.js a védőháló tesztjei (npm test)
   db.js          SQLite adatréteg — az egyetlen modul, ami a tárolást ismeri
   data.js        seed / referencia-adat (ételek, gyakorlat-katalógus, edzés-célok)
   openfoodfacts.js  vonalkód-ellenőrzés + Open Food Facts proxy (a kliens nem hívja közvetlenül)
