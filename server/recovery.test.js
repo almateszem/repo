@@ -49,6 +49,24 @@ const run = (overrides = {}) => computeReadiness({
   catalog: [], today: TODAY, ...overrides,
 });
 
+/* Naplózó felhasználó, aki MA nem végzett munkát: van edzés-előzménye (üres
+   edzés), tehát a terhelés- és az izom-komponens JELEN VAN, de nulla
+   terheléssel.
+
+   Ez a helyes alapállapot minden olyan összehasonlításhoz, ami a terhelés
+   HATÁSÁT méri. A motor ugyanis megkülönbözteti a „nem terhelted" (érvényes
+   következtetés → 100) és a „nem tudunk róla semmit" (nincs adat → a
+   komponens kimarad) esetet. Ha az alapállapotban nincs edzés-előzmény,
+   akkor nem a terhelést mérnénk, hanem azt, hogy jelen van-e a komponens.
+
+   Korábban a motor a hiányzó adatból is 100-at gyártott, ezért ez a
+   különbség nem látszott — és egy vadonatúj fiók 100%-os készenlétet kapott. */
+const restedLogger = (overrides = {}) => run({
+  checkins: [fullCheckin()],
+  workouts: [workout(0, 'Pihenőnap', [])],
+  ...overrides,
+});
+
 /* ======================================================================
    Alvás
    ====================================================================== */
@@ -92,8 +110,54 @@ test('sleepScore — csak az egyik mező megadva is számol', () => {
    Súly-újraosztás — a rendszer legfontosabb tulajdonsága
    ====================================================================== */
 
-test('a hiányzó komponensek súlya arányosan újraoszlik', () => {
+/* ======================================================================
+   „Nincs adat" ≠ „tökéletes állapot"
+   ----------------------------------------------------------------------
+   A motor sokáig a SEMMIBŐL is 100-at gyártott: az izom- és a terhelés-
+   komponens sosem volt null, adat hiányában „nincs károsodás" → 100. Egy
+   vadonatúj fiók így 100%-os készenlétet kapott — a lehető legrosszabb
+   irányba tévedve: pont az ismeretlen állapotú embernek mondta, hogy
+   nyomhatja.
+   ====================================================================== */
+
+test('vadonatúj fiók: nincs pontszám, nem pedig tökéletes pontszám', () => {
+  const empty = computeReadiness({
+    checkins: [], workouts: [], nutrition: null, weightLog: [], catalog: [], today: TODAY,
+  });
+  assert.equal(empty.overall, null, 'semmiből nem gyártunk 100-at');
+  assert.ok(
+    empty.components.every((c) => !c.present),
+    'egyetlen komponens sincs jelen — nincs mire alapozni',
+  );
+  assert.ok(
+    empty.muscles.every((m) => m.known === false),
+    'egyetlen izomcsoportról sem tudunk semmit',
+  );
+  assert.equal(empty.cns.readiness, null, 'a CNS sem „friss", hanem ismeretlen');
+});
+
+test('aki naplóz, annál a „régen edzettél" MÁR érvényes következtetés', () => {
+  /* A különbség finom, de fontos: üres napló = nincs információ; naplózó
+     felhasználó edzés nélküli napja = tényleg pihent. Az utóbbinál a 100
+     helyes válasz. */
+  const logger = run({ workouts: [workout(20, 'Régi', HARD_LEG_DAY)] });
+  assert.ok(logger.overall !== null, 'van pontszám');
+  const load = logger.components.find((c) => c.key === 'load');
+  assert.ok(load.present, 'a terhelés-komponens jelen van');
+  assert.equal(load.score, 100, 'három hét után a terhelés lecsengett');
+});
+
+test('csak check-in, edzés nélkül: a szubjektív komponensek adják a pontszámot', () => {
   const report = run({ checkins: [fullCheckin()] });
+  const present = report.components.filter((c) => c.present).map((c) => c.key).sort();
+  assert.deepEqual(present, ['nutrition', 'sleep', 'stress', 'energy'].sort(),
+    'a terhelés- és az izom-komponens hiányzik, mert nincs mire alapozni');
+  assert.ok(report.overall !== null);
+});
+
+test('a hiányzó komponensek súlya arányosan újraoszlik', () => {
+  // Edzés-előzménnyel, hogy a terhelés- és az izom-komponens is jelen legyen.
+  const report = restedLogger();
   const present = report.components.filter((c) => c.present);
   assert.equal(present.length, 6, 'teljes check-innel mind a hat komponens jelen van');
   const sum = present.reduce((acc, c) => acc + c.weight, 0);
@@ -106,7 +170,7 @@ test('a hiányzó komponensek súlya arányosan újraoszlik', () => {
 
 test('részleges check-in — a pontszám kiszámolódik, a hiányzók jelölve', () => {
   const partial = fullCheckin({ stress: null, energy: null, hydration: null });
-  const report = run({ checkins: [partial] });
+  const report = restedLogger({ checkins: [partial] });
 
   assert.ok(report.overall !== null, 'részleges adatból is van pontszám');
   assert.deepEqual(
@@ -144,7 +208,7 @@ test('a bázissúlyok között nincs HRV — nem teszünk kitalált értéket a 
 const HARD_LEG_DAY = [exercise('Guggolás', [set(5, 140, 9), set(5, 140, 9), set(5, 140, 9), set(5, 140, 9)])];
 
 test('a friss edzésterhelés csökkenti a készenlétet', () => {
-  const rested = run({ checkins: [fullCheckin()] });
+  const rested = restedLogger();
   const trained = run({ checkins: [fullCheckin()], workouts: [workout(0, 'Láb', HARD_LEG_DAY)] });
   assert.ok(trained.overall < rested.overall, 'egy kemény mai edzés után alacsonyabb a pontszám');
 });
@@ -162,7 +226,7 @@ test('a terhelés hatása exponenciálisan csillapodik — a régebbi edzés kev
 test('a be nem pipált szettek nem terhelnek', () => {
   const planned = [exercise('Guggolás', [set(5, 140, 9, false), set(5, 140, 9, false)])];
   const report = run({ checkins: [fullCheckin()], workouts: [workout(0, 'Láb', planned)] });
-  const rested = run({ checkins: [fullCheckin()] });
+  const rested = restedLogger();
   assert.equal(report.overall, rested.overall, 'csak a teljesített szett számít terhelésnek');
 });
 
@@ -177,7 +241,7 @@ const typedSet = (type, reps, weight, rpe = 8) => ({ ...set(reps, weight, rpe), 
 const quadsOf = (report) => report.muscles.find((m) => m.key === 'quads').readiness;
 
 test('a bemelegítő szett nem okoz izomkárosodást', () => {
-  const rested = run({ checkins: [fullCheckin()] });
+  const rested = restedLogger();
   const warmupOnly = run({
     checkins: [fullCheckin()],
     workouts: [workout(0, 'Láb', [exercise('Guggolás', [typedSet('warmup', 8, 60, 5)])])],
@@ -186,7 +250,7 @@ test('a bemelegítő szett nem okoz izomkárosodást', () => {
 });
 
 test('a bemelegítő tonnatömege ettől még beleszámít a szisztémás terhelésbe', () => {
-  const rested = run({ checkins: [fullCheckin()] });
+  const rested = restedLogger();
   const warmupOnly = run({
     checkins: [fullCheckin()],
     workouts: [workout(0, 'Láb', [exercise('Guggolás', [typedSet('warmup', 8, 60, 5)])])],
@@ -268,16 +332,32 @@ test('mind a kilenc izomcsoportra ad értéket', () => {
 
 test('a szubjektív izomláz lehúzza a csoport pontszámát', () => {
   const sore = fullCheckin({ soreness: { chest: 5 } });
-  const report = run({ checkins: [sore] });
-  const chest = report.muscles.find((m) => m.key === 'chest');
-  assert.ok(chest.readiness < 70, `erős izomláz mellett a mell nem lehet friss (kapott: ${chest.readiness}%)`);
-  assert.equal(chest.source, 'blend', 'a modell és az érzet keverékéből jött');
-  assert.equal(report.muscles.find((m) => m.key === 'back').source, 'model');
+
+  /* A keverés súlya attól függ, TUD-E mondani valamit a modell.
+     Ha van naplózott terhelés a csoporton, a modell dominál (0.6 / 0.4). */
+  const withLoad = run({
+    checkins: [sore],
+    workouts: [workout(1, 'Mell', [exercise('Fekvenyomás', [set(8, 80), set(8, 80), set(8, 80)])])],
+  });
+  const chestBlend = withLoad.muscles.find((m) => m.key === 'chest');
+  assert.ok(chestBlend.readiness < 70, `erős izomláz mellett a mell nem lehet friss (kapott: ${chestBlend.readiness}%)`);
+  assert.equal(chestBlend.source, 'blend', 'a modell és az érzet keverékéből jött');
+
+  /* Ha NINCS naplózott terhelés a csoporton, a modell „100% friss" válasza
+     nem tudás, hanem az információ HIÁNYA — ilyenkor nem nyomhatja el a
+     felhasználó saját jelzését. A régi motorban ez valódi hiba volt: a fix
+     0.6-os modell-súly miatt az 5/5-ös izomláz is csak 60%-ig vitt le. */
+  const reportedOnly = run({ checkins: [sore] });
+  const chestReported = reportedOnly.muscles.find((m) => m.key === 'chest');
+  assert.equal(chestReported.source, 'reported', 'a modellnek nincs mire alapoznia');
+  assert.equal(chestReported.readiness, 0, 'a maximális izomláz nem tompul 60%-ra');
+
+  assert.equal(reportedOnly.muscles.find((m) => m.key === 'back').source, 'model');
 });
 
 test('a soft-min átlag miatt egyetlen tönkrement csoport is látszik az összesítőn', () => {
-  const clean = run({ checkins: [fullCheckin()] });
-  const oneSore = run({ checkins: [fullCheckin({ soreness: { quads: 5 } })] });
+  const clean = restedLogger();
+  const oneSore = restedLogger({ checkins: [fullCheckin({ soreness: { quads: 5 } })] });
   const muscleOf = (report) => report.components.find((c) => c.key === 'muscle').score;
   assert.ok(muscleOf(oneSore) < muscleOf(clean) - 5, 'nem mosódik el kilenc csoport átlagában');
 });
@@ -480,7 +560,7 @@ test('a katalógus név-indexe a lineáris keresés viselkedését őrzi', () =>
 });
 
 test('az ismeretlen nevű gyakorlat is számít az általános terhelésbe', () => {
-  const rested = run({ checkins: [fullCheckin()] });
+  const rested = restedLogger();
   const unknown = run({ checkins: [fullCheckin()], workouts: [workout(0, 'Vegyes', [
     exercise('Trambulin ugrálás', [set(10, 100), set(10, 100), set(10, 100)]),
   ])] });
@@ -515,6 +595,9 @@ test('elég előzménnyel és check-innel magas a megbízhatóság', () => {
 });
 
 test('a jövőbeli dátumú edzés nem torzítja a számítást', () => {
+  /* Itt SZÁNDÉKOSAN a „nincs edzés-előzmény" alapállapot: azt állítjuk, hogy
+     egy jövőbeli dátumú sor teljesen inert — még „naplózó felhasználóvá" sem
+     tesz, tehát a komponensek meglétét sem billenti át. */
   const rested = run({ checkins: [fullCheckin()] });
   const withFuture = run({ checkins: [fullCheckin()], workouts: [workout(-3, 'Jövőbeli', HARD_LEG_DAY)] });
   assert.equal(withFuture.overall, rested.overall);

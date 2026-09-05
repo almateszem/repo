@@ -19,7 +19,13 @@ import {
   addWorkout, updateWorkout, deleteWorkout,
   getWorkoutDraft, saveWorkoutDraft, clearWorkoutDraft,
   getUserPlans, addPlan, updatePlan, getPlanForDay,
-  getCheckin, getCheckins, saveCheckin,
+  getCheckin, getCheckins, saveCheckin, hasAnyCheckin,
+  getNutritionGoal, saveNutritionGoal, clearOwnNutritionGoal,
+  saveWorkoutFeedback, getAthleteFeedbackSince,
+  setDeclaredMax, getDeclaredMaxes,
+  deletePlan, updateWeightEntry, deleteWeightEntry, updateNutritionEntry,
+  getMeasurements, saveMeasurements, deleteMeasurement,
+  getComments, getCommentsByTarget, addComment, deleteComment,
   calculateEpley1RM, bestCompletedSet, getExerciseMax, getAllExerciseMaxes,
   createUser, getUser, getUserWithHash, hasAnyUser, getUserCreatedAt,
   updateUserPassword, deleteUserSessions, deleteUser,
@@ -51,16 +57,25 @@ import { buildAthleteCard } from './coaching.js';
 // Az értesítés-panel sorai. Szintén tiszta összeállítás: a végpont gyűjti az
 // eseményeket, a modul formázza őket (server/notifications.js).
 import { buildNotifications } from './notifications.js';
-import { MUSCLE_KEYS } from './muscles.js';
+import { MUSCLE_KEYS, MUSCLE_GROUPS, resolveExerciseLoad, normalizeName } from './muscles.js';
 // Kérés-korlátozás. Tiszta számláló, adatbázis és Express nélkül — a limitek
 // és a kulcsválasztás itt, a szerveren dőlnek el (server/ratelimit.js).
 import { createRateLimiter } from './ratelimit.js';
+// Hibakezelő védőháló: a kezelők becsomagolása, a JSON-hibaválasz és a
+// folyamat-szintű őrök (server/errors.js).
+import { guardAsyncRoutes, apiErrorHandler, installProcessGuards } from './errors.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public'); // a statikus frontend mappája
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+/* A hibakezelés MINDEN útvonal-regisztráció ELŐTT áll be — ugyanaz a minta,
+   mint a hozzáférés-védelemnél: egy később felvett végpont automatikusan
+   védett, nem kell rá emlékezni. Enélkül egy async kezelő elutasított ígérete
+   Express 4 alatt válasz nélkül hagyná a kérést. */
+guardAsyncRoutes(app);
 
 app.use(express.json()); // a POST/PUT végpontokhoz (JSON törzs olvasása)
 
@@ -144,11 +159,19 @@ function startSession(req, res, userId) {
 /** Beléptetve vagyok-e? A felület ezzel dönti el, mutassa-e a belépő
     képernyőt. A firstRun jelzi, hogy még egyetlen fiók sincs — ilyenkor a
     felület rögtön a regisztrációt kínálja. */
+/** A fiók-objektum kiegészítése az `onboarding` jelzővel: igaz, amíg a fiók
+    egyetlen check-int sem mentett. A felület ilyenkor a check-in varázslóra
+    tereli — enélkül a friss fiók üres Áttekintésre érkezne, ahol a Recovery
+    Engine (helyesen) `null` készenlétet mutat, mert nincs mire alapoznia.
+    Azért „soha nem volt check-inje" és nem „most regisztrált": ez utóbbi
+    csak a kliens pillanatnyi állapota lenne, ez viszont túléli a frissítést. */
+const withOnboarding = (user) => ({ ...user, onboarding: !hasAnyCheckin(user.id) });
+
 app.get('/api/auth/me', (req, res) => {
   const token = sessionToken(req);
   const user = token ? getSessionUser(hashToken(token)) : null;
   if (!user) return res.status(401).json({ error: 'Nincs bejelentkezve.', firstRun: !hasAnyUser() });
-  res.json(user);
+  res.json(withOnboarding(user));
 });
 
 /** A regisztrációs/belépési törzs ellenőrzése. Hibánál { error }-t ad. */
@@ -187,7 +210,7 @@ app.post('/api/auth/register', async (req, res) => {
   if (!created) return res.status(409).json({ error: 'Ez a felhasználónév már foglalt.' });
 
   startSession(req, res, created.user.id);
-  res.status(201).json({ ...created.user, adoptedLegacy: created.adoptedLegacy });
+  res.status(201).json({ ...withOnboarding(created.user), adoptedLegacy: created.adoptedLegacy });
 });
 
 /** Belépés. A hibaüzenet szándékosan nem árulja el, a név vagy a jelszó
@@ -213,7 +236,7 @@ app.post('/api/auth/login', async (req, res) => {
 
   clearFailures(username);
   startSession(req, res, row.id);
-  res.json({ id: row.id, username: row.username, displayName: row.display_name });
+  res.json(withOnboarding({ id: row.id, username: row.username, displayName: row.display_name }));
 });
 
 /** Kijelentkezés — a munkamenet törlődik az adatbázisból és a sütiből is. */
@@ -561,6 +584,32 @@ const CARD_WINDOW_DAYS = 35;
 
     A `viewerId` az EDZŐ (a panelt néző fél): az utolsó üzenet `mine` jelölése
     és az olvasatlan-számláló is az ő szemszögéből értendő. */
+/** A sportoló legutóbbi gyakorlat-megjegyzései, FELOLDOTT gyakorlatnévvel.
+    A megjegyzés célja "edzésId:index" — ebből az edző önmagában semmit nem
+    tudna kiolvasni, a nevet pedig csak a sportoló edzésnaplója ismeri.
+    A hiányzó célt kihagyjuk: ha az edzés kicsúszott az ablakból vagy törölték,
+    a megjegyzésnek nincs mihez tartoznia — kitalált nevet nem teszünk alá. */
+const EXERCISE_NOTE_LIMIT = 6;
+function exerciseNotes(userId, workouts) {
+  const byTarget = getCommentsByTarget(userId, 'exercise');
+  const notes = [];
+
+  for (const [target, list] of Object.entries(byTarget)) {
+    const [workoutId, index] = String(target).split(':');
+    const workout = workouts.find((w) => String(w.id) === workoutId);
+    const exercise = workout?.exercises?.[Number(index)];
+    if (!workout || !exercise) continue;
+    for (const comment of list) {
+      notes.push({
+        ...comment, target, exercise: exercise.name,
+        workout: workout.name, date: workout.date,
+      });
+    }
+  }
+  // A legfrissebb elöl: a sor-azonosító a beszúrás sorrendje.
+  return notes.sort((a, b) => b.id - a.id).slice(0, EXERCISE_NOTE_LIMIT);
+}
+
 function athleteCard(athlete, today, viewerId, unread = 0) {
   /* Az edzés-napló ABLAKOZVA jön be. A kártya minden számítása belefér a
      CARD_WINDOW_DAYS ablakba: a készenlét-motor 28 napnál régebbit amúgy is
@@ -594,7 +643,19 @@ function athleteCard(athlete, today, viewerId, unread = 0) {
   });
 
   const lastMessage = getLastMessage(athlete.linkId);
-  return buildAthleteCard({
+  /* A sportoló napi célja a származásával együtt: az edző így látja, hogy a
+     kitűzött célja érvényben van-e, vagy a sportoló mást állított be. A
+     buildAthleteCard-on KÍVÜL adjuk hozzá, mert az a modul tiszta függvény —
+     nem ismeri az adatbázist. */
+  const nutritionGoal = getNutritionGoal(athlete.userId);
+  /* A LEGUTÓBBI edzés utáni visszajelzés. Enélkül az edző csak a számokat
+     látná: hogy a sportoló hogyan ÉLTE MEG az edzést, csak tőle tudható meg.
+     A workouts id szerint csökkenő sorrendű, tehát az első találat a legfrissebb. */
+  const fedback = workouts.find((w) => w.feedback);
+  const lastFeedback = fedback
+    ? { ...fedback.feedback, workout: fedback.name, date: fedback.date }
+    : null;
+  return Object.assign(buildAthleteCard({
     athlete: { ...athlete, goal: goalTag(athlete.goal) },
     workouts,
     workoutDates,
@@ -607,6 +668,12 @@ function athleteCard(athlete, today, viewerId, unread = 0) {
     lastMessage: lastMessage && { ...lastMessage, mine: lastMessage.senderId === viewerId },
     unread,
     today,
+  }), {
+    nutritionGoal,
+    lastFeedback,
+    /* Gyakorlat-megjegyzések. Itt oldjuk fel a nevet, mert a sportoló
+       edzésnaplója csak a szerveren van meg. */
+    exerciseNotes: exerciseNotes(athlete.userId, workouts),
   });
 }
 
@@ -946,6 +1013,8 @@ app.get('/api/notifications', (req, res) => {
       at: offer.respondedAt,
     })),
     recentPrs: getRecentExerciseMaxes(userId, since),
+    // Az edző oldala: a sportolói friss edzés-visszajelzései.
+    athleteFeedback: getAthleteFeedbackSince(userId, since),
   }));
 });
 
@@ -1016,6 +1085,225 @@ app.get('/api/dashboard', (req, res) => {
 // A teljes riport: összesített készenlét, komponens-bontás, izomcsoportok,
 // CNS, gyakorlat-ajánlások, megbízhatóság.
 app.get('/api/readiness', (req, res) => res.json(readinessReport(req.user.id, req.today)));
+
+/* ======================================================================
+   Biztonsági átnézés — a készenlét felülírja a tervet
+   ----------------------------------------------------------------------
+   A kiosztott tervhez a kliens nem nyúlhat. Egyetlen dolog szólhat bele:
+   a mai készenléte. A rendszer NEM írja át a tervet (az elrejtené az edző
+   elől, mi történt) — hanem MEGJELÖLI, mi kockázatos ma, és miért.
+
+   A jelzés minden gyakorlatra működik, nem csak arra, amire van előzmény:
+   a gyakorlat → izomcsoport leképezésből dolgozik, nem a naplóból.
+   ====================================================================== */
+
+/** 7/10 vagy afölötti fájdalom = tiltás. Ugyanaz a küszöb, amivel a
+    Recovery Engine a gyakorlat-ajánlásokat is letiltja — egy helyen kell
+    igaznak lennie, nem kettőn. */
+const PAIN_BLOCK = 7;
+/** E alatti izom-készenlétnél óvatosságra intünk (de nem tiltunk).
+
+    A szám a MOTOR SKÁLÁJÁHOZ igazodik, nem érzésre van megválasztva. Ahol a
+    terhelés-modellnek VAN adata a csoportról, ott a bejelentett izomlázat
+    0.4 súllyal keveri be (recovery.js → muscleReadiness). Ha tehát a modell
+    frissnek látja az izmot (100), de a felhasználó 5/5-ös izomlázat jelez,
+    az eredmény 60 — vagyis egy 45%-os küszöb ezt az esetet néma maradna,
+    pedig pont ilyenkor kell visszavenni.
+    (Ha a modellnek NINCS adata a csoportról, a bejelentett érzet önmagában
+    adja a pontszámot — ott az 5/5 már 0-t ad.)
+    A 70 egyben a recovery.js recommend() létrájának ugyanazon foka, ahol az
+    „normál súly, −1 szett"-re vált. */
+const LOW_MUSCLE_READINESS = 70;
+/** Egy gyakorlatot akkor tekintünk az izomcsoport terhelőjének, ha a terhelés
+    legalább ennyi — a jelentéktelen másodlagos terhelésre nem figyelmeztetünk. */
+const RELEVANT_LOAD = 0.2;
+
+/** Egy fiókhoz egyszer elkészített átnéző. Visszaad egy függvényt, ami egy
+    gyakorlat-listára megmondja, mi tiltott és mi kockázatos MA. */
+function planSafetyChecker(userId, todayDate) {
+  const report = readinessReport(userId, todayDate);
+  const catalog = getCollection('exerciseCatalog') || [];
+  const byKey = Object.fromEntries(report.muscles.map((m) => [m.key, m]));
+
+  return (exercises) => {
+    const blocked = [];
+    const caution = [];
+
+    for (const exercise of exercises) {
+      const load = resolveExerciseLoad(exercise.name, catalog);
+      const groups = Object.entries(load).filter(([, share]) => share >= RELEVANT_LOAD);
+
+      const painful = groups.filter(([key]) => (byKey[key]?.pain ?? 0) >= PAIN_BLOCK);
+      if (painful.length > 0) {
+        blocked.push({
+          name: exercise.name,
+          reason: `fájdalmat jeleztél ide: ${painful.map(([key]) => MUSCLE_GROUPS[key]).join(', ')}`,
+        });
+        continue;
+      }
+
+      const tired = groups.filter(([key]) => (byKey[key]?.readiness ?? 100) < LOW_MUSCLE_READINESS);
+      if (tired.length > 0) {
+        caution.push({
+          name: exercise.name,
+          reason: `még nem állt helyre: ${tired.map(([key]) => MUSCLE_GROUPS[key]).join(', ')}`,
+        });
+      }
+    }
+
+    if (blocked.length === 0 && caution.length === 0) return null;
+    return { blocked, caution };
+  };
+}
+
+/* ======================================================================
+   Készenlét-alapú javaslat a MAI edzésre
+   ----------------------------------------------------------------------
+   A terv-kártya jelzése („ma kerüld ezt") passzív: látni kell, de nem
+   csinál semmit. Ez a réteg konkrét, ELFOGADHATÓ javaslatot ad a mai
+   naplóra — a check-in után felugró ablakban, Elfogadom / Most nem
+   gombbal.
+
+   Amit a javaslat MÓDOSÍT, az a mai edzésnapló (a piszkozat), SOHA nem a
+   terv. A terv az edzőé; ha a rendszer belenyúlna, az edző azt hinné, a
+   kliens az ő tervét csinálta végig.
+
+   Két dolgot sosem bánt:
+     · a MÁR TELJESÍTETT szetteket — azok megtörténtek,
+     · a nem szám súlyokat (saját testsúlyos gyakorlat) — ott nincs mit levenni.
+   ====================================================================== */
+
+/** A súlycsökkentés a konditerem valóságához igazodik: 2,5 kg-os lépcső,
+    lefelé kerekítve. Egy „87,3 kg" javaslat használhatatlan volna. */
+const PLATE_STEP_KG = 2.5;
+/** E alatti izom-készenlétnél nagyobb levételt javaslunk. Ide már csak
+    tényleges terhelés-halmozódással lehet lejutni (az izomláz önmagában
+    60-ig visz), ezért indokolt a nagyobb lépés. */
+const VERY_LOW_MUSCLE = 55;
+const REDUCE_HARD = 0.15;
+const REDUCE_SOFT = 0.10;
+
+const reduceWeight = (kg, ratio) => Math.max(0, Math.floor((kg * (1 - ratio)) / PLATE_STEP_KG) * PLATE_STEP_KG);
+/** Szám → a naplóban használt szöveges alak (fölösleges tizedes nélkül). */
+const weightText = (value) => String(Math.round(value * 10) / 10);
+
+/** A mai edzésre vonatkozó javaslatok. A MAI NAPLÓ tartalmából dolgozik
+    (piszkozat vagy a napra ütemezett terv) — tehát abból, amit a felhasználó
+    ténylegesen csinálni fog, nem egy elvont terv-listából.
+
+    A visszatérés { name, items }; üres items = nincs mit javasolni, és
+    ilyenkor a felület fel sem dobja az ablakot. */
+function sessionAdvice(userId, todayDate) {
+  const template = workoutTemplate(userId, todayDate);
+  if (!template || !Array.isArray(template.exercises) || template.exercises.length === 0) {
+    return { name: null, items: [] };
+  }
+
+  const report = readinessReport(userId, todayDate);
+  const catalog = getCollection('exerciseCatalog') || [];
+  const byKey = Object.fromEntries(report.muscles.map((m) => [m.key, m]));
+  const items = [];
+
+  template.exercises.forEach((exercise, index) => {
+    const pending = (exercise.sets ?? []).filter((set) => !set.done);
+    if (pending.length === 0) return; // már kész — nincs mit javasolni
+
+    const groups = Object.entries(resolveExerciseLoad(exercise.name, catalog))
+      .filter(([, share]) => share >= RELEVANT_LOAD)
+      .map(([key]) => byKey[key])
+      .filter(Boolean);
+
+    const painful = groups.filter((group) => (group.pain ?? 0) >= PAIN_BLOCK);
+    if (painful.length > 0) {
+      /* Ha már van teljesített szett, a gyakorlatot nem lehet meg nem
+         történtté tenni — ilyenkor a maradék marad el ('stop'). */
+      const started = pending.length < exercise.sets.length;
+      items.push({
+        index,
+        name: exercise.name,
+        action: started ? 'stop' : 'skip',
+        reason: `fájdalmat jeleztél ide: ${painful.map((g) => g.label).join(', ')}`,
+        detail: started
+          ? `a hátralévő ${pending.length} szett kimarad`
+          : 'a gyakorlat kimarad a mai naplóból',
+      });
+      return;
+    }
+
+    const worst = groups.slice().sort((a, b) => a.readiness - b.readiness)[0];
+    if (!worst || worst.readiness >= LOW_MUSCLE_READINESS) return;
+
+    const ratio = worst.readiness < VERY_LOW_MUSCLE ? REDUCE_HARD : REDUCE_SOFT;
+    // Csak akkor van értelme javasolni, ha tényleg lejjebb tudunk menni.
+    const weights = pending
+      .map((set) => Number(set.weight))
+      .filter((kg) => Number.isFinite(kg) && kg > 0);
+    const heaviest = Math.max(0, ...weights);
+    if (heaviest === 0 || reduceWeight(heaviest, ratio) >= heaviest) return;
+
+    items.push({
+      index,
+      name: exercise.name,
+      action: 'reduce',
+      percent: Math.round(ratio * 100),
+      reason: `${worst.label} még nem állt helyre (${worst.readiness}%)`,
+      detail: `a legnehezebb szett ${weightText(heaviest)} kg → ${weightText(reduceWeight(heaviest, ratio))} kg`,
+    });
+  });
+
+  return { name: template.name, items };
+}
+
+/** A javaslat alkalmazása a mai naplóra.
+
+    A javaslatokat ÚJRASZÁMOLJUK — a kliens listáját nem fogadjuk el
+    bemenetként. Enélkül egy hamisított kérés tetszőleges gyakorlatot
+    törölhetne a naplóból. */
+function applySessionAdvice(userId, todayDate) {
+  const template = workoutTemplate(userId, todayDate);
+  const { items } = sessionAdvice(userId, todayDate);
+  if (items.length === 0) return { applied: 0 };
+
+  const byIndex = new Map(items.map((item) => [item.index, item]));
+  const exercises = [];
+
+  template.exercises.forEach((exercise, index) => {
+    const advice = byIndex.get(index);
+    if (!advice) {
+      exercises.push(exercise);
+      return;
+    }
+    if (advice.action === 'skip') return;                       // kimarad a naplóból
+    if (advice.action === 'stop') {
+      exercises.push({ ...exercise, sets: exercise.sets.filter((set) => set.done) });
+      return;
+    }
+    const ratio = advice.percent / 100;
+    exercises.push({
+      ...exercise,
+      sets: exercise.sets.map((set) => {
+        const kg = Number(set.weight);
+        if (set.done || !Number.isFinite(kg) || kg <= 0) return set;
+        return { ...set, weight: weightText(reduceWeight(kg, ratio)) };
+      }),
+    });
+  });
+
+  /* A piszkozat DÁTUMA marad, ami volt — ha ma még nincs piszkozat (a terv
+     töltődött be), akkor mai. Így az elfogadás nem datálja át némán egy
+     korábbi, félbehagyott edzést. */
+  const draft = getWorkoutDraft(userId);
+  saveWorkoutDraft(userId, template.name, exercises, draft?.date ?? todayDate, template.planId ?? null);
+  return { applied: items.length };
+}
+
+app.get('/api/readiness/advice', (req, res) => res.json(sessionAdvice(req.user.id, req.today)));
+
+/** Elfogadás. A válasz a friss napló, hogy a felület egy körből frissüljön. */
+app.post('/api/readiness/advice/apply', (req, res) => {
+  const result = applySessionAdvice(req.user.id, req.today);
+  res.json({ ...result, template: workoutTemplate(req.user.id, req.today) });
+});
 
 // A mai check-in (vagy null, ha még nem töltötted ki)
 app.get('/api/checkin', (req, res) => res.json(getCheckin(req.user.id, req.today)));
@@ -1121,7 +1409,12 @@ app.get('/api/plans', (req, res) => {
     }
     return 0;
   };
-  res.json(getUserPlans(userId).map((plan) => {
+  /* A biztonsági átnézéshez a készenléti riport KELL, de fejenként egyszer
+     elég: minden terv ugyanazt a mai állapotot méri. */
+  const plans = getUserPlans(userId);
+  const safetyOf = plans.length ? planSafetyChecker(userId, todayDate) : () => null;
+
+  res.json(plans.map((plan) => {
     const daysLabel = plan.days.length
       ? ` · ${plan.days.map((d) => DAY_LABELS[d]).join(', ')}`
       : '';
@@ -1131,10 +1424,28 @@ app.get('/api/plans', (req, res) => {
       meta: `Saját terv · ${plan.exercises.length} gyakorlat${daysLabel}`,
       progress: progressFor(plan),
       own: true,
+      /* Mi kockázatos MA ebben a tervben, és miért. A terv NEM íródik át —
+         csak megjelöljük; az átírás elrejtené az edző elől, mi történt. */
+      safety: safetyOf(plan.exercises),
       exercises: plan.exercises,
       days: plan.days,
     };
   }));
+});
+
+
+/** Terv törlése. Csak a sajátodat — az elfogadott edzői terv is a te sorod
+    (az elfogadás másolatot hoz létre), tehát az is kiszedhető. A terv-lista
+    eddig KIZÁRÓLAG nőni tudott. */
+app.delete('/api/plans/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: 'Érvénytelen terv-azonosító.' });
+  }
+  if (!deletePlan(req.user.id, id)) {
+    return res.status(404).json({ error: 'Nincs ilyen terved — lehet, hogy időközben törölték.' });
+  }
+  res.status(204).end();
 });
 
 app.get('/api/workout-template', (req, res) => res.json(workoutTemplate(req.user.id, req.today)));
@@ -1268,6 +1579,9 @@ function readinessReport(userId, todayDate, workouts = getWorkouts(userId)) {
     },
     weightLog: getWeightLog(userId),
     catalog: getCollection('exerciseCatalog') || [],
+    // Az erőfelmérésen bemondott csúcsok: ezekből is lesz gyakorlat-ajánlás,
+    // akkor is, ha a fiók még egyetlen edzést sem naplózott.
+    declaredMaxes: getDeclaredMaxes(userId),
     today: todayDate,
   });
 }
@@ -1346,6 +1660,136 @@ app.get('/api/foods', (req, res) => res.json(getFoodsForUser(req.user.id)));
 app.get('/api/nutrition', (req, res) => res.json(getNutritionTotals(req.user.id, req.today)));
 
 // A MAI naplózott ételek tételesen — a Táplálkozás oldal „Mai napló" listájához
+
+
+/* ---- Testösszetétel: körfogat és testzsír ----
+   A weight_log egyetlen számot tárol, de a puszta kilogramm nem mondja meg,
+   MI épült és mi fogyott — egy versenyző a mellette futó körfogatot követi.
+
+   A mérési helyek értékkészlete ZÁRT: elgépelt kulcsra a trend szétesne. A
+   tartományok bőven megengedőek, csak a nyilvánvalóan hibás bevitelt fogják
+   meg (egy 300 cm-es felkar elgépelés, nem mérés). */
+const MEASUREMENT_SITES = {
+  chest: { label: 'Mell', unit: 'cm', min: 40, max: 200 },
+  arm: { label: 'Felkar', unit: 'cm', min: 15, max: 80 },
+  waist: { label: 'Derék', unit: 'cm', min: 40, max: 200 },
+  hip: { label: 'Csípő', unit: 'cm', min: 40, max: 200 },
+  thigh: { label: 'Comb', unit: 'cm', min: 25, max: 120 },
+  calf: { label: 'Vádli', unit: 'cm', min: 20, max: 80 },
+  bodyfat: { label: 'Testzsír', unit: '%', min: 3, max: 60 },
+};
+
+/** A mérési helyek listája a felületnek — a címkék és a mértékegységek is
+    innen jönnek, hogy a két oldal ne sodródjon szét. */
+app.get('/api/measurements/sites', (req, res) => res.json(
+  Object.entries(MEASUREMENT_SITES).map(([key, site]) => ({ key, ...site })),
+));
+
+app.get('/api/measurements', (req, res) => res.json(getMeasurements(req.user.id)));
+
+/** Mérések mentése a MAI napra. Törzs: { values: { waist: 84, bodyfat: 12.5 } }.
+    Csak az érintett helyeket írjuk — amit nem adtak meg, azt nem bántjuk.
+    Az aznapi újramérés felülír, nem duplikál. */
+app.put('/api/measurements', (req, res) => {
+  const raw = req.body?.values;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return res.status(400).json({ error: 'Adj meg legalább egy mérést.' });
+  }
+
+  const values = {};
+  for (const [site, input] of Object.entries(raw)) {
+    const spec = MEASUREMENT_SITES[site];
+    if (!spec) return res.status(400).json({ error: `Ismeretlen mérési hely: ${site}` });
+    // Az üres mező nem törlés — a felület azt hagyja ki, amit nem mértek.
+    if (input === null || input === undefined || input === '') continue;
+    const value = Number(input);
+    if (!Number.isFinite(value) || value < spec.min || value > spec.max) {
+      return res.status(400).json({
+        error: `${spec.label}: ${spec.min} és ${spec.max} ${spec.unit} között adható meg.`,
+      });
+    }
+    values[site] = Math.round(value * 10) / 10;
+  }
+  if (Object.keys(values).length === 0) {
+    return res.status(400).json({ error: 'Adj meg legalább egy mérést.' });
+  }
+
+  res.json(saveMeasurements(req.user.id, req.today, values));
+});
+
+/** Egy mérés törlése — az elgépelt sor a trendet is elviszi. */
+app.delete('/api/measurements/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: 'Érvénytelen azonosító.' });
+  }
+  if (!deleteMeasurement(req.user.id, id)) {
+    return res.status(404).json({ error: 'Nincs ilyen mérésed.' });
+  }
+  res.status(204).end();
+});
+
+/* ---- Napi táplálkozási cél ----
+   Korábban EGY fix érték szolgálta ki az összes fiókot (data.js →
+   nutritionGoal), és sehol nem lehetett szerkeszteni.
+
+   Két forrás van, és mindkettő megmarad: amit az EDZŐ tűzött ki, és amit a
+   felhasználó MAGA állított be. Az érvényes cél a sajátja, ha van; különben
+   az edzőé. A kettő együtt él tovább, hogy az eltérés látsszon — a néma
+   felülírás mindkét irányban rossz volna. */
+const GOAL_RANGES = {
+  calories: { min: 500, max: 10000, label: 'napi kalória' },
+  protein: { min: 0, max: 500, label: 'napi fehérje' },
+};
+
+/** A cél törzsének beolvasása. Mindkét mező KÖTELEZŐ: egy fél célhoz nem
+    lehet mérni a bevitelt. Hibánál { error }-t ad. */
+function parseGoalBody(body) {
+  const goal = {};
+  for (const [key, { min, max, label }] of Object.entries(GOAL_RANGES)) {
+    const raw = body?.[key];
+    if (raw === null || raw === undefined || raw === '') {
+      return { error: `A(z) ${label} megadása kötelező.` };
+    }
+    const value = Number(raw);
+    if (!Number.isFinite(value) || value < min || value > max) {
+      return { error: `${label}: az érték ${min} és ${max} között adható meg.` };
+    }
+    goal[key] = Math.round(value);
+  }
+  return { goal };
+}
+
+/** A rám érvényes cél, a származásával együtt. */
+app.get('/api/nutrition/goal', (req, res) => res.json(getNutritionGoal(req.user.id)));
+
+/** A SAJÁT cél beállítása. Ez felülírja az edzőit — de nem törli: az edzői
+    sor megmarad, és a felület kiírja, hogy eltértél tőle. */
+app.put('/api/nutrition/goal', (req, res) => {
+  const { goal, error } = parseGoalBody(req.body);
+  if (error) return res.status(400).json({ error });
+  res.json(saveNutritionGoal(req.user.id, 'own', goal, req.user.id));
+});
+
+/** A saját cél elvetése — ezzel visszaállsz az edzői célra (vagy az
+    alapértékre). Az edzői sort nem érinti. */
+app.delete('/api/nutrition/goal', (req, res) => res.json(clearOwnNutritionGoal(req.user.id)));
+
+/** Az EDZŐ tűz ki célt a sportolójának. A sportoló saját célját szándékosan
+    NEM töröljük: ha ő korábban beállított egyet, az marad érvényben, és a
+    felület jelzi neki, hogy az edző mást szeretne.
+    A kapu ugyanaz, mint a terv-kiosztásé: csak az edző oldala, csak ÉLŐ
+    kapcsolatba. */
+app.put('/api/athletes/:linkId/nutrition-goal', (req, res) => {
+  const link = getCoachLink(Number(req.params.linkId));
+  if (!link || link.coachId !== req.user.id || link.status !== 'active') {
+    return res.status(404).json({ error: 'Nincs ilyen kapcsolat.' });
+  }
+  const { goal, error } = parseGoalBody(req.body);
+  if (error) return res.status(400).json({ error });
+  res.json(saveNutritionGoal(link.athleteId, 'coach', goal, req.user.id));
+});
+
 app.get('/api/nutrition/log', (req, res) => res.json(getNutritionLogForDate(req.user.id, req.today)));
 
 // Mentett edzések (legújabb elöl)
@@ -1366,10 +1810,16 @@ app.get('/api/export', (req, res) => res.json(getSnapshot(req.user.id)));
     A felület ezt a végpontot már nem hívja — a testsúlyt a napi check-in
     kérdi, és a PUT /api/checkin írja ide. Nyitva marad, mert a testsúly-napló
     önálló erőforrás (GET + írás egy helyen). */
+/** A testsúly elfogadott tartománya. Egy helyen, mert három végpont méri:
+    a rögzítés, a javítás és a check-in. */
+const WEIGHT_RANGE = { min: 30, max: 300 };
+
 app.post('/api/weight-log', (req, res) => {
   const kg = Number(req.body?.kg);
-  if (!Number.isFinite(kg) || kg < 30 || kg > 300) {
-    return res.status(400).json({ error: 'Érvénytelen testsúly — 30 és 300 kg között adható meg.' });
+  if (!Number.isFinite(kg) || kg < WEIGHT_RANGE.min || kg > WEIGHT_RANGE.max) {
+    return res.status(400).json({
+      error: `Érvénytelen testsúly — ${WEIGHT_RANGE.min} és ${WEIGHT_RANGE.max} kg között adható meg.`,
+    });
   }
   // 200, nem 201: a mentés a nap meglévő bejegyzését is felülírhatja.
   res.json(addWeightEntry(req.user.id, kg, req.today));
@@ -1400,6 +1850,57 @@ app.post('/api/nutrition/log', (req, res) => {
   }
 
   res.status(201).json(addNutritionEntry(req.user.id, food, req.today, Math.round(grams)));
+});
+
+
+/** Testsúly-bejegyzés javítása. CSAK az érték — a dátum nem adható meg: a
+    javítás nem áthelyezés (ugyanaz az elv, mint a mentett edzésnél). */
+app.put('/api/weight-log/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: 'Érvénytelen bejegyzés-azonosító.' });
+  }
+  const kg = Number(req.body?.kg);
+  if (!Number.isFinite(kg) || kg < WEIGHT_RANGE.min || kg > WEIGHT_RANGE.max) {
+    return res.status(400).json({
+      error: `A testsúly ${WEIGHT_RANGE.min} és ${WEIGHT_RANGE.max} kg között adható meg.`,
+    });
+  }
+  const updated = updateWeightEntry(req.user.id, id, kg);
+  if (!updated) return res.status(404).json({ error: 'Nincs ilyen bejegyzésed.' });
+  res.json(updated);
+});
+
+/** Testsúly-bejegyzés törlése. Egy elgépelt, kiugró érték a trend-kártya
+    skáláját lapos vonallá nyomja — eddig nem volt út a javításához. */
+app.delete('/api/weight-log/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: 'Érvénytelen bejegyzés-azonosító.' });
+  }
+  if (!deleteWeightEntry(req.user.id, id)) {
+    return res.status(404).json({ error: 'Nincs ilyen bejegyzésed.' });
+  }
+  res.status(204).end();
+});
+
+
+/** Naplóbejegyzés adagjának javítása. A makrók arányosan számolódnak át a
+    tárolt értékekből — a nutrition_log szándékosan másolatban tárolja őket.
+    A RÉGEBBI napok is javíthatók: az elgépelt adag ott is alulméri a napi
+    bevitelt, ami a készenlét táplálkozás-komponensébe is beszivárog. */
+app.put('/api/nutrition/log/:id', (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: 'Érvénytelen bejegyzés-azonosító.' });
+  }
+  const grams = Number(req.body?.grams);
+  if (!Number.isFinite(grams) || grams < 1 || grams > MAX_PORTION_GRAMS) {
+    return res.status(400).json({ error: `Az adag 1 és ${MAX_PORTION_GRAMS} gramm között adható meg.` });
+  }
+  const updated = updateNutritionEntry(req.user.id, id, Math.round(grams));
+  if (!updated) return res.status(404).json({ error: 'Nincs ilyen bejegyzésed.' });
+  res.json(updated);
 });
 
 /** Naplóbejegyzés törlése (visszavonás). Csak a mai bejegyzés törölhető;
@@ -1638,6 +2139,20 @@ const normalizeSetType = (raw, index, prevType) => {
 /** A beküldött gyakorlat-lista mezőnkénti normalizálása. A kliens a DOM-ból
     olvassa az értékeket, ezért itt kényszerítjük ki az elvárt alakot;
     érvénytelen szerkezetre null-t ad (→ 400-as válasz). */
+/** Egy szett szám-mezője (ism./súly) normalizálva.
+
+    A mező SZÖVEG marad — a régi, mértékegységgel együtt mentett értékeket
+    („12 rep", „60% TM") nem bántjuk. Ami viszont számként olvasható, az nem
+    lehet negatív: a negatív súly negatív tonnatömeget adna, és a Recovery
+    Engine fáradtság-modelljében LEVONÓDNA — egy hamis sorral felfelé lehetne
+    tolni a saját készenléti pontszámot. */
+function nonNegativeField(value) {
+  const text = String(value ?? '').slice(0, 20);
+  const parsed = Number(text);
+  if (Number.isFinite(parsed) && parsed < 0) return '0';
+  return text;
+}
+
 function normalizeExercises(raw) {
   if (!Array.isArray(raw) || raw.length === 0) return null;
   const exercises = [];
@@ -1652,8 +2167,8 @@ function normalizeExercises(raw) {
     const sets = [];
     for (const [index, set] of entry.sets.entries()) {
       sets.push({
-        reps: String(set?.reps ?? '').slice(0, 20),
-        weight: String(set?.weight ?? '').slice(0, 20),
+        reps: nonNegativeField(set?.reps),
+        weight: nonNegativeField(set?.weight),
         rpe: normalizeRpe(set?.rpe),
         type: normalizeSetType(set?.type, index, sets[index - 1]?.type),
         done: Boolean(set?.done),
@@ -1725,6 +2240,189 @@ app.post('/api/workouts', (req, res) => {
   res.status(201).json(
     addWorkout(req.user.id, workout.name, req.today, workout.exercises, parseRowId(req.body?.planId)),
   );
+});
+
+
+
+/* ======================================================================
+   Megjegyzések egy gyakorlathoz
+   ----------------------------------------------------------------------
+   Nem üzenetek: az edző–sportoló beszélgetés a messages táblában él. Ez egy
+   konkrét gyakorlathoz tapad („fájt a vállam a 3. szettnél"), és ugyanabban a
+   szálban látszik mindkét fél megjegyzése.
+
+   A CÍMZÉS a ház szabályát követi: a saját megjegyzéseidet id nélkül éred el,
+   a sportolódéit a KAPCSOLAT azonosítójával. A sportoló belső user-id-je nem
+   kerül ki az edzőhöz — erre külön teszt is van (coach.test.js).
+   ====================================================================== */
+
+const COMMENT_TYPE = 'exercise';
+const COMMENT_MAX_LENGTH = 1000;
+
+/** A szöveg beolvasása. Hibánál { error }-t ad. */
+function parseCommentBody(body) {
+  const text = String(body?.text ?? '').trim();
+  if (!text) return { error: 'Üres megjegyzést nem mentünk el.' };
+  if (text.length > COMMENT_MAX_LENGTH) {
+    return { error: `Legfeljebb ${COMMENT_MAX_LENGTH} karakter.` };
+  }
+  return { text };
+}
+
+/** A kapcsolat sportolójának azonosítója, ha a hívó az EDZŐ oldala és a
+    kapcsolat él — különben null (a válasz ilyenkor 404). */
+function athleteOfLink(user, rawLinkId) {
+  const link = getCoachLink(Number(rawLinkId));
+  if (!link || link.coachId !== user.id || link.status !== 'active') return null;
+  return link.athleteId;
+}
+
+/* ---- A saját megjegyzéseim ---- */
+
+app.get('/api/comments', (req, res) => {
+  const target = String(req.query.target ?? '');
+  res.json(getComments(req.user.id, COMMENT_TYPE, target));
+});
+
+app.get('/api/comments/by-target', (req, res) => {
+  res.json(getCommentsByTarget(req.user.id, COMMENT_TYPE));
+});
+
+app.post('/api/comments', (req, res) => {
+  const { text, error } = parseCommentBody(req.body);
+  if (error) return res.status(400).json({ error });
+  const target = String(req.body?.targetId ?? '');
+  res.status(201).json(addComment(req.user.id, req.user.id, COMMENT_TYPE, target, text));
+});
+
+app.delete('/api/comments/:commentId', (req, res) => {
+  const commentId = Number(req.params.commentId);
+  if (!Number.isInteger(commentId) || commentId <= 0) {
+    return res.status(400).json({ error: 'Érvénytelen azonosító.' });
+  }
+  if (!deleteComment(commentId, req.user.id)) {
+    return res.status(404).json({ error: 'Nincs ilyen megjegyzésed.' });
+  }
+  res.status(204).end();
+});
+
+/* ---- A sportolóm megjegyzései (az EDZŐ oldala) ---- */
+
+app.get('/api/athletes/:linkId/comments', (req, res) => {
+  const athleteId = athleteOfLink(req.user, req.params.linkId);
+  if (athleteId === null) return res.status(404).json({ error: 'Nincs ilyen kapcsolat.' });
+  const target = String(req.query.target ?? '');
+  res.json(getComments(athleteId, COMMENT_TYPE, target));
+});
+
+/** Az edzői megjegyzés UGYANABBA a szálba megy, csak más szerzővel — ettől
+    lesz egy beszélgetés a gyakorlatról, nem két külön lista. */
+app.post('/api/athletes/:linkId/comments', (req, res) => {
+  const athleteId = athleteOfLink(req.user, req.params.linkId);
+  if (athleteId === null) return res.status(404).json({ error: 'Nincs ilyen kapcsolat.' });
+  const { text, error } = parseCommentBody(req.body);
+  if (error) return res.status(400).json({ error });
+  const target = String(req.body?.targetId ?? '');
+  res.status(201).json(addComment(req.user.id, athleteId, COMMENT_TYPE, target, text));
+});
+
+
+/* ---- Erőfelmérés (fresh start) ----
+   A friss fiók ma hetekig „vakon" használja az appot: a gyakorlat-ajánlások
+   három naplózott alkalmat kérnek (recovery.js → MIN_SESSIONS), a három fő
+   emelés kivételével. Az erőfelmérésen a felhasználó BEMONDJA, mit tud —
+   ebből a motor azonnal tud ajánlani.
+
+   Amit NEM teszünk: a felmérést nem írjuk be edzésként a naplóba. Az
+   hazudna egy meg nem történt edzést a sorozatba és a volumen-diagramba.
+   A bemondott érték külön forrásként él (exercise_maxes.source = 'declared'),
+   és a riport `basis` mezője kimondja, min alapul az ajánlás. */
+const ASSESSMENT_MAX_ENTRIES = 12;
+const ASSESSMENT_RANGES = { weight: [1, 500], reps: [1, 30] };
+
+/** Az erőfelmérés rögzítése. Törzs: { entries: [{ exercise, weight, reps }] }.
+    A gyakorlatnak a KATALÓGUSBAN kell lennie — kitalált névre nem építünk
+    ajánlást, mert az izomcsoportjait sem ismernénk. */
+app.post('/api/strength-assessment', (req, res) => {
+  const raw = req.body?.entries;
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return res.status(400).json({ error: 'Adj meg legalább egy gyakorlatot.' });
+  }
+  if (raw.length > ASSESSMENT_MAX_ENTRIES) {
+    return res.status(400).json({ error: `Legfeljebb ${ASSESSMENT_MAX_ENTRIES} gyakorlat.` });
+  }
+
+  const catalog = getCollection('exerciseCatalog') || [];
+  const known = new Map(catalog.map((item) => [normalizeName(item.name), item.name]));
+
+  const parsed = [];
+  for (const entry of raw) {
+    const name = known.get(normalizeName(String(entry?.exercise ?? '')));
+    if (!name) {
+      return res.status(400).json({ error: `Ismeretlen gyakorlat: ${String(entry?.exercise ?? '')}` });
+    }
+    for (const [key, [min, max]] of Object.entries(ASSESSMENT_RANGES)) {
+      const value = Number(entry?.[key]);
+      if (!Number.isFinite(value) || value < min || value > max) {
+        return res.status(400).json({ error: `${name}: a(z) ${key} ${min} és ${max} között adható meg.` });
+      }
+    }
+    // Ugyanaz az Epley-képlet, amivel a naplózott szettek is számolnak.
+    parsed.push({ name, max1rm: calculateEpley1RM(entry.weight, entry.reps) });
+  }
+
+  const stored = parsed.map(({ name, max1rm }) => {
+    const result = setDeclaredMax(req.user.id, name, max1rm, req.today);
+    return {
+      exercise: name,
+      // A ténylegesen ÉRVÉNYES csúcs kerekítve — ha volt mért érték, az marad.
+      max1rm: Math.round(result.max1rm * 10) / 10,
+      stored: result.stored,
+    };
+  });
+
+  res.status(201).json({ entries: stored, readiness: readinessReport(req.user.id, req.today) });
+});
+
+/** A bemondott csúcsok — a felmérés űrlapja ebből tölti fel magát újranyitáskor. */
+app.get('/api/strength-assessment', (req, res) => res.json(getDeclaredMaxes(req.user.id)));
+
+/* ---- Edzés utáni visszajelzés ----
+   STRUKTURÁLT mező, nem üzenet: a nehézség és a közérzet számként tárolódik,
+   tehát később elemezhető. A szabad szöveg mellette fut. Mindhárom
+   elhagyható — a „nem küldött" és a „rosszat jelzett" két külön dolog. */
+const FEEDBACK_NOTE_MAX = 500;
+
+/** Edzés utáni visszajelzés küldése a SAJÁT edzésre. Az adatréteg a user_id-re
+    is szűr, tehát idegen edzés id-jére nem talál sort → 404. */
+app.put('/api/workouts/:id/feedback', (req, res) => {
+  const workoutId = Number(req.params.id);
+  if (!Number.isInteger(workoutId) || workoutId <= 0) {
+    return res.status(400).json({ error: 'Érvénytelen azonosító.' });
+  }
+
+  const fields = {};
+  for (const [key, label] of [['difficulty', 'nehézség'], ['mood', 'közérzet']]) {
+    const raw = req.body?.[key];
+    if (raw === null || raw === undefined || raw === '') {
+      fields[key] = null;
+      continue;
+    }
+    const value = Number(raw);
+    if (!Number.isInteger(value) || value < 1 || value > 5) {
+      return res.status(400).json({ error: `${label}: az érték 1 és 5 között adható meg.` });
+    }
+    fields[key] = value;
+  }
+  const note = String(req.body?.note ?? '').trim();
+  if (note.length > FEEDBACK_NOTE_MAX) {
+    return res.status(400).json({ error: `A megjegyzés legfeljebb ${FEEDBACK_NOTE_MAX} karakter.` });
+  }
+  fields.note = note || null;
+
+  const updated = saveWorkoutFeedback(req.user.id, workoutId, fields);
+  if (!updated) return res.status(404).json({ error: 'Nincs ilyen edzésed.' });
+  res.json(updated);
 });
 
 /**
@@ -1811,10 +2509,21 @@ app.use('/vendor/zxing', express.static(
 
 app.use(express.static(PUBLIC_DIR));
 
+/* A hibakezelő az ÖSSZES útvonal UTÁN — ide fut be minden, amit a becsomagolt
+   kezelők `next(err)`-rel továbbadtak, és az express.json() hibás törzsre
+   dobott hibája is. A veremkép a szerver-logba megy, a kliens JSON-t kap. */
+app.use(apiErrorHandler);
+
 /* A TÉNYLEGESEN kiosztott portot írjuk ki, nem a kért PORT-ot. A kettő
    rendszerint ugyanaz, de PORT=0 esetén az operációs rendszer választ szabad
    portot — így indul a végponti teszt (server/api.test.js) is, ami ebből a
    sorból olvassa ki, hova küldje a kéréseket. */
 const server = app.listen(PORT, () => {
+  // eslint-disable-next-line no-console -- indulási banner: a szerver címe
   console.log(`FitTrack Pro szerver fut: http://localhost:${server.address().port}`);
 });
+
+/* Ami a kérés-kezelésen KÍVÜL szállna el (időzítő, háttér-feladat): naplózzuk.
+   Az elkapatlan kivétel rendezett leállást hoz, az elárvult ígéret nem —
+   az indoklás a server/errors.js fejlécében van. */
+installProcessGuards(server);

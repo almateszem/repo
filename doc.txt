@@ -1,0 +1,780 @@
+FitTrack Pro — MI MIT CSINÁL
+============================
+Az alkalmazás funkciói és működése, egy helyen.
+Utolsó frissítés: 2026-09-03
+
+Ez a fájl azt írja le, MI VAN KÉSZ és HOGYAN MŰKÖDIK. Ami még hiányzik, az
+a TEENDOK.txt-ben van; ami tervezési döntés és indoklás, az a README.md-ben.
+
+FIGYELEM: a 2026-09-02-i összefésülés (main → Viktor/funkciok) az edző–
+sportoló réteget, az értesítéseket és az üzenetváltást ÁTÍRTA. A 12. és a
+13. szakasz (adatmodell, végpontok) azóta a KÓDBÓL van generálva, tehát
+megbízható. A többi szakaszt átnéztük, de kétség esetén a README.md és a
+kód az irányadó.
+
+
+==========================================================================
+0. EGY BEKEZDÉSBEN
+==========================================================================
+Edző–kliens edzésmenedzsment alkalmazás. A felhasználó naplózza az edzéseit,
+az étkezéseit és a napi állapotát; ebből egy készenlét-motor (Recovery Engine)
+0–100-as pontszámot és konkrét edzésdöntéseket számol. Aki edző, valódi
+klienseket vehet fel, láthatja az adataikat és tervet oszthat ki nekik.
+
+Egyetlen Express szerver szolgálja ki a frontendet ÉS az API-t; az adat
+SQLite-ban perzisztál. Nincs build-lépés, nincs frontend keretrendszer.
+
+
+==========================================================================
+1. INDÍTÁS ÉS FELÉPÍTÉS
+==========================================================================
+Node 22.5+ kell (a beépített node:sqlite modul miatt).
+
+    npm install
+    npm start          → http://localhost:3000
+    npm run dev        → ugyanaz, fájlfigyeléssel
+    npm test           → 313 teszt (node --test, nulla függőség)
+    npm run lint       → ESLint (nincs build-lépés, ez az egyetlen védőháló)
+    npm run format     → Prettier
+
+Környezeti változók:
+    PORT          alapérték 3000
+    FITTRACK_DB   alapérték server/fittrack.db (teszthez eldobható fájlra)
+
+Fájlok:
+    public/index.html   minden oldal + a listaelemek <template> sablonjai
+    public/js/          a frontend ES modulokban; belépési pont: js/main.js
+      core/             api réteg, DOM/formázó segédek, preferenciák, toast
+      core/page-hooks.js  a router és az oldalvezérlők közti késleltetett kötés
+      nav/              hash-router, nav gyűrű
+      render/           adat → DOM (áttekintő, szettek, tervek, edzői panel…)
+      ui/               oldalankénti interakciók
+      app/init.js       a vezérlők felépítése és összekötése
+    public/style.css    dizájn-tokenek és komponensstílusok
+    server/server.js    Express: /api/* végpontok + a public/ kiszolgálása
+    server/db.js        SQLite adatréteg — az EGYETLEN modul, ami a tárolást ismeri
+    server/auth.js      jelszó-hash, munkamenet-tokenek, sütik (tiszta függvények)
+    server/recovery.js  Recovery Engine — a készenlét-számítás, DB nélkül
+    server/muscles.js   izomcsoport-taxonómia + gyakorlat → izom leképezés
+    server/data.js      seed / referencia-adat
+    server/coaching.js  a sportoló-összegző (tiszta függvények, DB nélkül)
+    server/errors.js    hibakezelő védőháló (kezelő-becsomagolás, JSON-hiba, őrök)
+    server/notifications.js  az értesítés-panel tartalma (szintén tiszta)
+    server/ratelimit.js      kérés-korlátozás
+    server/openfoodfacts.js  vonalkód → termék (Open Food Facts proxy)
+
+A frontend egyoldalas: a "#hash" router váltja az oldalakat, minden oldal a
+DOM-ban van, csak rejtve. Nincs build-lépés: a böngésző natív ES modulokat
+tölt be (<script type="module" src="js/main.js">).
+
+
+==========================================================================
+2. FIÓKOK, BELÉPÉS, ADATVÉDELEM
+==========================================================================
+- Regisztráció felhasználónévvel + jelszóval. A felhasználónév 3–24 karakter,
+  angol kisbetű/szám/pont/kötőjel/aláhúzás; kisbetűsítve tárolódik, tehát a
+  belépés nagybetű-érzéketlen.
+- Jelszó: scrypt, fiókonként külön sóval. A paraméterek bele vannak írva a
+  hashbe, így később emelhetők a régi jelszavak érvénytelenítése nélkül.
+- Munkamenet: HttpOnly, SameSite=Lax süti, 30 nap. Az adatbázisba CSAK a
+  token SHA-256 lenyomata kerül. HTTPS mögött a süti Secure jelzőt is kap.
+- Belépési kísérlet-korlát: 15 percen belül 10 sikertelen próbálkozás után a
+  felhasználónév átmenetileg zárolódik (memóriában él, újraindításkor nullázódik).
+- MINDEN /api/* végpont bejelentkezést követel az /api/auth/* kivételével. A
+  védelem szándékosan az összes útvonal ELŐTT áll, tehát egy később felvett
+  végpont automatikusan védett.
+- Minden lekérdezés a bejelentkezett fiókra szűr. A felhasználók nem látják és
+  nem írhatják egymás adatát, id-re hivatkozva sem. EGYETLEN kivétel a
+  jóváhagyott edző–kliens kapcsolat (ld. 9. pont).
+
+Régi, fiók nélküli adatbázis: az első induláskor a meglévő sorok egy archív
+fiókhoz kerülnek (üres jelszó-hash, belépni nem lehet vele), és az ELSŐ
+regisztráció megörökli az egészet. A második regisztráló már nem kap belőle.
+
+ELSŐ CHECK-IN (onboarding): a regisztráció után a felhasználó NEM az üres
+Áttekintésre érkezik, hanem a check-in varázslóra (ld. 3.7), és amíg ki nem
+tölti, az app többi oldala zárva van. Enélkül a friss fiók egy üres "—"
+gyűrűt látna: a Recovery Engine helyesen null-t ad, amíg nincs mire
+alapoznia (ld. 5. pont).
+- A jelzőt a szerver adja: az /api/auth/me, a /register és a /login válasza
+  is hordozza az `onboarding` mezőt. Igaz, amíg a fióknak MÉG SOHA nem volt
+  check-inje. Azért ez a feltétel, és nem a "most regisztrált" tény: annak
+  az oldal-újratöltést is túl kell élnie, különben a félbehagyott első
+  check-in után az F5 kiengedné a felhasználót.
+- A felület két őrrel zárja a lapot: a navigate() a nav gyűrűt és az 1–6
+  gyorsbillentyűket fogja, a hashchange-kezelő a desktop side-nav sima
+  linkjeit és a címsorba írt hash-t. A nem-oldalnév hash (a #app-main skip
+  link) érintetlen marad. A navigáció CSS-ből is rejtve (body[data-onboarding]).
+- Kijárat: az intro "Mégse" linkje itt "Kijelentkezés" — a check-in kötelező,
+  de a lap nem csapda (a #checkin-en nincs beállítás- vagy kilépés-gomb, azok
+  a dashboard fejlécében ülnek).
+- A varázsló előrehaladó útja magától kikényszeríti a motor négy kulcsmezőjét:
+  a skála-lépések "Tovább" gombja tiltott, amíg nincs válasz. Az első check-in
+  után tehát garantáltan van valódi készenléti pontszám.
+- A NAPI check-in nem ugrik fel magától: a későbbi napokon az Áttekintés
+  emlékeztető gombja visz a varázslóba (ld. 3.1).
+
+
+==========================================================================
+3. OLDALAK
+==========================================================================
+Hét fő oldal a navigációban (Áttekintés, Regeneráció, Edző, Tervek, Edzés,
+Táplálkozás, Profil) és négy "flow-oldal", amikre csak gombbal lehet eljutni
+(check-in varázsló, edzés-összegző, terv-építő, gyakorlat-választó).
+
+Navigáció: oldalsó menü, alul egy húzható "nav gyűrű" (fel/le/balra/jobbra),
+és az 1–6 gyorsbillentyűk. Gépelés közben és nyitott ablak mellett a
+gyorsbillentyűk inaktívak. Oldalváltáskor a görgetés és a fókusz is átkerül az
+új oldal címsorára.
+
+
+--- 3.1 ÁTTEKINTÉS (#dashboard) ------------------------------------------
+Az induló képernyő. Minden mezője SZÁMOLT érték, nincs benne demo-adat.
+
+  · Készenléti gyűrű — a Recovery Engine mai pontszáma (0–100). Alatta egy
+    sor megmondja, mire épül a szám: "a saját előzményedhez mérve" /
+    "részben általános referenciával" / "töltsd ki a napi check-int".
+    Ha még nincs elég adat, a gyűrű üres és a szám helyén "—" áll.
+  · Sorozat (streak) — hány napja edzel megszakítás nélkül.
+  · Napi kalória és fehérje — a mai táplálkozási naplóból, a célhoz mérve.
+  · Testsúly Δ — a legutóbbi két mérés különbsége.
+  · Regeneráció három sora — alvás, fáradtság, izomláz szöveges összefoglalója.
+  · Aktuális edzés neve — az aznapi piszkozat vagy a mára ütemezett terv.
+  · Check-in emlékeztető gomb, ha ma még nincs kitöltve.
+  · Fejlécben: értesítés-harang és a beállítások fogaskereke.
+
+
+--- 3.2 REGENERÁCIÓ (#recovery) ------------------------------------------
+A Recovery Engine teljes riportja.
+
+  · Készenléti gyűrű + megbízhatóság-jelvény (Tájékoztató / Közepes /
+    Megbízható) és egy mondat arról, mire épül.
+  · Komponens-bontás — a hat komponens pontszáma és tényleges súlya. A
+    hiányzók "nincs adat"-tal jelölve.
+  · Idegrendszer (CNS) — külön becslés, szöveges javaslattal.
+  · Izomcsoportok — mind a kilenc csoport regenerációja sávdiagramon, meta-
+    sorral: mikor terhelted, mekkora izomlázat/fájdalmat jeleztél. Amiről
+    nincs adat, ott "—" áll, nem 100%.
+  · Mai ajánlások — gyakorlatonkénti konkrét javaslat (súly- és
+    volumen-delta, pl. "normál súly, −1 szett").
+  · Testsúly alakulása — az utolsó 12 bejegyzés trendje, a tényleges
+    értékekhez igazított skálával.
+  · Részletes szerkesztés — a teljes check-in űrlap egy képernyőn.
+
+
+--- 3.3 EDZÉS (#workout) -------------------------------------------------
+Az edzésnapló. Ez az app legsűrűbb felülete.
+
+  · Induló tartalom prioritás szerint: (1) aznapi piszkozat, (2) a mai
+    hétnapra ütemezett terv, (3) korábbi piszkozat, (4) üres napló.
+    Megkezdett mai edzést SOHA nem ír felül.
+  · Gyakorlat-kártyák, kártyánként szett-sorokkal. Egy szett: ismétlés,
+    súly (kg), RPE — mind szám, a mértékegység a fejlécben van.
+  · Szett-típus: bemelegítő / munkasorozat / drop set. Az első sor alapból
+    bemelegítő. A típus nem csak színezés: a Recovery Engine a bemelegítőt
+    nullának, a drop setet fél munkasorozatnak veszi az izomkárosodásban
+    (a tonnatömeg viszont mindegyikből számít).
+  · Szuperszett-jelölés: "ez a gyakorlat az előttem lévővel egy körben".
+  · Szett pipálása, hozzáadás, törlés; léptető gombok a számokhoz.
+  · Automatikus mentés: minden változtatás fél másodperc múlva piszkozatként
+    a szerverre kerül. Az edzésnév alatti sor mutatja az állapotot
+    (Mentés… / Mentve · 18:42 / nem sikerült). Hiba esetén 3, 8 és 20
+    másodperc múlva automatikusan újrapróbálja — a felhasználó soha nem
+    hiszi tévesen mentettnek a naplót.
+  · PR-jelzés élőben: gépelés közben jelzi, ha az adott szett rekordot érne.
+  · Korábbi rekordok listája; egy rekordra koppintva megnyílik az adott
+    gyakorlat PR-előzménye (ld. 4.3).
+  · Heti volumen-diagram: teljesített szettek naponta, ez a hét és a múlt
+    hét közös skálán, váltógombbal.
+  · Korábbi edzések listája.
+  · "Edzés befejezése" → az edzés-összegzőre visz.
+
+
+--- 3.4 TERVEK (#plans) és TERV-ÉPÍTŐ (#plan-builder) --------------------
+  · Terv-kártyák: név, gyakorlatszám, ütemezett napok, és egy haladás-sáv
+    (mennyi van kész belőle ma).
+  · Napra ütemezés: a kijelölt hétnapokon a terv automatikusan az Edzés
+    oldalra töltődik — de megkezdett edzést nem ír felül.
+  · A nyíl betölti a tervet az edzésnaplóba. Ha ezzel megkezdett edzést
+    írna felül, az app rákérdez.
+  · Saját terv szerkeszthető (ceruza ikon) a terv-építőben. Az EDZŐTŐL
+    kapott terven nincs ceruza — abból edzeni lehet, szerkeszteni nem.
+  · Kiosztott terven két extra sor látszik:
+      – "Kovács Bence terve" (kitől jött),
+      – "Módosítva 2 órája · Kovács Bence" (ha az edző utólag átírta).
+  · Biztonsági jelzés a kártyán, ha a mai készenléted alapján valamelyik
+    gyakorlat kockázatos (ld. 10. pont).
+  · Terv-építő: név, hétnap-chipek, gyakorlatok szettekkel, élő összegző
+    ("3 gyakorlat · 8 szett · ~64 perc").
+
+
+--- 3.5 TÁPLÁLKOZÁS (#nutrition) -----------------------------------------
+  · Napi összesítő: kalória és a három makró (fehérje, szénhidrát, zsír),
+    a célhoz mérve.
+  · Ételkereső 437 étel közt; a keresés a névre ÉS a kategóriára is szűr
+    ("tejtermék", "hüvelyes").
+  · Étel-kártyán a nyíl adagválasztó ablakot nyit (ld. 4.4).
+  · Mai napló: a bevitt tételek listája, bármelyik egy koppintással
+    törölhető. CSAK az aznapi bejegyzés módosítható — a korábbi napok
+    összesítői már beépültek a készenlét-számításba.
+  · A napi cél jelenleg FIX és minden fióknak közös (2900 kcal / 170 g).
+    A fiókonkénti, ill. edző által kitűzött cél még nincs kész.
+
+
+--- 3.6 EDZŐ (#coach) ----------------------------------------------------
+Két nézet, a tényleges szerepkör szerint. Ha mindkettő áll, van váltógomb.
+
+KLIENS NÉZET ("Edződ")
+  · Beérkezett edzői meghívás elfogadása / elutasítása. Amíg nem fogadtad
+    el, az edző SEMMIT nem lát az adataidból — a felület ezt ki is írja.
+  · Az edződ neve és felhasználóneve, "Kapcsolat bontása" gombbal
+    (megerősítést kér).
+  · Üzenetváltás — EGYELŐRE SZIMULÁLT, és a felület ezt kiírja: az üzenet
+    nem jut el az edződhöz, a válaszok előre megírt sorok, a szál a lap
+    újratöltésével elvész.
+
+EDZŐI NÉZET ("Edzetteim")
+  · Kliens meghívása felhasználónévvel.
+  · Kiküldött, még el nem fogadott meghívások listája, visszavonással.
+  · Állapot-sáv: hány kliens igényel figyelmet, és miért. Nulla kliensnél
+    nem "minden rendben"-t ír, hanem hogy még nincs kliensed.
+  · Kliens-kártyák (FIFA-kártya stílusban): összpontszám, készenlét,
+    terv-követés, sorozat, utolsó edzés. Minden szám a kliens tényleges
+    naplóiból számolódik.
+  · Kártyára koppintva részletmodál nyílik (ld. 4.1).
+
+
+--- 3.6a NAPI TÁPLÁLKOZÁSI CÉL -------------------------------------------
+A cél FIÓKONKÉNT él (korábban egyetlen fix érték szolgálta ki az összes
+fiókot). Két forrása lehet, és mindkettő megmarad egymás mellett:
+  'coach' — amit az edző tűzött ki,
+  'own'   — amit a felhasználó maga állított be.
+
+Az ÉRVÉNYES cél: 'own', ha van; különben 'coach'; különben a seed alapérték
+(data.js → nutritionGoal). A felület mindig kiírja, honnan jön a szám.
+
+A lényeg, hogy egyik fél sem írja felül némán a másikat:
+  · az edzői kitűzés NEM törli a kliens saját sorát — ha ő állított be
+    célt, az marad érvényben,
+  · a kliens saját célja nem tünteti el az edzőét — ezért tudjuk kiírni,
+    hogy eltért tőle, és ezért lehet egy kattintással visszaállni rá.
+Az AZONOS érték nem számít eltérésnek.
+
+Csak kalória és fehérje. A felület (a napi összesítő, az étel-modál sávjai és
+az áttekintő) ezt a kettőt méri célhoz; szénhidrát/zsír célt nem veszünk fel,
+amíg nincs, ami megjelenítse.
+
+Az edző a sportoló-modálban tűz ki célt, és ott látja a kliens aktuális
+állapotát is (kitűzött cél él / a kliens mást állított be / még nincs cél).
+A kitűzés 'goal' kategóriájú értesítést szül a kliensnél.
+
+
+--- 3.6b KOMMENTEK ÉS ÜZENETVÁLTÁS ---------------------------------------
+Egy tábla (comments) és egy végpontcsalád (/api/comments/:subjectId) szolgál
+ki mindenféle megjegyzést. A három azonosító-oszlop adja a logikát:
+  author_id   — ki írta,
+  subject_id  — KINEK az adatáról szól (a hozzáférés ebből dől el: a subject
+                maga és az ELFOGADOTT edzője),
+  target_type/target_id — mire mutat: 'workout' (edzés id), 'exercise'
+                ("edzésId:index"), 'plan' (terv id), 'chat' (az EDZŐ id-ja).
+
+A chat ezen FELÜL szűkít: a szálat a (kliens, edző) pár azonosítja, és CSAK
+a két résztvevő látja. Egy kliensnek több edzője lehet — a resolveClientId
+mindegyiket átengedné, ezért kell a külön szabály. Enélkül az egyik edző
+beleolvashatna a másikkal folytatott beszélgetésbe.
+
+Az üzenetváltás valódi és perzisztens (2026-09-02 óta; korábban szimulált
+volt, körbeforgó válasz-sorokkal). A felület 8 másodpercenként pollozik, de
+csak akkor, ha a szál látszik. Beszélgetés-váltáskor a lista azonnal ürül,
+nem mutatja a válaszig az előző kliens üzeneteit.
+
+Minden új komment 'comment' kategóriájú értesítést szül a MÁSIK félnél; az
+írónak magának nem. A kategória a Beállításokban külön némítható.
+
+Törölni csak a SZERZŐ tud: az adatréteg az author_id-re is szűr.
+
+
+--- 3.6c EDZÉS UTÁNI VISSZAJELZÉS ----------------------------------------
+Az „Edzés befejezése" után az összegző oldal alján a kliens visszajelzést
+küldhet az edzőnek: nehézség (1-5), közérzet (1-5) és szabad szöveg.
+
+STRUKTURÁLT mező a workouts soron, nem komment — így a két szám elemezhető
+marad. Mindhárom elhagyható, a hiányzó NULL (nem nulla), ugyanaz az elv,
+mint a check-innél. Teljesen üres visszajelzést a felület nem küld el: az
+edzőnek semmit nem mondana, viszont értesítést szülne.
+
+A blokk csak akkor látszik, ha MOST zárult le egy edzés (van mentett
+azonosító — mély-linkkel megnyitott összegzőn nincs) ÉS van edző.
+
+Írni csak a SAJÁT edzésre lehet. Az edző látja: értesítést kap, és a
+sportoló-modálban ott a legutóbbi visszajelzés.
+
+
+--- 3.7 CHECK-IN VARÁZSLÓ (#checkin) -------------------------------------
+A napi állapotfelmérés elsődleges útja: egy kérdés / egy képernyő.
+Sorrend: alvás → alvásminőség → energia → stressz → testsúly → van-e
+izomláz (+ testtérkép) → van-e fájdalom (+ testtérkép) → eredmény.
+
+Szándékosan NEM kérdez közérzetet és folyadékot — azok csak a Regeneráció
+oldal részletes űrlapján érhetők el.
+
+FONTOS SZERZŐDÉS a két kitöltési út közt: a PUT /api/checkin TELJES SORT
+cserél, nem merge-öl. A varázsló ezért megnyitáskor betölti a mai check-int,
+a nem kérdezett mezőket eltárolja, és mentéskor változatlanul visszaküldi —
+enélkül némán felülírná, amit a részletes űrlapon adtál meg.
+
+A testsúly kivétel: nem a check-in sorba megy, hanem a testsúly-naplóba,
+NAPONTA EGY bejegyzésbe. A varázsló testsúly-lépése kihagyható, és a mezőt
+szándékosan nem tölti ki előre a legutóbbi méréssel — egy előre beírt szám a
+"Tovább"-bal olyan méréssé válna, ami meg sem történt.
+
+Mentés után azonnal látszik a friss készenléti pontszám, és — ha van mit
+javasolni — felugrik a készenlét-javaslat ablaka (ld. 10. pont).
+
+A varázsló EZ AZ EGYETLEN oldal a regisztráció után, amíg az első check-in
+el nem készül (ld. 2. pont, "Első check-in"). Ilyenkor az intro szövege más
+(bemutatja, miért kérdezünk), és a mentés — a pontszám kirajzolása mellett —
+fel is oldja a zárat; a felhasználó az összegzésen marad, hogy lássa az első
+készenléti pontszámát. A mezőkészlet ugyanaz, mint a napi kitöltésnél.
+
+
+--- 3.8 EDZÉS-ÖSSZEGZŐ (#summary) ----------------------------------------
+Az "Edzés befejezése" célja. Mutatja az edzés nevét, időtartamát, a
+teljesített / összes szettet és az elért PR-eket, egy záró idézettel.
+
+A lezárás: a napló bekerül a Korábbi edzésekhez, a piszkozat törlődik, az
+Edzés oldal üresen áll készen a következőre. Ugyanaznap így nyugodtan
+kezdhető második edzés is.
+
+
+--- 3.9 GYAKORLAT-VÁLASZTÓ (#exercise-picker) ----------------------------
+1401 gyakorlat kereshető katalógusa; az edzésnapló és a terv-építő is ezt
+célozza át (a "← Vissza" oda visz vissza, ahonnan jöttél). Kereső + szűrő
+chipek, gyakorlatonként illusztrációval, izomcsoport-szöveggel és
+Összetett/Izolációs/Nyújtás címkével.
+
+
+==========================================================================
+4. ABLAKOK (modálok)
+==========================================================================
+4.1 KLIENS RÉSZLETMODÁL — készenlét, terv-követés, sorozat, utolsó edzés,
+    heti edzések, aktív terv, a készenlét megbízhatósága; a legutóbbi
+    tényleges aktivitás (edzések, PR-ek, check-inek, testsúly); a kliens
+    tervei; "+ Terv kiosztása" gomb; szimulált üzenetváltás.
+
+4.2 KÉSZENLÉT-JAVASLAT — ld. 10. pont.
+
+4.3 PR-ELŐZMÉNY — egy gyakorlat rekordjainak idővonala, a becsült 1RM-mel.
+
+4.4 ÉTEL-ADAG — görgethető gramm-választó + gyorsgombok; a makrók és a napi
+    célhoz mért hatás élőben követi a választást.
+
+4.5 BEÁLLÍTÁSOK — megjelenítendő név, értesítés-kategóriák némítása,
+    edzői szerepkör kapcsolója, adat-export (teljes pillanatkép JSON-ként),
+    kijelentkezés.
+
+4.6 MEGERŐSÍTŐ ABLAK — adatvesztés előtt (terv betöltése megkezdett edzésre,
+    teljesített szetteket tartalmazó gyakorlat eltávolítása, kapcsolat
+    bontása). Saját modál, nem natív confirm.
+
+4.7 TECHNIKA VIDEÓ — EGYELŐRE TELJESEN DEMO: statikus előnézet, beégetett
+    edzői megjegyzés, kattinthatatlan bélyegképek. Nincs mögötte
+    videófeltöltés.
+
+
+==========================================================================
+5. A RECOVERY ENGINE — a készenléti pontszám
+==========================================================================
+A server/recovery.js NEM ismeri az adatbázist: mindent paraméterként kap,
+tiszta függvényekből áll, ezért unit-tesztelhető.
+
+A KÉPLET súlyozott átlag, de CSAK a jelen lévő komponensekre:
+
+  Komponens        Súly   Miből
+  ---------------  -----  ------------------------------------------------
+  Alvás            0.25   időtartam (trapéz-görbe) + minőség,
+                          3 napos alvásadósság-levonással
+  Izom-regeneráció 0.15   a kilenc izomcsoport "soft-min" átlaga
+  Energiaszint     0.15   check-in, 1–5
+  Stressz-reg.     0.10   check-in, 1–5 (fordítva)
+  Edzésterhelés    0.15   exponenciálisan csillapított tonnatömeg (τ = 3 nap)
+  Táplálkozás      0.05   a TEGNAPI kalória/fehérje a célhoz mérve + hidratáció
+
+Ami nincs kitöltve, az NEM nullaként számít bele: a súlya arányosan
+újraoszlik a többi komponens között. Hiányzó adattól a pontszám nem torzul,
+csak a megbízhatósága csökken — amit a felület külön kiír.
+
+HRV/pulzus szándékosan nincs a képletben: nincs okosóra-integráció, kitalált
+értéket pedig nem teszünk bele.
+
+"NINCS ADAT" ≠ "TÖKÉLETES ÁLLAPOT"
+  Ha egyáltalán nincs adat (se check-in, se naplózott edzés), a pontszám
+  null, és a felület "—"-t mutat — nem 0-t és nem 100-at. Aki viszont
+  naplóz, de rég edzett, annál a 100 helyes: az már érvényes következtetés,
+  nem az adat hiánya. A kettőt a "naplózott-e valaha edzést" kérdés
+  választja el. Izomcsoportonként ugyanez: a riport jelzi, tudunk-e róla
+  bármit.
+
+AMIT MÉG SZÁMOL
+  · Izomcsoportonkénti regeneráció kilenc csoportra. A károsodás mérőszáma
+    NEM a tonnatömeg, hanem a bukáshoz közeli szettek száma — a tonnatömeg
+    lokálisan félrevezet (egy nehéz 5×5 guggolás kevesebb tonnát ad, mint
+    egy könnyű, sok ismétléses lábtolás, miközben sokkal jobban lever).
+    A csillapítás csoportonként eltér: kis izmok τ = 1.5 nap, nagy
+    tolók/húzók 2.2, a hamstring/farizom/törzs 3.0 nap.
+  · A bejelentett izomláz keverése: ha VAN naplózott terhelés a csoporton,
+    a modell dominál (0.6 / 0.4). Ha NINCS, a "100% friss" nem tudás, hanem
+    az információ hiánya — ott az érzet önmagában adja a pontszámot.
+  · CNS-becslés: az axiális összetett emelések, a magas RPE-s szettek és a
+    PR-próbálkozások költsége, lassabb csillapítással (τ = 3.5 nap), az
+    alvással szorozva. Edzés-előzmény nélkül nincs érték, nem "friss".
+  · Gyakorlat-specifikus ajánlás: izom-readiness + CNS + frissesség alapján
+    konkrét súly- és volumen-javaslat (a fő emelésekhez egyetlen naplózott
+    alkalom is elég, a többihez három kell).
+  · Sapkák: 7/10 feletti fájdalom letiltja az érintett izmot terhelő
+    gyakorlatokat, és a teljes pontszámot 45%-ra korlátozza; a nagyon rossz
+    közérzet 40%-ra. Ezeket egy súlyozott átlag elmosná.
+
+ADATIGÉNY
+  A személyre szabott (saját előzményhez mért) referenciához 14 nap
+  edzés-előzmény és 7 check-in kell; addig testsúlyra skálázott általános
+  referenciával fut, és a felület Tájékoztató / Közepes / Megbízható
+  jelzéssel kiírja, mire épül a szám.
+
+
+==========================================================================
+6. EGYÉNI CSÚCSOK (PR)
+==========================================================================
+A rekordot a gyakorlat LEGJOBB TELJESÍTETT szettje hozza, Epley-becsléssel
+(1RM = súly × (1 + ism/30)) — nem az első teljesített, ami a szett-típusok
+óta jellemzően a bemelegítés. A szabály egy helyen él (bestCompletedSet),
+és ugyanaz jelöli meg a PR-t mentéskor, mint ami a listát kiírja. A csúcsok
+fiókonként külön sorban állnak.
+
+
+==========================================================================
+7. AUTOMATIKUS MENTÉS ÉS NAPVÁLTÁS
+==========================================================================
+· Az edzésnapló minden változtatása fél másodperc múlva piszkozatként
+  mentődik; hiba esetén 3 / 8 / 20 másodperc múlva újrapróbál.
+· Éjfélkor a MAI napra ütemezett terv válik érvényessé. Ha a naplóban még
+  nincs megkezdett munka, csendben átvált rá; ha van, nem írja felül a
+  félkész edzést, csak jelzi, mi a teendő.
+· A napi statok éjfél után nullázódnak, a check-in emlékeztető visszatér.
+· Offline/online állapotváltásra toast figyelmeztet.
+
+
+==========================================================================
+8. EDZŐ–SPORTOLÓ KAPCSOLAT
+==========================================================================
+A KAPCSOLAT ÚTJA
+  1. Az edző MEGHÍVJA a sportolót a felhasználónevével (POST /api/athletes).
+     A kapcsolat ekkor függőben van — az edző ettől MÉG SEMMIT NEM LÁT.
+  2. A sportoló a saját Edző oldalán ELFOGADJA. Innentől látja az edző az
+     adatait.
+  3. Bontani MINDKÉT fél tud, bármikor; a hozzáférés azonnal megszűnik.
+
+A kapcsolat a `coach_links` táblában él (coach_id, athlete_id, status).
+Egyszerre EGY edző lehet: előbb le kell válni a régiről, különben nem lenne
+eldönthető, kinek a felülete a „kliens nézet".
+
+A CÍMZÉS a kapcsolat azonosítójával megy (/api/athletes/:linkId/...), NEM a
+sportoló user-id-jével. Ez tudatos: a belső azonosító nem kerül ki az
+edzőhöz — külön teszt is őrzi (coach.test.js).
+
+Az üzenetváltás a `messages` táblában él, a kapcsolathoz kötve, olvasottság-
+jelöléssel (read_at). A kapcsolat bontásakor CASCADE törli az üzeneteket: a
+levált sportoló előzménye nem marad az edzőnél.
+
+==========================================================================
+9. TERV-AJÁNLATOK
+==========================================================================
+Az edző nem ír közvetlenül a sportoló terveibe: FELAJÁNL, a sportoló pedig
+ELFOGADJA vagy ELUTASÍTJA (`plan_assignments`, status pending/accepted/
+declined). Elfogadáskor a terv MÁSOLATKÉNT kerül a sportoló tervei közé —
+a meglévőkhöz nem nyúlunk, ez mindig hozzáadás, sosem felülírás.
+
+Ebből következik, hogy az elfogadott terv a SPORTOLÓÉ: szerkesztheti és
+törölheti is (DELETE /api/plans/:id). Az elutasított ajánlat sora megmarad
+lezárt állapotban, hogy az edző lássa a választ.
+
+==========================================================================
+10. KÉSZENLÉT-JAVASLAT — a rendszer kérdez, nem cselekszik
+==========================================================================
+A kiosztott tervhez a kliens nem nyúlhat. Egyetlen dolog szólhat bele: a
+mai készenléte. Ez két rétegben jelenik meg.
+
+1. PASSZÍV JELZÉS a terv-kártyán — mi kockázatos ma, és miért:
+     · TILTÁS: a gyakorlat olyan izomcsoportot terhel, amire a kliens 7/10
+       vagy afölötti fájdalmat jelzett;
+     · ÓVATOSSÁG: a terhelt izomcsoport készenléte 70% alatt van.
+   A jelzés MINDEN gyakorlatra működik, nem csak arra, amire van előzmény:
+   a gyakorlat → izomcsoport leképezésből dolgozik, nem a naplóból.
+
+2. JAVASLAT-ABLAK a check-in mentése után. Tételes lista, minden soron a
+   művelet, a konkrét szám és az indok; alul "Elfogadom" és "Most nem".
+
+   Művelet   Mikor                                   Mit csinál
+   --------  --------------------------------------  -------------------------
+   Levesz    a terhelt izom készenléte 70% alatt      a MÉG NEM teljesített
+                                                     szettek súlya −10%
+                                                     (55% alatt −15%),
+                                                     2,5 kg-ra lefelé kerekítve
+   Kihagy    7/10 fájdalom, nincs teljesített szett   a gyakorlat kimarad
+                                                     a mai naplóból
+   Leáll     7/10 fájdalom, DE van teljesített szett  csak a hátralévő
+                                                     szettek maradnak el
+
+   Amit az elfogadás módosít, az a MAI EDZÉSNAPLÓ — a TERV SOHA. Ha a
+   rendszer a tervbe nyúlna, az edző azt hinné, a kliens az ő tervét
+   csinálta végig, miközben más súlyokkal edzett.
+
+   A már teljesített szetteket és a nem szám súlyokat (saját testsúlyos
+   gyakorlat) semmi nem bántja. A javaslatot elfogadáskor a SZERVER számolja
+   újra — a kliens listáját nem fogadja el bemenetként.
+
+   Elutasításkor nem történik semmi; a következő check-in újra felveti, ha
+   még indokolt.
+
+
+==========================================================================
+11. ÉRTESÍTÉSEK
+==========================================================================
+NINCS `notifications` tábla. A panel VALÓDI eseményekből áll össze
+OLVASÁSKOR (server/notifications.js — tiszta függvény, DB nélkül):
+
+  · olvasatlan üzenet szálanként egy sorban,
+  · hozzám érkezett, még függő edző-meghívó,
+  · az én meghívóm elfogadása,
+  · nekem felajánlott terv, és az én tervemre érkezett válasz,
+  · friss egyéni csúcs (PR),
+  · a sportolóm edzés utáni visszajelzése.
+
+MINDEGYIK SORNAK VALÓDI IDŐBÉLYEGE VAN, és ez a szűrő döntötte el, mi
+kerülhet ide: a „töltsd ki a check-int" és a „sorozat mérföldkő" kimaradt,
+mert azok ÁLLAPOTOK, nem események — csak kitalált időponttal lehetne
+kiírni őket.
+
+Az „olvasott" állapot LÁTOTT-IDŐPONT (prefs → notifSeenAt): a „mind
+olvasott" a sorokat megtartja, csak az újdonság-jelzés tűnik el.
+
+==========================================================================
+12. ADATMODELL
+==========================================================================
+Ez a szakasz a KÓDBÓL van generálva (server/db.js CREATE TABLE sorai) —
+2026-09-03. Ha a séma változik, ezt is frissíteni kell.
+
+REFERENCIA (közös, csak olvasható) — a `collections` kulcs-érték táblában,
+minden induláskor a data.js-ből szinkronizálva:
+    exerciseCatalog, foods, charts, dashboard, defaultSet, goals,
+    nutritionGoal (ez utóbbi már csak ALAPÉRTÉK — ld. nutrition_goals)
+
+FELHASZNÁLÓI ADAT (minden sor egy fiókhoz tartozik):
+    users              fiókok (+ goal, is_coach)
+    sessions           munkamenetek (csak a token SHA-256 lenyomata)
+    weight_log         testsúly-bejegyzések (naponta egy)
+    body_measurements  körfogatok és testzsír (naponta és helyenként egy)
+    nutrition_log      naplózott ételek (a makrók MÁSOLATBAN)
+    nutrition_goals    napi cél fiókonként — 'own' és 'coach' sor is lehet
+    custom_foods       saját ételek (kézi makró vagy vonalkódról)
+    workouts           lezárt edzések (+ edzés utáni visszajelzés mezői)
+    plans              edzéstervek
+    workout_draft      az épp szerkesztett edzés — fiókonként EGY sor
+    checkins           napi check-inek
+    exercise_maxes     egyéni csúcsok (+ source: 'measured' | 'declared')
+    comments           megjegyzések egy gyakorlathoz
+
+KAPCSOLAT KÉT FIÓK KÖZÖTT:
+    coach_links        edző–sportoló kapcsolat (pending / active)
+    messages           üzenetek a kapcsolaton belül (+ read_at)
+    plan_assignments   terv-ajánlatok (pending / accepted / declined)
+
+GYORSÍTÓTÁR:
+    barcode_cache      az Open Food Facts válaszai
+
+NINCS `notifications` tábla: az értesítés-panel VALÓDI eseményekből
+származtatva áll össze olvasáskor (server/notifications.js).
+
+MIGRÁCIÓK: a séma bővítései minden induláskor lefutnak a meglévő
+adatbázisfájlon is, tehát nem kell törölni a fittrack.db-t.
+
+==========================================================================
+13. API — VÉGPONTOK
+==========================================================================
+Ez a lista a KÓDBÓL van generálva (server/server.js) — 2026-09-03.
+
+Az /api/auth/* KIVÉTELÉVEL minden végpont bejelentkezést követel; a
+védelem az összes útvonal ELŐTT áll, tehát egy később felvett végpont
+automatikusan védett. A kereszt-fiók hozzáférés a KAPCSOLAT azonosítójával
+megy (/api/athletes/:linkId/...) — a sportoló belső user-id-je nem kerül ki
+az edzőhöz.
+
+  AUTH
+    GET    /api/auth/me
+    POST   /api/auth/delete-account
+    POST   /api/auth/login
+    POST   /api/auth/logout
+    POST   /api/auth/register
+    PUT    /api/auth/password
+  USER
+    GET    /api/user
+    PUT    /api/user
+  PROFILE
+    GET    /api/profile
+  DASHBOARD
+    GET    /api/dashboard
+  READINESS
+    GET    /api/readiness
+    GET    /api/readiness/advice
+    POST   /api/readiness/advice/apply
+  CHECKIN
+    GET    /api/checkin
+    PUT    /api/checkin
+  WORKOUTS
+    DELETE /api/workouts/:id
+    GET    /api/workouts
+    POST   /api/workouts
+    PUT    /api/workouts/:id
+    PUT    /api/workouts/:id/feedback
+  WORKOUT-DRAFT
+    DELETE /api/workout-draft
+    GET    /api/workout-draft
+    PUT    /api/workout-draft
+  WORKOUT-TEMPLATE
+    GET    /api/workout-template
+  PLANS
+    DELETE /api/plans/:id
+    GET    /api/plans
+    POST   /api/plans
+    PUT    /api/plans/:id
+  PRS
+    GET    /api/prs
+    GET    /api/prs/history
+  EXERCISE-MAXES
+    GET    /api/exercise-maxes
+  STRENGTH-ASSESSMENT
+    GET    /api/strength-assessment
+    POST   /api/strength-assessment
+  NUTRITION
+    DELETE /api/nutrition/goal
+    DELETE /api/nutrition/log/:id
+    GET    /api/nutrition
+    GET    /api/nutrition/goal
+    GET    /api/nutrition/log
+    POST   /api/nutrition/log
+    PUT    /api/nutrition/goal
+    PUT    /api/nutrition/log/:id
+  FOODS
+    DELETE /api/foods/custom/:id
+    GET    /api/foods
+    GET    /api/foods/barcode/:code
+    POST   /api/foods/custom
+  WEIGHT-LOG
+    DELETE /api/weight-log/:id
+    GET    /api/weight-log
+    POST   /api/weight-log
+    PUT    /api/weight-log/:id
+  MEASUREMENTS
+    DELETE /api/measurements/:id
+    GET    /api/measurements
+    GET    /api/measurements/sites
+    PUT    /api/measurements
+  COMMENTS
+    DELETE /api/comments/:commentId
+    GET    /api/comments
+    GET    /api/comments/by-target
+    POST   /api/comments
+  COACH
+    DELETE /api/coach
+    DELETE /api/coach/invites/:linkId
+    GET    /api/coach
+    POST   /api/coach/invites/:linkId/accept
+  ATHLETES
+    DELETE /api/athletes/:linkId
+    GET    /api/athletes
+    GET    /api/athletes/:linkId/comments
+    POST   /api/athletes
+    POST   /api/athletes/:linkId/comments
+    POST   /api/athletes/:linkId/plan
+    PUT    /api/athletes/:linkId/nutrition-goal
+  PLAN-OFFERS
+    DELETE /api/plan-offers/:id
+    POST   /api/plan-offers/:id/accept
+  MESSAGES
+    GET    /api/messages/:linkId
+    POST   /api/messages/:linkId
+    POST   /api/messages/:linkId/read
+  NOTIFICATIONS
+    GET    /api/notifications
+  CHARTS
+    GET    /api/charts
+  EXERCISE-CATALOG
+    GET    /api/exercise-catalog
+  DEFAULT-SET
+    GET    /api/default-set
+  GOALS
+    GET    /api/goals
+  EXPORT
+    GET    /api/export
+
+==========================================================================
+14. AKADÁLYMENTESSÉG ÉS ÉRINTÉS
+==========================================================================
+Tokenszinten betartott szabályok, hogy ne komponensenként kelljen
+újratárgyalni:
+  · Kontraszt: a halvány szövegrétegek a háttéren 5,3:1 és 6,3:1 — mindkettő
+    WCAG AA fölött. Az ennél halványabb alfák CSAK keretre és díszítésre
+    használhatók, szövegre nem.
+  · Beviteli mezők betűmérete legalább 16px: ez alatt az iOS Safari
+    fókuszkor ráközelít a lapra, és nem nagyít vissza.
+  · Érintési célterület: a kis ikongombok láthatatlan pszeudoelemmel
+    44×44px-re tágulnak, a vizuális méret változtatása nélkül.
+  · A :focus-visible keret minden interaktív elemen látszik.
+  · Oldalváltáskor a görgetés és a fókusz is átkerül az új oldal címsorára.
+    Ismeretlen hash (skip link, horgony) NEM okoz oldalváltást.
+  · A mozgás-csökkentést kérő beállítást (prefers-reduced-motion) az
+    animációk tiszteletben tartják.
+
+
+==========================================================================
+15. AMI MÉG DEMO VAGY HIÁNYZIK
+==========================================================================
+Szándékos egyszerűsítések és nyitott tételek. A teljes lista a TEENDOK.txt-ben.
+
+  · ÜZENETVÁLTÁS — szimulált. Az üzenet nem jut el a másik félhez, a
+    válaszok előre megírt sorok, a szál a lap újratöltésével elvész. A
+    felület ezt kiírja.
+  · VIDEÓ — a technika-videó ablak statikus mockup. Nincs feltöltés,
+    tárolás, edzői értékelés, komment vagy időbeli összehasonlítás.
+  · KOMMENTEK — sem gyakorlathoz, sem edzéshez nem lehet megjegyzést fűzni.
+    Nincs edzés utáni visszajelzés sem.
+  · TÁPLÁLKOZÁSI CÉL — fix és mindenkinek közös. Nincs fiókonkénti cél, és
+    az edző sem tud célt kitűzni.
+  · ELEMZÉS — nincs gyakorlatonkénti 1RM-görbe, összesített statisztika-
+    oldal, akut/krónikus terhelés-arány, deload-javaslat vagy előrejelzés.
+    Az edzőnek nincs kliensenkénti regeneráció-nézete (a végpont megvan, a
+    felület nem).
+  · Az edző NEM látja, ha a kliens elfogadott egy készenlét-javaslatot — a
+    naplója némán tér el a kiosztott tervtől.
+  · Nincs jelszó-visszaállítás és nincs fióktörlés.
+  · A dátumot a SZERVER helyi ideje adja: ha a szerver és a böngésző más
+    időzónában van, a "mai nap" elcsúszhat.
+  · Nincs pulzus/HRV adatforrás.
+  · A gyakorlat-illusztrációk © Gym visual — NEM a mi tartalmunk.
+    Kereskedelmi felhasználáshoz saját engedély kell.
+
+
+==========================================================================
+16. TESZTEK
+==========================================================================
+`npm test` — 157 teszt, nulla külső függőség (node --test).
+
+    recovery.test.js    a készenlét-motor matematikája (tiszta függvények)
+    auth.test.js        jelszó-hash, munkamenet, süti
+    users.test.js       a felhasználók közti adatizoláció
+    coach.test.js       az edző–kliens kapcsolat és a KERESZT-FIÓK
+                        hozzáférés (valódi szervert indít, HTTP-n beszél)
+    api.test.js         végponti tesztek (validálás, hozzáférés-védelem)
+    prs.test.js         az egyéni csúcsok szabálya
+    cache.test.js       az adatréteg gyorsítótára
+    migration.test.js   a fiókok előtti adatbázis migrációja

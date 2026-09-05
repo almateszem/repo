@@ -132,6 +132,72 @@ db.exec(`
   -- szándékosan nincs rajta user_id (és nincs is rajta mit szivárogtatni).
   -- A negatív találatot is tároljuk (found = 0) — enélkül minden újraolvasás
   -- új hálózati kérés lenne egy nem létező termékre.
+  -- Napi táplálkozási cél, FELHASZNÁLÓNKÉNT. Korábban egyetlen fix érték volt
+  -- a seed adatban, minden fióknak ugyanaz.
+  --
+  -- Fiókonként KÉT sor lehet, és ez a lényeg:
+  --   'coach' — amit az edző tűzött ki,
+  --   'own'   — amit a felhasználó maga állított be.
+  -- Az érvényes cél az 'own', ha van; különben a 'coach'; különben a seed
+  -- alapérték. A két sor EGYÜTT él tovább: így látszik, hogy a felhasználó
+  -- eltért az edzői céltól — a néma felülírás mindkét irányban rossz volna.
+  --
+  -- Csak kalória és fehérje: a felület (a napi összesítő, az étel-modál
+  -- sávjai és az áttekintő) ezt a kettőt méri célhoz. Szénhidrát/zsír célt
+  -- nem veszünk fel, amíg nincs, ami megjelenítse.
+  -- Megjegyzések. Egy edzésen belüli GYAKORLATRA mutatnak — nem üzenetek: az
+  -- edző–sportoló beszélgetés a messages táblában él, ez pedig egy konkrét
+  -- gyakorlathoz tapad („fájt a vállam a 3. szettnél").
+  --
+  --   author_id   — ki írta,
+  --   subject_id  — KINEK az adatáról szól (a hozzáférés ebből dől el: a
+  --                 subject maga és az ÉLŐ kapcsolatban álló edzője),
+  --   target_type — egyelőre csak 'exercise'; a szett és a videó akkor kerül
+  --                 be, amikor lesz mire mutatniuk,
+  --   target_id   — "edzésId:index" (a workouts.exercises tömbön belüli
+  --                 pozíció; a mentett edzés gyakorlat-listája nem változik,
+  --                 ezért az index stabil).
+  CREATE TABLE IF NOT EXISTS comments (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    author_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    subject_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    target_type TEXT NOT NULL,
+    target_id   TEXT NOT NULL DEFAULT '',
+    text        TEXT NOT NULL,
+    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_comments_target
+    ON comments(subject_id, target_type, target_id, id);
+
+  -- Testösszetétel: körfogatok és testzsír. A weight_log egyetlen számot tárol,
+  -- de a puszta kilogramm nem mondja meg, MI épült és mi fogyott — egy versenyző
+  -- a mellette futó körfogatot követi.
+  --
+  -- Naponta és mérési helyenként EGY sor (UNIQUE): az aznapi újramérés felülír,
+  -- nem duplikál — ugyanaz az elv, mint a weight_log-nál. A site értékkészletét
+  -- a szerver zárja (MEASUREMENT_SITES), hogy a trend ne essen szét elgépelt
+  -- kulcsokra.
+  CREATE TABLE IF NOT EXISTS body_measurements (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    date    TEXT NOT NULL,        -- "ÉÉÉÉ.HH.NN"
+    site    TEXT NOT NULL,        -- 'chest' | 'arm' | … | 'bodyfat'
+    value   REAL NOT NULL,        -- cm, a 'bodyfat'-nál százalék
+    UNIQUE (user_id, date, site)
+  );
+  CREATE INDEX IF NOT EXISTS idx_measurements_user
+    ON body_measurements(user_id, site, date);
+
+  CREATE TABLE IF NOT EXISTS nutrition_goals (
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    source     TEXT NOT NULL,        -- 'own' | 'coach'
+    calories   REAL NOT NULL,
+    protein    REAL NOT NULL,
+    set_by     INTEGER REFERENCES users(id) ON DELETE SET NULL,  -- ki állította be
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (user_id, source)
+  );
+
   CREATE TABLE IF NOT EXISTS barcode_cache (
     barcode    TEXT PRIMARY KEY,               -- normalizált (EAN-13-ra egészített) kód
     found      INTEGER NOT NULL,               -- 1 = van termék, 0 = az OFF nem ismeri
@@ -274,6 +340,21 @@ ensureColumn('nutrition_log', 'grams', 'grams REAL NOT NULL DEFAULT 100');
 // Edzés-cél: a fiók sajátja, az edzői panel kártyáján címkeként látszik.
 // Üresen hagyható (NULL) — a felület ilyenkor „—"-t mutat.
 ensureColumn('users', 'goal', 'goal TEXT');
+/* Edzés utáni visszajelzés. STRUKTURÁLT mező, nem komment: a nehézség és a
+   közérzet így számmá válik, tehát később elemezhető — egy szabad szöveges
+   kommentből ez nem jönne ki. Mindhárom NULL-ozható: a „nem küldött
+   visszajelzést" és a „rosszat jelzett" két külön dolog, ugyanúgy, mint a
+   check-innél. */
+ensureColumn('workouts', 'feedback_difficulty', 'feedback_difficulty INTEGER');
+ensureColumn('workouts', 'feedback_mood', 'feedback_mood INTEGER');
+ensureColumn('workouts', 'feedback_note', 'feedback_note TEXT');
+ensureColumn('workouts', 'feedback_at', 'feedback_at TEXT');
+/* Mire épül a csúcs: 'measured' — naplózott szettből számolt (Epley), vagy
+   'declared' — az erőfelmérésen BEMONDOTT érték. A kettő nem ugyanaz, és a
+   felületnek ki is kell mondania, min alapul: a bemondott szám nem mérés.
+   (Ugyanaz a megkülönböztetés, ami a gyakorlat-katalógusban a loadSource.)
+   A meglévő sorok mind naplózott szettből születtek, tehát a default helyes. */
+ensureColumn('exercise_maxes', 'source', "source TEXT NOT NULL DEFAULT 'measured'");
 // Olvasás-jelölés az üzeneteken. A régi sorok NULL-lal (olvasatlanul) jönnek
 // át — ez a helyes: nem tudhatjuk, látta-e őket a címzett. Aki megnyitja a
 // szálat, egy lépésben olvasottá teszi a régi hátralékot is.
@@ -543,11 +624,13 @@ for (const [key, value] of Object.entries(collections)) {
 const seedKeys = Object.keys(collections);
 db.prepare(`DELETE FROM collections WHERE key NOT IN (${seedKeys.map(() => '?').join(', ')})`)
   .run(...seedKeys);
+// eslint-disable-next-line no-console -- indulási kiírás: a feloldott DB-útvonal
 console.log('SQLite kész →', path.resolve(DB_PATH), dbExisted ? '(meglévő)' : '(ÚJ adatbázis jött létre)');
 if (!dbExisted) {
   /* Élesben ez a sor CSAK EGYSZER, a legelső indításkor helyénvaló. Ha minden
      deploy után látod, akkor a fájlrendszer ephemeral, és a felhasználói
      naplók deployonként elvesznek — perzisztens volume kell (README → Élesítés). */
+  // eslint-disable-next-line no-console -- figyelmeztetés ephemeral tárolóra
   console.log('   → ha ezt MINDEN indításkor látod, az adatbázis nem marad meg: perzisztens tároló kell.');
 }
 
@@ -1067,6 +1150,161 @@ export function getNutritionLogForDate(userId, date) {
                      FROM nutrition_log WHERE user_id = ? AND date = ? ORDER BY id`).all(userId, date);
 }
 
+/* ---- Megjegyzések ----
+   A hozzáférést NEM ez a modul dönti el — az a server.js kapuja. Itt csak az
+   olvasás és az írás van. */
+
+/** Egy DB-sor → a felület által várt alak. A szerző nevét is hozzuk, hogy a
+    lista egyetlen lekérésből kirajzolható legyen. */
+const toComment = (row) => ({
+  id: row.id,
+  authorId: row.author_id,
+  authorName: row.author_name,
+  targetId: row.target_id,
+  text: row.text,
+  // ISO-ra alakítva, mint az üzeneteknél: a relatív időt a KLIENS képzi, ő
+  // ismeri a felhasználó időzónáját.
+  at: toIso(row.created_at),
+});
+
+const COMMENT_SELECT = `
+  SELECT c.id, c.author_id, c.target_id, c.text, c.created_at,
+         u.display_name AS author_name
+  FROM comments c JOIN users u ON u.id = c.author_id`;
+
+/** Egy cél megjegyzései, időrendben (a legrégebbi elöl — így olvasható). */
+export function getComments(subjectId, targetType, targetId) {
+  return db.prepare(`${COMMENT_SELECT}
+    WHERE c.subject_id = ? AND c.target_type = ? AND c.target_id = ?
+    ORDER BY c.id ASC`).all(subjectId, targetType, String(targetId)).map(toComment);
+}
+
+/** Egy típus ÖSSZES megjegyzése célonként csoportosítva. Az összegző oldal így
+    egyetlen kérésből tudja, melyik gyakorlathoz tartozik megjegyzés. */
+export function getCommentsByTarget(subjectId, targetType) {
+  const rows = db.prepare(`${COMMENT_SELECT}
+    WHERE c.subject_id = ? AND c.target_type = ?
+    ORDER BY c.id ASC`).all(subjectId, targetType).map(toComment);
+  const grouped = {};
+  for (const row of rows) (grouped[row.targetId] ??= []).push(row);
+  return grouped;
+}
+
+/** Új megjegyzés. Visszaadja a mentett sort (a szerző nevével együtt). */
+export function addComment(authorId, subjectId, targetType, targetId, text) {
+  const { lastInsertRowid } = db.prepare(`
+    INSERT INTO comments (author_id, subject_id, target_type, target_id, text)
+    VALUES (?, ?, ?, ?, ?)`).run(authorId, subjectId, targetType, String(targetId ?? ''), text);
+  return toComment(db.prepare(`${COMMENT_SELECT} WHERE c.id = ?`).get(lastInsertRowid));
+}
+
+/** Megjegyzés törlése. CSAK a szerző törölhet, ezért az author_id is feltétel —
+    így egy idegen id-vel küldött kérés nem talál sort, és 404-et kap. */
+export function deleteComment(commentId, authorId) {
+  return db.prepare('DELETE FROM comments WHERE id = ? AND author_id = ?')
+    .run(commentId, authorId).changes > 0;
+}
+
+/* ---- Testösszetétel (körfogat, testzsír) ---- */
+
+/** Egy fiók mérései, legfrissebb elöl. A felület ebből rajzol trendet és
+    tölti fel az űrlapot a legutóbbi értékekkel. */
+export function getMeasurements(userId) {
+  return db.prepare(`SELECT id, date, site, value FROM body_measurements
+                     WHERE user_id = ? ORDER BY date DESC, id DESC`).all(userId);
+}
+
+/** Mérések mentése egy napra. Helyenként EGY sor van naponta: az aznapi
+    újramérés felülír, nem duplikál. A `values` csak az érintett helyeket
+    tartalmazza — amit nem adtak meg, azt nem bántjuk. */
+export function saveMeasurements(userId, date, values) {
+  const upsert = db.prepare(`
+    INSERT INTO body_measurements (user_id, date, site, value)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(user_id, date, site) DO UPDATE SET value = excluded.value
+  `);
+  for (const [site, value] of Object.entries(values)) upsert.run(userId, date, site, value);
+  return getMeasurements(userId);
+}
+
+/** Egy mérés törlése. Csak a SAJÁT sorát — idegen id-re false jön. */
+export function deleteMeasurement(userId, id) {
+  return db.prepare('DELETE FROM body_measurements WHERE id = ? AND user_id = ?')
+    .run(id, userId).changes > 0;
+}
+
+/* ---- Napi táplálkozási cél ----
+   Az érvényes cél: 'own' → 'coach' → seed alapérték. A két sor egymás mellett
+   marad, hogy az eltérés LÁTSZÓDJON. */
+
+/** Egy cél-sor a felület alakjában (a szerző nevével együtt). */
+const toGoalRow = (row) => (row ? {
+  calories: row.calories,
+  protein: row.protein,
+  setBy: row.set_by_name ?? null,
+  setAt: row.updated_at,
+} : null);
+
+const GOAL_SELECT = `
+  SELECT g.calories, g.protein, g.updated_at, u.display_name AS set_by_name
+  FROM nutrition_goals g LEFT JOIN users u ON u.id = g.set_by`;
+
+/** Egy fiók cél-sora forrás szerint ('own' vagy 'coach'), vagy null. */
+/* Modulon belüli segéd — kifelé a getNutritionGoal ad teljes képet. */
+function getNutritionGoalRow(userId, source) {
+  return toGoalRow(db.prepare(`${GOAL_SELECT} WHERE g.user_id = ? AND g.source = ?`)
+    .get(userId, source));
+}
+
+/** A felhasználóra ÉRVÉNYES cél, a származásával együtt. A felület ebből
+    tudja kiírni, honnan jön a szám, és hogy eltért-e az edzőitől. */
+export function getNutritionGoal(userId) {
+  const own = getNutritionGoalRow(userId, 'own');
+  const coach = getNutritionGoalRow(userId, 'coach');
+  const fallback = getCollection('nutritionGoal') || { calories: 0, protein: 0 };
+
+  const active = own ?? coach ?? { ...fallback, setBy: null, setAt: null };
+  const source = own ? 'own' : (coach ? 'coach' : 'default');
+
+  return {
+    calories: active.calories,
+    protein: active.protein,
+    source,
+    setBy: active.setBy,
+    setAt: active.setAt,
+    coach,
+    /* Eltérés CSAK akkor, ha mindkettő létezik és tényleg más. Enélkül a
+       felület akkor is „eltértél"-t írna, ha a saját célod történetesen
+       megegyezik az edzőével. */
+    differs: Boolean(own && coach
+      && (own.calories !== coach.calories || own.protein !== coach.protein)),
+  };
+}
+
+/** Cél mentése/felülírása egy forrásra. A `setBy` az, AKI beállította — az
+    edzői sornál az edző, a sajátnál a felhasználó maga. */
+export function saveNutritionGoal(userId, source, { calories, protein }, setBy) {
+  db.prepare(`
+    INSERT INTO nutrition_goals (user_id, source, calories, protein, set_by, updated_at)
+    VALUES (?, ?, ?, ?, ?, datetime('now'))
+    ON CONFLICT(user_id, source) DO UPDATE SET
+      calories = excluded.calories, protein = excluded.protein,
+      set_by = excluded.set_by, updated_at = excluded.updated_at
+  `).run(userId, source, calories, protein, setBy);
+  return getNutritionGoal(userId);
+}
+
+/** A SAJÁT cél törlése — ezzel a felhasználó visszaáll az edzői célra (vagy
+    az alapértékre). Az edzői sort ez nem bántja. */
+export function clearOwnNutritionGoal(userId) {
+  db.prepare("DELETE FROM nutrition_goals WHERE user_id = ? AND source = 'own'").run(userId);
+  return getNutritionGoal(userId);
+}
+
+/** A napi táplálkozási összesítő egy adott napra: az AZNAP naplózott ételek
+    összege, valamint az érvényes napi cél (a felület a célhoz méri a
+    bevitelt). */
+
 /** A napi táplálkozási összesítő egy adott napra: az AZNAP naplózott ételek
     összege, valamint az edző által kitűzött napi cél (a felület a célhoz
     méri a bevitelt). */
@@ -1079,7 +1317,7 @@ export function getNutritionTotals(userId, date) {
     FROM nutrition_log
     WHERE user_id = ? AND date = ?
   `).get(userId, date);
-  return { ...sum, goal: getCollection('nutritionGoal') || { calories: 0, protein: 0 } };
+  return { ...sum, goal: getNutritionGoal(userId) };
 }
 
 /* ======================================================================
@@ -1250,6 +1488,13 @@ export function getCheckins(userId, limit = 60) {
     .map(toCheckin);
 }
 
+/** Volt-e ennek a fióknak VALAHA check-inje. A felület ebből tudja, hogy a
+    friss fiókot a check-in varázslóra kell terelnie: a regisztráció ténye
+    csak pillanatnyi kliens-állapot, ez viszont túléli az oldal-újratöltést. */
+export function hasAnyCheckin(userId) {
+  return Boolean(db.prepare('SELECT 1 FROM checkins WHERE user_id = ? LIMIT 1').get(userId));
+}
+
 /** Egy nap check-injének mentése/felülírása. A megadott mezők közül csak az
     érvényeseket írjuk; a hiányzók NULL-ként maradnak (ld. a tábla kommentjét).
     Ismételt mentéskor a sor frissül — a felület így szerkeszthetőként kezeli
@@ -1316,9 +1561,11 @@ export function bestCompletedSet(sets = []) {
 
 /** A felhasználó jelenlegi maximális 1RM-je egy gyakorlatban, vagy null ha még nincs. */
 export function getExerciseMax(userId, exerciseName) {
-  const row = db.prepare('SELECT max_1rm, date FROM exercise_maxes WHERE user_id = ? AND exercise_name = ?')
+  const row = db.prepare(`SELECT max_1rm, date, source FROM exercise_maxes
+                          WHERE user_id = ? AND exercise_name = ?`)
     .get(userId, exerciseName);
-  return row ? { max1rm: row.max_1rm, date: row.date } : null;
+  // A `source` megmondja, mire épül a szám: naplózott szett vagy bemondás.
+  return row ? { max1rm: row.max_1rm, date: row.date, source: row.source } : null;
 }
 
 /** A felhasználó összes nyomon követett maximális 1RM-je. */
@@ -1356,17 +1603,55 @@ export function getRecentExerciseMaxes(userId, sinceDate, limit = 5) {
 
 /** Egy gyakorlat maximum 1RM-jének frissítése, ha az új érték nagyobb.
     Visszaadja az objektumot { max1rm, date, isPr } formában (isPr = true ha PR-t ütöttünk). */
+/**
+ * Az erőfelmérésen BEMONDOTT csúcs rögzítése.
+ *
+ * A bemondott szám nem mérés, ezért két dolgot NEM tesz:
+ *   · nem ír felül MÉRT csúcsot — a naplózott szett erősebb bizonyíték, és
+ *     egy alacsonyabb bemondás nem tüntetheti el a valódi rekordot;
+ *   · nem hoz létre PR-bejegyzést: a PR-lista a naplózott edzésekből épül
+ *     (/api/prs), ide csak a viszonyítási alap kerül. Egy KÉSŐBBI emelésnek
+ *     viszont meg kell haladnia — a felmérés így valódi kiindulópont.
+ *
+ * Visszaadja, hogy tényleg beírtuk-e.
+ */
+export function setDeclaredMax(userId, exerciseName, max1rm, date) {
+  const existing = getExerciseMax(userId, exerciseName);
+  if (existing && existing.source === 'measured') return { stored: false, max1rm: existing.max1rm };
+
+  db.prepare(`
+    INSERT INTO exercise_maxes (user_id, exercise_name, max_1rm, date, source, updated_at)
+    VALUES (?, ?, ?, ?, 'declared', datetime('now'))
+    ON CONFLICT(user_id, exercise_name) DO UPDATE SET
+      max_1rm = excluded.max_1rm, date = excluded.date,
+      source = 'declared', updated_at = excluded.updated_at
+  `).run(userId, exerciseName, max1rm, date);
+  return { stored: true, max1rm };
+}
+
+/** A BEMONDOTT csúcsok. A készenlét-motor ezekből tudja, hogy a felhasználó
+    egy gyakorlatot ismer és nagyjából milyen szinten — akkor is, ha még
+    egyetlen edzést sem naplózott ide. */
+export function getDeclaredMaxes(userId) {
+  return db.prepare(`SELECT exercise_name, max_1rm, date FROM exercise_maxes
+                     WHERE user_id = ? AND source = 'declared'`)
+    .all(userId)
+    .map((row) => ({ name: row.exercise_name, max1rm: row.max_1rm, date: row.date }));
+}
+
 export function updateExerciseMax(userId, exerciseName, new1rm, currentDate) {
   const existing = getExerciseMax(userId, exerciseName);
   const isPr = !existing || new1rm > existing.max1rm;
 
   if (isPr) {
     db.prepare(`
-      INSERT INTO exercise_maxes (user_id, exercise_name, max_1rm, date, updated_at)
-      VALUES (?, ?, ?, ?, datetime('now'))
+      INSERT INTO exercise_maxes (user_id, exercise_name, max_1rm, date, source, updated_at)
+      VALUES (?, ?, ?, ?, 'measured', datetime('now'))
       ON CONFLICT(user_id, exercise_name) DO UPDATE SET
         max_1rm = excluded.max_1rm,
         date = excluded.date,
+        -- A naplózott szett FELÜLÍRJA a bemondott alapot: a mérés erősebb bizonyíték.
+        source = 'measured',
         updated_at = excluded.updated_at
     `).run(userId, exerciseName, new1rm, currentDate);
   }
@@ -1509,11 +1794,20 @@ export function getWorkoutDraft(userId) {
 const toWorkout = (row) => ({
   id: row.id, name: row.name, date: row.date,
   exercises: JSON.parse(row.exercises), planId: row.plan_id,
+  /* A visszajelzés csak akkor kerül bele, ha tényleg érkezett — üres objektum
+     helyett `null`, hogy a „nem küldött" eset egyértelmű maradjon. */
+  feedback: row.feedback_at ? {
+    difficulty: row.feedback_difficulty,
+    mood: row.feedback_mood,
+    note: row.feedback_note,
+    at: row.feedback_at,
+  } : null,
 });
 
 /** A mentett edzések, legújabb elöl (a gyakorlatok JSON-ból visszafejtve). */
 export function getWorkouts(userId) {
-  return db.prepare('SELECT id, name, date, exercises, plan_id FROM workouts WHERE user_id = ? ORDER BY id DESC')
+  return db.prepare(`SELECT id, name, date, exercises, plan_id,
+          feedback_difficulty, feedback_mood, feedback_note, feedback_at FROM workouts WHERE user_id = ? ORDER BY id DESC`)
     .all(userId).map(toWorkout);
 }
 
@@ -1530,7 +1824,9 @@ export function getWorkouts(userId) {
  */
 export function getWorkoutsSince(userId, sinceDate) {
   return db.prepare(`
-    SELECT id, name, date, exercises, plan_id FROM workouts
+    SELECT id, name, date, exercises, plan_id,
+           feedback_difficulty, feedback_mood, feedback_note, feedback_at
+    FROM workouts
     WHERE user_id = ? AND date >= ? ORDER BY id DESC
   `).all(userId, sinceDate).map(toWorkout);
 }
@@ -1590,6 +1886,24 @@ export function getSnapshot(userId) {
     A testsúlyt a napi check-in kérdi (Regeneráció → check-in varázsló), amit
     a nap folyamán bármikor újra lehet menteni — sima INSERT-tel minden mentés
     új oszlopot rakott volna a trend-diagramra ugyanarról a napról. */
+/** Egy testsúly-bejegyzés javítása. CSAK az értéket — a dátumot nem: a
+    javítás nem áthelyezés (ugyanaz az elv, mint a mentett edzésnél). Idegen
+    sorra nem talál semmit. Visszaadja a frissített sort, vagy null-t. */
+export function updateWeightEntry(userId, id, kg) {
+  const { changes } = db.prepare('UPDATE weight_log SET kg = ? WHERE id = ? AND user_id = ?')
+    .run(kg, id, userId);
+  return changes > 0
+    ? db.prepare('SELECT id, kg, date FROM weight_log WHERE id = ?').get(id)
+    : null;
+}
+
+/** Testsúly-bejegyzés törlése. Egy elgépelt, kiugró érték a 12 elemű
+    trend-kártya skáláját lapos vonallá nyomja, és a Testsúly Δ statot is
+    elviszi — enélkül nem volt út a javításához. */
+export function deleteWeightEntry(userId, id) {
+  return db.prepare('DELETE FROM weight_log WHERE id = ? AND user_id = ?').run(id, userId).changes > 0;
+}
+
 export function addWeightEntry(userId, kg, date) {
   const existing = db.prepare('SELECT id FROM weight_log WHERE user_id = ? AND date = ? ORDER BY id DESC')
     .get(userId, date);
@@ -1628,6 +1942,35 @@ export function addNutritionEntry(userId, food, date, grams = 100) {
     bejegyzés törölhető: a korábbi napok összesítői már beépültek a
     készenlét-számításba, azokat visszamenőleg nem írjuk át. Ismeretlen, nem
     aznapi vagy MÁS FELHASZNÁLÓ id-jére null-t ad — a hívó ebből 404-et képez. */
+/** Egy naplóbejegyzés adagjának javítása.
+ *
+ * A makrókat ARÁNYOSAN számoljuk át a tárolt értékekből, nem az étel-
+ * katalógusból: a nutrition_log szándékosan MÁSOLATBAN tárolja a makrókat
+ * (ezért nem sérti a régi bejegyzéseket, ha egy saját étel később eltűnik).
+ * Ha a katalógusból számolnánk újra, ez az elv törne meg.
+ *
+ * A dátumra NEM szűrünk: a tegnapi elgépelést is javítani kell tudni. A
+ * válasz az ÉRINTETT NAP összesítője, nem a mai — különben a felület egy
+ * másik nap számait frissítené.
+ */
+export function updateNutritionEntry(userId, id, grams) {
+  const row = db.prepare(`SELECT grams, kcal, protein, carbs, fat, date
+                          FROM nutrition_log WHERE id = ? AND user_id = ?`).get(id, userId);
+  if (!row || !(row.grams > 0)) return null;
+
+  const ratio = grams / row.grams;
+  const round1 = (value) => Math.round(value * 10) / 10;
+  db.prepare(`UPDATE nutrition_log
+                 SET grams = ?, kcal = ?, protein = ?, carbs = ?, fat = ?
+               WHERE id = ? AND user_id = ?`)
+    .run(grams, Math.round(row.kcal * ratio), round1(row.protein * ratio),
+         round1(row.carbs * ratio), round1(row.fat * ratio), id, userId);
+
+  return { date: row.date, totals: getNutritionTotals(userId, row.date) };
+}
+
+/** Naplóbejegyzés törlése. A dátumot a hívó adja meg — a mai napló
+    visszavonásához ez elég, és a régebbi napokat véletlenül nem bántja. */
 export function deleteNutritionEntry(userId, id, date) {
   const { changes } = db.prepare('DELETE FROM nutrition_log WHERE id = ? AND user_id = ? AND date = ?')
     .run(id, userId, date);
@@ -1686,7 +2029,9 @@ export function addWorkout(userId, name, date, exercises, planId = null) {
   const { lastInsertRowid } = db
     .prepare('INSERT INTO workouts (user_id, name, date, exercises, plan_id) VALUES (?, ?, ?, ?, ?)')
     .run(userId, name, date, JSON.stringify(processedExercises), planId);
-  return { id: Number(lastInsertRowid), name, date, exercises: processedExercises, planId };
+  // A friss edzésen még nincs visszajelzés — a mező alakja mégis azonos a
+  // getWorkouts sorával, hogy a felületnek ne kelljen két esetre készülnie.
+  return { id: Number(lastInsertRowid), name, date, exercises: processedExercises, planId, feedback: null };
 }
 
 /**
@@ -1728,6 +2073,51 @@ export function deleteWorkout(userId, id) {
  * felhasználó edzését sem lehet átírni. A sort a csúcsok újraszámolása UTÁN
  * olvassuk vissza, tehát a válasz már a friss `pr` jelzőket viszi.
  */
+/** Egy edzés a saját naplóból, vagy null. A user_id feltétel nem elhagyható:
+    enélkül idegen edzés id-jével is lehetne dolgozni. */
+/** Az edző sportolóinak friss edzés-visszajelzései (a `sinceDate` óta).
+    Ez az edzői oldal egyik értesítés-forrása: hogy a sportoló hogyan ÉLTE MEG
+    az edzést, a naplóból nem számolható ki — csak tőle tudható meg.
+    Csak ÉLŐ kapcsolat számít, ugyanúgy, mint mindenhol máshol. */
+export function getAthleteFeedbackSince(coachId, sinceDate) {
+  return db.prepare(`
+    SELECT w.id, w.name, w.feedback_difficulty, w.feedback_at,
+           u.display_name AS athlete_name
+    FROM workouts w
+    JOIN coach_links cl ON cl.athlete_id = w.user_id AND cl.status = 'active'
+    JOIN users u ON u.id = w.user_id
+    WHERE cl.coach_id = ? AND w.feedback_at IS NOT NULL AND w.date >= ?
+    ORDER BY w.feedback_at DESC
+  `).all(coachId, sinceDate).map((row) => ({
+    id: row.id,
+    workout: row.name,
+    athlete: row.athlete_name,
+    difficulty: row.feedback_difficulty,
+    at: row.feedback_at,
+  }));
+}
+
+/* Modulon belüli segéd — a saveWorkoutFeedback ezen adja vissza a friss sort. */
+function getWorkout(userId, workoutId) {
+  const row = db.prepare(`SELECT id, name, date, exercises, plan_id,
+          feedback_difficulty, feedback_mood, feedback_note, feedback_at FROM workouts WHERE id = ? AND user_id = ?`)
+    .get(workoutId, userId);
+  return row ? toWorkout(row) : null;
+}
+
+/** Az edzés utáni visszajelzés mentése/felülírása. CSAK a saját edzésére —
+    az UPDATE a user_id-re is szűr, tehát idegen sorra nem talál semmit.
+    Visszaadja a frissített edzést, vagy null-t, ha nem volt ilyen sor. */
+export function saveWorkoutFeedback(userId, workoutId, { difficulty, mood, note }) {
+  const changed = db.prepare(`
+    UPDATE workouts
+       SET feedback_difficulty = ?, feedback_mood = ?, feedback_note = ?,
+           feedback_at = datetime('now')
+     WHERE id = ? AND user_id = ?`)
+    .run(difficulty ?? null, mood ?? null, note ?? null, workoutId, userId).changes;
+  return changed ? getWorkout(userId, workoutId) : null;
+}
+
 export function updateWorkout(userId, id, name, exercises) {
   db.exec('BEGIN IMMEDIATE');
   try {
@@ -1748,6 +2138,13 @@ export function updateWorkout(userId, id, name, exercises) {
 }
 
 /** Edzésterv mentése; visszaadja a létrejött { id, name, date, exercises, days } sort. */
+/** Terv törlése. Csak a SAJÁT sorát törli — idegen id-re false jön, tehát a
+    hívó 404-et képez belőle. Az edzőtől kapott, elfogadott terv a sportoló
+    saját sora (az elfogadás MÁSOLATOT hoz létre), ezért az is törölhető. */
+export function deletePlan(userId, id) {
+  return db.prepare('DELETE FROM plans WHERE id = ? AND user_id = ?').run(id, userId).changes > 0;
+}
+
 export function addPlan(userId, name, date, exercises, days) {
   const { lastInsertRowid } = db
     .prepare('INSERT INTO plans (user_id, name, date, exercises, days) VALUES (?, ?, ?, ?, ?)')

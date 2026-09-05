@@ -95,7 +95,13 @@ egész forgalomra közösen számol.
 ```
 public/          statikus frontend (a szerver innen szolgálja ki)
   index.html     az összes oldal + a listaelemek <template> sablonjai
-  script.js      teljes frontend logika (api réteg → renderelők → interakciók)
+  js/            a frontend ES modulokban (belépési pont: js/main.js)
+    core/        api réteg, DOM- és formázó-segédek, preferenciák, toast
+    core/page-hooks.js  késleltetett kötés a router és az oldalak vezérlői közt
+    nav/         hash-router és a húzható nav gyűrű
+    render/      adat → DOM: áttekintő, szettek, tervek, edzői panel, összegző
+    ui/          oldalankénti interakciók (egy fájl egy felület)
+    app/init.js  a vezérlők felépítése és összekötése
   style.css      dizájn-tokenek és komponensstílusok
 server/
   server.js      Express: /api/* végpontok + a public/ kiszolgálása
@@ -103,6 +109,8 @@ server/
   auth.test.js   a jelszó- és munkamenet-kezelés tesztjei (npm test)
   users.test.js  a felhasználók közti adatizoláció tesztjei (npm test)
   migration.test.js  a fiókok előtti adatbázis migrációjának tesztje (npm test)
+  errors.js      hibakezelő védőháló: kezelő-becsomagolás, JSON-hibaválasz, folyamat-őrök
+  errors.test.js a védőháló tesztjei (npm test)
   db.js          SQLite adatréteg — az egyetlen modul, ami a tárolást ismeri
   data.js        seed / referencia-adat (ételek, gyakorlat-katalógus, edzés-célok)
   openfoodfacts.js  vonalkód-ellenőrzés + Open Food Facts proxy (a kliens nem hívja közvetlenül)
