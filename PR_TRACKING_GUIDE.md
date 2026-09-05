@@ -99,7 +99,7 @@ Returns the 6 most recent PR-marked exercises with:
 ## Frontend Implementation
 
 ### PR List Display
-The `renderPrs()` function in `public/script.js`:
+The `renderPrs()` function in `public/js/render/prs.js`:
 - Fetches PR data from `/api/prs`
 - Displays exercise name
 - Shows set details with calculated 1RM value

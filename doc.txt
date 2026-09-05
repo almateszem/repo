@@ -41,7 +41,13 @@ Környezeti változók:
 
 Fájlok:
     public/index.html   minden oldal + a listaelemek <template> sablonjai
-    public/script.js    a teljes frontend (api réteg → renderelők → interakciók)
+    public/js/          a frontend ES modulokban; belépési pont: js/main.js
+      core/             api réteg, DOM/formázó segédek, preferenciák, toast
+      core/page-hooks.js  a router és az oldalvezérlők közti késleltetett kötés
+      nav/              hash-router, nav gyűrű
+      render/           adat → DOM (áttekintő, szettek, tervek, edzői panel…)
+      ui/               oldalankénti interakciók
+      app/init.js       a vezérlők felépítése és összekötése
     public/style.css    dizájn-tokenek és komponensstílusok
     server/server.js    Express: /api/* végpontok + a public/ kiszolgálása
     server/db.js        SQLite adatréteg — az EGYETLEN modul, ami a tárolást ismeri
@@ -55,7 +61,8 @@ Fájlok:
     server/openfoodfacts.js  vonalkód → termék (Open Food Facts proxy)
 
 A frontend egyoldalas: a "#hash" router váltja az oldalakat, minden oldal a
-DOM-ban van, csak rejtve.
+DOM-ban van, csak rejtve. Nincs build-lépés: a böngésző natív ES modulokat
+tölt be (<script type="module" src="js/main.js">).
 
 
 ==========================================================================

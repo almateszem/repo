@@ -95,7 +95,13 @@ egész forgalomra közösen számol.
 ```
 public/          statikus frontend (a szerver innen szolgálja ki)
   index.html     az összes oldal + a listaelemek <template> sablonjai
-  script.js      teljes frontend logika (api réteg → renderelők → interakciók)
+  js/            a frontend ES modulokban (belépési pont: js/main.js)
+    core/        api réteg, DOM- és formázó-segédek, preferenciák, toast
+    core/page-hooks.js  késleltetett kötés a router és az oldalak vezérlői közt
+    nav/         hash-router és a húzható nav gyűrű
+    render/      adat → DOM: áttekintő, szettek, tervek, edzői panel, összegző
+    ui/          oldalankénti interakciók (egy fájl egy felület)
+    app/init.js  a vezérlők felépítése és összekötése
   style.css      dizájn-tokenek és komponensstílusok
 server/
   server.js      Express: /api/* végpontok + a public/ kiszolgálása
