@@ -1,6 +1,6 @@
 /** Testsúlynapló: bejegyzések, diagram, lista. */
 
-import { api, del } from '../core/api.js';
+import { api } from '../core/api.js';
 import { $ } from '../core/dom.js';
 import { animateNumber, formatNumber } from '../core/format.js';
 import { showToast } from '../core/toast.js';

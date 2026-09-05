@@ -2505,5 +2505,6 @@ app.use(express.static(PUBLIC_DIR));
    portot — így indul a végponti teszt (server/api.test.js) is, ami ebből a
    sorból olvassa ki, hova küldje a kéréseket. */
 const server = app.listen(PORT, () => {
+  // eslint-disable-next-line no-console -- indulási banner: a szerver címe
   console.log(`FitTrack Pro szerver fut: http://localhost:${server.address().port}`);
 });

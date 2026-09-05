@@ -624,11 +624,13 @@ for (const [key, value] of Object.entries(collections)) {
 const seedKeys = Object.keys(collections);
 db.prepare(`DELETE FROM collections WHERE key NOT IN (${seedKeys.map(() => '?').join(', ')})`)
   .run(...seedKeys);
+// eslint-disable-next-line no-console -- indulási kiírás: a feloldott DB-útvonal
 console.log('SQLite kész →', path.resolve(DB_PATH), dbExisted ? '(meglévő)' : '(ÚJ adatbázis jött létre)');
 if (!dbExisted) {
   /* Élesben ez a sor CSAK EGYSZER, a legelső indításkor helyénvaló. Ha minden
      deploy után látod, akkor a fájlrendszer ephemeral, és a felhasználói
      naplók deployonként elvesznek — perzisztens volume kell (README → Élesítés). */
+  // eslint-disable-next-line no-console -- figyelmeztetés ephemeral tárolóra
   console.log('   → ha ezt MINDEN indításkor látod, az adatbázis nem marad meg: perzisztens tároló kell.');
 }
 
