@@ -82,8 +82,12 @@ export default [
   {
     // A tesztek node:test globálisait a Node környezet fedi; a console itt
     // munkaeszköz, nem elfelejtett debug-nyom.
+    //
+    // A require-await is kikapcsol: a hibakezelés tesztjeihez KELLENEK olyan
+    // async kezelők, amelyek await nélkül dobnak — pontosan az az eset, amit
+    // a védőhálónak el kell kapnia.
     files: ['server/**/*.test.js'],
-    rules: { 'no-console': 'off' },
+    rules: { 'no-console': 'off', 'require-await': 'off' },
   },
 
   prettier,

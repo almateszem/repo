@@ -61,12 +61,21 @@ import { MUSCLE_KEYS, MUSCLE_GROUPS, resolveExerciseLoad, normalizeName } from '
 // Kérés-korlátozás. Tiszta számláló, adatbázis és Express nélkül — a limitek
 // és a kulcsválasztás itt, a szerveren dőlnek el (server/ratelimit.js).
 import { createRateLimiter } from './ratelimit.js';
+// Hibakezelő védőháló: a kezelők becsomagolása, a JSON-hibaválasz és a
+// folyamat-szintű őrök (server/errors.js).
+import { guardAsyncRoutes, apiErrorHandler, installProcessGuards } from './errors.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public'); // a statikus frontend mappája
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+/* A hibakezelés MINDEN útvonal-regisztráció ELŐTT áll be — ugyanaz a minta,
+   mint a hozzáférés-védelemnél: egy később felvett végpont automatikusan
+   védett, nem kell rá emlékezni. Enélkül egy async kezelő elutasított ígérete
+   Express 4 alatt válasz nélkül hagyná a kérést. */
+guardAsyncRoutes(app);
 
 app.use(express.json()); // a POST/PUT végpontokhoz (JSON törzs olvasása)
 
@@ -2500,6 +2509,11 @@ app.use('/vendor/zxing', express.static(
 
 app.use(express.static(PUBLIC_DIR));
 
+/* A hibakezelő az ÖSSZES útvonal UTÁN — ide fut be minden, amit a becsomagolt
+   kezelők `next(err)`-rel továbbadtak, és az express.json() hibás törzsre
+   dobott hibája is. A veremkép a szerver-logba megy, a kliens JSON-t kap. */
+app.use(apiErrorHandler);
+
 /* A TÉNYLEGESEN kiosztott portot írjuk ki, nem a kért PORT-ot. A kettő
    rendszerint ugyanaz, de PORT=0 esetén az operációs rendszer választ szabad
    portot — így indul a végponti teszt (server/api.test.js) is, ami ebből a
@@ -2508,3 +2522,8 @@ const server = app.listen(PORT, () => {
   // eslint-disable-next-line no-console -- indulási banner: a szerver címe
   console.log(`FitTrack Pro szerver fut: http://localhost:${server.address().port}`);
 });
+
+/* Ami a kérés-kezelésen KÍVÜL szállna el (időzítő, háttér-feladat): naplózzuk.
+   Az elkapatlan kivétel rendezett leállást hoz, az elárvult ígéret nem —
+   az indoklás a server/errors.js fejlécében van. */
+installProcessGuards(server);
