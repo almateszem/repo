@@ -12,6 +12,8 @@ import { renderPrs } from '../render/prs.js';
 import { clampRpeInput, enableOrderSelect, enableSetTypeSelect, handleAddSetClick, handleRemoveSetClick, handleStepClick, readSetRow, refreshExerciseList, renderExercise } from '../render/sets.js';
 import { WORKOUT_START_KEY, markWorkoutStarted, setLastSummary, summarizeWorkout } from '../render/summary.js';
 import { historyEntryEl, syncHistoryEmpty, workoutHistoryEntry } from '../render/workout.js';
+import { createDraftAutosave } from './workout/autosave.js';
+import { createPrIndicators } from './workout/pr-indicator.js';
 
 async function setupWorkout(videoModal, prModal, picker, confirmAction) {
   const page = $('[data-page="workout"]');
@@ -74,51 +76,6 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
     sets: $$('.wk-set-list .wk-set-row', card).map(readSetRow),
   }));
 
-  /* ---- Automatikus mentés ----
-     Minden változtatás után rövid szünettel (debounce) a szerverre PUT-oljuk
-     a piszkozatot, így az állapot újratöltés/leállás után is megmarad.
-     Lapelrejtéskor (bezárás, tab-váltás) a függő mentést azonnal elküldjük
-     keepalive-kéréssel, hogy az utolsó változtatás se vesszen el. */
-  const AUTOSAVE_DEBOUNCE_MS = 500;
-  /** Felső korlát a debounce halogatására. A debounce minden változtatásnál
-      újraindul, tehát folyamatos gépelésnél (500 ms-nál sűrűbb leütéseknél)
-      magától sosem sülne el — az ELSŐ függő változtatástól számítva ennyi idő
-      után mindenképp mentünk. */
-  const AUTOSAVE_MAX_WAIT_MS = 5000;
-  /** Sikertelen mentés utáni újrapróbálkozások szünetei. A végén megáll: a
-      felhasználó ekkor már látja a hibaállapotot, és ő dönt. */
-  const AUTOSAVE_RETRY_MS = [3000, 8000, 20000];
-
-  const statusEl = $('[data-autosave-status]');
-  const statusTextEl = $('[data-autosave-text]');
-  const IDLE_TEXT = statusTextEl.textContent;
-
-  /** Az automatikus mentés állapota egy soron. Korábban itt csak egy statikus
-      ígéret állt („a módosítások automatikusan mentődnek"), a hiba pedig
-      kizárólag a konzolra ment — a felhasználó azt hitte, minden mentve van,
-      közben nem. */
-  const setStatus = (state, text) => {
-    statusEl.dataset.state = state;
-    statusTextEl.textContent = text;
-  };
-  const clockNow = () => new Date().toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' });
-
-  let autosaveTimer = null;
-  let retryTimer = null;
-  let retryStep = 0;
-  /** Az első még el nem mentett változtatás időpontja — ehhez mérjük a
-      max-waitet. null, ha nincs függő mentés. */
-  let pendingSince = null;
-  /** Az utoljára SIKERESEN elküldött törzs sorosítva. Ha a mentés pillanatában
-      ugyanez jönne ki, a kérés kimarad: a debounce akkor is elsül, ha az
-      állapot közben visszaállt (beírsz egy értéket, majd visszaírod az
-      eredetit; vagy a szett-típus oda-vissza váltása). */
-  let lastSentBody = null;
-  /** Fut-e épp mentés. Egyszerre csak egy: a párhuzamos kérések feldolgozási
-      sorrendje nem garantált, és egy későn beérkező válasz elavult állapotot
-      rögzítene a lastSentBody-ba — utána a valódi változás maradna ki. */
-  let inFlight = false;
-
   /** A piszkozat-végpont törzse a DOM aktuális állapotából. Egy helyen áll,
       mert a debounce-olt mentés és a lapelrejtéskori keepalive-kérés
       ugyanazt küldi — és így az összehasonlításuk is azonos alakú. */
@@ -129,66 +86,20 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
     workoutId: currentWorkoutId,
   });
 
-  const flush = async () => {
-    autosaveTimer = null;
-    retryTimer = null; // ha újrapróbálkozásból futunk, az az időzítő már elsült
+  /* ---- Automatikus mentés ----
+     A motor a workout/autosave.js-ben él: debounce, felső határidő,
+     újrapróbálkozás és a lapelrejtéskori utolsó mentés. Innen csak a
+     „változott valami" jelzést kapja. */
+  const draft = createDraftAutosave({ buildBody: buildDraftBody });
 
-    // Fut egy mentés → megvárjuk. A pendingSince ilyenkor SZÁNDÉKOSAN marad:
-    // a max-wait határideje az első változtatástól ketyeg tovább.
-    if (inFlight) {
-      autosaveTimer = setTimeout(flush, AUTOSAVE_DEBOUNCE_MS);
-      return;
-    }
-    pendingSince = null;
-
-    const body = buildDraftBody();
-    const serialized = JSON.stringify(body);
-    if (serialized === lastSentBody) {
-      // Nincs mit menteni. Ha épp hibaállapot látszik, az ilyenkor félrevezető:
-      // a szerveren pontosan ez az állapot van, csak azóta jutottunk vissza ide.
-      if (statusEl.dataset.state === 'error') setStatus('saved', `Mentve · ${clockNow()}`);
-      return;
-    }
-
-    setStatus('saving', 'Mentés…');
-    inFlight = true;
-    try {
-      await api.saveWorkoutDraft(body.name, body.exercises, body.planId, body.workoutId);
-      lastSentBody = serialized;
-      retryStep = 0;
-      setStatus('saved', `Mentve · ${clockNow()}`);
-    } catch (err) {
-      console.error('Automatikus mentés sikertelen:', err);
-      const wait = AUTOSAVE_RETRY_MS[retryStep];
-      if (wait === undefined) {
-        setStatus('error', 'A napló nincs elmentve — ellenőrizd a kapcsolatot, majd módosíts valamit az újrapróbáláshoz.');
-        return;
-      }
-      retryStep += 1;
-      setStatus('error', `Nem sikerült menteni — újrapróbálkozás ${Math.round(wait / 1000)} mp múlva…`);
-      clearTimeout(retryTimer);
-      retryTimer = setTimeout(flush, wait);
-    } finally {
-      inFlight = false;
-    }
-  };
-
+  /** A napló változott. A mentésen túl az összegzőt is érvényteleníti: az
+      megint az aktuális naplóállapotot mutassa, ne a legutóbbi lezárás
+      pillanatképét. */
   const autosave = () => {
-    // Bármilyen változtatás után újra él az edzés: az összegző megint az
-    // aktuális naplóállapotot mutassa, ne a legutóbbi lezárás pillanatképét.
     setLastSummary(null);
-    // Új változtatás → a hibás kör újraindul az elejéről
-    clearTimeout(retryTimer);
-    retryTimer = null;
-    retryStep = 0;
-
-    // Az első függő változtatás indítja a max-wait óráját; a továbbiak már
-    // csak a debounce-t tolják, a határidőt nem.
-    if (pendingSince === null) pendingSince = Date.now();
-    const untilDeadline = pendingSince + AUTOSAVE_MAX_WAIT_MS - Date.now();
-    clearTimeout(autosaveTimer);
-    autosaveTimer = setTimeout(flush, Math.max(0, Math.min(AUTOSAVE_DEBOUNCE_MS, untilDeadline)));
+    draft.schedule();
   };
+  const cancelAutosave = draft.cancel;
 
   // A gyakorlatok sorrendje a sorszám-választóval módosítható — az
   // átrendezés után ugyanaz az autosave menti, mint egy szett-szerkesztést.
@@ -197,85 +108,11 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
   // kötött lenyílóval állítható; a váltás is a piszkozattal mentődik.
   enableSetTypeSelect(list, autosave);
 
-  /** A függő mentés leállítása (az edzés lezárása hívja: a piszkozat törlése
-      után egy késleltetett mentés visszaírná a most lezárt edzést). */
-  const cancelAutosave = () => {
-    clearTimeout(autosaveTimer);
-    clearTimeout(retryTimer);
-    autosaveTimer = null;
-    retryTimer = null;
-    retryStep = 0;
-    pendingSince = null;
-    inFlight = false;
-    // A piszkozat törlődik (az edzés lezárult), tehát az „ezt már elküldtük"
-    // emlék is érvénytelen: a következő edzés első mentése akkor is menjen ki,
-    // ha véletlenül pont ugyanaz a szerkezet.
-    lastSentBody = null;
-    setStatus('idle', IDLE_TEXT);
-  };
-  document.addEventListener('visibilitychange', () => {
-    // Függő mentés VAGY függő újrapróbálkozás esetén is küldünk: a
-    // lapelrejtés (bezárás, tab-váltás) az utolsó esély.
-    if (document.visibilityState !== 'hidden' || (autosaveTimer === null && retryTimer === null)) return;
-    clearTimeout(autosaveTimer);
-    clearTimeout(retryTimer);
-    autosaveTimer = null;
-    retryTimer = null;
-    pendingSince = null;
-    const serialized = JSON.stringify(buildDraftBody());
-    // Ugyanaz, mint ami már kint van → nincs kérés. A lastSentBody-t viszont
-    // NEM írjuk át a küldéskor: a keepalive-kérés eredményét nem látjuk, és
-    // egy sikeresnek hitt, valójában elveszett mentés rosszabb, mint egy
-    // fölösleges ismétlés a visszatérés utáni első változtatáskor.
-    if (serialized === lastSentBody) return;
-    fetch('/api/workout-draft', {
-      method: 'PUT',
-      keepalive: true,
-      headers: { 'Content-Type': 'application/json' },
-      body: serialized,
-    }).catch(() => {});
-  });
+  /* ---- PR-jelzők ---- */
+  const prIndicators = createPrIndicators({ page, getMaxes: () => exerciseMaxes });
+  const updateExercisePrIndicator = prIndicators.update;
+  const refreshAllPrIndicators = prIndicators.refreshAll;
 
-  /** Egy gyakorlat PR-jelzésének frissítése — kizárólag a teljesített
-      (pipált) szettek 1RM-jét nézi; a nem pipált szettekbe írt számok nem
-      számítanak, függetlenül attól, hogy van-e egyáltalán pipált szett.
-      Ha a gyakorlatnak nincs korábbi rekordja, bármelyik pipált, érvényes
-      szám PR-nak számít. A gomb `aria-pressed` állapotát írja — ez az
-      egyetlen, kizárólag a képlet által vezérelt állapot. */
-  const updateExercisePrIndicator = (exerciseCard) => {
-    if (!exerciseCard) return;
-    const prBtn = $('.wk-pr', exerciseCard);
-    const exerciseName = $('.wk-exercise-name', exerciseCard)?.textContent?.trim();
-    if (!prBtn || !exerciseName) return;
-
-    const setRows = $$('.wk-set-list .wk-set-row', exerciseCard);
-    let bestCompleted1rm = 0;
-
-    // Az Epley-képlet: 1RM = weight * (1 + reps / 30)
-    for (const row of setRows) {
-      const set = readSetRow(row);
-      if (!set.done) continue;
-
-      const reps = Number(set.reps);
-      const weight = Number(set.weight);
-      if (!Number.isFinite(reps) || !Number.isFinite(weight) || reps < 1 || weight <= 0) continue;
-
-      const oneRM = weight * (1 + reps / 30);
-      if (oneRM > bestCompleted1rm) bestCompleted1rm = oneRM;
-    }
-
-    // Nincs korábbi rekord az exercise-hez → bármilyen érvényes szám PR-nak számít
-    const currentMax = exerciseMaxes[exerciseName] ?? 0;
-    const hasPotentialPr = bestCompleted1rm > 0 && bestCompleted1rm > currentMax;
-    prBtn.setAttribute('aria-pressed', String(hasPotentialPr));
-  };
-
-  /** Az összes exercise PR jelzésének frissítése — az edzés betöltésekor
-      és az applyTemplate után meghívjuk, hogy az összes szett PR státusza
-      szinkronban legyen az exerciseMaxes-szel. */
-  const refreshAllPrIndicators = () => {
-    $$('.wk-exercise', page).forEach(updateExercisePrIndicator);
-  };
 
   /** A szervertől kapott induló tartalom betöltése a naplóba. */
   const applyTemplate = (template) => {
