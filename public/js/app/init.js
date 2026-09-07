@@ -13,7 +13,7 @@ import { renderFoods } from '../render/foods.js';
 import { renderPlans } from '../render/plans.js';
 import { renderPrs } from '../render/prs.js';
 import { renderWorkout } from '../render/workout.js';
-import { setupCheckinWizard } from '../ui/checkin-wizard.js';
+import { setupCheckinWizard } from '../ui/checkin/wizard.js';
 import { setupAthleteModal, setupCoachPage } from '../ui/coach.js';
 import { setupConnectivity } from '../ui/connectivity.js';
 import { setupCustomFood } from '../ui/custom-food.js';
