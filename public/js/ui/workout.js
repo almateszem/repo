@@ -9,11 +9,12 @@ import { showToast } from '../core/toast.js';
 import { navigate } from '../nav/router.js';
 import { renderDashboard } from '../render/dashboard.js';
 import { renderPrs } from '../render/prs.js';
-import { clampRpeInput, enableOrderSelect, enableSetTypeSelect, handleAddSetClick, handleRemoveSetClick, handleStepClick, readSetRow, refreshExerciseList, renderExercise } from '../render/sets.js';
+import { clampRpeInput, enableOrderSelect, enableSetTypeSelect, handleAddSetClick, handleRemoveSetClick, handleStepClick, readSetRow, refreshExerciseList } from '../render/sets.js';
 import { WORKOUT_START_KEY, markWorkoutStarted, setLastSummary, summarizeWorkout } from '../render/summary.js';
 import { historyEntryEl, syncHistoryEmpty, workoutHistoryEntry } from '../render/workout.js';
 import { createDraftAutosave } from './workout/autosave.js';
 import { createPrIndicators } from './workout/pr-indicator.js';
+import { createContentLoader } from './workout/loading.js';
 
 async function setupWorkout(videoModal, prModal, picker, confirmAction) {
   const page = $('[data-page="workout"]');
@@ -37,15 +38,18 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
     prToggle: true, withAddSet: true, reorder: true, supersets: true, removable: true,
   };
 
-  // Melyik tervből indult az aktuális edzés (null = szabad edzés). A Tervek
-  // oldali haladás ebből párosít, nem a terv nevéből.
-  let currentPlanId = null;
+  /* A szerkesztett edzés azonossága EGY objektumban.
+       planId    — melyik tervből indult (null = szabad edzés). A Tervek
+                   oldali haladás ebből párosít, nem a terv nevéből.
+       workoutId — melyik MENTETT edzést javítjuk (null = új edzés). A
+                   piszkozattal együtt utazik, tehát újratöltés után is
+                   megmarad — enélkül a befejezés új, mai edzést hozna létre
+                   a javítás helyett.
+       date      — a javított edzés napja, a szerkesztés-sáv szövegéhez.
+     Azért objektum és nem három `let`: a betöltő modul (workout/loading.js)
+     is írja, importált kötésre pedig nem lehet értéket adni. */
+  const editing = { planId: null, workoutId: null, date: '' };
 
-  /* Melyik MENTETT edzést javítjuk épp (null = új edzés). A piszkozattal
-     együtt utazik, tehát újratöltés után is megmarad — enélkül a befejezés
-     új, mai edzést hozna létre a javítás helyett. */
-  let currentWorkoutId = null;
-  let currentWorkoutDate = '';
 
   const editingBar = $('[data-editing-workout]');
   const editingText = $('[data-editing-text]', editingBar);
@@ -56,16 +60,16 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
       A gomb szövege is változik: „Edzés befejezése" azt ígérné, hogy új sor
       keletkezik a naplóban — javításkor viszont a meglévő sor frissül. */
   const syncEditingState = () => {
-    const editing = currentWorkoutId !== null;
-    editingBar.hidden = !editing;
-    if (editing) {
+    const isEditing = editing.workoutId !== null;
+    editingBar.hidden = !isEditing;
+    if (isEditing) {
       // A dátum a mentett edzésekből oldódik fel, és ez eggyel későbbi kérés:
       // amíg nincs meg, dátum nélkül is értelmes mondatot írunk ki.
-      editingText.textContent = currentWorkoutDate
-        ? `A(z) ${currentWorkoutDate} napi edzésedet javítod — a mentés a meglévő sort frissíti, nem hoz létre újat.`
+      editingText.textContent = editing.date
+        ? `A(z) ${editing.date} napi edzésedet javítod — a mentés a meglévő sort frissíti, nem hoz létre újat.`
         : 'Egy korábbi edzésedet javítod — a mentés a meglévő sort frissíti, nem hoz létre újat.';
     }
-    finishLabel.textContent = editing ? 'Módosítások mentése' : FINISH_TEXT;
+    finishLabel.textContent = isEditing ? 'Módosítások mentése' : FINISH_TEXT;
   };
 
   /** Az edzés aktuális állapota a DOM-ból (gyakorlatok + szettek + „kész" jelölés). */
@@ -82,8 +86,8 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
   const buildDraftBody = () => ({
     name: titleInput.value.trim(),
     exercises: readCurrentWorkout(),
-    planId: currentPlanId,
-    workoutId: currentWorkoutId,
+    planId: editing.planId,
+    workoutId: editing.workoutId,
   });
 
   /* ---- Automatikus mentés ----
@@ -113,26 +117,18 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
   const updateExercisePrIndicator = prIndicators.update;
   const refreshAllPrIndicators = prIndicators.refreshAll;
 
+  /* ---- Tartalom betöltése a szerkesztőbe ----
+     A sablon, a javításra visszanyitott edzés és a terv ugyanabba a
+     szerkesztőbe érkezik; a közös út a workout/loading.js-ben áll. */
+  const loader = createContentLoader({
+    page, list, titleInput, titleError, exerciseOptions, editing,
+    syncEmpty, syncEditingState,
+    refreshPrIndicators: refreshAllPrIndicators,
+    autosave, confirmAction,
+  });
+  const { applyTemplate, reopenWorkout, loadPlan } = loader;
 
-  /** A szervertől kapott induló tartalom betöltése a naplóba. */
-  const applyTemplate = (template) => {
-    if (!template) return;
-    currentPlanId = template.planId ?? null;
-    currentWorkoutId = template.workoutId ?? null;
-    titleInput.value = template.name;
-    list.replaceChildren();
-    template.exercises.forEach((exercise) => {
-      list.appendChild(renderExercise(exercise, exerciseOptions));
-    });
-    refreshExerciseList(list);
-    if (template.source === 'plan') showToast(`Mai terv betöltve: ${template.name}`);
-    syncEmpty();
-    // Minden template-betöltés után: a napváltáskori csere is ide fut be, és
-    // ott a javítás-állapot is megszűnhet (ha a mai terv veszi át a helyét).
-    syncEditingState();
-    // Az összes PR jelzés frissítése az új template után
-    refreshAllPrIndicators();
-  };
+
 
   // Az induló tartalom a szervertől: aznapi piszkozat, vagy — új napon —
   // a mai hétnapra ütemezett terv. Ha nincs egyik sem, a napló üres, és az
@@ -140,16 +136,7 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
   applyTemplate(await api.getWorkoutTemplate());
   syncEmpty();
 
-  /* A visszanyitott edzés DÁTUMA nem utazik a piszkozattal — a sávhoz viszont
-     kell, ezért a mentett edzésekből oldjuk fel. Ha az edzés időközben
-     eltűnt (másik lapon törölték), a javítás tárgytalan: a tartalom marad, de
-     új edzésként mentődik — ez ugyanaz a viselkedés, amit a szerver is választ
-     a törléskor (deleteWorkout → a piszkozat workout_id-ja NULL-ra vált). */
-  if (currentWorkoutId !== null) {
-    const saved = await api.getWorkouts();
-    currentWorkoutDate = saved.find((workout) => workout.id === currentWorkoutId)?.date ?? '';
-    if (!currentWorkoutDate) currentWorkoutId = null;
-  }
+  await loader.resolveEditedDate();
   syncEditingState();
 
   /* Napváltás éjfélkor: ilyenkor a MAI napra ütemezett terv válik érvényessé.
@@ -327,9 +314,9 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
     });
     list.replaceChildren();
     titleInput.value = '';
-    currentPlanId = null;
-    currentWorkoutId = null;
-    currentWorkoutDate = '';
+    editing.planId = null;
+    editing.workoutId = null;
+    editing.date = '';
     prefs.set(WORKOUT_START_KEY, null); // az edzés-óra a következő első pipával indul
     syncEmpty();
     syncEditingState();
@@ -354,7 +341,7 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
       a legfrissebb edzés. */
   const finishEdit = async () => {
     const updated = await api.updateWorkout(
-      currentWorkoutId, titleInput.value.trim(), readCurrentWorkout(),
+      editing.workoutId, titleInput.value.trim(), readCurrentWorkout(),
     );
     const row = $(`[data-list="history"] [data-workout-id="${updated.id}"]`);
     row?.replaceWith(historyEntryEl(workoutHistoryEntry(updated)));
@@ -383,14 +370,14 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
       /* Javítás alatt álló edzésnél NEM új sor keletkezik: a meglévőt írjuk
          felül, a saját dátumán. Az összegző ilyenkor kimarad — az egy most
          befejezett edzést ünnepelne, közben egy régit javítottunk. */
-      if (currentWorkoutId !== null) {
+      if (editing.workoutId !== null) {
         await finishEdit();
         return;
       }
 
       // Az összegző értékeit még a kiürítés előtt rögzítjük
       const summary = summarizeWorkout();
-      const saved = await api.saveWorkout(titleInput.value.trim(), readCurrentWorkout(), currentPlanId);
+      const saved = await api.saveWorkout(titleInput.value.trim(), readCurrentWorkout(), editing.planId);
 
       // A függő automatikus mentés leállítása (különben visszaírná a most
       // törölt piszkozatot) és a napló kiürítése — programozott változás,
@@ -425,44 +412,6 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
     }
   });
 
-  /** Hány teljesített szett van most a naplóban — a felülíró műveletek
-      (terv betöltése, edzés visszanyitása) ez alapján kérdeznek rá. */
-  const doneSetCount = () => $$('.wk-set-check', page)
-    .filter((check) => check.getAttribute('aria-pressed') === 'true').length;
-
-  /** Mentett edzés visszanyitása javításra: a tartalma a szerkesztőbe kerül,
-      és a befejezés majd a MEGLÉVŐ sort frissíti. */
-  const reopenWorkout = async (workout) => {
-    const doneSets = doneSetCount();
-    if (doneSets > 0) {
-      const ok = await confirmAction(
-        `A megkezdett edzésedben ${doneSets} teljesített szett van. A(z) ${workout.date} napi edzés javításra nyitása ezeket felülírja.`,
-        { title: 'Felülírod a megkezdett edzést?', confirmLabel: 'Javítás megnyitása' },
-      );
-      if (!ok) return;
-    }
-
-    currentPlanId = workout.planId ?? null;
-    currentWorkoutId = workout.id;
-    currentWorkoutDate = workout.date;
-    titleInput.value = workout.name;
-    titleInput.classList.remove('has-error');
-    titleError.hidden = true;
-    list.replaceChildren();
-    workout.exercises.forEach((exercise) => {
-      list.appendChild(renderExercise(exercise, exerciseOptions));
-    });
-    refreshExerciseList(list);
-    syncEmpty();
-    syncEditingState();
-    refreshAllPrIndicators();
-    /* Az edzés-óra nullázódik: a megkezdett edzés helyére egy RÉGI edzés
-       került, tehát a korábbi indulási időhöz már nincs mit mérni. */
-    prefs.set(WORKOUT_START_KEY, null);
-    autosave();
-    navigate('workout');
-    showToast(`A(z) ${workout.date} napi edzés javításra megnyitva`);
-  };
 
   /* A „Korábbi edzések" sorainak műveletei. Delegálva, a táplálkozás-napló
      mintájára: a lista teljesen újrarajzolódik, egyedi kezelők nem élnék túl. */
@@ -503,9 +452,9 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
       /* Ha épp ezt az edzést javítottuk, a javítás tárgytalan — a szerver a
          piszkozat hivatkozását is elengedte, tehát a szerkesztő tartalma
          marad, de innentől új edzésként mentődik. */
-      if (currentWorkoutId === id) {
-        currentWorkoutId = null;
-        currentWorkoutDate = '';
+      if (editing.workoutId === id) {
+        editing.workoutId = null;
+        editing.date = '';
         syncEditingState();
         autosave();
       }
@@ -525,44 +474,6 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
     showToast('Szerkesztés megszakítva — az edzés változatlan');
   });
 
-  /** Terv betöltése az edzésnaplóba (a Tervek nyíl-gombja hívja): a cím és
-      a gyakorlatok cserélődnek, és az állapot azonnal piszkozatként mentődik
-      — így újratöltés után is a betöltött terv marad az edzésnaplóban.
-
-      Ha a naplóban már van teljesített szett, előbb rákérdezünk: a betöltés
-      felülírja az egészet. Korábban ez a legpusztítóbb művelet volt az
-      appban, és épp ez futott végig kérdés nélkül — miközben egyetlen
-      gyakorlat eltávolításánál már volt megerősítés.
-      Hamissal tér vissza, ha a felhasználó meggondolta magát. */
-  const loadPlan = async (plan) => {
-    const doneSets = doneSetCount();
-    if (doneSets > 0) {
-      const ok = await confirmAction(
-        `A megkezdett edzésedben ${doneSets} teljesített szett van. A(z) „${plan.name}” betöltése ezeket felülírja.`,
-        { title: 'Felülírod a megkezdett edzést?', confirmLabel: 'Terv betöltése' },
-      );
-      if (!ok) return false;
-    }
-
-    currentPlanId = plan.id ?? null;
-    // A terv betöltése ÚJ edzést kezd: ha épp egy régit javítottunk, az a
-    // szál itt lezárul — különben a terv tartalma írná felül a mentett edzést.
-    currentWorkoutId = null;
-    currentWorkoutDate = '';
-    syncEditingState();
-    titleInput.value = plan.name;
-    titleInput.classList.remove('has-error');
-    titleError.hidden = true;
-    list.replaceChildren();
-    plan.exercises.forEach((exercise) => {
-      list.appendChild(renderExercise(exercise, exerciseOptions));
-    });
-    refreshExerciseList(list);
-    syncEmpty();
-    prefs.set(WORKOUT_START_KEY, null); // friss edzés — az óra az első pipával indul újra
-    autosave();
-    return true;
-  };
 
   return { loadPlan };
 }
