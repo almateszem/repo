@@ -1,6 +1,6 @@
 /** A check-in varázsló tiszta segédfüggvényei. */
 
-import { MUSCLE_GROUPS } from '../render/recovery.js';
+import { MUSCLE_GROUPS } from '../../render/recovery.js';
 
 const ciMuscleLabel = (key) => MUSCLE_GROUPS.find(([k]) => k === key)?.[1] ?? key;
 
@@ -35,4 +35,7 @@ const ciEmptyState = () => ({
   carried: { mood: null, hydration: null, painGeneral: null },
 });
 
-export { ciClamp, ciEmptyState, ciMuscleLabel, ciPickPositive };
+/** A mai nap emberi felirata („szeptember 5."), a lépések fejlécéhez. */
+const ciDateStr = () => new Date().toLocaleDateString('hu-HU', { month: 'long', day: 'numeric' });
+
+export { ciClamp, ciDateStr, ciEmptyState, ciMuscleLabel, ciPickPositive };

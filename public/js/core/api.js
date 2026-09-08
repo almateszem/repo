@@ -207,6 +207,15 @@ const api = {
   // kérdi, és a PUT /api/checkin weightKg mezője rögzíti (naponta egy sor).
   getWeightLog:      () => getJson('/api/weight-log'),
   getNutrition:      () => getJson('/api/nutrition'),
+    /* ---- Víznapló ----
+     A válasz mindig a nap FRISS állapota ({ totalMl, entries, targetMl }),
+     ezért a felületnek nem kell külön újrakérdeznie. A szerver ugyanebben a
+     körben a check-in folyadék-mezőjét is frissíti, tehát a készenlét is
+     követi — a vízmérő nem külön számláló. */
+  getWater: () => getJson('/api/water'),
+  addWater: (ml) => postJson('/api/water', { ml }),
+  deleteWaterEntry: (id) => sendJson('DELETE', `/api/water/${id}`),
+
   /* ---- Napi cél ----
      Két forrás lehet (edzői / saját); a válasz mindkettőt hozza, hogy a
      felület ki tudja írni, honnan jön a szám és eltértél-e az edzőitől. */
@@ -302,4 +311,4 @@ const api = {
   deleteAccount: (password) => postJson('/api/auth/delete-account', { password }),
 };
 
-export { SESSION_LOST, api, del };
+export { SESSION_LOST, api, clientDate, del };

@@ -222,6 +222,7 @@ test('bejelentkezés nélkül MINDEN /api végpont 401-et ad', async () => {
     ['PUT', '/api/measurements'], ['DELETE', '/api/measurements/1'],
     ['POST', '/api/athletes/1/plan'], ['POST', '/api/plan-offers/1/accept'],
     ['DELETE', '/api/plan-offers/1'], ['GET', '/api/foods/barcode/1'],
+    ['GET', '/api/water'], ['POST', '/api/water'], ['DELETE', '/api/water/1'],
   ];
 
   for (const [method, urlPath] of endpoints) {
@@ -823,6 +824,74 @@ test('a check-in mentése a testsúlyt a testsúly-naplóba írja, naponta egy s
     cookie: annaCookie, body: { sleepHours: 8, weightKg: 500 },
   });
   assert.equal(rosszSuly.status, 400);
+});
+
+/* ---- Víznapló ----
+   A folyadékbevitel a Recovery Engine bemenete, ezért a víznapló NEM külön
+   számláló: minden írásnak a checkins.hydration mezőben is meg kell jelennie.
+   Ezt őrzi az alábbi három teszt — enélkül a Táplálkozás oldalon rögzített
+   korty semmit nem mozdítana a készenléten. */
+
+let vizCookie = '';
+
+test('a víznapló kortyai a check-in folyadék-mezőjébe összegződnek', async () => {
+  const reg = await request('POST', '/api/auth/register', {
+    body: { username: 'vizes', displayName: 'Vizes Vili', password: 'jelszo789' },
+  });
+  assert.equal(reg.status, 201);
+  vizCookie = cookieFrom(reg);
+
+  const ures = await request('GET', '/api/water', { cookie: vizCookie });
+  assert.equal(ures.json.totalMl, 0);
+  assert.deepEqual(ures.json.entries, []);
+
+  const elso = await request('POST', '/api/water', { cookie: vizCookie, body: { ml: 250 } });
+  assert.equal(elso.status, 201);
+  assert.equal(elso.json.totalMl, 250);
+
+  await request('POST', '/api/water', { cookie: vizCookie, body: { ml: 500 } });
+  const nap = await request('GET', '/api/water', { cookie: vizCookie });
+  assert.equal(nap.json.totalMl, 750);
+  assert.equal(nap.json.entries.length, 2, 'kortyonként egy sor, nem összevont érték');
+
+  const checkin = await request('GET', '/api/checkin', { cookie: vizCookie });
+  assert.equal(checkin.json.hydration, 0.75, 'a motor literben látja ugyanazt a mennyiséget');
+});
+
+test('a check-in űrlapján megadott folyadék LECSERÉLI a nap víznaplóját', async () => {
+  /* A felhasználó ott a napi ÖSSZEGRŐL nyilatkozik, nem egy kortyról —
+     különben a beírt 2 liter hozzáadódna a korábbi 0,75-höz. */
+  const mentes = await request('PUT', '/api/checkin', {
+    cookie: vizCookie, body: { sleepHours: 7, hydration: 2 },
+  });
+  assert.equal(mentes.status, 200);
+
+  const nap = await request('GET', '/api/water', { cookie: vizCookie });
+  assert.equal(nap.json.totalMl, 2000, 'a napló az űrlap értékét veszi át');
+  assert.equal(nap.json.entries.length, 1);
+
+  // Üresen hagyott mező viszont NEM töröl: a gyors check-in nem veszítheti el
+  // a napközben rögzített kortyokat.
+  await request('PUT', '/api/checkin', { cookie: vizCookie, body: { sleepHours: 8 } });
+  const utana = await request('GET', '/api/water', { cookie: vizCookie });
+  assert.equal(utana.json.totalMl, 2000, 'a hiányzó mező érintetlenül hagyja a naplót');
+});
+
+test('a víznapló törlése is visszaírja a folyadék-mezőt, idegen sorra pedig 404', async () => {
+  const nap = (await request('GET', '/api/water', { cookie: vizCookie })).json;
+  const torles = await request('DELETE', `/api/water/${nap.entries[0].id}`, { cookie: vizCookie });
+  assert.equal(torles.status, 200);
+  assert.equal(torles.json.totalMl, 0);
+
+  const checkin = await request('GET', '/api/checkin', { cookie: vizCookie });
+  assert.equal(checkin.json.hydration, 0, 'a törlés a készenlét bemenetén is látszik');
+
+  // Anna sora Vili számára nem is létezik — 404, nem 403.
+  const idegen = await request('DELETE', '/api/water/999999', { cookie: vizCookie });
+  assert.equal(idegen.status, 404);
+
+  const rossz = await request('POST', '/api/water', { cookie: vizCookie, body: { ml: 99999 } });
+  assert.equal(rossz.status, 400, 'egy korty felső határa is van');
 });
 
 test('a check-in újramentése frissíti a sort, nem hoz létre újat', async () => {

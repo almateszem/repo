@@ -50,6 +50,11 @@ export const hooks = {
       két írási út nem sodródhat szét. */
   applyCheckinSaved: null,
 
+  /** A vízmérő frissítője — a setupWaterMeter állítja be. A Táplálkozás oldal
+      megnyitása hívja: ugyanaz a szám a check-in űrlapjáról is átírható,
+      tehát a lokális másolat elavulhat, amíg máshol jársz. */
+  refreshWater: null,
+
   /** A készenlét-javaslat ablaka — az init állítja be. A check-in mentése után
       ugrik fel, ha van mit javasolni. Azért késleltetett, mert a setupRecovery-
       nél KÉSŐBB épül fel (az edzésnapló vezérlője kell hozzá), a check-in
