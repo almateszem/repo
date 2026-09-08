@@ -45,16 +45,19 @@
   /* Kiemelés és riasztás SZÁNDÉKOSAN két külön token. Korábban egyetlen
      --c-accent (#e0435a) volt mindkettő: a márkajel (.au-brand, mentés
      gombok) és a vészjelzés (.au-error, „letiltva", alacsony készenlét) is.
-     Egy vörösnél ez még összefért; a lime kiemelésnél nem — lime „letiltva"
-     felirat pozitívnak olvasódna. A riasztás ezért megtartja a régi vöröset. */
-  --c-accent: #d6ff3f;
+     A kettő szétválasztva marad, még ha most mindkettő vörös is: a jelentésük
+     különbözik, és a kiemelés színe a dizájnnal együtt változhat — a
+     vészjelzésé nem. A --c-accent a terv bordója (#c8102e). */
+  --c-accent: #c8102e;
   --c-alert: #e0435a;
   --c-ok: #4ad295;
 
-  /* A lime világos: ami RÁ kerül, az sötét tinta legyen, nem fehér. */
-  --on-accent: #10120a;
-  --c-accent-dim: rgba(214, 255, 63, .16);
-  --c-accent-line: rgba(214, 255, 63, .38);
+  /* Ami az akcentus HÁTTERÉRE kerül. A bordó sötét, tehát világos a tinta —
+     a token azért van, hogy a szabályoknak ne kelljen tudniuk, épp melyik
+     akcentus van érvényben. */
+  --on-accent: #ffffff;
+  --c-accent-dim: rgba(200, 16, 46, .16);
+  --c-accent-line: rgba(200, 16, 46, .45);
   --c-alert-dim: rgba(224, 67, 90, .12);
   --c-alert-line: rgba(224, 67, 90, .38);
   /* Szuperszett-jelölés. Szándékosan NEM az accent: azt a PR-jelvény pulzálása
@@ -313,8 +316,6 @@ input.wk-chip:focus-visible {
    A check-in varázsló (.ci-*) is kimarad — az az űrlap változatlan marad. */
 
 .db-label,
-.db-recovery-label,
-.db-stat-label,
 .db-stat-unit,
 .nu-summary-label,
 .nu-summary-unit,
@@ -544,17 +545,30 @@ input.wk-chip:focus-visible {
 
 /* Nap-feliratok az oszlopok alatt. A .chart magasságán KÍVÜL ülnek, ezért a
    konténer alsó margója adja a helyüket — különben az oszlopokba lógnának. */
+/* A feliratos változat (Áttekintés trend-diagramja) NEM használ jobb oldali
+   tengelyt: a dizájnban a napok neve a mérték, nem a skála. A tengely ezért
+   rejtve marad, és a helye is felszabadul az oszlopoknak. */
 .chart--labelled {
   margin-bottom: var(--sp-13);
+  padding-right: 0;
+  gap: clamp(5px, .7vw, 10px);
+}
+
+.chart--labelled .chart-axis {
+  display: none;
+}
+
+.chart--labelled .chart-bars {
+  gap: clamp(5px, .7vw, 10px);
 }
 
 .chart-labels {
   position: absolute;
   left: 0;
-  right: 44px; /* ugyanaz a tengely-hely, mint a .chart padding-right-ja */
+  right: 0; /* nincs tengely, tehát a teljes szélesség az oszlopoké */
   top: calc(100% + var(--sp-2));
   display: flex;
-  gap: var(--sp-1);
+  gap: clamp(5px, .7vw, 10px);
   font-family: var(--font-mono);
   font-size: var(--fs-2xs);
   letter-spacing: var(--ls-label-tight);
@@ -757,55 +771,10 @@ input.wk-chip:focus-visible {
 
 /* A kártya egésze link a Regeneráció oldalra — a szövegszín öröklődik, hogy
    a link-alapértelmezés ne írja felül a tipográfiát. */
-.db-readiness {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-7);
-  margin-bottom: var(--sp-6);
-  background: var(--surface-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--r-2xl);
-  padding: var(--sp-7) var(--sp-8);
-  color: inherit;
-  text-decoration: none;
-  transition: background var(--t-fast), border-color var(--t-fast);
-}
-
-.db-readiness:hover {
-  background: var(--surface-hover);
-  border-color: var(--border-strong);
-}
-
-.db-readiness-note {
-  font-size: var(--fs-xs);
-  color: var(--text-muted);
-}
-
-.db-readiness-text {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-2);
-  min-width: 0;
-}
-
-.db-label {
-  font-size: var(--fs-sm);
-  color: var(--text-muted);
-}
-
-.db-percent {
-  font-size: var(--fs-display);
-  font-weight: 800;
-  line-height: 1;
-}
-
-.db-percent-sign {
-  font-size: .5em;
-  font-weight: 700;
-  margin-left: 2px;
-}
-
+/* ---- Készenléti gyűrű (megosztott primitív) ----
+   Az Áttekintésen a dizájn szerint NINCS gyűrű: ott a nagy szám a
+   mutató. A Regeneráció oldal viszont megtartja, mert ott a
+   komponens-bontás mellett a körkijelző valódi többletet ad. */
 .db-ring {
   width: clamp(84px, 22vw, 116px);
   height: clamp(84px, 22vw, 116px);
@@ -835,140 +804,372 @@ input.wk-chip:focus-visible {
   stroke-dashoffset: calc(264 - (264 * var(--readiness, 0) / 100));
 }
 
-.db-recovery {
-  display: flex;
-  gap: var(--sp-9);
-  margin: 0 0 var(--sp-4);
-  background: var(--surface-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--r-2xl);
-  padding: var(--sp-6) var(--sp-8);
-}
-
-.db-recovery-item {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-2);
-}
-
-.db-recovery-label {
-  font-size: var(--fs-sm);
-  color: var(--text-muted);
-}
-
-.db-recovery-value {
-  font-size: var(--fs-2xl);
-  font-weight: 700;
-}
-
-.db-stats {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--sp-6) var(--sp-4);
-  margin-bottom: var(--sp-10);
-  background: var(--surface-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--r-2xl);
-  padding: var(--sp-6) var(--sp-8);
-}
-
-.db-stat {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-2);
-  min-width: 0;
-}
-
-.db-stat-label {
+/* Minden műszerfal-címke ezt az osztályt kapja: a szedést a 2b. szakasz
+   központi blokkja adja, itt csak a méret és a szín áll. Egy osztály, mert
+   a dizajnban minden címke ugyanaz — nem blokkonként újratárgyalt méret. */
+.db-label {
+  display: block;
   font-size: var(--fs-2xs);
   color: var(--text-muted);
 }
 
+/* ---- Áttekintés ----
+   A dizájn nem kártyákra épül, hanem HAJSZÁLVONALAKRA: a blokkoknak nincs
+   saját hátterük és keretük, csak egy felső elválasztó vonaluk. A tagolást
+   így a tipográfia és a térköz adja, nem a doboz — ettől férnek el a nagy
+   mérőszámok. A méretek a tervből jönnek (clamp-ekkel, hogy mobiltól
+   nagy képernyőig ugyanaz az arány maradjon). */
+
+.db-readiness {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: clamp(20px, 4vw, 64px);
+  padding: var(--sp-11) 0 var(--sp-13);
+  color: inherit;
+  text-decoration: none;
+}
+
+/* A készenléti szám a lap fókuszpontja: nincs mellette gyűrű, mert egy
+   ekkora számjegy mellett a körkijelző csak ismételné. A körkijelző a
+   Regeneráció oldalon marad, ahol a komponens-bontás mellett van értelme. */
+.db-percent {
+  font-size: clamp(84px, 13.5vw, 214px);
+  font-weight: 800;
+  line-height: .74;
+  letter-spacing: -.07em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A százalékjel és a felirat a szám mellett, függőlegesen szétfeszítve: a jel
+   a szám tetejéhez, a címke az aljához igazodik. */
+.db-percent-side {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-self: stretch;
+  padding-top: var(--sp-2);
+  flex-shrink: 0;
+}
+
+.db-percent-sign {
+  font-size: clamp(22px, 2.8vw, 42px);
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text-faint);
+}
+
+.db-readiness-note {
+  flex: 1;
+  min-width: 240px;
+  max-width: 600px;
+  margin-top: var(--sp-9);
+  font-size: clamp(19px, 2.3vw, 34px);
+  font-weight: 400;
+  line-height: 1.34;
+  letter-spacing: -.015em;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+
+.db-readiness:hover .db-readiness-note {
+  color: var(--text-primary);
+}
+
+/* ---- Táplálkozás-blokk: kalória, sáv, makrók ---- */
+
+.db-nutri {
+  padding: var(--sp-11) 0 var(--sp-13);
+  border-top: 1px solid var(--border-card);
+}
+
+.db-nutri-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-7);
+  margin-bottom: var(--sp-7);
+}
+
+.db-nutri-value {
+  font-size: clamp(24px, 2.4vw, 34px);
+  font-weight: 800;
+  letter-spacing: -.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.db-nutri-target {
+  font-size: .44em;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+/* A sáv szándékosan szögletes és vékony: a dizájn egyetlen tömör vonala.
+   A kitöltés és a maradék KÉT külön elem 2px réssel — így a határ akkor is
+   éles marad, ha a kitöltés épp 0 vagy 100 százalék. */
+.db-bar {
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  background: var(--fg-10);
+}
+
+.db-bar-fill {
+  display: block;
+  width: 0;
+  background: var(--c-accent);
+  transition: width var(--t-slow);
+}
+
+.db-macros {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(16px, 1.6vw, 24px);
+  margin-top: var(--sp-13);
+}
+
+.db-macro {
+  min-width: 0;
+}
+
+.db-macro-value {
+  display: block;
+  margin-top: var(--sp-11);
+  font-size: clamp(22px, 2.4vw, 34px);
+  font-weight: 800;
+  letter-spacing: -.035em;
+  font-variant-numeric: tabular-nums;
+}
+
+.db-macro-unit {
+  font-size: .34em;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-left: .15em;
+}
+
+/* ---- Mérőszám-sor ----
+   A dizájn négy hasábot mutat; itt öt adat van, mert az app többet tud.
+   Az auto-fit ezért nem kozmetika: négy fix hasábnál az ötödik magára
+   maradna egy sorban. */
+.db-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: clamp(16px, 1.6vw, 24px);
+  padding: var(--sp-11) 0;
+  border-top: 1px solid var(--border-card);
+}
+
+.db-stat {
+  min-width: 0;
+}
+
 .db-stat-value {
-  font-size: var(--fs-metric);
-  font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: block;
+  margin-top: var(--sp-11);
+  font-size: clamp(24px, 2.7vw, 46px);
+  font-weight: 800;
+  letter-spacing: -.035em;
+  font-variant-numeric: tabular-nums;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+/* A szöveges értékek (Fáradtság, Izomláz) nem férnének el a számokra szabott
+   fokozatban — a dizájn ezekre külön, kisebb méretet ad, itt ez az osztály. */
+.db-stat-value--word {
+  font-size: clamp(15px, 1.5vw, 24px);
+  letter-spacing: -.01em;
 }
 
 .db-stat-unit {
-  font-size: .55em;
-  font-weight: 600;
+  font-size: .34em;
+  font-weight: 500;
   color: var(--text-muted);
-  margin-left: 1px;
+  margin-left: .15em;
 }
 
-/* Napi check-in emlékeztető — a napi statok alatt (itt volt korábban a
-   kalória-diagram). Csak addig van a DOM-ban láthatóan, amíg a mai check-in
-   hiányzik; a script.js kapcsolja a `hidden` attribútummal. Az akcentus-keret
-   különbözteti meg a többi kártyától: ez teendő, nem állapot. */
+/* ---- Terhelés-trend ---- */
+
+.db-trend {
+  padding: var(--sp-11) 0;
+  border-top: 1px solid var(--border-card);
+}
+
+/* ---- Napi check-in emlékeztető ----
+   Ez az EGYETLEN blokk, ami keretet kap: nem adat, hanem teendő, és a
+   hajszálvonalas környezetben csak így válik el a mérőszámoktól. */
 .db-checkin-cta {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--sp-6);
-  margin-bottom: var(--sp-10);
-  background: var(--surface-card);
+  gap: var(--sp-7);
+  margin: var(--sp-9) 0;
+  padding: var(--sp-8) var(--sp-9);
   border: 1px solid var(--c-accent);
-  border-radius: var(--r-2xl);
-  padding: var(--sp-7) var(--sp-8);
   color: inherit;
   text-decoration: none;
   transition: background var(--t-fast);
 }
 
 .db-checkin-cta:hover {
-  background: var(--surface-hover);
+  background: var(--c-accent-dim);
 }
 
 .db-checkin-cta-text {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-2);
+  gap: var(--sp-3);
   min-width: 0;
 }
 
 .db-checkin-cta-title {
-  font-size: var(--fs-lg);
-  font-weight: 700;
+  font-size: var(--fs-2xl);
+  font-weight: 800;
+  letter-spacing: -.02em;
 }
 
 .db-checkin-cta-note {
-  font-size: var(--fs-xs);
-  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--text-secondary);
 }
 
 .db-checkin-cta-arrow {
-  font-size: var(--fs-2xl);
+  font-size: var(--fs-3xl);
   color: var(--c-accent);
   flex-shrink: 0;
 }
 
 .db-quote {
+  margin: var(--sp-11) 0 0;
+  padding-top: var(--sp-11);
+  border-top: 1px solid var(--border-card);
   font-size: var(--fs-quote);
+  font-weight: 800;
+  line-height: 1.24;
+  letter-spacing: -.03em;
+  text-wrap: balance;
+}
+
+/* ---- Jobb hasáb: a mai edzés és a fő műveletek ---- */
+
+.db-side {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding-top: var(--sp-11);
+  border-top: 1px solid var(--border-card);
+}
+
+.db-side-title {
+  margin: var(--sp-7) 0 var(--sp-5);
+  font-size: var(--fs-5xl);
+  font-weight: 800;
+  letter-spacing: -.035em;
+  text-wrap: balance;
+}
+
+.db-side-meta {
+  margin: 0;
+  padding-bottom: var(--sp-7);
+  border-bottom: 1px solid var(--border-card);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
   font-weight: 700;
-  line-height: 1.25;
-  margin: 0 0 var(--sp-10);
+  text-transform: uppercase;
+  letter-spacing: var(--ls-label);
+  color: var(--text-muted);
+}
+
+.db-side-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.db-side-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-7);
+  padding: var(--sp-7) 0;
+  border-bottom: 1px solid var(--border-card);
+}
+
+.db-side-no {
+  width: 20px;
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.db-side-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+
+.db-side-name {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  letter-spacing: -.01em;
+}
+
+.db-side-detail {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--ls-label-tight);
+  color: var(--text-muted);
+}
+
+.db-side-empty {
+  margin: var(--sp-7) 0 0;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* A műveletek a hasáb ALJÁRA kerülnek (margin-top: auto): desktopon a jobb
+   hasáb teljes magasságú, és a fő művelet így a szem természetes végpontján
+   ül, nem közvetlenül a gyakorlatlista után. */
+.db-side-actions {
+  margin-top: auto;
+  padding-top: var(--sp-11);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
 }
 
 .db-cta {
   width: 100%;
+  min-height: 64px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--c-paper);
-  color: var(--c-ink);
-  border: none;
-  border-radius: var(--r-xl);
-  padding: var(--sp-7) var(--sp-8);
-  font-size: var(--fs-lg);
-  font-weight: 600;
-  transition: background var(--t-fast), transform var(--t-fast);
+  gap: var(--sp-5);
+  padding: var(--sp-9) var(--sp-11);
+  background: var(--c-bg-deep);
+  border: 1px solid var(--border-card);
+  color: var(--fg-92);
+  font-size: var(--fs-base);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+  cursor: pointer;
+  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
 }
 
 .db-cta:hover {
-  background: var(--c-paper-bright);
+  background: var(--c-accent);
+  border-color: var(--c-accent);
+  color: var(--on-accent);
 }
 
 .db-cta:active {
@@ -976,8 +1177,33 @@ input.wk-chip:focus-visible {
 }
 
 .db-cta-arrow {
-  font-size: var(--fs-2xl);
+  font-size: var(--fs-3xl);
+  line-height: 1;
 }
+
+.db-side-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: var(--sp-7) 0;
+  border: 1px solid var(--border-card);
+  background: transparent;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .18em;
+  transition: color var(--t-fast), border-color var(--t-fast);
+}
+
+.db-side-link:hover {
+  color: var(--text-primary);
+  border-color: var(--fg-40);
+}
+
 
 /* ==========================================================================
    7. Workout logger
@@ -1164,18 +1390,18 @@ input.wk-chip:focus-visible {
 
 /* Valós idejű PR detektálás: amikor az aktuális (teljesített) szett 1RM-je
    nagyobb az eddigi maximumnál, a PR gomb aria-pressed="true" lesz — ez adja
-   a tömör lime kitöltést (lásd lejjebb) és a lüktető box-shadow-t. */
+   a tömör bordó kitöltést (lásd lejjebb) és a lüktető box-shadow-t. */
 .wk-pr-toggle[aria-pressed="true"] {
   animation: pr-pulse 1.5s ease-in-out infinite;
-  box-shadow: 0 0 12px rgba(214, 255, 63, .75);
+  box-shadow: 0 0 12px rgba(200, 16, 46, .85);
 }
 
 @keyframes pr-pulse {
   0%, 100% {
-    box-shadow: 0 0 6px rgba(214, 255, 63, .55);
+    box-shadow: 0 0 6px rgba(200, 16, 46, .6);
   }
   50% {
-    box-shadow: 0 0 16px rgba(214, 255, 63, .95);
+    box-shadow: 0 0 16px rgba(200, 16, 46, 1);
   }
 }
 
@@ -3314,151 +3540,47 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
     max-width: var(--page-max-wide);
   }
 
-  /* Alapállapot: a mai check-in már megvan, az emlékeztető rejtett. A
-     regeneráció-sor ilyenkor teljes szélességű, az idézet és a CTA pedig
-     osztozik az utolsó soron. */
+  /* Áttekintés desktopon: KÉT HASÁB, nem kártyarács. A bal hasáb a mérőszámoké
+     (készenlét, táplálkozás, statok, trend), a jobb a mai edzésé és a fő
+     műveleteké. A rést nem gap adja, hanem a jobb hasáb bal oldali
+     hajszálvonala — a dizájn végig vonalakkal tagol, nem dobozokkal.
+
+     A check-in emlékeztető itt NEM vált rácsot: a bal hasáb folyamában marad,
+     ahol a többi blokk. A korábbi kétállapotú grid-template azért kellett,
+     mert a kártyák soronként álltak egymás mellett; hasábokkal ez a
+     bonyolultság feleslegessé vált. */
   .dashboard {
-    max-width: var(--dashboard-max-wide);
-    padding: var(--sp-16) var(--sp-15);
+    max-width: 1560px;
+    padding: var(--sp-11) clamp(24px, 3vw, 48px) var(--sp-13);
     display: grid;
-    grid-template-columns: minmax(300px, 1fr) minmax(400px, 1.6fr);
-    grid-template-rows: auto auto auto auto;
-    column-gap: var(--sp-14);
-    row-gap: var(--sp-11);
-    grid-template-areas:
-      "ready    stats"
-      "recovery recovery"
-      "trend    trend"
-      "quote    cta";
+    grid-template-columns: minmax(400px, 1fr) minmax(250px, 424px);
+    column-gap: clamp(24px, 2.6vw, 60px);
+    align-items: start;
   }
 
-  /* Amíg a mai check-in hiányzik, az emlékeztető tölti ki a jobb oszlopot.
-     A rács teljes template-et vált, nem csak elrejt egy elemet: egy rejtett
-     grid-elem sora ugyan összecsukódik, de a körülötte lévő két row-gap
-     megmaradna, és fantom rést hagyna a kártyák között.
-     Az idézet-sor (1fr) nyeli el a maradék helyet, így a CTA az emlékeztető
-     kártya aljához igazodik. */
-  .dashboard[data-checkin-pending="true"] {
-    grid-template-rows: auto auto auto 1fr auto;
-    grid-template-areas:
-      "ready    stats"
-      "recovery checkin"
-      "trend    checkin"
-      "quote    checkin"
-      "cta      checkin";
-  }
-
-  .db-readiness   { grid-area: ready; }
-  .db-trend       { grid-area: trend; }
-  .db-recovery    { grid-area: recovery; }
-  .db-stats       { grid-area: stats; }
-  .db-checkin-cta { grid-area: checkin; }
-  .db-quote       { grid-area: quote; }
-  .db-cta         { grid-area: cta; }
-
-  /* A kártyák közti távot egységesen a grid gap adja — a mobil nézet
-     margói itt kikapcsolnak, különben soronként elcsúsznak a kártyák. */
-  .db-readiness,
-  .db-recovery,
-  .db-stats,
-  .db-trend,
-  .db-checkin-cta,
-  .db-quote,
-  .db-cta {
-    margin: 0;
-  }
-
-  /* A check-in emlékeztető szándékosan kimarad ebből a listából: saját
-     akcentus-kerete van, amit ez a szabály felülírna. */
-  .db-readiness,
-  .db-recovery,
-  .db-stats,
-  .db-trend {
-    background: var(--surface-card);
-    border: 1px solid var(--border-card);
-    border-radius: var(--r-3xl);
-    padding: var(--sp-11);
-  }
-
-  .db-readiness {
-    align-items: center;
-    min-height: 216px;
-  }
-
-  /* Ez a két szabály szándékosan a .dashboard-ra szűkít: a .db-percent és a
-     .db-ring a Regeneráció oldalon is szerepel (megosztott primitív), és ott
-     nem a dashboard fókuszpont-méretezését kell kapniuk. */
-  .dashboard .db-percent {
-    font-size: 72px; /* a készenlét a dashboard fókuszpontja — nagyobb, mint a display-lg token */
-  }
-
-  .dashboard .db-ring {
-    width: 124px;
-    height: 124px;
-  }
-
-  .db-recovery {
-    justify-content: space-between;
-    gap: var(--sp-7);
-  }
-
-  .db-recovery-label {
-    font-size: var(--fs-sm);
-  }
-
-  .db-recovery-value {
-    font-size: var(--fs-4xl);
-  }
-
-  .db-stats {
-    grid-template-columns: repeat(2, 1fr);
-    /* A 2×2 stat egyenletesen tölti ki a kártyát, így a magassága
-       vizuálisan is a szomszédos készenlét-kártyához igazodik. */
-    align-content: space-evenly;
-    row-gap: var(--sp-8);
-  }
-
-  .db-stat-value {
-    font-size: var(--fs-4xl);
-  }
-
-  /* Az emlékeztető itt teljes magasságú kártya: a bal oszlop három sorával
-     szemben áll, ezért a tartalma függőlegesen középre kerül. */
-  .db-checkin-cta {
-    height: 100%;
-    min-height: 320px;
+  .db-main {
+    min-width: 0;
+    display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    gap: var(--sp-7);
-    padding: var(--sp-11);
-    border-radius: var(--r-3xl);
   }
 
-  .db-checkin-cta-title {
-    font-size: var(--fs-3xl);
+  /* Az első blokknak nincs felső vonala: a lap tetején az elválasztó semmit
+     nem választana el. */
+  .db-readiness {
+    padding-top: var(--sp-13);
   }
 
-  .db-checkin-cta-note {
-    font-size: var(--fs-sm);
+  /* A jobb hasáb teljes magasságú, hogy a műveletek (margin-top: auto) a lap
+     aljára kerüljenek, ne a gyakorlatlista alá tapadva. */
+  .db-side {
+    align-self: stretch;
+    padding: var(--sp-13) 0 0 clamp(24px, 2.6vw, 48px);
+    border-top: none;
+    border-left: 1px solid var(--border-card);
   }
 
-  .db-quote {
-    font-size: var(--fs-5xl);
-    align-self: center; /* a rugalmas (1fr) sor közepén ül */
-  }
-
-  .db-cta {
-    max-width: 320px;
-    align-self: center;
-    justify-self: end; /* az idézet mellett, a sor jobb szélén */
-  }
-
-  /* Emlékeztetővel a CTA visszakerül a bal oszlop aljára, és a jobb oldali
-     kártya aljával zár egy vonalban. */
-  .dashboard[data-checkin-pending="true"] .db-cta {
-    align-self: end;
-    justify-self: stretch;
+  .db-side-title {
+    font-size: 32px;
   }
 }
 
