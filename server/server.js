@@ -1074,8 +1074,32 @@ app.get('/api/dashboard', (req, res) => {
     calories: Math.round(totals.intake),
     caloriesTarget: totals.goal.calories,
     protein: Math.round(totals.protein),
+    // A teljes makró-bontás is ide tartozik: az áttekintő a kalória-sáv alatt
+    // ugyanazt a három számot mutatja, amit a Táplálkozás oldal — enélkül a
+    // felületnek két külön kérésből kellene összeraknia egyetlen sort.
+    carbs: Math.round(totals.carbs),
+    fat: Math.round(totals.fat),
+    proteinTarget: totals.goal.protein,
   };
-  dashboard.workoutName = workoutTemplate(userId, req.today)?.name?.trim() || null;
+  /* A mai edzés a jobb oldali hasábra: nem csak a neve, hanem a gyakorlatai
+     is. A sorozat/ismétlés/súly az ELSŐ szettből jön — a terv sorai egyforma
+     szettekből állnak, és a felület itt előnézetet ad, nem naplót. */
+  const template = workoutTemplate(userId, req.today);
+  dashboard.workoutName = template?.name?.trim() || null;
+  dashboard.workoutPlan = template ? {
+    name: template.name?.trim() || null,
+    exercises: (template.exercises || []).map((exercise) => {
+      const first = exercise.sets?.[0];
+      const count = exercise.sets?.length ?? 0;
+      const reps = Number(first?.reps) || 0;
+      const weight = Number(first?.weight) || 0;
+      return {
+        name: exercise.name,
+        detail: [count && reps ? `${count} × ${reps}` : null, weight ? `${weight} kg` : null]
+          .filter(Boolean).join(' · '),
+      };
+    }),
+  } : null;
   res.json(dashboard);
 });
 
