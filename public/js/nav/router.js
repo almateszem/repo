@@ -63,6 +63,11 @@ const pageEffects = {
     // mindig a szervertől kérjük őket — nincs külön értesítési lánc.
     hooks.refreshProfile?.().catch((err) => console.error('Profil frissítési hiba:', err));
   },
+  nutrition() {
+    // A folyadék a check-in űrlapjáról is átírható, ezért megnyitáskor a
+    // szervertől kérjük — különben a mérő a saját, elavult másolatát mutatná.
+    hooks.refreshWater?.().catch((err) => console.error('Vízmérő frissítési hiba:', err));
+  },
 };
 
 /** A sportoló-kártyák pontszámainak felpörgetése (oldal- és nézetváltáskor). */

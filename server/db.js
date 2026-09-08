@@ -188,6 +188,21 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_measurements_user
     ON body_measurements(user_id, site, date);
 
+  -- Víznapló: KORTYONKÉNT egy sor, időbélyeggel. A napi összeg ebből jön, és
+  -- ez írja a checkins.hydration mezőt is (literben) — nem külön számláló,
+  -- mert a folyadékbevitel a Recovery Engine bemenete (nutritionScore, 0.2
+  -- súly). Két külön szám két külön készenlétet adna, attól függően, melyik
+  -- felületen írta be a felhasználó.
+  CREATE TABLE IF NOT EXISTS water_log (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    date      TEXT NOT NULL,        -- "ÉÉÉÉ.HH.NN"
+    ml        INTEGER NOT NULL,     -- milliliter; a liter csak megjelenítés
+    logged_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_water_user_date
+    ON water_log(user_id, date);
+
   CREATE TABLE IF NOT EXISTS nutrition_goals (
     user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     source     TEXT NOT NULL,        -- 'own' | 'coach'
@@ -1203,6 +1218,42 @@ export function addComment(authorId, subjectId, targetType, targetId, text) {
 export function deleteComment(commentId, authorId) {
   return db.prepare('DELETE FROM comments WHERE id = ? AND author_id = ?')
     .run(commentId, authorId).changes > 0;
+}
+
+/* ---- Víznapló ---- */
+
+/** Egy nap víz-bejegyzései, legfrissebb elöl, a napi összeggel együtt.
+    Milliliterben tároljuk: a +250 ml lépés egész szám, a liter csak
+    megjelenítés — így nem gyűlik lebegőpontos hiba a nap folyamán. */
+export function getWaterDay(userId, date) {
+  const entries = db.prepare(`SELECT id, ml, logged_at AS loggedAt FROM water_log
+                              WHERE user_id = ? AND date = ?
+                              ORDER BY id DESC`).all(userId, date);
+  return { totalMl: entries.reduce((sum, row) => sum + row.ml, 0), entries };
+}
+
+/** Egy korty rögzítése. Visszaadja a nap frissített állapotát, hogy a hívó a
+    checkins.hydration szinkronizálásához ne kelljen újra kérdeznie. */
+export function addWaterEntry(userId, date, ml) {
+  db.prepare('INSERT INTO water_log (user_id, date, ml) VALUES (?, ?, ?)').run(userId, date, ml);
+  return getWaterDay(userId, date);
+}
+
+/** Egy bejegyzés törlése. A user_id is feltétel, hogy idegen sorra ne
+    lehessen törölni — ilyenkor nem talál sort, és a végpont 404-et ad. */
+export function deleteWaterEntry(userId, entryId) {
+  return db.prepare('DELETE FROM water_log WHERE id = ? AND user_id = ?')
+    .run(entryId, userId).changes > 0;
+}
+
+/** A nap naplójának lecserélése EGYETLEN bejegyzésre. A check-in űrlapján
+    kézzel beírt literérték hívja: ott a felhasználó a NAPI ÖSSZEGET mondja
+    meg, nem egy kortyot, tehát a korábbi tételek már nem érvényesek. Az
+    időbélyegek elvesznek — cserébe a két felület sosem mond két számot. */
+export function replaceWaterDay(userId, date, ml) {
+  db.prepare('DELETE FROM water_log WHERE user_id = ? AND date = ?').run(userId, date);
+  if (ml > 0) db.prepare('INSERT INTO water_log (user_id, date, ml) VALUES (?, ?, ?)').run(userId, date, ml);
+  return getWaterDay(userId, date);
 }
 
 /* ---- Testösszetétel (körfogat, testzsír) ---- */
