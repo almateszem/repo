@@ -20,6 +20,7 @@ import {
   getWorkoutDraft, saveWorkoutDraft, clearWorkoutDraft,
   getUserPlans, addPlan, updatePlan, getPlanForDay,
   getCheckin, getCheckins, saveCheckin, hasAnyCheckin,
+  getWaterDay, addWaterEntry, deleteWaterEntry, replaceWaterDay,
   getNutritionGoal, saveNutritionGoal, clearOwnNutritionGoal,
   saveWorkoutFeedback, getAthleteFeedbackSince,
   setDeclaredMax, getDeclaredMaxes,
@@ -50,7 +51,7 @@ import {
 } from './auth.js';
 // A készenlét-motor és a közös dátum-segédek. A dátumkezelés szándékosan egy
 // helyen (recovery.js) lakik, hogy a szerver és a motor sose csússzon el.
-import { computeReadiness, parseDate, dayKey, DAY_MS } from './recovery.js';
+import { computeReadiness, parseDate, dayKey, DAY_MS, hydrationTarget } from './recovery.js';
 // Az edzői panel sportoló-összegzője. Szintén tiszta számítás: a végpont
 // gyűjti az adatot, a modul számol belőle (server/coaching.js).
 import { buildAthleteCard } from './coaching.js';
@@ -1376,10 +1377,67 @@ app.put('/api/checkin', (req, res) => {
     weightEntry = addWeightEntry(userId, kg, req.today);
   }
 
+  /* A folyadék KÉT helyen írható: itt literben (a nap összege), a Táplálkozás
+     oldalon kortyonként. Egy szám van, ezért az űrlapon megadott érték
+     lecseréli a nap víznaplóját — a felhasználó ott az összegről nyilatkozik,
+     nem egy kortyról. A mezőt üresen hagyva a napló érintetlen marad, hogy a
+     gyors check-in ne törölje a napközben rögzített kortyokat. */
+  if (fields.hydration !== null) replaceWaterDay(userId, req.today, Math.round(fields.hydration * 1000));
+
   const checkin = saveCheckin(userId, req.today, fields);
   // Rögtön a friss riportot is visszaadjuk, hogy a kliensnek ne kelljen
   // külön kérnie — a mentés után azonnal frissülhet a gyűrű.
   res.json({ checkin, weightEntry, readiness: readinessReport(userId, req.today) });
+});
+
+/* ---- Víznapló ----
+   A napi folyadékbevitel a Recovery Engine bemenete (nutritionScore), ezért
+   minden írás a checkins.hydration mezőt is frissíti — nem külön számláló.
+   A kliens így a Táplálkozás oldalról is a készenlétet mozgatja. */
+
+const WATER_SIP = { min: 1, max: 3000 };   // ml, egy bejegyzés
+const WATER_DAY_MAX = 15000;               // ml, a napi összeg felső határa
+
+/** A nap víznaplója a checkins.hydration mezőbe írva, literben. Egy helyen
+    áll, hogy a három írási út (korty, törlés, űrlap) ne másolja szét. */
+function syncHydration(userId, date, day) {
+  saveCheckin(userId, date, { ...getCheckin(userId, date), hydration: day.totalMl / 1000 });
+  return waterDay(userId, date);
+}
+
+/** A nap víz-állapota a céllal együtt. A cél UGYANABBÓL a képletből jön,
+    amit a Recovery Engine használ (~33 ml/testsúlykg) — ha a felület saját
+    célt mondana, a „teljesítettem" érzés és a pontszám szétcsúszna. */
+function waterDay(userId, date) {
+  const latest = [...getWeightLog(userId)].sort((a, b) => dayKey(b.date) - dayKey(a.date))[0];
+  const day = getWaterDay(userId, date);
+  return { ...day, targetMl: Math.round(hydrationTarget(latest?.kg ?? null) * 1000) };
+}
+
+app.get('/api/water', (req, res) => {
+  res.json(waterDay(req.user.id, req.today));
+});
+
+app.post('/api/water', (req, res) => {
+  const parsed = readOptionalNumber(req.body?.ml, { ...WATER_SIP, integer: true });
+  if (parsed.error || parsed.value === null) {
+    return res.status(400).json({ error: parsed.error || 'Hiányzó mennyiség.' });
+  }
+  const current = getWaterDay(req.user.id, req.today);
+  if (current.totalMl + parsed.value > WATER_DAY_MAX) {
+    return res.status(400).json({ error: 'A napi folyadékbevitel legfeljebb 15 liter lehet.' });
+  }
+  const day = addWaterEntry(req.user.id, req.today, parsed.value);
+  res.status(201).json(syncHydration(req.user.id, req.today, day));
+});
+
+app.delete('/api/water/:id', (req, res) => {
+  const id = Number(req.params.id);
+  // 404 és nem 403: a létezés ténye sem szivároghat ki idegen sorra.
+  if (!Number.isInteger(id) || !deleteWaterEntry(req.user.id, id)) {
+    return res.status(404).json({ error: 'Nincs ilyen bejegyzés.' });
+  }
+  res.json(syncHydration(req.user.id, req.today, getWaterDay(req.user.id, req.today)));
 });
 
 // Tervek — a felhasználó saját (terv-építőben mentett) tervei, legújabb elöl.
@@ -1600,6 +1658,61 @@ const mondayOf = (date) => {
     munkasorozatot jelent, és a Recovery Engine meg a profiloldal is így
     számol — a diagram korábban minden bepipált szettet számolt, tehát
     ugyanarra a hétre nagyobb számot mutatott, mint a profil. */
+/** Gördülő 14 napos tonnázs-trend az áttekintőre. A heti diagramtól két
+    dologban különbözik: NEM naptári hétre vág (a „hétfő" önkényes határ egy
+    trendnél), és nem sorozatot számol, hanem elmozdított súlyt — ez az, ami
+    a terhelésről szól. A mai nap mindig az utolsó oszlop.
+
+    Tizennégy napot küldünk akkor is, ha a mobil csak hetet mutat: a skála így
+    ugyanaz marad a két nézetben, és az oszlopok összevethetők. A mobil a
+    régebbi hetet CSS-ben rejti el, nem külön lekéréssel. */
+function volumeTrend(userId, today) {
+  const DAYS = 14;
+  const last = parseDate(today);
+  const end = new Date(last.getFullYear(), last.getMonth(), last.getDate()).getTime();
+  const tonnage = Array(DAYS).fill(0);
+  const dayNames = ['H', 'K', 'Sze', 'Cs', 'P', 'Szo', 'V'];
+
+  for (const workout of getWorkouts(userId)) {
+    const date = parseDate(workout.date);
+    const at = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+    const index = DAYS - 1 - Math.round((end - at) / DAY_MS);
+    if (index < 0 || index >= DAYS) continue;
+    for (const exercise of workout.exercises) {
+      for (const set of exercise.sets) {
+        // A szettek szám-mezői stringként is érkezhetnek a naplóból, ezért
+        // itt kifejezetten számmá alakítunk — üres mező 0-t ér, nem NaN-t.
+        if (isWorkSet(set)) tonnage[index] += (Number(set.reps) || 0) * (Number(set.weight) || 0);
+      }
+    }
+  }
+
+  // Üres előzménynél a skála 1, hogy ne osszunk nullával; a 0 kg-os napok
+  // ilyenkor is a minimum-magasságú csonkot kapják, nem tűnnek el.
+  const peak = Math.max(1, ...tonnage);
+  // Egy tonna alatt kilóban beszélünk: a „0,8 t" kevesebbet mond, mint a
+  // „800 kg", és a magyar tizedesjel vessző, nem pont.
+  const peakLabel = peak >= 1000
+    ? `${String(Math.round((peak / 1000) * 10) / 10).replace('.', ',')} t`
+    : `${Math.round(peak)} kg`;
+  const labels = tonnage.map((_, i) => {
+    const d = new Date(end - (DAYS - 1 - i) * DAY_MS);
+    return dayNames[(d.getDay() + 6) % 7];
+  });
+
+  // Üres előzménynél nem írunk ki „0 t" tetőt: az egy mért nullának látszana,
+  // pedig csak nincs még mit mérni.
+  const total = tonnage.reduce((a, b) => a + b, 0);
+  return {
+    heights: tonnage.map((kg) => (kg > 0 ? Math.max(6, Math.round((kg / peak) * 100)) : 2)),
+    axis: total > 0 ? [peakLabel, '', '', '0'] : ['', '', '', ''],
+    labels,
+    accentIndex: DAYS - 1,
+    total,
+    ariaLabel: 'Elmozdított súly naponta — utolsó 14 nap',
+  };
+}
+
 function volumeCharts(userId, today) {
   const thisMonday = mondayOf(parseDate(today));
   const lastMonday = thisMonday - 7 * 24 * 60 * 60 * 1000;
@@ -1640,6 +1753,8 @@ function volumeCharts(userId, today) {
       note: 'a múlt hét összes munkasorozata',
       ariaLabel: 'Munkasorozatok naponta — múlt hét',
     },
+
+    volumeTrend: volumeTrend(userId, today),
   };
 }
 

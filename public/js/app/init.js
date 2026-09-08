@@ -8,7 +8,9 @@ import { hooks, shared } from '../core/page-hooks.js';
 import { showToast } from '../core/toast.js';
 import { setupNavRing } from '../nav/navring.js';
 import { navigate, setOnboardingLock, setupRouter } from '../nav/router.js';
-import { refreshDailyStats, renderCharts, renderDashboard, renderUserName } from '../render/dashboard.js';
+import {
+  refreshDailyStats, renderCharts, renderChromeDate, renderDashboard, renderUserName,
+} from '../render/dashboard.js';
 import { renderFoods } from '../render/foods.js';
 import { renderPlans } from '../render/plans.js';
 import { renderPrs } from '../render/prs.js';
@@ -23,6 +25,7 @@ import { setupFoodDetail } from '../ui/food-detail.js';
 import { setupAdviceModal, setupConfirmDialog, setupPrModal, setupVideoModal } from '../ui/modals.js';
 import { setupNotifications } from '../ui/notifications.js';
 import { setupNutrition } from '../ui/nutrition.js';
+import { setupWaterMeter } from '../ui/water.js';
 import { setupPlanBuilder } from '../ui/plan-builder.js';
 import { setupPlans } from '../ui/plans.js';
 import { setupProfile } from '../ui/profile.js';
@@ -55,6 +58,7 @@ async function init() {
     safe(renderCharts),
     safe(renderDashboard),
     safe(renderUserName),
+    safe(renderChromeDate),
     safe(renderWorkout),
     safe(renderPrs),
     safe(renderFoods),
@@ -129,6 +133,9 @@ async function init() {
     onAdd: (food, grams) => nutrition.logFood(food, grams),
   });
   nutrition = await safe(() => setupNutrition(foodDetail));
+  // A vízmérő önálló: nem függ a katalógustól, és ha a Táplálkozás oldal
+  // felépítése elbukik, ettől még működhet.
+  await safe(setupWaterMeter);
 
   /* Saját étel + vonalkód-olvasó. A szkenner szinkron épül fel (nem kér
      adatot); a saját-étel modál viszont a felépült Táplálkozás oldalra

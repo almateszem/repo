@@ -133,6 +133,11 @@ const MUSCLE_REF_MULT = 1.5;  // ennyiszer tipikus szesszió visz egy csoportot 
 /** Referencia-testsúly, amihez az abszolút terhelés-referenciák skálázódnak. */
 const REF_BODY_WEIGHT = 80;
 
+/* Napi folyadék-cél literben, ~33 ml/testsúlykg. Exportált, mert a Táplálkozás
+   oldali vízmérőnek UGYANEZT a célt kell mutatnia, amit a motor számol —
+   két külön cél két külön „teljesítettem" érzést adna. */
+export const hydrationTarget = (bodyWeight) => 0.033 * (bodyWeight ?? REF_BODY_WEIGHT);
+
 /** Abszolút referencia-terhelés (tonna) 80 kg-os sportolóra, előzmény híján. */
 const ABS_FATIGUE_REF = 25;
 const ABS_CNS_REF = 18;
@@ -392,7 +397,7 @@ export function nutritionScore(nutrition, hydrationLiters, bodyWeight) {
   if (calorieGoal) parts.push([0.5, clamp01(num(nutrition.intake) / calorieGoal)]);
   if (proteinGoal) parts.push([0.3, clamp01(num(nutrition.protein) / proteinGoal)]);
   if (hydrationLiters !== null) {
-    const target = 0.033 * (bodyWeight ?? REF_BODY_WEIGHT); // ~33 ml/testsúlykg
+    const target = hydrationTarget(bodyWeight);
     parts.push([0.2, clamp01(hydrationLiters / target)]);
   }
 
@@ -691,6 +696,21 @@ export function computeReadiness({
     .sort((a, b) => a.daysAgo - b.daysAgo);
 
   const checkin = normalized.find((entry) => entry.daysAgo === 0) ?? null;
+  const yesterdayCheckin = normalized.find((entry) => entry.daysAgo === 1) ?? null;
+
+  /* — Táplálkozás: melyik nap a mérvadó, és melyik nap folyadéka tartozik hozzá.
+     A bevitelnél a TEGNAPI az alap (a check-in reggel készül, amikor a mai
+     étkezések még előtted vannak). A folyadéknak UGYANARRA a napra kell
+     vonatkoznia: a mai érték délelőtt szükségszerűen hiányos, és egyetlen
+     pohár víz nem jelent kimerültséget. Korábban a mai folyadék ment be a
+     tegnapi bevitel mellé — ezért adott egy friss fióknak egyetlen rögzített
+     korty rögtön alacsony pontszámot a „még nincs mire alapozni" helyett. */
+  const useYesterdayNutrition = hasNutritionEntries(nutrition?.yesterday);
+  const nutritionSource = useYesterdayNutrition ? nutrition.yesterday
+    : hasNutritionEntries(nutrition?.today) ? nutrition.today : null;
+  const nutritionHydration = useYesterdayNutrition || nutritionSource === null
+    ? (yesterdayCheckin ? yesterdayCheckin.hydration : null)
+    : (checkin ? checkin.hydration : null);
 
   // — Testsúly (a terhelés-referenciák skálázásához)
   const latestWeight = [...weightLog]
@@ -757,12 +777,7 @@ export function computeReadiness({
     // A regeneráció szempontjából a TEGNAPI bevitel a mérvadó: a check-in
     // reggel készül, amikor a mai étkezések még előtted vannak. Ha tegnapról
     // nincs naplózás, a mai napra esünk vissza.
-    nutrition: nutritionScore(
-      hasNutritionEntries(nutrition?.yesterday) ? nutrition.yesterday
-        : hasNutritionEntries(nutrition?.today) ? nutrition.today : null,
-      checkin ? checkin.hydration : null,
-      bodyWeight,
-    ),
+    nutrition: nutritionScore(nutritionSource, nutritionHydration, bodyWeight),
   };
 
   // — A súlyozott átlag CSAK a jelen lévő komponensekre. A hiányzók súlya
