@@ -1,6 +1,6 @@
 /** Az áttekintő oldal kirajzolása: diagramok, napi statisztika, készenlét. */
 
-import { api } from '../core/api.js';
+import { api, clientDate } from '../core/api.js';
 import { $, $$ } from '../core/dom.js';
 import { prefs } from '../core/prefs.js';
 import { hasReadiness } from './recovery.js';
@@ -27,6 +27,24 @@ function renderChart(container, data) {
     const span = document.createElement('span');
     span.textContent = label;
     axis.appendChild(span);
+  });
+
+  // A mai oszlop kiemelése. Csak akkor, ha a szerver megmondja, melyik az:
+  // a heti diagramoknál az utolsó oszlop vasárnap, nem a mai nap.
+  if (Number.isInteger(data.accentIndex)) {
+    const bar = bars.children[data.accentIndex];
+    if (bar) bar.classList.add('is-today');
+  }
+
+  // Nap-feliratok az oszlopok alá. Opcionális: a régi diagramok csak a jobb
+  // oldali tengelyt használják, azoknál nincs ilyen konténer.
+  const labels = $('.chart-labels', container);
+  if (!labels) return;
+  labels.replaceChildren();
+  (data.labels || []).forEach((label) => {
+    const span = document.createElement('span');
+    span.textContent = label;
+    labels.appendChild(span);
   });
 }
 
@@ -85,6 +103,14 @@ async function renderDashboard() {
   // Sorozat + napi statok
   setText('[data-stat="streak"]', streak);
   renderDailyStats(dailyStats);
+
+  // A fejléc-sáv sorozat-jelvénye. Nulla sorozatnál elrejtjük: a „0 nap” nem
+  // információ, csak zaj a név mellett.
+  const streakChip = $('[data-chrome-streak]');
+  if (streakChip) {
+    streakChip.textContent = `${streak} nap`;
+    streakChip.hidden = !streak;
+  }
 
   // Regeneráció
   setText('[data-recovery="sleep"]', recovery.sleep);
@@ -159,4 +185,16 @@ async function renderUserName() {
   el.textContent = prefs.get('displayName', user.name);
 }
 
-export { dashboardData, refreshDailyStats, renderChart, renderCharts, renderDashboard, renderUserName };
+/** A fejléc-sáv dátuma. Ugyanabból a clientDate()-ből, amit minden kérés visz —
+    így a sávon látott nap mindig az, amelyikre a szerver ír. */
+function renderChromeDate() {
+  const el = $('[data-chrome-date]');
+  if (!el) return;
+  const [, month, day] = clientDate().split('.');
+  el.textContent = `${month}.${day}.`;
+}
+
+export {
+  dashboardData, refreshDailyStats, renderChart, renderCharts,
+  renderChromeDate, renderDashboard, renderUserName,
+};

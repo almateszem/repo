@@ -476,6 +476,39 @@ test('a naplózatlan táplálkozás nem számít alultápláltságnak', () => {
   assert.equal(nutrition.weight, 0, 'a súlya újraoszlik a többi komponensen');
 });
 
+test('a MAI hiányos folyadék nem húzza le a pontszámot — a tegnapi a mérvadó', () => {
+  /* A Táplálkozás oldal vízmérője napközben, kortyonként írja a folyadék-mezőt.
+     Délelőtt ez szükségszerűen töredék — ha a motor ezt olvasná, egyetlen
+     rögzített pohár víz kimerültségnek látszana. Ugyanaz a csapda, mint a
+     „nincs adat ≠ tökéletes állapot", csak a másik irányba. */
+  const unlogged = {
+    today: { intake: 0, protein: 0, goal: NUTRITION_GOAL },
+    yesterday: { intake: 0, protein: 0, goal: NUTRITION_GOAL },
+  };
+
+  // Friss fiók: csak a mai, töredék folyadék van meg, tegnapról semmi.
+  const csakMaiViz = run({
+    checkins: [{ date: TODAY, sleepHours: null, sleepQuality: null, energy: null,
+                 stress: null, mood: null, hydration: 0.25, soreness: {}, pain: {} }],
+    nutrition: unlogged,
+  });
+  const komponens = csakMaiViz.components.find((c) => c.key === 'nutrition');
+  assert.equal(komponens.present, false,
+    'a mai töredék folyadék nem alap — a komponens kimarad');
+
+  // Tegnapi TELJES folyadék viszont beszámít: az a nap már lezárult.
+  const tegnapiViz = run({
+    checkins: [
+      fullCheckin({ hydration: 0.25 }),
+      fullCheckin({ date: dateAgo(1), hydration: 2.64 }),
+    ],
+    nutrition: unlogged,
+  });
+  const tegnapi = tegnapiViz.components.find((c) => c.key === 'nutrition');
+  assert.equal(tegnapi.present, true, 'a tegnapi teljes nap már mérhető');
+  assert.equal(tegnapi.score, 100, 'a célt elért tegnapi folyadék teljes pontot ér');
+});
+
 test('a tegnapi bevitel a mérvadó — reggel a mai étkezések még előtted vannak', () => {
   const goodYesterday = run({ checkins: [fullCheckin({ hydration: null })], nutrition: NUTRITION });
   const badYesterday = run({

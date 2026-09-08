@@ -93,6 +93,56 @@
     </ul>
   </nav>
 
+  <!-- Globális fejléc-sáv. Korábban az Áttekintés része volt, ezért az
+       értesítések és a beállítások csak arról az egy oldalról látszottak.
+       Mobilon a lap tetején ül, desktopon az oldalsáv aljára kerül (CSS) —
+       egyetlen példány, hogy az értesítés-panel állapota ne kettőződjön. -->
+  <header class="app-chrome">
+    <!-- Márkajel és a mai dátum. A dátum nem dísz: a naplózás és a check-in
+         mindig a MAI naphoz köt, és éjfél után a lap magától átvált — így
+         látszik, melyik nap adatait nézed éppen. -->
+    <div class="chrome-brand">
+      <span class="chrome-brand-name">FitTrack</span>
+      <span class="chrome-date" data-chrome-date></span>
+    </div>
+
+    <!-- Az avatar és a név EGYÜTT visz a profiloldalra: a névre koppintani
+         ugyanolyan természetes szándék, mint az ikonra. A név mellett a
+         sorozat áll — az egyetlen szám, ami minden oldalon értelmes. -->
+    <button class="db-profile tap-target" type="button" data-action="profile"
+            title="Profil" aria-label="Profil megnyitása">
+      <span class="db-avatar">
+        <svg class="db-avatar-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-user"/></svg>
+      </span>
+      <span class="db-username"></span>
+      <span class="chrome-streak" data-chrome-streak hidden></span>
+    </button>
+
+    <div class="chrome-actions">
+      <button class="db-notif tap-target" type="button" data-action="notifications" title="Értesítések"
+              aria-label="Értesítések" aria-haspopup="true" aria-expanded="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-bell"/></svg>
+        <span class="db-badge" data-notif-badge>6</span>
+      </button>
+
+      <button class="db-settings tap-target" type="button" aria-label="Beállítások" title="Beállítások" data-action="settings">
+        <svg viewBox="0 0 24 24" aria-hidden="true"></svg>
+      </button>
+    </div>
+
+    <!-- Értesítés-panel (a harangra kattintva nyílik, a script.js tölti fel) -->
+    <div class="notif-panel" data-notif-panel aria-label="Értesítések" hidden>
+      <div class="notif-head">
+        <span class="notif-title">Értesítések</span>
+        <button class="notif-clear tap-target" type="button" data-action="clear-notifications">Összes olvasott</button>
+      </div>
+      <ul class="notif-list" data-list="notifications"></ul>
+      <!-- Üres állapot: a lista valódi eseményekből épül, tehát az
+           „üres" itt azt jelenti, hogy tényleg nem történt semmi -->
+      <p class="notif-empty" hidden>Nincs értesítésed 🎉</p>
+    </div>
+  </header>
+
   <div class="app-content">
     <main class="app-main" id="app-main">
       <h1 class="sr-only">FitTrack Pro</h1>
@@ -103,41 +153,6 @@
       <section class="app-page dashboard" data-page="dashboard" aria-labelledby="title-dashboard">
         <h2 class="sr-only" id="title-dashboard">Áttekintés</h2>
 
-        <header class="db-header">
-          <!-- Az avatar és a név EGYÜTT visz a profiloldalra: a névre koppintani
-               ugyanolyan természetes szándék, mint az ikonra. -->
-          <button class="db-profile tap-target" type="button" data-action="profile"
-                  title="Profil" aria-label="Profil megnyitása">
-            <span class="db-avatar">
-              <svg class="db-avatar-icon" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-user"/></svg>
-            </span>
-            <span class="db-username"></span>
-          </button>
-
-          <div class="db-header-actions">
-            <button class="db-notif tap-target" type="button" data-action="notifications" title="Értesítések"
-                    aria-label="Értesítések" aria-haspopup="true" aria-expanded="false">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-bell"/></svg>
-              <span class="db-badge" data-notif-badge>6</span>
-            </button>
-
-            <button class="db-settings tap-target" type="button" aria-label="Beállítások" title="Beállítások" data-action="settings">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6a.5.5 0 0 0 .1-.6l-2-3.5a.5.5 0 0 0-.6-.2l-2.5 1a7.4 7.4 0 0 0-1.7-1l-.4-2.6a.5.5 0 0 0-.5-.4h-4a.5.5 0 0 0-.5.4l-.4 2.6a7.4 7.4 0 0 0-1.7 1l-2.5-1a.5.5 0 0 0-.6.2l-2 3.5a.5.5 0 0 0 .1.6L4.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6a.5.5 0 0 0-.1.6l2 3.5c.1.2.4.3.6.2l2.5-1a7.4 7.4 0 0 0 1.7 1l.4 2.6c0 .2.3.4.5.4h4c.3 0 .5-.2.5-.4l.4-2.6a7.4 7.4 0 0 0 1.7-1l2.5 1c.2.1.5 0 .6-.2l2-3.5a.5.5 0 0 0-.1-.6L19.4 13zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z"/></svg>
-            </button>
-          </div>
-
-          <!-- Értesítés-panel (a harangra kattintva nyílik, a frontend tölti fel) -->
-          <div class="notif-panel" data-notif-panel aria-label="Értesítések" hidden>
-            <div class="notif-head">
-              <span class="notif-title">Értesítések</span>
-              <button class="notif-clear tap-target" type="button" data-action="clear-notifications">Összes olvasott</button>
-            </div>
-            <ul class="notif-list" data-list="notifications"></ul>
-            <!-- Üres állapot: a lista valódi eseményekből épül, tehát az
-                 „üres" itt azt jelenti, hogy tényleg nem történt semmi -->
-            <p class="notif-empty" hidden>Nincs értesítésed 🎉</p>
-          </div>
-        </header>
 
         <!-- A kártya egésze átvisz a Regeneráció oldalra. Ez a mobil belépési
              pontja is: a nav gyűrűnek csak négy iránya van, a Regeneráció
@@ -187,6 +202,20 @@
           <div class="db-stat">
             <span class="db-stat-label">Sorozat</span>
             <span class="db-stat-value"><span data-stat="streak">0</span><span class="db-stat-unit">nap</span></span>
+          </div>
+        </section>
+
+        <!-- Terhelés-trend. Elmozdított súly naponta, gördülő 14 napra —
+             a mobil ebből az utolsó hetet mutatja (CSS), hogy a keskeny
+             kijelzőn se csússzon össze két oszlop. A skála mindkét nézetben
+             ugyanaz, így az oszlopok magassága összevethető marad. -->
+        <section class="db-trend" aria-labelledby="title-db-trend">
+          <h3 class="db-label" id="title-db-trend">Terhelés</h3>
+          <div class="chart chart--labelled" role="img"
+               aria-label="Elmozdított súly naponta" data-chart="volumeTrend">
+            <div class="chart-bars" aria-hidden="true"></div>
+            <div class="chart-axis" aria-hidden="true"></div>
+            <div class="chart-labels" aria-hidden="true"></div>
           </div>
         </section>
 
@@ -532,6 +561,35 @@
             </div>
             <button class="nu-goal-save" type="submit">Mentés</button>
           </form>
+        </section>
+
+        <!-- Vízmérő. NEM külön számláló: minden korty a check-in folyadék-
+             mezőjébe összegződik, amit a Recovery Engine is olvas — így a
+             napközbeni koppintások a készenléti pontszámon is látszanak.
+             A visszavonás azért kell, mert a +250 ml egy koppintás, és egy
+             téves érintés különben javíthatatlan volna. -->
+        <section class="nu-water" aria-labelledby="title-nu-water">
+          <div class="nu-water-head">
+            <h3 class="nu-water-title" id="title-nu-water">Víz</h3>
+            <span class="nu-water-goal" data-water-goal></span>
+          </div>
+
+          <div class="nu-water-row">
+            <p class="nu-water-value">
+              <span data-water-liters>0</span><span class="nu-water-unit">liter</span>
+            </p>
+            <div class="nu-water-actions">
+              <button class="nu-water-undo tap-target" type="button" data-action="undo-water"
+                      hidden>Visszavonás</button>
+              <button class="nu-water-add tap-target" type="button" data-action="add-water">
+                +250 ml
+              </button>
+            </div>
+          </div>
+
+          <div class="nu-water-track" role="img" data-water-track aria-label="Napi folyadékbevitel">
+            <span class="nu-water-fill" data-water-fill></span>
+          </div>
         </section>
 
         <!-- Mai napló — a ténylegesen naplózott tételek, törlés-lehetőséggel.
@@ -1491,10 +1549,9 @@
   </div>
 
   <!-- ================================================================
-       Megerősítő ablak — adatvesztéssel járó műveletekhez (terv betöltése
-       megkezdett edzésre, teljesített szettes gyakorlat eltávolítása).
-       A natív window.confirm helyett: az app saját design-nyelvén szólal
-       meg, és a fókuszkezelése a többi modáléval azonos.
+       Készenlét-javaslat — a check-in mentése után ugrik fel, ha van mit
+       javasolni. A megerősítő ablak vázára épül, de saját tartalommal:
+       tételes lista + Elfogadom / Most nem.
        ================================================================ -->
   <div class="confirm-modal advice-modal" id="adviceModal" aria-hidden="true">
     <div class="confirm-modal-backdrop" data-close-modal></div>
@@ -1512,7 +1569,14 @@
         <button class="confirm-ok" type="button" data-advice-accept>Elfogadom</button>
       </div>
     </div>
+  </div>
 
+  <!-- ================================================================
+       Megerősítő ablak — adatvesztéssel járó műveletekhez (terv betöltése
+       megkezdett edzésre, teljesített szettes gyakorlat eltávolítása).
+       A natív window.confirm helyett: az app saját design-nyelvén szólal
+       meg, és a fókuszkezelése a többi modáléval azonos.
+       ================================================================ -->
   <div class="confirm-modal" id="confirmModal" aria-hidden="true">
     <div class="confirm-modal-backdrop" data-close-modal></div>
     <div class="confirm-modal-card" role="alertdialog" aria-modal="true"
