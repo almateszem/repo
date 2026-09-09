@@ -6639,10 +6639,11 @@ details[open] > .rc-details-summary::before {
    25. Napi check-in varázsló (ci-*) — a #checkin flow-oldal
    Egy kérdés / egy képernyő, fix 460px-es oszlop minden méreten.
    Újrahasznált primitívek (nem írjuk újra őket):
-     · .wk-toggle / .wk-toggle-btn  — az Elöl/Hátul váltó
      · .wk-num / .wk-num-step       — az alvás ± léptetője (a clamp onnan jön)
-     · .rc-chip                     — a térkép alatti pontos-érték chipek
      · .ci-back                     — az .ep-back kerek gombjának listájában
+   A testtérkép (Elöl/Hátul váltó, régiók, érték-chipek) NEM itt él: saját
+   komponens és saját szakasz (bm-*), lásd bodymap/index.js. Korábban a
+   .wk-toggle-btn és a .rc-chip volt rá újrahasználva — ez már nem igaz.
    ========================================================================== */
 
 /* A .app-page.ci-page (0-2-0) szándékos: a ≥1025px-es .app-page szabállyal
