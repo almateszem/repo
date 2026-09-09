@@ -9111,6 +9111,16 @@ body[data-onboarding] .app-page.ci-page {
   stroke: var(--c-accent-line);
 }
 
+/* A régió fókuszjelzése SZÁNDÉKOSAN stroke, nem outline: SVG gyerekelemen az
+   outline renderelése böngészőnként eltér (a Safari történetileg semmit nem
+   rajzol), márpedig a billentyűzetes út épp ezen a fókuszálható régión áll
+   vagy bukik. */
+.bm-region:focus-visible {
+  outline: none;
+  stroke: var(--c-accent-line);
+  stroke-width: 2;
+}
+
 .bm-labels {
   font-family: var(--font-mono);
   font-size: 13px;

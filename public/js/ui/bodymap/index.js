@@ -80,7 +80,12 @@ function createBodyMap({
   }
 
   function setValue(key, value) {
-    values[key] = clamp(value, 1, max);
+    const next = clamp(value, 1, max);
+    // Változatlan érték nem rajzol újra és nem jelez változást: húzás közben
+    // ez lépésenként tucatnyi fölösleges újraépítés lenne, és egy puszta
+    // koppintás a már kijelölt régión „piszkosnak" jelölné a check-int.
+    if (values[key] === next) return;
+    values[key] = next;
     paintRegion(key);
     renderRows();
     onChange?.();
@@ -143,6 +148,12 @@ function createBodyMap({
       } else if (event.key === 'Delete' || event.key === 'Backspace') {
         event.preventDefault();
         clearValue(key);
+      } else if (event.key === 'Enter' || event.key === ' ') {
+        // A role="button" szerződésének kötelező része. Az SVG path nem
+        // valódi <button>, tehát a böngésző nem szintetizál click-et —
+        // enélkül a felhasználó első próbálkozása némán nem csinál semmit.
+        event.preventDefault();
+        if (values[key] > 0) clearValue(key); else setValue(key, defaultValue);
       }
     });
     node.addEventListener('click', (event) => {
@@ -216,14 +227,23 @@ function createBodyMap({
 
   /** A térkép alatti pontos-érték sorok. Ezek a KANONIKUS vezérlők. */
   function renderRows() {
+    // Melyik chipen állt a fókusz? A sorokat teljesen újraépítjük, tehát az
+    // aktív gomb kikerül a dokumentumból — enélkül a billentyűzetes
+    // felhasználó minden egyes érték után a lap tetejéről tabolhatna vissza.
+    // Márpedig a chipek ÉPPEN a billentyűzetes út.
+    const active = document.activeElement;
+    const focused = active && rows.contains(active)
+      ? { key: active.dataset.chipKey, value: active.dataset.chipValue }
+      : null;
+
     const marked = Object.keys(values).filter((key) => values[key] > 0
       && !extraRows.some((row) => row.key === key));
     const entries = [
-      ...marked.map((key) => ({ key, label: muscleLabel(key), removable: true })),
-      ...extraRows.map((row) => ({ ...row, removable: false })),
+      ...marked.map((key) => ({ key, label: muscleLabel(key) })),
+      ...extraRows,
     ];
 
-    rows.replaceChildren(...entries.map(({ key, label, removable }) => {
+    rows.replaceChildren(...entries.map(({ key, label }) => {
       const row = document.createElement('div');
       row.className = 'bm-row';
 
@@ -240,11 +260,17 @@ function createBodyMap({
         const chip = document.createElement('button');
         chip.type = 'button';
         chip.className = 'bm-chip';
+        chip.dataset.chipKey = key;
+        chip.dataset.chipValue = String(value);
         chip.textContent = String(value);
         chip.setAttribute('aria-pressed', String(values[key] === value));
         chip.setAttribute('aria-label', `${label} — ${noun} ${value}`);
         chip.addEventListener('click', () => {
-          if (values[key] === value && removable) clearValue(key); else setValue(key, value);
+          // Minden érték visszavonható, az extra sorokban is: a „nincs
+          // megadva" valódi, mentett állapot (pain.general), nem csak
+          // kezdeti üresség. Ha nem lehetne visszatérni rá, egy
+          // félrekoppintás véglegesen rögzítene egy letiltó fájdalomértéket.
+          if (values[key] === value) clearValue(key); else setValue(key, value);
         });
         chips.appendChild(chip);
       }
@@ -258,6 +284,19 @@ function createBodyMap({
       }
       return row;
     }));
+
+    if (focused?.key) restoreFocus(focused);
+  }
+
+  /** A fókusz visszahelyezése a sorok újraépítése után. */
+  function restoreFocus({ key, value }) {
+    const sameChip = rows.querySelector(
+      `[data-chip-key="${key}"][data-chip-value="${value}"]`);
+    if (sameChip) { sameChip.focus(); return; }
+    // A sor eltűnt, mert az érték törlődött. A fókusz ilyenkor az izomcsoport
+    // térkép-régiójára megy: az ugyanannak az adatnak a másik vezérlője,
+    // tehát a felhasználó ott folytathatja, ahol abbahagyta.
+    stage.querySelector(`[data-region="${key}"][tabindex="0"]`)?.focus();
   }
 
   function setView(next) {
