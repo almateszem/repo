@@ -217,16 +217,19 @@ Szúrd be a 2b. szakasz után:
   flex-wrap: nowrap;
 }
 
-/* Szekció: nincs háttér, nincs keret, csak felső elválasztó. */
+/* Szekció: nincs háttér, nincs keret, csak felső elválasztó.
+
+   A vonalat SZÁNDÉKOSAN a szomszéd-szelektor adja, nem egy
+   `:first-child` kivétel: az csak akkor működne, ha a szekciók a szülő
+   EGYETLEN gyerekei — egy cím vagy egy üres-állapot a lista elején már
+   megtörné, és az első szekció fölött ott maradna a felesleges vonal. */
 .ds-section {
-  border-top: 1px solid var(--hair);
   padding-top: var(--sp-11);
-  margin-top: var(--sp-11);
 }
 
-.ds-section:first-child {
-  border-top: 0;
-  margin-top: 0;
+.ds-section + .ds-section {
+  border-top: 1px solid var(--hair);
+  margin-top: var(--sp-11);
 }
 
 /* Felkiáltó: a szekciók és a lapok fölötti mono címke. */
@@ -259,11 +262,14 @@ Szúrd be a 2b. szakasz után:
   gap: var(--sp-7);
   min-height: var(--tap-min);
   padding: var(--sp-7) 0;
-  border-top: 1px solid var(--hair-soft);
 }
 
-.ds-row:first-of-type {
-  border-top: 0;
+/* Az elválasztó a sorok KÖZÉ kerül, szomszéd-szelektorral. A `:first-of-type`
+   kivétel itt csapda volna: az a saját TAG-jéből elsőt találja meg, nem a
+   `.ds-row`-k közül az elsőt — egy szűrősáv vagy üres-állapot ugyanabból a
+   tagből a lista elején néma módon visszahozná a felső vonalat. */
+.ds-row + .ds-row {
+  border-top: 1px solid var(--hair-soft);
 }
 
 .ds-row-main {
@@ -327,6 +333,26 @@ Szúrd be a 2b. szakasz után:
 
 .ds-cta:hover {
   opacity: .9;
+}
+
+/* Széles nézetben a CTA nem a hüvelykujj alatti egyetlen művelet, hanem egy
+   a lap elemei közül — ezért ott a panel-felületet viseli, és csak hoverre
+   vált accentre. A töréspont az app meglévő 1025px-e, nem a prototípus
+   1120px-e. A variáns SZÁNDÉKOSAN itt van, nem az oldalakon: különben
+   tizenegy helyen ismétlődne ugyanaz a media query. */
+@media (min-width: 1025px) {
+  .ds-cta {
+    background: var(--surface-panel);
+    border: 1px solid var(--hair);
+    color: var(--text-primary);
+  }
+
+  .ds-cta:hover {
+    background: var(--c-accent);
+    border-color: var(--c-accent);
+    color: var(--on-accent);
+    opacity: 1;
+  }
 }
 
 .ds-cta-text {
