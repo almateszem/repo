@@ -1386,7 +1386,7 @@ app.put('/api/checkin', (req, res) => {
     if (parsed.error) return res.status(400).json({ error: `${label}: ${parsed.error}` });
     fields[key] = parsed.value;
   }
-  fields.soreness = normalizeMuscleMap(body.soreness, 5);
+  fields.soreness = normalizeMuscleMap(body.soreness, 10);
   fields.pain = normalizeMuscleMap(body.pain, 10, true);
 
   // Opcionális testsúly — a weight_log táblába, ugyanazzal a validálással,

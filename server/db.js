@@ -267,7 +267,7 @@ db.exec(`
     stress        INTEGER,             -- 1–5 (magasabb = rosszabb)
     mood          INTEGER,             -- 1–5 közérzet
     hydration     REAL,                -- liter
-    soreness      TEXT NOT NULL DEFAULT '{}',  -- JSON: { chest: 0..5, … } izomcsoportonként
+    soreness      TEXT NOT NULL DEFAULT '{}',  -- JSON: { chest: 0..10, … } izomcsoportonként
     pain          TEXT NOT NULL DEFAULT '{}',  -- JSON: { general: 0..10, quads: 0..10, … }
     updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
     PRIMARY KEY (user_id, date)
