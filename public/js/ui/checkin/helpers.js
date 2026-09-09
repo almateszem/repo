@@ -24,7 +24,6 @@ const ciEmptyState = () => ({
   readiness: null,     // a szerver riportja; helyi becslést NEM számolunk
   hadCheckin: false,   // volt-e ma már check-in (az összegzésre ugráshoz)
   dirty: false,        // változott-e valami a betöltött állapothoz képest
-  mapView: 'front',
   gates: { sore: null, pain: null },
   answers: {
     sleepHours: null, sleepQuality: null, energy: null, stress: null,

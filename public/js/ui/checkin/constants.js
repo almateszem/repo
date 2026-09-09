@@ -29,32 +29,6 @@ const CI_WEIGHT_PRESET_OFFSETS = [-0.5, 0, 0.5];
 /** A ± gombok kiindulópontja, ha még soha nem mértél. */
 const CI_WEIGHT_FALLBACK = 80;
 
-/**
- * Testtérkép-régiók a 220×420-as rajzterületen: [izomkulcs, x, y, szélesség, magasság].
- * A bal/jobb páros téglalapok SZÁNDÉKOSAN ugyanarra az izomkulcsra mutatnak:
- * az adatmodell nem oldalfüggő (server/muscles.js), tehát a két téglalap egyetlen
- * logikai vezérlő két fele. A két nézet uniója pontosan a kilenc MUSCLE_GROUPS
- * kulcs — egyik csoport sem érhetetlen el.
- */
-const CI_BODY_REGIONS = {
-  front: [
-    ['shoulders', 24, 52, 42, 24], ['shoulders', 154, 52, 42, 24],
-    ['chest', 72, 56, 76, 42],
-    ['arms', 8, 82, 34, 100], ['arms', 178, 82, 34, 100],
-    ['core', 74, 102, 72, 72],
-    ['quads', 58, 182, 44, 98], ['quads', 118, 182, 44, 98],
-    ['calves', 60, 288, 40, 84], ['calves', 120, 288, 40, 84],
-  ],
-  back: [
-    ['shoulders', 24, 52, 42, 24], ['shoulders', 154, 52, 42, 24],
-    ['back', 72, 56, 76, 60],
-    ['arms', 8, 82, 34, 100], ['arms', 178, 82, 34, 100],
-    ['glutes', 66, 160, 88, 46],
-    ['hamstrings', 58, 212, 44, 70], ['hamstrings', 118, 212, 44, 70],
-    ['calves', 60, 288, 40, 84], ['calves', 120, 288, 40, 84],
-  ],
-};
-
 /** A két kapu-lépés szövegei és a hozzájuk tartozó állapot-kulcs. */
 const CI_GATES = {
   soreGate: {
@@ -87,9 +61,6 @@ const CI_MAP_MODES = {
   },
 };
 
-/** Hány képernyő-pixel egy értéklépés húzáskor. */
-const CI_DRAG_PX_PER_STEP = 14;
-
 /** Automatikus továbblépés késleltetése koppintás után. */
 const CI_ADVANCE_MS = 260;
 
@@ -100,4 +71,4 @@ const CI_PAIN_BLOCK = 7;
 
 const CI_READINESS_VERDICTS = { ok: 'Jó készenlét', warn: 'Közepes', bad: 'Óvatosan ma' };
 
-export { CI_ADVANCE_MS, CI_BASE_STEPS, CI_BODY_REGIONS, CI_DRAG_PX_PER_STEP, CI_GATES, CI_MAP_MODES, CI_PAIN_BLOCK, CI_PRESET_ADVANCE_MS, CI_READINESS_VERDICTS, CI_SCALE_STEPS, CI_SLEEP_MAX, CI_SLEEP_MIN, CI_SLEEP_PRESETS, CI_WEIGHT_FALLBACK, CI_WEIGHT_MAX, CI_WEIGHT_MIN, CI_WEIGHT_PRESET_OFFSETS };
+export { CI_ADVANCE_MS, CI_BASE_STEPS, CI_GATES, CI_MAP_MODES, CI_PAIN_BLOCK, CI_PRESET_ADVANCE_MS, CI_READINESS_VERDICTS, CI_SCALE_STEPS, CI_SLEEP_MAX, CI_SLEEP_MIN, CI_SLEEP_PRESETS, CI_WEIGHT_FALLBACK, CI_WEIGHT_MAX, CI_WEIGHT_MIN, CI_WEIGHT_PRESET_OFFSETS };
