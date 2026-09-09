@@ -56,10 +56,10 @@
      a token azért van, hogy a szabályoknak ne kelljen tudniuk, épp melyik
      akcentus van érvényben. */
   --on-accent: #ffffff;
-  --c-accent-dim: rgba(200, 16, 46, .16);
-  --c-accent-line: rgba(200, 16, 46, .45);
-  --c-alert-dim: rgba(224, 67, 90, .12);
-  --c-alert-line: rgba(224, 67, 90, .38);
+  --c-accent-dim: rgba(200, 16, 46, 0.16);
+  --c-accent-line: rgba(200, 16, 46, 0.45);
+  --c-alert-dim: rgba(224, 67, 90, 0.12);
+  --c-alert-line: rgba(224, 67, 90, 0.38);
   /* Szuperszett-jelölés. Szándékosan NEM az accent: azt a PR-jelvény pulzálása
      foglalja, a két jelzés pedig egy kártyán is találkozhat. */
   --c-superset: #5aa9e6;
@@ -71,26 +71,31 @@
 
   /* Szín — fehér alfa-skála (a sötét téma teljes felület-/szövegrendszere) */
   --fg-100: #ffffff;
-  --fg-92: rgba(255, 255, 255, .92);
-  --fg-85: rgba(255, 255, 255, .85);
-  --fg-75: rgba(255, 255, 255, .75);
-  --fg-70: rgba(255, 255, 255, .7);
-  --fg-60: rgba(255, 255, 255, .6);
-  --fg-55: rgba(255, 255, 255, .55);
-  --fg-50: rgba(255, 255, 255, .5);
-  --fg-45: rgba(255, 255, 255, .45);
-  --fg-40: rgba(255, 255, 255, .4);
-  --fg-35: rgba(255, 255, 255, .35);
-  --fg-30: rgba(255, 255, 255, .3);
-  --fg-25: rgba(255, 255, 255, .25);
-  --fg-20: rgba(255, 255, 255, .2);
-  --fg-15: rgba(255, 255, 255, .15);
-  --fg-10: rgba(255, 255, 255, .1);
-  --fg-08: rgba(255, 255, 255, .08);
-  --fg-06: rgba(255, 255, 255, .06);
-  --fg-05: rgba(1, 108, 150, 0.295); /* szándékosan kékes — a háttér-ragyogások színe, nem fehér alfa */
-  --fg-04: rgba(255, 255, 255, .04);
-  --fg-03: rgba(255, 255, 255, .03);
+  --fg-92: rgba(255, 255, 255, 0.92);
+  --fg-85: rgba(255, 255, 255, 0.85);
+  --fg-75: rgba(255, 255, 255, 0.75);
+  --fg-70: rgba(255, 255, 255, 0.7);
+  --fg-60: rgba(255, 255, 255, 0.6);
+  --fg-55: rgba(255, 255, 255, 0.55);
+  --fg-50: rgba(255, 255, 255, 0.5);
+  --fg-45: rgba(255, 255, 255, 0.45);
+  --fg-40: rgba(255, 255, 255, 0.4);
+  --fg-35: rgba(255, 255, 255, 0.35);
+  --fg-30: rgba(255, 255, 255, 0.3);
+  --fg-25: rgba(255, 255, 255, 0.25);
+  --fg-20: rgba(255, 255, 255, 0.2);
+  --fg-15: rgba(255, 255, 255, 0.15);
+  --fg-10: rgba(255, 255, 255, 0.1);
+  --fg-08: rgba(255, 255, 255, 0.08);
+  --fg-06: rgba(255, 255, 255, 0.06);
+  --fg-05: rgba(
+    1,
+    108,
+    150,
+    0.295
+  ); /* szándékosan kékes — a háttér-ragyogások színe, nem fehér alfa */
+  --fg-04: rgba(255, 255, 255, 0.04);
+  --fg-03: rgba(255, 255, 255, 0.03);
 
   /* Szín — szemantikus aliasok */
   --surface-card: var(--fg-04);
@@ -109,14 +114,14 @@
   --text-faint: var(--fg-55);
 
   /* Tipográfia */
-  --font-base: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-base: system-ui, -apple-system, 'Segoe UI', sans-serif;
   /* Műszerfal-feliratok: monospace, nagybetűs, ritkított. A számokat így
      azonos szélességű oszlopokban lehet olvasni, a címkék pedig a nagy
      értékektől tipográfiával válnak el, nem csak színnel. */
-  --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, Consolas, monospace;
-  --ls-label: .16em;
-  --ls-label-tight: .12em;
-  --ls-display: -.025em;
+  --font-mono: ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Menlo, Consolas, monospace;
+  --ls-label: 0.16em;
+  --ls-label-tight: 0.12em;
+  --ls-display: -0.025em;
   --fs-2xs: 11px; /* 10px volt — a kisbetűs feliratok a halvány színnel együtt olvashatatlanok voltak */
   --fs-xs: 12px;
   --fs-sm: 12px;
@@ -165,15 +170,15 @@
   --r-full: 50%;
 
   /* Árnyék és scrim */
-  --shadow-knob: 0 12px 30px rgba(0, 0, 0, .55);
-  --shadow-modal: 0 24px 60px rgba(0, 0, 0, .5);
-  --scrim-modal: rgba(0, 0, 0, .6);
+  --shadow-knob: 0 12px 30px rgba(0, 0, 0, 0.55);
+  --shadow-modal: 0 24px 60px rgba(0, 0, 0, 0.5);
+  --scrim-modal: rgba(0, 0, 0, 0.6);
 
   /* Mozgás */
-  --t-fast: .15s ease;
-  --t-base: .2s ease;
-  --t-slow: .25s ease;
-  --ease-spring: cubic-bezier(.18, .9, .2, 1.1);
+  --t-fast: 0.15s ease;
+  --t-base: 0.2s ease;
+  --t-slow: 0.25s ease;
+  --ease-spring: cubic-bezier(0.18, 0.9, 0.2, 1.1);
 
   /* Z-index rétegek */
   --z-nav-fade: 40;
@@ -207,7 +212,9 @@
 /* ==========================================================================
    2. Base és reset
    ========================================================================== */
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+}
 
 /* A [hidden] attribútum MINDIG rejtsen — ez a szabály egy egész hibaosztályt
    zár le, ezért van rajta !important.
@@ -246,8 +253,7 @@ body {
   background:
     radial-gradient(at 15% 8%, var(--fg-05), transparent 40%),
     radial-gradient(at 85% 25%, var(--fg-04), transparent 35%),
-    radial-gradient(at 50% 90%, var(--fg-05), transparent 45%),
-    var(--c-bg);
+    radial-gradient(at 50% 90%, var(--fg-05), transparent 45%), var(--c-bg);
   color: var(--text-primary);
   font-family: var(--font-base);
   -webkit-tap-highlight-color: transparent;
@@ -269,7 +275,7 @@ button {
 }
 
 button:disabled {
-  opacity: .55;
+  opacity: 0.55;
   cursor: not-allowed;
 }
 
@@ -298,8 +304,8 @@ input.wk-chip:focus-visible {
   *,
   *::before,
   *::after {
-    animation-duration: .01ms !important;
-    transition-duration: .01ms !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
@@ -420,7 +426,7 @@ input.wk-chip:focus-visible {
 }
 
 .tap-target::after {
-  content: "";
+  content: '';
   position: absolute;
   top: 50%;
   left: 50%;
@@ -551,7 +557,7 @@ input.wk-chip:focus-visible {
 .chart--labelled {
   margin-bottom: var(--sp-13);
   padding-right: 0;
-  gap: clamp(5px, .7vw, 10px);
+  gap: clamp(5px, 0.7vw, 10px);
 }
 
 .chart--labelled .chart-axis {
@@ -559,7 +565,7 @@ input.wk-chip:focus-visible {
 }
 
 .chart--labelled .chart-bars {
-  gap: clamp(5px, .7vw, 10px);
+  gap: clamp(5px, 0.7vw, 10px);
 }
 
 .chart-labels {
@@ -568,7 +574,7 @@ input.wk-chip:focus-visible {
   right: 0; /* nincs tengely, tehát a teljes szélesség az oszlopoké */
   top: calc(100% + var(--sp-2));
   display: flex;
-  gap: clamp(5px, .7vw, 10px);
+  gap: clamp(5px, 0.7vw, 10px);
   font-family: var(--font-mono);
   font-size: var(--fs-2xs);
   letter-spacing: var(--ls-label-tight);
@@ -587,8 +593,8 @@ input.wk-chip:focus-visible {
    keskeny nézetre van szűkítve, nem desktopon felülírva: a `display` itt nem
    írható vissza egy szóval, mert az oszlopok flex-elemek. */
 @media (max-width: 1024px) {
-  .db-trend .chart-bars span:nth-child(-n+7),
-  .db-trend .chart-labels span:nth-child(-n+7) {
+  .db-trend .chart-bars span:nth-child(-n + 7),
+  .db-trend .chart-labels span:nth-child(-n + 7) {
     display: none;
   }
 }
@@ -625,7 +631,10 @@ input.wk-chip:focus-visible {
 }
 
 @media (max-width: 380px) {
-  .app-chrome { padding-left: var(--sp-7); padding-right: var(--sp-7); }
+  .app-chrome {
+    padding-left: var(--sp-7);
+    padding-right: var(--sp-7);
+  }
 }
 
 /* A márkajel és a dátum. A dátum halványabb, de ugyanabban a monospace
@@ -836,8 +845,8 @@ input.wk-chip:focus-visible {
 .db-percent {
   font-size: clamp(84px, 13.5vw, 214px);
   font-weight: 800;
-  line-height: .74;
-  letter-spacing: -.07em;
+  line-height: 0.74;
+  letter-spacing: -0.07em;
   font-variant-numeric: tabular-nums;
 }
 
@@ -867,7 +876,7 @@ input.wk-chip:focus-visible {
   font-size: clamp(19px, 2.3vw, 34px);
   font-weight: 400;
   line-height: 1.34;
-  letter-spacing: -.015em;
+  letter-spacing: -0.015em;
   color: var(--text-secondary);
   text-wrap: pretty;
 }
@@ -894,12 +903,12 @@ input.wk-chip:focus-visible {
 .db-nutri-value {
   font-size: clamp(24px, 2.4vw, 34px);
   font-weight: 800;
-  letter-spacing: -.03em;
+  letter-spacing: -0.03em;
   font-variant-numeric: tabular-nums;
 }
 
 .db-nutri-target {
-  font-size: .44em;
+  font-size: 0.44em;
   font-weight: 500;
   color: var(--text-muted);
 }
@@ -937,15 +946,15 @@ input.wk-chip:focus-visible {
   margin-top: var(--sp-11);
   font-size: clamp(22px, 2.4vw, 34px);
   font-weight: 800;
-  letter-spacing: -.035em;
+  letter-spacing: -0.035em;
   font-variant-numeric: tabular-nums;
 }
 
 .db-macro-unit {
-  font-size: .34em;
+  font-size: 0.34em;
   font-weight: 500;
   color: var(--text-muted);
-  margin-left: .15em;
+  margin-left: 0.15em;
 }
 
 /* ---- Mérőszám-sor ----
@@ -969,7 +978,7 @@ input.wk-chip:focus-visible {
   margin-top: var(--sp-11);
   font-size: clamp(24px, 2.7vw, 46px);
   font-weight: 800;
-  letter-spacing: -.035em;
+  letter-spacing: -0.035em;
   font-variant-numeric: tabular-nums;
   text-wrap: balance;
   overflow-wrap: anywhere;
@@ -979,14 +988,14 @@ input.wk-chip:focus-visible {
    fokozatban — a dizájn ezekre külön, kisebb méretet ad, itt ez az osztály. */
 .db-stat-value--word {
   font-size: clamp(15px, 1.5vw, 24px);
-  letter-spacing: -.01em;
+  letter-spacing: -0.01em;
 }
 
 .db-stat-unit {
-  font-size: .34em;
+  font-size: 0.34em;
   font-weight: 500;
   color: var(--text-muted);
-  margin-left: .15em;
+  margin-left: 0.15em;
 }
 
 /* ---- Terhelés-trend ---- */
@@ -1026,7 +1035,7 @@ input.wk-chip:focus-visible {
 .db-checkin-cta-title {
   font-size: var(--fs-2xl);
   font-weight: 800;
-  letter-spacing: -.02em;
+  letter-spacing: -0.02em;
 }
 
 .db-checkin-cta-note {
@@ -1048,7 +1057,7 @@ input.wk-chip:focus-visible {
   font-size: var(--fs-quote);
   font-weight: 800;
   line-height: 1.24;
-  letter-spacing: -.03em;
+  letter-spacing: -0.03em;
   text-wrap: balance;
 }
 
@@ -1066,7 +1075,7 @@ input.wk-chip:focus-visible {
   margin: var(--sp-7) 0 var(--sp-5);
   font-size: var(--fs-5xl);
   font-weight: 800;
-  letter-spacing: -.035em;
+  letter-spacing: -0.035em;
   text-wrap: balance;
 }
 
@@ -1117,7 +1126,7 @@ input.wk-chip:focus-visible {
 .db-side-name {
   font-size: var(--fs-xl);
   font-weight: 700;
-  letter-spacing: -.01em;
+  letter-spacing: -0.01em;
 }
 
 .db-side-detail {
@@ -1161,9 +1170,12 @@ input.wk-chip:focus-visible {
   font-size: var(--fs-base);
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: .02em;
+  letter-spacing: 0.02em;
   cursor: pointer;
-  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+  transition:
+    background var(--t-fast),
+    border-color var(--t-fast),
+    color var(--t-fast);
 }
 
 .db-cta:hover {
@@ -1195,15 +1207,16 @@ input.wk-chip:focus-visible {
   font-size: var(--fs-2xs);
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: .18em;
-  transition: color var(--t-fast), border-color var(--t-fast);
+  letter-spacing: 0.18em;
+  transition:
+    color var(--t-fast),
+    border-color var(--t-fast);
 }
 
 .db-side-link:hover {
   color: var(--text-primary);
   border-color: var(--fg-40);
 }
-
 
 /* ==========================================================================
    7. Workout logger
@@ -1241,7 +1254,9 @@ input.wk-chip:focus-visible {
   font-size: var(--fs-md);
   font-weight: 700;
   flex-shrink: 0;
-  transition: background var(--t-fast), transform var(--t-fast);
+  transition:
+    background var(--t-fast),
+    transform var(--t-fast);
 }
 
 .wk-save:hover:not(:disabled) {
@@ -1287,12 +1302,12 @@ input.wk-chip:focus-visible {
   color: var(--text-muted);
   font-size: var(--fs-2xs);
   font-weight: 600;
-  letter-spacing: .02em;
+  letter-spacing: 0.02em;
   text-align: left;
   transition: color var(--t-fast);
 }
 
-.wk-superset-link[aria-pressed="true"] {
+.wk-superset-link[aria-pressed='true'] {
   color: var(--c-superset);
 }
 
@@ -1309,14 +1324,14 @@ input.wk-chip:focus-visible {
 /* Az érintkező oldalak sarkai kiegyenesednek. A −1px a negatív margóban a két
    kártya szegélyét pontosan egymásra csúsztatja, így a varrat egy hajszálvonal
    marad, nem kettő. */
-.wk-exercise[data-superset-role="start"],
-.wk-exercise[data-superset-role="middle"] {
+.wk-exercise[data-superset-role='start'],
+.wk-exercise[data-superset-role='middle'] {
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
 }
 
-.wk-exercise[data-superset-role="middle"],
-.wk-exercise[data-superset-role="end"] {
+.wk-exercise[data-superset-role='middle'],
+.wk-exercise[data-superset-role='end'] {
   margin-top: calc(var(--sp-7) * -1 - 1px);
   border-top-left-radius: 0;
   border-top-right-radius: 0;
@@ -1325,10 +1340,10 @@ input.wk-chip:focus-visible {
 /* Az összekötő sáv. A két végén a kártya belső margójáig húzódik csak, hogy a
    lekerekített sarkokból ne lógjon ki (a kártyán nincs overflow: hidden — az
    elnyelné a sorszám-lenyílót). */
-.wk-exercise[data-superset-role="start"]::before,
-.wk-exercise[data-superset-role="middle"]::before,
-.wk-exercise[data-superset-role="end"]::before {
-  content: "";
+.wk-exercise[data-superset-role='start']::before,
+.wk-exercise[data-superset-role='middle']::before,
+.wk-exercise[data-superset-role='end']::before {
+  content: '';
   position: absolute;
   left: 0;
   top: -1px;
@@ -1337,12 +1352,12 @@ input.wk-chip:focus-visible {
   background: var(--c-superset);
 }
 
-.wk-exercise[data-superset-role="start"]::before {
+.wk-exercise[data-superset-role='start']::before {
   top: var(--sp-7);
   border-radius: 2px 2px 0 0;
 }
 
-.wk-exercise[data-superset-role="end"]::before {
+.wk-exercise[data-superset-role='end']::before {
   bottom: var(--sp-7);
   border-radius: 0 0 2px 2px;
 }
@@ -1383,7 +1398,7 @@ input.wk-chip:focus-visible {
   color: var(--on-accent);
   font-size: var(--fs-2xs);
   font-weight: 800;
-  letter-spacing: .03em;
+  letter-spacing: 0.03em;
   padding: 3px 7px;
   border-radius: var(--r-xs);
 }
@@ -1391,14 +1406,15 @@ input.wk-chip:focus-visible {
 /* Valós idejű PR detektálás: amikor az aktuális (teljesített) szett 1RM-je
    nagyobb az eddigi maximumnál, a PR gomb aria-pressed="true" lesz — ez adja
    a tömör bordó kitöltést (lásd lejjebb) és a lüktető box-shadow-t. */
-.wk-pr-toggle[aria-pressed="true"] {
+.wk-pr-toggle[aria-pressed='true'] {
   animation: pr-pulse 1.5s ease-in-out infinite;
-  box-shadow: 0 0 12px rgba(200, 16, 46, .85);
+  box-shadow: 0 0 12px rgba(200, 16, 46, 0.85);
 }
 
 @keyframes pr-pulse {
-  0%, 100% {
-    box-shadow: 0 0 6px rgba(200, 16, 46, .6);
+  0%,
+  100% {
+    box-shadow: 0 0 6px rgba(200, 16, 46, 0.6);
   }
   50% {
     box-shadow: 0 0 16px rgba(200, 16, 46, 1);
@@ -1410,16 +1426,19 @@ input.wk-chip:focus-visible {
    halvány körvonalas gomb */
 .wk-pr-toggle {
   border: 1px solid transparent;
-  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+  transition:
+    background var(--t-fast),
+    color var(--t-fast),
+    border-color var(--t-fast);
 }
 
-.wk-pr-toggle[aria-pressed="false"] {
+.wk-pr-toggle[aria-pressed='false'] {
   background: none;
   border-color: var(--border-strong);
   color: var(--text-muted);
 }
 
-.wk-pr-toggle[aria-pressed="false"]:hover {
+.wk-pr-toggle[aria-pressed='false']:hover {
   border-color: var(--fg-40);
   color: var(--fg-70);
 }
@@ -1435,7 +1454,9 @@ input.wk-chip:focus-visible {
   justify-content: center;
   color: var(--fg-70);
   flex-shrink: 0;
-  transition: border-color var(--t-fast), color var(--t-fast);
+  transition:
+    border-color var(--t-fast),
+    color var(--t-fast);
 }
 
 /* Gyakorlat eltávolítása. Keret nélkül, halványan — a szomszédos videógombbal
@@ -1453,7 +1474,9 @@ input.wk-chip:focus-visible {
   font-size: var(--fs-xs);
   line-height: 1;
   flex-shrink: 0;
-  transition: color var(--t-fast), background var(--t-fast);
+  transition:
+    color var(--t-fast),
+    background var(--t-fast);
 }
 
 .wk-exercise-remove:hover {
@@ -1494,11 +1517,13 @@ input.wk-chip:focus-visible {
   font-size: var(--fs-sm);
   color: var(--fg-70);
   cursor: pointer;
-  transition: border-color var(--t-fast), color var(--t-fast);
+  transition:
+    border-color var(--t-fast),
+    color var(--t-fast);
 }
 
 .wk-order-trigger:hover,
-.wk-order-trigger[aria-expanded="true"] {
+.wk-order-trigger[aria-expanded='true'] {
   border-color: var(--fg-40);
   color: var(--fg-100);
 }
@@ -1533,7 +1558,9 @@ input.wk-chip:focus-visible {
   color: var(--fg-70);
   text-align: center;
   cursor: pointer;
-  transition: background var(--t-fast), color var(--t-fast);
+  transition:
+    background var(--t-fast),
+    color var(--t-fast);
 }
 
 .wk-order-option:hover {
@@ -1541,7 +1568,7 @@ input.wk-chip:focus-visible {
   color: var(--fg-100);
 }
 
-.wk-order-option[aria-selected="true"] {
+.wk-order-option[aria-selected='true'] {
   background: var(--c-accent);
   color: var(--on-accent);
 }
@@ -1593,7 +1620,7 @@ input.wk-chip:focus-visible {
 /* A gerinc. A szélső sorokban a fogig tart (ott zárul a zárójel), az átmenő
    sorokban végigfut — így a szomszédos szakaszok hézag nélkül találkoznak. */
 .wk-set-row[data-drop-role]::before {
-  content: "";
+  content: '';
   position: absolute;
   left: var(--drop-line-x);
   top: 0;
@@ -1602,11 +1629,11 @@ input.wk-chip:focus-visible {
   background: var(--drop-line);
 }
 
-.wk-set-row[data-drop-role="parent"]::before {
+.wk-set-row[data-drop-role='parent']::before {
   top: 50%;
 }
 
-.wk-set-row[data-drop-role="last"]::before {
+.wk-set-row[data-drop-role='last']::before {
   bottom: 50%;
 }
 
@@ -1614,7 +1641,7 @@ input.wk-chip:focus-visible {
    pont a gerinc kilógása, hogy a sorszám-gomb bal széléhez érjen — rövidebben
    csak jelentés nélküli bütyök maradna. */
 .wk-set-row[data-drop-role]::after {
-  content: "";
+  content: '';
   position: absolute;
   left: var(--drop-line-x);
   top: 50%;
@@ -1651,7 +1678,7 @@ input.wk-chip:focus-visible {
   /* A fejléc harmadik cellája („Súly·kg") a legszűkebb — itt nem kérünk
      extra betűközt, hogy egy sorban maradjon. */
   .wk-set-row--head {
-    letter-spacing: .02em;
+    letter-spacing: 0.02em;
   }
 }
 
@@ -1659,7 +1686,7 @@ input.wk-chip:focus-visible {
   color: var(--text-faint);
   font-size: var(--fs-2xs);
   text-transform: uppercase;
-  letter-spacing: .04em;
+  letter-spacing: 0.04em;
   border-bottom: 1px solid var(--border-card);
   padding-bottom: var(--sp-3);
 }
@@ -1687,21 +1714,24 @@ input.wk-chip:focus-visible {
   color: var(--fg-70);
   text-align: center;
   cursor: pointer;
-  transition: border-color var(--t-fast), color var(--t-fast), background var(--t-fast);
+  transition:
+    border-color var(--t-fast),
+    color var(--t-fast),
+    background var(--t-fast);
 }
 
 .wk-set-num:hover,
-.wk-set-num[aria-expanded="true"] {
+.wk-set-num[aria-expanded='true'] {
   background: var(--surface-hover);
   border-color: var(--fg-25);
 }
 
-.wk-set-row[data-set-type="warmup"] .wk-set-num {
+.wk-set-row[data-set-type='warmup'] .wk-set-num {
   color: var(--c-tier-gold);
-  border-color: rgba(232, 193, 90, .3); /* --c-tier-gold, halványítva */
+  border-color: rgba(232, 193, 90, 0.3); /* --c-tier-gold, halványítva */
 }
 
-.wk-set-row[data-set-type="drop"] .wk-set-num {
+.wk-set-row[data-set-type='drop'] .wk-set-num {
   color: var(--c-accent);
   border-color: var(--c-accent-line);
 }
@@ -1736,7 +1766,9 @@ input.wk-chip:focus-visible {
   text-align: left;
   white-space: nowrap;
   cursor: pointer;
-  transition: background var(--t-fast), color var(--t-fast);
+  transition:
+    background var(--t-fast),
+    color var(--t-fast);
 }
 
 .wk-set-type-option:hover {
@@ -1744,7 +1776,7 @@ input.wk-chip:focus-visible {
   color: var(--fg-100);
 }
 
-.wk-set-type-option[aria-selected="true"] {
+.wk-set-type-option[aria-selected='true'] {
   background: var(--surface-strong);
   color: var(--fg-100);
   font-weight: 600;
@@ -1752,11 +1784,11 @@ input.wk-chip:focus-visible {
 
 /* Az opciók ugyanazt a színkódot viselik, amit a sorszámon lát a felhasználó
    — a lenyíló így magától megtanítja, melyik szín melyik típus. */
-.wk-set-type-option[data-type="warmup"] {
+.wk-set-type-option[data-type='warmup'] {
   color: var(--c-tier-gold);
 }
 
-.wk-set-type-option[data-type="drop"] {
+.wk-set-type-option[data-type='drop'] {
   color: var(--c-accent);
 }
 
@@ -1776,7 +1808,9 @@ input.wk-chip {
   border: 1px solid transparent;
   color: var(--text-primary);
   font-size: var(--fs-input);
-  transition: background var(--t-fast), border-color var(--t-fast);
+  transition:
+    background var(--t-fast),
+    border-color var(--t-fast);
 }
 
 input.wk-chip:hover {
@@ -1800,7 +1834,9 @@ input.wk-chip:focus {
   border: 1px solid transparent;
   border-radius: var(--r-sm);
   background: var(--surface-input);
-  transition: background var(--t-fast), border-color var(--t-fast);
+  transition:
+    background var(--t-fast),
+    border-color var(--t-fast);
 }
 
 .wk-num:hover {
@@ -1823,7 +1859,9 @@ input.wk-chip:focus {
   color: var(--fg-50);
   font-size: var(--fs-md);
   line-height: 1;
-  transition: color var(--t-fast), background var(--t-fast);
+  transition:
+    color var(--t-fast),
+    background var(--t-fast);
 }
 
 .wk-num-step:hover {
@@ -1890,7 +1928,9 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   /* Szűkebb célterület, mint a szomszédos pipáé: a két találati felület nem
      fedhet át, mert a törlés visszavonhatatlan, a pipázás nem. */
   --tap: 36px;
-  transition: color var(--t-fast), background var(--t-fast);
+  transition:
+    color var(--t-fast),
+    background var(--t-fast);
 }
 
 .wk-set-remove:hover {
@@ -1909,14 +1949,16 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   background: none;
   justify-self: center;
   padding: 0;
-  transition: background var(--t-fast), border-color var(--t-fast);
+  transition:
+    background var(--t-fast),
+    border-color var(--t-fast);
 }
 
 .wk-set-check:hover {
   border-color: var(--fg-60);
 }
 
-.wk-set-check[aria-pressed="true"] {
+.wk-set-check[aria-pressed='true'] {
   background: var(--fg-100);
   border-color: var(--fg-100);
 }
@@ -1931,7 +1973,9 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   padding: var(--sp-3);
   font-size: var(--fs-sm);
   font-weight: 600;
-  transition: border-color var(--t-fast), color var(--t-fast);
+  transition:
+    border-color var(--t-fast),
+    color var(--t-fast);
 }
 
 .wk-add-set:hover,
@@ -1950,7 +1994,9 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   font-size: var(--fs-base);
   font-weight: 700;
   margin-bottom: var(--sp-12);
-  transition: border-color var(--t-fast), color var(--t-fast);
+  transition:
+    border-color var(--t-fast),
+    color var(--t-fast);
 }
 
 /* Üres állapotok — az edzésnapló, a listák és a Tervek oldal közös stílusa */
@@ -2036,7 +2082,9 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   font-size: var(--fs-2xs);
   line-height: 1;
   cursor: pointer;
-  transition: color var(--t-fast), background var(--t-fast);
+  transition:
+    color var(--t-fast),
+    background var(--t-fast);
 }
 
 .wk-history-btn:hover {
@@ -2078,7 +2126,9 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   transition: color var(--t-fast);
 }
 
-.wk-editing-cancel:hover { color: var(--c-alert); }
+.wk-editing-cancel:hover {
+  color: var(--c-alert);
+}
 
 /* ==========================================================================
    8. Nutrition tracker
@@ -2103,7 +2153,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .nu-summary-unit {
-  font-size: .4em;
+  font-size: 0.4em;
   font-weight: 700;
   margin-left: 2px;
   color: var(--fg-60);
@@ -2149,7 +2199,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .nu-macro-unit {
-  font-size: .6em;
+  font-size: 0.6em;
   font-weight: 600;
   color: var(--text-muted);
   margin-left: 1px;
@@ -2197,7 +2247,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   background: var(--surface-soft);
   border-radius: var(--r-md);
   padding: var(--sp-3) var(--sp-4);
-  animation: note-in .25s ease backwards;
+  animation: note-in 0.25s ease backwards;
   animation-delay: calc(var(--i, 0) * 30ms);
 }
 
@@ -2238,7 +2288,9 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--text-muted);
   font-size: var(--fs-2xs);
   line-height: 1;
-  transition: color var(--t-fast), background var(--t-fast);
+  transition:
+    color var(--t-fast),
+    background var(--t-fast);
 }
 
 .nu-log-remove:hover {
@@ -2279,10 +2331,14 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   font-size: var(--fs-sm);
   font-weight: 700;
   cursor: pointer;
-  transition: filter var(--t-fast), background var(--t-fast);
+  transition:
+    filter var(--t-fast),
+    background var(--t-fast);
 }
 
-.nu-action:hover { filter: brightness(1.08); }
+.nu-action:hover {
+  filter: brightness(1.08);
+}
 
 .nu-action--ghost {
   background: none;
@@ -2426,8 +2482,11 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--text-muted);
   font-size: var(--fs-2xs);
   line-height: 1;
-  opacity: .5;
-  transition: color var(--t-fast), background var(--t-fast), opacity var(--t-fast);
+  opacity: 0.5;
+  transition:
+    color var(--t-fast),
+    background var(--t-fast),
+    opacity var(--t-fast);
 }
 
 .nu-food-remove:hover,
@@ -2438,7 +2497,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .nu-food-remove:disabled {
-  opacity: .3;
+  opacity: 0.3;
   cursor: default;
 }
 
@@ -2563,7 +2622,9 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: border-color var(--t-fast), color var(--t-fast);
+  transition:
+    border-color var(--t-fast),
+    color var(--t-fast);
 }
 
 .pl-card-edit:hover {
@@ -2612,13 +2673,15 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .co-banner--alert {
-  border-color: rgba(224, 67, 90, .35); /* --c-alert, halványítva */
-  background: linear-gradient(120deg, rgba(224, 67, 90, .08), transparent 55%), var(--surface-card);
+  border-color: rgba(224, 67, 90, 0.35); /* --c-alert, halványítva */
+  background:
+    linear-gradient(120deg, rgba(224, 67, 90, 0.08), transparent 55%), var(--surface-card);
 }
 
 .co-banner--ok {
-  border-color: rgba(74, 210, 149, .3); /* --c-ok, halványítva */
-  background: linear-gradient(120deg, rgba(74, 210, 149, .07), transparent 55%), var(--surface-card);
+  border-color: rgba(74, 210, 149, 0.3); /* --c-ok, halványítva */
+  background:
+    linear-gradient(120deg, rgba(74, 210, 149, 0.07), transparent 55%), var(--surface-card);
 }
 
 .co-banner-head {
@@ -2640,12 +2703,12 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .co-banner--alert .co-banner-icon {
-  background: rgba(224, 67, 90, .18);
+  background: rgba(224, 67, 90, 0.18);
   color: var(--c-alert);
 }
 
 .co-banner--ok .co-banner-icon {
-  background: rgba(74, 210, 149, .15);
+  background: rgba(74, 210, 149, 0.15);
   color: var(--c-ok);
 }
 
@@ -2707,20 +2770,20 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 /* ---- Tier-színek — a kártya és a modálbeli jelvény közös változói ---- */
 .co-tier--gold {
   --tier: var(--c-tier-gold);
-  --tier-soft: rgba(232, 193, 90, .1);
-  --tier-border: rgba(232, 193, 90, .38);
+  --tier-soft: rgba(232, 193, 90, 0.1);
+  --tier-border: rgba(232, 193, 90, 0.38);
 }
 
 .co-tier--silver {
   --tier: var(--c-tier-silver);
-  --tier-soft: rgba(185, 196, 212, .09);
-  --tier-border: rgba(185, 196, 212, .32);
+  --tier-soft: rgba(185, 196, 212, 0.09);
+  --tier-border: rgba(185, 196, 212, 0.32);
 }
 
 .co-tier--bronze {
   --tier: var(--c-tier-bronze);
-  --tier-soft: rgba(205, 149, 105, .1);
-  --tier-border: rgba(205, 149, 105, .34);
+  --tier-soft: rgba(205, 149, 105, 0.1);
+  --tier-border: rgba(205, 149, 105, 0.34);
 }
 
 /* ---- Sportoló-kártya rács ---- */
@@ -2742,13 +2805,15 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   border: 1px solid var(--tier-border);
   border-radius: var(--r-2xl) var(--r-2xl) 48% 48% / var(--r-2xl) var(--r-2xl) 14% 14%;
   color: var(--text-primary);
-  animation: note-in .25s ease backwards;
+  animation: note-in 0.25s ease backwards;
   animation-delay: calc(var(--i, 0) * 40ms);
 }
 
 @media (hover: hover) {
   .co-card {
-    transition: border-color var(--t-fast), transform var(--t-fast);
+    transition:
+      border-color var(--t-fast),
+      transform var(--t-fast);
   }
 
   .co-card:hover {
@@ -2777,7 +2842,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .co-card-tag {
   font-size: var(--fs-2xs);
   font-weight: 700;
-  letter-spacing: .08em;
+  letter-spacing: 0.08em;
   color: var(--text-muted);
 }
 
@@ -2945,7 +3010,9 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   font-size: var(--fs-xl);
   font-weight: 700;
   flex-shrink: 0;
-  transition: background var(--t-fast), transform var(--t-fast);
+  transition:
+    background var(--t-fast),
+    transform var(--t-fast);
 }
 
 .co-composer button:hover {
@@ -2965,7 +3032,12 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   right: 0;
   bottom: 0;
   height: var(--nav-ring-clearance);
-  background: linear-gradient(to top, var(--c-bg-deep) 28%, rgba(7, 7, 7, .92) 56%, rgba(7, 7, 7, 0));
+  background: linear-gradient(
+    to top,
+    var(--c-bg-deep) 28%,
+    rgba(7, 7, 7, 0.92) 56%,
+    rgba(7, 7, 7, 0)
+  );
   pointer-events: none;
   z-index: var(--z-nav-fade);
 }
@@ -2989,7 +3061,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   width: 62px;
   height: 62px;
   border-radius: var(--r-full);
-  background: rgba(10, 10, 10, .55);
+  background: rgba(10, 10, 10, 0.55);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border: 2px solid var(--fg-92);
@@ -3021,7 +3093,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 @keyframes knob-icon-in {
   from {
     opacity: 0;
-    transform: scale(.7);
+    transform: scale(0.7);
   }
 }
 
@@ -3034,10 +3106,12 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--text-muted);
   font-size: var(--fs-sm);
   font-weight: 600;
-  letter-spacing: .1em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   white-space: nowrap;
-  transition: color var(--t-fast), opacity var(--t-fast);
+  transition:
+    color var(--t-fast),
+    opacity var(--t-fast);
 }
 
 /* „Itt vagy" — mobilon eddig SEMMI nem mutatta az aktív oldalt: az
@@ -3051,14 +3125,30 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .nl.is-current::after {
-  content: " ·";
+  content: ' ·';
   color: var(--c-ok);
 }
 
-.nl--up { top: 0; left: 50%; transform: translate(-50%, 0); }
-.nl--dn { bottom: 0; left: 50%; transform: translate(-50%, 0); }
-.nl--lt { left: 0; top: 50%; transform: translate(0, -50%); }
-.nl--rt { right: 0; top: 50%; transform: translate(0, -50%); }
+.nl--up {
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, 0);
+}
+.nl--dn {
+  bottom: 0;
+  left: 50%;
+  transform: translate(-50%, 0);
+}
+.nl--lt {
+  left: 0;
+  top: 50%;
+  transform: translate(0, -50%);
+}
+.nl--rt {
+  right: 0;
+  top: 50%;
+  transform: translate(0, -50%);
+}
 
 /* A hint-sor egyben az aktuális oldal neve is: „Áttekintés · húzd bármelyik
    irányba". A négy iránycímke csak a szomszédokat mutatja, az Áttekintés és a
@@ -3073,7 +3163,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   margin: 0;
   color: var(--text-muted); /* --fg-35 volt: 3,2:1 — a lap legrosszabb kontrasztja */
   font-size: var(--fs-xs);
-  letter-spacing: .08em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   white-space: nowrap;
   pointer-events: none;
@@ -3160,13 +3250,15 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 @keyframes fade-in {
-  from { opacity: 0; }
+  from {
+    opacity: 0;
+  }
 }
 
 @keyframes modal-in {
   from {
     opacity: 0;
-    transform: translateY(6px) scale(.98);
+    transform: translateY(6px) scale(0.98);
   }
 }
 
@@ -3299,7 +3391,10 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   padding: var(--sp-4) var(--sp-7);
   font-size: var(--fs-md);
   font-weight: 700;
-  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+  transition:
+    background var(--t-fast),
+    color var(--t-fast),
+    border-color var(--t-fast);
 }
 
 .confirm-cancel {
@@ -3339,7 +3434,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   width: min(92vw, 360px);
   pointer-events: none;
 }
-
 
 .toast {
   background: var(--c-bg-raised);
@@ -3475,11 +3569,10 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
     left: var(--sp-5);
   }
 
-
   .side-nav-brand {
     font-size: var(--fs-2xl);
     font-weight: 800;
-    letter-spacing: .04em;
+    letter-spacing: 0.04em;
     margin-bottom: var(--sp-14);
   }
 
@@ -3500,8 +3593,10 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
     text-decoration: none;
     font-size: var(--fs-base);
     font-weight: 600;
-    letter-spacing: .02em;
-    transition: background var(--t-fast), color var(--t-fast);
+    letter-spacing: 0.02em;
+    transition:
+      background var(--t-fast),
+      color var(--t-fast);
   }
 
   .side-nav-link:hover {
@@ -3510,7 +3605,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   }
 
   /* Az aktív oldal erősebb hátteret kap, hogy hover mellett is megkülönböztethető legyen */
-  .side-nav-link[aria-current="page"] {
+  .side-nav-link[aria-current='page'] {
     background: var(--surface-strong);
     color: var(--text-primary);
   }
@@ -3592,29 +3687,35 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
        minden oldalmegjelenéskor „beúsznak” ---- */
 .chart-bars span {
   transform-origin: bottom;
-  animation: bar-in .45s ease backwards;
+  animation: bar-in 0.45s ease backwards;
   animation-delay: calc(var(--i, 0) * 22ms); /* --i-t a script.js állítja be */
 }
 
 @keyframes bar-in {
-  from { transform: scaleY(0); }
+  from {
+    transform: scaleY(0);
+  }
 }
 
 .db-ring-fg {
-  animation: ring-fill 1.1s ease .1s backwards;
+  animation: ring-fill 1.1s ease 0.1s backwards;
 }
 
 @keyframes ring-fill {
-  from { stroke-dashoffset: 264; } /* üres gyűrűből tölt fel a készenléti értékre */
+  from {
+    stroke-dashoffset: 264;
+  } /* üres gyűrűből tölt fel a készenléti értékre */
 }
 
 .pl-progress-fill {
   transform-origin: left;
-  animation: grow-x .7s ease .15s backwards;
+  animation: grow-x 0.7s ease 0.15s backwards;
 }
 
 @keyframes grow-x {
-  from { transform: scaleX(0); }
+  from {
+    transform: scaleX(0);
+  }
 }
 
 /* ---- Kártya-hoverek (csak hoverképes eszközön, hogy touch-on ne ragadjon be) ---- */
@@ -3622,7 +3723,9 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   .wk-exercise,
   .nu-food,
   .pl-card {
-    transition: border-color var(--t-fast), transform var(--t-fast);
+    transition:
+      border-color var(--t-fast),
+      transform var(--t-fast);
   }
 
   .wk-exercise:hover,
@@ -3703,7 +3806,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   background: var(--surface-soft);
   font-size: var(--fs-sm);
   line-height: 1.4;
-  animation: note-in .25s ease backwards;
+  animation: note-in 0.25s ease backwards;
   animation-delay: calc(var(--i, 0) * 30ms);
 }
 
@@ -3732,16 +3835,18 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .db-badge.is-pop {
-  animation: badge-pop .3s ease;
+  animation: badge-pop 0.3s ease;
 }
 
 @keyframes badge-pop {
-  50% { transform: scale(1.3); }
+  50% {
+    transform: scale(1.3);
+  }
 }
 
 /* ---- Edzői chat: saját üzenet, beúszás, „gépel…" jelző ---- */
 .co-note {
-  animation: note-in .25s ease backwards;
+  animation: note-in 0.25s ease backwards;
 }
 
 @keyframes note-in {
@@ -3788,32 +3893,34 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   transition: background var(--t-fast);
 }
 
-.wk-autosave-note[data-state="saving"] .wk-autosave-dot {
+.wk-autosave-note[data-state='saving'] .wk-autosave-dot {
   background: var(--fg-60);
   animation: autosave-pulse 1s ease-in-out infinite;
 }
 
-.wk-autosave-note[data-state="saved"] {
+.wk-autosave-note[data-state='saved'] {
   color: var(--text-secondary);
 }
 
-.wk-autosave-note[data-state="saved"] .wk-autosave-dot {
+.wk-autosave-note[data-state='saved'] .wk-autosave-dot {
   background: var(--c-ok);
 }
 
 /* A hiba nem maradhat halvány szürke: ez az egyetlen jelzés arról, hogy a
    napló NINCS elmentve. */
-.wk-autosave-note[data-state="error"] {
+.wk-autosave-note[data-state='error'] {
   color: var(--c-alert);
   font-weight: 600;
 }
 
-.wk-autosave-note[data-state="error"] .wk-autosave-dot {
+.wk-autosave-note[data-state='error'] .wk-autosave-dot {
   background: var(--c-alert);
 }
 
 @keyframes autosave-pulse {
-  50% { opacity: .35; }
+  50% {
+    opacity: 0.35;
+  }
 }
 
 .wk-title.has-error {
@@ -3822,7 +3929,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 
 /* ---- Toast változatok ---- */
 .toast--error {
-  border-color: rgba(224, 67, 90, .55); /* --c-alert, 55% átlátszósággal */
+  border-color: rgba(224, 67, 90, 0.55); /* --c-alert, 55% átlátszósággal */
 }
 
 /* ---- Modal finom zárás ---- */
@@ -3845,7 +3952,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .custom-food-modal.is-closing .custom-food-modal-card,
 .scanner-modal.is-closing .scanner-modal-card,
 .pr-modal.is-closing .pr-modal-card {
-  animation: modal-out .18s ease both;
+  animation: modal-out 0.18s ease both;
 }
 
 .video-modal.is-closing .video-modal-backdrop,
@@ -3856,18 +3963,20 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .custom-food-modal.is-closing .custom-food-modal-backdrop,
 .scanner-modal.is-closing .scanner-modal-backdrop,
 .pr-modal.is-closing .pr-modal-backdrop {
-  animation: fade-out .18s ease both;
+  animation: fade-out 0.18s ease both;
 }
 
 @keyframes modal-out {
   to {
     opacity: 0;
-    transform: translateY(6px) scale(.98);
+    transform: translateY(6px) scale(0.98);
   }
 }
 
 @keyframes fade-out {
-  to { opacity: 0; }
+  to {
+    opacity: 0;
+  }
 }
 
 /* ==========================================================================
@@ -3931,7 +4040,9 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   padding: var(--sp-3) var(--sp-5);
   color: var(--text-primary);
   font-size: var(--fs-input);
-  transition: background var(--t-fast), border-color var(--t-fast);
+  transition:
+    background var(--t-fast),
+    border-color var(--t-fast);
 }
 
 .st-input:focus {
@@ -3984,7 +4095,9 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   border-radius: var(--r-3xl);
   border: 1px solid var(--border-strong);
   background: var(--surface-input);
-  transition: background var(--t-fast), border-color var(--t-fast);
+  transition:
+    background var(--t-fast),
+    border-color var(--t-fast);
 }
 
 .st-switch:hover {
@@ -3992,7 +4105,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .st-switch::before {
-  content: "";
+  content: '';
   position: absolute;
   top: 2px;
   left: 2px;
@@ -4000,15 +4113,17 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   height: 18px;
   border-radius: var(--r-full);
   background: var(--fg-60);
-  transition: transform var(--t-fast), background var(--t-fast);
+  transition:
+    transform var(--t-fast),
+    background var(--t-fast);
 }
 
-.st-switch[aria-checked="true"] {
+.st-switch[aria-checked='true'] {
   background: var(--fg-85);
   border-color: var(--fg-85);
 }
 
-.st-switch[aria-checked="true"]::before {
+.st-switch[aria-checked='true']::before {
   transform: translateX(18px);
   background: var(--c-ink);
 }
@@ -4022,7 +4137,9 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   padding: var(--sp-4);
   font-size: var(--fs-sm);
   font-weight: 600;
-  transition: border-color var(--t-fast), color var(--t-fast);
+  transition:
+    border-color var(--t-fast),
+    color var(--t-fast);
 }
 
 .st-export:hover {
@@ -4043,7 +4160,9 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   padding: var(--sp-4) var(--sp-9);
   font-size: var(--fs-md);
   font-weight: 700;
-  transition: background var(--t-fast), transform var(--t-fast);
+  transition:
+    background var(--t-fast),
+    transform var(--t-fast);
 }
 
 .st-save:hover {
@@ -4056,7 +4175,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 
 /* Kikapcsolt kategória az értesítés-panelen — szürkített megjelenés */
 .notif-item--muted {
-  opacity: .5;
+  opacity: 0.5;
 }
 
 .notif-item--muted .notif-dot {
@@ -4135,7 +4254,9 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   font-weight: 600;
   padding: var(--sp-2) var(--sp-5);
   border-radius: var(--r-sm);
-  transition: background var(--t-fast), color var(--t-fast);
+  transition:
+    background var(--t-fast),
+    color var(--t-fast);
 }
 
 .wk-toggle-btn:hover,
@@ -4143,8 +4264,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--text-secondary);
 }
 
-.wk-toggle-btn[aria-pressed="true"],
-.co-toggle-btn[aria-pressed="true"] {
+.wk-toggle-btn[aria-pressed='true'],
+.co-toggle-btn[aria-pressed='true'] {
   background: var(--c-paper);
   color: var(--c-ink);
 }
@@ -4197,7 +4318,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   border-radius: var(--r-md);
   cursor: pointer;
   transition: background var(--t-fast);
-  animation: note-in .25s ease backwards;
+  animation: note-in 0.25s ease backwards;
   animation-delay: calc(var(--i, 0) * 30ms);
 }
 
@@ -4259,7 +4380,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   padding: var(--sp-3) var(--sp-4);
   background: var(--surface-soft);
   border-radius: var(--r-md);
-  animation: note-in .25s ease backwards;
+  animation: note-in 0.25s ease backwards;
   animation-delay: calc(var(--i, 0) * 30ms);
 }
 
@@ -4302,7 +4423,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .co-modal-tag {
   font-size: var(--fs-2xs);
   font-weight: 700;
-  letter-spacing: .06em;
+  letter-spacing: 0.06em;
   color: var(--text-muted);
 }
 
@@ -4321,7 +4442,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   font-size: var(--fs-sm);
   line-height: 1.5;
   color: var(--fg-75);
-  background: rgba(224, 67, 90, .09); /* --c-alert, halványítva */
+  background: rgba(224, 67, 90, 0.09); /* --c-alert, halványítva */
   border-left: 2px solid var(--c-alert);
   border-radius: 0 var(--r-md) var(--r-md) 0;
   padding: var(--sp-4) var(--sp-5);
@@ -4388,7 +4509,10 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   padding: var(--sp-3) var(--sp-4);
   font-size: var(--fs-md);
   font-weight: 600;
-  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+  transition:
+    background var(--t-fast),
+    color var(--t-fast),
+    border-color var(--t-fast);
 }
 
 .pb-day:hover {
@@ -4396,7 +4520,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--text-secondary);
 }
 
-.pb-day[aria-pressed="true"] {
+.pb-day[aria-pressed='true'] {
   background: var(--c-paper);
   border-color: var(--c-paper);
   color: var(--c-ink);
@@ -4443,7 +4567,9 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--text-secondary);
   font-size: var(--fs-2xl);
   line-height: 1;
-  transition: border-color var(--t-fast), color var(--t-fast);
+  transition:
+    border-color var(--t-fast),
+    color var(--t-fast);
 }
 
 .ep-back:hover,
@@ -4456,7 +4582,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   margin: 0;
   font-size: var(--fs-4xl);
   font-weight: 700;
-  letter-spacing: -.01em;
+  letter-spacing: -0.01em;
 }
 
 .ep-subtitle {
@@ -4484,7 +4610,10 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   font-size: var(--fs-md);
   font-weight: 600;
   white-space: nowrap;
-  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+  transition:
+    background var(--t-fast),
+    color var(--t-fast),
+    border-color var(--t-fast);
 }
 
 .ep-chip:hover {
@@ -4492,7 +4621,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--text-secondary);
 }
 
-.ep-chip[aria-pressed="true"] {
+.ep-chip[aria-pressed='true'] {
   background: var(--c-paper);
   border-color: var(--c-paper);
   color: var(--c-ink);
@@ -4501,7 +4630,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .ep-count {
   font-size: var(--fs-2xs);
   font-weight: 700;
-  letter-spacing: .12em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-muted);
   margin: 0 0 var(--sp-5);
@@ -4568,7 +4697,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--fg-60);
   font-size: var(--fs-2xs);
   font-weight: 700;
-  letter-spacing: .05em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
   padding: 3px 7px;
   border-radius: var(--r-xs);
@@ -4585,14 +4714,17 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--text-secondary);
   font-size: var(--fs-xl);
   line-height: 1;
-  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+  transition:
+    background var(--t-fast),
+    color var(--t-fast),
+    border-color var(--t-fast);
 }
 
 .ep-item-toggle:hover {
   border-color: var(--fg-40);
 }
 
-.ep-item-toggle[aria-pressed="true"] {
+.ep-item-toggle[aria-pressed='true'] {
   background: var(--c-paper);
   border-color: var(--c-paper);
   color: var(--c-ink);
@@ -4619,7 +4751,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 
 .co-modal-stat dt {
   font-size: var(--fs-2xs);
-  letter-spacing: .02em;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
   color: var(--text-muted);
   margin-bottom: 2px;
@@ -4660,7 +4792,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   background: var(--surface-soft);
   border-radius: var(--r-md);
   padding: var(--sp-3) var(--sp-4);
-  animation: note-in .25s ease backwards;
+  animation: note-in 0.25s ease backwards;
   animation-delay: calc(var(--i, 0) * 30ms);
 }
 
@@ -4681,7 +4813,10 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   padding: var(--sp-4) var(--sp-5);
   font-size: var(--fs-md);
   font-weight: 700;
-  transition: background var(--t-fast), color var(--t-fast), transform var(--t-fast);
+  transition:
+    background var(--t-fast),
+    color var(--t-fast),
+    transform var(--t-fast);
 }
 
 .co-action:hover {
@@ -4908,7 +5043,10 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--text-secondary);
   font-size: var(--fs-sm);
   font-weight: 600;
-  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+  transition:
+    background var(--t-fast),
+    color var(--t-fast),
+    border-color var(--t-fast);
 }
 
 .co-invite-btn:hover {
@@ -4943,7 +5081,9 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   padding: var(--sp-3) var(--sp-5);
   color: var(--text-primary);
   font-size: var(--fs-input);
-  transition: background var(--t-fast), border-color var(--t-fast);
+  transition:
+    background var(--t-fast),
+    border-color var(--t-fast);
 }
 
 .co-invite-form input:focus {
@@ -4981,7 +5121,9 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--text-muted);
   font-size: var(--fs-xs);
   font-weight: 600;
-  transition: color var(--t-fast), border-color var(--t-fast);
+  transition:
+    color var(--t-fast),
+    border-color var(--t-fast);
 }
 
 .co-unlink:hover {
@@ -5029,7 +5171,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--text-faint);
 }
 
-.co-assign-form button[type="submit"] {
+.co-assign-form button[type='submit'] {
   margin-top: var(--sp-2);
 }
 
@@ -5052,7 +5194,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   margin: var(--sp-2) 0;
   font-size: var(--fs-2xs);
   font-weight: 700;
-  letter-spacing: .04em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--c-accent);
 }
@@ -5063,7 +5205,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   flex: 1;
   height: 1px;
   background: var(--c-accent);
-  opacity: .35;
+  opacity: 0.35;
 }
 
 /* Az olvasatlan BEÉRKEZŐ üzenet bal oldali sávot kap. A jelölés így nem
@@ -5099,7 +5241,9 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   font-size: var(--fs-base);
   font-weight: 700;
   margin: calc(-1 * var(--sp-6)) 0 var(--sp-12);
-  transition: background var(--t-fast), transform var(--t-fast);
+  transition:
+    background var(--t-fast),
+    transform var(--t-fast);
 }
 
 .wk-finish:hover {
@@ -5182,7 +5326,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   border-radius: var(--r-2xl);
   padding: var(--sp-8) var(--sp-5);
   min-width: 0;
-  animation: note-in .3s ease backwards;
+  animation: note-in 0.3s ease backwards;
   animation-delay: calc(var(--i, 0) * 70ms);
 }
 
@@ -5194,7 +5338,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .su-stat-unit {
-  font-size: .42em;
+  font-size: 0.42em;
   font-weight: 700;
   color: var(--text-muted);
   margin-left: 2px;
@@ -5225,7 +5369,9 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   padding: var(--sp-7) var(--sp-8);
   font-size: var(--fs-lg);
   font-weight: 600;
-  transition: background var(--t-fast), transform var(--t-fast);
+  transition:
+    background var(--t-fast),
+    transform var(--t-fast);
 }
 
 .su-cta:hover {
@@ -5252,7 +5398,9 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   text-decoration: none;
   border-bottom: 1px solid var(--fg-25);
   padding-bottom: 1px;
-  transition: color var(--t-fast), border-color var(--t-fast);
+  transition:
+    color var(--t-fast),
+    border-color var(--t-fast);
 }
 
 .su-back:hover {
@@ -5352,9 +5500,15 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 /* A gyűrű színe az állapotot követi — a .db-ring-fg stroke-ját írjuk felül */
-.rc-ring[data-tone="ok"] .db-ring-fg { stroke: var(--c-ok); }
-.rc-ring[data-tone="warn"] .db-ring-fg { stroke: var(--fg-60); }
-.rc-ring[data-tone="bad"] .db-ring-fg { stroke: var(--c-alert); }
+.rc-ring[data-tone='ok'] .db-ring-fg {
+  stroke: var(--c-ok);
+}
+.rc-ring[data-tone='warn'] .db-ring-fg {
+  stroke: var(--fg-60);
+}
+.rc-ring[data-tone='bad'] .db-ring-fg {
+  stroke: var(--c-alert);
+}
 
 /* ---- Megbízhatóság-sáv ---- */
 
@@ -5374,7 +5528,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   flex-shrink: 0;
   font-size: var(--fs-2xs);
   font-weight: 700;
-  letter-spacing: .04em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   padding: 3px var(--sp-3);
   border-radius: var(--r-full);
@@ -5382,13 +5536,13 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--text-secondary);
 }
 
-.rc-confidence-badge[data-level="high"] {
-  background: rgba(74, 210, 149, .18); /* --c-ok, halványítva */
+.rc-confidence-badge[data-level='high'] {
+  background: rgba(74, 210, 149, 0.18); /* --c-ok, halványítva */
   color: var(--c-ok);
 }
 
-.rc-confidence-badge[data-level="low"] {
-  background: rgba(224, 67, 90, .16); /* --c-alert, halványítva */
+.rc-confidence-badge[data-level='low'] {
+  background: rgba(224, 67, 90, 0.16); /* --c-alert, halványítva */
   color: var(--c-alert);
 }
 
@@ -5406,7 +5560,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   padding: var(--sp-3) var(--sp-5);
   border-radius: var(--r-lg);
   border-left: 3px solid var(--c-alert);
-  background: rgba(224, 67, 90, .1); /* --c-alert, halványítva */
+  background: rgba(224, 67, 90, 0.1); /* --c-alert, halványítva */
   color: var(--text-secondary);
 }
 
@@ -5457,7 +5611,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--text-faint);
 }
 
-.rc-checkin-state[data-filled="true"] {
+.rc-checkin-state[data-filled='true'] {
   color: var(--c-ok);
 }
 
@@ -5528,7 +5682,10 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
-  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+  transition:
+    background var(--t-fast),
+    color var(--t-fast),
+    border-color var(--t-fast);
 }
 
 .rc-chip:hover {
@@ -5536,7 +5693,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--text-primary);
 }
 
-.rc-chip[aria-pressed="true"] {
+.rc-chip[aria-pressed='true'] {
   background: var(--c-paper);
   border-color: var(--c-paper);
   color: var(--c-ink);
@@ -5584,7 +5741,9 @@ details[open] > .rc-details-summary::before {
   font-size: var(--fs-sm);
   font-weight: 700;
   cursor: pointer;
-  transition: background var(--t-fast), opacity var(--t-fast);
+  transition:
+    background var(--t-fast),
+    opacity var(--t-fast);
 }
 
 .rc-save:hover {
@@ -5592,7 +5751,7 @@ details[open] > .rc-details-summary::before {
 }
 
 .rc-save:disabled {
-  opacity: .55;
+  opacity: 0.55;
   cursor: default;
 }
 
@@ -5603,9 +5762,15 @@ details[open] > .rc-details-summary::before {
   width: 100%;
 }
 
-.rc-bar[data-tone="ok"] .pl-progress-fill { background: var(--c-ok); }
-.rc-bar[data-tone="warn"] .pl-progress-fill { background: var(--fg-60); }
-.rc-bar[data-tone="bad"] .pl-progress-fill { background: var(--c-alert); }
+.rc-bar[data-tone='ok'] .pl-progress-fill {
+  background: var(--c-ok);
+}
+.rc-bar[data-tone='warn'] .pl-progress-fill {
+  background: var(--fg-60);
+}
+.rc-bar[data-tone='bad'] .pl-progress-fill {
+  background: var(--c-alert);
+}
 
 .rc-components,
 .rc-muscles {
@@ -5662,7 +5827,7 @@ details[open] > .rc-details-summary::before {
 /* A ki nem számolható komponens halványabb — látszik, hogy hiányzik, de nem
    tesz úgy, mintha nulla lenne. */
 .rc-component--absent {
-  opacity: .5;
+  opacity: 0.5;
 }
 
 /* ---- CNS ---- */
@@ -5696,7 +5861,7 @@ details[open] > .rc-details-summary::before {
 }
 
 .rc-unit {
-  font-size: .5em;
+  font-size: 0.5em;
   font-weight: 700;
   margin-left: 2px;
   color: var(--text-muted);
@@ -5720,11 +5885,17 @@ details[open] > .rc-details-summary::before {
   border-left: 3px solid var(--fg-25);
 }
 
-.rc-lift[data-verdict="pr"],
-.rc-lift[data-verdict="strong"] { border-left-color: var(--c-ok); }
-.rc-lift[data-verdict="reduce"] { border-left-color: var(--fg-60); }
-.rc-lift[data-verdict="skip"],
-.rc-lift[data-verdict="avoid"] { border-left-color: var(--c-alert); }
+.rc-lift[data-verdict='pr'],
+.rc-lift[data-verdict='strong'] {
+  border-left-color: var(--c-ok);
+}
+.rc-lift[data-verdict='reduce'] {
+  border-left-color: var(--fg-60);
+}
+.rc-lift[data-verdict='skip'],
+.rc-lift[data-verdict='avoid'] {
+  border-left-color: var(--c-alert);
+}
 
 .rc-lift-head {
   display: flex;
@@ -5744,8 +5915,12 @@ details[open] > .rc-details-summary::before {
   font-variant-numeric: tabular-nums;
 }
 
-.rc-lift-score[data-tone="ok"] { color: var(--c-ok); }
-.rc-lift-score[data-tone="bad"] { color: var(--c-alert); }
+.rc-lift-score[data-tone='ok'] {
+  color: var(--c-ok);
+}
+.rc-lift-score[data-tone='bad'] {
+  color: var(--c-alert);
+}
 
 .rc-lift-text {
   font-size: var(--fs-sm);
@@ -5825,7 +6000,7 @@ details[open] > .rc-details-summary::before {
   color: var(--text-secondary);
   font-size: var(--fs-2xs);
   font-weight: 700;
-  letter-spacing: .03em;
+  letter-spacing: 0.03em;
   text-transform: uppercase;
   padding: 3px var(--sp-3);
   border-radius: var(--r-xs);
@@ -5848,9 +6023,7 @@ details[open] > .rc-details-summary::before {
      a makró-oszlop (és az elválasztó vonala) nyúlik hozzá. */
   align-self: start;
   border-radius: var(--r-3xl);
-  background:
-    radial-gradient(at 30% 20%, var(--fg-10), transparent 60%),
-    var(--surface-card);
+  background: radial-gradient(at 30% 20%, var(--fg-10), transparent 60%), var(--surface-card);
   border: 1px solid var(--border-card);
   display: grid;
   place-items: center;
@@ -5884,7 +6057,7 @@ details[open] > .rc-details-summary::before {
 }
 
 .fd-macro-unit {
-  font-size: .5em;
+  font-size: 0.5em;
   font-weight: 600;
   color: var(--text-muted);
   margin-left: 3px;
@@ -5901,7 +6074,7 @@ details[open] > .rc-details-summary::before {
   margin: 0;
   font-size: var(--fs-xs);
   color: var(--text-faint);
-  letter-spacing: .03em;
+  letter-spacing: 0.03em;
 }
 
 /* ---- Napi cél ---- */
@@ -5966,7 +6139,7 @@ details[open] > .rc-details-summary::before {
 .fd-section-label {
   display: block;
   font-size: var(--fs-2xs);
-  letter-spacing: .09em;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--text-faint);
   margin-bottom: var(--sp-5);
@@ -5990,7 +6163,10 @@ details[open] > .rc-details-summary::before {
   font-size: var(--fs-xs);
   font-weight: 600;
   padding: var(--sp-2) var(--sp-6);
-  transition: background var(--t-fast), color var(--t-fast), border-color var(--t-fast);
+  transition:
+    background var(--t-fast),
+    color var(--t-fast),
+    border-color var(--t-fast);
 }
 
 .fd-chip:hover {
@@ -5998,7 +6174,7 @@ details[open] > .rc-details-summary::before {
   color: var(--text-primary);
 }
 
-.fd-chip[aria-pressed="true"] {
+.fd-chip[aria-pressed='true'] {
   background: var(--c-paper);
   border-color: var(--c-paper);
   color: var(--c-ink);
@@ -6062,8 +6238,7 @@ details[open] > .rc-details-summary::before {
   bottom: 0;
   margin: 0 calc(var(--sp-10) * -1); /* a kártya belső térközén túlnyúlva teljes szélességű */
   padding: var(--sp-6) var(--sp-10) var(--sp-10);
-  background:
-    linear-gradient(to top, var(--c-bg-raised) 70%, transparent);
+  background: linear-gradient(to top, var(--c-bg-raised) 70%, transparent);
 }
 
 .fd-bar-inner {
@@ -6088,7 +6263,7 @@ details[open] > .rc-details-summary::before {
 }
 
 .fd-add:hover {
-  opacity: .6;
+  opacity: 0.6;
 }
 
 .fd-go {
@@ -6096,7 +6271,7 @@ details[open] > .rc-details-summary::before {
   height: 42px;
   flex: 0 0 auto;
   border-radius: var(--r-full);
-  border: 1.5px solid rgba(17, 17, 17, .55);
+  border: 1.5px solid rgba(17, 17, 17, 0.55);
   background: none;
   color: var(--c-ink);
   font-size: var(--fs-2xl);
@@ -6106,7 +6281,7 @@ details[open] > .rc-details-summary::before {
 }
 
 .fd-go:hover {
-  background: rgba(17, 17, 17, .08);
+  background: rgba(17, 17, 17, 0.08);
 }
 
 /* ---- Görgethető gramm-választó ----
@@ -6138,7 +6313,7 @@ details[open] > .rc-details-summary::before {
 }
 
 .fd-picker:focus-visible {
-  outline: 2px solid rgba(17, 17, 17, .6);
+  outline: 2px solid rgba(17, 17, 17, 0.6);
   outline-offset: 2px;
   border-radius: var(--r-sm);
 }
@@ -6150,8 +6325,10 @@ details[open] > .rc-details-summary::before {
   text-align: center;
   font-size: var(--fs-xs);
   font-weight: 500;
-  color: rgba(17, 17, 17, .32);
-  transition: color var(--t-fast), font-size var(--t-fast);
+  color: rgba(17, 17, 17, 0.32);
+  transition:
+    color var(--t-fast),
+    font-size var(--t-fast);
 }
 
 .fd-picker-option.is-selected {
@@ -6167,7 +6344,7 @@ details[open] > .rc-details-summary::before {
   top: 50%;
   transform: translateY(-50%);
   height: 26px;
-  border: 1.5px solid rgba(17, 17, 17, .45);
+  border: 1.5px solid rgba(17, 17, 17, 0.45);
   border-radius: var(--r-xs);
   pointer-events: none;
 }
@@ -6209,7 +6386,6 @@ details[open] > .rc-details-summary::before {
   --ci-fs-display: clamp(30px, 9vw, 36px);
   --ci-fs-number: clamp(44px, 13vw, 56px);
 }
-
 
 /* Célkitűzés a sportoló-modálban. A mezők a Táplálkozás oldal
    .nu-goal-field primitívjét használják — egy űrlap-recept, két helyen. */
@@ -6294,7 +6470,10 @@ details[open] > .rc-details-summary::before {
   cursor: pointer;
 }
 
-.rc-body-save:disabled { opacity: .5; cursor: default; }
+.rc-body-save:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
 
 .rc-body-list {
   display: flex;
@@ -6311,8 +6490,13 @@ details[open] > .rc-details-summary::before {
   font-size: var(--fs-2xs);
 }
 
-.rc-body-row-label { flex: 1 1 auto; min-width: 0; }
-.rc-body-row-value { font-weight: 600; }
+.rc-body-row-label {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.rc-body-row-value {
+  font-weight: 600;
+}
 
 .rc-body-row-delta {
   color: var(--text-muted);
@@ -6329,7 +6513,9 @@ details[open] > .rc-details-summary::before {
   border-radius: var(--r-md);
 }
 
-.rc-body-del:hover { color: var(--c-alert); }
+.rc-body-del:hover {
+  color: var(--c-alert);
+}
 
 /* A napló-adag beépített szerkesztője (a ház nem használ natív ablakot). */
 .nu-log-grams {
@@ -6392,7 +6578,9 @@ details[open] > .rc-details-summary::before {
   border-radius: var(--r-md);
 }
 
-.rc-weight-del:hover { color: var(--c-alert); }
+.rc-weight-del:hover {
+  color: var(--c-alert);
+}
 
 /* Terv törlése és naplóadag-javítás — a meglévő ikongombok testvérei. */
 .pl-card-delete,
@@ -6407,7 +6595,9 @@ details[open] > .rc-details-summary::before {
 }
 
 .pl-card-delete:hover,
-.nu-log-edit:hover { color: var(--c-accent); }
+.nu-log-edit:hover {
+  color: var(--c-accent);
+}
 
 /* ---- Erőfelmérés a profilon (pf-assess-*) ----
    A mezők a .nu-goal-field receptjét követik — egy űrlap-alak, több helyen. */
@@ -6443,7 +6633,9 @@ details[open] > .rc-details-summary::before {
   font-size: var(--fs-sm);
 }
 
-.pf-assess-item b { font-weight: 600; }
+.pf-assess-item b {
+  font-weight: 600;
+}
 
 .pf-assess-form {
   display: flex;
@@ -6460,7 +6652,9 @@ details[open] > .rc-details-summary::before {
   flex: 1 1 96px;
 }
 
-.pf-assess-field--wide { flex: 2 1 180px; }
+.pf-assess-field--wide {
+  flex: 2 1 180px;
+}
 
 .pf-assess-field label {
   font-size: var(--fs-2xs);
@@ -6495,7 +6689,10 @@ details[open] > .rc-details-summary::before {
   cursor: pointer;
 }
 
-.pf-assess-save:disabled { opacity: .5; cursor: default; }
+.pf-assess-save:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
 
 /* ---- Gyakorlat-megjegyzések (su-note-*, co-note-*) ---- */
 .co-note--plan {
@@ -6550,7 +6747,9 @@ details[open] > .rc-details-summary::before {
   font-size: var(--fs-sm);
 }
 
-.su-note-text::placeholder { color: var(--text-muted); }
+.su-note-text::placeholder {
+  color: var(--text-muted);
+}
 
 .su-note-select:focus-visible,
 .su-note-text:focus-visible {
@@ -6603,7 +6802,10 @@ details[open] > .rc-details-summary::before {
   color: var(--text-muted);
 }
 
-.co-note-body { font-size: var(--fs-sm); line-height: 1.5; }
+.co-note-body {
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
 
 .co-note-reply {
   display: flex;
@@ -6634,7 +6836,10 @@ details[open] > .rc-details-summary::before {
   cursor: pointer;
 }
 
-.co-note-reply button:disabled { opacity: .5; cursor: default; }
+.co-note-reply button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
 
 /* ---- Edzés utáni visszajelzés (su-feedback-*) + edzői megjelenítése ---- */
 .su-feedback {
@@ -6683,7 +6888,9 @@ details[open] > .rc-details-summary::before {
   font-size: var(--fs-sm);
 }
 
-.su-feedback-note::placeholder { color: var(--text-muted); }
+.su-feedback-note::placeholder {
+  color: var(--text-muted);
+}
 
 .su-feedback-note:focus-visible {
   outline: 2px solid var(--c-accent);
@@ -6703,9 +6910,14 @@ details[open] > .rc-details-summary::before {
   transition: opacity var(--t-base);
 }
 
-.su-feedback-send:hover { opacity: .9; }
+.su-feedback-send:hover {
+  opacity: 0.9;
+}
 
-.su-feedback-send:disabled { opacity: .5; cursor: default; }
+.su-feedback-send:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
 
 .su-feedback-done {
   font-size: var(--fs-sm);
@@ -6819,7 +7031,7 @@ details[open] > .rc-details-summary::before {
 }
 
 .nu-water-add:disabled {
-  opacity: .5;
+  opacity: 0.5;
   cursor: default;
 }
 
@@ -6851,7 +7063,9 @@ details[open] > .rc-details-summary::before {
   width: 0;
   border-radius: inherit;
   background: var(--fg-55);
-  transition: width var(--t-slow), background var(--t-base);
+  transition:
+    width var(--t-slow),
+    background var(--t-base);
 }
 
 /* A cél elérése az EGYETLEN hely, ahol a sáv akcentust kap — így a kiemelés
@@ -6964,7 +7178,10 @@ details[open] > .rc-details-summary::before {
   cursor: pointer;
 }
 
-.nu-goal-save:disabled { opacity: .5; cursor: default; }
+.nu-goal-save:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
 
 /* ---- Készenlét-javaslat (ad-*) + terv-kártya biztonsági jelzése ---- */
 .ad-list {
@@ -6993,7 +7210,7 @@ details[open] > .rc-details-summary::before {
   flex-shrink: 0;
   font-size: var(--fs-2xs);
   font-weight: 700;
-  letter-spacing: .04em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   padding: var(--sp-1) var(--sp-3);
   border-radius: var(--r-2xs);
@@ -7111,11 +7328,14 @@ body[data-onboarding] .app-page.ci-page {
    újra a belépő animáció. (Csökkentett mozgás mellett a 2. szakasz globális
    kapcsolója némítja.) */
 .ci-body[data-step] {
-  animation: ci-step-in .3s var(--ease-spring);
+  animation: ci-step-in 0.3s var(--ease-spring);
 }
 
 @keyframes ci-step-in {
-  from { opacity: 0; transform: translateY(12px); }
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
 }
 
 .ci-step {
@@ -7148,7 +7368,7 @@ body[data-onboarding] .app-page.ci-page {
   margin: 0;
   font-size: var(--fs-2xs);
   font-weight: 700;
-  letter-spacing: .12em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
@@ -7211,7 +7431,10 @@ body[data-onboarding] .app-page.ci-page {
   border-radius: var(--r-lg);
   font-size: var(--fs-xl);
   font-weight: 700;
-  transition: background var(--t-fast), transform var(--t-fast), opacity var(--t-fast);
+  transition:
+    background var(--t-fast),
+    transform var(--t-fast),
+    opacity var(--t-fast);
 }
 
 .ci-primary:hover {
@@ -7223,7 +7446,7 @@ body[data-onboarding] .app-page.ci-page {
 }
 
 .ci-primary:disabled {
-  opacity: .45;
+  opacity: 0.45;
   transform: none;
 }
 
@@ -7281,7 +7504,9 @@ body[data-onboarding] .app-page.ci-page {
   color: var(--fg-85);
   font-size: var(--fs-5xl);
   font-weight: 700;
-  transition: border-color var(--t-fast), background var(--t-fast);
+  transition:
+    border-color var(--t-fast),
+    background var(--t-fast);
 }
 
 .ci-round-btn:hover {
@@ -7313,7 +7538,7 @@ body[data-onboarding] .app-page.ci-page {
   margin: 0;
 }
 
-.ci-num-input[type="number"] {
+.ci-num-input[type='number'] {
   appearance: textfield;
 }
 
@@ -7326,7 +7551,7 @@ body[data-onboarding] .app-page.ci-page {
 
 .ci-num-unit {
   font-size: var(--fs-xs);
-  letter-spacing: .1em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
@@ -7348,14 +7573,17 @@ body[data-onboarding] .app-page.ci-page {
   font-size: var(--fs-base);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+  transition:
+    background var(--t-fast),
+    border-color var(--t-fast),
+    color var(--t-fast);
 }
 
 .ci-preset:hover {
   border-color: var(--fg-40);
 }
 
-.ci-preset[aria-pressed="true"] {
+.ci-preset[aria-pressed='true'] {
   background: var(--c-paper);
   border-color: var(--c-paper);
   color: var(--c-ink);
@@ -7381,14 +7609,17 @@ body[data-onboarding] .app-page.ci-page {
   font-size: var(--fs-4xl);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+  transition:
+    background var(--t-fast),
+    border-color var(--t-fast),
+    color var(--t-fast);
 }
 
 .ci-scale-btn:hover {
   border-color: var(--fg-40);
 }
 
-.ci-scale-btn[aria-pressed="true"] {
+.ci-scale-btn[aria-pressed='true'] {
   background: var(--c-paper);
   border-color: var(--c-paper);
   color: var(--c-ink);
@@ -7426,8 +7657,12 @@ body[data-onboarding] .app-page.ci-page {
   background: var(--surface-hover);
 }
 
-.ci-gate[data-tone="ok"]     { border: 1px solid var(--c-ok); }
-.ci-gate[data-tone="accent"] { border: 1px solid var(--c-accent); }
+.ci-gate[data-tone='ok'] {
+  border: 1px solid var(--c-ok);
+}
+.ci-gate[data-tone='accent'] {
+  border: 1px solid var(--c-accent);
+}
 
 .ci-gate-label {
   font-size: var(--fs-3xl);
@@ -7488,14 +7723,17 @@ body[data-onboarding] .app-page.ci-page {
   cursor: ns-resize;
   touch-action: none;
   user-select: none;
-  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+  transition:
+    background var(--t-fast),
+    border-color var(--t-fast),
+    color var(--t-fast);
 }
 
 .ci-region:hover {
   border-color: var(--fg-40);
 }
 
-.ci-region[aria-pressed="true"] {
+.ci-region[aria-pressed='true'] {
   background: var(--c-accent);
   border-color: var(--c-accent);
   color: var(--on-accent);
@@ -7530,7 +7768,7 @@ body[data-onboarding] .app-page.ci-page {
 
 /* A fájdalom-skála akcentussal jelöl, hogy vizuálisan is elváljon az
    izomláztól (más tartomány, más következmény). */
-.ci-chip--pain[aria-pressed="true"] {
+.ci-chip--pain[aria-pressed='true'] {
   background: var(--c-alert);
   border-color: var(--c-alert);
   color: var(--fg-100);
@@ -7540,7 +7778,7 @@ body[data-onboarding] .app-page.ci-page {
   flex: 0 0 auto;
   font-size: var(--fs-2xs);
   font-weight: 800;
-  letter-spacing: .08em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--c-alert);
 }
@@ -7575,7 +7813,7 @@ body[data-onboarding] .app-page.ci-page {
 .ci-readiness-label {
   font-size: var(--fs-xs);
   font-weight: 700;
-  letter-spacing: .1em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
@@ -7631,12 +7869,20 @@ body[data-onboarding] .app-page.ci-page {
 
 /* A készenlét tónusa ugyanaz a három sáv, mint a Regeneráció oldalon
    (readinessTone: 80 / 60). A középső sáv a semleges alapszínt tartja. */
-.ci-readiness[data-tone="ok"] .ci-readiness-verdict,
-.ci-readiness[data-tone="ok"] .ci-readiness-num   { color: var(--c-ok); }
-.ci-readiness[data-tone="ok"] .ci-readiness-fill  { background: var(--c-ok); }
-.ci-readiness[data-tone="bad"] .ci-readiness-verdict,
-.ci-readiness[data-tone="bad"] .ci-readiness-num  { color: var(--c-alert); }
-.ci-readiness[data-tone="bad"] .ci-readiness-fill { background: var(--c-alert); }
+.ci-readiness[data-tone='ok'] .ci-readiness-verdict,
+.ci-readiness[data-tone='ok'] .ci-readiness-num {
+  color: var(--c-ok);
+}
+.ci-readiness[data-tone='ok'] .ci-readiness-fill {
+  background: var(--c-ok);
+}
+.ci-readiness[data-tone='bad'] .ci-readiness-verdict,
+.ci-readiness[data-tone='bad'] .ci-readiness-num {
+  color: var(--c-alert);
+}
+.ci-readiness[data-tone='bad'] .ci-readiness-fill {
+  background: var(--c-alert);
+}
 
 .ci-summary {
   margin: var(--sp-7) 0 0;
@@ -7727,7 +7973,7 @@ body[data-onboarding] .app-page.ci-page {
 .au-brand {
   font-size: var(--fs-sm);
   font-weight: 800;
-  letter-spacing: .14em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--c-accent);
   margin-bottom: var(--sp-7);
@@ -7773,7 +8019,9 @@ body[data-onboarding] .app-page.ci-page {
   color: var(--text-primary);
   font-size: var(--fs-base);
   font-family: inherit;
-  transition: background var(--t-fast), border-color var(--t-fast);
+  transition:
+    background var(--t-fast),
+    border-color var(--t-fast);
 }
 
 .au-input:focus {
@@ -7792,7 +8040,7 @@ body[data-onboarding] .app-page.ci-page {
   margin: 0;
   padding: var(--sp-5) var(--sp-6);
   border-radius: var(--r-md);
-  background: rgba(224, 67, 90, .12);
+  background: rgba(224, 67, 90, 0.12);
   border: 1px solid var(--c-alert);
   color: var(--c-alert);
   font-size: var(--fs-md);
@@ -7811,12 +8059,22 @@ body[data-onboarding] .app-page.ci-page {
   font-weight: 800;
   font-family: inherit;
   cursor: pointer;
-  transition: background var(--t-fast), transform var(--t-fast), opacity var(--t-fast);
+  transition:
+    background var(--t-fast),
+    transform var(--t-fast),
+    opacity var(--t-fast);
 }
 
-.au-submit:hover:not(:disabled) { background: var(--c-paper-bright); }
-.au-submit:active:not(:disabled) { transform: translateY(1px); }
-.au-submit:disabled { opacity: .55; cursor: progress; }
+.au-submit:hover:not(:disabled) {
+  background: var(--c-paper-bright);
+}
+.au-submit:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.au-submit:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
 
 .au-switch {
   margin: var(--sp-11) 0 0;
@@ -7838,7 +8096,9 @@ body[data-onboarding] .app-page.ci-page {
   cursor: pointer;
 }
 
-.au-link:hover { color: var(--c-paper-bright); }
+.au-link:hover {
+  color: var(--c-paper-bright);
+}
 
 /* ---- Fiók-szakasz a beállításokban ---- */
 .st-account {
@@ -7861,7 +8121,9 @@ body[data-onboarding] .app-page.ci-page {
   transition: background var(--t-fast);
 }
 
-.st-logout:hover { background: rgba(224, 67, 90, .12); }
+.st-logout:hover {
+  background: rgba(224, 67, 90, 0.12);
+}
 
 /* ---- Fiók-műveletek: jelszóváltoztatás és fióktörlés ----
    Mindkettő külön nyíló űrlap: a jelenlegi jelszó is kell hozzájuk, és a
@@ -7877,7 +8139,9 @@ body[data-onboarding] .app-page.ci-page {
   color: var(--fg-70);
   font-size: var(--fs-sm);
   font-weight: 600;
-  transition: border-color var(--t-fast), color var(--t-fast);
+  transition:
+    border-color var(--t-fast),
+    color var(--t-fast);
 }
 
 .st-account-btn:hover {
@@ -8122,7 +8386,7 @@ body[data-onboarding] .app-page.ci-page {
 }
 
 .pf-action--danger:hover {
-  background: rgba(224, 67, 90, .12);
+  background: rgba(224, 67, 90, 0.12);
 }
 
 /* ==========================================================================
@@ -8156,7 +8420,9 @@ body[data-onboarding] .app-page.ci-page {
   min-width: 0;
 }
 
-.cf-field--narrow { width: 88px; }
+.cf-field--narrow {
+  width: 88px;
+}
 
 .cf-label {
   font-size: var(--fs-xs);
@@ -8166,7 +8432,7 @@ body[data-onboarding] .app-page.ci-page {
 
 .cf-optional {
   font-weight: 400;
-  opacity: .75;
+  opacity: 0.75;
 }
 
 /* Az input-formanyelvet a beállítások .st-input-jától örököljük — nem
@@ -8180,7 +8446,9 @@ body[data-onboarding] .app-page.ci-page {
   color: var(--text-primary);
   font-family: inherit;
   font-size: var(--fs-input);
-  transition: background var(--t-fast), border-color var(--t-fast);
+  transition:
+    background var(--t-fast),
+    border-color var(--t-fast);
 }
 
 .cf-input:focus {
@@ -8189,11 +8457,17 @@ body[data-onboarding] .app-page.ci-page {
   border-color: var(--fg-40);
 }
 
-.cf-input::placeholder { color: var(--text-muted); }
+.cf-input::placeholder {
+  color: var(--text-muted);
+}
 
-.cf-select { cursor: pointer; }
+.cf-select {
+  cursor: pointer;
+}
 
-.cf-num { font-variant-numeric: tabular-nums; }
+.cf-num {
+  font-variant-numeric: tabular-nums;
+}
 
 /* ---- Makró-blokk ---- */
 .cf-macros {
@@ -8219,7 +8493,9 @@ body[data-onboarding] .app-page.ci-page {
 /* Keskeny telefonon a három mező egymás alá kerül — összenyomva a „Szénhidrát"
    címke amúgy is olvashatatlan lenne. */
 @media (max-width: 400px) {
-  .cf-macro-grid { grid-template-columns: 1fr; }
+  .cf-macro-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ---- Kalória ---- */
@@ -8261,7 +8537,9 @@ body[data-onboarding] .app-page.ci-page {
   transition: background var(--t-fast);
 }
 
-.cf-kcal-reset:hover { background: var(--surface-hover); }
+.cf-kcal-reset:hover {
+  background: var(--surface-hover);
+}
 
 .cf-hint {
   margin: calc(var(--sp-3) * -1) 0 0;
@@ -8275,7 +8553,9 @@ body[data-onboarding] .app-page.ci-page {
   gap: var(--sp-4);
 }
 
-.cf-barcode .cf-input { flex: 1; }
+.cf-barcode .cf-input {
+  flex: 1;
+}
 
 .cf-scan {
   flex-shrink: 0;
@@ -8291,7 +8571,9 @@ body[data-onboarding] .app-page.ci-page {
   transition: background var(--t-fast);
 }
 
-.cf-scan:hover { background: var(--surface-hover); }
+.cf-scan:hover {
+  background: var(--surface-hover);
+}
 
 /* ---- Visszajelzések ---- */
 .cf-source {
@@ -8309,7 +8591,7 @@ body[data-onboarding] .app-page.ci-page {
   margin: 0;
   padding: var(--sp-5) var(--sp-6);
   border-radius: var(--r-md);
-  background: rgba(224, 67, 90, .12);
+  background: rgba(224, 67, 90, 0.12);
   border: 1px solid var(--c-alert);
   color: var(--c-alert);
   font-size: var(--fs-xs);
@@ -8333,7 +8615,9 @@ body[data-onboarding] .app-page.ci-page {
   font-size: var(--fs-sm);
   font-weight: 700;
   cursor: pointer;
-  transition: background var(--t-fast), filter var(--t-fast);
+  transition:
+    background var(--t-fast),
+    filter var(--t-fast);
 }
 
 .cf-cancel,
@@ -8344,7 +8628,9 @@ body[data-onboarding] .app-page.ci-page {
 }
 
 .cf-cancel:hover,
-.cf-save:hover { background: var(--surface-hover); }
+.cf-save:hover {
+  background: var(--surface-hover);
+}
 
 .cf-save-log {
   border: none;
@@ -8352,11 +8638,13 @@ body[data-onboarding] .app-page.ci-page {
   color: var(--on-accent);
 }
 
-.cf-save-log:hover { filter: brightness(1.08); }
+.cf-save-log:hover {
+  filter: brightness(1.08);
+}
 
 .cf-save:disabled,
 .cf-save-log:disabled {
-  opacity: .5;
+  opacity: 0.5;
   cursor: default;
   filter: none;
 }
@@ -8385,9 +8673,9 @@ body[data-onboarding] .app-page.ci-page {
 .sc-frame {
   position: absolute;
   inset: 28% 8%;
-  border: 2px solid rgba(255, 255, 255, .85);
+  border: 2px solid rgba(255, 255, 255, 0.85);
   border-radius: var(--r-md);
-  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, .35);
+  box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.35);
   pointer-events: none;
 }
 
@@ -8405,8 +8693,12 @@ body[data-onboarding] .app-page.ci-page {
 }
 
 @keyframes sc-scan {
-  from { top: 30%; }
-  to   { top: 70%; }
+  from {
+    top: 30%;
+  }
+  to {
+    top: 70%;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -8424,14 +8716,14 @@ body[data-onboarding] .app-page.ci-page {
   height: 38px;
   border: none;
   border-radius: var(--r-full);
-  background: rgba(0, 0, 0, .5);
+  background: rgba(0, 0, 0, 0.5);
   font-size: var(--fs-base);
   line-height: 1;
   cursor: pointer;
   transition: background var(--t-fast);
 }
 
-.sc-torch[aria-pressed="true"] {
+.sc-torch[aria-pressed='true'] {
   background: var(--c-accent);
   color: var(--on-accent);
 }
@@ -8443,9 +8735,13 @@ body[data-onboarding] .app-page.ci-page {
   text-align: center;
 }
 
-.sc-status:empty { display: none; }
+.sc-status:empty {
+  display: none;
+}
 
-.sc-error { margin-bottom: var(--sp-6); }
+.sc-error {
+  margin-bottom: var(--sp-6);
+}
 
 /* A kézi beírás mindig látszik: sima http-n a kamera nem is indul el, és a
    karcos csomagolást a legjobb dekóder sem olvassa le. */
@@ -8481,4 +8777,6 @@ body[data-onboarding] .app-page.ci-page {
   transition: filter var(--t-fast);
 }
 
-.sc-manual-go:hover { filter: brightness(1.08); }
+.sc-manual-go:hover {
+  filter: brightness(1.08);
+}
