@@ -21,14 +21,26 @@
 - **Lekerekítés:** minden sugár-token `0px`, kivéve `--r-full: 50%` (avatar, nav-korong, készenlét-gyűrű).
 - **Adatmigráció nincs.** A `server/fittrack.db` eldobható demóadat.
 - **Zöld kapu minden task végén:** `npm test` és `npm run lint`. Kiinduló állapot: **317 teszt, mind zöld.**
-- **Formázás — CSAK az érintett fájlokra.** A repó soha nem volt Prettier-tiszta
-  (`npm run format:check` a munka kezdete előtt is bukott: a `public/style.css`
-  és a `server/muscles.js` is), ezért a `format:check` **nem kapu**, és
-  `npm run format`-ot repó-szinten **tilos** futtatni: az több mint száz, a
-  feladathoz semmi közük fájlt írna át. Kizárólag a task által ténylegesen
-  módosított fájlokra: `npx prettier --write <fájl> [<fájl>…]`.
-  **Ez a megkötés felülírja az egyes taskok lépéseiben szereplő
-  `npm run format` / `npm run format:check` parancsokat.**
+- **Formázó NEM fut.** Se `npm run format`, se `npm run format:check`, se
+  `npx prettier` — semmilyen fájlra. **Ez felülírja az egyes taskok lépéseiben
+  szereplő összes formázó parancsot.**
+
+  Miért: a repó soha nem volt Prettier-tiszta, és nem egy-két fájlon nem az. A
+  `public/index.html` egyetlen formázása 4417 sornyi, a feladathoz nem tartozó
+  változást hozna; ugyanez igaz a `server/` moduljaira. A „formázd, amit
+  megérintettél" szabály tehát pont azt a szennyezést okozná, amit tiltani
+  akart. A repó Prettier-tisztaságának helyreállítása önálló munka, nem
+  ennek a dizájn-átültetésnek a mellékterméke.
+
+  A `public/style.css` a kivétel, és már megtörtént: az 1. task saját,
+  tartalmatlan commitban formázta (`01407c2`), mert tizenöt task írja, és
+  CSS-ben a szóköznek nincs jelentése. HTML-ben van — az `index.html`
+  formázása inline elemek között renderelést változtathat —, ezért az
+  **szándékosan nem** kap ilyen commitot.
+
+  Új kódot a **környező stílushoz** igazítva írj: ugyanaz a behúzás,
+  ugyanaz az idézőjel-használat, ugyanaz a sorhossz, mint a szomszéd
+  sorokban.
 - **Nem érintett fájl nem változhat.** Ha egy task diffje olyan fájlt is
   módosít, amit a task „Files" blokkja nem sorol fel, az hiba — akkor is, ha
   csak formázás.
