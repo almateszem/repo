@@ -1810,7 +1810,11 @@ Nézd át a listát. Ami a régi kártyás nyelvhez tartozott, töröld; ami ál
 grep -nE '#[0-9a-fA-F]{3,8}|rgba?\(' public/style.css | grep -v '^\s*[0-9]*:\s*--' | sed -n '1,60p'
 ```
 
-A `:root` blokkon kívül nem lehet szín-literál. Ami mégis van, cseréld tokenre.
+**Csak azokat a szabályokat nézd, amiket ez a terv írt vagy módosított.** A
+fájlban rengeteg *korábbi* nyers `rgba()` van a `:root`-on kívül (például a
+`.sc-frame` kerete és az `.au-error` háttere) — azok nem ennek a munkának a
+hatóköre, és nem szabad hozzájuk nyúlni. Ha egy általunk írt szabályban van
+szín-literál, azt cseréld tokenre.
 
 - [ ] **Step 3: Teljes kapu**
 
