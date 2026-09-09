@@ -947,10 +947,16 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Consumes: `BODY_HEAD`, `BODY_REGIONS`, `BODY_SILHOUETTE`, `BODY_VIEW_BOX` a `./paths.js`-ből. **Semmi mást** — a komponens nem importál sem a `checkin/`, sem a `render/` alól.
 - Produces:
   ```js
-  createBodyMap({ field, max, defaultValue, noun, values, muscleLabel,
+  createBodyMap({ max, defaultValue, noun, values, muscleLabel,
                   blockFrom = null, extraRows = [], onChange })
   // → { el: HTMLElement, refresh(): void }
   ```
+
+  > A Task 5 reviewe után az alábbi kódblokk három ponton módosult (fókusz
+  > visszaállítása a chip-sorok újraépítése után, az extra sorok értékének
+  > visszavonhatósága, és az Enter/Space kezelése a térkép-régiókon). A
+  > végleges változat a `public/js/ui/bodymap/index.js`-ben van; az itteni
+  > blokk a kiinduló állapotot rögzíti.
   - `values`: **élő objektum**, amit a komponens helyben módosít (`values[key] = 3`, `delete values[key]`). Ugyanaz a minta, mint a mai `ci.answers[field]`.
   - `muscleLabel(key) → string`: az izomcsoport magyar címkéje. **Paraméter, nem import** — így a komponens nem függ sem a varázslótól, sem a render-rétegtől; a hívók a meglévő `ciMuscleLabel`-t adják át.
   - `blockFrom`: ettől az értéktől jelenik meg a „letiltva" jelzés a soron. A fájdalom-térképnél `CI_PAIN_BLOCK`, izomláznál `null`. **Így a 7-es határ egyetlen helyen él** — a komponensben nincs saját másolata.
