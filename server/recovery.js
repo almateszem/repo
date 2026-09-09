@@ -448,7 +448,7 @@ function muscleReadiness({ byDay, checkin, hasHistory, hasAnyWorkout }) {
            érzet önmagában adja a pontszámot.
 
        Ez nem elméleti eset: terhelés-előzmény nélkül a régi keverés a
-       maximális, 5/5-ös izomlázat is csak 60%-ig engedte le. */
+       maximális izomlázat is csak 60%-ig engedte le. */
     const reportedSoreness = num(soreness[group]);
     const subjective = reportedSoreness === null
       ? null
