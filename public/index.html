@@ -933,13 +933,13 @@
                  „Részletes szerkesztés" blokkban van, egy második kattintás
                  ugyanannak a tartalomnak a megnyitásához fölösleges volt. -->
             <div class="rc-checkin-body">
-              <p class="rc-hint">Az izomcsoportonkénti izomláz (0 = semmi, 10 = nagyon erős) pontosítja
-                a csoportonkénti becslést. Amit kihagysz, annak a súlya újraoszlik.</p>
-              <div class="rc-muscle-inputs" data-list="checkin-soreness"></div>
+              <p class="rc-hint">Jelöld be az emberkén, hol van izomlázad (1 = alig érezhető,
+                10 = nagyon erős). Amit kihagysz, annak a súlya újraoszlik.</p>
+              <div data-map="checkin-soreness"></div>
 
-              <p class="rc-hint">Fájdalom vagy sérülés (0–10). A 7-es vagy nagyobb érték letiltja az
+              <p class="rc-hint">Fájdalom vagy sérülés (1–10). A 7-es vagy nagyobb érték letiltja az
                 érintett izomcsoportot terhelő gyakorlatokat.</p>
-              <div class="rc-pain-inputs" data-list="checkin-pain"></div>
+              <div data-map="checkin-pain"></div>
 
               <!-- A közérzet-skálát a frontend SZÚRJA BE közvetlenül e blokk
                    elé (setupRecovery) — az .rc-extra-fields osztály ezért nem
