@@ -20,7 +20,21 @@
 - **Halvány szövegek:** információt hordozó szöveg soha nem megy `--text-muted` (.50) alá. A prototípus `faint` szintje (rgba fehér .34) csak dekoratív elemre való (pl. a `%` jel egy nagy szám mellett).
 - **Lekerekítés:** minden sugár-token `0px`, kivéve `--r-full: 50%` (avatar, nav-korong, készenlét-gyűrű).
 - **Adatmigráció nincs.** A `server/fittrack.db` eldobható demóadat.
-- **Zöld kapu minden task végén:** `npm test`, `npm run lint`, `npm run format:check`. Kiinduló állapot: **317 teszt, mind zöld.**
+- **Zöld kapu minden task végén:** `npm test` és `npm run lint`. Kiinduló állapot: **317 teszt, mind zöld.**
+- **Formázás — CSAK az érintett fájlokra.** A repó soha nem volt Prettier-tiszta
+  (`npm run format:check` a munka kezdete előtt is bukott: a `public/style.css`
+  és a `server/muscles.js` is), ezért a `format:check` **nem kapu**, és
+  `npm run format`-ot repó-szinten **tilos** futtatni: az több mint száz, a
+  feladathoz semmi közük fájlt írna át. Kizárólag a task által ténylegesen
+  módosított fájlokra: `npx prettier --write <fájl> [<fájl>…]`.
+  **Ez a megkötés felülírja az egyes taskok lépéseiben szereplő
+  `npm run format` / `npm run format:check` parancsokat.**
+- **Nem érintett fájl nem változhat.** Ha egy task diffje olyan fájlt is
+  módosít, amit a task „Files" blokkja nem sorol fel, az hiba — akkor is, ha
+  csak formázás.
+- **`git reset --hard` tilos.** Az ág a taskok közös munkaterülete; egy reset a
+  controller commitjait is elviszi (egyszer már megtörtént). Rossz commitot
+  `git revert`-tel vagy új commit-tal javíts.
 
 ---
 
