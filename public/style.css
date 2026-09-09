@@ -4,6 +4,8 @@
    Tartalomjegyzék
      1.  Design tokenek (:root)
      2.  Base és reset
+     2b. Műszerfal-tipográfia — címkék és mérőszámok
+     2c. Dizájn-primitívek — a prototípus újrahasznált építőelemei (ds-*)
      3.  Akadálymentességi segédosztályok (+ .tap-target: érintési célterület)
      4.  App layout és oldalváltás
      5.  Oszlopdiagram (megosztott komponens)
@@ -387,6 +389,236 @@ input.wk-chip:focus-visible {
 .rc-score-num {
   letter-spacing: var(--ls-display);
   font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================================
+   2c. Dizájn-primitívek (ds-*)
+   ==========================================================================
+   A prototípus nem kártyákból áll, hanem vonalakból: a blokkokat felső
+   hajszálvonal választja el, a rácsok réseit pedig a SZÜLŐ HÁTTERE tölti ki.
+   Ez a trükk a lényeg — border helyett 1px-es gap egy vonalszínű szülőn:
+   két szomszédos elem között így sosem lesz 2px-es dupla vonal, és a rács
+   akkor is együtt marad, ha egy elem hiányzik.
+
+   Ezek az osztályok SZÁNDÉKOSAN prefixeltek (ds-), nem oldal-specifikusak:
+   ugyanaz a sor-elem áll a Regeneráció számítás-listájában és a Profil
+   adatsoraiban. Ha egy oldalnak egyedi viselkedés kell, a saját előtagú
+   osztálya MELLÉ kerül, nem helyette.
+   ========================================================================== */
+
+/* Hajszálvonalas rács. A gyerekeknek nincs saját keretük — a rés a vonal. */
+.ds-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  background: var(--hair);
+}
+
+.ds-grid--column {
+  flex-direction: column;
+  flex-wrap: nowrap;
+}
+
+/* Szekció: nincs háttér, nincs keret, csak felső elválasztó. */
+.ds-section {
+  border-top: 1px solid var(--hair);
+  padding-top: var(--sp-11);
+  margin-top: var(--sp-11);
+}
+
+.ds-section:first-child {
+  border-top: 0;
+  margin-top: 0;
+}
+
+/* Felkiáltó: a szekciók és a lapok fölötti mono címke. */
+.ds-eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Display-szám. A méretet a hívó oldal adja (--ds-display-size), mert a
+   lépcső oldalanként más: 96px az áttekintés hőse, 32px egy oldalcím. */
+.ds-display {
+  font-size: var(--ds-display-size, var(--fs-5xl));
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.045em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sor-elem: balra név + halvány alcím, jobbra érték vagy vezérlő. Ez váltja
+   ki a korábbi kártyákat a listás oldalakon. */
+.ds-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-7);
+  min-height: var(--tap-min);
+  padding: var(--sp-7) 0;
+  border-top: 1px solid var(--hair-soft);
+}
+
+.ds-row:first-of-type {
+  border-top: 0;
+}
+
+.ds-row-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.ds-row-name {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.ds-row-sub {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.ds-row-value {
+  flex-shrink: 0;
+  font-size: var(--fs-4xl);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.ds-row-value--accent {
+  color: var(--c-accent);
+}
+
+/* CTA-sáv: a lap fő művelete. Teljes szélességű, nagybetűs, jobbra nyíllal.
+   Keskeny nézetben accent hátterű (a hüvelykujj alatt ez az egyetlen
+   művelet), széles nézetben panel hátterű, és hoveren vált accentre. */
+.ds-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-7);
+  width: 100%;
+  min-height: 64px;
+  padding: var(--sp-9) var(--sp-11);
+  border: 0;
+  background: var(--c-accent);
+  color: var(--on-accent);
+  font-family: var(--font-base);
+  font-size: var(--fs-base);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background var(--t-fast),
+    opacity var(--t-fast);
+}
+
+.ds-cta:hover {
+  opacity: 0.9;
+}
+
+.ds-cta-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.ds-cta-sub {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: var(--ls-label-tight);
+  opacity: 0.72;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Léptető: −/+ egy soron belül. A 44px a --tap-min, nem véletlen szám. */
+.ds-step {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 1px;
+  background: var(--hair);
+}
+
+.ds-step-btn {
+  width: var(--tap-min);
+  height: var(--tap-min);
+  border: 0;
+  background: var(--c-bg);
+  color: var(--text-primary);
+  font-size: var(--fs-3xl);
+  font-weight: 800;
+  cursor: pointer;
+  transition: background var(--t-fast);
+}
+
+.ds-step-btn:hover {
+  background: var(--surface-hover);
+}
+
+.ds-step-value {
+  min-width: 88px;
+  padding: 0 var(--sp-5);
+  background: var(--c-bg);
+  font-size: var(--fs-2xl);
+  font-weight: 800;
+  line-height: var(--tap-min);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Szegmens-választó: összeérő gombok, az aktív accent hátterű. */
+.ds-seg {
+  display: flex;
+  gap: 1px;
+  background: var(--hair);
+}
+
+.ds-seg-btn {
+  flex: 1;
+  min-height: var(--tap-min);
+  padding: 0 var(--sp-5);
+  border: 0;
+  background: var(--c-bg);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background var(--t-fast),
+    color var(--t-fast);
+}
+
+.ds-seg-btn[aria-pressed='true'] {
+  background: var(--c-accent);
+  color: var(--on-accent);
 }
 
 /* ==========================================================================
