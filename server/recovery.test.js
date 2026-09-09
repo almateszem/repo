@@ -331,7 +331,7 @@ test('mind a kilenc izomcsoportra ad értéket', () => {
 });
 
 test('a szubjektív izomláz lehúzza a csoport pontszámát', () => {
-  const sore = fullCheckin({ soreness: { chest: 5 } });
+  const sore = fullCheckin({ soreness: { chest: 10 } });
 
   /* A keverés súlya attól függ, TUD-E mondani valamit a modell.
      Ha van naplózott terhelés a csoporton, a modell dominál (0.6 / 0.4). */
@@ -357,7 +357,7 @@ test('a szubjektív izomláz lehúzza a csoport pontszámát', () => {
 
 test('a soft-min átlag miatt egyetlen tönkrement csoport is látszik az összesítőn', () => {
   const clean = restedLogger();
-  const oneSore = restedLogger({ checkins: [fullCheckin({ soreness: { quads: 5 } })] });
+  const oneSore = restedLogger({ checkins: [fullCheckin({ soreness: { quads: 10 } })] });
   const muscleOf = (report) => report.components.find((c) => c.key === 'muscle').score;
   assert.ok(muscleOf(oneSore) < muscleOf(clean) - 5, 'nem mosódik el kilenc csoport átlagában');
 });
@@ -656,4 +656,24 @@ test('a riport minden felület által várt mezőt tartalmaz', () => {
 test('check-in nélkül a regenerációs sorok nem találnak ki alvásadatot', () => {
   const report = run();
   assert.equal(report.recovery.sleep, '—');
+});
+
+/* ======================================================================
+   Izomláz skála (0–10)
+   ====================================================================== */
+
+test('a 10-es izomláz nullázza a szubjektív komponenst (1–10-es skála)', () => {
+  const report = restedLogger({
+    checkins: [fullCheckin({ soreness: { chest: 10 } })],
+  });
+  const chest = report.muscles.find((m) => m.key === 'chest');
+  assert.equal(chest.readiness, 0);
+});
+
+test('a régi skála maximuma (5) már csak félúton van', () => {
+  const report = restedLogger({
+    checkins: [fullCheckin({ soreness: { chest: 5 } })],
+  });
+  const chest = report.muscles.find((m) => m.key === 'chest');
+  assert.equal(chest.readiness, 50);
 });

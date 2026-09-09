@@ -437,7 +437,7 @@ function muscleReadiness({ byDay, checkin, hasHistory, hasAnyWorkout }) {
       : absoluteRef;
     const modelled = 100 * (1 - clamp01(damage / (base * MUSCLE_REF_MULT)));
 
-    /* Szubjektív izomláz (0–5) bekeverése, ha a check-inben megadta.
+    /* Szubjektív izomláz (0–10) bekeverése, ha a check-inben megadta.
 
        A keverés SÚLYA attól függ, tud-e egyáltalán mondani valamit a modell:
          · ha van naplózott terhelés ezen a csoporton (damage > 0), a modell
@@ -452,7 +452,7 @@ function muscleReadiness({ byDay, checkin, hasHistory, hasAnyWorkout }) {
     const reportedSoreness = num(soreness[group]);
     const subjective = reportedSoreness === null
       ? null
-      : (1 - clamp01(reportedSoreness / 5)) * 100;
+      : (1 - clamp01(reportedSoreness / 10)) * 100;
     const readiness = subjective === null
       ? modelled
       : damage > 0

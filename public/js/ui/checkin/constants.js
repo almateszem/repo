@@ -74,10 +74,10 @@ const CI_GATES = {
 /** A két testtérkép-mód. A `field` az answers-beli kulcs is egyben. */
 const CI_MAP_MODES = {
   soreness: {
-    field: 'soreness', max: 5, defaultValue: 3, noun: 'izomláz',
+    field: 'soreness', max: 10, defaultValue: 5, noun: 'izomláz',
     eyebrow: 'Részletes kitöltés', title: 'Hol van izomlázad?',
     sub: 'Koppints egy izomra, majd csúsztasd fel/le az erősséghez. Amit kihagysz, az 0 marad.',
-    legend: '1 = alig érezhető · 5 = nagyon erős izomláz.',
+    legend: '1 = alig érezhető · 10 = nagyon erős izomláz.',
   },
   painMap: {
     field: 'pain', max: 10, defaultValue: 5, noun: 'fájdalom',

@@ -182,7 +182,7 @@ function renderRecovery(report) {
     if (muscle.lastLoadedDaysAgo !== null) {
       meta.push(muscle.lastLoadedDaysAgo === 0 ? 'ma terhelted' : `${muscle.lastLoadedDaysAgo} napja terhelted`);
     }
-    if (muscle.soreness !== null) meta.push(`izomláz ${muscle.soreness}/5`);
+    if (muscle.soreness !== null) meta.push(`izomláz ${muscle.soreness}/10`);
     if (muscle.pain !== null && muscle.pain > 0) meta.push(`fájdalom ${muscle.pain}/10`);
     $('.rc-muscle-meta', row).textContent = meta.join(' · ');
     muscles.appendChild(row);

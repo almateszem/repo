@@ -59,7 +59,7 @@ async function setupRecovery() {
     scalesWrap.appendChild(buildScale({ name, label, min: 1, max: 5, hint: `1 = ${low} · 5 = ${high}` }));
   });
   MUSCLE_GROUPS.forEach(([key, label]) => {
-    sorenessWrap.appendChild(buildScale({ name: `soreness.${key}`, label, min: 0, max: 5 }));
+    sorenessWrap.appendChild(buildScale({ name: `soreness.${key}`, label, min: 0, max: 10 }));
     painWrap.appendChild(buildScale({ name: `pain.${key}`, label, min: 0, max: 10 }));
   });
   painWrap.appendChild(buildScale({ name: 'pain.general', label: 'Általános fájdalom', min: 0, max: 10 }));
