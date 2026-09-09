@@ -225,7 +225,6 @@ async function load({ fresh }) {
   ci.dirty = false;
   ci.saved = false;
   ci.loaded = true;
-  ci.mapView = 'front';
   // Ha ma már van check-in, egyből az összegzés — onnan a vissza gombbal
   // bármelyik lépés módosítható.
   ci.step = ci.hadCheckin ? 'summary' : 'intro';

@@ -2057,8 +2057,8 @@
     </div>
   </template>
 
-  <!-- Testtérkép (izomláz 1–5 / fájdalom 1–10). A régiókat és az alattuk lévő
-       érték-sorokat a frontend szúrja be. -->
+  <!-- Testtérkép. A nézetváltót, az emberkét és az érték-sorokat a
+       bodymap komponens építi be a [data-ci-map] konténerbe. -->
   <template id="tpl-ci-map">
     <div class="ci-step">
       <div class="ci-head-block">
@@ -2066,28 +2066,11 @@
         <h2 class="ci-question" data-ci-title></h2>
         <p class="ci-sub" data-ci-sub></p>
       </div>
-      <div class="wk-toggle ci-map-toggle" role="group" aria-label="Testnézet">
-        <button class="wk-toggle-btn" type="button" data-view="front" aria-pressed="true">Elöl</button>
-        <button class="wk-toggle-btn" type="button" data-view="back" aria-pressed="false">Hátul</button>
-      </div>
-      <div class="ci-map" data-ci-map>
-        <span class="ci-map-head" aria-hidden="true"></span>
-      </div>
-      <div class="ci-values" data-ci-values></div>
+      <div data-ci-map></div>
       <p class="ci-legend" data-ci-legend></p>
       <button class="ci-primary" type="button" data-action="checkin-next">
         Tovább <span aria-hidden="true">→</span>
       </button>
-    </div>
-  </template>
-
-  <!-- Egy izomcsoport érték-sora a térkép alatt. Ez a KANONIKUS pontos-érték
-       vezérlő: a térképen húzni kell, itt billentyűzettel is választható. -->
-  <template id="tpl-ci-value-row">
-    <div class="ci-value-row">
-      <span class="ci-value-name" data-ci-name></span>
-      <div class="ci-value-chips" role="group" data-ci-chips></div>
-      <span class="ci-value-warn" data-ci-warn hidden>letiltva</span>
     </div>
   </template>
 
