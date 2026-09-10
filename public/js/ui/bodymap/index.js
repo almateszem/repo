@@ -239,11 +239,11 @@ function createBodyMap({
     const marked = Object.keys(values).filter((key) => values[key] > 0
       && !extraRows.some((row) => row.key === key));
     const entries = [
-      ...marked.map((key) => ({ key, label: muscleLabel(key) })),
-      ...extraRows,
+      ...marked.map((key) => ({ key, label: muscleLabel(key), blocks: true })),
+      ...extraRows.map((row) => ({ ...row, blocks: false })),
     ];
 
-    rows.replaceChildren(...entries.map(({ key, label }) => {
+    rows.replaceChildren(...entries.map(({ key, label, blocks }) => {
       const row = document.createElement('div');
       row.className = 'bm-row';
 
@@ -276,7 +276,13 @@ function createBodyMap({
       }
       row.appendChild(chips);
 
-      if (blockFrom !== null && values[key] >= blockFrom) {
+      // A „letiltva" jelzés CSAK a régióhoz köthető sorokra vonatkozik. Az
+      // extra sorok (általános fájdalom) nem tiltanak gyakorlatot: a motor a
+      // painfulGroups halmazt kizárólag az izomcsoportonkénti pain[group]
+      // értékekből építi, az általános fájdalom csak az összesített
+      // készenlétet sapkázza. A jelzés ott olyan következményt ígérne, ami
+      // sosem következik be.
+      if (blocks && blockFrom !== null && values[key] >= blockFrom) {
         const warn = document.createElement('span');
         warn.className = 'bm-row-warn';
         warn.textContent = 'letiltva';
