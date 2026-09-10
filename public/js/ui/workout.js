@@ -9,7 +9,7 @@ import { showToast } from '../core/toast.js';
 import { navigate } from '../nav/router.js';
 import { renderDashboard } from '../render/dashboard.js';
 import { renderPrs } from '../render/prs.js';
-import { clampRpeInput, enableOrderSelect, enableSetTypeSelect, handleAddSetClick, handleRemoveSetClick, handleStepClick, readSetRow, refreshExerciseList } from '../render/sets.js';
+import { clampRpeInput, enableExtraMenu, enableIntensitySelect, enableOrderSelect, enableSetTypeSelect, handleAddSetClick, handleRemoveSetClick, handleStepClick, readSetRow, refreshExerciseList } from '../render/sets.js';
 import { WORKOUT_START_KEY, markWorkoutStarted, setLastSummary, summarizeWorkout } from '../render/summary.js';
 import { historyEntryEl, syncHistoryEmpty, workoutHistoryEntry } from '../render/workout.js';
 import { createDraftAutosave } from './workout/autosave.js';
@@ -72,11 +72,17 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
     finishLabel.textContent = isEditing ? 'Módosítások mentése' : FINISH_TEXT;
   };
 
-  /** Az edzés aktuális állapota a DOM-ból (gyakorlatok + szettek + „kész" jelölés). */
+  /** Az edzés aktuális állapota a DOM-ból (gyakorlatok + szettek + „kész" jelölés).
+
+      A NAPLÓZÁSI MÓD is vele utazik, de csak ha eltér az alapértelmezéstől: a
+      szerver ebből tudja, idő- vagy ismétlés-alapú sorként normalizálja-e a
+      gyakorlatot. Enélkül egy futópad-sor mentéskor visszaesne szettre, és az
+      ideje elveszne. */
   const readCurrentWorkout = () => $$('.wk-exercise', page).map((card) => ({
     name: $('.wk-exercise-name', card).textContent.trim(),
     pr: $('.wk-pr', card).getAttribute('aria-pressed') === 'true',
     superset: $('.wk-superset-link', card).getAttribute('aria-pressed') === 'true',
+    ...(card.dataset.logMode === 'duration' && { logMode: 'duration' }),
     sets: $$('.wk-set-list .wk-set-row', card).map(readSetRow),
   }));
 
@@ -111,6 +117,11 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
   // A szettek típusa (bemelegítő / munkasorozat / drop set) a sor számára
   // kötött lenyílóval állítható; a váltás is a piszkozattal mentődik.
   enableSetTypeSelect(list, autosave);
+  // Az időalapú sorok két saját vezérlője: az intenzitás-fokozat lenyílója és
+  // a plusz súly menüje. A súly mezőjét a lenti szám-mező-figyelő menti,
+  // ezért az csak a gomb feliratát szinkronizálja.
+  enableIntensitySelect(list, autosave);
+  enableExtraMenu(list);
 
   /* ---- PR-jelzők ---- */
   const prIndicators = createPrIndicators({ page, getMaxes: () => exerciseMaxes });

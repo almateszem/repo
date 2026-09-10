@@ -6,6 +6,7 @@
  * ezért állnak külön a lapok vezérlőitől.
  */
 
+import { api } from '../core/api.js';
 import { $, $$, cloneTemplate } from '../core/dom.js';
 import { formatNumber } from '../core/format.js';
 import { showToast } from '../core/toast.js';
@@ -53,6 +54,117 @@ function numericValue(raw) {
   const match = String(raw ?? '').replace(',', '.').match(/\d+(\.\d+)?/);
   return match ? match[0] : '';
 }
+
+/* ======================================================================
+   IDŐALAPÚ (kardió) sorok
+   ----------------------------------------------------------------------
+   Amit nem ismétlésben mérnek — futópad, szobabicikli, evezőgép —, annál a
+   sor mást tartalmaz: eltöltött időt és intenzitást. Nincs ismétlés, nincs
+   RPE, és nincs szett-típus sem: a bemelegítő/munkasorozat/drop hármas egy
+   futásra értelmezhetetlen.
+
+   A módot a GYAKORLAT hozza magával (`logMode`), a katalógusból. Nem az
+   számít, melyik szűrő-chipről adták hozzá: az sehol nem tárolódik, és a
+   kereséssel amúgy is megkerülhető.
+   ====================================================================== */
+
+/* A fokozatok CÍMKÉI a szervertől jönnek, hogy a mentett kulcs és a felirat ne
+   sodródhasson szét — ugyanaz az elv, mint a mérési helyeknél. Modul-szintű
+   másolat, mert a sor rajzolása szinkron: a lista egyszer, az app indulásakor
+   töltődik be (app/init.js), és onnantól minden rajzolás készen találja. */
+let intensityLevels = [];
+
+async function loadIntensityLevels() {
+  intensityLevels = await api.getCardioIntensities();
+  return intensityLevels;
+}
+
+/** A skála KÖZEPE jár ismeretlen vagy hiányzó értékre — ugyanaz, amit a szerver
+    is választ. A középső elem, nem beégetett kulcs: ha a skála egyszer bővül,
+    ez magától követi. */
+const defaultIntensityKey = () =>
+  intensityLevels[Math.floor(intensityLevels.length / 2)]?.key ?? '';
+
+const intensityKeyOf = (value) =>
+  (intensityLevels.some((level) => level.key === value) ? value : defaultIntensityKey());
+
+const intensityLabel = (key) =>
+  intensityLevels.find((level) => level.key === key)?.label ?? key;
+
+/* A mező PERCET tartalmaz, a tárolt érték viszont MÁSODPERC.
+   Másodpercet szándékosan nem lehet megadni: egy kardió edzésen az egy-két
+   másodperc nem információ, egy külön mp-mező viszont minden alkalommal plusz
+   beviteli lépés lenne. A tárolás azért marad mégis másodperc, mert így a
+   mérték később finomítható anélkül, hogy a már mentett adathoz hozzá kellene
+   nyúlni — és a szerver oldalán is ez az egy alak él (logmode.js). */
+
+/** A mezőbe írt PERC → tárolt másodperc. */
+function parseDurationInput(raw) {
+  const minutes = Number(String(raw ?? '').trim().replace(',', '.'));
+  if (!Number.isFinite(minutes) || minutes <= 0) return 0;
+  return Math.round(minutes) * 60;
+}
+
+/** Tárolt másodperc → a mező PERC-értéke. Nulla időre ÜRES mező jár, nem „0":
+    a nulla azt állítaná, hogy megmérték és annyi lett. Egy percnél rövidebb
+    tárolt idő EGY percre kerekedik felfelé, nem nullára — a nulla a következő
+    mentéskor letörölné magát az értéket. */
+function formatDuration(value) {
+  const total = Math.max(0, Math.floor(Number(value) || 0));
+  if (total === 0) return '';
+  return String(Math.max(1, Math.round(total / 60)));
+}
+
+/** A fokozat beállítása a soron: az ÉRTÉK a data-attribútumban él (onnan
+    olvassa a readSetRow), a felirat a gombon, a kijelölés az opciókon. */
+function applyIntensity(row, key) {
+  row.dataset.intensity = key;
+  $('.wk-intensity-trigger', row).textContent = intensityLabel(key);
+  $$('.wk-intensity-option', row).forEach((option) => {
+    option.setAttribute('aria-selected', String(option.dataset.intensity === key));
+  });
+}
+
+/** A fokozat-lenyíló feltöltése. A lista fix, ezért a sorral együtt, egyszer
+    épül fel — ugyanúgy, mint a szett-típus menüje. */
+function buildIntensityMenu(row) {
+  $('.wk-intensity-menu', row).replaceChildren(...intensityLevels.map((level) => {
+    const option = document.createElement('button');
+    option.type = 'button';
+    option.className = 'wk-intensity-option';
+    option.setAttribute('role', 'option');
+    option.dataset.intensity = level.key;
+    option.textContent = level.label;
+    return option;
+  }));
+}
+
+/** A plusz súly a három pötty MÖGÖTT lakik, ezért a gombnak ki kell mondania,
+    ha rejt valamit: érték nélkül a pöttyök látszanak, értékkel maga a súly.
+    Enélkül egy felvitt súlymellény láthatatlanul ülne egy csukott menüben. */
+function syncExtraWeight(row) {
+  const kg = Number($('.wk-set-weight', row).value);
+  const trigger = $('.wk-extra-trigger', row);
+  const hasWeight = Number.isFinite(kg) && kg > 0;
+  row.dataset.hasWeight = String(hasWeight);
+  trigger.textContent = hasWeight ? `+${formatNumber(kg)}` : '⋮';
+  trigger.setAttribute('aria-label', hasWeight
+    ? `Plusz súly: ${formatNumber(kg)} kg — módosítás`
+    : 'Plusz súly hozzáadása');
+}
+
+function renderCardioRow(set) {
+  const row = cloneTemplate('tpl-cardio-row');
+  $('.wk-cardio-time', row).value = formatDuration(set?.duration);
+  $('.wk-set-weight', row).value = numericValue(set?.weight);
+  $('.wk-set-check', row).setAttribute('aria-pressed', String(Boolean(set?.done)));
+  buildIntensityMenu(row);
+  applyIntensity(row, intensityKeyOf(set?.intensity));
+  syncExtraWeight(row);
+  return row;
+}
+
+const isCardioRow = (row) => row.classList.contains('wk-set-row--cardio');
 
 /** Egy sor címkéinek beállítása a kapott sorszám-felirattal („2", „2a").
     A sorszám-gomb címkéjébe a típus neve is belekerül — a gombon csak a
@@ -152,6 +264,17 @@ function renumberSets(setList) {
 
 /** Egy szett-sor kiolvasása a mezőkből (a napló és a terv-építő is ezt hívja). */
 const readSetRow = (row) => {
+  /* Időalapú sor: más mezők, más alak. Az idő MÁSODPERCBEN megy ki — a mentett
+     alak is az, a percben megadott bevitel csak megjelenítés. */
+  if (isCardioRow(row)) {
+    return {
+      done: $('.wk-set-check', row).getAttribute('aria-pressed') === 'true',
+      duration: String(parseDurationInput($('.wk-cardio-time', row).value)),
+      intensity: row.dataset.intensity || '',
+      weight: $('.wk-set-weight', row).value.trim(),
+    };
+  }
+
   const set = {
     done: $('.wk-set-check', row).getAttribute('aria-pressed') === 'true',
     type: row.dataset.setType || 'work',
@@ -271,6 +394,11 @@ function renderExercise(exercise, {
   const card = cloneTemplate('tpl-exercise');
   $('.wk-exercise-name', card).textContent = exercise.name;
 
+  /* A NAPLÓZÁSI MÓD a kártyán is látszik: ebből tudja a rács a saját oszlopait,
+     és ebből olvassa ki a napló, mit küldjön a szerverre. */
+  const cardio = exercise.logMode === 'duration';
+  card.dataset.logMode = cardio ? 'duration' : 'reps';
+
   // A szuperszett-kapocs is naplóra szabott: a tervben a gyakorlatok
   // sorrendje/összekapcsolása még nem téma. A gomb láthatóságát (első kártya)
   // és a csoport-kereteket a refreshSupersetGroups állítja be.
@@ -286,7 +414,10 @@ function renderExercise(exercise, {
   // Az edzésnapló kártyáin a PR-jelvény automatikusan, a képlet alapján
   // frissül (updateExercisePrIndicator); a terv-építőben rejtve marad.
   const prBtn = $('.wk-pr', card);
-  prBtn.hidden = !prToggle;
+  /* Időalapú soron nincs PR: nincs mihez mérni, és a szerver sem számol rá
+     egyet sem. A gomb ezért nem csak hamis, hanem REJTETT is — egy örökké üres
+     jelvény helyet foglalna és kérdést szülne. */
+  prBtn.hidden = !prToggle || cardio;
   prBtn.setAttribute('aria-pressed', String(Boolean(exercise.pr)));
 
   const videoBtn = $('.wk-video-btn', card);
@@ -300,11 +431,29 @@ function renderExercise(exercise, {
   removeBtn.setAttribute('aria-label', `${exercise.name} eltávolítása az edzésből`);
 
   const setList = $('.wk-set-list', card);
-  exercise.sets.forEach((set, index) => setList.appendChild(renderSetRow(set, index)));
-  renumberSets(setList); // a drop setek az előző szett számát öröklik
+  if (cardio) {
+    /* A fejléc feliratai a módhoz igazodnak: „Ism./Súly·kg/RPE" helyett
+       „Idő/Intenzitás". A két üres cella a pötty-gombé és a pipáé. */
+    const head = $('.wk-set-row--head', card);
+    head.classList.add('wk-set-row--cardio');
+    head.replaceChildren(...['Idő·perc', 'Intenzitás', '', ''].map((text) => {
+      const cell = document.createElement('span');
+      cell.textContent = text;
+      return cell;
+    }));
+    /* Gyakorlatonként EGY sor a szabály. Ha egy mentett bejegyzésben mégis több
+       áll, mindet kirajzoljuk: a naplóból nem tüntetünk el adatot. */
+    const rows = exercise.sets?.length ? exercise.sets : [{}];
+    rows.forEach((set) => setList.appendChild(renderCardioRow(set)));
+  } else {
+    exercise.sets.forEach((set, index) => setList.appendChild(renderSetRow(set, index)));
+    renumberSets(setList); // a drop setek az előző szett számát öröklik
+  }
 
-  // „+ Szett" gomb — az edzésnapló és a terv-építő kártyáin egyaránt
-  if (withAddSet) {
+  /* „+ Szett" gomb — az edzésnapló és a terv-építő kártyáin egyaránt. Időalapú
+     gyakorlaton NINCS: egy kardió gyakorlat egy sor. Ha itt maradna, a fázisokra
+     bontás a hátsó ajtón sétálna vissza, szabályozatlanul. */
+  if (withAddSet && !cardio) {
     const addSetBtn = document.createElement('button');
     addSetBtn.type = 'button';
     addSetBtn.className = 'wk-add-set';
@@ -528,4 +677,81 @@ function enableSetTypeSelect(list, onChange) {
   });
 }
 
-export { clampRpeInput, enableOrderSelect, enableSetTypeSelect, handleAddSetClick, handleRemoveSetClick, handleStepClick, readSetRow, refreshExerciseList, renderExercise };
+
+/** Az összes nyitott intenzitás-lenyíló bezárása. */
+function closeAllIntensityMenus(list) {
+  $$('.wk-intensity-menu', list).forEach((menu) => { menu.hidden = true; });
+  $$('.wk-intensity-trigger', list).forEach((t) => t.setAttribute('aria-expanded', 'false'));
+}
+
+/** Az intenzitás-fokozat választása az időalapú sorokon. Ugyanaz a saját
+    lenyíló minta, mint a szett-típusnál — a natív <select> listája
+    böngészőnként másképp (és ebben a témában csúnyán) rajzolódik ki.
+    Az `onChange` minden tényleges váltás után lefut (pl. autosave). */
+function enableIntensitySelect(list, onChange) {
+  list.addEventListener('click', (event) => {
+    const trigger = event.target.closest('.wk-intensity-trigger');
+    if (trigger) {
+      const menu = $('.wk-intensity-menu', trigger.parentElement);
+      const willOpen = menu.hidden;
+      closeAllIntensityMenus(list);
+      menu.hidden = !willOpen;
+      trigger.setAttribute('aria-expanded', String(willOpen));
+      return;
+    }
+
+    const option = event.target.closest('.wk-intensity-option');
+    if (!option) return;
+    const row = option.closest('.wk-set-row');
+    closeAllIntensityMenus(list);
+    if (row.dataset.intensity === option.dataset.intensity) return;
+
+    applyIntensity(row, option.dataset.intensity);
+    onChange();
+  });
+
+  document.addEventListener('pointerdown', (event) => {
+    if (!event.target.closest('.wk-intensity')) closeAllIntensityMenus(list);
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeAllIntensityMenus(list);
+  });
+}
+
+/** Az összes nyitott plusz-súly menü bezárása. */
+function closeAllExtraMenus(list) {
+  $$('.wk-extra-menu', list).forEach((menu) => { menu.hidden = true; });
+  $$('.wk-extra-trigger', list).forEach((t) => t.setAttribute('aria-expanded', 'false'));
+}
+
+/** A plusz súly menüje az időalapú sorokon. Csak nyit és zár: az ÉRTÉKET a
+    benne lévő szám-mező írja, azt pedig a napló meglévő `.wk-num-input`
+    figyelője menti — nem hívunk rá külön mentést, hogy egy gépelés ne
+    keletkezzen kétszer. A gomb feliratát viszont itt kell frissíteni, mert a
+    terv-építőnek nincs ilyen figyelője. */
+function enableExtraMenu(list) {
+  list.addEventListener('click', (event) => {
+    const trigger = event.target.closest('.wk-extra-trigger');
+    if (!trigger) return;
+    const menu = $('.wk-extra-menu', trigger.parentElement);
+    const willOpen = menu.hidden;
+    closeAllExtraMenus(list);
+    menu.hidden = !willOpen;
+    trigger.setAttribute('aria-expanded', String(willOpen));
+    if (willOpen) $('.wk-set-weight', menu).focus();
+  });
+
+  list.addEventListener('input', (event) => {
+    if (!event.target.matches('.wk-extra-menu .wk-set-weight')) return;
+    syncExtraWeight(event.target.closest('.wk-set-row'));
+  });
+
+  document.addEventListener('pointerdown', (event) => {
+    if (!event.target.closest('.wk-extra')) closeAllExtraMenus(list);
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeAllExtraMenus(list);
+  });
+}
+
+export { clampRpeInput, enableExtraMenu, enableIntensitySelect, enableOrderSelect, enableSetTypeSelect, handleAddSetClick, handleRemoveSetClick, handleStepClick, loadIntensityLevels, readSetRow, refreshExerciseList, renderExercise };

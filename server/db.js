@@ -540,6 +540,12 @@ function migrateSetValuesToNumbers(table, key) {
     let changed = false;
     for (const exercise of exercises) {
       for (const set of exercise?.sets ?? []) {
+        /* Az IDŐALAPÚ sorokat kihagyjuk. Nincs bennük ismétlés és RPE, tehát a
+           ciklus üres sztringgel töltené fel őket, és minden ilyen edzés sorát
+           egyszer feleslegesen újraírná — ráadásul olyan mezőkkel, amiket sem
+           a felület, sem a motor nem olvas. Az időtartam-mező a felismerhető jegy:
+           szett-alapú soron sosem szerepel. */
+        if (set?.duration !== undefined) continue;
         for (const key of ['reps', 'weight', 'rpe']) {
           const next = firstNumber(set[key]);
           if (set[key] !== next) {

@@ -14,8 +14,8 @@ import { setupThumb } from './workout.js';
     edzésnapló listája) egy use(context)-tel váltható vezérlőn át áll be —
     a hívó (setupPlanBuilder / setupWorkout) adja meg, mielőtt idenavigál. */
 async function setupExercisePicker(confirmAction) {
-  const [catalog, defaultSet] = await Promise.all([
-    api.getExerciseCatalog(), api.getDefaultSet(),
+  const [catalog, defaultSet, defaultCardioSet] = await Promise.all([
+    api.getExerciseCatalog(), api.getDefaultSet(), api.getDefaultCardioSet(),
   ]);
   const pickerPage = $('[data-page="exercise-picker"]');
   const list = $('[data-list="picker-catalog"]');
@@ -41,6 +41,10 @@ async function setupExercisePicker(confirmAction) {
     const item = cloneTemplate('tpl-picker-item');
     item.dataset.name = entry.name;
     item.dataset.group = entry.group;
+    /* A NAPLÓZÁSI MÓD a katalógus-sorból jön, nem abból, melyik chip volt
+       kiválasztva: a chip nem tárolódik sehol, és a kereséssel meg is
+       kerülhető. A mezőt a szerver égeti rá minden sorra (data/catalog.js). */
+    if (entry.logMode === 'duration') item.dataset.logMode = 'duration';
     // A keresés a felszerelésre is illeszkedjen: a katalógus nagy része a
     // külső datasetből jön, ahol a variánsokat a felszerelés különbözteti
     // meg — így a „kettlebell” beírásával azok is előjönnek, amiknek a
@@ -108,7 +112,8 @@ async function setupExercisePicker(confirmAction) {
     const toggle = event.target.closest('.ep-item-toggle');
     if (!toggle || !context) return;
 
-    const name = toggle.closest('.ep-item').dataset.name;
+    const item = toggle.closest('.ep-item');
+    const name = item.dataset.name;
     const existing = $$('.wk-exercise', context.targetList)
       .find((card) => $('.wk-exercise-name', card).textContent.trim() === name);
     if (existing) {
@@ -127,10 +132,17 @@ async function setupExercisePicker(confirmAction) {
       existing.remove();
       showToast(`${name} eltávolítva`);
     } else {
+      /* Időalapú gyakorlat EGY sorral kerül be, a szett-alapú hárommal. A
+         három szett a súlyzós munka szokása; egy futásból nem csinál senki
+         hármat, és a „+ Szett" gomb ezeken a kártyákon nincs is ott. */
+      const cardio = item.dataset.logMode === 'duration';
       context.targetList.appendChild(renderExercise({
         name,
         pr: false,
-        sets: [{ ...defaultSet }, { ...defaultSet }, { ...defaultSet }],
+        ...(cardio && { logMode: 'duration' }),
+        sets: cardio
+          ? [{ ...defaultCardioSet }]
+          : [{ ...defaultSet }, { ...defaultSet }, { ...defaultSet }],
       }, context.exerciseOptions));
       showToast(`${name} hozzáadva ${context.toastTarget}`);
     }
