@@ -382,7 +382,12 @@ valaki másnak a sportolója:
 
 **A kapcsolat beleegyezéssel jön létre.** Az edző a sportoló *felhasználónevével*
 küld meghívót; az `pending` állapotban áll, amíg a másik fél el nem fogadja.
-**Elfogadás előtt az edző semmit nem lát az adataiból.** A sportolónak egyszerre
+**Elfogadás előtt az edző nem lát az adataiból.** A függő meghívó során csak
+az azonosításhoz szükséges kettő utazik — a felhasználónév (amit az edző maga
+írt be) és a megjelenítendő név —, minden más zárva: napló, készenlét, üzenet,
+és a fiók-beállítások közül az edzés-cél is. Ez `invitePayload`-ban él egy
+helyen, mindkét irányra, és a `coach.test.js` kulcsra ellenőrzi: egy új mező
+hozzávétele bukik a teszten, nem némán szivárog. A sportolónak egyszerre
 egy edzője lehet (a felület is egy edzőt mutat); edzőként viszont bárki tarthat
 több sportolót. Bontani mindkét fél tud: az edző a részletmodálból, a sportoló a
 „Leválás" gombbal — a kapcsolattal az üzenetváltás is törlődik (`ON DELETE
