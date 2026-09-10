@@ -11,11 +11,13 @@ A tematikus szakaszok (üzemeltetés, adatminőség, kódtérkép…) mindhárom
 részen belül alcímként élnek tovább, tehát egy témát a három rész
 ugyanazon alcíme alatt lehet végigolvasni.
 
-Állás (2026-09-10):   14 nyitott · 8 részben kész · 22 kész
+Állás (2026-09-10):   13 nyitott · 7 részben kész · 24 kész
 
-Utolsó frissítés: 2026-09-10 (a fájl átrendezve állapot szerint; előtte
-                  ugyanezen a napon került be a graphify-kódtérkép
-                  szakasza, a tételek szövege érdemben változatlan)
+Utolsó frissítés: 2026-09-10 (három kör egy napon: bekerült a
+                  graphify-kódtérkép szakasza, a fájl átrendeződött állapot
+                  szerint, végül a kódtérkép kérdéseit végigvizsgáltuk —
+                  ebből egy VALÓDI hiba lett javítva, a függő meghívó
+                  adatkiadása, és két elavult doc.txt-bekezdés)
 Legutóbbi takarítás: 2026-08-17 — az elkészült [x] tételek kivezetve
 (a részletek a git előzményben maradtak meg).
 
@@ -222,25 +224,33 @@ hibajegyek: kérdések, amikre a válasz vagy egy javítás, vagy egy doksi-sor.
     szerződés, amit a README törékenynek nevez és az MVP.md 3.8 PATCH-szerű
     végpontra cserélne. A gráf tehát megerősíti a doksi gyanúját: ez a
     metszéspont, ahol egy elfelejtett `carried` mező némán adatot töröl.
-    TEENDŐ: döntés a merge-elő végpontról. Amíg nincs, a `carried` lista
-    bővítése kötelező lépés minden új check-in mező felvételekor.
+    VÁLASZ (2026-09-10, kód-átnézés): a `carried` lista MA TELJES — a
+    checkins mind a nyolc adatoszlopát fedi valaki (hat kérdezett + mood és
+    hydration hordozott + pain.general), tehát élő adatvesztés nincs, csak
+    szerkezeti kockázat.
+    ÉS A MEGOLDÁS MÁR BENT VAN A KÓDBAN: a víznapló ugyanezt a sort írja, de
+    OLVASS-MÓDOSÍTS-ÍRJ módon — `syncHydration` (server.js:1432) a meglévő
+    check-int szétteríti, és csak a hydration mezőt írja át. A javasolt
+    merge-elő PUT tehát nem új mechanizmus, hanem ennek a három sornak a
+    kiterjesztése a végpontra.
+    TEENDŐ: a PUT is így épüljön fel. Amíg nincs, a `carried` lista bővítése
+    kötelező lépés minden új check-in mező felvételekor.
 
 [ ] Miért a legerősebb híd „A kapcsolat beleegyezéssel jön létre"?
     Betweenness 0.107 — a teljes gráfban ez a legmagasabb, és az „Edzői panel
     és listasablonok" közösséget kapcsolja az „Edzői kártyák és
     chat-felülethez". Vagyis a pending/active állapot két, egymástól távoli
     felületen dönt hozzáférésről.
-    TEENDŐ: átnézni, hogy a `pending` állapot MINDKETTŐN egyformán zár-e —
-    a coach.test.js a végpontokat őrzi, a felületet nem.
-
-[ ] AMBIGUOUS él: a „testsúly-mező nincs előre kitöltve" szabály és a map.js
-    A gráf bizonytalanul (0.3) kötötte össze a kettőt. A szabály valójában a
-    varázsló TESTSÚLY-lépésében él (ui/checkin/steps/weight.js), nem a
-    testtérkép-lépésben — a doksi szövege viszont nem mondja ki, melyik
-    lépésről beszél.
-    TEENDŐ: vagy a README mondja ki a fájlt, vagy a szabály kap egy
-    kód-kommentet a weight.js-ben. Egy sor, de a következő átnézésen megint
-    ugyanez a bizonytalanság jön ki.
+    ÁTNÉZVE (2026-09-10) — ÉS VOLT BENNE HIBA, javítva. A chat rendben volt
+    (`activeLinkFor` mindkét végponton `status !== 'active'`-ra zár), a
+    meghívó viszont HÁROM helyen kiadta a másik fél edzés-célját, elfogadás
+    ELŐTT: a kiküldött meghívó listáján, a beérkezett meghívón (tehát az edző
+    célját is a sportoló felé) és a meghívó létrehozásának válaszában. A
+    felület ki is írta `@felhasznalonev · TÖM` formában.
+    JAVÍTVA: a három út egyetlen `invitePayload`-ra került, ami csak a
+    linkId-t, az időpontot, a felhasználónevet és a megjelenítendő nevet adja
+    ki. A `coach.test.js` mostantól KULCSRA ellenőrzi a payloadot mindkét
+    irányban — egy új mező hozzávétele így nem szivárogtat némán.
 
 [ ] init() 16 és setupCheckinWizard() 8 INFERRED éle — igaziak?
     A gráf ezeket „model-reasoned" kapcsolatnak jelölte, tehát nem közvetlen
@@ -255,8 +265,16 @@ hibajegyek: kérdések, amikre a válasz vagy egy javítás, vagy egy doksi-sor.
     ártalmatlan konfiguráció (`printWidth`, `singleQuote`, `trailingComma`,
     package.json-kulcsok) és tesztsegéd (`workDir`, `cookieFrom`), de a lista
     nincs végigolvasva.
-    TEENDŐ: átfutni, van-e köztük VALÓDI modul vagy exportált függvény, amiről
-    egyetlen doksi sem beszél — az volna az igazi lelet.
+    ÁTFUTVA (2026-09-10): a 87 modulból 46-ot nem nevez meg egyik doksi sem,
+    de ez nagyrészt szándékos — a doksik könyvtár-szinten írnak („ui/ =
+    oldalankénti interakciók"). EGY valódi lelet lett belőle: a VÍZMÉRŐ
+    (public/js/ui/water.js + GET/POST/DELETE /api/water + syncHydration) a
+    doc.txt-ben NULLA alkalommal szerepelt, és a Táplálkozás oldal
+    felsorolásából is kimaradt — pedig a dizájn-spec kifejezetten megtartandó
+    funkcióként említi. Bekerült a doc.txt 3.5-be.
+    Ugyanez az átfutás két ÖNELLENTMONDÁST is talált a doc.txt-ben (a
+    táplálkozási cél „FIX" vs „FIÓKONKÉNT", az üzenetváltás „SZIMULÁLT" vs
+    „valódi") — mindkettő javítva a kód alapján.
 
 [ ] A szemantikus kinyerés token-költsége nincs mérve
     A 2026-09-10-i futásnál a doksi-kinyerés a gazda-ügynökben futott
@@ -434,26 +452,6 @@ ADATMINŐSÉG — fokozatosan bővíthető, nincs határidő
     Jelentés:  server/data/.exdb/report.txt
     Bővítendő: server/data/exdb.names.hu.js → PHRASES / NAME_OVERRIDES
     Utána:     npm run exdb:build
-
---------------------------------------------------------------------------
-KÓDTÉRKÉP — a 2026-09-10-i graphify-futás nyitott kérdései
---------------------------------------------------------------------------
-
-(A szakasz bevezetője az 1. NYITOTT résznél, ugyanennél az alcímnél.)
-
-[~] A graphify egészség-jelzése: 110 „dangling" és 70/73 összeolvadt él
-    Végigkövetve MINDEGYIK az AST-oldalról jön, nem a kódból:
-    - 20 db `ref_node_*` placeholder a Node beépített moduljaira (node:test,
-      node:path, node:fs, node:sqlite, node:crypto…): a kinyerő hivatkozik
-      rájuk, de node-ot nem hoz létre nekik;
-    - 5 db AST-belső szimbólum (prefersReducedMotion, CI_PAIN_BLOCK,
-      CI_PRESET_ADVANCE_MS, WORKOUT_START_KEY, lastSummary);
-    - az összeolvadás pedig ugyanaz a fájl-pár `calls` + `contains` +
-      `indirect_call` hármas éllel, amit az irányítatlan gráf egybe von.
-    Tehát NEM kódhiba — a gráfépítő sajátja. Azért marad itt [~]-tel, hogy a
-    következő futásnál ne kelljen újra végigkövetni: ha a kódtérkép fontossá
-    válik, `--directed` gráffal a hármas élek nem olvadnak össze.
-
 
 ==========================================================================
 3. KÉSZ — A KÖVETKEZŐ TAKARÍTÁSIG MARAD ITT
@@ -820,3 +818,35 @@ sémáira átkötve kerültek vissza.
     Felület: a kliens az összegző oldalon fűz megjegyzést a most lezárt edzés
     gyakorlataihoz; az edző a sportoló-modálban látja őket, soronkénti
     válasz-mezővel.
+
+--------------------------------------------------------------------------
+KÓDTÉRKÉP — a 2026-09-10-i graphify-futás nyitott kérdései
+--------------------------------------------------------------------------
+
+[x] A graphify egészség-jelzése NEM hiba   (2026-09-10)
+    Végigkövetve MINDEGYIK az AST-oldalról jön, nem a kódból:
+    - 20 db `ref_node_*` placeholder a Node beépített moduljaira (node:test,
+      node:path, node:fs, node:sqlite, node:crypto…): a kinyerő hivatkozik
+      rájuk, de node-ot nem hoz létre nekik;
+    - 5 db AST-belső szimbólum (prefersReducedMotion, CI_PAIN_BLOCK,
+      CI_PRESET_ADVANCE_MS, WORKOUT_START_KEY, lastSummary);
+    - az összeolvadás pedig ugyanaz a fájl-pár `calls` + `contains` +
+      `indirect_call` hármas éllel, amit az irányítatlan gráf egybe von.
+    LEZÁRVA: a graphify forrása kimondja, hogy ez szándékos. A fel nem oldott
+    importot `ref` névtérrel jelöli, és a saját kommentje szerint „the
+    ref-namespaced target has no node, so build drops it as an external
+    reference — the correct outcome for a third-party import"
+    (extractors/resolution.py:687-700). Tehát a Node beépített moduljainak
+    helyes kezelése, nem a repó baja. Ha a kódtérkép fontossá válik,
+    `--directed` gráffal a hármas élek sem olvadnak össze.
+
+[x] A testsúly-előkitöltés szabálya fájlhoz kötve   (2026-09-10)
+    (2026-09-10, kód-átnézés) A gráf bizonytalanul (0.3) kötötte a map.js-hez.
+    A szabály valójában a varázsló TESTSÚLY-lépésében él, és ott már KI IS VAN
+    kommentelve (public/js/ui/checkin/steps/weight.js:22-25) — tehát a
+    korábbi teendő fele tárgytalan: kód-kommentet nem kell írni.
+    AMI MARAD: a README a szabályt fájl megnevezése nélkül írja le, ezért a
+    következő átnézésen megint a testtérképnél fogják keresni. Egy zárójeles
+    fájlnév a README-ben lezárja.
+    LEZÁRVA: a README most megnevezi a fájlt (steps/weight.js), a kód-komment
+    pedig eddig is ott volt. A gráf bizonytalansága ezzel megszűnt.
