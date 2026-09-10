@@ -698,14 +698,37 @@
            (a kártyákat a frontend tölti fel az API-ból)
            ================================================================ -->
       <section class="app-page pl-page" data-page="plans" aria-labelledby="title-plans" hidden>
-        <header class="pl-header">
-          <h2 id="title-plans">Edzésterveid</h2>
+
+        <!-- BAL HASÁB: hány terved van, miből, és a belépő az újhoz. -->
+        <div class="pl-main">
+          <h2 class="db-label" id="title-plans">Tervek</h2>
+
+          <div class="pl-count">
+            <span class="db-percent pl-count-value" data-plans-count>0</span>
+            <span class="db-percent-side">
+              <span class="db-percent-sign" aria-hidden="true">terv</span>
+              <span class="db-label">Összesen</span>
+            </span>
+          </div>
+
+          <p class="pl-note" data-plans-note></p>
+
           <!-- A terv-építő flow-oldalra visz (#plan-builder) -->
-          <button class="pl-new" type="button" data-action="new-plan">+ Új terv</button>
-        </header>
-        <ul class="pl-list" data-list="plans"></ul>
-        <p class="pl-empty" data-plans-empty hidden>Még nincs edzésterved —
-          készíts egyet a „+ Új terv” gombbal.</p>
+          <button class="pl-new" type="button" data-action="new-plan">
+            <span>Új terv készítése</span>
+            <span class="db-cta-arrow" aria-hidden="true">→</span>
+          </button>
+        </div>
+
+        <!-- JOBB HASÁB: maga a lista, soronként egy hajszálvonallal. -->
+        <div class="pl-side">
+          <section class="page-block" aria-labelledby="title-pl-list">
+            <h3 class="page-block-title" id="title-pl-list">Edzésterveid</h3>
+            <ul class="pl-list" data-list="plans"></ul>
+            <p class="pl-empty" data-plans-empty hidden>Még nincs edzésterved —
+              készíts egyet az „Új terv készítése” gombbal.</p>
+          </section>
+        </div>
       </section>
 
       <!-- ================================================================

@@ -67,6 +67,19 @@ async function renderPlans() {
     list.appendChild(card);
   });
   $('[data-plans-empty]').hidden = plansData.length > 0;
+
+  /* A bal hasáb összegzése: hány terv, és miből. A darabszám a lap nagy
+     száma, a mondat pedig kimondja, mit lehet vele kezdeni — a lista
+     magától nem árulja el, hogy a nyíl betöltésre való. */
+  $('[data-plans-count]').textContent = String(plansData.length);
+  const own = plansData.filter((plan) => plan.own).length;
+  const assigned = plansData.length - own;
+  const parts = [];
+  if (own) parts.push(`${own} saját`);
+  if (assigned) parts.push(`${assigned} az edződtől`);
+  $('[data-plans-note]').textContent = plansData.length === 0
+    ? 'Még nincs edzésterved — készíts egyet, vagy kérd meg az edződet, hogy osszon ki egyet.'
+    : `${parts.join(' · ')}. A nyíllal bármelyiket betöltöd az edzésnaplóba.`;
 }
 
 export { plansData, renderPlans };

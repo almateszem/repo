@@ -487,6 +487,11 @@ input.wk-chip:focus-visible {
   animation: page-in var(--t-slow);
 }
 
+/* A hasábos lapok (dashboard, rc-, nu-, pl-page) a saját szakaszukban írják
+   felül ezt a szélességet, .app-page.X-page alakban: a 15. szakasz ≥1025px-es
+   blokkja is ad egy általános .app-page max-widthet, és az a fájlban KÉSŐBB
+   áll — azonos specificitásnál az nyerne. */
+
 /* Kis telefonon minden vízszintes pixel a tartalomé — a 2×22px oldalmargó a
    360px-es kijelző 12%-a, és pont a szett-sor mezőitől veszi el. */
 @media (max-width: 380px) {
@@ -2405,7 +2410,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
    a jobb oldali katalógus), jobbra a nap eseményei, bal oldali
    hajszálvonallal elválasztva. */
 @media (min-width: 1280px) {
-  .nu-page {
+  .app-page.nu-page {
     max-width: 1560px;
     padding: var(--sp-11) clamp(24px, 3vw, 48px) var(--sp-13);
     display: grid;
@@ -2433,36 +2438,71 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 /* ==========================================================================
-   9. Tervek
+   9. Tervek (pl-*)
+   --------------------------------------------------------------------------
+   Balra a darabszám mint nagy szám és az új terv belépője, jobbra maga a
+   lista — kártyák helyett hajszálvonallal elválasztott sorokkal.
    ========================================================================== */
-.pl-header {
+
+.pl-main,
+.pl-side {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pl-count {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--sp-5);
+  gap: clamp(12px, 2vw, 24px);
+  padding: var(--sp-9) 0 var(--sp-7);
 }
 
-.pl-header h2 {
-  font-size: var(--fs-3xl);
-  font-weight: 800;
-  margin: 0 0 var(--sp-9);
+.pl-count .db-percent-side {
+  align-self: stretch;
 }
 
-/* „+ Új terv" — a terv-építő flow-oldalra visz */
+/* A darabszám legfeljebb két jegyű — nem kell neki a készenléti fokozat. */
+.pl-count-value {
+  font-size: clamp(72px, 10vw, 164px);
+  line-height: .78;
+}
+
+.pl-note {
+  max-width: 600px;
+  margin: 0 0 var(--sp-11);
+  font-size: clamp(17px, 1.7vw, 24px);
+  font-weight: 400;
+  line-height: 1.35;
+  letter-spacing: -.015em;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+
+/* „Új terv készítése" — a terv-építő flow-oldalra visz. Az Áttekintés fő
+   gombjának receptje. */
 .pl-new {
-  flex-shrink: 0;
-  background: var(--c-paper);
-  color: var(--c-ink);
-  border: none;
-  border-radius: var(--r-md);
-  padding: var(--sp-4) var(--sp-8);
-  font-size: var(--fs-md);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  width: 100%;
+  max-width: 440px;
+  min-height: 64px;
+  border: 1px solid var(--c-accent);
+  padding: var(--sp-5) var(--sp-7);
+  background: var(--c-accent);
+  color: var(--on-accent);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
   font-weight: 700;
-  transition: background var(--t-fast);
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
+  transition: opacity var(--t-fast);
 }
 
 .pl-new:hover {
-  background: var(--c-paper-bright);
+  opacity: .88;
 }
 
 .pl-list {
@@ -2471,18 +2511,15 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--sp-6);
 }
 
 .pl-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--sp-6);
-  background: var(--surface-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--r-2xl);
-  padding: var(--sp-7);
+  gap: var(--sp-5);
+  padding: var(--sp-6) 0;
+  border-top: 1px solid var(--border-card);
 }
 
 .pl-card-info {
@@ -2495,18 +2532,23 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 
 .pl-card-name {
   font-size: var(--fs-lg);
-  font-weight: 700;
+  font-weight: 800;
+  letter-spacing: -.02em;
 }
 
 .pl-card-meta {
-  font-size: var(--fs-xs);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
   color: var(--text-muted);
 }
 
+/* A folyamatjelző szögletes — a dizájn sehol nem kerekít. A Regeneráció
+   komponens-sávjai is ezt a primitívet használják. */
 .pl-progress {
-  height: 6px;
-  border-radius: var(--r-2xs);
-  background: var(--surface-strong);
+  height: 4px;
+  background: var(--fg-10);
   overflow: hidden;
 }
 
@@ -2514,31 +2556,29 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   display: block;
   height: 100%;
   background: var(--fg-100);
-  border-radius: var(--r-2xs);
 }
 
 .pl-card-open {
   width: 34px;
   height: 34px;
-  border-radius: var(--r-full);
-  border: none;
-  background: var(--surface-strong);
+  border: 1px solid var(--border-card);
+  background: none;
   color: var(--text-primary);
   flex-shrink: 0;
   font-size: var(--fs-base);
-  transition: background var(--t-fast);
+  transition: background var(--t-fast), border-color var(--t-fast);
 }
 
 .pl-card-open:hover {
-  background: var(--fg-15);
+  background: var(--surface-hover);
+  border-color: var(--c-accent);
 }
 
 /* Szerkesztés gomb — csak a saját terveken (a terv-építőbe tölti a tervet) */
 .pl-card-edit {
   width: 34px;
   height: 34px;
-  border-radius: var(--r-full);
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--border-card);
   background: none;
   color: var(--fg-70);
   flex-shrink: 0;
@@ -2561,6 +2601,34 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+/* ≥1280px: két hasáb, ahogy a többi átszabott lapon. */
+@media (min-width: 1280px) {
+  .app-page.pl-page {
+    max-width: 1560px;
+    padding: var(--sp-11) clamp(24px, 3vw, 48px) var(--sp-13);
+    display: grid;
+    grid-template-columns: minmax(320px, 1fr) minmax(420px, 1.2fr);
+    column-gap: clamp(24px, 2.6vw, 60px);
+    align-items: start;
+  }
+
+  .pl-main {
+    position: sticky;
+    top: var(--sp-9);
+  }
+
+  .pl-side {
+    align-self: stretch;
+    padding-left: clamp(24px, 2.6vw, 48px);
+    border-left: 1px solid var(--border-card);
+  }
+
+  .pl-side > .page-block:first-child {
+    border-top: none;
+    padding-top: var(--sp-11);
+  }
 }
 
 /* ==========================================================================
@@ -3386,6 +3454,16 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
     align-items: flex-start;
   }
 
+  /* A tartalom-hasáb kapja a maradék helyet. Enélkül a <main> flex-elemként
+     a TARTALOMHOZ zsugorodik (flex: 0 1 auto), és a hasábos lapok rácsa a
+     saját max-content szélességére húzódik össze: a Terveken például a lista
+     a képernyő közepén, félszélességben állt. A min-width: 0 azért kell,
+     hogy a hosszú, töretlen szövegek se feszítsék ki. */
+  .app-main {
+    flex: 1;
+    min-width: 0;
+  }
+
   .side-nav {
     display: flex;
     flex-direction: column;
@@ -3518,7 +3596,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 @media (min-width: 1280px) {
   /* A check-in varázsló kimarad: szándékosan fix 460px-es, egy-kérdés-egy-
      képernyő oszlop marad minden méreten (lásd 25. szakasz). */
-  .app-page:not(.dashboard):not(.ci-page):not(.rc-page):not(.nu-page) {
+  .app-page:not(.dashboard):not(.ci-page):not(.rc-page):not(.nu-page):not(.pl-page) {
     max-width: var(--page-max-wide);
   }
 
@@ -5576,16 +5654,8 @@ details[open] > .rc-details-summary::before {
    A sorokat hajszálvonal választja el, ahogy a dizájn minden listáját. */
 
 .rc-bar {
-  /* A .pl-progress alapján — itt a rács-elhelyezés, a szín és a szögletes
-     alak tér el. A kerekítést a Tervek oldal kártyái kérik; ezen a lapon a
-     dizájn sehol nem kerekít, ezért itt visszavesszük. */
+  /* A .pl-progress alapján — itt csak a rács-elhelyezés és a szín tér el. */
   width: 100%;
-  height: 4px;
-  border-radius: 0;
-}
-
-.rc-bar .pl-progress-fill {
-  border-radius: 0;
 }
 
 .rc-bar[data-tone="ok"] .pl-progress-fill { background: var(--c-ok); }
@@ -5772,7 +5842,7 @@ details[open] > .rc-details-summary::before {
 /* ≥1280px: két hasáb, ahogy az Áttekintésen. Balra a készenlét, jobbra a
    jelek és a bontás — a rést a jobb hasáb bal oldali hajszálvonala adja. */
 @media (min-width: 1280px) {
-  .rc-page {
+  .app-page.rc-page {
     max-width: 1560px;
     padding: var(--sp-11) clamp(24px, 3vw, 48px) var(--sp-13);
     display: grid;
