@@ -319,7 +319,9 @@ marad.
 A napi testsúly a **check-in része** (korábban a dashboardon volt külön rögzítő
 űrlap és trend-diagram). A varázsló testsúly-lépése kihagyható — a mezőt
 szándékosan nem tölti ki előre a legutóbbi méréssel, mert egy előre beírt szám a
-„Tovább"-bal olyan méréssé válna, ami meg sem történt. Ami ma már be van írva,
+„Tovább"-bal olyan méréssé válna, ami meg sem történt. (A szabály a
+testsúly-lépésben él, `public/js/ui/checkin/steps/weight.js` — nem a
+testtérkép-lépésben, ahol keresni szokás.) Ami ma már be van írva,
 azt viszont visszaadja: azt szerkeszted tovább. A trend a **Regeneráció oldal**
 „Testsúly alakulása" kártyáján látszik (a `GET /api/weight-log` utolsó 12
 bejegyzése, a tényleges értékekhez igazított skálával); az áttekintőn csak a

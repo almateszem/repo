@@ -1359,7 +1359,7 @@ const CHECKIN_FIELDS = [
   ['hydration', { min: 0, max: 15 }, 'folyadékbevitel'],
 ];
 
-/** Izomcsoportonkénti térkép (izomláz 0–5, fájdalom 0–10) normalizálása:
+/** Izomcsoportonkénti térkép (izomláz és fájdalom is 0–10) normalizálása:
     csak ismert izomkulcs és érvényes szám marad benne. A fájdalomnál a
     'general' kulcs is engedett (általános, nem csoporthoz kötött fájdalom). */
 function normalizeMuscleMap(raw, max, allowGeneral = false) {

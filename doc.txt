@@ -217,8 +217,16 @@ Az edzésnapló. Ez az app legsűrűbb felülete.
   · Mai napló: a bevitt tételek listája, bármelyik egy koppintással
     törölhető. CSAK az aznapi bejegyzés módosítható — a korábbi napok
     összesítői már beépültek a készenlét-számításba.
-  · A napi cél jelenleg FIX és minden fióknak közös (2900 kcal / 170 g).
-    A fiókonkénti, ill. edző által kitűzött cél még nincs kész.
+  · Vízmérő: kortyonkénti folyadék-napló (GET/POST/DELETE /api/water; egy
+    korty 1–3000 ml, a nap összege legfeljebb 15 liter). A nap összege
+    LITERBEN a checkins.hydration mezőbe íródik (syncHydration) — tehát a
+    készenlét táplálkozás-komponense ezt látja, ld. 5. pont. A napi cél
+    ugyanabból a képletből jön, amit a motor használ (~33 ml/testsúlykg):
+    ha a felület saját célt mondana, a „teljesítettem" érzés és a pontszám
+    szétcsúszna.
+  · A napi cél FIÓKONKÉNT él, két forrásból ('own' és 'coach') — a
+    részleteket ld. 3.6a. (Korábban itt egyetlen fix 2900 kcal / 170 g
+    érték szolgálta ki az összes fiókot; 2026-09-02 óta nem.)
 
 
 --- 3.6 EDZŐ (#coach) ----------------------------------------------------
@@ -226,12 +234,15 @@ Két nézet, a tényleges szerepkör szerint. Ha mindkettő áll, van váltógom
 
 KLIENS NÉZET ("Edződ")
   · Beérkezett edzői meghívás elfogadása / elutasítása. Amíg nem fogadtad
-    el, az edző SEMMIT nem lát az adataidból — a felület ezt ki is írja.
+    el, az edző a naplóidból, készenlétedből és fiók-beállításaidból
+    SEMMIT nem lát — a meghívó soron csak a felhasználónév és a
+    megjelenítendő név utazik (invitePayload, server.js). A felület ezt
+    ki is írja.
   · Az edződ neve és felhasználóneve, "Kapcsolat bontása" gombbal
     (megerősítést kér).
-  · Üzenetváltás — EGYELŐRE SZIMULÁLT, és a felület ezt kiírja: az üzenet
-    nem jut el az edződhöz, a válaszok előre megírt sorok, a szál a lap
-    újratöltésével elvész.
+  · Üzenetváltás — VALÓDI és perzisztens (2026-09-02 óta; korábban
+    szimulált volt, körbeforgó válasz-sorokkal). A szál a kapcsolathoz
+    tartozik, olvasottság-jelöléssel; ld. 3.6b.
 
 EDZŐI NÉZET ("Edzetteim")
   · Kliens meghívása felhasználónévvel.
