@@ -42,8 +42,24 @@
   --c-paper: #f4f3f1;
   --c-paper-bright: #ffffff;
   --c-ink: #111111;
-  --c-accent: #e0435a;
+  /* Kiemelés és riasztás SZÁNDÉKOSAN két külön token. Korábban egyetlen
+     --c-accent (#e0435a) volt mindkettő: a márkajel (.au-brand, mentés
+     gombok) és a vészjelzés (.au-error, „letiltva", alacsony készenlét) is.
+     A kettő szétválasztva marad, még ha most mindkettő vörös is: a jelentésük
+     különbözik, és a kiemelés színe a dizájnnal együtt változhat — a
+     vészjelzésé nem. A --c-accent a terv bordója (#c8102e). */
+  --c-accent: #c8102e;
+  --c-alert: #e0435a;
   --c-ok: #4ad295;
+
+  /* Ami az akcentus HÁTTERÉRE kerül. A bordó sötét, tehát világos a tinta —
+     a token azért van, hogy a szabályoknak ne kelljen tudniuk, épp melyik
+     akcentus van érvényben. */
+  --on-accent: #ffffff;
+  --c-accent-dim: rgba(200, 16, 46, .16);
+  --c-accent-line: rgba(200, 16, 46, .45);
+  --c-alert-dim: rgba(224, 67, 90, .12);
+  --c-alert-line: rgba(224, 67, 90, .38);
   /* Szuperszett-jelölés. Szándékosan NEM az accent: azt a PR-jelvény pulzálása
      foglalja, a két jelzés pedig egy kártyán is találkozhat. */
   --c-superset: #5aa9e6;
@@ -94,6 +110,13 @@
 
   /* Tipográfia */
   --font-base: system-ui, -apple-system, "Segoe UI", sans-serif;
+  /* Műszerfal-feliratok: monospace, nagybetűs, ritkított. A számokat így
+     azonos szélességű oszlopokban lehet olvasni, a címkék pedig a nagy
+     értékektől tipográfiával válnak el, nem csak színnel. */
+  --font-mono: ui-monospace, "SFMono-Regular", "Cascadia Mono", Menlo, Consolas, monospace;
+  --ls-label: .16em;
+  --ls-label-tight: .12em;
+  --ls-display: -.025em;
   --fs-2xs: 11px; /* 10px volt — a kisbetűs feliratok a halvány színnel együtt olvashatatlanok voltak */
   --fs-xs: 12px;
   --fs-sm: 12px;
@@ -128,15 +151,17 @@
   --sp-15: 48px;
   --sp-16: 56px;
 
-  /* Lekerekítés */
+  /* Lekerekítés. A dizájn szögletes (hajszálvonalak, 0px sarok); itt a
+     középutat tartjuk: a kerekítés megmarad, de a nagy sugarak lejjebb
+     jönnek, hogy a kártyák a vonalaktól kapják a formájukat, ne a saroktól. */
   --r-2xs: 4px;
   --r-xs: 6px;
   --r-sm: 8px;
-  --r-md: 10px;
-  --r-lg: 12px;
-  --r-xl: 14px;
-  --r-2xl: 16px;
-  --r-3xl: 20px;
+  --r-md: 8px;
+  --r-lg: 10px;
+  --r-xl: 10px;
+  --r-2xl: 12px;
+  --r-3xl: 12px;
   --r-full: 50%;
 
   /* Árnyék és scrim */
@@ -276,6 +301,73 @@ input.wk-chip:focus-visible {
     animation-duration: .01ms !important;
     transition-duration: .01ms !important;
   }
+}
+
+/* ==========================================================================
+   2b. Műszerfal-tipográfia — címkék és mérőszámok
+   ==========================================================================
+   A címkéket a tipográfia választja el a mérőszámoktól, nem csak a szín:
+   monospace, nagybetűs, ritkított. Így a halvány szürke feliratok akkor is
+   címkének olvasódnak, ha a kontraszt épp csak elég.
+
+   A beviteli mezők feliratai (.field-label, .au-label, .cf-label, .st-label,
+   .pb-days-label, .co-assign-label) SZÁNDÉKOSAN kimaradnak: azok mondatok,
+   nem címkék, és nagybetűsen a magyar szöveg nehezebben olvasható.
+   A check-in varázsló (.ci-*) is kimarad — az az űrlap változatlan marad. */
+
+.db-label,
+.db-stat-unit,
+.nu-summary-label,
+.nu-summary-unit,
+.nu-macro-label,
+.nu-macro-unit,
+.co-card-stat-label,
+.su-stat-label,
+.su-stat-unit,
+.rc-unit,
+.rc-muscle-label,
+.rc-body-row-label,
+.rc-scale-label,
+.rc-lift-delta-label,
+.fd-macro-label,
+.fd-macro-unit,
+.fd-goal-label,
+.pf-stat-label,
+.video-modal-history-label {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: var(--ls-label);
+  font-weight: 600;
+}
+
+/* Szekciócímek: ugyanaz a nyelv, valamivel szűkebb ritkítással, mert
+   hosszabbak — a „TESTÖSSZETÉTEL" .16em-mel már kifutna a keskeny kártyából. */
+.rc-section-title,
+.pf-section-title,
+.st-section-title,
+.co-modal-section-title,
+.fd-section-label,
+.wk-progress-title,
+.notif-title,
+.su-kicker {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: var(--ls-label-tight);
+  font-weight: 700;
+}
+
+/* Mérőszámok: sűrítve és táblázatos számokkal, hogy a másodpercenként
+   frissülő értékek (stopper, kalória) ne ugráltassák a sort. */
+.db-percent,
+.db-stat-value,
+.nu-summary-value,
+.nu-macro-value,
+.su-stat-value,
+.pf-stat-value,
+.co-card-stat-value,
+.rc-score-num {
+  letter-spacing: var(--ls-display);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ==========================================================================
@@ -445,6 +537,62 @@ input.wk-chip:focus-visible {
   border-radius: 2px 2px 0 0;
 }
 
+/* A mai oszlop. Csak ott kap kiemelést, ahol a szerver megmondja, melyik az
+   (accentIndex) — a heti diagramok utolsó oszlopa vasárnap, nem a mai nap. */
+.chart-bars span.is-today {
+  background: var(--c-accent);
+}
+
+/* Nap-feliratok az oszlopok alatt. A .chart magasságán KÍVÜL ülnek, ezért a
+   konténer alsó margója adja a helyüket — különben az oszlopokba lógnának. */
+/* A feliratos változat (Áttekintés trend-diagramja) NEM használ jobb oldali
+   tengelyt: a dizájnban a napok neve a mérték, nem a skála. A tengely ezért
+   rejtve marad, és a helye is felszabadul az oszlopoknak. */
+.chart--labelled {
+  margin-bottom: var(--sp-13);
+  padding-right: 0;
+  gap: clamp(5px, .7vw, 10px);
+}
+
+.chart--labelled .chart-axis {
+  display: none;
+}
+
+.chart--labelled .chart-bars {
+  gap: clamp(5px, .7vw, 10px);
+}
+
+.chart-labels {
+  position: absolute;
+  left: 0;
+  right: 0; /* nincs tengely, tehát a teljes szélesség az oszlopoké */
+  top: calc(100% + var(--sp-2));
+  display: flex;
+  gap: clamp(5px, .7vw, 10px);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: var(--ls-label-tight);
+  color: var(--text-muted);
+}
+
+.chart-labels span {
+  flex: 1;
+  text-align: center;
+  overflow: hidden;
+}
+
+/* Terhelés-trend az áttekintőn: mobilon csak az utolsó hét látszik. A szerver
+   mind a 14 napot küldi, hogy a skála a két nézetben azonos maradjon; itt a
+   régebbi hetet rejtjük el, nem külön lekéréssel. A szabály SZÁNDÉKOSAN a
+   keskeny nézetre van szűkítve, nem desktopon felülírva: a `display` itt nem
+   írható vissza egy szóval, mert az oszlopok flex-elemek. */
+@media (max-width: 1024px) {
+  .db-trend .chart-bars span:nth-child(-n+7),
+  .db-trend .chart-labels span:nth-child(-n+7) {
+    display: none;
+  }
+}
+
 .chart-axis {
   position: absolute;
   right: 0;
@@ -461,12 +609,57 @@ input.wk-chip:focus-visible {
 /* ==========================================================================
    6. Dashboard
    ========================================================================== */
-.db-header {
-  position: relative; /* az értesítés-panel horgonya */
+/* Globális fejléc-sáv. Mobilon a lap tetején tapad, desktopon az oldalsáv
+   aljára ül (lásd a szélesebb töréspontot) — egy példány, két hely, hogy az
+   értesítés-panel állapota ne kettőződjön meg. */
+.app-chrome {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-popover);
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--sp-12);
+  gap: var(--sp-5);
+  padding: var(--sp-5) var(--sp-10);
+  background: var(--c-bg);
+  border-bottom: 1px solid var(--border-card);
+}
+
+@media (max-width: 380px) {
+  .app-chrome { padding-left: var(--sp-7); padding-right: var(--sp-7); }
+}
+
+/* A márkajel és a dátum. A dátum halványabb, de ugyanabban a monospace
+   ritmusban — így egyetlen jelként olvasódik, nem két külön feliratként. */
+.chrome-brand {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  margin-right: auto;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: var(--ls-label);
+  font-size: var(--fs-2xs);
+}
+
+.chrome-brand-name {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.chrome-date {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sorozat-jelvény a név mellett. Csak akkor van kiírva, ha van mit kiírni —
+   a renderDashboard nulla sorozatnál elrejti. */
+.chrome-streak {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  color: var(--c-accent);
+  white-space: nowrap;
 }
 
 /* Az avatar és a név egyetlen gomb — a profiloldalra visz. Gombként is a
@@ -499,7 +692,7 @@ input.wk-chip:focus-visible {
 }
 
 /* A jobb oldali ikonpár (harang + fogaskerék) */
-.db-header-actions {
+.chrome-actions {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
@@ -542,7 +735,7 @@ input.wk-chip:focus-visible {
   padding: 0 var(--sp-1);
   border-radius: var(--r-full);
   background: var(--c-accent);
-  color: var(--fg-100);
+  color: var(--on-accent);
   font-size: var(--fs-2xs);
   font-weight: 700;
   line-height: 1;
@@ -578,55 +771,10 @@ input.wk-chip:focus-visible {
 
 /* A kártya egésze link a Regeneráció oldalra — a szövegszín öröklődik, hogy
    a link-alapértelmezés ne írja felül a tipográfiát. */
-.db-readiness {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-7);
-  margin-bottom: var(--sp-6);
-  background: var(--surface-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--r-2xl);
-  padding: var(--sp-7) var(--sp-8);
-  color: inherit;
-  text-decoration: none;
-  transition: background var(--t-fast), border-color var(--t-fast);
-}
-
-.db-readiness:hover {
-  background: var(--surface-hover);
-  border-color: var(--border-strong);
-}
-
-.db-readiness-note {
-  font-size: var(--fs-xs);
-  color: var(--text-muted);
-}
-
-.db-readiness-text {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-2);
-  min-width: 0;
-}
-
-.db-label {
-  font-size: var(--fs-sm);
-  color: var(--text-muted);
-}
-
-.db-percent {
-  font-size: var(--fs-display);
-  font-weight: 800;
-  line-height: 1;
-}
-
-.db-percent-sign {
-  font-size: .5em;
-  font-weight: 700;
-  margin-left: 2px;
-}
-
+/* ---- Készenléti gyűrű (megosztott primitív) ----
+   Az Áttekintésen a dizájn szerint NINCS gyűrű: ott a nagy szám a
+   mutató. A Regeneráció oldal viszont megtartja, mert ott a
+   komponens-bontás mellett a körkijelző valódi többletet ad. */
 .db-ring {
   width: clamp(84px, 22vw, 116px);
   height: clamp(84px, 22vw, 116px);
@@ -656,142 +804,372 @@ input.wk-chip:focus-visible {
   stroke-dashoffset: calc(264 - (264 * var(--readiness, 0) / 100));
 }
 
-.db-recovery {
-  display: flex;
-  gap: var(--sp-9);
-  margin: 0 0 var(--sp-4);
-  background: var(--surface-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--r-2xl);
-  padding: var(--sp-6) var(--sp-8);
-}
-
-.db-recovery-item {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-2);
-}
-
-.db-recovery-label {
-  font-size: var(--fs-sm);
+/* Minden műszerfal-címke ezt az osztályt kapja: a szedést a 2b. szakasz
+   központi blokkja adja, itt csak a méret és a szín áll. Egy osztály, mert
+   a dizajnban minden címke ugyanaz — nem blokkonként újratárgyalt méret. */
+.db-label {
+  display: block;
+  font-size: var(--fs-2xs);
   color: var(--text-muted);
-  letter-spacing: .02em;
 }
 
-.db-recovery-value {
-  font-size: var(--fs-2xl);
-  font-weight: 700;
+/* ---- Áttekintés ----
+   A dizájn nem kártyákra épül, hanem HAJSZÁLVONALAKRA: a blokkoknak nincs
+   saját hátterük és keretük, csak egy felső elválasztó vonaluk. A tagolást
+   így a tipográfia és a térköz adja, nem a doboz — ettől férnek el a nagy
+   mérőszámok. A méretek a tervből jönnek (clamp-ekkel, hogy mobiltól
+   nagy képernyőig ugyanaz az arány maradjon). */
+
+.db-readiness {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: clamp(20px, 4vw, 64px);
+  padding: var(--sp-11) 0 var(--sp-13);
+  color: inherit;
+  text-decoration: none;
 }
 
-.db-stats {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--sp-6) var(--sp-4);
-  margin-bottom: var(--sp-10);
-  background: var(--surface-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--r-2xl);
-  padding: var(--sp-6) var(--sp-8);
+/* A készenléti szám a lap fókuszpontja: nincs mellette gyűrű, mert egy
+   ekkora számjegy mellett a körkijelző csak ismételné. A körkijelző a
+   Regeneráció oldalon marad, ahol a komponens-bontás mellett van értelme. */
+.db-percent {
+  font-size: clamp(84px, 13.5vw, 214px);
+  font-weight: 800;
+  line-height: .74;
+  letter-spacing: -.07em;
+  font-variant-numeric: tabular-nums;
 }
 
-.db-stat {
+/* A százalékjel és a felirat a szám mellett, függőlegesen szétfeszítve: a jel
+   a szám tetejéhez, a címke az aljához igazodik. */
+.db-percent-side {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-2);
+  justify-content: space-between;
+  align-self: stretch;
+  padding-top: var(--sp-2);
+  flex-shrink: 0;
+}
+
+.db-percent-sign {
+  font-size: clamp(22px, 2.8vw, 42px);
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text-faint);
+}
+
+.db-readiness-note {
+  flex: 1;
+  min-width: 240px;
+  max-width: 600px;
+  margin-top: var(--sp-9);
+  font-size: clamp(19px, 2.3vw, 34px);
+  font-weight: 400;
+  line-height: 1.34;
+  letter-spacing: -.015em;
+  color: var(--text-secondary);
+  text-wrap: pretty;
+}
+
+.db-readiness:hover .db-readiness-note {
+  color: var(--text-primary);
+}
+
+/* ---- Táplálkozás-blokk: kalória, sáv, makrók ---- */
+
+.db-nutri {
+  padding: var(--sp-11) 0 var(--sp-13);
+  border-top: 1px solid var(--border-card);
+}
+
+.db-nutri-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-7);
+  margin-bottom: var(--sp-7);
+}
+
+.db-nutri-value {
+  font-size: clamp(24px, 2.4vw, 34px);
+  font-weight: 800;
+  letter-spacing: -.03em;
+  font-variant-numeric: tabular-nums;
+}
+
+.db-nutri-target {
+  font-size: .44em;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+/* A sáv szándékosan szögletes és vékony: a dizájn egyetlen tömör vonala.
+   A kitöltés és a maradék KÉT külön elem 2px réssel — így a határ akkor is
+   éles marad, ha a kitöltés épp 0 vagy 100 százalék. */
+.db-bar {
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  background: var(--fg-10);
+}
+
+.db-bar-fill {
+  display: block;
+  width: 0;
+  background: var(--c-accent);
+  transition: width var(--t-slow);
+}
+
+.db-macros {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(16px, 1.6vw, 24px);
+  margin-top: var(--sp-13);
+}
+
+.db-macro {
   min-width: 0;
 }
 
-.db-stat-label {
-  font-size: var(--fs-2xs);
+.db-macro-value {
+  display: block;
+  margin-top: var(--sp-11);
+  font-size: clamp(22px, 2.4vw, 34px);
+  font-weight: 800;
+  letter-spacing: -.035em;
+  font-variant-numeric: tabular-nums;
+}
+
+.db-macro-unit {
+  font-size: .34em;
+  font-weight: 500;
   color: var(--text-muted);
-  letter-spacing: .02em;
+  margin-left: .15em;
+}
+
+/* ---- Mérőszám-sor ----
+   A dizájn négy hasábot mutat; itt öt adat van, mert az app többet tud.
+   Az auto-fit ezért nem kozmetika: négy fix hasábnál az ötödik magára
+   maradna egy sorban. */
+.db-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: clamp(16px, 1.6vw, 24px);
+  padding: var(--sp-11) 0;
+  border-top: 1px solid var(--border-card);
+}
+
+.db-stat {
+  min-width: 0;
 }
 
 .db-stat-value {
-  font-size: var(--fs-metric);
-  font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: block;
+  margin-top: var(--sp-11);
+  font-size: clamp(24px, 2.7vw, 46px);
+  font-weight: 800;
+  letter-spacing: -.035em;
+  font-variant-numeric: tabular-nums;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+/* A szöveges értékek (Fáradtság, Izomláz) nem férnének el a számokra szabott
+   fokozatban — a dizájn ezekre külön, kisebb méretet ad, itt ez az osztály. */
+.db-stat-value--word {
+  font-size: clamp(15px, 1.5vw, 24px);
+  letter-spacing: -.01em;
 }
 
 .db-stat-unit {
-  font-size: .55em;
-  font-weight: 600;
+  font-size: .34em;
+  font-weight: 500;
   color: var(--text-muted);
-  margin-left: 1px;
+  margin-left: .15em;
 }
 
-/* Napi check-in emlékeztető — a napi statok alatt (itt volt korábban a
-   kalória-diagram). Csak addig van a DOM-ban láthatóan, amíg a mai check-in
-   hiányzik; a script.js kapcsolja a `hidden` attribútummal. Az akcentus-keret
-   különbözteti meg a többi kártyától: ez teendő, nem állapot. */
+/* ---- Terhelés-trend ---- */
+
+.db-trend {
+  padding: var(--sp-11) 0;
+  border-top: 1px solid var(--border-card);
+}
+
+/* ---- Napi check-in emlékeztető ----
+   Ez az EGYETLEN blokk, ami keretet kap: nem adat, hanem teendő, és a
+   hajszálvonalas környezetben csak így válik el a mérőszámoktól. */
 .db-checkin-cta {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--sp-6);
-  margin-bottom: var(--sp-10);
-  background: var(--surface-card);
+  gap: var(--sp-7);
+  margin: var(--sp-9) 0;
+  padding: var(--sp-8) var(--sp-9);
   border: 1px solid var(--c-accent);
-  border-radius: var(--r-2xl);
-  padding: var(--sp-7) var(--sp-8);
   color: inherit;
   text-decoration: none;
   transition: background var(--t-fast);
 }
 
 .db-checkin-cta:hover {
-  background: var(--surface-hover);
+  background: var(--c-accent-dim);
 }
 
 .db-checkin-cta-text {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-2);
+  gap: var(--sp-3);
   min-width: 0;
 }
 
 .db-checkin-cta-title {
-  font-size: var(--fs-lg);
-  font-weight: 700;
+  font-size: var(--fs-2xl);
+  font-weight: 800;
+  letter-spacing: -.02em;
 }
 
 .db-checkin-cta-note {
-  font-size: var(--fs-xs);
-  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--text-secondary);
 }
 
 .db-checkin-cta-arrow {
-  font-size: var(--fs-2xl);
+  font-size: var(--fs-3xl);
   color: var(--c-accent);
   flex-shrink: 0;
 }
 
 .db-quote {
+  margin: var(--sp-11) 0 0;
+  padding-top: var(--sp-11);
+  border-top: 1px solid var(--border-card);
   font-size: var(--fs-quote);
+  font-weight: 800;
+  line-height: 1.24;
+  letter-spacing: -.03em;
+  text-wrap: balance;
+}
+
+/* ---- Jobb hasáb: a mai edzés és a fő műveletek ---- */
+
+.db-side {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding-top: var(--sp-11);
+  border-top: 1px solid var(--border-card);
+}
+
+.db-side-title {
+  margin: var(--sp-7) 0 var(--sp-5);
+  font-size: var(--fs-5xl);
+  font-weight: 800;
+  letter-spacing: -.035em;
+  text-wrap: balance;
+}
+
+.db-side-meta {
+  margin: 0;
+  padding-bottom: var(--sp-7);
+  border-bottom: 1px solid var(--border-card);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
   font-weight: 700;
-  line-height: 1.25;
-  margin: 0 0 var(--sp-10);
+  text-transform: uppercase;
+  letter-spacing: var(--ls-label);
+  color: var(--text-muted);
+}
+
+.db-side-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.db-side-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-7);
+  padding: var(--sp-7) 0;
+  border-bottom: 1px solid var(--border-card);
+}
+
+.db-side-no {
+  width: 20px;
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.db-side-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+
+.db-side-name {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  letter-spacing: -.01em;
+}
+
+.db-side-detail {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: var(--ls-label-tight);
+  color: var(--text-muted);
+}
+
+.db-side-empty {
+  margin: var(--sp-7) 0 0;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* A műveletek a hasáb ALJÁRA kerülnek (margin-top: auto): desktopon a jobb
+   hasáb teljes magasságú, és a fő művelet így a szem természetes végpontján
+   ül, nem közvetlenül a gyakorlatlista után. */
+.db-side-actions {
+  margin-top: auto;
+  padding-top: var(--sp-11);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
 }
 
 .db-cta {
   width: 100%;
+  min-height: 64px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--c-paper);
-  color: var(--c-ink);
-  border: none;
-  border-radius: var(--r-xl);
-  padding: var(--sp-7) var(--sp-8);
-  font-size: var(--fs-lg);
-  font-weight: 600;
-  transition: background var(--t-fast), transform var(--t-fast);
+  gap: var(--sp-5);
+  padding: var(--sp-9) var(--sp-11);
+  background: var(--c-bg-deep);
+  border: 1px solid var(--border-card);
+  color: var(--fg-92);
+  font-size: var(--fs-base);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+  cursor: pointer;
+  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
 }
 
 .db-cta:hover {
-  background: var(--c-paper-bright);
+  background: var(--c-accent);
+  border-color: var(--c-accent);
+  color: var(--on-accent);
 }
 
 .db-cta:active {
@@ -799,8 +1177,33 @@ input.wk-chip:focus-visible {
 }
 
 .db-cta-arrow {
-  font-size: var(--fs-2xl);
+  font-size: var(--fs-3xl);
+  line-height: 1;
 }
+
+.db-side-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: var(--sp-7) 0;
+  border: 1px solid var(--border-card);
+  background: transparent;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .18em;
+  transition: color var(--t-fast), border-color var(--t-fast);
+}
+
+.db-side-link:hover {
+  color: var(--text-primary);
+  border-color: var(--fg-40);
+}
+
 
 /* ==========================================================================
    7. Workout logger
@@ -977,7 +1380,7 @@ input.wk-chip:focus-visible {
 
 .wk-pr {
   background: var(--c-accent);
-  color: var(--fg-100);
+  color: var(--on-accent);
   font-size: var(--fs-2xs);
   font-weight: 800;
   letter-spacing: .03em;
@@ -987,18 +1390,18 @@ input.wk-chip:focus-visible {
 
 /* Valós idejű PR detektálás: amikor az aktuális (teljesített) szett 1RM-je
    nagyobb az eddigi maximumnál, a PR gomb aria-pressed="true" lesz — ez adja
-   a tömör piros kitöltést (lásd lejjebb) és a lüktető box-shadow-t. */
+   a tömör bordó kitöltést (lásd lejjebb) és a lüktető box-shadow-t. */
 .wk-pr-toggle[aria-pressed="true"] {
   animation: pr-pulse 1.5s ease-in-out infinite;
-  box-shadow: 0 0 12px rgba(224, 67, 90, 0.8);
+  box-shadow: 0 0 12px rgba(200, 16, 46, .85);
 }
 
 @keyframes pr-pulse {
   0%, 100% {
-    box-shadow: 0 0 6px rgba(224, 67, 90, 0.6);
+    box-shadow: 0 0 6px rgba(200, 16, 46, .6);
   }
   50% {
-    box-shadow: 0 0 16px rgba(224, 67, 90, 1);
+    box-shadow: 0 0 16px rgba(200, 16, 46, 1);
   }
 }
 
@@ -1054,7 +1457,7 @@ input.wk-chip:focus-visible {
 }
 
 .wk-exercise-remove:hover {
-  color: var(--c-accent);
+  color: var(--c-alert);
   background: var(--surface-hover);
 }
 
@@ -1140,7 +1543,7 @@ input.wk-chip:focus-visible {
 
 .wk-order-option[aria-selected="true"] {
   background: var(--c-accent);
-  color: var(--fg-100);
+  color: var(--on-accent);
 }
 
 /* Minden sor önálló grid — a fejléc és az értéksorok csak akkor fedik egymást,
@@ -1300,7 +1703,7 @@ input.wk-chip:focus-visible {
 
 .wk-set-row[data-set-type="drop"] .wk-set-num {
   color: var(--c-accent);
-  border-color: rgba(224, 67, 90, .35); /* --c-accent, halványítva */
+  border-color: var(--c-accent-line);
 }
 
 /* A lenyíló a sor első oszlopából indul, de a típusnevek szélesebbek nála —
@@ -1491,7 +1894,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .wk-set-remove:hover {
-  color: var(--c-accent);
+  color: var(--c-alert);
   background: var(--surface-hover);
 }
 
@@ -1675,7 +2078,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   transition: color var(--t-fast);
 }
 
-.wk-editing-cancel:hover { color: var(--c-accent); }
+.wk-editing-cancel:hover { color: var(--c-alert); }
 
 /* ==========================================================================
    8. Nutrition tracker
@@ -1752,16 +2155,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   margin-left: 1px;
 }
 
-.nu-coach-goal {
-  font-size: var(--fs-sm);
-  color: var(--fg-60);
-  background: var(--surface-soft);
-  border-left: 2px solid var(--fg-30);
-  padding: var(--sp-4) var(--sp-5);
-  border-radius: 0 var(--r-md) var(--r-md) 0;
-  margin: 0 0 var(--sp-9);
-}
-
 /* ---- Mai napló — a ténylegesen naplózott tételek, törléssel ----
    A felület korábban csak összesített: nem lehetett megnézni, mit ettél, és
    egy téves koppintás visszavonhatatlan volt. */
@@ -1788,13 +2181,21 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--text-muted);
 }
 
+/* A listából egyszerre kb. 5 tétel látszik, a többihez görgetni kell —
+   különben minél többet naplózol, annál lejjebb tolódik a gombsor, a kereső
+   és a teljes étel-katalógus. A sormagasság a betűméretből számolódik
+   (két szövegsor: név + makrók), nem fix px-ből. */
 .nu-log-list {
+  --nu-log-row: calc(var(--fs-sm) * 1.4 + var(--fs-2xs) * 1.4 + 2px + var(--sp-3) * 2);
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
+  max-height: calc(var(--nu-log-row) * 5 + var(--sp-2) * 4);
+  overflow-y: auto;
+  overscroll-behavior: contain; /* a lista végén ne a lap kezdjen görögni */
 }
 
 .nu-log-item {
@@ -1806,6 +2207,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   padding: var(--sp-3) var(--sp-4);
   animation: note-in .25s ease backwards;
   animation-delay: calc(var(--i, 0) * 30ms);
+  flex-shrink: 0; /* görgethető listában a sorok nem lapulhatnak össze */
 }
 
 .nu-log-info {
@@ -1849,7 +2251,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .nu-log-remove:hover {
-  color: var(--c-accent);
+  color: var(--c-alert);
   background: var(--surface-hover);
 }
 
@@ -1881,7 +2283,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   border-radius: var(--r-lg);
   padding: var(--sp-5) var(--sp-6);
   background: var(--c-accent);
-  color: #fff;
+  color: var(--on-accent);
   font-family: inherit;
   font-size: var(--fs-sm);
   font-weight: 700;
@@ -2040,7 +2442,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .nu-food-remove:hover,
 .nu-food-remove:focus-visible {
   opacity: 1;
-  color: var(--c-accent);
+  color: var(--c-alert);
   background: var(--surface-hover);
 }
 
@@ -2219,7 +2621,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .co-banner--alert {
-  border-color: rgba(224, 67, 90, .35); /* --c-accent, halványítva */
+  border-color: rgba(224, 67, 90, .35); /* --c-alert, halványítva */
   background: linear-gradient(120deg, rgba(224, 67, 90, .08), transparent 55%), var(--surface-card);
 }
 
@@ -2248,7 +2650,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 
 .co-banner--alert .co-banner-icon {
   background: rgba(224, 67, 90, .18);
-  color: var(--c-accent);
+  color: var(--c-alert);
 }
 
 .co-banner--ok .co-banner-icon {
@@ -2395,7 +2797,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   width: 18px;
   height: 18px;
   border-radius: var(--r-full);
-  background: var(--c-accent);
+  background: var(--c-alert);
   color: var(--fg-100);
   font-size: var(--fs-xs);
   font-weight: 800;
@@ -2416,7 +2818,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   padding: 0 5px;
   border-radius: var(--r-full);
   background: var(--c-accent);
-  color: var(--fg-100);
+  color: var(--on-accent);
   font-size: var(--fs-2xs);
   font-weight: 800;
   display: flex;
@@ -2921,8 +3323,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .confirm-ok {
-  background: var(--c-accent);
-  border: 1px solid var(--c-accent);
+  background: var(--c-alert);
+  border: 1px solid var(--c-alert);
   color: var(--fg-100);
 }
 
@@ -3018,11 +3420,70 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
     top: 0;
     flex: 0 0 var(--sidebar-width);
     height: 100vh;
-    padding: var(--sp-13) var(--sp-9);
+    /* Alul a fejléc-sávnak tartunk helyet: az ráfekszik az oldalsávra, és
+       enélkül eltakarná az utolsó menüpontot alacsony nézetablakban. */
+    padding: var(--sp-13) var(--sp-9) calc(var(--sp-16) + var(--sp-11));
     background: var(--surface-soft);
     border-right: 1px solid var(--border-card);
     overflow-y: auto; /* alacsony nézetablakban a nav görgethető marad */
   }
+
+  /* A fejléc-sáv desktopon az oldalsáv aljára költözik — ez a dizájn „Fiók"
+     blokkja. Fixen ül, tehát kikerül a body flex-sorából (különben harmadik
+     oszlopként ékelődne a nav és a tartalom közé), és a görgetéstől
+     függetlenül elérhető marad. */
+  .app-chrome {
+    position: fixed;
+    left: 0;
+    bottom: 0;
+    top: auto;
+    width: var(--sidebar-width);
+    flex-wrap: wrap;
+    gap: var(--sp-3);
+    padding: var(--sp-6) var(--sp-9);
+    background: var(--surface-soft);
+    border-bottom: none;
+    border-top: 1px solid var(--border-card);
+    border-right: 1px solid var(--border-card);
+  }
+
+  /* Keskeny hasáb: a márkajel a nav tetején már ott van, itt csak a dátum
+     kell. A név és az ikonpár egy sorban fér el alatta. */
+  .chrome-brand-name {
+    display: none;
+  }
+
+  .chrome-brand {
+    order: 2;
+    margin-right: 0;
+  }
+
+  .db-profile {
+    order: 1;
+    flex: 1 0 100%;
+    min-width: 0;
+  }
+
+  .db-username {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .chrome-actions {
+    order: 3;
+    margin-left: auto;
+  }
+
+  /* Az értesítés-panel itt FELFELÉ nyílik: a sáv a képernyő alján ül, lefelé
+     nem férne el. Balra igazítva, mert a jobb széle a tartalom fölé lógna. */
+  .notif-panel {
+    top: auto;
+    bottom: calc(100% + var(--sp-3));
+    right: auto;
+    left: var(--sp-5);
+  }
+
 
   .side-nav-brand {
     font-size: var(--fs-2xl);
@@ -3088,150 +3549,47 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
     max-width: var(--page-max-wide);
   }
 
-  /* Alapállapot: a mai check-in már megvan, az emlékeztető rejtett. A
-     regeneráció-sor ilyenkor teljes szélességű, az idézet és a CTA pedig
-     osztozik az utolsó soron. */
+  /* Áttekintés desktopon: KÉT HASÁB, nem kártyarács. A bal hasáb a mérőszámoké
+     (készenlét, táplálkozás, statok, trend), a jobb a mai edzésé és a fő
+     műveleteké. A rést nem gap adja, hanem a jobb hasáb bal oldali
+     hajszálvonala — a dizájn végig vonalakkal tagol, nem dobozokkal.
+
+     A check-in emlékeztető itt NEM vált rácsot: a bal hasáb folyamában marad,
+     ahol a többi blokk. A korábbi kétállapotú grid-template azért kellett,
+     mert a kártyák soronként álltak egymás mellett; hasábokkal ez a
+     bonyolultság feleslegessé vált. */
   .dashboard {
-    max-width: var(--dashboard-max-wide);
-    padding: var(--sp-16) var(--sp-15);
+    max-width: 1560px;
+    padding: var(--sp-11) clamp(24px, 3vw, 48px) var(--sp-13);
     display: grid;
-    grid-template-columns: minmax(300px, 1fr) minmax(400px, 1.6fr);
-    grid-template-rows: auto auto auto auto;
-    column-gap: var(--sp-14);
-    row-gap: var(--sp-11);
-    grid-template-areas:
-      "head     head"
-      "ready    stats"
-      "recovery recovery"
-      "quote    cta";
+    grid-template-columns: minmax(400px, 1fr) minmax(250px, 424px);
+    column-gap: clamp(24px, 2.6vw, 60px);
+    align-items: start;
   }
 
-  /* Amíg a mai check-in hiányzik, az emlékeztető tölti ki a jobb oszlopot.
-     A rács teljes template-et vált, nem csak elrejt egy elemet: egy rejtett
-     grid-elem sora ugyan összecsukódik, de a körülötte lévő két row-gap
-     megmaradna, és fantom rést hagyna a kártyák között.
-     Az idézet-sor (1fr) nyeli el a maradék helyet, így a CTA az emlékeztető
-     kártya aljához igazodik. */
-  .dashboard[data-checkin-pending="true"] {
-    grid-template-rows: auto auto auto 1fr auto;
-    grid-template-areas:
-      "head     head"
-      "ready    stats"
-      "recovery checkin"
-      "quote    checkin"
-      "cta      checkin";
-  }
-
-  .db-header      { grid-area: head; }
-  .db-readiness   { grid-area: ready; }
-  .db-recovery    { grid-area: recovery; }
-  .db-stats       { grid-area: stats; }
-  .db-checkin-cta { grid-area: checkin; }
-  .db-quote       { grid-area: quote; }
-  .db-cta         { grid-area: cta; }
-
-  /* A kártyák közti távot egységesen a grid gap adja — a mobil nézet
-     margói itt kikapcsolnak, különben soronként elcsúsznak a kártyák. */
-  .db-header,
-  .db-readiness,
-  .db-recovery,
-  .db-stats,
-  .db-checkin-cta,
-  .db-quote,
-  .db-cta {
-    margin: 0;
-  }
-
-  /* A check-in emlékeztető szándékosan kimarad ebből a listából: saját
-     akcentus-kerete van, amit ez a szabály felülírna. */
-  .db-readiness,
-  .db-recovery,
-  .db-stats {
-    background: var(--surface-card);
-    border: 1px solid var(--border-card);
-    border-radius: var(--r-3xl);
-    padding: var(--sp-11);
-  }
-
-  .db-readiness {
-    align-items: center;
-    min-height: 216px;
-  }
-
-  /* Ez a két szabály szándékosan a .dashboard-ra szűkít: a .db-percent és a
-     .db-ring a Regeneráció oldalon is szerepel (megosztott primitív), és ott
-     nem a dashboard fókuszpont-méretezését kell kapniuk. */
-  .dashboard .db-percent {
-    font-size: 72px; /* a készenlét a dashboard fókuszpontja — nagyobb, mint a display-lg token */
-  }
-
-  .dashboard .db-ring {
-    width: 124px;
-    height: 124px;
-  }
-
-  .db-recovery {
-    justify-content: space-between;
-    gap: var(--sp-7);
-  }
-
-  .db-recovery-label {
-    font-size: var(--fs-sm);
-  }
-
-  .db-recovery-value {
-    font-size: var(--fs-4xl);
-  }
-
-  .db-stats {
-    grid-template-columns: repeat(2, 1fr);
-    /* A 2×2 stat egyenletesen tölti ki a kártyát, így a magassága
-       vizuálisan is a szomszédos készenlét-kártyához igazodik. */
-    align-content: space-evenly;
-    row-gap: var(--sp-8);
-  }
-
-  .db-stat-value {
-    font-size: var(--fs-4xl);
-  }
-
-  /* Az emlékeztető itt teljes magasságú kártya: a bal oszlop három sorával
-     szemben áll, ezért a tartalma függőlegesen középre kerül. */
-  .db-checkin-cta {
-    height: 100%;
-    min-height: 320px;
+  .db-main {
+    min-width: 0;
+    display: flex;
     flex-direction: column;
-    align-items: flex-start;
-    justify-content: center;
-    gap: var(--sp-7);
-    padding: var(--sp-11);
-    border-radius: var(--r-3xl);
   }
 
-  .db-checkin-cta-title {
-    font-size: var(--fs-3xl);
+  /* Az első blokknak nincs felső vonala: a lap tetején az elválasztó semmit
+     nem választana el. */
+  .db-readiness {
+    padding-top: var(--sp-13);
   }
 
-  .db-checkin-cta-note {
-    font-size: var(--fs-sm);
+  /* A jobb hasáb teljes magasságú, hogy a műveletek (margin-top: auto) a lap
+     aljára kerüljenek, ne a gyakorlatlista alá tapadva. */
+  .db-side {
+    align-self: stretch;
+    padding: var(--sp-13) 0 0 clamp(24px, 2.6vw, 48px);
+    border-top: none;
+    border-left: 1px solid var(--border-card);
   }
 
-  .db-quote {
-    font-size: var(--fs-5xl);
-    align-self: center; /* a rugalmas (1fr) sor közepén ül */
-  }
-
-  .db-cta {
-    max-width: 320px;
-    align-self: center;
-    justify-self: end; /* az idézet mellett, a sor jobb szélén */
-  }
-
-  /* Emlékeztetővel a CTA visszakerül a bal oszlop aljára, és a jobb oldali
-     kártya aljával zár egy vonalban. */
-  .dashboard[data-checkin-pending="true"] .db-cta {
-    align-self: end;
-    justify-self: stretch;
+  .db-side-title {
+    font-size: 32px;
   }
 }
 
@@ -3411,7 +3769,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 /* ---- Validációs hibaállapot (edzésnév) ---- */
 .wk-error {
   font-size: var(--fs-sm);
-  color: var(--c-accent);
+  color: var(--c-alert);
   margin: calc(-1 * var(--sp-4)) 0 var(--sp-7);
 }
 
@@ -3455,12 +3813,12 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 /* A hiba nem maradhat halvány szürke: ez az egyetlen jelzés arról, hogy a
    napló NINCS elmentve. */
 .wk-autosave-note[data-state="error"] {
-  color: var(--c-accent);
+  color: var(--c-alert);
   font-weight: 600;
 }
 
 .wk-autosave-note[data-state="error"] .wk-autosave-dot {
-  background: var(--c-accent);
+  background: var(--c-alert);
 }
 
 @keyframes autosave-pulse {
@@ -3468,12 +3826,12 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .wk-title.has-error {
-  border-color: var(--c-accent);
+  border-color: var(--c-alert);
 }
 
 /* ---- Toast változatok ---- */
 .toast--error {
-  border-color: rgba(224, 67, 90, .55); /* --c-accent, 55% átlátszósággal */
+  border-color: rgba(224, 67, 90, .55); /* --c-alert, 55% átlátszósággal */
 }
 
 /* ---- Modal finom zárás ---- */
@@ -3536,8 +3894,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   margin: 0 0 var(--sp-4);
   font-size: var(--fs-xs);
   font-weight: 700;
-  letter-spacing: .06em;
-  text-transform: uppercase;
   color: var(--text-muted);
 }
 
@@ -3974,8 +4330,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   font-size: var(--fs-sm);
   line-height: 1.5;
   color: var(--fg-75);
-  background: rgba(224, 67, 90, .09); /* --c-accent, halványítva */
-  border-left: 2px solid var(--c-accent);
+  background: rgba(224, 67, 90, .09); /* --c-alert, halványítva */
+  border-left: 2px solid var(--c-alert);
   border-radius: 0 var(--r-md) var(--r-md) 0;
   padding: var(--sp-4) var(--sp-5);
   margin: 0 0 var(--sp-7);
@@ -4291,8 +4647,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   margin: 0 0 var(--sp-4);
   font-size: var(--fs-xs);
   font-weight: 700;
-  letter-spacing: .06em;
-  text-transform: uppercase;
   color: var(--text-muted);
 }
 
@@ -4366,8 +4720,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .co-action--danger:hover {
-  border-color: var(--c-accent);
-  color: var(--c-accent);
+  border-color: var(--c-alert);
+  color: var(--c-alert);
   background: none;
 }
 
@@ -4417,7 +4771,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   padding: 0 5px;
   border-radius: var(--r-full);
   background: var(--c-accent);
-  color: var(--fg-100);
+  color: var(--on-accent);
   font-size: var(--fs-2xs);
   font-weight: 800;
 }
@@ -4640,8 +4994,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .co-unlink:hover {
-  color: var(--c-accent);
-  border-color: var(--c-accent);
+  color: var(--c-alert);
+  border-color: var(--c-alert);
 }
 
 /* ---- Terv kiosztása (a sportoló részletmodáljában) ---- */
@@ -4787,8 +5141,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   display: block;
   font-size: var(--fs-xs);
   font-weight: 700;
-  letter-spacing: .12em;
-  text-transform: uppercase;
   color: var(--text-muted);
   margin-bottom: var(--sp-4);
 }
@@ -4816,8 +5168,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   font-size: var(--fs-sm);
   font-weight: 600;
   color: var(--fg-85);
-  background: rgba(224, 67, 90, .09); /* --c-accent, halványítva */
-  border: 1px solid rgba(224, 67, 90, .35);
+  background: var(--c-accent-dim);
+  border: 1px solid var(--c-accent-line);
   border-radius: var(--r-xl);
   padding: var(--sp-5) var(--sp-7);
   margin: 0 0 var(--sp-9);
@@ -4860,7 +5212,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .su-stat-label {
   font-size: var(--fs-2xs);
   color: var(--text-muted);
-  letter-spacing: .02em;
 }
 
 .su-actions {
@@ -5012,7 +5363,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 /* A gyűrű színe az állapotot követi — a .db-ring-fg stroke-ját írjuk felül */
 .rc-ring[data-tone="ok"] .db-ring-fg { stroke: var(--c-ok); }
 .rc-ring[data-tone="warn"] .db-ring-fg { stroke: var(--fg-60); }
-.rc-ring[data-tone="bad"] .db-ring-fg { stroke: var(--c-accent); }
+.rc-ring[data-tone="bad"] .db-ring-fg { stroke: var(--c-alert); }
 
 /* ---- Megbízhatóság-sáv ---- */
 
@@ -5046,8 +5397,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .rc-confidence-badge[data-level="low"] {
-  background: rgba(224, 67, 90, .16); /* --c-accent, halványítva */
-  color: var(--c-accent);
+  background: rgba(224, 67, 90, .16); /* --c-alert, halványítva */
+  color: var(--c-alert);
 }
 
 /* Sapkák — a képletet felülíró állapotok indoklása (fájdalom, betegség) */
@@ -5063,8 +5414,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   line-height: 1.5;
   padding: var(--sp-3) var(--sp-5);
   border-radius: var(--r-lg);
-  border-left: 3px solid var(--c-accent);
-  background: rgba(224, 67, 90, .1); /* --c-accent, halványítva */
+  border-left: 3px solid var(--c-alert);
+  background: rgba(224, 67, 90, .1); /* --c-alert, halványítva */
   color: var(--text-secondary);
 }
 
@@ -5263,7 +5614,7 @@ details[open] > .rc-details-summary::before {
 
 .rc-bar[data-tone="ok"] .pl-progress-fill { background: var(--c-ok); }
 .rc-bar[data-tone="warn"] .pl-progress-fill { background: var(--fg-60); }
-.rc-bar[data-tone="bad"] .pl-progress-fill { background: var(--c-accent); }
+.rc-bar[data-tone="bad"] .pl-progress-fill { background: var(--c-alert); }
 
 .rc-components,
 .rc-muscles {
@@ -5382,7 +5733,7 @@ details[open] > .rc-details-summary::before {
 .rc-lift[data-verdict="strong"] { border-left-color: var(--c-ok); }
 .rc-lift[data-verdict="reduce"] { border-left-color: var(--fg-60); }
 .rc-lift[data-verdict="skip"],
-.rc-lift[data-verdict="avoid"] { border-left-color: var(--c-accent); }
+.rc-lift[data-verdict="avoid"] { border-left-color: var(--c-alert); }
 
 .rc-lift-head {
   display: flex;
@@ -5403,7 +5754,7 @@ details[open] > .rc-details-summary::before {
 }
 
 .rc-lift-score[data-tone="ok"] { color: var(--c-ok); }
-.rc-lift-score[data-tone="bad"] { color: var(--c-accent); }
+.rc-lift-score[data-tone="bad"] { color: var(--c-alert); }
 
 .rc-lift-text {
   font-size: var(--fs-sm);
@@ -5429,8 +5780,6 @@ details[open] > .rc-details-summary::before {
   font-size: var(--fs-2xs);
   font-weight: 500;
   color: var(--text-faint);
-  text-transform: uppercase;
-  letter-spacing: .04em;
 }
 
 /* ---- Széles nézet: az izomcsoportok és az ajánlások két oszlopban ---- */
@@ -5553,8 +5902,6 @@ details[open] > .rc-details-summary::before {
 .fd-macro-label {
   display: block;
   font-size: var(--fs-2xs);
-  letter-spacing: .09em;
-  text-transform: uppercase;
   color: var(--text-faint);
   margin-top: var(--sp-1);
 }
@@ -5615,7 +5962,7 @@ details[open] > .rc-details-summary::before {
 
 /* A célt túllépő rész figyelmeztet — a bevitel nem hiba, de látszódjon */
 .fd-goal-track.is-over .fd-goal-fill {
-  background: var(--c-accent);
+  background: var(--c-alert);
 }
 
 .fd-goal-delta {
@@ -5870,6 +6217,862 @@ details[open] > .rc-details-summary::before {
      és a nyitócímet — ezért ez a kettő nem token, hanem helyi clamp. */
   --ci-fs-display: clamp(30px, 9vw, 36px);
   --ci-fs-number: clamp(44px, 13vw, 56px);
+}
+
+
+/* Célkitűzés a sportoló-modálban. A mezők a Táplálkozás oldal
+   .nu-goal-field primitívjét használják — egy űrlap-recept, két helyen. */
+.co-modal-goal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.co-goal-state {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.co-goal-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-4);
+}
+
+/* Mire épül a gyakorlat-ajánlás — csak a bemondott felmérésnél látszik. */
+.rc-lift-basis {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-top: var(--sp-2);
+}
+
+/* ---- Testösszetétel (rc-body-*) ---- */
+.rc-body-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+.rc-body-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+  gap: var(--sp-4);
+}
+
+.rc-body-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.rc-body-field label {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.rc-body-field input {
+  width: 100%;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border-card);
+  background: var(--surface-strong);
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.rc-body-field input:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+
+.rc-body-save {
+  align-self: flex-start;
+  border: 0;
+  border-radius: 999px;
+  padding: var(--sp-3) var(--sp-8);
+  background: var(--c-accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rc-body-save:disabled { opacity: .5; cursor: default; }
+
+.rc-body-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  list-style: none;
+  margin-top: var(--sp-5);
+}
+
+.rc-body-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-4);
+  font-size: var(--fs-2xs);
+}
+
+.rc-body-row-label { flex: 1 1 auto; min-width: 0; }
+.rc-body-row-value { font-weight: 600; }
+
+.rc-body-row-delta {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.rc-body-del {
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+  padding: var(--sp-2);
+  border-radius: var(--r-md);
+}
+
+.rc-body-del:hover { color: var(--c-alert); }
+
+/* A napló-adag beépített szerkesztője (a ház nem használ natív ablakot). */
+.nu-log-grams {
+  width: 84px;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  border: 1px solid var(--c-accent);
+  background: var(--surface-strong);
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-2xs);
+}
+
+/* ---- Testsúly-bejegyzések javítása (rc-weight-list) ---- */
+.rc-weight-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  list-style: none;
+  margin-top: var(--sp-4);
+}
+
+.rc-weight-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  font-size: var(--fs-2xs);
+}
+
+.rc-weight-date {
+  color: var(--text-muted);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.rc-weight-input {
+  width: 72px;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-card);
+  background: var(--surface-strong);
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  text-align: right;
+}
+
+.rc-weight-input:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+
+.rc-weight-del {
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+  padding: var(--sp-2);
+  border-radius: var(--r-md);
+}
+
+.rc-weight-del:hover { color: var(--c-alert); }
+
+/* Terv törlése és naplóadag-javítás — a meglévő ikongombok testvérei. */
+.pl-card-delete,
+.nu-log-edit {
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+}
+
+.pl-card-delete:hover,
+.nu-log-edit:hover { color: var(--c-accent); }
+
+/* ---- Erőfelmérés a profilon (pf-assess-*) ----
+   A mezők a .nu-goal-field receptjét követik — egy űrlap-alak, több helyen. */
+.pf-assess {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-9);
+}
+
+.pf-assess-lead,
+.pf-assess-note,
+.pf-assess-empty {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.pf-assess-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  list-style: none;
+}
+
+.pf-assess-item {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  background: var(--surface-strong);
+  border-radius: var(--r-lg);
+  padding: var(--sp-4) var(--sp-5);
+  font-size: var(--fs-sm);
+}
+
+.pf-assess-item b { font-weight: 600; }
+
+.pf-assess-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-4);
+}
+
+.pf-assess-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+  flex: 1 1 96px;
+}
+
+.pf-assess-field--wide { flex: 2 1 180px; }
+
+.pf-assess-field label {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.pf-assess-field input {
+  width: 100%;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border-card);
+  background: var(--surface-strong);
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.pf-assess-field input:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+
+.pf-assess-save {
+  border: 0;
+  border-radius: 999px;
+  padding: var(--sp-3) var(--sp-7);
+  background: var(--c-accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pf-assess-save:disabled { opacity: .5; cursor: default; }
+
+/* ---- Gyakorlat-megjegyzések (su-note-*, co-note-*) ---- */
+.co-note--plan {
+  border-color: var(--fg-20);
+}
+
+.co-note-meta {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  display: block;
+  margin-bottom: var(--sp-2);
+}
+
+.co-note-text {
+  margin: 0;
+  font-size: var(--fs-md);
+  line-height: 1.5;
+}
+
+.co-note--me {
+  background: var(--surface-input);
+  border-color: var(--border-strong);
+  margin-left: var(--sp-13); /* enyhén jobbra tolva, chat-szerűen */
+}
+
+.su-note {
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-2xl);
+  padding: var(--sp-8) var(--sp-7);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  text-align: left;
+}
+
+.su-note-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.su-note-select,
+.su-note-text {
+  width: 100%;
+  padding: var(--sp-4) var(--sp-5);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border-card);
+  background: var(--surface-strong);
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.su-note-text::placeholder { color: var(--text-muted); }
+
+.su-note-select:focus-visible,
+.su-note-text:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+
+.su-note-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  list-style: none;
+}
+
+.su-note-item {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.su-note-item b {
+  color: var(--fg-100);
+  font-weight: 600;
+}
+
+.co-modal-notes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.co-note-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  list-style: none;
+}
+
+.co-note-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  background: var(--surface-strong);
+  border-radius: var(--r-lg);
+  padding: var(--sp-5);
+}
+
+.co-note-head {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.co-note-body { font-size: var(--fs-sm); line-height: 1.5; }
+
+.co-note-reply {
+  display: flex;
+  gap: var(--sp-3);
+}
+
+.co-note-reply input {
+  flex: 1;
+  min-width: 0;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border-card);
+  background: var(--surface-card);
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-2xs);
+}
+
+.co-note-reply button {
+  border: 0;
+  border-radius: 999px;
+  padding: 0 var(--sp-6);
+  background: var(--c-accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.co-note-reply button:disabled { opacity: .5; cursor: default; }
+
+/* ---- Edzés utáni visszajelzés (su-feedback-*) + edzői megjelenítése ---- */
+.su-feedback {
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-2xl);
+  padding: var(--sp-8) var(--sp-7);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  text-align: left;
+}
+
+.su-feedback-title {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+
+.su-feedback-lead {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.su-feedback-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+}
+
+.su-feedback-scales {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+}
+
+.su-feedback-note {
+  width: 100%;
+  resize: vertical;
+  min-height: 62px;
+  padding: var(--sp-5);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border-card);
+  background: var(--surface-strong);
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.su-feedback-note::placeholder { color: var(--text-muted); }
+
+.su-feedback-note:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+
+.su-feedback-send {
+  align-self: flex-start;
+  padding: var(--sp-4) var(--sp-8);
+  border: 0;
+  border-radius: 999px;
+  background: var(--c-accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity var(--t-base);
+}
+
+.su-feedback-send:hover { opacity: .9; }
+
+.su-feedback-send:disabled { opacity: .5; cursor: default; }
+
+.su-feedback-done {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--c-ok);
+}
+
+.co-modal-feedback {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  background: var(--surface-strong);
+  border-radius: var(--r-lg);
+  padding: var(--sp-6);
+}
+
+.co-feedback-meta {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.co-feedback-note {
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+/* ---- Napi táplálkozási cél (nu-goal-*) ----
+   A cél két forrásból jöhet (edzői / saját), ezért nem elég egy szám: a
+   származást és az esetleges eltérést is ki kell írni. */
+/* ---- Vízmérő ----
+   A napi cél nem beégetett 3 liter: a szerver a Recovery Engine képletéből
+   adja (~33 ml/testsúlykg), és a felület csak kiírja. */
+.nu-water {
+  margin-bottom: var(--sp-9);
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-2xl);
+  padding: var(--sp-6) var(--sp-7);
+}
+
+.nu-water-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+
+.nu-water-title {
+  margin: 0;
+  font-size: var(--fs-base);
+  font-weight: 700;
+}
+
+.nu-water-goal {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--ls-label-tight);
+  color: var(--text-muted);
+}
+
+.nu-water-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-5);
+  margin-bottom: var(--sp-5);
+}
+
+.nu-water-value {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  font-size: var(--fs-5xl);
+  font-weight: 800;
+  letter-spacing: var(--ls-display);
+  font-variant-numeric: tabular-nums;
+}
+
+.nu-water-unit {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--ls-label);
+  color: var(--text-muted);
+}
+
+.nu-water-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  flex-shrink: 0;
+}
+
+.nu-water-add {
+  border: 1px solid var(--c-accent);
+  border-radius: var(--r-md);
+  background: var(--c-accent);
+  color: var(--on-accent);
+  padding: var(--sp-4) var(--sp-7);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: opacity var(--t-fast);
+}
+
+.nu-water-add:disabled {
+  opacity: .5;
+  cursor: default;
+}
+
+/* A visszavonás szándékosan halkabb: a gyakori művelet a hozzáadás. */
+.nu-water-undo {
+  border: none;
+  background: none;
+  padding: var(--sp-3);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition: color var(--t-fast);
+}
+
+.nu-water-undo:hover {
+  color: var(--text-primary);
+}
+
+.nu-water-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--fg-10);
+  overflow: hidden;
+}
+
+.nu-water-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: var(--fg-55);
+  transition: width var(--t-slow), background var(--t-base);
+}
+
+/* A cél elérése az EGYETLEN hely, ahol a sáv akcentust kap — így a kiemelés
+   valamit jelent, nem csak díszít. */
+.nu-water-track.is-full .nu-water-fill {
+  background: var(--c-accent);
+}
+
+.nu-goal {
+  margin-bottom: var(--sp-9);
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-2xl);
+  padding: var(--sp-6) var(--sp-7);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.nu-goal-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
+
+.nu-goal-title {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+
+.nu-goal-edit,
+.nu-goal-revert {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--c-accent);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.nu-goal-value {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+
+.nu-goal-source,
+.nu-goal-diff {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.nu-goal-diff {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-3);
+}
+
+.nu-goal-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-4);
+  margin-top: var(--sp-2);
+}
+
+.nu-goal-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+  flex: 1 1 110px;
+}
+
+.nu-goal-field label {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.nu-goal-field input {
+  width: 100%;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border-card);
+  background: var(--surface-strong);
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.nu-goal-field input:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+
+.nu-goal-save {
+  border: 0;
+  border-radius: 999px;
+  padding: var(--sp-3) var(--sp-7);
+  background: var(--c-accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.nu-goal-save:disabled { opacity: .5; cursor: default; }
+
+/* ---- Készenlét-javaslat (ad-*) + terv-kártya biztonsági jelzése ---- */
+.ad-list {
+  list-style: none;
+  margin: var(--sp-5) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  /* Sok gyakorlatnál se nőjön ki az ablak a képernyőből. */
+  max-height: 42vh;
+  overflow-y: auto;
+}
+
+.ad-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-4);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-lg);
+  padding: var(--sp-4) var(--sp-5);
+}
+
+.ad-item-action {
+  flex-shrink: 0;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: var(--sp-1) var(--sp-3);
+  border-radius: var(--r-2xs);
+  background: var(--surface-strong);
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.ad-item--drop .ad-item-action {
+  background: var(--c-accent);
+  color: var(--on-accent);
+}
+
+.ad-item-body {
+  min-width: 0;
+}
+
+.ad-item-name {
+  display: block;
+  font-size: var(--fs-base);
+  font-weight: 600;
+}
+
+.ad-item-detail {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.ad-note {
+  margin: var(--sp-5) 0 0;
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  color: var(--text-faint);
+}
+
+.pl-card-safety {
+  display: block;
+  margin-top: var(--sp-2);
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.pl-card-safety.is-blocked {
+  color: var(--c-alert);
+  font-weight: 600;
+}
+
+/* ---- Onboarding: az ELSŐ check-in ----
+   A frissen regisztrált fiók csak ezen a lapon jár, amíg ki nem tölti (a
+   script.js `onboardingLock`-ja teszi a [data-onboarding] jelzőt a body-ra).
+   A navigációt el is rejtjük: a JS-őr enélkül is visszaterelne, de egy
+   kattintásra némán visszapattanó menü rossz élmény.
+
+   A fejléc-sáv is rejtve marad: a profil- és értesítés-gombja a zár miatt
+   úgysem vinne sehova, a kijárat pedig a bevezető lépés „Kijelentkezés"
+   linkje — ott van, ahol a felhasználó éppen néz. */
+body[data-onboarding] .app-chrome,
+body[data-onboarding] .side-nav,
+body[data-onboarding] .nav-ring-wrap,
+body[data-onboarding] .nav-ring-fade,
+body[data-onboarding] .nav-hint {
+  display: none;
+}
+
+body[data-onboarding] .app-page.ci-page {
+  padding-bottom: var(--sp-12);
 }
 
 /* ---- Fejléc: vissza gomb + folyamatsáv + lépésszám ---- */
@@ -6304,7 +7507,7 @@ details[open] > .rc-details-summary::before {
 .ci-region[aria-pressed="true"] {
   background: var(--c-accent);
   border-color: var(--c-accent);
-  color: var(--fg-100);
+  color: var(--on-accent);
 }
 
 .ci-values {
@@ -6337,8 +7540,8 @@ details[open] > .rc-details-summary::before {
 /* A fájdalom-skála akcentussal jelöl, hogy vizuálisan is elváljon az
    izomláztól (más tartomány, más következmény). */
 .ci-chip--pain[aria-pressed="true"] {
-  background: var(--c-accent);
-  border-color: var(--c-accent);
+  background: var(--c-alert);
+  border-color: var(--c-alert);
   color: var(--fg-100);
 }
 
@@ -6348,7 +7551,7 @@ details[open] > .rc-details-summary::before {
   font-weight: 800;
   letter-spacing: .08em;
   text-transform: uppercase;
-  color: var(--c-accent);
+  color: var(--c-alert);
 }
 
 .ci-legend {
@@ -6441,8 +7644,8 @@ details[open] > .rc-details-summary::before {
 .ci-readiness[data-tone="ok"] .ci-readiness-num   { color: var(--c-ok); }
 .ci-readiness[data-tone="ok"] .ci-readiness-fill  { background: var(--c-ok); }
 .ci-readiness[data-tone="bad"] .ci-readiness-verdict,
-.ci-readiness[data-tone="bad"] .ci-readiness-num  { color: var(--c-accent); }
-.ci-readiness[data-tone="bad"] .ci-readiness-fill { background: var(--c-accent); }
+.ci-readiness[data-tone="bad"] .ci-readiness-num  { color: var(--c-alert); }
+.ci-readiness[data-tone="bad"] .ci-readiness-fill { background: var(--c-alert); }
 
 .ci-summary {
   margin: var(--sp-7) 0 0;
@@ -6599,8 +7802,8 @@ details[open] > .rc-details-summary::before {
   padding: var(--sp-5) var(--sp-6);
   border-radius: var(--r-md);
   background: rgba(224, 67, 90, .12);
-  border: 1px solid var(--c-accent);
-  color: var(--c-accent);
+  border: 1px solid var(--c-alert);
+  color: var(--c-alert);
   font-size: var(--fs-md);
   font-weight: 600;
   line-height: 1.45;
@@ -6656,10 +7859,10 @@ details[open] > .rc-details-summary::before {
 .st-logout {
   width: 100%;
   background: none;
-  border: 1px solid var(--c-accent);
+  border: 1px solid var(--c-alert);
   border-radius: var(--r-md);
   padding: var(--sp-5) var(--sp-9);
-  color: var(--c-accent);
+  color: var(--c-alert);
   font-size: var(--fs-md);
   font-weight: 700;
   font-family: inherit;
@@ -6698,8 +7901,8 @@ details[open] > .rc-details-summary::before {
 }
 
 .st-account-btn--danger:hover {
-  border-color: var(--c-accent);
-  color: var(--c-accent);
+  border-color: var(--c-alert);
+  color: var(--c-alert);
 }
 
 .st-account-form {
@@ -6725,14 +7928,14 @@ details[open] > .rc-details-summary::before {
 }
 
 .st-account-warning {
-  color: var(--c-accent);
+  color: var(--c-alert);
 }
 
 .st-account-error {
   margin: 0 0 var(--sp-2);
   font-size: var(--fs-xs);
   font-weight: 600;
-  color: var(--c-accent);
+  color: var(--c-alert);
 }
 
 .st-account-save {
@@ -6751,12 +7954,12 @@ details[open] > .rc-details-summary::before {
 }
 
 .st-account-save--danger {
-  background: var(--c-accent);
+  background: var(--c-alert);
   color: var(--fg-100);
 }
 
 .st-account-save--danger:hover {
-  background: var(--c-accent);
+  background: var(--c-alert);
   filter: brightness(1.1);
 }
 
@@ -6818,8 +8021,6 @@ details[open] > .rc-details-summary::before {
   margin: 0 0 var(--sp-6);
   font-size: var(--fs-xs);
   font-weight: 700;
-  letter-spacing: .12em;
-  text-transform: uppercase;
   color: var(--text-muted);
 }
 
@@ -6925,8 +8126,8 @@ details[open] > .rc-details-summary::before {
 /* A kijelentkezés a beállítások modal gombjának mintáját követi. */
 .pf-action--danger {
   background: none;
-  border-color: var(--c-accent);
-  color: var(--c-accent);
+  border-color: var(--c-alert);
+  color: var(--c-alert);
 }
 
 .pf-action--danger:hover {
@@ -7118,8 +8319,8 @@ details[open] > .rc-details-summary::before {
   padding: var(--sp-5) var(--sp-6);
   border-radius: var(--r-md);
   background: rgba(224, 67, 90, .12);
-  border: 1px solid var(--c-accent);
-  color: var(--c-accent);
+  border: 1px solid var(--c-alert);
+  color: var(--c-alert);
   font-size: var(--fs-xs);
   font-weight: 600;
 }
@@ -7157,7 +8358,7 @@ details[open] > .rc-details-summary::before {
 .cf-save-log {
   border: none;
   background: var(--c-accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .cf-save-log:hover { filter: brightness(1.08); }
@@ -7241,6 +8442,7 @@ details[open] > .rc-details-summary::before {
 
 .sc-torch[aria-pressed="true"] {
   background: var(--c-accent);
+  color: var(--on-accent);
 }
 
 .sc-status {
@@ -7279,7 +8481,7 @@ details[open] > .rc-details-summary::before {
   border: none;
   border-radius: var(--r-md);
   background: var(--c-accent);
-  color: #fff;
+  color: var(--on-accent);
   padding: 0 var(--sp-7);
   font-family: inherit;
   font-size: var(--fs-sm);
