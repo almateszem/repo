@@ -190,22 +190,19 @@ function renderCoachPanel({ athletes, invites }) {
   const icon = $('.co-banner-icon', banner);
   const title = $('.co-banner-title', banner);
   const alertList = $('[data-list="alerts"]');
-  const okText = $('.co-banner-ok-text', banner);
   const flagged = athletes.filter((athlete) => athlete.alert);
 
-  // Sportoló nélkül nincs mit összegezni — a sáv és a rács helyett az
-  // üres állapot magyarázza el, hogyan lesz sportolód.
-  banner.hidden = athletes.length === 0;
+  /* A jelzés-blokk csak akkor van kint, ha VAN jelzés. A „minden rendben"
+     állapotot a bal hasáb mondata mondja el — ugyanaz a mondat két helyen
+     csak zajt csinált. */
+  banner.hidden = flagged.length === 0;
   $('[data-athletes-empty]').hidden = athletes.length > 0;
 
-  banner.classList.toggle('co-banner--alert', flagged.length > 0);
-  banner.classList.toggle('co-banner--ok', flagged.length === 0);
   alertList.replaceChildren();
 
   if (flagged.length > 0) {
     icon.textContent = '!';
     title.textContent = `${flagged.length} sportoló figyelmet igényel`;
-    okText.hidden = true;
     flagged.forEach((athlete) => {
       const li = document.createElement('li');
       const button = document.createElement('button');
@@ -225,11 +222,18 @@ function renderCoachPanel({ athletes, invites }) {
       li.appendChild(button);
       alertList.appendChild(li);
     });
-  } else {
-    icon.textContent = '✓';
-    title.textContent = 'Minden rendben';
-    okText.hidden = false;
   }
+
+  /* A bal hasáb mondata. A jelzések a jobb hasáb aljára is kikerülnek, de a
+     lap tetején kell egy sor, ami megmondja, van-e egyáltalán teendő —
+     a puszta darabszám ezt nem mondja meg. */
+  $('[data-coach-panel-note]').textContent = athletes.length === 0
+    ? 'Még nincs sportolód. Hívj meg valakit a felhasználónevével — elfogadásig semmit nem lát az adataiból.'
+    : flagged.length === 0
+      ? 'Minden sportolód a terv szerint halad — nincs sürgős teendőd.'
+      : flagged.length === 1
+        ? `Egy sportolódnál van jelzés: ${flagged[0].name}.`
+        : `${flagged.length} sportolódnál van jelzés — a listát jobbra találod.`;
 
   const grid = $('[data-list="athletes"]');
   grid.replaceChildren(); // újrahíváskor se duplázódjanak a kártyák

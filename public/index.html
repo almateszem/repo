@@ -742,6 +742,8 @@
       <section class="app-page co-page" data-page="coach" aria-labelledby="title-coach" hidden>
         <h2 class="sr-only" id="title-coach">Edző</h2>
 
+        <!-- A nézetváltó a rács FÖLÖTT, teljes szélességben: nem az egyik
+             hasáb tartozéka, hanem az egész lapot váltja. -->
         <div class="co-toggle" role="group" aria-label="Edző-nézet kiválasztása" data-coach-toggle>
           <button class="co-toggle-btn" type="button" data-coach-view="client" aria-pressed="true">Edződ<span
             class="co-toggle-badge" data-invite-badge hidden></span></button>
@@ -752,7 +754,9 @@
         <!-- Kliens nézet: a saját edződ (ha van) és a hozzád érkezett meghívók -->
         <div class="co-view" data-view="client" hidden>
 
-          <!-- Beérkezett meghívók — elfogadásig az edző semmit nem lát az adataidból -->
+          <!-- Beérkezett meghívók — elfogadásig az edző semmit nem lát az
+               adataidból. A hasábok FÖLÖTT állnak: döntést kérnek, és amíg
+               nem döntöttél, ez a lap legfontosabb tartalma. -->
           <p class="co-invite-lead" data-invite-lead hidden>Meghívtak edzőnek. Elfogadás után látja
             a naplóidból számolt összegzést, és üzenetet is tudtok váltani.</p>
           <ul class="co-invite-list" data-list="coach-invites" aria-label="Beérkezett edző-meghívók"></ul>
@@ -763,25 +767,30 @@
             Elfogadás után új tervként jelenik meg a Tervek oldalon — a mostaniak megmaradnak.</p>
           <ul class="co-invite-list" data-list="plan-offers" aria-label="Felajánlott tervek"></ul>
 
-          <!-- Van edződ: fejléc + üzenetváltás -->
-          <div data-coach-thread hidden>
-            <header class="co-coach-head">
-              <span class="co-coach-avatar" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><use href="#icon-user"/></svg>
-              </span>
-              <div class="co-coach-ident">
-                <h3 class="co-coach-name" data-coach-name>Edződ</h3>
-                <span class="co-coach-role" data-coach-role></span>
-              </div>
-              <button class="co-unlink tap-target" type="button" data-action="leave-coach">Leválás</button>
-            </header>
+          <!-- Van edződ: balra ő maga és az üzenetküldés, jobbra a szálatok.
+               A burkoló egyben marad (a frontend ezt rejti el, ha nincs
+               edződ), de belül két hasábra oszlik. -->
+          <div class="co-thread" data-coach-thread hidden>
+            <div class="co-main">
+              <span class="db-label">Az edződ</span>
+              <p class="co-coach-name" data-coach-name>Edződ</p>
+              <span class="co-coach-role" data-coach-role></span>
 
-            <div class="co-msg-feed co-client-feed" data-client-feed aria-label="Üzenetváltás az edződdel"></div>
-            <form class="co-composer" data-form="coach-message">
-              <label class="sr-only" for="coach-message">Üzenet az edzőnek</label>
-              <input type="text" id="coach-message" placeholder="Írj az edződnek…" required maxlength="280" autocomplete="off">
-              <button type="submit" aria-label="Küldés">→</button>
-            </form>
+              <form class="co-composer" data-form="coach-message">
+                <label class="sr-only" for="coach-message">Üzenet az edzőnek</label>
+                <input type="text" id="coach-message" placeholder="Írj az edződnek…" required maxlength="280" autocomplete="off">
+                <button type="submit" aria-label="Küldés">→</button>
+              </form>
+
+              <button class="co-unlink tap-target" type="button" data-action="leave-coach">Leválás az edzőről</button>
+            </div>
+
+            <div class="co-side">
+              <section class="page-block" aria-labelledby="title-co-feed">
+                <h3 class="page-block-title" id="title-co-feed">Üzenetek</h3>
+                <div class="co-msg-feed co-client-feed" data-client-feed aria-label="Üzenetváltás az edződdel"></div>
+              </section>
+            </div>
           </div>
 
           <!-- Nincs edződ: a felhasználóneved kell hozzá, azt az edző hívja meg -->
@@ -792,38 +801,54 @@
 
         <!-- Edzői nézet: sportoló-menedzser (js/render/coach.js tölti fel) -->
         <div class="co-view" data-view="manager" hidden>
-          <header class="co-header">
-            <h3 class="co-title">Edzői panel</h3>
-            <p class="co-subtitle">Heti áttekintés · <span data-athlete-count>0</span> aktív sportoló</p>
-          </header>
 
-          <!-- Meghívás: a sportoló felhasználónevével -->
-          <form class="co-invite-form" data-form="invite-athlete">
-            <label class="sr-only" for="co-invite-username">Sportoló felhasználóneve</label>
-            <input type="text" id="co-invite-username" placeholder="Sportoló felhasználóneve…"
-                   required maxlength="24" autocomplete="off" spellcheck="false">
-            <button type="submit">Meghívás</button>
-          </form>
+          <div class="co-main">
+            <span class="db-label">Edzői panel</span>
 
-          <!-- Kiküldött, még el nem fogadott meghívók -->
-          <p class="co-invite-lead" data-sent-lead hidden>Kiküldött meghívók — elfogadásra várnak.</p>
-          <ul class="co-invite-list" data-list="sent-invites" aria-label="Kiküldött meghívók"></ul>
-
-          <!-- Állapot-sáv: riasztás-összegzés vagy "minden rendben" (js/render/coach.js tölti fel) -->
-          <section class="co-banner" data-banner aria-live="polite" aria-label="Sportolók állapota">
-            <div class="co-banner-head">
-              <span class="co-banner-icon" aria-hidden="true"></span>
-              <h4 class="co-banner-title"></h4>
+            <div class="co-count">
+              <span class="db-percent co-count-value" data-athlete-count>0</span>
+              <span class="db-percent-side">
+                <span class="db-percent-sign" aria-hidden="true">fő</span>
+                <span class="db-label">Sportoló</span>
+              </span>
             </div>
-            <ul class="co-banner-list" data-list="alerts"></ul>
-            <p class="co-banner-ok-text" hidden>Minden sportolód a terv szerint halad — nincs sürgős teendőd.</p>
-          </section>
 
-          <div class="co-grid" data-list="athletes"></div>
+            <p class="co-note-lead" data-coach-panel-note></p>
 
-          <p class="co-empty" data-athletes-empty hidden>Még nincs sportolód.
-            Hívj meg valakit a felhasználónevével — amint elfogadja, itt jelenik meg a kártyája
-            a saját naplójából számolt állapotával.</p>
+            <!-- Meghívás: a sportoló felhasználónevével -->
+            <form class="co-invite-form" data-form="invite-athlete">
+              <label class="sr-only" for="co-invite-username">Sportoló felhasználóneve</label>
+              <input type="text" id="co-invite-username" placeholder="Sportoló felhasználóneve…"
+                     required maxlength="24" autocomplete="off" spellcheck="false">
+              <button type="submit">Meghívás</button>
+            </form>
+          </div>
+
+          <div class="co-side">
+
+            <!-- Kiküldött, még el nem fogadott meghívók -->
+            <section class="page-block co-block-sent" data-sent-block>
+              <p class="co-invite-lead" data-sent-lead hidden>Kiküldött meghívók — elfogadásra várnak.</p>
+              <ul class="co-invite-list" data-list="sent-invites" aria-label="Kiküldött meghívók"></ul>
+            </section>
+
+            <!-- Állapot: riasztás-összegzés vagy „minden rendben" -->
+            <section class="page-block co-banner" data-banner aria-live="polite" aria-label="Sportolók állapota">
+              <div class="co-banner-head">
+                <span class="co-banner-icon" aria-hidden="true"></span>
+                <h4 class="co-banner-title"></h4>
+              </div>
+              <ul class="co-banner-list" data-list="alerts"></ul>
+            </section>
+
+            <section class="page-block" aria-labelledby="title-co-athletes">
+              <h3 class="page-block-title" id="title-co-athletes">Sportolóid</h3>
+              <div class="co-grid" data-list="athletes"></div>
+              <p class="co-empty" data-athletes-empty hidden>Még nincs sportolód.
+                Hívj meg valakit a felhasználónevével — amint elfogadja, itt jelenik meg a kártyája
+                a saját naplójából számolt állapotával.</p>
+            </section>
+          </div>
         </div>
       </section>
 
