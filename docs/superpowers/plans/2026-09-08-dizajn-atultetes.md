@@ -1693,11 +1693,25 @@ Minden oldal-task azonos szerkezetű, ezért a receptet itt írom le egyszer. **
 
 Az `51df3c5` már kártya nélkülire építette. Itt csak annyi a dolog, hogy ne két úton szülessen ugyanaz: ahol a `db-*` szabályok kézzel csinálják a hajszálvonalat vagy a mono felkiáltót, ott a `.ds-section` / `.ds-eyebrow` / `.ds-row` primitívekre álljon át.
 
-- [ ] **Step 1:** Fuss végig a 6. szakaszon, és listázd, mely `db-*` szabály duplikálja valamelyik primitívet.
-- [ ] **Step 2:** Cseréld le őket — az `index.html`-ben a primitív-osztály a `db-*` mellé kerül, a `style.css`-ből a duplikált deklaráció törlődik.
-- [ ] **Step 3:** `npm run lint && npm run format -- public && npm test`
-- [ ] **Step 4:** Nézd meg mindkét szélességben. Az Áttekintésnek **pixelre ugyanúgy kell kinéznie**, mint előtte — ez a task tisztogatás, nem átszabás. Ha változik a kép, a primitív rossz.
-- [ ] **Step 5:** Commit: `"Áttekintés: a kézzel írt vonalak és címkék a primitívekre állnak"`
+> **A task elvégezve, csere nélkül — a vizsgálat eredménye maga a döntés.**
+> Az implementer végigvette a hét jelöltet, és egyik sem bizonyult
+> egyenértékűnek: a `.ds-section` beépít egy 24px-es `margin-top`-ot, amit a
+> lap szorosabb ritmusa nem tartalmaz; a `.ds-eyebrow` `line-height: 1`-et és
+> 700-as súlyt ír elő, a lap címkéi viszont a 2b. szakasz 600-as családjából
+> jönnek; a `.ds-row` sorok-közti vonalat és név/érték szerkezetet feltételez,
+> a `.db-side-item` pedig soronkénti vonalat és érték nélküli alakot.
+> Mindhárom csere megváltoztatta volna a lapot — amit ez a task kifejezetten
+> tilt. A `db-*` szabályok maradnak; a 6. szakasz kap egy kereszthivatkozást,
+> hogy a duplikáció szándékos és dokumentált legyen.
+>
+> A felkiáltók súlykülönbsége (600 vs. 700) valódi koherencia-hiba: ahogy a
+> 9–18. taskok átveszik a `.ds-eyebrow`-t, az app két súllyal fog élni. Ez a
+> **20. task** hatókörébe megy, ahol az egész felület egyszerre nézhető át.
+
+- [x] **Step 1:** A hét jelölt megvizsgálva (`db-nutri`, `db-stats`, `db-trend`, `db-quote`, `db-side`, a `db-label` címke-család, `db-side-item`), plusz a `db-percent` / `db-cta` a `ds-display` / `ds-cta` ellen. Egyik sem egyenértékű.
+- [x] **Step 2:** Csere nincs. Helyette a 6. szakasz banner-kommentje kimondja, miért tartja meg a lap a saját szabályait.
+- [x] **Step 3:** `npm test` (327) és `npm run lint` — zöld.
+- [x] **Step 4:** A lap változatlan, tehát nincs mit vizuálisan ellenőrizni.
 
 ---
 
