@@ -45,7 +45,7 @@ kitalált adatot úgy, mintha a felhasználóé lenne. Egy új fiók ma ezt lát
 | Edző-chat (kliens nézet) | „Kovács Bence", körbeforgó előre írt válaszok | `data.js:120,143` · `index.html:440` | ✅ kikerült — `messages` tábla, `GET/POST /api/messages/:linkId` |
 | Értesítések | 6 db seed-értesítés, a badge `6`-ra **beégetve** a HTML-ben | `data.js:148` · `index.html:108` | 🟡 a lista valós eseményekből épül (`notifications.js`), de a badge `6`-os kezdőértéke **még beégetve** (`index.html:121`) |
 | Technika-videó modál | minden gyakorlatnál ugyanaz: „Fekvenyomás" + kitalált edzői megjegyzés | `index.html:747-767` | 🟡 a gyakorlat neve már dinamikus; a videó-előnézet és az „Edző megjegyzése" **még mindig fix demo-szöveg** (`index.html:895-901`) |
-| Testsúly-kártya | saját mérés nélkül seed-görbét rajzol | `script.js:2521` | ⬜ változatlan — `data.js` → `charts.bodyWeight` még mindig seed-görbe |
+| Testsúly-kártya | saját mérés nélkül seed-görbét rajzol | `js/ui/weight.js` | ⬜ változatlan — `data.js` → `charts.bodyWeight` még mindig seed-görbe |
 | Szerepkörök | `hasCoach` / `coachesAthletes` a seedből jön, nem a fiókból | `server/server.js:242` | ✅ kikerült — a szerepkör valódi edző–sportoló kapcsolatból következik |
 | Táplálkozási cél | **mindenkinek** 2900 kcal / 170 g | `data.js:157` | ⬜ változatlan — `data.js:79`, a `getNutritionTotals` a globális `nutritionGoal`-t adja vissza |
 
@@ -145,7 +145,7 @@ marad ki.
 
 ### 1.7 Mentett edzés megnyitása, javítása, törlése 🟡
 
-Ma a „Korábbi edzések" egy nem kattintható lista (`script.js:1290`,
+Ma a „Korábbi edzések" egy nem kattintható lista (`js/render/workout.js`,
 `historyEntryEl`): dátum, név, `3/12 szett`. Nincs részletnézet, nincs
 szerkesztés, nincs törlés. Ez MVP-szinten hiányzik, mert **az elrontott adat
 javíthatatlan** — és a rossz adat továbbgyűrűzik a készenlét-számításba és a
@@ -205,7 +205,7 @@ elrontott terv örökre ott marad.
   > bekerült az `exercise_maxes` tábla és a `GET /api/exercise-maxes` — a
   > gyakorlatonkénti csúcsok tehát már számolva vannak, csak nem a szett-sorban
   > jelennek meg.)
-- **Az edzés hossza mentődjön.** A `workoutMinutes()` (`script.js:1560`)
+- **Az edzés hossza mentődjön.** A `workoutMinutes()` (`js/render/summary.js`)
   `localStorage`-ból számol, és **nem kerül bele a mentett edzésbe** — tehát a
   Korábbi edzésekben nincs időtartam, másik eszközön pedig 0 percet mutat.
   A kezdés időbélyege a piszkozat része kellene legyen.

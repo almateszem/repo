@@ -117,7 +117,7 @@ async function main() {
 
   const counts = { downloaded: 0, skipped: 0, failed: 0 };
   const errors = [];
-  await runPool(paths, async (relPath, i) => {
+  await runPool(paths, async (relPath) => {
     const result = await fetchOne(relPath);
     if (result === 'downloaded') counts.downloaded += 1;
     else if (result === 'skipped') counts.skipped += 1;

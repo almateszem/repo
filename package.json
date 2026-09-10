@@ -11,6 +11,10 @@
     "start": "node --disable-warning=ExperimentalWarning server/server.js",
     "dev": "node --watch --disable-warning=ExperimentalWarning server/server.js",
     "test": "node --test \"server/**/*.test.js\"",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "graph": "graphify update .",
     "exdb:build": "node scripts/build-exdb.js",
     "exdb:media": "node scripts/fetch-exdb-media.js"
@@ -18,5 +22,12 @@
   "dependencies": {
     "@zxing/library": "^0.21.3",
     "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.10.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.12.0",
+    "prettier": "^3.9.6"
   }
 }
