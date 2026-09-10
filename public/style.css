@@ -6091,13 +6091,25 @@ details[open] > .rc-details-summary::before {
 }
 
 /* Az izomcsoport-név a 2b. szakasz megosztott mono-nagybetűs címke-
-   családjában van (.rc-muscle-label ott sorolva) — a .ds-row-name eltérő
-   súlyt/ritkítást adna rá, ezért ide szándékosan nem kerül: a név kompakt
-   címkeként marad, azonos nyelven a .ds-row-sub-ba kerülő meta-sorral. A
-   komponens-név NINCS ebben a családban, az simán a .ds-row-name-t kapja. */
+   családjában van (.rc-muscle-label ott sorolva), ezért a .ds-row-name
+   nyers rákerülése ütközne: a családtól örökölt 600-as súlyt és a
+   pozitív --ls-label ritkítást a .ds-row-name saját 700-as súlya és
+   -0.01em-es (összehúzó) ritkítása írná felül — összehúzott, nehezen
+   olvasható nagybetűs mono szöveg lenne belőle.
+   A .ds-row-name-t MEGKAPJA (a jelölésben), de a súlyt és a ritkítást egy
+   nagyobb specificitású, összetett szelektor visszaállítja a mono-családra;
+   a méretet viszont a .ds-row-name fs-xl-je helyett fs-lg adja — nem kell
+   pontosan egyeznie a Számítás-lista nevével, csak egyértelműen a sor
+   ALANYAként kell olvasódnia a saját meta-sora (.ds-row-sub, fs-2xs) fölött,
+   ahogy a komponens-listán is. */
 .rc-muscle-label {
-  font-size: var(--fs-2xs);
   color: var(--text-muted);
+}
+
+.rc-muscle-label.ds-row-name {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  letter-spacing: var(--ls-label);
 }
 
 .rc-muscle-meta:empty {
