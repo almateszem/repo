@@ -5735,19 +5735,11 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   line-height: 1.5;
 }
 
-/* ---- Közös kártya-recept (megegyezik a .db-recovery / .db-stats mintával) ----
-   A check-in űrlapnál a kártya a lenyitható BURKOLÓ (.rc-checkin-advanced),
-   nem maga az űrlap: összecsukva is kártyaként kell látszania. */
-.rc-card,
-.rc-score,
-.rc-checkin-advanced {
-  background: var(--surface-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--r-2xl);
-  padding: var(--sp-6) var(--sp-8);
-  margin-bottom: var(--sp-6);
-}
-
+/* ---- Kártya helyett hajszálvonal ----
+   A blokkok a jelölésben a .ds-section osztályt kapják (felső vonal +
+   térköz a szomszédos .ds-section-ök közt, lásd a 2c. szakaszt) — itt már
+   csak a kártyák saját belső elrendezése marad. A check-in űrlapnál ez a
+   lenyitható BURKOLÓ (.rc-checkin-advanced), nem maga az űrlap. */
 .rc-card {
   display: flex;
   flex-direction: column;
@@ -5761,6 +5753,9 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-7);
+  /* A .ds-section csak felső térközt ad; utána nem .ds-section-elem jön
+     (a megbízhatóság-sáv sima szöveg), ezért a lezáró rést maga a hero adja. */
+  margin-bottom: var(--sp-9);
 }
 
 .rc-score-text {
@@ -5768,6 +5763,14 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   flex-direction: column;
   gap: var(--sp-2);
   min-width: 0;
+}
+
+/* A lap fókuszpontja: a .ds-display alapértelmezett 96px-es felső határa itt
+   szándékosan kisebb, mint az áttekintésen (214px) — a gyűrű ITT megmarad
+   mellette (lásd a fejléc-kommentet), egy 214px-es szám mellett a gyűrű már
+   nem térne el egymástól olvashatóan. */
+.rc-score-num {
+  --ds-display-size: clamp(72px, 20vw, 96px);
 }
 
 .rc-verdict {
@@ -5854,10 +5857,31 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   gap: var(--sp-6);
 }
 
-/* A varázslóra vivő gomb az áttekintő emlékeztetőjének receptjét használja
-   (.db-checkin-cta); itt csak a térköz tér el. */
+/* A lap fő művelete: a megosztott .ds-cta sáv (lásd 2c. szakasz), nem a
+   dashboard bekeretezett emlékeztetője (.db-checkin-cta) — az egy teendő-
+   kártya, ez itt a lap egyetlen elsődleges CTA-ja, tele szélességben. */
 .rc-checkin-cta {
-  margin-bottom: var(--sp-6);
+  margin: var(--sp-9) 0;
+}
+
+/* A .ds-cta-sub kompakt, egysoros mono címkére készült; ez a mondat
+   hosszabb és tördelést igényel, ezért a betűformát és a nagybetűsítést
+   írjuk felül — a színt (ami a hátteret követi keskeny/széles nézetben)
+   szándékosan nem. */
+.rc-checkin-cta-note {
+  font-family: var(--font-base);
+  font-size: var(--fs-sm);
+  font-weight: 400;
+  line-height: 1.5;
+  text-transform: none;
+  letter-spacing: normal;
+  white-space: normal;
+  opacity: 0.8;
+}
+
+.rc-checkin-cta-arrow {
+  flex-shrink: 0;
+  font-size: var(--fs-2xl);
 }
 
 /* A „Részletes szerkesztés" nyitófeje. Az állapot-felirat itt ül, hogy
@@ -5918,9 +5942,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--text-muted);
 }
 
-.rc-scales,
-.rc-muscle-inputs,
-.rc-pain-inputs {
+.rc-scales {
   display: flex;
   flex-direction: column;
   gap: var(--sp-5);
@@ -6037,10 +6059,18 @@ details[open] > .rc-details-summary::before {
   cursor: default;
 }
 
-/* ---- Sávos listák (komponensek, izomcsoportok) ---- */
+/* ---- Sávos listák (komponensek, izomcsoportok) ----
+   A listaelemek a megosztott .ds-row primitívre állnak: rács helyett a
+   .ds-row + .ds-row hajszálvonala tagol, a szám .ds-row-value-ként kerül a
+   jobb szélre. Emiatt a lista SZÁNDÉKOSAN marad egyoszlopos minden
+   szélességen — a korábbi kétoszlopos széles nézet a soronkénti felső
+   vonallal együtt törött volna (a rács nem a vizuális szomszédhoz, hanem a
+   DOM-szomszédhoz adta volna a vonalat). A sáv (rc-bar) marad: nem
+   kártya-dísz, hanem arányos összevetést mutató adat, ezért a
+   .ds-row-main-en BELÜL fut tovább, a név alatt. */
 
 .rc-bar {
-  /* A .pl-progress alapján — itt csak a rács-elhelyezés és a szín tér el */
+  /* A .pl-progress alapján — itt csak a szín tér el */
   width: 100%;
 }
 
@@ -6058,48 +6088,16 @@ details[open] > .rc-details-summary::before {
 .rc-muscles {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-4);
 }
 
-.rc-component,
-.rc-muscle {
-  display: grid;
-  grid-template-columns: minmax(96px, 1fr) auto;
-  align-items: center;
-  gap: var(--sp-1) var(--sp-4);
-}
-
-.rc-component-label,
+/* Az izomcsoport-név a 2b. szakasz megosztott mono-nagybetűs címke-
+   családjában van (.rc-muscle-label ott sorolva) — a .ds-row-name eltérő
+   súlyt/ritkítást adna rá, ezért ide szándékosan nem kerül: a név kompakt
+   címkeként marad, azonos nyelven a .ds-row-sub-ba kerülő meta-sorral. A
+   komponens-név NINCS ebben a családban, az simán a .ds-row-name-t kapja. */
 .rc-muscle-label {
-  font-size: var(--fs-sm);
-  font-weight: 600;
-}
-
-.rc-component-weight {
-  grid-column: 2;
   font-size: var(--fs-2xs);
-  color: var(--text-faint);
-  text-align: right;
-}
-
-.rc-component .rc-bar,
-.rc-muscle .rc-bar {
-  grid-column: 1;
-}
-
-.rc-component-value,
-.rc-muscle-value {
-  grid-column: 2;
-  font-size: var(--fs-sm);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-
-.rc-muscle-meta {
-  grid-column: 1 / -1;
-  font-size: var(--fs-2xs);
-  color: var(--text-faint);
+  color: var(--text-muted);
 }
 
 .rc-muscle-meta:empty {
@@ -6149,52 +6147,25 @@ details[open] > .rc-details-summary::before {
   color: var(--text-muted);
 }
 
-/* ---- Gyakorlat-ajánlások ---- */
+/* ---- Gyakorlat-ajánlások ----
+   A „Javaslat"-lista is a .ds-row-ra áll: a kártya-háttér és a bal
+   verdikt-csík eltűnik, a tónust innentől kizárólag a pontszám színe
+   hordozza (.rc-lift-score[data-tone]) — nem duplikáljuk ugyanazt az
+   infót két helyen. A .ds-row alapból függőlegesen KÖZÉPRE igazítaná az
+   értéket; itt a bal oldal többsoros (cím, leírás, esetleg delták), ezért
+   a pontszám a tetejéhez igazodik (align-items: flex-start felülírás). */
 
 .rc-lifts {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-4);
 }
 
-.rc-lift {
-  display: flex;
-  flex-direction: column;
+.rc-lift.ds-row {
+  align-items: flex-start;
+}
+
+.rc-lift-main {
   gap: var(--sp-3);
-  padding: var(--sp-5) var(--sp-6);
-  border-radius: var(--r-lg);
-  background: var(--surface-soft);
-  border-left: 3px solid var(--fg-25);
-}
-
-.rc-lift[data-verdict='pr'],
-.rc-lift[data-verdict='strong'] {
-  border-left-color: var(--c-ok);
-}
-.rc-lift[data-verdict='reduce'] {
-  border-left-color: var(--fg-60);
-}
-.rc-lift[data-verdict='skip'],
-.rc-lift[data-verdict='avoid'] {
-  border-left-color: var(--c-alert);
-}
-
-.rc-lift-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--sp-4);
-}
-
-.rc-lift-name {
-  font-size: var(--fs-md);
-  font-weight: 700;
-}
-
-.rc-lift-score {
-  font-size: var(--fs-sm);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
 }
 
 .rc-lift-score[data-tone='ok'] {
@@ -6228,27 +6199,6 @@ details[open] > .rc-details-summary::before {
   font-size: var(--fs-2xs);
   font-weight: 500;
   color: var(--text-faint);
-}
-
-/* ---- Széles nézet: az izomcsoportok és az ajánlások két oszlopban ---- */
-@media (min-width: 1025px) {
-  .rc-muscles {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--sp-5) var(--sp-8);
-  }
-
-  .rc-lifts {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  }
-
-  .rc-muscle-inputs,
-  .rc-pain-inputs {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: var(--sp-5) var(--sp-7);
-  }
 }
 
 /* ==========================================================================
