@@ -4836,10 +4836,10 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   margin-bottom: var(--sp-8);
 }
 
-/* Kerek vissza gomb — a gyakorlat-választó, a terv-építő és a check-in
-   varázsló fejlécében ugyanaz. */
-.ep-back,
-.ci-back {
+/* Kerek vissza gomb — a gyakorlat-választó és a terv-építő fejlécében
+   ugyanaz. A check-in varázsló .ci-back-je a 25. szakaszban él, saját
+   (44px-es) mérettel — lásd ott. */
+.ep-back {
   flex-shrink: 0;
   width: 38px;
   height: 38px;
@@ -4854,8 +4854,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
     color var(--t-fast);
 }
 
-.ep-back:hover,
-.ci-back:hover {
+.ep-back:hover {
   border-color: var(--fg-40);
   color: var(--fg-100);
 }
@@ -6611,8 +6610,29 @@ details[open] > .rc-details-summary::before {
    25. Napi check-in varázsló (ci-*) — a #checkin flow-oldal
    Egy kérdés / egy képernyő, fix 460px-es oszlop minden méreten.
    Újrahasznált primitívek (nem írjuk újra őket):
-     · .wk-num / .wk-num-step       — az alvás ± léptetője (a clamp onnan jön)
-     · .ci-back                     — az .ep-back kerek gombjának listájában
+     · .wk-num / .wk-num-step  — a szám-lépések ± léptetőjének alaprétege
+     · .ds-eyebrow             — minden lépés felkiáltója (a .ci-eyebrow mellé)
+     · .ds-display             — a nyitócím, a nagy szám és a készenlét-szám
+                                  jelölője; a TÉNYLEGES méretet itt is helyi
+                                  --ci-fs-* clamp adja, nem --fs-5xl (lásd a
+                                  .app-page.ci-page komment a fix oszlopról)
+     · .ds-cta                 — minden elsődleges gomb (Kezdés/Tovább/Mentés)
+     · .ds-step / .ds-step-btn — a szám-lépések ± párja (osztályként FEL van
+                                  téve, de a .ci-round-btn/.ci-num-dial saját
+                                  szabálya írja explicit ugyanezeket az
+                                  értékeket — a megosztott .wk-num alapréteg
+                                  cascade-sorrendje enélkül átütne)
+     · .ds-grid                — a gyorsgombok sora (a gomb maga JS-generált,
+                                  saját .ci-preset szabállyal követi a receptet)
+     · .ds-seg                 — az 1–5 skála csoportja (a gomb JS-generált,
+                                  saját .ci-scale-btn szabállyal)
+     · .ds-row                 — az összegzés listája (a név/érték saját
+                                  tipográfiája marad — lásd a .ci-summary-
+                                  label komment az okról)
+     · .ds-section             — az összegzés két blokkja (készenlét-panel,
+                                  majd a lista) között
+   A .ci-back NEM az .ep-back listájában él többé: saját, 44px-es szabályt
+   kapott lent (a 23. szakasz .ep-back-je 38px maradt, változatlanul).
    A testtérkép (Elöl/Hátul váltó, régiók, érték-chipek) NEM itt él: saját
    komponens és saját szakasz (bm-*), lásd bodymap/index.js. Korábban a
    .wk-toggle-btn és a .rc-chip volt rá újrahasználva — ez már nem igaz.
@@ -6627,9 +6647,12 @@ details[open] > .rc-details-summary::before {
   flex-direction: column;
   /* A varázsló saját kiemelt méretei. Az --fs-* tokenek ≥1025px-en egy
      fokozatot lépnek, ami a fix szélességű oszlopban törné a nagy számot
-     és a nyitócímet — ezért ez a kettő nem token, hanem helyi clamp. */
-  --ci-fs-display: clamp(30px, 9vw, 36px);
-  --ci-fs-number: clamp(44px, 13vw, 56px);
+     és a nyitócímet — ezért ez a kettő nem token, hanem helyi clamp.
+     A 10. feladat a nyitócímet ~56px-re, a nagy számot ~72px-re nagyítja
+     (a prototípus mérete) — MARADT a vw-alapú clamp, ugyanazzal az okkal:
+     a fix oszlop nem ismeri a token-töréspontot, csak a valós viewportot. */
+  --ci-fs-display: clamp(34px, 13vw, 56px);
+  --ci-fs-number: clamp(46px, 17vw, 72px);
 }
 
 /* Célkitűzés a sportoló-modálban. A mezők a Táplálkozás oldal
@@ -7537,19 +7560,43 @@ body[data-onboarding] .app-page.ci-page {
   margin-bottom: var(--sp-2);
 }
 
+/* Kerek vissza gomb — NEM az .ep-back-kel közös többé (23. szakasz): itt
+   44px, mert ez a fejléc-sáv elsődleges érintési célpontja (a prototípus
+   mérete), az .ep-back 38px-e viszont a gyakorlat-választóra méretezett. */
+.ci-back {
+  flex-shrink: 0;
+  width: var(--tap-min);
+  height: var(--tap-min);
+  border-radius: var(--r-full);
+  background: none;
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+  font-size: var(--fs-2xl);
+  line-height: 1;
+  transition:
+    border-color var(--t-fast),
+    color var(--t-fast);
+}
+
+.ci-back:hover {
+  border-color: var(--fg-40);
+  color: var(--fg-100);
+}
+
+/* Haladássáv: hajszálvonal-alapú sáv accent kitöltéssel, nem a korábbi
+   halvány-szürke pirula — a lekerekítés is elmarad, a szögletes vonal illik
+   a lap többi hajszálvonalához. */
 .ci-progress {
   flex: 1;
-  height: 6px;
-  border-radius: 20px;
-  background: var(--surface-strong);
+  height: 4px;
+  background: var(--hair-soft);
   overflow: hidden;
 }
 
 .ci-progress-fill {
   height: 100%;
   width: 0;
-  border-radius: 20px;
-  background: var(--c-paper);
+  background: var(--c-accent);
   transition: width var(--t-base);
 }
 
@@ -7609,19 +7656,19 @@ body[data-onboarding] .app-page.ci-page {
   margin-top: var(--sp-3);
 }
 
+/* A tényleges tipográfiát innentől a .ds-eyebrow adja (2c. szakasz, a
+   mono-nagybetűs felkiáltó); itt csak a margó marad. */
 .ci-eyebrow {
   margin: 0;
-  font-size: var(--fs-2xs);
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-muted);
 }
 
+/* A .ds-display adja a súlyt/ritkítást/tabular-nums-ot; a méretet és a
+   sortávot itt hagyjuk helyben — a fix 460px-es oszlop miatt a mérethez
+   a --ci-fs-display vw-clamp kell, nem a primitíva --fs-5xl alapértéke
+   (lásd a .app-page.ci-page komment). */
 .ci-display {
   margin: 0;
   font-size: var(--ci-fs-display);
-  font-weight: 800;
   line-height: 1.04;
 }
 
@@ -7660,30 +7707,17 @@ body[data-onboarding] .app-page.ci-page {
   color: var(--text-faint);
 }
 
-/* ---- Elsődleges gomb (a .db-cta receptje) ---- */
+/* ---- Elsődleges gomb: a megosztott .ds-cta sáv (2c. szakasz), accent
+   hátterű. A felirat (span vagy sima szövegcsomó) és a nyíl-span a .ds-cta
+   space-between-je miatt a két szélre kerül — nincs szükség külön
+   .ds-cta-text csomagolásra, ezeken a gombokon nincs alcím. ---- */
 
 .ci-primary {
-  width: 100%;
-  min-height: 54px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--sp-2);
   margin-top: var(--sp-7);
-  background: var(--c-paper);
-  color: var(--c-ink);
-  border: none;
-  border-radius: var(--r-lg);
-  font-size: var(--fs-xl);
-  font-weight: 700;
   transition:
     background var(--t-fast),
     transform var(--t-fast),
     opacity var(--t-fast);
-}
-
-.ci-primary:hover {
-  background: var(--c-paper-bright);
 }
 
 .ci-primary:active {
@@ -7693,6 +7727,12 @@ body[data-onboarding] .app-page.ci-page {
 .ci-primary:disabled {
   opacity: 0.45;
   transform: none;
+}
+
+/* A Mentés gombnak nincs nyíl-testvére (nem navigál tovább, hanem ment) —
+   a .ds-cta alap space-between-je enélkül balra tolná a feliratot. */
+.ci-primary--solo {
+  justify-content: center;
 }
 
 .ci-exit {
@@ -7725,49 +7765,52 @@ body[data-onboarding] .app-page.ci-page {
 
 /* ---- Nagy szám-bevitel (alvás, testsúly) ---- */
 
+/* Sor helyett vízszintes csoport: a mértékegység a szám MELLETT áll, nem
+   alatta (a prototípus szerint), a léptető-pár középre igazítva. */
 .ci-num-row {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: var(--sp-2);
+  justify-content: center;
+  gap: var(--sp-4);
 }
 
-/* A megosztott .wk-num sávból itt két nagy körgomb és egy kiemelt szám lesz. */
+/* A megosztott .wk-num sávból itt .ds-step lesz (osztályként fel is van
+   téve): szögletes, hajszálvonal-résű szegmensek a korábbi kerek gombpár
+   helyett. A szabály itt EXPLICIT, nem a kaszkádra bízott — a .wk-num
+   alaprétege (padding, háttér) különben átütne. */
 .ci-num-dial {
-  gap: var(--sp-10);
-  background: none;
-  border: none;
+  gap: 1px;
   padding: 0;
+  border: none;
+  background: var(--hair);
 }
 
+/* .ds-step-btn is fel van téve rá osztályként; a saját szabály itt ugyan-
+   azokat az értékeket adja explicit, ugyanazért az okért, mint fent. */
 .ci-round-btn {
-  width: 62px;
-  height: 62px;
-  border-radius: var(--r-full);
-  border: 1px solid var(--border-strong);
-  background: var(--surface-input);
+  width: var(--tap-min);
+  height: var(--tap-min);
+  border: 0;
+  background: var(--c-bg);
   color: var(--fg-85);
-  font-size: var(--fs-5xl);
-  font-weight: 700;
-  transition:
-    border-color var(--t-fast),
-    background var(--t-fast);
+  font-size: var(--fs-3xl);
+  font-weight: 800;
+  transition: background var(--t-fast);
 }
 
 .ci-round-btn:hover {
-  border-color: var(--fg-40);
   background: var(--surface-hover);
 }
 
+/* A .ds-display adja a súlyt/ritkítést/tabular-nums-ot; a méretet a helyi
+   --ci-fs-number vw-clamp adja (fix oszlop, lásd a .app-page.ci-page
+   komment), ezért él tovább a saját custom property itt. */
 .ci-num-input {
+  --ds-display-size: var(--ci-fs-number);
   width: 118px;
   text-align: center;
   background: none;
   border: none;
-  font-size: var(--ci-fs-number);
-  font-weight: 800;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
 }
 
 /* A testsúly négy-öt jegyű („82.9", „102.4"), az alvás három („7.5") — a
@@ -7801,73 +7844,69 @@ body[data-onboarding] .app-page.ci-page {
   color: var(--text-muted);
 }
 
+/* .ds-grid-ként viselkedik (osztály fel van téve rá); a gomb maga JS-
+   generált (weight.js/sleep.js), ezért a gyerek saját szabállyal, nem
+   osztállyal követi a receptet — lásd .ci-preset lent. */
 .ci-presets {
-  display: flex;
-  flex-wrap: wrap;
   justify-content: center;
-  gap: var(--sp-3);
 }
 
 .ci-preset {
+  /* A min-height-et már a 2. szakasz globális érintési-lista adja (.ci-preset
+     szerepel benne) — itt csak a szélesség kell. */
   min-width: 44px;
   padding: 0 var(--sp-5);
-  border-radius: var(--r-md);
-  border: 1px solid var(--border-strong);
-  background: var(--surface-input);
+  background: var(--c-bg);
   color: var(--fg-70);
   font-size: var(--fs-base);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   transition:
     background var(--t-fast),
-    border-color var(--t-fast),
     color var(--t-fast);
 }
 
 .ci-preset:hover {
-  border-color: var(--fg-40);
+  background: var(--surface-hover);
 }
 
 .ci-preset[aria-pressed='true'] {
-  background: var(--c-paper);
-  border-color: var(--c-paper);
-  color: var(--c-ink);
+  background: var(--c-accent);
+  color: var(--on-accent);
 }
 
 /* ---- 1–5 skálák ---- */
 
-.ci-scale {
-  display: flex;
-  gap: var(--sp-4);
-}
+/* A .ci-scale osztály maga a .ds-seg-et kapja (a sablonban) — itt nincs
+   is rá szükség saját szabályra, a primitíva önmagában adja a hajszál-
+   vonalas hátteret. A gomb JS-generált (scale.js), saját szabállyal. */
 
 .ci-scale-btn {
   flex: 1;
-  aspect-ratio: 1;
+  /* A prototípus mérete: ez a képernyő elsődleges érintési célpontja,
+     ezért magas (nem négyzet — aspect-ratio helyett rögzített magasság). */
+  min-height: 80px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--r-lg);
-  border: 1px solid var(--border-strong);
-  background: var(--surface-input);
+  border: 0;
+  background: var(--c-bg);
   color: var(--fg-70);
   font-size: var(--fs-4xl);
   font-weight: 800;
   font-variant-numeric: tabular-nums;
   transition:
     background var(--t-fast),
-    border-color var(--t-fast),
     color var(--t-fast);
 }
 
 .ci-scale-btn:hover {
-  border-color: var(--fg-40);
+  background: var(--surface-hover);
 }
 
 .ci-scale-btn[aria-pressed='true'] {
-  background: var(--c-paper);
-  border-color: var(--c-paper);
-  color: var(--c-ink);
+  background: var(--c-accent);
+  color: var(--on-accent);
 }
 
 .ci-scale-ends {
@@ -7878,10 +7917,12 @@ body[data-onboarding] .app-page.ci-page {
   color: var(--text-muted);
 }
 
-/* ---- Kapuk (igen/nem választókártyák) ---- */
+/* ---- Kapuk: keret nélküli, hajszálvonallal elválasztott sorok a korábbi
+   két nagy választókártya helyett (a gomb JS-generált, gate.js). ---- */
 
 .ci-gates {
-  gap: var(--sp-5);
+  gap: 0;
+  flex-direction: column;
 }
 
 .ci-gate {
@@ -7890,23 +7931,33 @@ body[data-onboarding] .app-page.ci-page {
   align-items: flex-start;
   gap: var(--sp-2);
   width: 100%;
-  padding: var(--sp-12) var(--sp-11);
-  border-radius: var(--r-2xl);
-  background: var(--surface-card);
+  padding: var(--sp-9) 0;
+  background: none;
+  border: 0;
   color: var(--text-primary);
   text-align: left;
   transition: background var(--t-fast);
+}
+
+/* A hajszálvonal a testvérek KÖZÉ kerül — az első sor fölött nincs (azt a
+   fejléc-blokk margója adja), ahogy a .ds-row-nál is. */
+.ci-gate + .ci-gate {
+  border-top: 1px solid var(--hair);
 }
 
 .ci-gate:hover {
   background: var(--surface-hover);
 }
 
-.ci-gate[data-tone='ok'] {
-  border: 1px solid var(--c-ok);
+/* A tónus korábban a teljes kártya körüli keret színe volt; keret nélkül a
+   felirat színe hordozza tovább ugyanazt a jelentést (a „Nem” válasz
+   halványzöld, az „Igen” accent — nem a KIVÁLASZTOTT választ jelöli, hanem
+   magát a két lehetőséget színezi). */
+.ci-gate[data-tone='ok'] .ci-gate-label {
+  color: var(--c-ok);
 }
-.ci-gate[data-tone='accent'] {
-  border: 1px solid var(--c-accent);
+.ci-gate[data-tone='accent'] .ci-gate-label {
+  color: var(--c-accent);
 }
 
 .ci-gate-label {
@@ -7914,8 +7965,14 @@ body[data-onboarding] .app-page.ci-page {
   font-weight: 800;
 }
 
+/* Mono, nagybetűs alcím — a .ds-row-sub receptje, de a gombot a gate.js
+   generálja, ezért osztály helyett közvetlenül itt írva. */
 .ci-gate-sub {
-  font-size: var(--fs-base);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
   color: var(--text-muted);
 }
 
@@ -7930,15 +7987,14 @@ body[data-onboarding] .app-page.ci-page {
 
 /* ---- Összegzés ---- */
 
+/* A kártya-háttér/keret eltűnt: a .ds-section adja a felső légteret (osztály
+   a sablonban), a lista alatta ugyanígy .ds-section, ezért a kettő között
+   automatikusan hajszálvonal fut — ez választja el a nagy számot a
+   részletes listától. */
 .ci-readiness {
   display: flex;
   flex-direction: column;
   gap: var(--sp-4);
-  margin-top: var(--sp-7);
-  padding: var(--sp-8);
-  background: var(--surface-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--r-2xl);
 }
 
 .ci-readiness-head {
@@ -7976,11 +8032,11 @@ body[data-onboarding] .app-page.ci-page {
   gap: var(--sp-1);
 }
 
+/* A .ds-display adja a súlyt/ritkítést/tabular-nums-ot; a korábbi 44px-es
+   nyers érték helyi egyéni tulajdonságként él tovább — flat érték marad
+   (nem vw-clamp), mert ez eddig sem lépcsőzött a ≥1025px-es töréspontnál. */
 .ci-readiness-num {
-  font-size: 44px;
-  font-weight: 800;
-  line-height: 1;
-  font-variant-numeric: tabular-nums;
+  --ds-display-size: 44px;
 }
 
 .ci-readiness-sign {
@@ -8023,20 +8079,19 @@ body[data-onboarding] .app-page.ci-page {
 }
 
 .ci-summary {
-  margin: var(--sp-7) 0 0;
   display: flex;
   flex-direction: column;
 }
 
-.ci-summary-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-5);
-  padding: var(--sp-5) 2px;
-  border-bottom: 1px solid var(--border-card);
-}
-
+/* .ci-summary-row a .ds-row-t kapja (sablon) — a sor-magasságot, a térközt
+   és a testvérek közti hajszálvonalat onnan örökli, itt nincs több saját
+   szabálya.
+   .ci-summary-label SZÁNDÉKOSAN NEM kapja a .ds-row-name-t: az fs-xl/700-as
+   receptje itt megfordítaná a meglévő (helyes) hierarchiát — a névnél
+   ("Alvás") fontosabb az érték ("7.5 óra"), ami viszont tetszőlegesen
+   hosszú szöveg is lehet (pl. az izomláz/fájdalom felsorolása), nem egy
+   rövid szám, mint a Regeneráció oldal .ds-row-value-ja. A halvány,
+   visszafogott címke marad a korábbi recept szerint. */
 .ci-summary-label {
   font-size: var(--fs-base);
   color: var(--text-secondary);

@@ -1951,11 +1951,11 @@
   <!-- Nyitóképernyő. h2, nem h1: a lap egyetlen h1-je az oldal tetején van. -->
   <template id="tpl-ci-intro">
     <div class="ci-step ci-step--center">
-      <p class="ci-eyebrow">Regeneráció · <span data-ci-date></span></p>
-      <h2 class="ci-display">Napi<br>regeneráció</h2>
+      <p class="ci-eyebrow ds-eyebrow">Regeneráció · <span data-ci-date></span></p>
+      <h2 class="ci-display ds-display">Napi<br>regeneráció</h2>
       <p class="ci-lead">Pár gyors kérdés, kevesebb mint egy perc. Koppints egy válaszra —
         magától ugrik a következőre.</p>
-      <button class="ci-primary" type="button" data-action="checkin-next">
+      <button class="ci-primary ds-cta" type="button" data-action="checkin-next">
         <span data-ci-start-label>Kezdés</span> <span aria-hidden="true">→</span>
       </button>
       <p class="ci-footnote">A folyamatosság veri a tökéletességet.</p>
@@ -1972,26 +1972,26 @@
   <template id="tpl-ci-sleep">
     <div class="ci-step">
       <div class="ci-head-block">
-        <p class="ci-eyebrow">Napi check-in</p>
+        <p class="ci-eyebrow ds-eyebrow">Napi check-in</p>
         <h2 class="ci-question">Mennyit aludtál?</h2>
         <p class="ci-sub">Az elmúlt éjszaka, órában.</p>
       </div>
       <div class="ci-stage">
         <div class="ci-num-row">
-          <span class="wk-num ci-num-dial">
-            <button class="wk-num-step ci-round-btn" type="button" data-dir="-1"
+          <span class="wk-num ci-num-dial ds-step">
+            <button class="wk-num-step ci-round-btn ds-step-btn" type="button" data-dir="-1"
                     aria-label="Kevesebb alvás">−</button>
             <label class="sr-only" for="ci-sleep">Alvás órában</label>
-            <input class="wk-num-input ci-num-input" id="ci-sleep" type="number"
+            <input class="wk-num-input ci-num-input ds-display" id="ci-sleep" type="number"
                    inputmode="decimal" min="0" max="24" step="0.5" autocomplete="off">
-            <button class="wk-num-step ci-round-btn" type="button" data-dir="1"
+            <button class="wk-num-step ci-round-btn ds-step-btn" type="button" data-dir="1"
                     aria-label="Több alvás">+</button>
           </span>
           <span class="ci-num-unit" aria-hidden="true">óra</span>
         </div>
-        <div class="ci-presets" role="group" aria-label="Gyakori alvásidők" data-ci-presets></div>
+        <div class="ci-presets ds-grid" role="group" aria-label="Gyakori alvásidők" data-ci-presets></div>
       </div>
-      <button class="ci-primary" type="button" data-action="checkin-next">
+      <button class="ci-primary ds-cta" type="button" data-action="checkin-next">
         Tovább <span aria-hidden="true">→</span>
       </button>
     </div>
@@ -2004,29 +2004,29 @@
   <template id="tpl-ci-weight">
     <div class="ci-step">
       <div class="ci-head-block">
-        <p class="ci-eyebrow">Napi check-in</p>
+        <p class="ci-eyebrow ds-eyebrow">Napi check-in</p>
         <h2 class="ci-question">Mennyi a testsúlyod?</h2>
         <p class="ci-sub">Reggel, étkezés előtt a legpontosabb. Ha ma nem mértél, hagyd üresen.</p>
       </div>
       <div class="ci-stage">
         <div class="ci-num-row">
-          <span class="wk-num ci-num-dial">
-            <button class="wk-num-step ci-round-btn" type="button" data-dir="-1"
+          <span class="wk-num ci-num-dial ds-step">
+            <button class="wk-num-step ci-round-btn ds-step-btn" type="button" data-dir="-1"
                     aria-label="Kevesebb testsúly">−</button>
             <label class="sr-only" for="ci-weight">Testsúly kilogrammban</label>
-            <input class="wk-num-input ci-num-input ci-num-input--wide" id="ci-weight" type="number"
+            <input class="wk-num-input ci-num-input ci-num-input--wide ds-display" id="ci-weight" type="number"
                    inputmode="decimal" min="30" max="300" step="0.1" placeholder="—"
                    autocomplete="off">
-            <button class="wk-num-step ci-round-btn" type="button" data-dir="1"
+            <button class="wk-num-step ci-round-btn ds-step-btn" type="button" data-dir="1"
                     aria-label="Több testsúly">+</button>
           </span>
           <span class="ci-num-unit" aria-hidden="true">kg</span>
         </div>
-        <div class="ci-presets" role="group" aria-label="Testsúly az utolsó méréshez képest"
+        <div class="ci-presets ds-grid" role="group" aria-label="Testsúly az utolsó méréshez képest"
              data-ci-presets hidden></div>
         <p class="ci-legend" data-ci-weight-note></p>
       </div>
-      <button class="ci-primary" type="button" data-action="checkin-next">
+      <button class="ci-primary ds-cta" type="button" data-action="checkin-next">
         Tovább <span aria-hidden="true">→</span>
       </button>
       <button class="ci-skip" type="button" data-ci-weight-skip>Ma nem mértem</button>
@@ -2038,26 +2038,30 @@
   <template id="tpl-ci-scale">
     <div class="ci-step">
       <div class="ci-head-block">
-        <p class="ci-eyebrow">Napi check-in</p>
+        <p class="ci-eyebrow ds-eyebrow">Napi check-in</p>
         <h2 class="ci-question" data-ci-title></h2>
       </div>
       <div class="ci-stage">
-        <div class="ci-scale" role="group" data-ci-scale></div>
+        <div class="ci-scale ds-seg" role="group" data-ci-scale></div>
         <div class="ci-scale-ends">
           <span data-ci-low></span><span data-ci-high></span>
         </div>
       </div>
-      <button class="ci-primary" type="button" data-action="checkin-next" disabled>
+      <button class="ci-primary ds-cta" type="button" data-action="checkin-next" disabled>
         Tovább <span aria-hidden="true">→</span>
       </button>
     </div>
   </template>
 
-  <!-- Kapu-lépés: két nagy választókártya (izomláz, ill. fájdalom). -->
+  <!-- Kapu-lépés: keret nélküli, hajszálvonallal elválasztott sorok
+       (izomláz, ill. fájdalom). A sorokat maga a gate.js építi — a .ci-gate
+       gombokra a JS teszi rá a className-t, ezért a .ds-row-recept ide nem
+       osztályként kerül, hanem a 25. szakasz .ci-gate/.ci-gate-sub szabálya
+       követi közvetlenül. -->
   <template id="tpl-ci-gate">
     <div class="ci-step">
       <div class="ci-head-block">
-        <p class="ci-eyebrow" data-ci-eyebrow></p>
+        <p class="ci-eyebrow ds-eyebrow" data-ci-eyebrow></p>
         <h2 class="ci-question" data-ci-title></h2>
         <p class="ci-sub" data-ci-sub></p>
       </div>
@@ -2087,10 +2091,13 @@
   <template id="tpl-ci-summary">
     <div class="ci-step">
       <div class="ci-head-block">
-        <p class="ci-eyebrow">Összegzés · <span data-ci-date></span></p>
+        <p class="ci-eyebrow ds-eyebrow">Összegzés · <span data-ci-date></span></p>
         <h2 class="ci-question">Szép munka! 💪</h2>
       </div>
-      <div class="ci-readiness" data-ci-readiness>
+      <!-- A készenlét-blokk és a lista .ds-section-lánc: az elsőn nincs
+           hajszálvonal (nincs előtte másik .ds-section), a másodikon igen —
+           ez választja el vizuálisan a nagy számot a részletes listától. -->
+      <div class="ci-readiness ds-section" data-ci-readiness>
         <div class="ci-readiness-head">
           <span class="ci-readiness-label">Készenlét</span>
           <span class="ci-readiness-verdict" data-ci-verdict></span>
@@ -2098,15 +2105,18 @@
         <p class="ci-readiness-pending" data-ci-pending>A készenléti pontszám a mentés után
           számolódik ki.</p>
         <div class="ci-readiness-value" data-ci-score-wrap hidden>
-          <span class="ci-readiness-num" data-ci-score>0</span><span class="ci-readiness-sign">%</span>
+          <span class="ci-readiness-num ds-display" data-ci-score>0</span><span class="ci-readiness-sign">%</span>
         </div>
         <div class="ci-readiness-bar" data-ci-bar-wrap hidden>
           <div class="ci-readiness-fill" data-ci-bar></div>
         </div>
       </div>
-      <dl class="ci-summary" data-ci-summary></dl>
+      <dl class="ci-summary ds-section" data-ci-summary></dl>
       <div class="ci-summary-actions">
-        <button class="ci-primary" type="button" data-action="checkin-save">Mentés</button>
+        <!-- .ci-primary--solo: a Mentés nem navigál tovább (nincs nyíl-
+             testvére), ezért a .ds-cta alap space-between-je helyett középre
+             igazítva marad. -->
+        <button class="ci-primary ds-cta ci-primary--solo" type="button" data-action="checkin-save">Mentés</button>
         <p class="ci-saved" data-ci-saved hidden>Mentve ✓</p>
         <a class="ci-exit" href="#recovery" data-ci-done-link hidden>Vissza a regenerációhoz</a>
       </div>
@@ -2115,7 +2125,7 @@
 
   <!-- Egy sor az összegzés listájában -->
   <template id="tpl-ci-summary-row">
-    <div class="ci-summary-row">
+    <div class="ci-summary-row ds-row">
       <dt class="ci-summary-label"></dt>
       <dd class="ci-summary-value"></dd>
     </div>
