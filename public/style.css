@@ -887,6 +887,13 @@ input.wk-chip:focus-visible {
 /* ==========================================================================
    6. Dashboard
    ========================================================================== */
+/* Az Áttekintés (.db-*) a ds-* primitívek ELŐTT épült meg kézzel a dizájn
+   nyelvén, és a primitívek nem cserélhetők bele egy az egyben: a .ds-section
+   24px padding-top MELLÉ 24px margin-top-ot is hoz a szomszédos szekciók
+   közé, amit ez a lap nem ismer; a .ds-eyebrow 700-as súlyt és line-height:1-
+   et ír elő, a 2b. címke-család (.db-label és társai) viszont 600-as súllyal,
+   rögzített sormagasság nélkül működik. Aki egységesíteni akarja, számítson
+   rá, hogy a lap elcsúszik — nézze meg vizuálisan előbb. */
 /* Globális fejléc-sáv. Mobilon a lap tetején tapad, desktopon az oldalsáv
    aljára ül (lásd a szélesebb töréspontot) — egy példány, két hely, hogy az
    értesítés-panel állapota ne kettőződjön meg. */
