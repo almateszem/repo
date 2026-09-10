@@ -954,9 +954,15 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
   > A Task 5 reviewe után az alábbi kódblokk három ponton módosult (fókusz
   > visszaállítása a chip-sorok újraépítése után, az extra sorok értékének
-  > visszavonhatósága, és az Enter/Space kezelése a térkép-régiókon). A
-  > végleges változat a `public/js/ui/bodymap/index.js`-ben van; az itteni
-  > blokk a kiinduló állapotot rögzíti.
+  > visszavonhatósága, és az Enter/Space kezelése a térkép-régiókon), a Task 7
+  > reviewe után pedig egy negyediken: a `blockFrom` „letiltva" jelzése csak a
+  > régióhoz köthető sorokra vonatkozik, az `extraRows`-ra nem. A `pain.general`
+  > ugyanis nem tilt gyakorlatot — a szerver kizárólag az izomcsoportonkénti
+  > `pain[group]` értékekből számolja a `painfulGroups` halmazt
+  > ([`server/recovery.js`](../../../server/recovery.js) `painfulGroups`), az
+  > általános fájdalom csak az összesített készenlétet sapkázza. A végleges
+  > változat a `public/js/ui/bodymap/index.js`-ben van; az itteni blokk a
+  > kiinduló állapotot rögzíti.
   - `values`: **élő objektum**, amit a komponens helyben módosít (`values[key] = 3`, `delete values[key]`). Ugyanaz a minta, mint a mai `ci.answers[field]`.
   - `muscleLabel(key) → string`: az izomcsoport magyar címkéje. **Paraméter, nem import** — így a komponens nem függ sem a varázslótól, sem a render-rétegtől; a hívók a meglévő `ciMuscleLabel`-t adják át.
   - `blockFrom`: ettől az értéktől jelenik meg a „letiltva" jelzés a soron. A fájdalom-térképnél `CI_PAIN_BLOCK`, izomláznál `null`. **Így a 7-es határ egyetlen helyen él** — a komponensben nincs saját másolata.
