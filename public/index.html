@@ -857,195 +857,206 @@
            Minden érték a szerverről jön (GET /api/readiness); ami nem
            számolható, az nem jelenik meg kitalált számként.
            ================================================================ -->
-      <section class="app-page rc-page" data-page="recovery" aria-labelledby="title-recovery" hidden>
-        <header class="rc-header">
-          <h2 class="rc-title" id="title-recovery">Regeneráció</h2>
-          <p class="rc-subtitle">A mai készenléted és amit kezdeni érdemes vele</p>
-        </header>
+      <section class="app-page rc-page" data-page="recovery" aria-labelledby="title-recovery">
 
-        <!-- Összesített készenlét -->
-        <section class="rc-score" aria-labelledby="title-rc-score">
-          <div class="rc-score-text">
-            <h3 class="db-label" id="title-rc-score">Mai készenlét</h3>
-            <span class="db-percent"><span class="rc-score-num">0</span><span class="db-percent-sign">/100</span></span>
-            <span class="rc-verdict" data-rc-verdict></span>
+        <!-- BAL HASÁB. Ugyanaz a felépítés, mint az Áttekintésen: a nagy szám
+             a mutató, alatta az indoklás és a check-in belépője. A blokkokat
+             hajszálvonal választja el, nem kártya-háttér. -->
+        <div class="rc-main">
+          <h2 class="db-label" id="title-recovery">Regeneráció · mai készenlét</h2>
+
+          <div class="rc-score">
+            <span class="db-percent"><span class="rc-score-num">0</span></span>
+            <span class="db-percent-side">
+              <span class="db-percent-sign" aria-hidden="true">%</span>
+              <span class="db-label">Készenlét</span>
+            </span>
           </div>
-          <div class="db-ring rc-ring" role="img" aria-label="Mai készenlét" data-rc-ring>
-            <svg viewBox="0 0 100 100">
-              <circle class="db-ring-bg" cx="50" cy="50" r="42"></circle>
-              <circle class="db-ring-fg" cx="50" cy="50" r="42"></circle>
-            </svg>
+
+          <!-- A készenlét sávja. Ez lépett a körkijelző helyére: a dizájnban
+               egyetlen mutató van, a szám — a gyűrű ugyanazt az értéket
+               rajzolta le másodszor. A sáv csak az arányt teszi láthatóvá, és
+               a színével (ok / warn / bad) az állapotot is hordozza. -->
+          <div class="db-bar rc-score-bar" role="img" data-rc-bar aria-label="Mai készenlét">
+            <span class="db-bar-fill" data-rc-bar-fill></span>
           </div>
-        </section>
 
-        <!-- Megbízhatóság + a sapkák indoklása. Ez a felület őszinteség-sávja:
-             kimondja, mire épül a szám és mi hiányzik hozzá. -->
-        <p class="rc-confidence" data-rc-confidence>
-          <span class="rc-confidence-badge" data-rc-confidence-badge></span>
-          <span data-rc-confidence-text></span>
-        </p>
-        <ul class="rc-caps" data-list="rc-caps" hidden></ul>
+          <p class="rc-verdict" data-rc-verdict></p>
 
-        <!-- Napi check-in. Két út vezet ugyanabba a sorba:
-             · az elsődleges a lépésenkénti varázsló (#checkin) — gyors, de
-               szándékosan nem kérdez közérzetet és folyadékot (a testsúlyt
-               igen: az a napi mérés helye);
-             · a lenti „Részletes szerkesztés" a teljes űrlap, ezekkel együtt.
-             Mindkettő a PUT /api/checkin-re megy; a varázsló a nem kérdezett
-             mezőket változatlanul visszaküldi (lásd a `carried` kommentjét a
-             a frontendben), hogy ne írja felül, amit itt adtál meg. -->
-        <a class="db-checkin-cta rc-checkin-cta" href="#checkin" data-rc-checkin-cta>
-          <span class="db-checkin-cta-text">
-            <span class="db-checkin-cta-title" data-rc-checkin-cta-title>Napi check-in kitöltése</span>
-            <span class="db-checkin-cta-note">Pár gyors kérdés, kevesebb mint egy perc — ebből
-              számol a mai készenléted.</span>
-          </span>
-          <span class="db-checkin-cta-arrow" aria-hidden="true">→</span>
-        </a>
+          <!-- Megbízhatóság + a sapkák indoklása. Ez a felület őszinteség-sávja:
+               kimondja, mire épül a szám és mi hiányzik hozzá. -->
+          <p class="rc-confidence" data-rc-confidence>
+            <span class="rc-confidence-badge" data-rc-confidence-badge></span>
+            <span data-rc-confidence-text></span>
+          </p>
+          <ul class="rc-caps" data-list="rc-caps" hidden></ul>
 
-        <details class="rc-checkin-advanced">
-          <summary class="rc-details-summary rc-checkin-summary">
-            <span class="rc-section-title" id="title-checkin">Részletes szerkesztés</span>
-            <!-- Az állapot a summary-ban van, hogy összecsukva is látszódjon. -->
-            <span class="rc-checkin-state" data-checkin-state></span>
-          </summary>
+          <!-- Napi check-in. Két út vezet ugyanabba a sorba:
+               · az elsődleges a lépésenkénti varázsló (#checkin) — gyors, de
+                 szándékosan nem kérdez közérzetet és folyadékot (a testsúlyt
+                 igen: az a napi mérés helye);
+               · a jobb hasáb „Részletes szerkesztés" blokkja a teljes űrlap,
+                 ezekkel együtt.
+               Mindkettő a PUT /api/checkin-re megy; a varázsló a nem kérdezett
+               mezőket változatlanul visszaküldi (lásd a `carried` kommentjét a
+               frontendben), hogy ne írja felül, amit itt adtál meg. -->
+          <a class="db-checkin-cta rc-checkin-cta" href="#checkin" data-rc-checkin-cta>
+            <span class="db-checkin-cta-text">
+              <span class="db-checkin-cta-title" data-rc-checkin-cta-title>Napi check-in kitöltése</span>
+              <span class="db-checkin-cta-note">Pár gyors kérdés, kevesebb mint egy perc — ebből
+                számol a mai készenléted.</span>
+            </span>
+            <span class="db-checkin-cta-arrow" aria-hidden="true">→</span>
+          </a>
+        </div>
 
-          <form class="rc-checkin" data-form="checkin" aria-labelledby="title-checkin">
-            <p class="rc-hint">Itt minden mező elérhető, egy képernyőn — a közérzet és a
-              folyadék is, amiket a varázsló nem kérdez.</p>
+        <!-- JOBB HASÁB. A dizájn sorrendje: előbb a MAI JELEK (amit te adsz
+             meg), utána a SZÁMÍTÁS (mi lett belőle), végül a JAVASLAT. A
+             testmérések a sor végén állnak: azok nem a mai készenlétről
+             szólnak, hanem a hosszú trendről. -->
+        <div class="rc-side">
 
-            <div class="rc-field">
-              <label class="field-label" for="checkin-sleep">Mennyit aludtál?</label>
-              <span class="wk-num rc-num">
-                <button class="wk-num-step" type="button" data-dir="-1" tabindex="-1" aria-hidden="true">−</button>
-                <input class="wk-num-input" id="checkin-sleep" name="sleepHours" type="number"
-                       inputmode="decimal" min="0" max="24" step="0.5" placeholder="pl. 7.5" autocomplete="off">
-                <button class="wk-num-step" type="button" data-dir="1" tabindex="-1" aria-hidden="true">+</button>
-              </span>
-              <span class="rc-field-unit">óra</span>
-            </div>
+          <details class="rc-block rc-checkin-advanced">
+            <summary class="rc-details-summary rc-checkin-summary">
+              <span class="rc-block-title" id="title-checkin">Mai jelek</span>
+              <!-- Az állapot a summary-ban van, hogy összecsukva is látszódjon. -->
+              <span class="rc-checkin-state" data-checkin-state></span>
+            </summary>
 
-            <!-- Az 1–5 skálákat a frontend építi fel chip-csoportként (a terv-
-                 építő nap-chipjeivel azonos aria-pressed mintával). -->
-            <div class="rc-scales" data-list="checkin-scales"></div>
+            <form class="rc-checkin" data-form="checkin" aria-labelledby="title-checkin">
+              <p class="rc-hint">Itt minden mező elérhető, egy képernyőn — a közérzet és a
+                folyadék is, amiket a varázsló nem kérdez.</p>
 
-            <!-- A korábbi belső lenyitható réteg megszűnt: az egész űrlap már a
-                 „Részletes szerkesztés" blokkban van, egy második kattintás
-                 ugyanannak a tartalomnak a megnyitásához fölösleges volt. -->
-            <div class="rc-checkin-body">
-              <p class="rc-hint">Az izomcsoportonkénti izomláz (0 = semmi, 5 = nagyon erős) pontosítja
-                a csoportonkénti becslést. Amit kihagysz, annak a súlya újraoszlik.</p>
-              <div class="rc-muscle-inputs" data-list="checkin-soreness"></div>
-
-              <p class="rc-hint">Fájdalom vagy sérülés (0–10). A 7-es vagy nagyobb érték letiltja az
-                érintett izomcsoportot terhelő gyakorlatokat.</p>
-              <div class="rc-pain-inputs" data-list="checkin-pain"></div>
-
-              <!-- A közérzet-skálát a frontend SZÚRJA BE közvetlenül e blokk
-                   elé (setupRecovery) — az .rc-extra-fields osztály ezért nem
-                   nevezhető át. -->
-              <div class="rc-extra-fields">
-                <div class="rc-field">
-                  <label class="field-label" for="checkin-hydration">Folyadék</label>
-                  <span class="wk-num rc-num">
-                    <button class="wk-num-step" type="button" data-dir="-1" tabindex="-1" aria-hidden="true">−</button>
-                    <input class="wk-num-input" id="checkin-hydration" name="hydration" type="number"
-                           inputmode="decimal" min="0" max="15" step="0.25" placeholder="pl. 3" autocomplete="off">
-                    <button class="wk-num-step" type="button" data-dir="1" tabindex="-1" aria-hidden="true">+</button>
-                  </span>
-                  <span class="rc-field-unit">liter</span>
-                </div>
-                <div class="rc-field">
-                  <label class="field-label" for="checkin-weight">Testsúly</label>
-                  <span class="wk-num rc-num">
-                    <button class="wk-num-step" type="button" data-dir="-1" tabindex="-1" aria-hidden="true">−</button>
-                    <input class="wk-num-input" id="checkin-weight" name="weightKg" type="number"
-                           inputmode="decimal" min="30" max="300" step="0.1" placeholder="pl. 82.5" autocomplete="off">
-                    <button class="wk-num-step" type="button" data-dir="1" tabindex="-1" aria-hidden="true">+</button>
-                  </span>
-                  <span class="rc-field-unit">kg</span>
-                </div>
+              <div class="rc-field">
+                <label class="field-label" for="checkin-sleep">Mennyit aludtál?</label>
+                <span class="wk-num rc-num">
+                  <button class="wk-num-step" type="button" data-dir="-1" tabindex="-1" aria-hidden="true">−</button>
+                  <input class="wk-num-input" id="checkin-sleep" name="sleepHours" type="number"
+                         inputmode="decimal" min="0" max="24" step="0.5" placeholder="pl. 7.5" autocomplete="off">
+                  <button class="wk-num-step" type="button" data-dir="1" tabindex="-1" aria-hidden="true">+</button>
+                </span>
+                <span class="rc-field-unit">óra</span>
               </div>
-              <p class="rc-hint">A testsúly a testsúly-naplóba kerül, naponta egy bejegyzésként —
-                a mai értéket bármelyik mentés felülírja, nem duplázza.</p>
-            </div>
 
-            <button class="rc-save" type="submit">Check-in mentése</button>
-          </form>
-        </details>
+              <!-- Az 1–5 skálákat a frontend építi fel chip-csoportként (a terv-
+                   építő nap-chipjeivel azonos aria-pressed mintával). -->
+              <div class="rc-scales" data-list="checkin-scales"></div>
 
-        <!-- Testsúly-trend. A dashboardról került ide, a check-in alá: a napi
-             testsúlyt a varázsló (és a részletes űrlap) kérdi, ez a kártya
-             pedig azt mutatja, mi lett belőle. A diagram a legutóbbi
-             bejegyzéseket rajzolja — amíg nincs saját adat, demo-görbe áll
-             itt, és ezt a lenti sor ki is mondja. -->
-        <section class="rc-card rc-weight" aria-labelledby="title-rc-weight">
-          <h3 class="rc-section-title" id="title-rc-weight">Testsúly alakulása</h3>
-          <div class="chart rc-weight-chart" role="img"
-               aria-label="Testsúly alakulása a legutóbbi bejegyzések alapján"
-               data-chart="bodyWeight">
-            <div class="chart-bars" aria-hidden="true"></div>
-            <div class="chart-axis" aria-hidden="true"></div>
-          </div>
-          <p class="rc-weight-last" data-weight-last hidden></p>
+              <!-- A korábbi belső lenyitható réteg megszűnt: az egész űrlap már a
+                   „Részletes szerkesztés" blokkban van, egy második kattintás
+                   ugyanannak a tartalomnak a megnyitásához fölösleges volt. -->
+              <div class="rc-checkin-body">
+                <p class="rc-hint">Az izomcsoportonkénti izomláz (0 = semmi, 5 = nagyon erős) pontosítja
+                  a csoportonkénti becslést. Amit kihagysz, annak a súlya újraoszlik.</p>
+                <div class="rc-muscle-inputs" data-list="checkin-soreness"></div>
 
-          <!-- A bejegyzések javíthatók és törölhetők. Egy elgépelt, kiugró
-               érték a fenti diagram skáláját lapos vonallá nyomja, és a
-               Testsúly Δ statot is elviszi — eddig nem volt út a javításához. -->
-          <ul class="rc-weight-list" data-weight-list></ul>
-          <p class="rc-hint" data-weight-empty hidden>Még nincs saját testsúly-bejegyzésed — a
-            fenti diagram demo-görbe. A napi check-in megkérdezi a testsúlyodat; az első
-            mérés után a saját adataid látszanak itt.</p>
-        </section>
+                <p class="rc-hint">Fájdalom vagy sérülés (0–10). A 7-es vagy nagyobb érték letiltja az
+                  érintett izomcsoportot terhelő gyakorlatokat.</p>
+                <div class="rc-pain-inputs" data-list="checkin-pain"></div>
 
-        <!-- Testösszetétel. A testsúly egyetlen szám — nem mondja meg, MI épült
-             és mi fogyott. A mezők a legutóbbi mérésből töltődnek; az üresen
-             hagyott hely nem törlés, csak „most nem mértem". -->
-        <section class="rc-card rc-body" aria-labelledby="title-rc-body">
-          <h3 class="rc-section-title" id="title-rc-body">Testösszetétel</h3>
+                <!-- A közérzet-skálát a frontend SZÚRJA BE közvetlenül e blokk
+                     elé (setupRecovery) — az .rc-extra-fields osztály ezért nem
+                     nevezhető át. -->
+                <div class="rc-extra-fields">
+                  <div class="rc-field">
+                    <label class="field-label" for="checkin-hydration">Folyadék</label>
+                    <span class="wk-num rc-num">
+                      <button class="wk-num-step" type="button" data-dir="-1" tabindex="-1" aria-hidden="true">−</button>
+                      <input class="wk-num-input" id="checkin-hydration" name="hydration" type="number"
+                             inputmode="decimal" min="0" max="15" step="0.25" placeholder="pl. 3" autocomplete="off">
+                      <button class="wk-num-step" type="button" data-dir="1" tabindex="-1" aria-hidden="true">+</button>
+                    </span>
+                    <span class="rc-field-unit">liter</span>
+                  </div>
+                  <div class="rc-field">
+                    <label class="field-label" for="checkin-weight">Testsúly</label>
+                    <span class="wk-num rc-num">
+                      <button class="wk-num-step" type="button" data-dir="-1" tabindex="-1" aria-hidden="true">−</button>
+                      <input class="wk-num-input" id="checkin-weight" name="weightKg" type="number"
+                             inputmode="decimal" min="30" max="300" step="0.1" placeholder="pl. 82.5" autocomplete="off">
+                      <button class="wk-num-step" type="button" data-dir="1" tabindex="-1" aria-hidden="true">+</button>
+                    </span>
+                    <span class="rc-field-unit">kg</span>
+                  </div>
+                </div>
+                <p class="rc-hint">A testsúly a testsúly-naplóba kerül, naponta egy bejegyzésként —
+                  a mai értéket bármelyik mentés felülírja, nem duplázza.</p>
+              </div>
 
-          <form class="rc-body-form" data-form="measurements">
-            <div class="rc-body-fields" data-body-fields></div>
-            <button class="rc-body-save" type="submit">Mérés mentése</button>
-          </form>
+              <button class="rc-save" type="submit">Check-in mentése</button>
+            </form>
+          </details>
 
-          <p class="rc-hint" data-body-empty hidden>Még nincs mérésed. A körfogat
-            mellett a testsúly is beszédesebb: együtt megmondják, mi épült és mi fogyott.</p>
-          <ul class="rc-body-list" data-body-list></ul>
-        </section>
+          <!-- Komponens-bontás: miből jött ki a pontszám -->
+          <section class="rc-block" aria-labelledby="title-rc-components">
+            <h3 class="rc-block-title" id="title-rc-components">Miből jön a pontszám</h3>
+            <ul class="rc-components" data-list="rc-components"></ul>
+            <p class="rc-hint">A HRV/pulzus komponens nincs a képletben: az alkalmazásnak nincs
+              pulzusadat-forrása, kitalált értéket pedig nem teszünk bele. A súlya arányosan
+              szétoszlik a többi komponens között — ahogy minden ki nem töltött mezőé is.</p>
+          </section>
 
-        <!-- Komponens-bontás: miből jött ki a pontszám -->
-        <section class="rc-card" aria-labelledby="title-rc-components">
-          <h3 class="rc-section-title" id="title-rc-components">Miből jön a pontszám</h3>
-          <ul class="rc-components" data-list="rc-components"></ul>
-          <p class="rc-hint">A HRV/pulzus komponens nincs a képletben: az alkalmazásnak nincs
-            pulzusadat-forrása, kitalált értéket pedig nem teszünk bele. A súlya arányosan
-            szétoszlik a többi komponens között — ahogy minden ki nem töltött mezőé is.</p>
-        </section>
-
-        <!-- CNS -->
-        <section class="rc-card rc-cns" aria-labelledby="title-rc-cns">
-          <div class="rc-cns-text">
-            <h3 class="rc-section-title" id="title-rc-cns">Idegrendszer (CNS)</h3>
+          <!-- CNS -->
+          <section class="rc-block rc-cns" aria-labelledby="title-rc-cns">
+            <h3 class="rc-block-title" id="title-rc-cns">Idegrendszer (CNS)</h3>
+            <span class="rc-cns-value"><span data-rc-cns>—</span><span class="rc-unit">%</span></span>
             <p class="rc-cns-note" data-rc-cns-note></p>
-          </div>
-          <span class="rc-cns-value"><span data-rc-cns>—</span><span class="rc-unit">%</span></span>
-        </section>
+          </section>
 
-        <!-- Izomcsoportok -->
-        <section class="rc-card" aria-labelledby="title-rc-muscles">
-          <h3 class="rc-section-title" id="title-rc-muscles">Izomcsoportok</h3>
-          <ul class="rc-muscles" data-list="rc-muscles"></ul>
-        </section>
+          <!-- Izomcsoportok -->
+          <section class="rc-block" aria-labelledby="title-rc-muscles">
+            <h3 class="rc-block-title" id="title-rc-muscles">Izomcsoportok</h3>
+            <ul class="rc-muscles" data-list="rc-muscles"></ul>
+          </section>
 
-        <!-- Gyakorlat-ajánlások -->
-        <section class="rc-card" aria-labelledby="title-rc-lifts">
-          <h3 class="rc-section-title" id="title-rc-lifts">Mai ajánlások</h3>
-          <ul class="rc-lifts" data-list="rc-lifts"></ul>
-          <p class="rc-empty" data-rc-lifts-empty hidden>Még nincs elég naplózott edzés a gyakorlat-
-            specifikus becsléshez. A fő emelésekhez (fekvenyomás, guggolás, felhúzás) egyetlen
-            naplózott alkalom is elég, a többihez három kell.</p>
-        </section>
+          <!-- Gyakorlat-ajánlások -->
+          <section class="rc-block" aria-labelledby="title-rc-lifts">
+            <h3 class="rc-block-title" id="title-rc-lifts">Mai ajánlások</h3>
+            <ul class="rc-lifts" data-list="rc-lifts"></ul>
+            <p class="rc-empty" data-rc-lifts-empty hidden>Még nincs elég naplózott edzés a gyakorlat-
+              specifikus becsléshez. A fő emelésekhez (fekvenyomás, guggolás, felhúzás) egyetlen
+              naplózott alkalom is elég, a többihez három kell.</p>
+          </section>
+
+          <!-- Testsúly-trend. A napi testsúlyt a varázsló (és a részletes űrlap)
+               kérdi, ez a blokk pedig azt mutatja, mi lett belőle. A diagram a
+               legutóbbi bejegyzéseket rajzolja — amíg nincs saját adat, demo-
+               görbe áll itt, és ezt a lenti sor ki is mondja. -->
+          <section class="rc-block rc-weight" aria-labelledby="title-rc-weight">
+            <h3 class="rc-block-title" id="title-rc-weight">Testsúly alakulása</h3>
+            <div class="chart rc-weight-chart" role="img"
+                 aria-label="Testsúly alakulása a legutóbbi bejegyzések alapján"
+                 data-chart="bodyWeight">
+              <div class="chart-bars" aria-hidden="true"></div>
+              <div class="chart-axis" aria-hidden="true"></div>
+            </div>
+            <p class="rc-weight-last" data-weight-last hidden></p>
+
+            <!-- A bejegyzések javíthatók és törölhetők. Egy elgépelt, kiugró
+                 érték a fenti diagram skáláját lapos vonallá nyomja, és a
+                 Testsúly Δ statot is elviszi — eddig nem volt út a javításához. -->
+            <ul class="rc-weight-list" data-weight-list></ul>
+            <p class="rc-hint" data-weight-empty hidden>Még nincs saját testsúly-bejegyzésed — a
+              fenti diagram demo-görbe. A napi check-in megkérdezi a testsúlyodat; az első
+              mérés után a saját adataid látszanak itt.</p>
+          </section>
+
+          <!-- Testösszetétel. A testsúly egyetlen szám — nem mondja meg, MI épült
+               és mi fogyott. A mezők a legutóbbi mérésből töltődnek; az üresen
+               hagyott hely nem törlés, csak „most nem mértem". -->
+          <section class="rc-block rc-body" aria-labelledby="title-rc-body">
+            <h3 class="rc-block-title" id="title-rc-body">Testösszetétel</h3>
+
+            <form class="rc-body-form" data-form="measurements">
+              <div class="rc-body-fields" data-body-fields></div>
+              <button class="rc-body-save" type="submit">Mérés mentése</button>
+            </form>
+
+            <p class="rc-hint" data-body-empty hidden>Még nincs mérésed. A körfogat
+              mellett a testsúly is beszédesebb: együtt megmondják, mi épült és mi fogyott.</p>
+            <ul class="rc-body-list" data-body-list></ul>
+          </section>
+        </div>
       </section>
 
       <!-- ================================================================

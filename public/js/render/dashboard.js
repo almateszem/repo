@@ -131,26 +131,17 @@ async function renderDashboard() {
   setText('[data-recovery="fatigue"]', recovery.fatigue);
   setText('[data-recovery="soreness"]', recovery.soreness);
 
-  // Készenlét: a gyűrű kitöltését és feliratát itt, a szám animálását a
-  // pageEffects végzi (a --readiness változót a CSS stroke-dashoffset használja).
-  // A szelektor szándékosan a kártyára szűkít: a Regeneráció oldalon is van
-  // egy .db-ring, azt a renderRecovery kezeli.
-  const ring = $('.db-readiness .db-ring');
+  // Készenlét: a szám animálását a pageEffects végzi. Gyűrű már sehol
+  // nincs — sem itt, sem a Regeneráció oldalon: a dizájnban maga a szám a
+  // mutató, a Regeneráción mellette egy vékony sáv adja az arányt.
   const readinessKnown = hasReadiness(readiness);
-  if (ring) {
-    ring.style.setProperty('--readiness', readinessKnown ? readiness : 0);
-    ring.setAttribute('aria-label', readinessKnown
-      ? `${readiness} százalék készenlét`
-      : 'Készenlét: nincs elég adat');
-  }
-  // A szám animálását a pageEffects végzi — ha nincs adat, ott sincs mit
-  // felpörgetni, ezért a helyőrzőt itt írjuk ki.
+  // Ha nincs adat, nincs mit felpörgetni — a helyőrzőt itt írjuk ki.
   if (!readinessKnown) {
     const num = $('.db-percent-num');
     if (num) num.textContent = '—';
   }
 
-  // A kártya alsó sora megmondja, mire épül a szám — a Recovery Engine
+  // A szám alatti sor megmondja, mire épül a pontszám — a Recovery Engine
   // enélkül csak egy önmagát magyarázó szám lenne.
   setText('[data-readiness-note]', !readinessKnown
     ? 'még nincs elég adat →'

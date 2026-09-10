@@ -100,13 +100,16 @@ function renderRecovery(report) {
   const page = $('[data-page="recovery"]');
   if (!page || !report) return;
 
-  // — Összesített pontszám + gyűrű —
+  // — Összesített pontszám + sáv —
+  // A körkijelző helyére a dizájn vékony sávja lépett: a mutató maga a nagy
+  // szám, a sáv csak az arányt teszi láthatóvá. Az állapotot (ok / warn /
+  // bad) a data-tone hordozza, ahogy korábban a gyűrűn.
   const overall = report.overall;
   const known = hasReadiness(overall);
-  const ring = $('[data-rc-ring]');
-  ring.style.setProperty('--readiness', known ? overall : 0);
-  ring.dataset.tone = known ? readinessTone(overall) : 'none';
-  ring.setAttribute('aria-label', known ? `${overall} pont készenlét` : 'Készenlét: nincs elég adat');
+  const bar = $('[data-rc-bar]');
+  bar.dataset.tone = known ? readinessTone(overall) : 'none';
+  bar.setAttribute('aria-label', known ? `${overall} pont készenlét` : 'Készenlét: nincs elég adat');
+  $('[data-rc-bar-fill]').style.width = `${known ? overall : 0}%`;
   $('.rc-score-num').textContent = known ? String(overall) : '—';
 
   $('[data-rc-verdict]').textContent = !known
