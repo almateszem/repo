@@ -317,10 +317,6 @@ input.wk-chip:focus-visible {
 
 .db-label,
 .db-stat-unit,
-.nu-summary-label,
-.nu-summary-unit,
-.nu-macro-label,
-.nu-macro-unit,
 .co-card-stat-label,
 .su-stat-label,
 .su-stat-unit,
@@ -342,7 +338,7 @@ input.wk-chip:focus-visible {
 
 /* Szekciócímek: ugyanaz a nyelv, valamivel szűkebb ritkítással, mert
    hosszabbak — a „TESTÖSSZETÉTEL" .16em-mel már kifutna a keskeny kártyából. */
-.rc-block-title,
+.page-block-title,
 .pf-section-title,
 .st-section-title,
 .co-modal-section-title,
@@ -360,8 +356,6 @@ input.wk-chip:focus-visible {
    frissülő értékek (stopper, kalória) ne ugráltassák a sort. */
 .db-percent,
 .db-stat-value,
-.nu-summary-value,
-.nu-macro-value,
 .su-stat-value,
 .pf-stat-value,
 .co-card-stat-value,
@@ -507,6 +501,32 @@ input.wk-chip:focus-visible {
     opacity: 0;
     transform: translateY(4px);
   }
+}
+
+/* ---- Blokk (megosztott primitív) ----
+   A dizájn tagolása: se háttér, se keret, csak felső hajszálvonal, és a
+   tartalmat a tipográfia meg a térköz választja el. Minden átszabott oldal
+   ezt használja — a Regeneráció után a Táplálkozás a második, ezért került
+   ki közösbe a másolás helyett.
+   A hasáb ELSŐ blokkja elveszíti a vonalát (ott nincs mit elválasztani);
+   ezt oldalanként mondjuk ki, mert a hasáb neve oldalanként más. */
+.page-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  padding: var(--sp-9) 0 var(--sp-11);
+  border-top: 1px solid var(--border-card);
+}
+
+/* A lenyitható blokk tartalma csak nyitva látszik: a saját térközét a
+   nyitófej adja, nem a blokk gap-je. */
+details.page-block {
+  gap: 0;
+}
+
+.page-block-title {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
 }
 
 /* ==========================================================================
@@ -2048,99 +2068,67 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .wk-editing-cancel:hover { color: var(--c-alert); }
 
 /* ==========================================================================
-   8. Nutrition tracker
+   8. Táplálkozás (nu-*)
+   --------------------------------------------------------------------------
+   Az oldal az Áttekintés nyelvét folytatja: balra a mai kalória mint nagy
+   szám, sávval és makrókkal — ugyanazokból a primitívekből (.db-percent,
+   .db-bar, .db-macros), amiket a műszerfal-blokk használ. A korábbi
+   „bevitel / cél" kettős szám és a makró-kártyák megszűntek: a célt a sáv és
+   a lap alatti mondat mondja el, a makrókat pedig a közös hármas.
+   Jobbra a nap eseményei: víz, napló, katalógus — blokkonként egy
+   hajszálvonallal.
    ========================================================================== */
-.nu-summary {
-  display: flex;
-  align-items: baseline;
-  gap: var(--sp-6);
-  margin-bottom: var(--sp-8);
-}
 
-.nu-summary-item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.nu-summary-value {
-  font-size: var(--fs-summary);
-  font-weight: 800;
-  line-height: 1;
-}
-
-.nu-summary-unit {
-  font-size: .4em;
-  font-weight: 700;
-  margin-left: 2px;
-  color: var(--fg-60);
-}
-
-.nu-summary-label {
-  font-size: var(--fs-xs);
-  color: var(--text-muted);
-}
-
-.nu-summary-divider {
-  font-size: var(--fs-3xl);
-  color: var(--fg-30);
-  align-self: center;
-}
-
-.nu-macros {
-  display: flex;
-  gap: var(--sp-5);
-  margin-bottom: var(--sp-7);
-}
-
-.nu-macro {
-  flex: 1;
+.nu-main,
+.nu-side {
   min-width: 0;
-  background: var(--surface-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--r-lg);
-  padding: var(--sp-4) var(--sp-5);
   display: flex;
   flex-direction: column;
-  gap: var(--sp-1);
 }
 
-.nu-macro-label {
-  font-size: var(--fs-2xs);
-  color: var(--text-muted);
+.nu-intake {
+  display: flex;
+  align-items: flex-start;
+  gap: clamp(12px, 2vw, 24px);
+  padding: var(--sp-9) 0 var(--sp-7);
 }
 
-.nu-macro-value {
-  font-size: var(--fs-lg);
-  font-weight: 700;
+.nu-intake .db-percent-side {
+  align-self: stretch;
 }
 
-.nu-macro-unit {
-  font-size: .6em;
-  font-weight: 600;
-  color: var(--text-muted);
-  margin-left: 1px;
+/* A kalória négy jegyű is lehet, a készenléti százalék legfeljebb három —
+   ezért kap saját, szűkebb fokozatot: a 214 pixeles változatban a „2450"
+   kifutna a hasábból. */
+.nu-intake-value {
+  font-size: clamp(56px, 8.6vw, 128px);
+  line-height: .8;
+}
+
+.nu-bar {
+  max-width: 440px;
+}
+
+.nu-note {
+  max-width: 600px;
+  margin: var(--sp-7) 0 var(--sp-11);
+  font-size: clamp(17px, 1.7vw, 24px);
+  font-weight: 400;
+  line-height: 1.35;
+  letter-spacing: -.015em;
+  color: var(--text-secondary);
+  text-wrap: pretty;
 }
 
 /* ---- Mai napló — a ténylegesen naplózott tételek, törléssel ----
    A felület korábban csak összesített: nem lehetett megnézni, mit ettél, és
    egy téves koppintás visszavonhatatlan volt. */
-.nu-log {
-  margin-bottom: var(--sp-9);
-}
-
-.nu-log-head {
+.nu-log-head,
+.nu-water-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
   gap: var(--sp-4);
-  margin-bottom: var(--sp-4);
-}
-
-.nu-log-title {
-  margin: 0;
-  font-size: var(--fs-base);
-  font-weight: 700;
 }
 
 .nu-log-count {
@@ -2154,16 +2142,14 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--sp-2);
 }
 
 .nu-log-item {
   display: flex;
   align-items: center;
   gap: var(--sp-4);
-  background: var(--surface-soft);
-  border-radius: var(--r-md);
-  padding: var(--sp-3) var(--sp-4);
+  padding: var(--sp-4) 0;
+  border-top: 1px solid var(--border-card);
   animation: note-in .25s ease backwards;
   animation-delay: calc(var(--i, 0) * 30ms);
 }
@@ -2200,7 +2186,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   height: 26px;
   padding: 0;
   border: none;
-  border-radius: var(--r-full);
   background: none;
   color: var(--text-muted);
   font-size: var(--fs-2xs);
@@ -2214,51 +2199,55 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .nu-log-empty {
-  font-size: var(--fs-sm);
-  color: var(--text-muted);
-  text-align: center;
-  padding: var(--sp-6) var(--sp-5);
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+  line-height: 1.5;
   margin: 0;
-  border: 1px dashed var(--fg-15);
-  border-radius: var(--r-lg);
 }
 
 /* Saját étel felvitele / vonalkód-beolvasás — a kereső fölött, mert ez a
-   listával egyenrangú belépő, nem a keresés alárendeltje. */
+   listával egyenrangú belépő, nem a keresés alárendeltje. *//* A két belépő az Áttekintés fő gombjának receptjét követi: tömör, szögletes
+   sáv, a másodlagos csak hajszálvonalas kerettel. */
 .nu-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--sp-4);
-  margin-bottom: var(--sp-6);
+  margin-top: var(--sp-11);
+  max-width: 600px;
 }
 
 .nu-action {
-  flex: 1;
+  flex: 1 1 200px;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: var(--sp-3);
-  border: none;
-  border-radius: var(--r-lg);
-  padding: var(--sp-5) var(--sp-6);
+  justify-content: space-between;
+  gap: var(--sp-4);
+  min-height: 60px;
+  border: 1px solid var(--c-accent);
+  padding: var(--sp-5) var(--sp-7);
   background: var(--c-accent);
   color: var(--on-accent);
-  font-family: inherit;
-  font-size: var(--fs-sm);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
   font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
   cursor: pointer;
-  transition: filter var(--t-fast), background var(--t-fast);
+  transition: opacity var(--t-fast), background var(--t-fast);
 }
 
-.nu-action:hover { filter: brightness(1.08); }
+.nu-action:hover { opacity: .88; }
 
 .nu-action--ghost {
+  flex: 0 1 auto;
+  justify-content: center;
   background: none;
-  border: 1px solid var(--fg-15);
+  border-color: var(--border-strong);
   color: var(--text-primary);
 }
 
 .nu-action--ghost:hover {
-  filter: none;
+  opacity: 1;
   background: var(--surface-hover);
 }
 
@@ -2268,20 +2257,19 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   fill: currentColor;
   flex-shrink: 0;
 }
-
+/* A kereső nem doboz, hanem egyetlen aláhúzott sor — a lapon minden más is
+   vonallal tagol. */
 .nu-search {
   display: flex;
   align-items: center;
   gap: var(--sp-4);
-  background: var(--surface-input);
-  border-radius: var(--r-lg);
-  padding: var(--sp-4) var(--sp-6);
-  margin-bottom: var(--sp-8);
-  transition: background var(--t-fast);
+  padding: var(--sp-4) 0;
+  border-bottom: 1px solid var(--border-card);
+  transition: border-color var(--t-fast);
 }
 
 .nu-search:focus-within {
-  background: var(--surface-hover);
+  border-bottom-color: var(--c-accent);
 }
 
 .nu-search svg {
@@ -2310,7 +2298,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--sp-4);
 }
 
 .nu-food {
@@ -2318,10 +2305,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-5);
-  background: var(--surface-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--r-xl);
-  padding: var(--sp-5) var(--sp-6);
+  padding: var(--sp-5) 0;
+  border-bottom: 1px solid var(--border-card);
 }
 
 .nu-food-info {
@@ -2349,35 +2334,36 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .nu-food-add {
-  width: 30px;
-  height: 30px;
-  border-radius: var(--r-full);
-  border: none;
-  background: var(--surface-strong);
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border-card);
+  background: none;
   color: var(--text-primary);
   flex-shrink: 0;
   font-size: var(--fs-base);
-  transition: background var(--t-fast);
+  transition: background var(--t-fast), border-color var(--t-fast);
 }
 
 .nu-food-add:hover {
-  background: var(--fg-15);
+  background: var(--surface-hover);
+  border-color: var(--c-accent);
 }
 
-/* Saját étel: bal oldali akcentus-sáv — a 437 elemű listában a felhasználó
+/* Saját étel: bal oldali akcentus-vonal — a 437 elemű listában a felhasználó
    ránézésre megtalálja, amit ő vitt fel. */
 .nu-food--custom {
-  box-shadow: inset 3px 0 0 var(--c-accent);
+  border-left: 2px solid var(--c-accent);
+  padding-left: var(--sp-5);
 }
 
 .nu-food-badge {
   flex-shrink: 0;
-  padding: 2px var(--sp-4);
-  border-radius: var(--r-full);
-  background: var(--fg-10);
-  color: var(--text-muted);
+  font-family: var(--font-mono);
+  color: var(--text-faint);
   font-size: var(--fs-2xs);
   font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
 }
 
 /* Törlés — a nu-log-remove mintájára, de halványabban: a lista fő művelete a
@@ -2388,7 +2374,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   height: 26px;
   padding: 0;
   border: none;
-  border-radius: var(--r-full);
   background: none;
   color: var(--text-muted);
   font-size: var(--fs-2xs);
@@ -2410,11 +2395,41 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .nu-empty {
-  font-size: var(--fs-sm);
-  color: var(--text-muted);
-  text-align: center;
-  padding: var(--sp-9) 0;
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+  padding: var(--sp-7) 0;
   margin: 0;
+}
+
+/* ≥1280px: két hasáb. Balra a mai kalória és a cél (tapadó — rövidebb, mint
+   a jobb oldali katalógus), jobbra a nap eseményei, bal oldali
+   hajszálvonallal elválasztva. */
+@media (min-width: 1280px) {
+  .nu-page {
+    max-width: 1560px;
+    padding: var(--sp-11) clamp(24px, 3vw, 48px) var(--sp-13);
+    display: grid;
+    grid-template-columns: minmax(360px, 1fr) minmax(420px, 1.05fr);
+    column-gap: clamp(24px, 2.6vw, 60px);
+    align-items: start;
+  }
+
+  .nu-main {
+    position: sticky;
+    top: var(--sp-9);
+  }
+
+  .nu-side {
+    align-self: stretch;
+    padding-left: clamp(24px, 2.6vw, 48px);
+    border-left: 1px solid var(--border-card);
+  }
+
+  /* A hasáb tetején az elválasztó semmit nem választana el. */
+  .nu-side > .page-block:first-child {
+    border-top: none;
+    padding-top: var(--sp-11);
+  }
 }
 
 /* ==========================================================================
@@ -3503,7 +3518,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 @media (min-width: 1280px) {
   /* A check-in varázsló kimarad: szándékosan fix 460px-es, egy-kérdés-egy-
      képernyő oszlop marad minden méreten (lásd 25. szakasz). */
-  .app-page:not(.dashboard):not(.ci-page):not(.rc-page) {
+  .app-page:not(.dashboard):not(.ci-page):not(.rc-page):not(.nu-page) {
     max-width: var(--page-max-wide);
   }
 
@@ -5353,24 +5368,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   flex-direction: column;
 }
 
-.rc-block {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-5);
-  padding: var(--sp-9) 0 var(--sp-11);
-  border-top: 1px solid var(--border-card);
-}
-
-/* A lenyitható check-in a blokkok között áll, de a tartalma csak nyitva
-   látszik — összecsukva a summary önmagában egy blokk-fej. */
-details.rc-block {
-  gap: 0;
-}
-
-.rc-block-title {
-  font-size: var(--fs-2xs);
-  color: var(--text-muted);
-}
 
 .rc-hint {
   font-size: var(--fs-xs);
@@ -5404,7 +5401,7 @@ details.rc-block {
 /* A summary saját + / − jelet kap (lásd .rc-details-summary::before), ezért a
    szövegblokk nem tapadhat rá. Az állapot-felirat a sor végére húzódik, de
    ha nem fér ki, saját sorba törik — nem a címet tördeli szét. */
-.rc-checkin-summary .rc-block-title {
+.rc-checkin-summary .page-block-title {
   flex: 0 1 auto;
 }
 
@@ -5797,7 +5794,7 @@ details[open] > .rc-details-summary::before {
 
   /* Az első blokknak nincs felső vonala: a hasáb tetején az elválasztó
      semmit nem választana el. */
-  .rc-side > .rc-block:first-child {
+  .rc-side > .page-block:first-child {
     border-top: none;
     padding-top: var(--sp-11);
   }
@@ -6732,28 +6729,6 @@ details[open] > .rc-details-summary::before {
 /* ---- Vízmérő ----
    A napi cél nem beégetett 3 liter: a szerver a Recovery Engine képletéből
    adja (~33 ml/testsúlykg), és a felület csak kiírja. */
-.nu-water {
-  margin-bottom: var(--sp-9);
-  background: var(--surface-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--r-2xl);
-  padding: var(--sp-6) var(--sp-7);
-}
-
-.nu-water-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--sp-4);
-  margin-bottom: var(--sp-4);
-}
-
-.nu-water-title {
-  margin: 0;
-  font-size: var(--fs-base);
-  font-weight: 700;
-}
-
 .nu-water-goal {
   font-family: var(--font-mono);
   font-size: var(--fs-2xs);
@@ -6766,8 +6741,8 @@ details[open] > .rc-details-summary::before {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: var(--sp-5);
-  margin-bottom: var(--sp-5);
 }
 
 .nu-water-value {
@@ -6799,7 +6774,6 @@ details[open] > .rc-details-summary::before {
 
 .nu-water-add {
   border: 1px solid var(--c-accent);
-  border-radius: var(--r-md);
   background: var(--c-accent);
   color: var(--on-accent);
   padding: var(--sp-4) var(--sp-7);
@@ -6834,7 +6808,6 @@ details[open] > .rc-details-summary::before {
 
 .nu-water-track {
   height: 6px;
-  border-radius: 999px;
   background: var(--fg-10);
   overflow: hidden;
 }
@@ -6843,7 +6816,6 @@ details[open] > .rc-details-summary::before {
   display: block;
   height: 100%;
   width: 0;
-  border-radius: inherit;
   background: var(--fg-55);
   transition: width var(--t-slow), background var(--t-base);
 }
@@ -6853,15 +6825,9 @@ details[open] > .rc-details-summary::before {
 .nu-water-track.is-full .nu-water-fill {
   background: var(--c-accent);
 }
-
+/* A cél-blokk sűrűbb, mint a többi: a négy sora (érték, forrás, eltérés,
+   űrlap) egy gondolat, nem négy külön blokk. */
 .nu-goal {
-  margin-bottom: var(--sp-9);
-  background: var(--surface-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--r-2xl);
-  padding: var(--sp-6) var(--sp-7);
-  display: flex;
-  flex-direction: column;
   gap: var(--sp-3);
 }
 
@@ -6870,11 +6836,6 @@ details[open] > .rc-details-summary::before {
   align-items: baseline;
   justify-content: space-between;
   gap: var(--sp-4);
-}
-
-.nu-goal-title {
-  font-size: var(--fs-sm);
-  font-weight: 700;
 }
 
 .nu-goal-edit,
@@ -6891,8 +6852,10 @@ details[open] > .rc-details-summary::before {
 }
 
 .nu-goal-value {
-  font-size: var(--fs-lg);
-  font-weight: 700;
+  font-size: var(--fs-xl);
+  font-weight: 800;
+  letter-spacing: var(--ls-display);
+  font-variant-numeric: tabular-nums;
 }
 
 .nu-goal-source,
@@ -6933,9 +6896,8 @@ details[open] > .rc-details-summary::before {
 .nu-goal-field input {
   width: 100%;
   padding: var(--sp-3) var(--sp-4);
-  border-radius: var(--r-lg);
   border: 1px solid var(--border-card);
-  background: var(--surface-strong);
+  background: none;
   color: var(--fg-100);
   font: inherit;
   font-size: var(--fs-sm);
@@ -6948,13 +6910,14 @@ details[open] > .rc-details-summary::before {
 
 .nu-goal-save {
   border: 0;
-  border-radius: 999px;
-  padding: var(--sp-3) var(--sp-7);
+  padding: var(--sp-3) var(--sp-8);
   background: var(--c-accent);
   color: var(--on-accent);
-  font: inherit;
+  font-family: var(--font-mono);
   font-size: var(--fs-2xs);
   font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
   cursor: pointer;
 }
 

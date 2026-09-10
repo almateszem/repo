@@ -28,10 +28,29 @@ async function setupNutrition(foodDetail) {
       if (animateFrom) animateNumber(el, totals[key], { from: animateFrom[key], duration: 600 });
       else el.textContent = formatNumber(totals[key]);
     });
-    /* A fejléc „Cél" száma is innen jön: a cél mostantól szerkeszthető,
-       tehát nem elég egyszer, betöltéskor kiírni. */
-    const goalCalEl = $('[data-goal="calories"]');
-    if (goalCalEl) goalCalEl.textContent = formatNumber(totals.goal.calories);
+    /* A cél nem külön szám a fejlécben, hanem a sáv és az alatta lévő
+       mondat: mennyi maradt, és hol tart a fehérje. A kivonást ne a
+       felhasználó végezze fejben. */
+    const goalCalories = totals.goal.calories;
+    const fill = $('[data-nu-bar-fill]');
+    if (fill) {
+      const pct = goalCalories > 0 ? Math.min(100, (totals.intake / goalCalories) * 100) : 0;
+      fill.style.width = `${pct}%`;
+    }
+    const bar = $('[data-nu-bar]');
+    if (bar) {
+      bar.setAttribute('aria-label',
+        `${formatNumber(totals.intake)} kcal a napi ${formatNumber(goalCalories)} kcal célból`);
+    }
+    const note = $('[data-nu-note]');
+    if (note) {
+      const left = Math.round(goalCalories - totals.intake);
+      note.textContent = left >= 0
+        ? `${formatNumber(left)} kcal maradt a napi célból. Fehérje: `
+          + `${formatNumber(totals.protein)}/${formatNumber(totals.goal.protein)} g.`
+        : `${formatNumber(-left)} kcal-lal a cél felett vagy. Fehérje: `
+          + `${formatNumber(totals.protein)}/${formatNumber(totals.goal.protein)} g.`;
+    }
   };
   applyTotals(await api.getNutrition());
 

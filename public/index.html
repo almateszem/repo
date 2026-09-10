@@ -542,125 +542,155 @@
            (az étel-listát a frontend tölti fel, a kereső élőben szűr)
            ================================================================ -->
       <section class="app-page nu-page" data-page="nutrition" aria-labelledby="title-nutrition" hidden>
-        <h2 class="sr-only" id="title-nutrition">Táplálkozás</h2>
 
-        <header class="nu-summary" aria-label="Napi kalória-összesítő">
-          <div class="nu-summary-item">
-            <span class="nu-summary-value"><span data-stat="intake"></span><span class="nu-summary-unit">kcal</span></span>
-            <span class="nu-summary-label">Bevitel</span>
-          </div>
-          <span class="nu-summary-divider" aria-hidden="true">/</span>
-          <div class="nu-summary-item">
-            <span class="nu-summary-value"><span data-goal="calories"></span><span class="nu-summary-unit">kcal</span></span>
-            <span class="nu-summary-label">Cél</span>
-          </div>
-        </header>
+        <!-- BAL HASÁB: a mai kalória és a cél, ahogy az Áttekintésen — a szám
+             a mutató, alatta a sáv, a makrók és maga a cél. -->
+        <div class="nu-main">
+          <h2 class="db-label" id="title-nutrition">Táplálkozás · ma</h2>
 
-        <div class="nu-macros" aria-label="Makrotápanyagok">
-          <div class="nu-macro"><span class="nu-macro-label">Fehérje</span><span class="nu-macro-value"><span data-stat="protein"></span><span class="nu-macro-unit">g</span></span></div>
-          <div class="nu-macro"><span class="nu-macro-label">Szénhidrát</span><span class="nu-macro-value"><span data-stat="carbs"></span><span class="nu-macro-unit">g</span></span></div>
-          <div class="nu-macro"><span class="nu-macro-label">Zsír</span><span class="nu-macro-value"><span data-stat="fat"></span><span class="nu-macro-unit">g</span></span></div>
-        </div>
-
-        <!-- Napi cél. Két forrás lehet: amit az EDZŐ tűzött ki, és amit te
-             magad állítottál be. A sajátod az erősebb, de az edzőé megmarad,
-             és ha eltérsz tőle, azt kiírjuk — a néma felülírás mindkét
-             irányban rossz volna. -->
-        <section class="nu-goal" aria-labelledby="nu-goal-title">
-          <div class="nu-goal-head">
-            <h3 class="nu-goal-title" id="nu-goal-title">Napi cél</h3>
-            <button class="nu-goal-edit" type="button" data-action="edit-goal"
-                    aria-expanded="false">Módosítom</button>
+          <div class="nu-intake">
+            <span class="db-percent nu-intake-value"><span data-stat="intake">0</span></span>
+            <span class="db-percent-side">
+              <span class="db-percent-sign" aria-hidden="true">kcal</span>
+              <span class="db-label">Bevitel</span>
+            </span>
           </div>
 
-          <p class="nu-goal-value" data-nu-goal-value></p>
-          <p class="nu-goal-source" data-nu-goal-source></p>
+          <div class="db-bar nu-bar" role="img" data-nu-bar aria-label="Napi kalória a célhoz mérve">
+            <span class="db-bar-fill" data-nu-bar-fill></span>
+          </div>
 
-          <p class="nu-goal-diff" data-nu-goal-diff hidden>
-            <span data-nu-goal-diff-text></span>
-            <button class="nu-goal-revert" type="button" data-action="revert-goal">Visszaállok rá</button>
-          </p>
+          <!-- A lap mondata: mennyi maradt (vagy mennyivel vagy fölötte), és
+               hol tart a fehérje. A számok fejben kivonása nem a felhasználó
+               dolga. -->
+          <p class="nu-note" data-nu-note></p>
 
-          <form class="nu-goal-form" data-form="nutrition-goal" hidden>
-            <div class="nu-goal-field">
-              <label for="nu-goal-calories">Kalória</label>
-              <input id="nu-goal-calories" type="number" inputmode="numeric"
-                     min="500" max="10000" step="10" required autocomplete="off">
+          <div class="db-macros" aria-label="Makrotápanyagok">
+            <div class="db-macro">
+              <span class="db-label">Fehérje</span>
+              <span class="db-macro-value"><span data-stat="protein">0</span><span class="db-macro-unit">g</span></span>
             </div>
-            <div class="nu-goal-field">
-              <label for="nu-goal-protein">Fehérje (g)</label>
-              <input id="nu-goal-protein" type="number" inputmode="numeric"
-                     min="0" max="500" step="5" required autocomplete="off">
+            <div class="db-macro">
+              <span class="db-label">Szénh.</span>
+              <span class="db-macro-value"><span data-stat="carbs">0</span><span class="db-macro-unit">g</span></span>
             </div>
-            <button class="nu-goal-save" type="submit">Mentés</button>
-          </form>
-        </section>
-
-        <!-- Vízmérő. NEM külön számláló: minden korty a check-in folyadék-
-             mezőjébe összegződik, amit a Recovery Engine is olvas — így a
-             napközbeni koppintások a készenléti pontszámon is látszanak.
-             A visszavonás azért kell, mert a +250 ml egy koppintás, és egy
-             téves érintés különben javíthatatlan volna. -->
-        <section class="nu-water" aria-labelledby="title-nu-water">
-          <div class="nu-water-head">
-            <h3 class="nu-water-title" id="title-nu-water">Víz</h3>
-            <span class="nu-water-goal" data-water-goal></span>
+            <div class="db-macro">
+              <span class="db-label">Zsír</span>
+              <span class="db-macro-value"><span data-stat="fat">0</span><span class="db-macro-unit">g</span></span>
+            </div>
           </div>
 
-          <div class="nu-water-row">
-            <p class="nu-water-value">
-              <span data-water-liters>0</span><span class="nu-water-unit">liter</span>
+          <!-- Napi cél. Két forrás lehet: amit az EDZŐ tűzött ki, és amit te
+               magad állítottál be. A sajátod az erősebb, de az edzőé megmarad,
+               és ha eltérsz tőle, azt kiírjuk — a néma felülírás mindkét
+               irányban rossz volna. -->
+          <section class="page-block nu-goal" aria-labelledby="nu-goal-title">
+            <div class="nu-goal-head">
+              <h3 class="page-block-title" id="nu-goal-title">Napi cél</h3>
+              <button class="nu-goal-edit" type="button" data-action="edit-goal"
+                      aria-expanded="false">Módosítom</button>
+            </div>
+
+            <p class="nu-goal-value" data-nu-goal-value></p>
+            <p class="nu-goal-source" data-nu-goal-source></p>
+
+            <p class="nu-goal-diff" data-nu-goal-diff hidden>
+              <span data-nu-goal-diff-text></span>
+              <button class="nu-goal-revert" type="button" data-action="revert-goal">Visszaállok rá</button>
             </p>
-            <div class="nu-water-actions">
-              <button class="nu-water-undo tap-target" type="button" data-action="undo-water"
-                      hidden>Visszavonás</button>
-              <button class="nu-water-add tap-target" type="button" data-action="add-water">
-                +250 ml
-              </button>
+
+            <form class="nu-goal-form" data-form="nutrition-goal" hidden>
+              <div class="nu-goal-field">
+                <label for="nu-goal-calories">Kalória</label>
+                <input id="nu-goal-calories" type="number" inputmode="numeric"
+                       min="500" max="10000" step="10" required autocomplete="off">
+              </div>
+              <div class="nu-goal-field">
+                <label for="nu-goal-protein">Fehérje (g)</label>
+                <input id="nu-goal-protein" type="number" inputmode="numeric"
+                       min="0" max="500" step="5" required autocomplete="off">
+              </div>
+              <button class="nu-goal-save" type="submit">Mentés</button>
+            </form>
+          </section>
+
+          <!-- Saját étel felvitele: kézzel vagy a csomagolás vonalkódjáról.
+               A beépített katalógus általános referencia-értékeket ad; egy
+               konkrét bolti termék ettől 100 kcal-t is eltérhet. -->
+          <div class="nu-actions">
+            <button class="nu-action" type="button" data-action="add-custom-food"
+                    aria-haspopup="dialog">
+              <span>Étel hozzáadása</span>
+              <span class="db-cta-arrow" aria-hidden="true">→</span>
+            </button>
+            <button class="nu-action nu-action--ghost" type="button" data-action="scan-barcode"
+                    aria-haspopup="dialog">
+              <svg class="nu-action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M3 5h2v14H3zm3 0h1v14H6zm2 0h2v14H8zm3 0h1v14h-1zm2 0h2v14h-2zm3 0h1v14h-1zm2 0h2v14h-2z"/>
+              </svg>
+              Vonalkód
+            </button>
+          </div>
+        </div>
+
+        <!-- JOBB HASÁB: a nap eseményei — a víz, a napló és a katalógus. -->
+        <div class="nu-side">
+
+          <!-- Vízmérő. NEM külön számláló: minden korty a check-in folyadék-
+               mezőjébe összegződik, amit a Recovery Engine is olvas — így a
+               napközbeni koppintások a készenléti pontszámon is látszanak.
+               A visszavonás azért kell, mert a +250 ml egy koppintás, és egy
+               téves érintés különben javíthatatlan volna. -->
+          <section class="page-block nu-water" aria-labelledby="title-nu-water">
+            <div class="nu-water-head">
+              <h3 class="page-block-title" id="title-nu-water">Víz</h3>
+              <span class="nu-water-goal" data-water-goal></span>
             </div>
-          </div>
 
-          <div class="nu-water-track" role="img" data-water-track aria-label="Napi folyadékbevitel">
-            <span class="nu-water-fill" data-water-fill></span>
-          </div>
-        </section>
+            <div class="nu-water-row">
+              <p class="nu-water-value">
+                <span data-water-liters>0</span><span class="nu-water-unit">liter</span>
+              </p>
+              <div class="nu-water-actions">
+                <button class="nu-water-undo tap-target" type="button" data-action="undo-water"
+                        hidden>Visszavonás</button>
+                <button class="nu-water-add tap-target" type="button" data-action="add-water">
+                  +250 ml
+                </button>
+              </div>
+            </div>
 
-        <!-- Mai napló — a ténylegesen naplózott tételek, törlés-lehetőséggel.
-             Enélkül a felület csak összesített, és egy téves koppintás
-             visszavonhatatlan volt. -->
-        <section class="nu-log" aria-labelledby="title-nu-log">
-          <div class="nu-log-head">
-            <h3 class="nu-log-title" id="title-nu-log">Mai napló</h3>
-            <span class="nu-log-count" data-nu-log-count></span>
-          </div>
-          <ul class="nu-log-list" data-list="nutrition-log"></ul>
-          <p class="nu-log-empty" data-nu-log-empty hidden>Ma még nem naplóztál ételt —
-            a lenti listából egy koppintással hozzáadhatsz.</p>
-        </section>
+            <div class="nu-water-track" role="img" data-water-track aria-label="Napi folyadékbevitel">
+              <span class="nu-water-fill" data-water-fill></span>
+            </div>
+          </section>
 
-        <!-- Saját étel felvitele: kézzel vagy a csomagolás vonalkódjáról.
-             A beépített katalógus általános referencia-értékeket ad; egy
-             konkrét bolti termék ettől 100 kcal-t is eltérhet. -->
-        <div class="nu-actions">
-          <button class="nu-action" type="button" data-action="add-custom-food"
-                  aria-haspopup="dialog">+ Étel hozzáadása</button>
-          <button class="nu-action nu-action--ghost" type="button" data-action="scan-barcode"
-                  aria-haspopup="dialog">
-            <svg class="nu-action-icon" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M3 5h2v14H3zm3 0h1v14H6zm2 0h2v14H8zm3 0h1v14h-1zm2 0h2v14h-2zm3 0h1v14h-1zm2 0h2v14h-2z"/>
-            </svg>
-            Vonalkód
-          </button>
+          <!-- Mai napló — a ténylegesen naplózott tételek, törlés-lehetőséggel.
+               Enélkül a felület csak összesített, és egy téves koppintás
+               visszavonhatatlan volt. -->
+          <section class="page-block nu-log" aria-labelledby="title-nu-log">
+            <div class="nu-log-head">
+              <h3 class="page-block-title" id="title-nu-log">Mai napló</h3>
+              <span class="nu-log-count" data-nu-log-count></span>
+            </div>
+            <ul class="nu-log-list" data-list="nutrition-log"></ul>
+            <p class="nu-log-empty" data-nu-log-empty hidden>Ma még nem naplóztál ételt —
+              a lenti listából egy koppintással hozzáadhatsz.</p>
+          </section>
+
+          <section class="page-block nu-catalog" aria-labelledby="title-nu-catalog">
+            <h3 class="page-block-title" id="title-nu-catalog">Ételek</h3>
+
+            <div class="nu-search">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4a6 6 0 1 0 3.8 10.6l5 5 1.4-1.4-5-5A6 6 0 0 0 10 4zm0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8z"/></svg>
+              <label class="sr-only" for="food-search">Étel keresése</label>
+              <input type="search" id="food-search" placeholder="Étel keresése…" autocomplete="off">
+            </div>
+
+            <ul class="nu-food-list" data-list="foods"></ul>
+            <p class="nu-empty" hidden>Nincs találat a keresésre.</p>
+          </section>
         </div>
-
-        <div class="nu-search">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4a6 6 0 1 0 3.8 10.6l5 5 1.4-1.4-5-5A6 6 0 0 0 10 4zm0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8z"/></svg>
-          <label class="sr-only" for="food-search">Étel keresése</label>
-          <input type="search" id="food-search" placeholder="Étel keresése…" autocomplete="off">
-        </div>
-
-        <ul class="nu-food-list" data-list="foods"></ul>
-        <p class="nu-empty" hidden>Nincs találat a keresésre.</p>
       </section>
 
       <!-- ================================================================
@@ -916,9 +946,9 @@
              szólnak, hanem a hosszú trendről. -->
         <div class="rc-side">
 
-          <details class="rc-block rc-checkin-advanced">
+          <details class="page-block rc-checkin-advanced">
             <summary class="rc-details-summary rc-checkin-summary">
-              <span class="rc-block-title" id="title-checkin">Mai jelek</span>
+              <span class="page-block-title" id="title-checkin">Mai jelek</span>
               <!-- Az állapot a summary-ban van, hogy összecsukva is látszódjon. -->
               <span class="rc-checkin-state" data-checkin-state></span>
             </summary>
@@ -988,8 +1018,8 @@
           </details>
 
           <!-- Komponens-bontás: miből jött ki a pontszám -->
-          <section class="rc-block" aria-labelledby="title-rc-components">
-            <h3 class="rc-block-title" id="title-rc-components">Miből jön a pontszám</h3>
+          <section class="page-block" aria-labelledby="title-rc-components">
+            <h3 class="page-block-title" id="title-rc-components">Miből jön a pontszám</h3>
             <ul class="rc-components" data-list="rc-components"></ul>
             <p class="rc-hint">A HRV/pulzus komponens nincs a képletben: az alkalmazásnak nincs
               pulzusadat-forrása, kitalált értéket pedig nem teszünk bele. A súlya arányosan
@@ -997,21 +1027,21 @@
           </section>
 
           <!-- CNS -->
-          <section class="rc-block rc-cns" aria-labelledby="title-rc-cns">
-            <h3 class="rc-block-title" id="title-rc-cns">Idegrendszer (CNS)</h3>
+          <section class="page-block rc-cns" aria-labelledby="title-rc-cns">
+            <h3 class="page-block-title" id="title-rc-cns">Idegrendszer (CNS)</h3>
             <span class="rc-cns-value"><span data-rc-cns>—</span><span class="rc-unit">%</span></span>
             <p class="rc-cns-note" data-rc-cns-note></p>
           </section>
 
           <!-- Izomcsoportok -->
-          <section class="rc-block" aria-labelledby="title-rc-muscles">
-            <h3 class="rc-block-title" id="title-rc-muscles">Izomcsoportok</h3>
+          <section class="page-block" aria-labelledby="title-rc-muscles">
+            <h3 class="page-block-title" id="title-rc-muscles">Izomcsoportok</h3>
             <ul class="rc-muscles" data-list="rc-muscles"></ul>
           </section>
 
           <!-- Gyakorlat-ajánlások -->
-          <section class="rc-block" aria-labelledby="title-rc-lifts">
-            <h3 class="rc-block-title" id="title-rc-lifts">Mai ajánlások</h3>
+          <section class="page-block" aria-labelledby="title-rc-lifts">
+            <h3 class="page-block-title" id="title-rc-lifts">Mai ajánlások</h3>
             <ul class="rc-lifts" data-list="rc-lifts"></ul>
             <p class="rc-empty" data-rc-lifts-empty hidden>Még nincs elég naplózott edzés a gyakorlat-
               specifikus becsléshez. A fő emelésekhez (fekvenyomás, guggolás, felhúzás) egyetlen
@@ -1022,8 +1052,8 @@
                kérdi, ez a blokk pedig azt mutatja, mi lett belőle. A diagram a
                legutóbbi bejegyzéseket rajzolja — amíg nincs saját adat, demo-
                görbe áll itt, és ezt a lenti sor ki is mondja. -->
-          <section class="rc-block rc-weight" aria-labelledby="title-rc-weight">
-            <h3 class="rc-block-title" id="title-rc-weight">Testsúly alakulása</h3>
+          <section class="page-block rc-weight" aria-labelledby="title-rc-weight">
+            <h3 class="page-block-title" id="title-rc-weight">Testsúly alakulása</h3>
             <div class="chart rc-weight-chart" role="img"
                  aria-label="Testsúly alakulása a legutóbbi bejegyzések alapján"
                  data-chart="bodyWeight">
@@ -1044,8 +1074,8 @@
           <!-- Testösszetétel. A testsúly egyetlen szám — nem mondja meg, MI épült
                és mi fogyott. A mezők a legutóbbi mérésből töltődnek; az üresen
                hagyott hely nem törlés, csak „most nem mértem". -->
-          <section class="rc-block rc-body" aria-labelledby="title-rc-body">
-            <h3 class="rc-block-title" id="title-rc-body">Testösszetétel</h3>
+          <section class="page-block rc-body" aria-labelledby="title-rc-body">
+            <h3 class="page-block-title" id="title-rc-body">Testösszetétel</h3>
 
             <form class="rc-body-form" data-form="measurements">
               <div class="rc-body-fields" data-body-fields></div>
