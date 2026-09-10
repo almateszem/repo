@@ -185,11 +185,26 @@ test('a meghívó függő marad, és addig NEM ad hozzáférést', async () => {
   assert.equal(mine.json.invites.length, 1);
   assert.equal(mine.json.invites[0].linkId, linkId);
 
+  /* A függő meghívó MEZŐI is számítanak, nem csak a sportoló-lista üressége:
+     a beleegyezés előtt a másik fél fiók-beállítása (edzés-cél) nem mehet ki.
+     Kulcsra ellenőrizzük, mert egy új mező hozzávétele némán szivárogtatna. */
+  assert.deepEqual(
+    Object.keys(mine.json.invites[0]).sort(),
+    ['at', 'linkId', 'name', 'username'],
+    'a függő meghívó csak az azonosításhoz szükséges mezőket adja ki',
+  );
+
   // A sportolónál a meghívó megjelenik, de edző még nincs
   const theirs = await request('GET', '/api/coach', { cookie: athlete.cookie });
   assert.equal(theirs.json.coach, null);
   assert.equal(theirs.json.invites.length, 1);
   assert.equal(theirs.json.invites[0].name, 'Kovács Bence');
+  // Ugyanez a szabály a MÁSIK irányban: az edző célja sem megy ki elfogadás előtt.
+  assert.deepEqual(
+    Object.keys(theirs.json.invites[0]).sort(),
+    ['at', 'linkId', 'name', 'username'],
+    'a beérkezett meghívó sem ad ki az edző fiók-beállításából',
+  );
 
   // Üzenetet küldeni még nem lehet: a szál csak élő kapcsolatban létezik
   const msg = await request('GET', `/api/messages/${linkId}`, { cookie: coach.cookie });
@@ -547,16 +562,19 @@ test('az edzés-cél mentődik, és csak ismert kulcs fogadható el', async () =
   assert.equal(ok.status, 200);
   assert.equal(ok.json.goal, 'strength');
 
-  // Új kapcsolat: az edző a sportoló CÍMKÉJÉT látja, nem a nyers kulcsot
   const invite = await request('POST', '/api/athletes', {
     cookie: coach.cookie, body: { username: 'sportolo' },
   });
   assert.equal(invite.status, 201);
-  assert.equal(invite.json.goal, strength.tag);
+  // A FÜGGŐ meghívó nem adja ki a célt: az a sportoló fiók-beállítása, és a
+  // beleegyezésig nincs mit keresnie az edző oldalán.
+  assert.equal(invite.json.goal, undefined, 'a meghívó válasza nem tartalmaz célt');
 
+  // Elfogadás után az edző a sportoló CÍMKÉJÉT látja, nem a nyers kulcsot
   await request('POST', `/api/coach/invites/${invite.json.linkId}/accept`, { cookie: athlete.cookie });
   const card = (await request('GET', '/api/athletes', { cookie: coach.cookie })).json.athletes[0];
   assert.equal(card.goal, strength.tag);
+  assert.notEqual(card.goal, 'strength', 'a kártyán a címke áll, nem a kulcs');
 
   const cleared = await request('PUT', '/api/user', { cookie: athlete.cookie, body: { goal: '' } });
   assert.equal(cleared.json.goal, null, 'a cél törölhető');

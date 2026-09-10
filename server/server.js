@@ -678,9 +678,14 @@ function athleteCard(athlete, today, viewerId, unread = 0) {
   });
 }
 
-/** Egy függő meghívó felületi alakja (mindkét irányban ugyanaz a mezőkészlet). */
-const invitePayload = ({ linkId, at, username, name, goal }) => ({
-  linkId, at, username, name, goal: goalTag(goal),
+/** Egy függő meghívó felületi alakja — mindkét irányban ez az egy hely.
+    Az edzés-cél tudatosan NEM megy ki: az a MÁSIK fél fiók-beállítása, és a
+    beleegyezés előtt semmi dolga a hálózaton. A meghívó eldöntéséhez nem is
+    kell: az edző a felhasználónevet maga írta be, a sportolónak pedig az a
+    kérdés, KI hívja, nem hogy milyen célra edz. A cél a sportoló-kártyán és
+    az aktív edző fejlécén jelenik meg, tehát csak élő kapcsolatban. */
+const invitePayload = ({ linkId, at, username, name }) => ({
+  linkId, at, username, name,
 });
 
 /* ---- Edzői oldal ---- */
@@ -725,7 +730,7 @@ app.post('/api/athletes', (req, res) => {
   if (!link) return res.status(409).json({ error: 'Ezzel a felhasználóval már van kapcsolatod.' });
 
   res.status(201).json(invitePayload({
-    linkId: link.id, at: link.createdAt, username: target.username, name: target.name, goal: target.goal,
+    linkId: link.id, at: link.createdAt, username: target.username, name: target.name,
   }));
 });
 
@@ -753,9 +758,8 @@ const coachPayload = (coach, userId) => (coach
 app.get('/api/coach', (req, res) => {
   res.json({
     coach: coachPayload(getActiveCoach(req.user.id), req.user.id),
-    invites: getPendingCoachInvites(req.user.id).map(({ linkId, at, coach: from }) => ({
-      linkId, at, ...from, goal: goalTag(from.goal),
-    })),
+    invites: getPendingCoachInvites(req.user.id)
+      .map(({ linkId, at, coach: from }) => invitePayload({ linkId, at, ...from })),
     planOffers: getPendingPlanOffers(req.user.id)
       .map((offer) => offerPayload(offer, { from: offer.coach.name })),
   });

@@ -98,7 +98,7 @@ function renderAthleteCard(athlete, index) {
 /** Egy meghívó-sor. A gombokat a hívó adja meg ({ label, action, variant }),
     mert a két irány mást kínál: a beérkezőt elfogadni/elutasítani lehet, a
     kiküldöttet visszavonni. A kattintást az Edző oldal delegálása kezeli. */
-function renderInviteRow({ linkId, name, username, goal }, actions) {
+function renderInviteRow({ linkId, name, username }, actions) {
   const li = document.createElement('li');
   li.className = 'co-invite';
 
@@ -109,7 +109,7 @@ function renderInviteRow({ linkId, name, username, goal }, actions) {
   nameEl.textContent = name;
   const metaEl = document.createElement('span');
   metaEl.className = 'co-invite-meta';
-  metaEl.textContent = goal ? `@${username} · ${goal}` : `@${username}`;
+  metaEl.textContent = `@${username}`;
   info.append(nameEl, metaEl);
 
   const buttons = document.createElement('div');
