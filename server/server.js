@@ -41,6 +41,12 @@ import {
   getFoodsForUser, findFoodForUser, addCustomFood, deleteCustomFood,
   getCustomFoodByBarcode, readBarcodeCache, writeBarcodeCache,
 } from './db.js';
+/* A gyakorlatok naplózási módja és az időalapú sorok intenzitás-skálája.
+   A katalógus minden sora konkrét `logMode`-ot visel (data/catalog.js), itt
+   a beküldött sorok normalizálásához és a felület fokozat-listájához kell. */
+import {
+  DEFAULT_LOG_MODE, INTENSITY_LEVELS, isLogMode, normalizeDuration, normalizeIntensity,
+} from './logmode.js';
 // Vonalkód-feloldás: a normalizálás/ellenőrzés és az Open Food Facts hívás.
 import { normalizeBarcode, fetchProduct } from './openfoodfacts.js';
 import { FOOD_GROUPS } from './data/foods.hu.js';
@@ -357,6 +363,8 @@ const READ_ENDPOINTS = {
   // A /api/notifications NINCS köztük: nem referencia-adat többé, hanem a
   // hívó valódi eseményeiből épül (ld. lentebb, „Értesítések").
   '/api/default-set': 'defaultSet',
+  // Az időalapú sorok alapértékei — a szett-alap párja.
+  '/api/default-cardio-set': 'defaultCardioSet',
   '/api/exercise-catalog': 'exerciseCatalog',
   // A választható edzés-célok (kulcs + kártya-címke + felirat). A sportolók
   // listája NINCS köztük: az nem referencia-adat, hanem valódi kapcsolat —
@@ -1826,6 +1834,13 @@ app.get('/api/measurements/sites', (req, res) => res.json(
 
 app.get('/api/measurements', (req, res) => res.json(getMeasurements(req.user.id)));
 
+/** Az időalapú sorok intenzitás-fokozatai a felületnek. A címke is innen jön,
+    ugyanazért, amiért a mérési helyeké: a mentett adat a KULCS, a felirat csak
+    megjelenítés, és a kettő nem sodródhat szét. */
+app.get('/api/cardio-intensities', (req, res) => res.json(
+  Object.entries(INTENSITY_LEVELS).map(([key, level]) => ({ key, ...level })),
+));
+
 /** Mérések mentése a MAI napra. Törzs: { values: { waist: 84, bodyfat: 12.5 } }.
     Csak az érintett helyeket írjuk — amit nem adtak meg, azt nem bántjuk.
     Az aznapi újramérés felülír, nem duplikál. */
@@ -2301,26 +2316,57 @@ function normalizeExercises(raw) {
     // jelenne meg, és a haladás-számításokból is kilógna.
     if (!name || !Array.isArray(entry?.sets) || entry.sets.length === 0) return null;
 
+    /* A NAPLÓZÁSI MÓD a beküldött soré, nem a katalógusé — pedig a katalógus
+       az, ami tudja. Szándékos: a mód a mentéskor RÁÉG a sorra, és onnantól az
+       adat dönt, nem a mai besorolás. Ha innen minden mentéskor újraoldanánk,
+       akkor egy katalógus-átsorolás visszamenőleg átírná a tavalyi naplót, és
+       ami rosszabb: egy RÉGI, ismétlésben naplózott futópad-sor javításkor
+       időalapúvá válna, és az ismétlései némán elvesznének. A hiányzó mód
+       'reps', ahogy az app egész eddigi előzményéé. Ugyanaz a bizalmi szint,
+       mint a PR- és a szuperszett-jelzőé: a felület a katalógusból kapja,
+       amit a szerver maga égetett rá. */
+    const logMode = isLogMode(entry?.logMode) ? entry.logMode : DEFAULT_LOG_MODE;
+
     // Sorrendben, nem map-pel: a szett típusa az ELŐZŐ szett MÁR NORMALIZÁLT
     // típusától is függ (drop set nem követhet bemelegítőt).
     const sets = [];
     for (const [index, set] of entry.sets.entries()) {
-      sets.push({
-        reps: nonNegativeField(set?.reps),
-        weight: nonNegativeField(set?.weight),
-        rpe: normalizeRpe(set?.rpe),
-        type: normalizeSetType(set?.type, index, sets[index - 1]?.type),
-        done: Boolean(set?.done),
-      });
+      /* Időalapú sor: idő + intenzitás. Ismétlés, RPE és szett-típus NINCS —
+         a bemelegítő/munkasorozat/drop hármas egy futásra értelmezhetetlen.
+         A súly megmarad, de csak FELJEGYZÉSKÉNT a körülményről (súlymellény,
+         szán): egyetlen számítás sem szorozza vele, mert mindegyik ismétléssel
+         szoroz. A sorok darabszámát nem korlátozzuk egyre — a felület egyet ad,
+         de a szerkezet így egy későbbi fázis-bontással is elbírna. */
+      sets.push(logMode === 'duration'
+        ? {
+          duration: normalizeDuration(set?.duration),
+          intensity: normalizeIntensity(set?.intensity),
+          weight: nonNegativeField(set?.weight),
+          done: Boolean(set?.done),
+        }
+        : {
+          reps: nonNegativeField(set?.reps),
+          weight: nonNegativeField(set?.weight),
+          rpe: normalizeRpe(set?.rpe),
+          type: normalizeSetType(set?.type, index, sets[index - 1]?.type),
+          done: Boolean(set?.done),
+        });
     }
 
     exercises.push({
       name,
-      pr: Boolean(entry.pr),
+      /* Időalapú sorra nincs PR. Nem csak azért, mert az Epley-becslés úgyis
+         nullát adna súly és ismétlés híján: a jelzőt a kliens küldi, és egy
+         beragadt vagy hamisított igaz érték jelvényt tenne egy olyan sorra,
+         aminek nincs mihez mérnie magát. */
+      pr: logMode === 'duration' ? false : Boolean(entry.pr),
       // Szuperszett: „az előttem lévő gyakorlattal egy körben". A csoportokat
       // tehát a lista sorrendje adja ki (egymást követő true-k = egy csoport),
       // nem külön azonosító. A lista első elemének nincs mihez kapcsolódnia.
       superset: exercises.length > 0 && Boolean(entry.superset),
+      // Csak akkor írjuk ki, ha eltér az alapértelmezéstől: a meglévő sorok
+      // alakja így bájtra változatlan marad.
+      ...(logMode !== DEFAULT_LOG_MODE && { logMode }),
       sets,
     });
   }

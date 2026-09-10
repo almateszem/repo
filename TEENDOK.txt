@@ -322,13 +322,60 @@ maga után. Az appban ma bőven lehet írni, javítani viszont alig.
     katalógusból: a nutrition_log szándékosan másolatban tárolja őket.
     AMI NEM: recept és kedvenc. A törlés továbbra is csak az aznapi sorra megy.
 
-[ ] Nincs kardió/állóképesség naplózás
-    A workouts.exercises szerkezete szett/ismétlés/kg — idő, táv és pulzus
-    mező sehol nincs a sémában. Az off-szezon kondimunka tehát nyomtalanul
-    elvész, pedig a terhelés-oldalon ott a helye.
-    FIGYELEM, ez nem felületi tétel: sémabővítés, és a Recovery Engine
-    terhelés-komponensét is érinti (ma a tonnatömegből számol, aminek egy
-    futásnál nincs értelme). Külön át kell beszélni, mielőtt bárki elkezdi.
+[~] Kardió naplózás — a MEGJELENÍTÉS kész, a TERHELÉS-SZÁMÍTÁS nem   (2026-09-10)
+    A gyakorlatok kaptak egy naplózási módot (server/logmode.js -> logMode):
+      'reps'      ismétlés + súly + RPE — ez minden eddigi sor, változatlanul,
+      'duration'  eltöltött idő + intenzitás, öt fokozattal.
+    A módot a KATALÓGUS-SOR viseli, konkrét értékkel, és a data/catalog.js égeti
+    rá az összeállításkor. Nem a szűrő-chipből következik: az sehol nem
+    tárolódik, kereséssel megkerülhető, tehát nem létező információ. A feloldás
+    rétegzett, a resolveExerciseLoad mintájára — kimondott mező, majd a Kardió
+    csoporton belül névminta. A második réteg nem kényelmi kérdés: a katalógus
+    nagyobbik fele GENERÁLT és kézzel nem szerkeszthető, ott a „Futás" és a
+    „Futás (gépes)" máskülönben másképp viselkedne, mint a kurált „Futópad".
+    Így 25 gyakorlat időalapú, és a súllyal végzett kondimunka (kettlebell
+    swing, thruster, wall ball, burpee, box jump) SZÁNDÉKOSAN szett-alapú
+    maradt — azt ismétlésben és kilóban naplózzák, és a PR-je is valódi.
+
+    Az időalapú soron nincs ismétlés, nincs RPE és nincs szett-típus (a
+    bemelegítő/munkasorozat/drop hármas egy futásra értelmezhetetlen), nincs
+    PR (nincs mihez mérni), és nincs „+ Szett" gomb sem: egy kardió gyakorlat
+    EGY sor. A fázisokra bontás tudatosan maradt ki — a szerkezet elbírná, de
+    a gomb meghagyása szabályozatlanul hozta volna vissza.
+    A plusz súly (súlymellény, szán) a három pöttyös menüben él, és FELJEGYZÉS
+    a körülményről: egyetlen számítás sem szorozza vele. A gomb az értéket írja
+    ki, ha van, különben egy csukott menüben ülne láthatatlanul.
+
+    ELDÖNTVE, hogy a súly NEM lépteti fel automatikusan az intenzitást. Két ok:
+    három fokozatnál a léptetés azonnal betelt volna (a tetejéről nincs hova),
+    és az érzet alapú skála amúgy is magától korrigál — aki mellénnyel fut,
+    magától a magasabb fokozatot választja, tehát a felléptetés ugyanazt a
+    mellényt könyvelné el kétszer.
+
+    AMI HÁTRAVAN, és amíg nincs meg, TUDNI KELL RÓLA:
+      · A Recovery Engine a kardióból NULLÁT lát. A setLoad ismétlést ÉS súlyt
+        követel, a setStimulus ismétlést — időalapú soron egyik sincs. Vagyis
+        egy kemény futóhét pihenőhétnek látszik, és a készenléti pontszám
+        feljebb áll a valósnál. Ez ugyanaz a csapda, amit a 2026-08-30-i
+        átvizsgálás egyszer már kijavított („nincs adat" != „tökéletes
+        állapot") — most tudatosan, átmenetileg áll így.
+        A képlet alakja megvan: perc × fokozat-szorzó, a szakirodalom
+        szesszió-RPE módszere szerint. Ami hiányzik, az EGY kalibrálás: mekkora
+        szorzók mellett esik egy kemény kardió edzés ugyanabba a sávba, mint egy
+        kemény súlyzós nap. Ezért nincs szám az INTENSITY_LEVELS mellett —
+        kalibrálatlan szorzót beírni rosszabb volna, mint megvárni.
+      · A heti volumen-diagram egy kardió sort EGY munkasorozatnak számol
+        (isWorkSet: teljesített és nem bemelegítő). Egy 45 perces futás így
+        egyenlő egy bicepszsorozattal egy olyan diagramon, ami kifejezetten
+        munkasorozatot jelent. A javítás egy sor a server.js isWorkSet-jében,
+        de az már a számítás kérdése, nem a megjelenítésé.
+      · TÁV és PULZUS továbbra sincs. Ezek nélkül a napló arra a kérdésre nem
+        tud válaszolni, hogy gyorsult-e a futó — csak arra, mennyi ideig és
+        milyen nehezen ment. A pulzus opcionálisnak szánt (nem mindenki méri),
+        a táv viszont futópadon és evezőgépen mindig ott a kijelzőn.
+      · A generált katalógus SORAI nem viselnek kimondott logMode-ot, csak a
+        névmintán keresztül kapják meg. Ha egyszer lefut az exdb:build, érdemes
+        a mezőt a generátorba is bevezetni — addig a mintázat tartja.
 
 [x] Csak testsúly van, körfogat és testzsír nincs   (2026-09-03)
     Új tábla: body_measurements (user_id, date, site, value). Hét mérési hely

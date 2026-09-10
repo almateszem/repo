@@ -1359,7 +1359,9 @@ input.wk-chip:focus-visible {
    hordozza — egy párhuzamos JS-es osztály előbb-utóbb kicsúszna vele a
    szinkronból (a menüket négy különböző út zárja be). */
 .wk-exercise:has(.wk-set-type-menu:not([hidden])),
-.wk-exercise:has(.wk-order-menu:not([hidden])) {
+.wk-exercise:has(.wk-order-menu:not([hidden])),
+.wk-exercise:has(.wk-intensity-menu:not([hidden])),
+.wk-exercise:has(.wk-extra-menu:not([hidden])) {
   z-index: var(--z-popover);
 }
 
@@ -1758,6 +1760,185 @@ input.wk-chip:focus-visible {
 
 .wk-set-type-option[data-type="drop"] {
   color: var(--c-accent);
+}
+
+
+/* ---- IDŐALAPÚ (kardió) sor ----
+   Négy oszlop a hat helyett: idő, intenzitás, plusz súly, pipa. Ismétlés-,
+   súly- és RPE-oszlop nincs — amit nem ismétlésben mérnek, ott azok a mezők
+   üresen kongatnának. A felszabaduló helyet az intenzitás kapja: a fokozat
+   neve („Nagyon könnyű") hosszabb, mint bármelyik szám, amit leváltott.
+   A fejléc-sor ugyanezt az osztályt kapja (lásd renderExercise), különben a
+   feliratok nem az értékek fölé esnének. */
+.wk-set-row--cardio {
+  grid-template-columns: 1fr 1.25fr 30px 34px;
+}
+
+@media (max-width: 520px) {
+  .wk-set-row--cardio {
+    grid-template-columns: 1fr 1.25fr 26px 30px;
+  }
+}
+
+/* ---- Intenzitás-fokozat ----
+   Ugyanaz a saját lenyíló minta, mint a szett-típusnál (.wk-set-type): a
+   trigger maga mondja ki a kiválasztott fokozatot, a lista a sor fölé úszik.
+   Színkód szándékosan NINCS: öt fokozat öt színe zaj lenne, és a fokozat neve
+   amúgy is kiírva áll — a szett-típusnál a szín azért kellett, mert ott csak
+   egy sorszám látszik. */
+.wk-intensity {
+  position: relative;
+  min-width: 0;
+}
+
+.wk-intensity-trigger {
+  --tap: 38px;
+  width: 100%;
+  min-width: 0;
+  padding: var(--sp-2) var(--sp-1);
+  background: var(--surface-input);
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: background var(--t-fast), border-color var(--t-fast);
+}
+
+.wk-intensity-trigger:hover,
+.wk-intensity-trigger[aria-expanded="true"] {
+  background: var(--surface-hover);
+  border-color: var(--fg-25);
+}
+
+/* A lenyíló jobbra igazodik: a sor közepéről indul, és balra van hely — jobbra
+   csak a pötty-gomb és a pipa szűk sávja. */
+.wk-intensity-menu {
+  position: absolute;
+  top: calc(100% + var(--sp-1));
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 150px;
+  background: var(--c-bg-raised);
+  border: 1px solid var(--fg-10);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-modal);
+  padding: var(--sp-2);
+  z-index: var(--z-popover);
+  animation: modal-in var(--t-base) both;
+}
+
+.wk-intensity-option {
+  background: none;
+  border: none;
+  border-radius: var(--r-xs);
+  padding: var(--sp-3);
+  font: inherit;
+  font-size: var(--fs-base);
+  color: var(--fg-70);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+
+.wk-intensity-option:hover {
+  background: var(--fg-10);
+  color: var(--fg-100);
+}
+
+.wk-intensity-option[aria-selected="true"] {
+  background: var(--surface-strong);
+  color: var(--fg-100);
+  font-weight: 600;
+}
+
+/* ---- Plusz súly (három pötty) ----
+   A sorok többségén nincs plusz súly, ezért a mező nem foglal állandó oszlopot.
+   Ha VAN, a gomb magát az értéket írja ki (+20) a pöttyök helyett — különben a
+   felvitt súlymellény láthatatlanul ülne egy csukott menüben. */
+.wk-extra {
+  position: relative;
+}
+
+.wk-extra-trigger {
+  --tap: 34px;
+  width: 100%;
+  padding: var(--sp-1) 0;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--r-xs);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: color var(--t-fast), background var(--t-fast), border-color var(--t-fast);
+}
+
+.wk-extra-trigger:hover,
+.wk-extra-trigger[aria-expanded="true"] {
+  background: var(--surface-hover);
+  border-color: var(--fg-25);
+  color: var(--fg-70);
+}
+
+.wk-set-row[data-has-weight="true"] .wk-extra-trigger {
+  color: var(--fg-70);
+  font-weight: 600;
+}
+
+.wk-extra-menu {
+  position: absolute;
+  top: calc(100% + var(--sp-1));
+  right: 0;
+  width: 200px;
+  background: var(--c-bg-raised);
+  border: 1px solid var(--fg-10);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-modal);
+  padding: var(--sp-3);
+  z-index: var(--z-popover);
+  animation: modal-in var(--t-base) both;
+}
+
+.wk-extra-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--fg-70);
+}
+
+.wk-extra-label input {
+  width: 76px;
+  flex: 0 0 auto;
+  padding: var(--sp-2);
+  background: var(--surface-input);
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  text-align: center;
+}
+
+.wk-extra-label input:focus {
+  background: var(--surface-hover);
+  border-color: var(--fg-40);
+}
+
+.wk-extra-note {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-2xs);
+  line-height: 1.4;
+  color: var(--text-faint);
 }
 
 .wk-chip {

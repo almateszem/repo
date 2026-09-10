@@ -1864,3 +1864,184 @@ test('a mérés törölhető, és idegen sorra 404 jön', async () => {
   const utana = await request('GET', '/api/measurements', { cookie: mesCookie });
   assert.equal(utana.json.find((m) => m.id === sajat.id), undefined);
 });
+
+
+/* ======================================================================
+   11. Időalapú (kardió) naplózás
+   ----------------------------------------------------------------------
+   Amit nem ismétlésben mérnek, az más alakban tárolódik: idő + intenzitás,
+   ismétlés, RPE és szett-típus nélkül. A mód a gyakorlaté (`logMode`), és a
+   MENTÉSKOR ÉG RÁ a sorra — nem a mai katalógus-besorolásból oldódik fel
+   minden olvasáskor. Ez a szakasz azt őrzi, hogy a két alak ne keveredjen, és
+   hogy egy régi, ismétlésben naplózott sor javításkor ne alakuljon át.
+   ====================================================================== */
+
+let kardioCookie = '';
+
+test('a katalógus minden sora visel naplózási módot, és a futópad időalapú', async () => {
+  const reg = await request('POST', '/api/auth/register', {
+    body: { username: 'kardio', displayName: 'Kardiós Karcsi', password: 'jelszo123' },
+  });
+  kardioCookie = cookieFrom(reg);
+
+  const katalogus = (await request('GET', '/api/exercise-catalog', { cookie: kardioCookie })).json;
+  assert.ok(katalogus.every((e) => e.logMode === 'reps' || e.logMode === 'duration'),
+    'nincs mód nélküli sor — a felület nem találgat');
+
+  const modja = (name) => katalogus.find((e) => e.name === name)?.logMode;
+  assert.equal(modja('Futópad'), 'duration');
+  assert.equal(modja('Fekvenyomás'), 'reps');
+
+  /* A generált katalógus ugyanazt a mozgást más néven is hozza. Ha csak a
+     kurált sorok kapnának módot, két majdnem azonos nevű gyakorlat két
+     különböző felületet adna — ezt a névmintás réteg zárja ki. */
+  assert.equal(modja('Futás'), 'duration', 'a generált párnak is időalapúnak kell lennie');
+  assert.equal(modja('Futás (gépes)'), 'duration');
+
+  /* A súllyal végzett kondimunka SZETT-alapú marad: azt ismétlésben és kilóban
+     naplózzák, és a PR-je is valódi. */
+  assert.equal(modja('Kettlebell swing'), 'reps');
+  assert.equal(modja('Burpee'), 'reps');
+});
+
+test('az intenzitás-fokozatok kulccsal és felirattal érkeznek', async () => {
+  const res = await request('GET', '/api/cardio-intensities', { cookie: kardioCookie });
+  assert.equal(res.status, 200);
+  assert.equal(res.json.length, 5, 'öt fokozat');
+  assert.ok(res.json.every((level) => level.key && level.label),
+    'mindegyiknek van kulcsa ÉS felirata — a mentett érték a kulcs');
+});
+
+test('időalapú gyakorlat mentése: idő + intenzitás, ismétlés és RPE nélkül', async () => {
+  const res = await request('POST', '/api/workouts', {
+    cookie: kardioCookie,
+    body: {
+      name: 'Reggeli futás',
+      exercises: [{
+        name: 'Futópad',
+        logMode: 'duration',
+        sets: [{ duration: '1800', intensity: 'high', weight: '', done: true }],
+      }],
+    },
+  });
+  assert.equal(res.status, 201);
+
+  const [gyak] = res.json.exercises;
+  assert.equal(gyak.logMode, 'duration', 'a mód ráégett a mentett sorra');
+  assert.deepEqual(Object.keys(gyak.sets[0]).sort(), ['done', 'duration', 'intensity', 'weight']);
+  assert.equal(gyak.sets[0].duration, '1800');
+  assert.equal(gyak.sets[0].intensity, 'high');
+  assert.equal(gyak.sets[0].reps, undefined, 'ismétlés nincs');
+  assert.equal(gyak.sets[0].rpe, undefined, 'RPE nincs');
+  assert.equal(gyak.sets[0].type, undefined, 'szett-típus nincs — a bemelegítő/drop itt értelmetlen');
+});
+
+test('időalapú sorra NEM keletkezik PR, akkor sem, ha a kliens azt küldi', async () => {
+  const res = await request('POST', '/api/workouts', {
+    cookie: kardioCookie,
+    body: {
+      name: 'Este futás',
+      exercises: [{
+        name: 'Szabadtéri futás',
+        logMode: 'duration',
+        pr: true, // hamisított vagy beragadt jelző
+        sets: [{ duration: '2400', intensity: 'max', weight: '10', done: true }],
+      }],
+    },
+  });
+  assert.equal(res.json.exercises[0].pr, false, 'nincs mihez mérni, tehát nincs jelvény');
+
+  const prs = (await request('GET', '/api/prs', { cookie: kardioCookie })).json;
+  assert.ok(!prs.some((entry) => entry.exercise === 'Szabadtéri futás'),
+    'a PR-listába sem kerül be');
+
+  const maxes = (await request('GET', '/api/exercise-maxes', { cookie: kardioCookie })).json;
+  assert.equal(maxes['Szabadtéri futás'], undefined, 'csúcsot sem rögzít');
+});
+
+test('a plusz súly megmarad a soron, de nem szül tonnatömeget', async () => {
+  const mentett = (await request('GET', '/api/workouts', { cookie: kardioCookie })).json;
+  const futas = mentett.flatMap((w) => w.exercises).find((e) => e.name === 'Szabadtéri futás');
+  assert.equal(futas.sets[0].weight, '10', 'a súlymellény feljegyzése megmarad');
+
+  /* A napi tonnatömeg ismétlés × súly — ismétlés híján nulla. Ez most SZÁNDÉKOS:
+     a terhelés-számítás külön lépés, és kitalált szorzót nem teszünk bele. */
+  const charts = (await request('GET', '/api/charts', { cookie: kardioCookie })).json;
+  assert.equal(charts.volumeTrend.total, 0, 'a súly nem számít bele a mozgatott súlyba');
+});
+
+test('a régi, ismétlésben naplózott futópad-sor NEM alakul át javításkor', async () => {
+  /* A legfontosabb eset: aki a funkció előtt ismétlésben naplózta a futópadot,
+     annak a sorát egy mentés nem írhatja át időalapúvá — az ismétlései némán
+     elvesznének. A mód a beküldött soré, nem a mai katalógusé. */
+  const mentes = await request('POST', '/api/workouts', {
+    cookie: kardioCookie,
+    body: {
+      name: 'Régi szokás',
+      exercises: [{ name: 'Futópad', sets: [{ reps: '10', weight: '0', rpe: '7', type: 'work', done: true }] }],
+    },
+  });
+  assert.equal(mentes.status, 201);
+
+  const [gyak] = mentes.json.exercises;
+  assert.equal(gyak.logMode, undefined, 'mód nélkül maradt, tehát ismétlés-alapú');
+  assert.equal(gyak.sets[0].reps, '10', 'az ismétlés megmaradt');
+  assert.equal(gyak.sets[0].duration, undefined);
+
+  const javitas = await request('PUT', `/api/workouts/${mentes.json.id}`, {
+    cookie: kardioCookie,
+    body: {
+      name: 'Régi szokás',
+      exercises: [{ name: 'Futópad', sets: [{ reps: '12', weight: '0', rpe: '7', type: 'work', done: true }] }],
+    },
+  });
+  assert.equal(javitas.json.exercises[0].sets[0].reps, '12',
+    'a javítás sem konvertálja át — az ismétlés marad ismétlés');
+});
+
+test('az időalapú sor mezői normalizálódnak: ismeretlen fokozat, negatív és túlcsorduló idő', async () => {
+  const res = await request('POST', '/api/workouts', {
+    cookie: kardioCookie,
+    body: {
+      name: 'Szemetes bevitel',
+      exercises: [{
+        name: 'Evezőgép',
+        logMode: 'duration',
+        sets: [{ duration: '-60', intensity: 'kitalalt', weight: '-5', done: true }],
+      }],
+    },
+  });
+  const set = res.json.exercises[0].sets[0];
+  assert.equal(set.duration, '', 'a negatív idő nem idő');
+  assert.equal(set.intensity, 'moderate', 'ismeretlen fokozatra a skála közepe jár');
+  assert.equal(set.weight, '0', 'negatív súly nullára szorul');
+
+  const hosszu = await request('POST', '/api/workouts', {
+    cookie: kardioCookie,
+    body: {
+      name: 'Ultra',
+      exercises: [{
+        name: 'Evezőgép', logMode: 'duration',
+        sets: [{ duration: '999999999', intensity: 'low', done: true }],
+      }],
+    },
+  });
+  assert.equal(hosszu.json.exercises[0].sets[0].duration, String(24 * 60 * 60),
+    'az idő 24 óránál elvágódik — elgépelés-korlát');
+});
+
+test('ismeretlen naplózási módra a szett-alap érvényes, nem hiba', async () => {
+  const res = await request('POST', '/api/workouts', {
+    cookie: kardioCookie,
+    body: {
+      name: 'Hibás mód',
+      exercises: [{
+        name: 'Fekvenyomás', logMode: 'kitalalt',
+        sets: [{ reps: '5', weight: '100', rpe: '8', type: 'work', done: true }],
+      }],
+    },
+  });
+  assert.equal(res.status, 201);
+  assert.equal(res.json.exercises[0].logMode, undefined);
+  assert.equal(res.json.exercises[0].sets[0].reps, '5');
+});

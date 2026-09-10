@@ -1725,6 +1725,51 @@
     </div>
   </template>
 
+  <!-- IDŐALAPÚ (kardió) sor. Nem szett: itt nincs ismétlés, súly-oszlop, RPE
+       és szett-típus — a futópadon nem bemelegítő és munkasorozat van, hanem
+       eltöltött idő és erőfeszítés. Gyakorlatonként EGY ilyen sor készül; a
+       „+ Szett" gomb ezeknél nem is jelenik meg (lásd renderExercise). -->
+  <template id="tpl-cardio-row">
+    <div class="wk-set-row wk-set-row--cardio">
+      <!-- Az idő PERCBEN. Másodpercet nem lehet megadni: egy kardió edzésen az
+           egy-két másodperc nem információ, a külön mp-mező viszont minden
+           alkalommal egy plusz beviteli lépés lenne. A tárolt érték ettől még
+           másodperc (lásd logmode.js), hogy a mérték később finomítható legyen.
+           Ugyanaz a léptetős szám-mező, mint az ismétlésnél és a súlynál. -->
+      <span class="wk-num">
+        <button class="wk-num-step" type="button" data-dir="-1" tabindex="-1" aria-hidden="true">−</button>
+        <input class="wk-num-input wk-cardio-time" type="number" inputmode="numeric"
+               min="0" max="1440" step="1" autocomplete="off" enterkeyhint="done"
+               aria-label="Eltöltött idő percben">
+        <button class="wk-num-step" type="button" data-dir="1" tabindex="-1" aria-hidden="true">+</button>
+      </span>
+      <!-- Intenzitás: öt fokozat, ugyanaz a saját lenyíló minta, mint a
+           szett-típusnál. A mentett érték a KULCS, a felirat a szervertől jön. -->
+      <div class="wk-intensity">
+        <button class="wk-intensity-trigger tap-target" type="button"
+                aria-haspopup="listbox" aria-expanded="false"></button>
+        <div class="wk-intensity-menu" role="listbox" hidden></div>
+      </div>
+      <!-- Plusz súly (súlymellény, szán) — a három pötty mögött, mert a sorok
+           többségénél nincs ilyen. Ha van, a gomb magát az értéket írja ki,
+           különben a felvitt súly láthatatlanul ülne egy csukott menüben. -->
+      <div class="wk-extra">
+        <button class="wk-extra-trigger tap-target" type="button"
+                aria-haspopup="true" aria-expanded="false" aria-label="Plusz súly hozzáadása">⋮</button>
+        <div class="wk-extra-menu" hidden>
+          <label class="wk-extra-label">Plusz súly · kg
+            <input class="wk-num-input wk-set-weight" type="number" inputmode="decimal"
+                   min="0" max="999" step="2.5" autocomplete="off" placeholder="0">
+          </label>
+          <p class="wk-extra-note">Feljegyzés a körülményről. A terhelés-számításba
+             egyelőre nem számít bele.</p>
+        </div>
+      </div>
+      <button class="wk-set-check tap-target" type="button" aria-pressed="false"
+              aria-label="Kardió teljesítve"></button>
+    </div>
+  </template>
+
   <template id="tpl-picker-item">
     <article class="ep-item">
       <!-- Illusztráció: alapban az álló thumbnail, rámutatásra/fókuszra az
