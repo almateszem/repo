@@ -343,7 +343,6 @@ input.wk-chip:focus-visible {
 .st-section-title,
 .co-modal-section-title,
 .fd-section-label,
-.wk-progress-title,
 .notif-title,
 .su-kicker {
   font-family: var(--font-mono);
@@ -1198,46 +1197,80 @@ details.page-block {
 
 
 /* ==========================================================================
-   7. Workout logger
+   7. Edzésnapló (wk-*)
+   --------------------------------------------------------------------------
+   Balra a mai edzés — hány gyakorlat, mi a neve, és a két művelet, ami előre
+   viszi; jobbra a napló és ami mögötte van. A gyakorlatok NEM kártyák: felső
+   hajszálvonal választja el őket, a szuperszettet pedig egyetlen bal oldali
+   sáv fogja össze (a csoporton belül nincs elválasztó).
    ========================================================================== */
+
+.wk-main,
+.wk-side {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.wk-count {
+  display: flex;
+  align-items: flex-start;
+  gap: clamp(12px, 2vw, 24px);
+  padding: var(--sp-7) 0 var(--sp-5);
+}
+
+.wk-count .db-percent-side {
+  align-self: stretch;
+}
+
+.wk-count-value {
+  font-size: clamp(72px, 10vw, 164px);
+  line-height: .78;
+}
+
 .wk-header {
   display: flex;
   align-items: center;
   gap: var(--sp-5);
-  margin-bottom: var(--sp-10);
+  margin-bottom: var(--sp-6);
 }
 
+/* Az edzés neve: nagy, aláhúzott mező — nem doboz. A lap egyetlen olyan
+   szövege, amit a felhasználó ír, ezért a méretével is kiemelkedik. */
 .wk-title {
   flex: 1;
   min-width: 0;
   background: none;
   border: none;
-  border-bottom: 1px solid var(--fg-20);
+  border-bottom: 1px solid var(--border-card);
   color: var(--text-primary);
-  font-size: var(--fs-2xl);
-  font-weight: 700;
-  padding: var(--sp-2) 2px;
+  font-size: clamp(24px, 2.6vw, 38px);
+  font-weight: 800;
+  letter-spacing: -.025em;
+  padding: var(--sp-3) 0;
   transition: border-color var(--t-fast);
 }
 
 .wk-title:focus {
-  border-color: var(--fg-60);
+  border-color: var(--c-accent);
 }
 
 .wk-save {
-  background: var(--c-paper);
-  color: var(--c-ink);
+  background: var(--c-accent);
+  color: var(--on-accent);
   border: none;
-  border-radius: var(--r-md);
   padding: var(--sp-4) var(--sp-8);
-  font-size: var(--fs-md);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
   font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
   flex-shrink: 0;
-  transition: background var(--t-fast), transform var(--t-fast);
+  transition: opacity var(--t-fast), transform var(--t-fast);
 }
 
 .wk-save:hover:not(:disabled) {
-  background: var(--c-paper-bright);
+  opacity: .88;
 }
 
 .wk-save:active:not(:disabled) {
@@ -1247,15 +1280,15 @@ details.page-block {
 .wk-list {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-7);
-  margin-bottom: var(--sp-9);
+}
+
+.wk-list:empty {
+  display: none;
 }
 
 .wk-exercise {
-  background: var(--surface-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--r-2xl);
-  padding: var(--sp-7);
+  padding: var(--sp-7) 0;
+  border-top: 1px solid var(--border-card);
   position: relative; /* a szuperszett összekötő sávjának (::before) alapja */
 }
 
@@ -1298,33 +1331,29 @@ details.page-block {
   stroke-linecap: round;
 }
 
-/* Az érintkező oldalak sarkai kiegyenesednek. A −1px a negatív margóban a két
-   kártya szegélyét pontosan egymásra csúsztatja, így a varrat egy hajszálvonal
-   marad, nem kettő. */
-.wk-exercise[data-superset-role="start"],
-.wk-exercise[data-superset-role="middle"] {
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
-}
-
+/* A csoport EGY blokk: a tagjai között nincs elválasztó vonal, csak a
+   csoport tetején — így a szuperszett egyben olvasódik. */
 .wk-exercise[data-superset-role="middle"],
 .wk-exercise[data-superset-role="end"] {
-  margin-top: calc(var(--sp-7) * -1 - 1px);
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
+  border-top-color: transparent;
 }
 
-/* Az összekötő sáv. A két végén a kártya belső margójáig húzódik csak, hogy a
-   lekerekített sarkokból ne lógjon ki (a kártyán nincs overflow: hidden — az
-   elnyelné a sorszám-lenyílót). */
+/* Az összekötő sáv a csoport bal szélén fut végig. A tartalom elhúzódik
+   előle, hogy a sáv ne fusson bele a szövegbe. */
+.wk-exercise[data-superset-role="start"],
+.wk-exercise[data-superset-role="middle"],
+.wk-exercise[data-superset-role="end"] {
+  padding-left: var(--sp-6);
+}
+
 .wk-exercise[data-superset-role="start"]::before,
 .wk-exercise[data-superset-role="middle"]::before,
 .wk-exercise[data-superset-role="end"]::before {
   content: "";
   position: absolute;
   left: 0;
-  top: -1px;
-  bottom: -1px;
+  top: 0;
+  bottom: 0;
   width: 3px;
   background: var(--c-superset);
 }
@@ -1783,15 +1812,16 @@ input.wk-chip:focus {
 /* ---- Szám-mező léptetőgombokkal (ismétlés, súly) ----
    A wrapper viseli a chip-kinézetet, benne a két léptető és a mező. A natív
    number-nyilakat elrejtjük: a saját gombok nagyobbak és érintésre is jók. */
+/* A szám-mező szögletes, hajszálvonalas keret — nem kitöltött doboz. A
+   dizájnban a szett-sor mezői is vonallal határolódnak. */
 .wk-num {
   display: flex;
   align-items: center;
   gap: 1px;
   min-width: 0;
   padding: 1px;
-  border: 1px solid transparent;
-  border-radius: var(--r-sm);
-  background: var(--surface-input);
+  border: 1px solid var(--border-card);
+  background: none;
   transition: background var(--t-fast), border-color var(--t-fast);
 }
 
@@ -1801,7 +1831,7 @@ input.wk-chip:focus {
 
 .wk-num:focus-within {
   background: var(--surface-hover);
-  border-color: var(--fg-40);
+  border-color: var(--c-accent);
 }
 
 .wk-num-step {
@@ -1914,12 +1944,11 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .wk-add-set {
-  margin-top: var(--sp-3);
+  margin-top: var(--sp-4);
   width: 100%;
   background: none;
-  border: 1px dashed var(--fg-20);
+  border: 1px solid var(--border-card);
   color: var(--fg-60);
-  border-radius: var(--r-md);
   padding: var(--sp-3);
   font-size: var(--fs-sm);
   font-weight: 600;
@@ -1932,16 +1961,27 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--text-secondary);
 }
 
+/* A két művelet egy blokkban: a befejezés a tömör akcentus-gomb, a
+   gyakorlat-hozzáadás a halkabb, hajszálvonalas testvére. */
+.wk-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  margin-top: var(--sp-11);
+  max-width: 440px;
+}
+
 .wk-add-exercise {
   width: 100%;
   background: none;
-  border: 1px dashed var(--fg-25);
-  color: var(--fg-70);
-  border-radius: var(--r-xl);
-  padding: var(--sp-6);
-  font-size: var(--fs-base);
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+  padding: var(--sp-5) var(--sp-7);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
   font-weight: 700;
-  margin-bottom: var(--sp-12);
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
   transition: border-color var(--t-fast), color var(--t-fast);
 }
 
@@ -1949,31 +1989,24 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .wk-empty,
 .wk-list-empty,
 .pl-empty {
-  font-size: var(--fs-sm);
-  color: var(--text-muted);
-  text-align: center;
-  padding: var(--sp-7) var(--sp-5);
-  margin: 0 0 var(--sp-5);
-}
-
-.wk-progress-title {
-  font-size: var(--fs-base);
-  font-weight: 700;
-  margin: 0 0 var(--sp-5);
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+  line-height: 1.5;
+  padding: 0;
+  margin: 0;
 }
 
 /* A listából egyszerre csak az 5 legutóbbi edzés látszik, a régebbiekhez
    görgetni kell. A sor magassága a betűméretből számolódik (nem fix px),
    így a nagyobb mobil-tipográfiánál is pontosan 5 sor fér ki. */
 .wk-history {
-  --wk-history-row: calc(var(--fs-sm) * 1.4 + var(--sp-3) * 2);
+  --wk-history-row: calc(var(--fs-sm) * 1.4 + var(--sp-4) * 2 + 1px);
   list-style: none;
-  margin: var(--sp-7) 0 0;
+  margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--sp-3);
-  max-height: calc(var(--wk-history-row) * 5 + var(--sp-3) * 4);
+  max-height: calc(var(--wk-history-row) * 5);
   overflow-y: auto;
   overscroll-behavior: contain; /* a lista végén ne a lap kezdjen görögni */
 }
@@ -1985,9 +2018,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   font-size: var(--fs-sm);
   line-height: 1.4; /* a --wk-history-row számítás ezzel a sormagassággal egyezik */
   color: var(--fg-70);
-  padding: var(--sp-3) var(--sp-4);
-  background: var(--surface-soft);
-  border-radius: var(--r-md);
+  padding: var(--sp-4) 0;
+  border-top: 1px solid var(--border-card);
   flex-shrink: 0; /* görgethető listában a sorok nem lapulhatnak össze */
 }
 
@@ -2022,7 +2054,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   padding: 0 var(--sp-3);
   height: 26px;
   border: none;
-  border-radius: var(--r-full);
   background: none;
   color: var(--text-muted);
   font-size: var(--fs-2xs);
@@ -2049,11 +2080,10 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   justify-content: space-between;
   gap: var(--sp-4);
   flex-wrap: wrap;
-  margin: var(--sp-4) 0 0;
-  padding: var(--sp-3) var(--sp-4);
-  border-radius: var(--r-md);
-  background: var(--surface-soft);
-  border: 1px dashed var(--fg-15);
+  max-width: 520px;
+  margin: var(--sp-5) 0 0;
+  padding-left: var(--sp-5);
+  border-left: 2px solid var(--c-accent);
   font-size: var(--fs-sm);
   color: var(--fg-70);
 }
@@ -2071,6 +2101,35 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .wk-editing-cancel:hover { color: var(--c-alert); }
+
+/* ≥1280px: két hasáb. A napló a jobb hasábban él, mert az a hosszú; balra
+   marad, ami a lapot meghatározza. */
+@media (min-width: 1280px) {
+  .app-page.wk-page {
+    max-width: 1560px;
+    padding: var(--sp-11) clamp(24px, 3vw, 48px) var(--sp-13);
+    display: grid;
+    grid-template-columns: minmax(320px, 1fr) minmax(460px, 1.35fr);
+    column-gap: clamp(24px, 2.6vw, 60px);
+    align-items: start;
+  }
+
+  .wk-main {
+    position: sticky;
+    top: var(--sp-9);
+  }
+
+  .wk-side {
+    align-self: stretch;
+    padding-left: clamp(24px, 2.6vw, 48px);
+    border-left: 1px solid var(--border-card);
+  }
+
+  .wk-side > .page-block:first-child {
+    border-top: none;
+    padding-top: var(--sp-11);
+  }
+}
 
 /* ==========================================================================
    8. Táplálkozás (nu-*)
@@ -3599,7 +3658,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 @media (min-width: 1280px) {
   /* A check-in varázsló kimarad: szándékosan fix 460px-es, egy-kérdés-egy-
      képernyő oszlop marad minden méreten (lásd 25. szakasz). */
-  .app-page:not(.dashboard):not(.ci-page):not(.rc-page):not(.nu-page):not(.pl-page):not(.co-page) {
+  .app-page:not(.dashboard):not(.ci-page):not(.rc-page):not(.nu-page):not(.pl-page):not(.co-page):not(.wk-page) {
     max-width: var(--page-max-wide);
   }
 
@@ -4153,27 +4212,19 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 /* ---- Heti volumen-összehasonlítás (workout) ---- */
-.wk-compare {
-  margin-top: var(--sp-12);
-}
-
 .wk-compare-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: var(--sp-4);
-  margin-bottom: var(--sp-5);
-}
-
-.wk-compare-head .wk-progress-title {
-  margin: 0;
 }
 
 /* A szegmentált váltó közös komponens: a workout heti összehasonlítása
-   (wk-toggle) és az Edző oldal nézetváltója (co-toggle) is ezt használja. */
-.wk-toggle,/* Szegmentált váltó. A dizájn recepje: szögletes, hajszálvonal-résekkel, és
-   az aktív szegmens az akcentust kapja — nem a papír-fehér lapot. */
+   (wk-toggle) és az Edző oldal nézetváltója (co-toggle) is ezt használja.
+   A dizájn receptje: szögletes, hajszálvonal-résekkel, és az aktív szegmens
+   az akcentust kapja — nem a papír-fehér lapot. */
+.wk-toggle,
 .co-toggle {
   display: flex;
   gap: 1px;
@@ -4231,35 +4282,30 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 /* ---- Korábbi rekordok (PR) listája ---- */
-.wk-prs {
-  margin-top: var(--sp-12);
-}
-
 .wk-pr-list {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--sp-3);
 }
 
 .wk-pr-item {
   display: flex;
   align-items: center;
   gap: var(--sp-4);
-  padding: var(--sp-3) var(--sp-4);
-  background: var(--surface-soft);
-  border-radius: var(--r-md);
+  padding: var(--sp-4) 0;
+  border-top: 1px solid var(--border-card);
+  background: none;
   cursor: pointer;
-  transition: background var(--t-fast);
+  transition: color var(--t-fast);
   animation: note-in .25s ease backwards;
   animation-delay: calc(var(--i, 0) * 30ms);
 }
 
 .wk-pr-item:hover,
 .wk-pr-item:focus-visible {
-  background: var(--surface-hover);
+  color: var(--text-primary);
 }
 
 .wk-pr-item .wk-pr {
@@ -5167,19 +5213,22 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--c-paper);
-  color: var(--c-ink);
-  border: none;
-  border-radius: var(--r-xl);
-  padding: var(--sp-6) var(--sp-8);
-  font-size: var(--fs-base);
+  gap: var(--sp-4);
+  min-height: 64px;
+  background: var(--c-accent);
+  color: var(--on-accent);
+  border: 1px solid var(--c-accent);
+  padding: var(--sp-5) var(--sp-7);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
   font-weight: 700;
-  margin: calc(-1 * var(--sp-6)) 0 var(--sp-12);
-  transition: background var(--t-fast), transform var(--t-fast);
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
+  transition: opacity var(--t-fast), transform var(--t-fast);
 }
 
 .wk-finish:hover {
-  background: var(--c-paper-bright);
+  opacity: .88;
 }
 
 .wk-finish:active {

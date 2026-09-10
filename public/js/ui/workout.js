@@ -22,8 +22,14 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
   const titleError = $('#workout-name-error');
   const list = $('[data-list="exercises"]', page);
 
-  /** Az üres állapot csak addig látszik, amíg nincs gyakorlat a naplóban. */
-  const syncEmpty = () => { $('[data-workout-empty]').hidden = list.children.length > 0; };
+  /** Az üres állapot csak addig látszik, amíg nincs gyakorlat a naplóban.
+      A bal hasáb nagy száma ugyanezt a darabszámot mutatja, ezért itt írjuk:
+      minden út, ami a naplót módosítja, ezen a függvényen megy át. */
+  const syncEmpty = () => {
+    const count = list.children.length;
+    $('[data-workout-empty]').hidden = count > 0;
+    $('[data-exercise-count]').textContent = String(count);
+  };
 
   // Az új szettek alapértékei (ha egy gyakorlatnak még nincs szettje)
   const defaultSet = await api.getDefaultSet();

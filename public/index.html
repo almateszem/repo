@@ -397,78 +397,103 @@
       <section class="app-page wk-page" data-page="workout" aria-labelledby="title-workout" hidden>
         <h2 class="sr-only" id="title-workout">Edzésnapló</h2>
 
-        <header class="wk-header">
-          <label class="sr-only" for="workout-name">Edzés neve</label>
-          <input class="wk-title" id="workout-name" maxlength="60"
-                 aria-describedby="workout-name-error">
-        </header>
-        <p class="wk-error" id="workout-name-error" hidden>Adj nevet az edzésnek a befejezéshez.</p>
-        <!-- Visszanyitott edzés jelzése. Enélkül a szerkesztő pontosan úgy néz
-             ki, mint egy új edzésnél — a felhasználó azt hinné, ma naplóz, és
-             nem értené, miért nem került új sor a Korábbi edzések tetejére. -->
-        <p class="wk-editing" data-editing-workout hidden>
-          <span data-editing-text></span>
-          <button class="wk-editing-cancel" type="button" data-action="cancel-workout-edit">Szerkesztés megszakítása</button>
-        </p>
-        <!-- Automatikus mentés állapota. Élő régió: korábban csak egy statikus
-             ígéret állt itt, a mentés hibáját pedig semmi nem jelezte — a
-             felhasználó azt hitte, minden mentve van. -->
-        <p class="wk-autosave-note" data-autosave-status aria-live="polite" data-state="idle">
-          <span class="wk-autosave-dot" aria-hidden="true"></span>
-          <span data-autosave-text>A módosítások automatikusan mentődnek — az Edzés befejezése naplózza az edzést a Korábbi edzésekhez.</span>
-        </p>
+        <!-- BAL HASÁB: maga a mai edzés — hány gyakorlat, mi a neve, és a két
+             művelet, ami előre viszi. -->
+        <div class="wk-main">
+          <span class="db-label">Edzés · napló</span>
 
-        <div class="wk-list" data-list="exercises"></div>
+          <div class="wk-count">
+            <span class="db-percent wk-count-value" data-exercise-count>0</span>
+            <span class="db-percent-side">
+              <span class="db-percent-sign" aria-hidden="true">gyak.</span>
+              <span class="db-label">A naplóban</span>
+            </span>
+          </div>
 
-        <!-- Üres állapot — ha nincs se aznapi piszkozat, se mára ütemezett terv -->
-        <p class="wk-empty" data-workout-empty hidden>Nincs betöltött edzés — tölts be egy tervet
-          a Tervek oldalról, vagy adj hozzá gyakorlatot a lenti gombbal.</p>
+          <header class="wk-header">
+            <label class="sr-only" for="workout-name">Edzés neve</label>
+            <input class="wk-title" id="workout-name" maxlength="60"
+                   aria-describedby="workout-name-error">
+          </header>
+          <p class="wk-error" id="workout-name-error" hidden>Adj nevet az edzésnek a befejezéshez.</p>
 
-        <!-- A gyakorlat-választó flow-oldalra visz (#exercise-picker), az edzésnaplót célozva -->
-        <button class="wk-add-exercise" type="button" data-action="workout-add-exercise">+ Gyakorlat hozzáadása</button>
+          <!-- Visszanyitott edzés jelzése. Enélkül a szerkesztő pontosan úgy néz
+               ki, mint egy új edzésnél — a felhasználó azt hinné, ma naplóz, és
+               nem értené, miért nem került új sor a Korábbi edzések tetejére. -->
+          <p class="wk-editing" data-editing-workout hidden>
+            <span data-editing-text></span>
+            <button class="wk-editing-cancel" type="button" data-action="cancel-workout-edit">Szerkesztés megszakítása</button>
+          </p>
 
-        <!-- Elsődleges lezáró művelet — az összegző oldalra visz (#summary) -->
-        <button class="wk-finish" type="button" data-action="finish-workout">
-          <span>Edzés befejezése</span>
-          <span class="wk-finish-arrow" aria-hidden="true">→</span>
-        </button>
+          <!-- Automatikus mentés állapota. Élő régió: korábban csak egy statikus
+               ígéret állt itt, a mentés hibáját pedig semmi nem jelezte — a
+               felhasználó azt hitte, minden mentve van. -->
+          <p class="wk-autosave-note" data-autosave-status aria-live="polite" data-state="idle">
+            <span class="wk-autosave-dot" aria-hidden="true"></span>
+            <span data-autosave-text>A módosítások automatikusan mentődnek — az Edzés befejezése naplózza az edzést a Korábbi edzésekhez.</span>
+          </p>
 
-        <!-- Naplózott edzések. Itt korábban egy „Fejlődés" diagram is állt, de
-             se a beégetett seed-görbe, se a belőle épített gyakorlat-kártya nem
-             mondott többet, mint maga a lista — ezért csak az előzmény maradt. -->
-        <section class="wk-progress" aria-labelledby="title-progress">
-          <h3 class="wk-progress-title" id="title-progress">Korábbi edzések</h3>
-          <ul class="wk-history" data-list="history"></ul>
-          <p class="wk-list-empty" data-history-empty hidden>Még nincs mentett edzésed —
-            az első Mentés után itt jelenik meg.</p>
-        </section>
+          <div class="wk-actions">
+            <!-- Elsődleges lezáró művelet — az összegző oldalra visz (#summary) -->
+            <button class="wk-finish" type="button" data-action="finish-workout">
+              <span>Edzés befejezése</span>
+              <span class="wk-finish-arrow" aria-hidden="true">→</span>
+            </button>
 
-        <section class="wk-compare" aria-labelledby="title-compare">
-          <div class="wk-compare-head">
-            <h3 class="wk-progress-title" id="title-compare">Heti volumen — összehasonlítás</h3>
-            <div class="wk-toggle" role="group" aria-label="Időszak kiválasztása">
-              <button class="wk-toggle-btn" type="button" data-period="volumeThisWeek" aria-pressed="true">Ez a hét</button>
-              <button class="wk-toggle-btn" type="button" data-period="volumeLastWeek" aria-pressed="false">Múlt hét</button>
+            <!-- A gyakorlat-választó flow-oldalra visz (#exercise-picker), az edzésnaplót célozva -->
+            <button class="wk-add-exercise" type="button" data-action="workout-add-exercise">+ Gyakorlat hozzáadása</button>
+          </div>
+        </div>
+
+        <!-- JOBB HASÁB: a napló és ami mögötte van — előzmény, volumen, rekordok. -->
+        <div class="wk-side">
+
+          <section class="page-block" aria-labelledby="title-wk-log">
+            <h3 class="page-block-title" id="title-wk-log">Szettnapló</h3>
+            <div class="wk-list" data-list="exercises"></div>
+
+            <!-- Üres állapot — ha nincs se aznapi piszkozat, se mára ütemezett terv -->
+            <p class="wk-empty" data-workout-empty hidden>Nincs betöltött edzés — tölts be egy tervet
+              a Tervek oldalról, vagy adj hozzá gyakorlatot a bal oldali gombbal.</p>
+          </section>
+
+          <!-- Naplózott edzések. Itt korábban egy „Fejlődés" diagram is állt, de
+               se a beégetett seed-görbe, se a belőle épített gyakorlat-kártya nem
+               mondott többet, mint maga a lista — ezért csak az előzmény maradt. -->
+          <section class="page-block wk-progress" aria-labelledby="title-progress">
+            <h3 class="page-block-title" id="title-progress">Korábbi edzések</h3>
+            <ul class="wk-history" data-list="history"></ul>
+            <p class="wk-list-empty" data-history-empty hidden>Még nincs mentett edzésed —
+              az első Mentés után itt jelenik meg.</p>
+          </section>
+
+          <section class="page-block wk-compare" aria-labelledby="title-compare">
+            <div class="wk-compare-head">
+              <h3 class="page-block-title" id="title-compare">Heti volumen</h3>
+              <div class="wk-toggle" role="group" aria-label="Időszak kiválasztása">
+                <button class="wk-toggle-btn" type="button" data-period="volumeThisWeek" aria-pressed="true">Ez a hét</button>
+                <button class="wk-toggle-btn" type="button" data-period="volumeLastWeek" aria-pressed="false">Múlt hét</button>
+              </div>
             </div>
-          </div>
-          <div class="chart" role="img" aria-label="Munkasorozatok naponta — ez a hét" data-chart="volumeThisWeek">
-            <div class="chart-bars" aria-hidden="true"></div>
-            <div class="chart-axis" aria-hidden="true"></div>
-          </div>
-          <div class="wk-compare-days" aria-hidden="true">
-            <span>H</span><span>K</span><span>Sze</span><span>Cs</span><span>P</span><span>Szo</span><span>V</span>
-          </div>
-          <p class="wk-compare-note">Összvolumen:
-            <strong><span data-compare-total></span> munkasorozat</strong> ·
-            <span data-compare-note></span></p>
-        </section>
+            <div class="chart" role="img" aria-label="Munkasorozatok naponta — ez a hét" data-chart="volumeThisWeek">
+              <div class="chart-bars" aria-hidden="true"></div>
+              <div class="chart-axis" aria-hidden="true"></div>
+            </div>
+            <div class="wk-compare-days" aria-hidden="true">
+              <span>H</span><span>K</span><span>Sze</span><span>Cs</span><span>P</span><span>Szo</span><span>V</span>
+            </div>
+            <p class="wk-compare-note">Összvolumen:
+              <strong><span data-compare-total></span> munkasorozat</strong> ·
+              <span data-compare-note></span></p>
+          </section>
 
-        <section class="wk-prs" aria-labelledby="title-prs">
-          <h3 class="wk-progress-title" id="title-prs">Rekordok</h3>
-          <ul class="wk-pr-list" data-list="prs"></ul>
-          <p class="wk-list-empty" data-prs-empty hidden>Még nincs rögzített rekordod —
-            jelöld meg a gyakorlatot a PR gombbal az edzésnaplóban, és mentsd az edzést.</p>
-        </section>
+          <section class="page-block wk-prs" aria-labelledby="title-prs">
+            <h3 class="page-block-title" id="title-prs">Rekordok</h3>
+            <ul class="wk-pr-list" data-list="prs"></ul>
+            <p class="wk-list-empty" data-prs-empty hidden>Még nincs rögzített rekordod —
+              jelöld meg a gyakorlatot a PR gombbal az edzésnaplóban, és mentsd az edzést.</p>
+          </section>
+        </div>
       </section>
 
       <!-- ================================================================
