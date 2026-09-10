@@ -892,7 +892,10 @@ input.wk-chip:focus-visible {
    24px padding-top MELLÉ 24px margin-top-ot is hoz a szomszédos szekciók
    közé, amit ez a lap nem ismer; a .ds-eyebrow 700-as súlyt és line-height:1-
    et ír elő, a 2b. címke-család (.db-label és társai) viszont 600-as súllyal,
-   rögzített sormagasság nélkül működik. Aki egységesíteni akarja, számítson
+   rögzített sormagasság nélkül működik; a .ds-row középre igazít, értékhelyet
+   és sorok-KÖZÖTTI vonalat ad (.ds-row + .ds-row), a .db-side-item viszont
+   flex-starttal igazít, értékhely nélkül, és MINDEN sora alján saját
+   border-bottomot húz — az utolsón is. Aki egységesíteni akarja, számítson
    rá, hogy a lap elcsúszik — nézze meg vizuálisan előbb. */
 /* Globális fejléc-sáv. Mobilon a lap tetején tapad, desktopon az oldalsáv
    aljára ül (lásd a szélesebb töréspontot) — egy példány, két hely, hogy az
