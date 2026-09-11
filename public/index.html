@@ -481,19 +481,19 @@
       <section class="app-page pb-page" data-page="plan-builder" aria-labelledby="title-builder" hidden>
         <header class="pb-header">
           <button class="ep-back tap-target" type="button" data-action="builder-back" aria-label="Vissza a tervekhez">←</button>
-          <label class="sr-only" for="plan-name">Terv neve</label>
-          <input class="wk-title" id="plan-name" maxlength="60" value="Új terv"
-                 aria-describedby="plan-name-error">
-          <button class="wk-save" type="button" data-action="save-plan">Mentés</button>
+          <p class="pb-eyebrow ds-eyebrow">Új edzésterv</p>
         </header>
         <h2 class="sr-only" id="title-builder">Új edzésterv készítése</h2>
+        <label class="sr-only" for="plan-name">Terv neve</label>
+        <input class="wk-title pb-title" id="plan-name" maxlength="60" value="Új terv"
+               aria-describedby="plan-name-error">
         <p class="wk-error" id="plan-name-error" hidden>Adj nevet a tervnek a mentéshez.</p>
         <p class="pb-summary" data-pb-summary aria-live="polite"></p>
 
         <!-- Hétnap-ütemezés: a kijelölt napokon a terv az Edzés oldalra töltődik -->
         <div class="pb-days">
-          <span class="pb-days-label" id="pb-days-label">Automatikus beállítás az Edzés oldalon:</span>
-          <div class="pb-days-chips" data-list="builder-days" role="group" aria-labelledby="pb-days-label"></div>
+          <span class="pb-days-label ds-eyebrow" id="pb-days-label">Automatikus beállítás az Edzés oldalon</span>
+          <div class="pb-days-chips ds-grid" data-list="builder-days" role="group" aria-labelledby="pb-days-label"></div>
           <p class="pb-days-hint">A kijelölt napokon ez a terv töltődik be az edzésnaplóba (a megkezdett mai edzést nem írja felül).</p>
         </div>
 
@@ -501,6 +501,14 @@
 
         <!-- A gyakorlat-választó flow-oldalra visz (#exercise-picker) -->
         <button class="wk-add-exercise" type="button" data-action="builder-add-exercise">+ Gyakorlat hozzáadása</button>
+
+        <!-- A lap lezáró művelete. A fejlécből került ide: a flow-oldalak
+             elsődleges gombja a lap alján, teljes szélességű CTA-sávként áll
+             (ugyanaz a minta, mint a check-in varázslóban). -->
+        <button class="wk-save ds-cta" type="button" data-action="save-plan">
+          <span>Terv mentése</span>
+          <span class="wk-finish-arrow" aria-hidden="true">→</span>
+        </button>
       </section>
 
       <!-- ================================================================
@@ -514,8 +522,8 @@
         <header class="ep-header">
           <button class="ep-back tap-target" type="button" data-action="picker-back" aria-label="Vissza a terv-építőhöz">←</button>
           <div class="ep-header-text">
+            <p class="ep-subtitle ds-eyebrow"><span data-picker-workout>Új terv</span> <span data-picker-noun>tervhez</span></p>
             <h2 class="ep-title" id="title-picker">Gyakorlat hozzáadása</h2>
-            <p class="ep-subtitle"><span data-picker-workout>Új terv</span> <span data-picker-noun>tervhez</span></p>
           </div>
         </header>
 
@@ -1731,16 +1739,16 @@
   </template>
 
   <template id="tpl-picker-item">
-    <article class="ep-item">
+    <article class="ep-item ds-row">
       <!-- Illusztráció: alapban az álló thumbnail, rámutatásra/fókuszra az
            animált gif (a frontend cseréli a src-t). Dekoratív, ezért alt=""
            — a gyakorlatot a mellette lévő név azonosítja. A katalógus nagy,
            ezért loading="lazy": a böngésző csak a látható kártyák képét tölti.
            Ha a média nincs letöltve (npm run exdb:media), a kép elrejti magát. -->
       <img class="ep-item-thumb" alt="" width="180" height="180" loading="lazy" decoding="async" hidden>
-      <div class="ep-item-info">
-        <h3 class="ep-item-name"></h3>
-        <p class="ep-item-meta"><span class="ep-item-tag"></span><span class="ep-item-muscles"></span></p>
+      <div class="ep-item-info ds-row-main">
+        <h3 class="ep-item-name ds-row-name"></h3>
+        <p class="ep-item-meta"><span class="ep-item-tag"></span><span class="ep-item-muscles ds-row-sub"></span></p>
       </div>
       <button class="ep-item-toggle tap-target" type="button" aria-pressed="false"></button>
     </article>
@@ -1799,10 +1807,10 @@
   </template>
 
   <template id="tpl-plan">
-    <li class="pl-card">
-      <div class="pl-card-info">
-        <span class="pl-card-name"></span>
-        <span class="pl-card-meta"></span>
+    <li class="pl-card ds-row">
+      <div class="pl-card-info ds-row-main">
+        <span class="pl-card-name ds-row-name"></span>
+        <span class="pl-card-meta ds-row-sub"></span>
         <!-- A mai készenlét figyelmeztetése (tiltott / óvatos gyakorlatok) -->
         <span class="pl-card-safety" hidden></span>
         <div class="pl-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100">
