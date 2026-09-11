@@ -544,22 +544,25 @@
       <section class="app-page nu-page" data-page="nutrition" aria-labelledby="title-nutrition" hidden>
         <h2 class="sr-only" id="title-nutrition">Táplálkozás</h2>
 
+        <!-- A bevitel a lap hőse: egyetlen nagy szám, alatta a cél felé vezető
+             sáv. A „Bevitel / Cél" kétoszlopos fejléc helyett azért, mert a két
+             szám nem egyenrangú — az egyik a mai eredmény, a másik a mérce.
+             A sávot a js/ui/nutrition.js tölti ki (applyTotals), ahogy a
+             vízmérőét a js/ui/water.js. -->
         <header class="nu-summary" aria-label="Napi kalória-összesítő">
-          <div class="nu-summary-item">
-            <span class="nu-summary-value"><span data-stat="intake"></span><span class="nu-summary-unit">kcal</span></span>
-            <span class="nu-summary-label">Bevitel</span>
+          <p class="nu-summary-eyebrow ds-eyebrow">Mai bevitel</p>
+          <p class="nu-summary-value ds-display"><span data-stat="intake"></span><span class="nu-summary-unit">kcal</span></p>
+          <div class="nu-summary-track" role="img" data-intake-track
+               aria-label="A napi kalóriacél teljesülése">
+            <span class="nu-summary-fill" data-intake-fill></span>
           </div>
-          <span class="nu-summary-divider" aria-hidden="true">/</span>
-          <div class="nu-summary-item">
-            <span class="nu-summary-value"><span data-goal="calories"></span><span class="nu-summary-unit">kcal</span></span>
-            <span class="nu-summary-label">Cél</span>
-          </div>
+          <p class="nu-summary-goal">Cél <span data-goal="calories"></span> kcal</p>
         </header>
 
         <div class="nu-macros" aria-label="Makrotápanyagok">
-          <div class="nu-macro"><span class="nu-macro-label">Fehérje</span><span class="nu-macro-value"><span data-stat="protein"></span><span class="nu-macro-unit">g</span></span></div>
-          <div class="nu-macro"><span class="nu-macro-label">Szénhidrát</span><span class="nu-macro-value"><span data-stat="carbs"></span><span class="nu-macro-unit">g</span></span></div>
-          <div class="nu-macro"><span class="nu-macro-label">Zsír</span><span class="nu-macro-value"><span data-stat="fat"></span><span class="nu-macro-unit">g</span></span></div>
+          <div class="nu-macro ds-row"><span class="nu-macro-label ds-row-name">Fehérje</span><span class="nu-macro-value ds-row-value"><span data-stat="protein"></span><span class="nu-macro-unit">g</span></span></div>
+          <div class="nu-macro ds-row"><span class="nu-macro-label ds-row-name">Szénhidrát</span><span class="nu-macro-value ds-row-value"><span data-stat="carbs"></span><span class="nu-macro-unit">g</span></span></div>
+          <div class="nu-macro ds-row"><span class="nu-macro-label ds-row-name">Zsír</span><span class="nu-macro-value ds-row-value"><span data-stat="fat"></span><span class="nu-macro-unit">g</span></span></div>
         </div>
 
         <!-- Napi cél. Két forrás lehet: amit az EDZŐ tűzött ki, és amit te
@@ -641,7 +644,7 @@
         <!-- Saját étel felvitele: kézzel vagy a csomagolás vonalkódjáról.
              A beépített katalógus általános referencia-értékeket ad; egy
              konkrét bolti termék ettől 100 kcal-t is eltérhet. -->
-        <div class="nu-actions">
+        <div class="nu-actions ds-grid">
           <button class="nu-action" type="button" data-action="add-custom-food"
                   aria-haspopup="dialog">+ Étel hozzáadása</button>
           <button class="nu-action nu-action--ghost" type="button" data-action="scan-barcode"
@@ -1759,10 +1762,10 @@
   </template>
 
   <template id="tpl-nutrition-entry">
-    <li class="nu-log-item">
-      <div class="nu-log-info">
-        <span class="nu-log-name"></span>
-        <span class="nu-log-macros"></span>
+    <li class="nu-log-item ds-row">
+      <div class="nu-log-info ds-row-main">
+        <span class="nu-log-name ds-row-name"></span>
+        <span class="nu-log-macros ds-row-sub"></span>
       </div>
       <span class="nu-log-kcal"></span>
       <!-- Adag javítása: az elgépelt mennyiség eddig csak törléssel volt
@@ -1774,10 +1777,10 @@
   </template>
 
   <template id="tpl-food">
-    <li class="nu-food">
-      <div class="nu-food-info">
-        <span class="nu-food-name"><span class="nu-food-kcal"></span></span>
-        <span class="nu-food-macros"></span>
+    <li class="nu-food ds-row">
+      <div class="nu-food-info ds-row-main">
+        <span class="nu-food-name ds-row-name"><span class="nu-food-kcal"></span></span>
+        <span class="nu-food-macros ds-row-sub"></span>
       </div>
       <!-- A jelvény és a törlés csak a SAJÁT ételeken látszik — a renderFoods
            veszi le róluk a hidden-t, ha a food.custom igaz. -->

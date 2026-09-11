@@ -2435,69 +2435,71 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 /* ==========================================================================
    8. Nutrition tracker
    ========================================================================== */
+/* A lap hőse: egyetlen nagy szám, alatta a cél felé vezető sáv. A korábbi
+   „Bevitel / Cél" kétoszlopos fejléc egyenrangúnak mutatta a kettőt, pedig az
+   egyik a mai eredmény, a másik a mérce. */
 .nu-summary {
   display: flex;
-  align-items: baseline;
-  gap: var(--sp-6);
-  margin-bottom: var(--sp-8);
-}
-
-.nu-summary-item {
-  display: flex;
   flex-direction: column;
-  gap: 2px;
+  align-items: flex-start;
+  gap: var(--sp-5);
+  margin-bottom: var(--sp-11);
 }
 
 .nu-summary-value {
-  font-size: var(--fs-summary);
-  font-weight: 800;
-  line-height: 1;
+  /* A .ds-display adja a súlyt, a ritkítást és a tabular-nums-ot; a méret a
+     lap hőséé, ezért itt kap értéket a primitív custom propertyje. */
+  --ds-display-size: clamp(56px, 16vw, 76px);
+  margin: 0;
 }
 
 .nu-summary-unit {
-  font-size: 0.4em;
+  font-size: 0.28em;
   font-weight: 700;
-  margin-left: 2px;
-  color: var(--fg-60);
+  margin-left: var(--sp-2);
+  color: var(--text-faint);
 }
 
-.nu-summary-label {
-  font-size: var(--fs-xs);
+/* A cél a hős alatt, halkan: mérce, nem eredmény. */
+.nu-summary-goal {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
   color: var(--text-muted);
 }
 
-.nu-summary-divider {
-  font-size: var(--fs-3xl);
-  color: var(--fg-30);
-  align-self: center;
+/* A haladássáv a vízmérőével azonos recept, csak szögletesen: ott a napi
+   folyadék, itt a napi kalória tart a célja felé. A kitöltést a
+   js/ui/nutrition.js írja (applyTotals). */
+.nu-summary-track {
+  width: 100%;
+  height: 4px;
+  background: var(--fg-10);
+  overflow: hidden;
 }
 
+.nu-summary-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--c-accent);
+  transition: width var(--t-slow);
+}
+
+/* A három makró kártya helyett hajszálvonalas sor (.ds-row): egymás alatt,
+   nem egymás mellett. Három 100px-es kártyában a szám és a címke is szorult;
+   sorban mindkettőnek jut hely, és a lap alatti listákkal egy nyelvet beszél. */
 .nu-macros {
   display: flex;
-  gap: var(--sp-5);
-  margin-bottom: var(--sp-7);
-}
-
-.nu-macro {
-  flex: 1;
-  min-width: 0;
-  background: var(--surface-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--r-lg);
-  padding: var(--sp-4) var(--sp-5);
-  display: flex;
   flex-direction: column;
-  gap: var(--sp-1);
+  margin-bottom: var(--sp-11);
 }
 
 .nu-macro-label {
-  font-size: var(--fs-2xs);
-  color: var(--text-muted);
-}
-
-.nu-macro-value {
-  font-size: var(--fs-lg);
-  font-weight: 700;
+  color: var(--text-secondary);
 }
 
 .nu-macro-unit {
@@ -2542,23 +2544,17 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   gap: var(--sp-2);
 }
 
+/* A formát a .ds-row adja; itt csak a beúszás marad, ami a sorok sorrendjét
+   olvashatóvá teszi naplózás után. A háttér és a belső margó törölve: a sor
+   határa a hajszálvonal. */
 .nu-log-item {
-  display: flex;
-  align-items: center;
   gap: var(--sp-4);
-  background: var(--surface-soft);
-  border-radius: var(--r-md);
-  padding: var(--sp-3) var(--sp-4);
   animation: note-in 0.25s ease backwards;
   animation-delay: calc(var(--i, 0) * 30ms);
 }
 
 .nu-log-info {
   flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
 }
 
 .nu-log-name {
@@ -2585,7 +2581,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   height: 26px;
   padding: 0;
   border: none;
-  border-radius: var(--r-full);
   background: none;
   color: var(--text-muted);
   font-size: var(--fs-2xs);
@@ -2604,18 +2599,18 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   font-size: var(--fs-sm);
   color: var(--text-muted);
   text-align: center;
-  padding: var(--sp-6) var(--sp-5);
+  padding: var(--sp-9) var(--sp-5);
   margin: 0;
-  border: 1px dashed var(--fg-15);
-  border-radius: var(--r-lg);
+  border: 1px solid var(--hair-soft);
 }
 
 /* Saját étel felvitele / vonalkód-beolvasás — a kereső fölött, mert ez a
-   listával egyenrangú belépő, nem a keresés alárendeltje. */
+   listával egyenrangú belépő, nem a keresés alárendeltje. A kettő a .ds-grid
+   1px-es résén osztozik: a köztük lévő vonalat a szülő háttere adja, így nem
+   két gomb áll egymás mellett, hanem egy kettéosztott sáv. Mindkettő a
+   17. taskban kap modált — itt csak a belépőjük formája változik. */
 .nu-actions {
-  display: flex;
-  gap: var(--sp-4);
-  margin-bottom: var(--sp-6);
+  margin-bottom: var(--sp-7);
 }
 
 .nu-action {
@@ -2624,14 +2619,16 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   align-items: center;
   justify-content: center;
   gap: var(--sp-3);
+  min-height: var(--tap-min);
   border: none;
-  border-radius: var(--r-lg);
   padding: var(--sp-5) var(--sp-6);
   background: var(--c-accent);
   color: var(--on-accent);
-  font-family: inherit;
-  font-size: var(--fs-sm);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
   font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
   cursor: pointer;
   transition:
     filter var(--t-fast),
@@ -2642,9 +2639,10 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   filter: brightness(1.08);
 }
 
+/* A vonalkód a másodlagos út: a lap felületét viseli, nem az accentet. A
+   keret elmarad — a .ds-grid résének vonala elválasztja a szomszédjától. */
 .nu-action--ghost {
-  background: none;
-  border: 1px solid var(--fg-15);
+  background: var(--c-bg);
   color: var(--text-primary);
 }
 
@@ -2664,15 +2662,15 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   display: flex;
   align-items: center;
   gap: var(--sp-4);
-  background: var(--surface-input);
-  border-radius: var(--r-lg);
+  min-height: var(--tap-min);
+  border: 1px solid var(--hair);
   padding: var(--sp-4) var(--sp-6);
   margin-bottom: var(--sp-8);
-  transition: background var(--t-fast);
+  transition: border-color var(--t-fast);
 }
 
 .nu-search:focus-within {
-  background: var(--surface-hover);
+  border-color: var(--fg-40);
 }
 
 .nu-search svg {
@@ -2704,15 +2702,9 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   gap: var(--sp-4);
 }
 
+/* A formát a .ds-row adja — háttér, keret és belső margó nélkül. */
 .nu-food {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   gap: var(--sp-5);
-  background: var(--surface-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--r-xl);
-  padding: var(--sp-5) var(--sp-6);
 }
 
 .nu-food-info {
@@ -2742,7 +2734,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .nu-food-add {
   width: 30px;
   height: 30px;
-  border-radius: var(--r-full);
   border: none;
   background: var(--surface-strong);
   color: var(--text-primary);
@@ -2764,7 +2755,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .nu-food-badge {
   flex-shrink: 0;
   padding: 2px var(--sp-4);
-  border-radius: var(--r-full);
   background: var(--fg-10);
   color: var(--text-muted);
   font-size: var(--fs-2xs);
@@ -2779,7 +2769,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   height: 26px;
   padding: 0;
   border: none;
-  border-radius: var(--r-full);
   background: none;
   color: var(--text-muted);
   font-size: var(--fs-2xs);
@@ -4020,21 +4009,35 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   }
 }
 
-/* ---- Kártya-hoverek (csak hoverképes eszközön, hogy touch-on ne ragadjon be) ---- */
+/* ---- Kártya-hoverek (csak hoverképes eszközön, hogy touch-on ne ragadjon be) ----
+   A .wk-exercise és a .nu-food kikerült innen: mióta nem kártyák, egyik fele
+   sem működik rajtuk. A `border-color` néma módon hatástalan — a sort elválasztó
+   vonal a KÖVETKEZŐ elem `border-top`-ja, nem a hoverelté —, a `translateY`
+   pedig épp ezért látható hibát okozna: a sor megemelkedne, a vonala nem
+   mozdulna vele, és hoveren elválna tőle.
+
+   Helyettük a felület halvány kiemelése áll, ami semmit nem mozgat. A .pl-card
+   egyelőre marad kártya (13. task). */
 @media (hover: hover) {
-  .wk-exercise,
-  .nu-food,
   .pl-card {
     transition:
       border-color var(--t-fast),
       transform var(--t-fast);
   }
 
-  .wk-exercise:hover,
-  .nu-food:hover,
   .pl-card:hover {
     border-color: var(--border-strong);
     transform: translateY(-1px);
+  }
+
+  .wk-exercise,
+  .nu-food {
+    transition: background var(--t-fast);
+  }
+
+  .wk-exercise:hover,
+  .nu-food:hover {
+    background: var(--surface-hover);
   }
 }
 
@@ -7322,7 +7325,6 @@ details[open] > .rc-details-summary::before {
 
 .nu-water-track {
   height: 6px;
-  border-radius: 999px;
   background: var(--fg-10);
   overflow: hidden;
 }
@@ -7331,7 +7333,6 @@ details[open] > .rc-details-summary::before {
   display: block;
   height: 100%;
   width: 0;
-  border-radius: inherit;
   background: var(--fg-55);
   transition:
     width var(--t-slow),
