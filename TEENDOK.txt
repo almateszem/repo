@@ -11,9 +11,11 @@ A tematikus szakaszok (üzemeltetés, adatminőség, kódtérkép…) mindhárom
 részen belül alcímként élnek tovább, tehát egy témát a három rész
 ugyanazon alcíme alatt lehet végigolvasni.
 
-Állás (2026-09-10):   13 nyitott · 7 részben kész · 24 kész
+Állás (2026-09-11):   17 nyitott · 7 részben kész · 24 kész
 
-Utolsó frissítés: 2026-09-10 (három kör egy napon: bekerült a
+Utolsó frissítés: 2026-09-11 (a dizájn-átültetés 11-20. taskja lefutott; négy
+                  mellékleletet hozott, lásd a NYITOTT rész végén)
+Előző frissítés:  2026-09-10 (három kör egy napon: bekerült a
                   graphify-kódtérkép szakasza, a fájl átrendeződött állapot
                   szerint, végül a kódtérkép kérdéseit végigvizsgáltuk —
                   ebből egy VALÓDI hiba lett javítva, a függő meghívó
@@ -282,6 +284,47 @@ hibajegyek: kérdések, amikre a válasz vagy egy javítás, vagy egy doksi-sor.
     16 000 tokenje BECSLÉS, nem mért érték.
     TEENDŐ: ha a szám számít, `GEMINI_API_KEY`-vel újrafuttatni — akkor a
     költés valós metrika lesz.
+
+--------------------------------------------------------------------------
+DIZÁJN-ÁTÜLTETÉS — ami a 11-20. task alatt kiderült, de nem oda tartozott
+--------------------------------------------------------------------------
+
+Négy tétel a 2026-09-11-i átültetésből. Egyik sem blokkoló: mind olyan,
+amit a munka KÖZBEN találtunk, de a task hatókörén kívül esett, és a
+javítása önálló döntés.
+
+[ ] A gyorsbillentyűk csak öt modált ismernek a nyolcból
+    Hely: public/js/ui/shortcuts.js -> isModalOpen(). A szelektor-lista
+    kézzel van szinkronban tartva, és hiányzik belőle a .food-modal, a
+    .custom-food-modal és a .scanner-modal. Következmény: nyitott
+    étel-részlet / saját étel / szkenner modál MELLETT az 1-5 gyorsbillentyű
+    oldalt vált a háttérben.
+    Ez NEM a dizájn-átültetés okozta — már előtte is így volt; a 17. task
+    felderítése hozta elő. A javítás egy sor, de átgondolást kér: a lista
+    helyett jobb volna egy közös horgony (pl. `[aria-modal="true"]` vagy egy
+    közös osztály), különben a következő modálnál megint elfelejtődik.
+
+[ ] A check-in szám-mezője mögött átüt a hajszálvonal-háttér
+    Hely: public/style.css -> .ci-num-input (25. szakasz). A mező
+    `background: none`, a szülő .ci-num-dial háttere viszont `var(--hair)`
+    — a 118px-es számmező területén így egy világos folt marad a .ds-step
+    recept réseként. A 10. taskból maradt; a 11. task felderítésekor tűnt
+    fel, de a szakasz nem tartozott a hatókörbe.
+    TEENDŐ: a mezőnek `background: var(--c-bg)` kell, ahogy a .wk-num-input
+    is kapta.
+
+[ ] Három primitív-variáns használat nélkül áll
+    Hely: public/style.css 2c. szakasz -> .ds-grid--column,
+    .ds-row-value--accent, .ds-step-value. A 20. task záró átvizsgálása
+    egyiküknek sem talált call-site-ot; a kódban kommenttel meg vannak
+    jelölve. Szándékosan maradtak bent (a .ds-step-value a .ds-step
+    receptjének a fele), de ha a fájl fogyókúrára szorul, itt kezdjük.
+
+[ ] Az Összegzőn két felesleges text-align maradt
+    Hely: public/style.css -> .su-note, .su-feedback (`text-align: left`).
+    A 15. taskban a lap-szintű `text-align: center` a fejlécre és a hősre
+    szűkült, így ez a két felülírás tárgytalanná vált. Ártalmatlan, csak
+    zaj.
 
 
 ==========================================================================
