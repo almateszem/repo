@@ -1879,13 +1879,13 @@ felületet ír le, ami nincs a repóban:
 - Modify: `public/style.css` (26. szakasz, `au-*`)
 - Modify: `public/index.html:40-90`
 
-- [ ] **Step 1:** Az `.au-card` elveszti a kártya-formáját: háttér és keret nélkül, középre igazítva, a varázsló intro-lépésének nyelvén.
-- [ ] **Step 2:** `.ds-eyebrow` a márkajel fölé, nagy display-cím, a mezők hajszálvonalas kerettel.
-- [ ] **Step 3:** A belépés-gomb `.ds-cta`.
-- [ ] **Step 4:** A `.au-error` **marad `--c-alert` színű**, nem accent — a két token szándékosan külön (lásd a `style.css` 1. szakaszának kommentjét).
-- [ ] **Step 5:** `npm run lint && npm run format -- public && npm test`
+- [x] **Step 1:** Az `.au-card` elveszti a kártya-formáját: háttér és keret nélkül, középre igazítva, a varázsló intro-lépésének nyelvén.
+- [x] **Step 2:** `.ds-eyebrow` a márkajel fölé, nagy display-cím, a mezők hajszálvonalas kerettel.
+- [x] **Step 3:** A belépés-gomb `.ds-cta`.
+- [x] **Step 4:** A `.au-error` **marad `--c-alert` színű**, nem accent — a két token szándékosan külön (lásd a `style.css` 1. szakaszának kommentjét).
+- [x] **Step 5:** `npm run lint && npm run format -- public && npm test`
 - [ ] **Step 6:** Jelentkezz ki, és nézd meg a belépőt hibás jelszóval is (hogy a hibaüzenet látszódjon).
-- [ ] **Step 7:** Commit: `"Belépő: kártya nélküli, a varázsló intro-lépésének nyelvén"`
+- [x] **Step 7:** Commit: `"Belépő: kártya nélküli, a varázsló intro-lépésének nyelvén"`
 
 ---
 
