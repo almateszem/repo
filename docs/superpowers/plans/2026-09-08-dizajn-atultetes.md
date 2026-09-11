@@ -1802,8 +1802,23 @@ az adat már ott van.
 
 Ez a három együtt egy folyamat (terv → szerkesztés → gyakorlat-választás), ezért egy taskban.
 
-- [ ] **Step 1:** Tervek: a terv-kártyák `.ds-row`-ra állnak, jobb oldalt az „Aktivál" / „■ Aktív" gombbal (az aktív accent hátterű).
-- [ ] **Step 2:** A heti nézet `.ds-grid`-be kerül.
+**Tervjavítás — az 1. és 2. lépés a kódhoz igazítva.** A terv itt olyan
+felületet ír le, ami nincs a repóban:
+
+- **„Aktivál" / „■ Aktív" gomb nem létezik.** A `tpl-plan` három művelete a
+  szerkesztés (ceruza, csak saját terven), a törlés (✕) és a megnyitás (→) —
+  a terv aktiválása nem gomb, hanem a terv-építő nap-kijelölése (`pb-day`
+  chipek): a kijelölt napokon az a terv töltődik az edzésnaplóba. Az 1. lépés
+  ezért a meglévő három művelettel áll `.ds-row`-ra.
+- **„Heti nézet" a Tervek oldalon nincs.** A `pl-page` a fejlécből, a
+  terv-listából és az üres állapotból áll. Ami hetet mutat, az a terv-építő
+  `.pb-days-chips` sora (hét `button.pb-day`) — a `.ds-grid` oda való, ezért
+  a 2. lépés átkerül a terv-építőhöz.
+
+- [x] **Step 1:** Tervek: a terv-kártyák `.ds-row`-ra állnak, jobb oldalt a
+  meglévő három művelettel (szerkesztés / törlés / megnyitás).
+- [x] **Step 2:** A terv-építő hétnap-sora (`.pb-days-chips`) `.ds-grid`-be
+  kerül.
 - [ ] **Step 3:** Terv-szerkesztő: flow-oldal felépítés — `.ds-eyebrow` + nagy cím + `.ds-row` lista + alul `.ds-cta`.
 - [ ] **Step 4:** Gyakorlat-választó: kereső mező hajszálvonalas kerettel, a találati lista `.ds-row`-kkal.
 - [ ] **Step 5:** `npm run lint && npm run format -- public && npm test`
