@@ -303,44 +303,44 @@
 
         <!-- A négy összesítő. A számokat a frontend írja be; a 0 nem
              placeholder, hanem érvényes érték (új fióknál ez a helyes). -->
-        <section class="pf-stats" aria-labelledby="pf-title-stats">
+        <section class="pf-stats ds-section" aria-labelledby="pf-title-stats">
           <h3 class="pf-section-title" id="pf-title-stats">Összesítés</h3>
           <ul class="pf-stat-grid">
-            <li class="pf-stat">
-              <span class="pf-stat-value" data-pf-stat="workouts">0</span>
-              <span class="pf-stat-label">naplózott edzés</span>
+            <li class="pf-stat ds-row">
+              <span class="pf-stat-label ds-row-name">naplózott edzés</span>
+              <span class="pf-stat-value ds-row-value" data-pf-stat="workouts">0</span>
             </li>
-            <li class="pf-stat">
-              <span class="pf-stat-value" data-pf-stat="streak">0</span>
-              <span class="pf-stat-label">napos sorozat</span>
+            <li class="pf-stat ds-row">
+              <span class="pf-stat-label ds-row-name">napos sorozat</span>
+              <span class="pf-stat-value ds-row-value" data-pf-stat="streak">0</span>
             </li>
-            <li class="pf-stat">
-              <span class="pf-stat-value" data-pf-stat="prs">0</span>
-              <span class="pf-stat-label">gyakorlat rekorddal</span>
+            <li class="pf-stat ds-row">
+              <span class="pf-stat-label ds-row-name">gyakorlat rekorddal</span>
+              <span class="pf-stat-value ds-row-value" data-pf-stat="prs">0</span>
             </li>
-            <li class="pf-stat">
-              <span class="pf-stat-value" data-pf-stat="workSets">0</span>
-              <span class="pf-stat-label">teljesített munkasorozat</span>
+            <li class="pf-stat ds-row">
+              <span class="pf-stat-label ds-row-name">teljesített munkasorozat</span>
+              <span class="pf-stat-value ds-row-value" data-pf-stat="workSets">0</span>
             </li>
           </ul>
         </section>
 
         <!-- Sorok, amiknek nincs mindig értelmes értékük (nulla edzés, egyetlen
              testsúly-mérés) — a frontend egyenként rejti el őket. -->
-        <section class="pf-facts" aria-labelledby="pf-title-facts">
+        <section class="pf-facts ds-section" aria-labelledby="pf-title-facts">
           <h3 class="pf-section-title" id="pf-title-facts">Részletek</h3>
           <dl class="pf-fact-list">
-            <div class="pf-fact" data-pf-fact="firstWorkout" hidden>
-              <dt>Első edzés</dt><dd data-pf-value="firstWorkout"></dd>
+            <div class="pf-fact ds-row" data-pf-fact="firstWorkout" hidden>
+              <dt class="ds-row-name">Első edzés</dt><dd class="ds-row-value" data-pf-value="firstWorkout"></dd>
             </div>
-            <div class="pf-fact" data-pf-fact="lastWorkout" hidden>
-              <dt>Legutóbbi edzés</dt><dd data-pf-value="lastWorkout"></dd>
+            <div class="pf-fact ds-row" data-pf-fact="lastWorkout" hidden>
+              <dt class="ds-row-name">Legutóbbi edzés</dt><dd class="ds-row-value" data-pf-value="lastWorkout"></dd>
             </div>
-            <div class="pf-fact" data-pf-fact="weight" hidden>
-              <dt>Testsúly</dt><dd data-pf-value="weight"></dd>
+            <div class="pf-fact ds-row" data-pf-fact="weight" hidden>
+              <dt class="ds-row-name">Testsúly</dt><dd class="ds-row-value" data-pf-value="weight"></dd>
             </div>
-            <div class="pf-fact" data-pf-fact="weightDelta" hidden>
-              <dt>Változás az első mérés óta</dt><dd data-pf-value="weightDelta"></dd>
+            <div class="pf-fact ds-row" data-pf-fact="weightDelta" hidden>
+              <dt class="ds-row-name">Változás az első mérés óta</dt><dd class="ds-row-value" data-pf-value="weightDelta"></dd>
             </div>
           </dl>
           <p class="pf-empty" data-pf-empty hidden>
@@ -352,7 +352,7 @@
              gyakorlat-ajánlást: a naplózott út három alkalmat kér. A bemondott
              érték NEM mérés — a felület ezt ki is mondja, és a naplózott
              csúcsot nem írja felül. -->
-        <section class="pf-assess" aria-labelledby="pf-title-assess">
+        <section class="pf-assess ds-section" aria-labelledby="pf-title-assess">
           <h3 class="pf-section-title" id="pf-title-assess">Erőfelmérés</h3>
           <p class="pf-assess-lead">Mondd meg, mit tudsz egy-két gyakorlatban — a rendszer
             ebből azonnal tud ajánlani, nem kell megvárnod pár hét naplózást.</p>
@@ -803,14 +803,18 @@
           Új rekord született ezen az edzésen — gratulálunk! 🎉
         </p>
 
+        <!-- A lap hőse a teljesített szett: ez az edzés mérőszáma. (A terv
+             volument írt ide, de az összegzőn nincs ilyen adat — a volumen a
+             heti összehasonlításé az Edzés oldalon.) Az időtartam alatta,
+             sorként: kísérő adat, nem eredmény. -->
         <div class="su-stats" aria-label="Edzés-összegzés">
-          <div class="su-stat" style="--i:0">
-            <span class="su-stat-value"><span data-su-sets-done>0</span><span class="su-stat-unit">/<span data-su-sets-total>0</span></span></span>
-            <span class="su-stat-label">Teljesített szett</span>
+          <div class="su-hero" style="--i:0">
+            <p class="su-hero-value ds-display"><span data-su-sets-done>0</span><span class="su-stat-unit">/<span data-su-sets-total>0</span></span></p>
+            <p class="su-hero-label ds-eyebrow">Teljesített szett</p>
           </div>
-          <div class="su-stat" style="--i:1">
-            <span class="su-stat-value"><span data-su-duration>0</span><span class="su-stat-unit">perc</span></span>
-            <span class="su-stat-label">Időtartam</span>
+          <div class="su-stat ds-row" style="--i:1">
+            <span class="su-stat-label ds-row-name">Időtartam</span>
+            <span class="su-stat-value ds-row-value"><span data-su-duration>0</span><span class="su-stat-unit">perc</span></span>
           </div>
         </div>
 
@@ -853,7 +857,7 @@
         </section>
 
         <div class="su-actions">
-          <button class="su-cta" type="button" data-action="summary-dashboard">
+          <button class="su-cta ds-cta" type="button" data-action="summary-dashboard">
             <span>Vissza az áttekintéshez</span>
             <span class="su-cta-arrow" aria-hidden="true">→</span>
           </button>
