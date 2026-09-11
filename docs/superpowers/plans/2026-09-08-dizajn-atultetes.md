@@ -1833,14 +1833,14 @@ felületet ír le, ami nincs a repóban:
 - Modify: `public/style.css` (10. szakasz és 20. szakasz, `co-*`)
 - Modify: `public/index.html:689-782`
 
-- [ ] **Step 1:** A nézetváltó (edző / kliens) `.ds-seg`-re áll.
-- [ ] **Step 2:** A sportoló-kártyák `.ds-row`-ra; a tier-színek (`--c-tier-*`) megmaradnak, de nem kártya-háttérként, hanem a soron egy bal oldali 2px-es jelölő-sávként.
-- [ ] **Step 3:** Az üzenet-buborékok szögletesek lesznek; a sajátok accent-keretet kapnak, nem accent-hátteret (különben a hosszú üzenet egy nagy vörös folt).
-- [ ] **Step 4:** Az üzenet-író `.ds-grid`-be kerül: mező + „Küldés" gomb 1px-es réssel.
-- [ ] **Step 5:** **Marad:** meghívók, üres állapotok, sportoló-modál belépő.
-- [ ] **Step 6:** `npm run lint && npm run format -- public && npm test`
+- [x] **Step 1:** A nézetváltó (edző / kliens) `.ds-seg`-re áll.
+- [x] **Step 2:** A sportoló-kártyák `.ds-row`-ra; a tier-színek (`--c-tier-*`) megmaradnak, de nem kártya-háttérként, hanem a soron egy bal oldali 2px-es jelölő-sávként.
+- [x] **Step 3:** Az üzenet-buborékok szögletesek lesznek; a sajátok accent-keretet kapnak, nem accent-hátteret (különben a hosszú üzenet egy nagy vörös folt).
+- [x] **Step 4:** Az üzenet-író `.ds-grid`-be kerül: mező + „Küldés" gomb 1px-es réssel.
+- [x] **Step 5:** **Marad:** meghívók, üres állapotok, sportoló-modál belépő.
+- [x] **Step 6:** `npm run lint && npm run format -- public && npm test`
 - [ ] **Step 7:** Váltogass a két nézet között; nyiss meg egy sportolót; nézd meg az üres állapotot is (olyan fiókkal, amelyhez nincs sportoló).
-- [ ] **Step 8:** Commit: `"Edző: szegmens-nézetváltó, sor-alapú sportolólista, szögletes buborékok"`
+- [x] **Step 8:** Commit: `"Edző: szegmens-nézetváltó, sor-alapú sportolólista, szögletes buborékok"`
 
 ---
 
