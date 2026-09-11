@@ -536,7 +536,11 @@ input.wk-chip:focus-visible {
     opacity var(--t-fast);
 }
 
-.ds-cta:hover {
+/* A `:not(:disabled)` nem óvatoskodás: a terv-építő Mentés gombja az első
+   letiltható .ds-cta (mentés közben `disabled`), és a globális
+   `button:disabled { opacity: .55 }` fölött a `.ds-cta:hover` specificitása
+   nyer — letiltott gomb hoverre VILÁGOSABB lett volna, mint tiltás nélkül. */
+.ds-cta:hover:not(:disabled) {
   opacity: 0.9;
 }
 
@@ -552,7 +556,7 @@ input.wk-chip:focus-visible {
     color: var(--text-primary);
   }
 
-  .ds-cta:hover {
+  .ds-cta:hover:not(:disabled) {
     background: var(--c-accent);
     border-color: var(--c-accent);
     color: var(--on-accent);
@@ -1527,26 +1531,11 @@ input.wk-chip:focus-visible {
   border-color: var(--fg-60);
 }
 
+/* A formát a .ds-cta adja; itt csak a lap-specifikus margó marad. A gomb a
+   terv-építő fejlécéből a lap aljára került — a flow-oldalak elsődleges
+   művelete ott áll, teljes szélességben. */
 .wk-save {
-  background: var(--c-paper);
-  color: var(--c-ink);
-  border: none;
-  border-radius: var(--r-md);
-  padding: var(--sp-4) var(--sp-8);
-  font-size: var(--fs-md);
-  font-weight: 700;
-  flex-shrink: 0;
-  transition:
-    background var(--t-fast),
-    transform var(--t-fast);
-}
-
-.wk-save:hover:not(:disabled) {
-  background: var(--c-paper-bright);
-}
-
-.wk-save:active:not(:disabled) {
-  transform: translateY(1px);
+  margin-top: var(--sp-5);
 }
 
 .wk-list {
@@ -2816,59 +2805,50 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   margin: 0 0 var(--sp-9);
 }
 
-/* „+ Új terv" — a terv-építő flow-oldalra visz */
+/* „+ Új terv" — a terv-építő flow-oldalra visz. Tömör paper-felület helyett
+   hajszálvonalas keret és mono nagybetűs felirat: a lap fő műveletei a
+   terv-SOROK (megnyitás), ez csak a belépő egy újhoz. */
 .pl-new {
   flex-shrink: 0;
-  background: var(--c-paper);
-  color: var(--c-ink);
-  border: none;
-  border-radius: var(--r-md);
+  min-height: var(--tap-min);
+  background: none;
+  border: 1px solid var(--hair);
+  color: var(--text-primary);
   padding: var(--sp-4) var(--sp-8);
-  font-size: var(--fs-md);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
   font-weight: 700;
-  transition: background var(--t-fast);
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
+  transition:
+    border-color var(--t-fast),
+    background var(--t-fast);
 }
 
 .pl-new:hover {
-  background: var(--c-paper-bright);
+  border-color: var(--fg-40);
+  background: var(--surface-hover);
 }
 
+/* A gap 0: a sorokat a .ds-row szomszéd-szelektora választja el. */
 .pl-list {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--sp-6);
 }
 
+/* A formát a .ds-row adja; kártya-háttér, keret és belső margó nincs többé. */
 .pl-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   gap: var(--sp-6);
-  background: var(--surface-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--r-2xl);
-  padding: var(--sp-7);
 }
 
+/* A .ds-row-main gap-je 2px, ami a haladássávnak kevés — a név, a meta, a
+   figyelmeztetés és a sáv négy külön szint, nem egy tömb. */
 .pl-card-info {
-  display: flex;
-  flex-direction: column;
   gap: var(--sp-3);
-  min-width: 0;
   flex: 1;
-}
-
-.pl-card-name {
-  font-size: var(--fs-lg);
-  font-weight: 700;
-}
-
-.pl-card-meta {
-  font-size: var(--fs-xs);
-  color: var(--text-muted);
 }
 
 .pl-progress {
@@ -2888,7 +2868,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .pl-card-open {
   width: 34px;
   height: 34px;
-  border-radius: var(--r-full);
   border: none;
   background: var(--surface-strong);
   color: var(--text-primary);
@@ -2905,7 +2884,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .pl-card-edit {
   width: 34px;
   height: 34px;
-  border-radius: var(--r-full);
   border: 1px solid var(--border-strong);
   background: none;
   color: var(--fg-70);
@@ -4771,19 +4749,36 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
        wk-add-exercise); a gyakorlatkártyákon itt nincs videó gomb és
        „kész" pipa — a terv sablon, nem naplóbejegyzés.
    ========================================================================== */
+/* A fejlécben már csak a vissza-gomb és a felkiáltó áll: a név külön sorba,
+   a Mentés a lap aljára került (flow-oldal-felépítés). */
 .pb-header {
   display: flex;
   align-items: center;
   gap: var(--sp-5);
-  margin-bottom: var(--sp-10);
+  margin-bottom: var(--sp-7);
 }
 
-/* Élő összegző a fejléc alatt: „3 gyakorlat · 8 szett · ~64 perc" */
+/* A terv neve a lap címe: szerkeszthető mező, de a méretében cím. A .wk-title
+   alaprétegét (alávonal, fókusz) megtartja — csak a lépcsőt emeli. */
+.pb-title {
+  width: 100%;
+  font-size: var(--fs-3xl);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: var(--sp-5);
+}
+
+/* Élő összegző a cím alatt: „3 gyakorlat · 8 szett · ~64 perc". A negatív
+   felső margó elmaradt — a cím már nem a fejléc-sorban ül, nincs mit
+   felhúzni. */
 .pb-summary {
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  color: var(--fg-60);
-  margin: calc(-1 * var(--sp-4)) 0 var(--sp-7);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: 0 0 var(--sp-11);
 }
 
 /* Hétnap-ütemezés: a kijelölt napokon a terv az Edzés oldalra töltődik */
@@ -4791,44 +4786,48 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   margin-bottom: var(--sp-8);
 }
 
+/* A .ds-eyebrow adja a tipográfiát; itt csak a blokk-szintű elrendezés marad
+   (a felkiáltó egy span, ami magától sorba folyna). */
 .pb-days-label {
   display: block;
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  color: var(--text-secondary);
+  margin-bottom: var(--sp-5);
+}
+
+/* A hét napja egy összefüggő, hajszálvonalakkal osztott sáv: a .ds-grid 1px-es
+   rése adja a vonalat, a chipeknek nincs saját keretük. A `wrap` megmarad — a
+   legkeskenyebb kijelzőn a hét nap két sorba törik, és a rés ott is vonal. */
+.pb-days-chips {
   margin-bottom: var(--sp-3);
 }
 
-.pb-days-chips {
-  display: flex;
-  gap: var(--sp-2);
-  flex-wrap: wrap;
-}
-
 .pb-day {
+  flex: 1;
   min-width: 40px;
-  background: none;
-  border: 1px solid var(--border-strong);
-  color: var(--fg-60);
-  border-radius: var(--r-md);
+  min-height: var(--tap-min);
+  background: var(--c-bg);
+  border: 0;
+  color: var(--text-secondary);
   padding: var(--sp-3) var(--sp-4);
-  font-size: var(--fs-md);
-  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
   transition:
     background var(--t-fast),
-    color var(--t-fast),
-    border-color var(--t-fast);
+    color var(--t-fast);
 }
 
 .pb-day:hover {
-  border-color: var(--fg-40);
-  color: var(--text-secondary);
+  background: var(--surface-hover);
+  color: var(--text-primary);
 }
 
+/* A kijelölt nap accent hátterű — ugyanaz a jelölés, mint a .ds-seg aktív
+   gombjáé, mert ez is ugyanaz a döntés: melyik szegmens él. */
 .pb-day[aria-pressed='true'] {
-  background: var(--c-paper);
-  border-color: var(--c-paper);
-  color: var(--c-ink);
+  background: var(--c-accent);
+  color: var(--on-accent);
 }
 
 .pb-days-hint {
@@ -4866,9 +4865,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   flex-shrink: 0;
   width: 38px;
   height: 38px;
-  border-radius: var(--r-full);
   background: none;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--hair);
   color: var(--text-secondary);
   font-size: var(--fs-2xl);
   line-height: 1;
@@ -4890,10 +4888,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .ep-subtitle {
-  margin: var(--sp-1) 0 0;
-  font-size: var(--fs-sm);
-  font-weight: 500;
-  color: var(--text-muted);
+  margin: 0 0 var(--sp-3);
 }
 
 .ep-chips {
@@ -4904,15 +4899,22 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   margin-bottom: var(--sp-6);
 }
 
+/* A chipek a .ds-grid receptjét NEM követhetik: ez egy vízszintesen görgethető
+   sor (overflow-x), ahol a szülő háttere a görgetéssel együtt mozogna, és a
+   flex-shrink: 0 miatt a rés sem maradna 1px-es. Marad a keretes chip —
+   szögletesen (a 999px nyers érték volt), hajszálvonallal, accent aktívval. */
 .ep-chip {
   flex-shrink: 0;
+  min-height: var(--tap-min);
   background: none;
-  border: 1px solid var(--border-strong);
-  color: var(--fg-60);
-  border-radius: 999px;
+  border: 1px solid var(--hair);
+  color: var(--text-secondary);
   padding: var(--sp-3) var(--sp-7);
-  font-size: var(--fs-md);
-  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
   white-space: nowrap;
   transition:
     background var(--t-fast),
@@ -4922,38 +4924,38 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 
 .ep-chip:hover {
   border-color: var(--fg-40);
-  color: var(--text-secondary);
+  color: var(--text-primary);
 }
 
 .ep-chip[aria-pressed='true'] {
-  background: var(--c-paper);
-  border-color: var(--c-paper);
-  color: var(--c-ink);
+  background: var(--c-accent);
+  border-color: var(--c-accent);
+  color: var(--on-accent);
 }
 
+/* A .ds-eyebrow tipográfiája, de a saját szabály marad: ez egy aria-live
+   régió a lista fölött, nem egy szekció felkiáltója. */
 .ep-count {
+  font-family: var(--font-mono);
   font-size: var(--fs-2xs);
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: var(--ls-label-tight);
   text-transform: uppercase;
   color: var(--text-muted);
   margin: 0 0 var(--sp-5);
 }
 
+/* A gap 0: a sorokat a .ds-row szomszéd-szelektora választja el. */
 .ep-list {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-4);
 }
 
+/* A formát a .ds-row adja; kártya-háttér, keret és belső margó nincs többé.
+   A 88px-es becslés érvényben marad: a sor magasságát továbbra is az 56px-es
+   thumbnail és a .ds-row függőleges margója adja ki, nagyjából ugyanannyit. */
 .ep-item {
-  display: flex;
-  align-items: center;
   gap: var(--sp-5);
-  background: var(--surface-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--r-xl);
-  padding: var(--sp-6);
 
   /* A katalógus 1400+ kártyából áll. A content-visibility a képernyőn kívüli
      kártyák kirajzolását (elrendezés, festés) elhalasztja, amíg oda nem
@@ -4965,13 +4967,16 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 /* Gyakorlat-illusztráció. Fix méret, hogy a lista ne ugráljon, amíg a képek
-   lazy módon betöltenek; a világos háttér a gifek fehér hátterét folytatja. */
+   lazy módon betöltenek; a világos háttér a gifek fehér hátterét folytatja —
+   most tokenből, nem literálból. A hajszálvonal-keret új: a kártya eltűntével
+   a fehér négyzet a lap sötét felületén ül, ahol él nélkül kivágott foltnak
+   látszana. */
 .ep-item-thumb {
   flex-shrink: 0;
   width: 56px;
   height: 56px;
-  border-radius: var(--r-md);
-  background: #fff;
+  border: 1px solid var(--hair);
+  background: var(--c-paper-bright);
   object-fit: cover;
 }
 
@@ -4996,15 +5001,14 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .ep-item-tag {
-  background: var(--surface-input);
-  border: 1px solid var(--border-card);
-  color: var(--fg-60);
+  border: 1px solid var(--hair-soft);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
   font-size: var(--fs-2xs);
   font-weight: 700;
-  letter-spacing: 0.05em;
+  letter-spacing: var(--ls-label-tight);
   text-transform: uppercase;
-  padding: 3px 7px;
-  border-radius: var(--r-xs);
+  padding: var(--sp-1) var(--sp-3);
 }
 
 /* Hozzáadás-gomb: → alapban, ✓ ha a gyakorlat már benne van az edzésben */
@@ -5012,9 +5016,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   flex-shrink: 0;
   width: 38px;
   height: 38px;
-  border-radius: var(--r-full);
   background: none;
-  border: 1px solid var(--fg-20);
+  border: 1px solid var(--hair);
   color: var(--text-secondary);
   font-size: var(--fs-xl);
   line-height: 1;
