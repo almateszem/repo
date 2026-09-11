@@ -225,6 +225,25 @@
   --nav-ring-clearance: 164px;
 }
 
+/* A világos téma helye. A prototípusban opció (paper: #f4f2ed), de a
+   palettája még nincs kitöltve — ez a blokk SZÁNDÉKOSAN üres a
+   color-scheme-en túl, hogy a szerkezet készen álljon, és később EGY helyen
+   legyen mit írni.
+
+   Kitöltendő: --c-bg, --c-bg-deep, --c-bg-raised, --surface-panel, --hair,
+   --hair-soft, és a --fg-* alfa-skála fekete alfára fordítva. Minden más
+   token (accent, alert, tier-ek, tipográfia, térköz, sugarak, z-rétegek)
+   témától független — azokat ide NEM kell átmásolni.
+
+   A color-scheme itt már most helyes értéket ad: ha valaki a témaváltót
+   megírja, a natív vezérlők (görgetősáv, a type=search törlő ✕-e, a
+   szám-mezők belső részei, az autofill háttere) azonnal együtt mozdulnak a
+   lappal — ugyanazért, amiért a :root sötétre állítja (lásd a 2. szakasz
+   elején). */
+[data-theme='light'] {
+  color-scheme: light;
+}
+
 /* ==========================================================================
    2. Base és reset
    ========================================================================== */
