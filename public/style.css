@@ -3056,72 +3056,104 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 /* ---- Sportoló-kártya rács ---- */
+/* A pajzs-kártyás rács sorlistává vált. A `display: grid` és az auto-fill
+   elmarad: két 158px-es oszlopban a név, a két statisztika és az idézett
+   üzenet is szorult, a kártya „FIFA-pajzs" sugara pedig amúgy sem
+   tokenizálható (48%/14% — nem --r-* érték, tehát a sugár-nullázás nem is
+   érte volna el). Egy sorban minden kifér, és a lap többi listájával egy
+   nyelvet beszél. */
 .co-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
-  gap: var(--sp-6);
-}
-
-/* FIFA-kártya ihletésű pajzs: felül kártya-sarkok, alul enyhén csúcsosodó ív */
-.co-card {
-  position: relative;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: var(--sp-3);
-  padding: var(--sp-6) var(--sp-5) var(--sp-9);
-  background: linear-gradient(170deg, var(--tier-soft), transparent 60%), var(--surface-card);
-  border: 1px solid var(--tier-border);
-  border-radius: var(--r-2xl) var(--r-2xl) 48% 48% / var(--r-2xl) var(--r-2xl) 14% 14%;
+}
+
+/* A sor formáját a .ds-row adja. Ami marad: a bal oldali rang-jelölősáv és a
+   hozzá tartozó behúzás, plusz a beúszás (--i), ami a lista sorrendjét
+   olvashatóvá teszi frissítés után. A rangot mostantól ez a 2px-es sáv és a
+   jobb szélen álló szám viszi — nem a kártya kerete és gradiense. */
+.co-card {
+  position: relative;
+  gap: var(--sp-5);
+  padding-left: var(--sp-8);
   color: var(--text-primary);
+  text-align: left;
   animation: note-in 0.25s ease backwards;
   animation-delay: calc(var(--i, 0) * 40ms);
 }
 
+.co-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -1px;
+  bottom: 0;
+  width: 2px;
+  /* Tartalék a hajszálvonalra: a --tier-t a .co-tier--* osztály adja, amit a
+     JS tesz fel (render/coach.js). Ha az valaha elmarad, a sáv láthatatlan
+     lenne, és a sor néma módon veszítené el a bal szélét. */
+  background: var(--tier, var(--hair));
+}
+
+/* A hover már nem mozgat. A sort elválasztó vonal a KÖVETKEZŐ elem
+   border-topja, egy translateY tehát elválasztaná tőle — ugyanaz a hiba,
+   amit a 16. szakasz kártya-hover blokkjából a .wk-exercise és a .nu-food
+   miatt már kivettünk. Helyette a felület emelkedik ki. */
 @media (hover: hover) {
   .co-card {
-    transition:
-      border-color var(--t-fast),
-      transform var(--t-fast);
+    transition: background var(--t-fast);
   }
 
   .co-card:hover {
-    border-color: var(--tier);
-    transform: translateY(-2px);
+    background: var(--surface-hover);
   }
 }
 
-.co-card-top {
-  position: absolute;
-  top: var(--sp-5);
-  left: var(--sp-5);
+/* Az értékelés a sor jobb szélén. A .ds-row-value osztályt SZÁNDÉKOSAN nem
+   kapja meg: ott a szín fix, itt a rangé (--tier), és a szám alatt még egy
+   címke is áll. */
+.co-card-side {
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-end;
   gap: 1px;
 }
 
 .co-card-rating {
-  font-size: var(--fs-5xl);
+  font-size: var(--fs-4xl);
   font-weight: 800;
   line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
   color: var(--tier);
 }
 
 .co-card-tag {
+  font-family: var(--font-mono);
   font-size: var(--fs-2xs);
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
   color: var(--text-muted);
 }
 
+.co-card-main {
+  gap: var(--sp-2);
+}
+
+/* A név és a két jelvény egy sorban: keret nélküli soron nincs sarok, amihez
+   a jelvényeket abszolút pozicionálni lehetne. */
+.co-card-ident {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+
 .co-card-alert {
-  position: absolute;
-  top: var(--sp-5);
-  right: var(--sp-5);
+  flex-shrink: 0;
   width: 18px;
   height: 18px;
-  border-radius: var(--r-full);
   background: var(--c-alert);
   color: var(--fg-100);
   font-size: var(--fs-xs);
@@ -3131,17 +3163,14 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   justify-content: center;
 }
 
-/* Olvasatlan-jelvény: a riasztás ALATT, hogy a kettő egyszerre is elférjen
-   (a figyelmet igénylő sportoló írhat is). A darabszámot a kártya
-   aria-label-je mondja el — a jelvény maga aria-hidden. */
+/* Olvasatlan-jelvény: a riasztás MELLETT, hogy a kettő egyszerre is elférjen
+   (a figyelmet igénylő sportoló írhat is). A darabszámot a sor aria-label-je
+   mondja el — a jelvény maga aria-hidden. */
 .co-card-unread {
-  position: absolute;
-  top: calc(var(--sp-5) + 22px);
-  right: var(--sp-5);
+  flex-shrink: 0;
   min-width: 18px;
   height: 18px;
-  padding: 0 5px;
-  border-radius: var(--r-full);
+  padding: 0 var(--sp-2);
   background: var(--c-accent);
   color: var(--on-accent);
   font-size: var(--fs-2xs);
@@ -3151,15 +3180,13 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   justify-content: center;
 }
 
-/* A szál utolsó üzenete a kártya alján, egy sorban levágva — a kártya
-   magassága nem függhet attól, milyen hosszút írt valaki. */
+/* A szál utolsó üzenete egy sorban levágva — a sor magassága nem függhet
+   attól, milyen hosszút írt valaki. A levágás a .ds-row-main min-width: 0-ját
+   használja: enélkül a flex-elem nem menne a tartalma szélessége alá. */
 .co-card-msg {
-  width: 100%;
-  margin-top: var(--sp-1);
   font-size: var(--fs-2xs);
   line-height: 1.4;
   color: var(--text-faint);
-  text-align: center;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3170,10 +3197,13 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   font-weight: 600;
 }
 
+/* Az avatar kör marad: a --r-full kivétel-listája kimondottan tartalmazza.
+   A mérete 56px-ről 40px-re csökken — a pajzson a kép volt a főszereplő, a
+   soron a név az, az avatar csak azonosít. */
 .co-card-avatar {
-  width: 56px;
-  height: 56px;
-  margin-top: var(--sp-9);
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
   border-radius: var(--r-full);
   background: var(--fg-06);
   display: flex;
@@ -3182,37 +3212,37 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .co-card-avatar svg {
-  width: 30px;
-  height: 30px;
+  width: 22px;
+  height: 22px;
   fill: var(--fg-30);
 }
 
+/* A méretet és a súlyt a .ds-row-name adja; itt a levágás feltételei állnak. */
 .co-card-name {
-  font-size: var(--fs-base);
-  font-weight: 700;
-  text-align: center;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+/* A statisztikák a név alatti meta-sorba kerültek: nem külön kétoszlopos rács
+   a kártya alján, hanem felsorolás a .ds-row-sub nyelvén. A saját
+   elválasztó vonaluk elmarad — a sort már a lista hajszálvonala határolja. */
 .co-card-stats {
-  width: 100%;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--sp-3) var(--sp-4);
-  border-top: 1px solid var(--fg-08);
-  padding-top: var(--sp-4);
-  margin-top: var(--sp-1);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-5);
 }
 
 .co-card-stat {
   display: flex;
-  flex-direction: column;
-  gap: 1px;
-  text-align: center;
+  align-items: baseline;
+  gap: var(--sp-2);
   min-width: 0;
 }
 
 .co-card-stat-value {
-  font-size: var(--fs-md);
+  font-size: var(--fs-xs);
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
@@ -3220,15 +3250,19 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .co-card-stat-label {
+  font-family: var(--font-mono);
   font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
   color: var(--text-muted);
 }
 
-/* ---- Üzenet-buborékok (a részletmodál üzenetváltása használja) ---- */
+/* ---- Üzenet-buborékok (a részletmodál és az Edző oldal chatje) ----
+   A buborék szögletes, és kártya-háttere nincs: a felület a lapé, a buborékot
+   a hajszálvonal-keret rajzolja ki. */
 .co-note {
-  background: var(--surface-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--r-xl);
+  border: 1px solid var(--hair);
   padding: var(--sp-6);
 }
 
@@ -3245,17 +3279,19 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   line-height: 1.5;
 }
 
+/* A rést a .ds-grid adja (osztályként fel van téve): a mező és a Küldés gomb
+   egy összefüggő sáv két szegmense, 1px-es hajszálvonallal elválasztva. A
+   `nowrap` felülírás kell: a primitív alapból törhet, egy külön sorba ugró
+   Küldés gomb viszont értelmetlen. */
 .co-composer {
-  display: flex;
-  gap: var(--sp-4);
+  flex-wrap: nowrap;
 }
 
 .co-composer input {
   flex: 1;
   min-width: 0;
-  background: var(--surface-input);
+  background: var(--c-bg);
   border: none;
-  border-radius: var(--r-lg);
   padding: var(--sp-5) var(--sp-6);
   color: var(--text-primary);
   font-size: var(--fs-input);
@@ -3270,26 +3306,21 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--text-faint);
 }
 
+/* A küldés az egyetlen művelet a sávon, ezért accent — a lapok fő
+   műveleteivel azonos jelölés, csak ikon-méretben. */
 .co-composer button {
-  width: 44px;
-  border-radius: var(--r-lg);
+  width: var(--tap-min);
   border: none;
-  background: var(--c-paper);
-  color: var(--c-ink);
+  background: var(--c-accent);
+  color: var(--on-accent);
   font-size: var(--fs-xl);
   font-weight: 700;
   flex-shrink: 0;
-  transition:
-    background var(--t-fast),
-    transform var(--t-fast);
+  transition: opacity var(--t-fast);
 }
 
 .co-composer button:hover {
-  background: var(--c-paper-bright);
-}
-
-.co-composer button:active {
-  transform: translateY(1px);
+  opacity: 0.9;
 }
 
 /* ==========================================================================
@@ -4139,9 +4170,11 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   }
 }
 
+/* A saját üzenet accent KERETET kap, nem accent hátteret: tömör felületen egy
+   hosszabb üzenet nagy vörös folt volna, és a szövege is elvesztené a saját
+   kontrasztját. A behúzás marad — az mondja meg, ki beszél. */
 .co-note--me {
-  background: var(--surface-input);
-  border-color: var(--border-strong);
+  border-color: var(--c-accent);
   margin-left: var(--sp-13); /* enyhén jobbra tolva, chat-szerűen */
 }
 
@@ -4519,38 +4552,29 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 
 /* A szegmentált váltó közös komponens: a workout heti összehasonlítása
    (wk-toggle) és az Edző oldal nézetváltója (co-toggle) is ezt használja. */
-.wk-toggle,
-.co-toggle {
-  display: flex;
-  gap: 2px;
-  background: var(--surface-input);
-  border-radius: var(--r-md);
-  padding: 2px;
+/* A formát mindkettőnek a .ds-seg adja (osztályként fel van téve): 1px-es
+   rés hajszálvonal-háttéren, az aktív szegmens accent. A korábbi chip-sávot
+   (surface-input felület, 2px-es rés, paper-aktív) ez váltja ki.
+
+   A .wk-toggle az Edzés oldal időszak-váltója, a .co-toggle az Edző oldal
+   nézetváltója — a stílusukat eddig is EGY blokk adta, mert ugyanaz a
+   döntés: melyik szegmens él. Ezért állnak át együtt.
+
+   Itt már csak az marad, amit a primitív nem tud: a .wk-toggle nem feszül ki
+   a lap szélességére (a .wk-compare fejlécében a cím mellett ül), ezért a
+   gombjai nem nyúlnak. */
+.wk-toggle {
+  flex: 0 0 auto;
 }
 
-.wk-toggle-btn,
-.co-toggle-btn {
-  border: none;
-  background: none;
-  color: var(--fg-60);
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  padding: var(--sp-2) var(--sp-5);
-  border-radius: var(--r-sm);
-  transition:
-    background var(--t-fast),
-    color var(--t-fast);
+.wk-toggle .ds-seg-btn {
+  flex: 0 0 auto;
 }
 
 .wk-toggle-btn:hover,
 .co-toggle-btn:hover {
-  color: var(--text-secondary);
-}
-
-.wk-toggle-btn[aria-pressed='true'],
-.co-toggle-btn[aria-pressed='true'] {
-  background: var(--c-paper);
-  color: var(--c-ink);
+  background: var(--surface-hover);
+  color: var(--text-primary);
 }
 
 .wk-compare .chart {
@@ -5519,7 +5543,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
    színezi át a buborékot (a szöveg kontrasztja marad), csak megmutatja,
    meddig tart az újdonság. */
 .co-note--unread {
-  border-color: var(--c-accent);
   box-shadow: inset 3px 0 0 var(--c-accent);
 }
 
@@ -6970,29 +6993,14 @@ details[open] > .rc-details-summary::before {
   cursor: default;
 }
 
-/* ---- Gyakorlat-megjegyzések (su-note-*, co-note-*) ---- */
-.co-note--plan {
-  border-color: var(--fg-20);
-}
+/* ---- Gyakorlat-megjegyzések (su-note-*) ----
+   Itt korábban négy co-note szabály is állt: a .co-note-meta, a .co-note-text
+   és a .co-note--me SZÓ SZERINTI másolata a 10. és a 16. szakaszban lévőknek,
+   plusz egy .co-note--plan, amit sem a markup, sem a JS nem tesz fel senkire.
 
-.co-note-meta {
-  font-size: var(--fs-xs);
-  color: var(--text-muted);
-  display: block;
-  margin-bottom: var(--sp-2);
-}
-
-.co-note-text {
-  margin: 0;
-  font-size: var(--fs-md);
-  line-height: 1.5;
-}
-
-.co-note--me {
-  background: var(--surface-input);
-  border-color: var(--border-strong);
-  margin-left: var(--sp-13); /* enyhén jobbra tolva, chat-szerűen */
-}
+   A három másolat nem volt ártalmatlan: mivel később álltak a fájlban, ŐK
+   nyertek — a 10. szakaszban átírt buborék-stílus némán hatástalan maradt
+   volna. Ezért törölve; a szabályok egyetlen helyen élnek tovább. */
 
 .su-note {
   background: var(--surface-card);

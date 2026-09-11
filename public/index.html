@@ -446,9 +446,9 @@
         <section class="wk-compare" aria-labelledby="title-compare">
           <div class="wk-compare-head">
             <h3 class="wk-progress-title" id="title-compare">Heti volumen — összehasonlítás</h3>
-            <div class="wk-toggle" role="group" aria-label="Időszak kiválasztása">
-              <button class="wk-toggle-btn" type="button" data-period="volumeThisWeek" aria-pressed="true">Ez a hét</button>
-              <button class="wk-toggle-btn" type="button" data-period="volumeLastWeek" aria-pressed="false">Múlt hét</button>
+            <div class="wk-toggle ds-seg" role="group" aria-label="Időszak kiválasztása">
+              <button class="wk-toggle-btn ds-seg-btn" type="button" data-period="volumeThisWeek" aria-pressed="true">Ez a hét</button>
+              <button class="wk-toggle-btn ds-seg-btn" type="button" data-period="volumeLastWeek" aria-pressed="false">Múlt hét</button>
             </div>
           </div>
           <div class="chart" role="img" aria-label="Munkasorozatok naponta — ez a hét" data-chart="volumeThisWeek">
@@ -700,10 +700,10 @@
       <section class="app-page co-page" data-page="coach" aria-labelledby="title-coach" hidden>
         <h2 class="sr-only" id="title-coach">Edző</h2>
 
-        <div class="co-toggle" role="group" aria-label="Edző-nézet kiválasztása" data-coach-toggle>
-          <button class="co-toggle-btn" type="button" data-coach-view="client" aria-pressed="true">Edződ<span
+        <div class="co-toggle ds-seg" role="group" aria-label="Edző-nézet kiválasztása" data-coach-toggle>
+          <button class="co-toggle-btn ds-seg-btn" type="button" data-coach-view="client" aria-pressed="true">Edződ<span
             class="co-toggle-badge" data-invite-badge hidden></span></button>
-          <button class="co-toggle-btn" type="button" data-coach-view="manager" aria-pressed="false">Edzetteim<span
+          <button class="co-toggle-btn ds-seg-btn" type="button" data-coach-view="manager" aria-pressed="false">Edzetteim<span
             class="co-toggle-badge" data-athlete-badge hidden></span></button>
         </div>
 
@@ -735,7 +735,7 @@
             </header>
 
             <div class="co-msg-feed co-client-feed" data-client-feed aria-label="Üzenetváltás az edződdel"></div>
-            <form class="co-composer" data-form="coach-message">
+            <form class="co-composer ds-grid" data-form="coach-message">
               <label class="sr-only" for="coach-message">Üzenet az edzőnek</label>
               <input type="text" id="coach-message" placeholder="Írj az edződnek…" required maxlength="280" autocomplete="off">
               <button type="submit" aria-label="Küldés">→</button>
@@ -1344,7 +1344,7 @@
       <!-- Üzenetváltás — az „Üzenet" gomb nyitja, a hírfolyam a tpl-coach-note-ból épül -->
       <section class="co-msg" id="athleteMsgSection" data-msg-section aria-label="Üzenetváltás a sportolóval" hidden>
         <div class="co-msg-feed" data-msg-feed></div>
-        <form class="co-composer" data-form="athlete-message">
+        <form class="co-composer ds-grid" data-form="athlete-message">
           <label class="sr-only" for="athlete-message">Üzenet a sportolónak</label>
           <input type="text" id="athlete-message" placeholder="Üzenet a sportolónak…" required maxlength="280" autocomplete="off">
           <button type="submit" aria-label="Küldés">→</button>
@@ -1836,20 +1836,26 @@
   </template>
 
   <template id="tpl-athlete-card">
-    <button class="co-card" type="button" aria-haspopup="dialog">
-      <span class="co-card-top" aria-hidden="true">
-        <span class="co-card-rating">0</span>
-        <span class="co-card-tag"></span>
-      </span>
-      <span class="co-card-alert" aria-hidden="true" hidden>!</span>
-      <span class="co-card-unread" aria-hidden="true" hidden></span>
+    <button class="co-card ds-row" type="button" aria-haspopup="dialog">
       <span class="co-card-avatar" aria-hidden="true">
         <svg viewBox="0 0 24 24"><use href="#icon-user"/></svg>
       </span>
-      <span class="co-card-name"></span>
-      <span class="co-card-stats"></span>
-      <!-- A szál utolsó üzenete idézve (a szerver küldi, js/ui/chat.js tölti fel) -->
-      <span class="co-card-msg" hidden></span>
+      <span class="co-card-main ds-row-main">
+        <span class="co-card-ident">
+          <span class="co-card-name ds-row-name"></span>
+          <!-- A két jelvény a név MELLETT ül, nem a kártya sarkában: keret
+               nélküli soron nincs sarok, amihez abszolút pozicionálni lehetne. -->
+          <span class="co-card-alert" aria-hidden="true" hidden>!</span>
+          <span class="co-card-unread" aria-hidden="true" hidden></span>
+        </span>
+        <span class="co-card-stats"></span>
+        <!-- A szál utolsó üzenete idézve (a szerver küldi, js/ui/chat.js tölti fel) -->
+        <span class="co-card-msg" hidden></span>
+      </span>
+      <span class="co-card-side" aria-hidden="true">
+        <span class="co-card-rating">0</span>
+        <span class="co-card-tag"></span>
+      </span>
     </button>
   </template>
 
