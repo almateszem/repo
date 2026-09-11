@@ -22,13 +22,17 @@ function historyEntryEl(entry) {
   return li;
 }
 
-/** Egy mentett edzés → „Korábbi edzések" sor (név + teljesített/összes szett). */
+/** Egy mentett edzés → „Korábbi edzések" sor (név + teljesített/összes szett).
+    Ha volt benne kardió, a becsült égetés is odakerül: az a sor egyetlen
+    olyan száma, ami egy futásról bármit is mond. */
 function workoutHistoryEntry(workout) {
   const sets = workout.exercises.flatMap((exercise) => exercise.sets || []);
   const done = sets.filter((set) => set.done).length;
+  const parts = [`${done}/${sets.length} szett`];
+  if (Number.isFinite(workout.calories)) parts.push(`${workout.calories} kcal`);
   return {
     id: workout.id, date: workout.date, detail: workout.name,
-    rpe: `${done}/${sets.length} szett`,
+    rpe: parts.join(' · '),
   };
 }
 

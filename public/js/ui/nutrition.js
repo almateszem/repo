@@ -17,17 +17,41 @@ async function setupNutrition(foodDetail) {
   const logEmpty = $('[data-nu-log-empty]');
   const logCount = $('[data-nu-log-count]');
   const STAT_KEYS = ['intake', 'protein', 'carbs', 'fat'];
+  const intakeLabelEl = $('[data-nu-intake-label]');
+  const netNoteEl = $('[data-nu-net-note]');
+
+  /* NETTÓ bevitel: a bevitt kalória mínusz a kardióval elmozgatott. Nullánál
+     nem megyünk lejjebb — negatív bevitelt kiírni hibának látszana —, a valós
+     két számot viszont a magyarázó sor mindig kimondja.
+     A MAKRÓKAT ez nem érinti: a mozgás nem vesz el fehérjét, csak energiát. */
+  const netIntake = (t) => Math.max(0, Math.round(t.intake) - (t.burned || 0));
 
   // A napi összesítő a szerverről (alap + naplózott ételek) — újratöltés után
   // is a valós állapotot mutatja. A lokális másolat a POST-válaszokkal frissül.
   let totals = null;
   const applyTotals = (next, { animateFrom = null } = {}) => {
-    totals = next;
+    /* A mozgással elégetett kalória csak a napi összesítő végpontjában van
+       benne; az étel-naplózás POST-válasza a nyers összeget adja vissza. Ha
+       onnan jön a friss érték, a korábbi napi égetést visszük tovább —
+       különben egy bejegyzés után a nettó szám visszaugrana a bruttóra. */
+    totals = { burned: totals?.burned ?? 0, ...next };
     STAT_KEYS.forEach((key) => {
       const el = $(`[data-stat="${key}"]`);
-      if (animateFrom) animateNumber(el, totals[key], { from: animateFrom[key], duration: 600 });
-      else el.textContent = formatNumber(totals[key]);
+      const value = key === 'intake' ? netIntake(totals) : totals[key];
+      const from = animateFrom
+        && (key === 'intake' ? netIntake({ ...animateFrom, burned: totals.burned }) : animateFrom[key]);
+      if (animateFrom) animateNumber(el, value, { from, duration: 600 });
+      else el.textContent = formatNumber(value);
     });
+
+    const burned = totals.burned || 0;
+    intakeLabelEl.textContent = burned > 0 ? 'Nettó bevitel' : 'Bevitel';
+    netNoteEl.hidden = burned === 0;
+    if (burned > 0) {
+      netNoteEl.textContent =
+        `${formatNumber(Math.round(totals.intake))} kcal elfogyasztva, `
+        + `${formatNumber(burned)} kcal elmozgatva kardióval.`;
+    }
     /* A fejléc „Cél" száma is innen jön: a cél mostantól szerkeszthető,
        tehát nem elég egyszer, betöltéskor kiírni. */
     const goalCalEl = $('[data-goal="calories"]');

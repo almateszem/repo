@@ -62,6 +62,11 @@ function renderDailyStats(dailyStats) {
   const setText = (selector, value) => { const el = $(selector); if (el) el.textContent = value; };
   setText('[data-daily="calories"]', dailyStats.calories);
   setText('[data-daily="caloriesTarget"]', '/' + dailyStats.caloriesTarget);
+  /* Kardió után a szám NETTÓ (bevitel mínusz elmozgatott). A címke ezt mondja
+     ki: a részletes kivonás a Táplálkozás oldalon áll, de a kártyán sem lehet
+     magyarázat nélkül kevesebb, mint amennyit a felhasználó beírt. */
+  const burned = Number(dailyStats.caloriesBurned) || 0;
+  setText('[data-daily-label]', burned > 0 ? 'Kalória · nettó' : 'Kalória');
   setText('[data-daily="protein"]', dailyStats.protein);
   setText('[data-daily="carbs"]', dailyStats.carbs);
   setText('[data-daily="fat"]', dailyStats.fat);

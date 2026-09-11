@@ -399,6 +399,8 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
       setLastSummary({
         ...summary,
         workoutId: saved.id,
+        // A becsült kardió-égetés a szerver válaszából; szett-alapú edzésnél null.
+        calories: saved.calories,
         feedbackSent: false,
         /* A gyakorlatnevek a MENTETT sorrendben: a megjegyzés a tömbön
            belüli INDEXRE hivatkozik, ezért a kettőnek együtt kell járnia. */

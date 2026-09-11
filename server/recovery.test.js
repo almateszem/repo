@@ -12,6 +12,9 @@ import {
   computeReadiness, sleepDurationScore, sleepScore, nutritionScore, epley1RM, BASE_WEIGHTS,
 } from './recovery.js';
 import { resolveExerciseLoad, isAxialLift, MUSCLE_KEYS } from './muscles.js';
+/* A kardió-tesztek a VALÓDI katalógussal futnak: a becsapódás-jelleg és a
+   testsúly-viselés onnan jön, és kitalált adaton nem is volna mit mérni. */
+import { buildExerciseCatalog } from './data/catalog.js';
 
 /* ---- Segédek a teszt-adatokhoz ---- */
 
@@ -656,4 +659,105 @@ test('a riport minden felület által várt mezőt tartalmaz', () => {
 test('check-in nélkül a regenerációs sorok nem találnak ki alvásadatot', () => {
   const report = run();
   assert.equal(report.recovery.sleep, '—');
+});
+
+
+/* ======================================================================
+   Időalapú (kardió) terhelés
+   ----------------------------------------------------------------------
+   A kardió sorban nincs ismétlés és súly, tehát a setLoad és a setStimulus
+   nullát adna rá. Ezek a tesztek azt őrzik, hogy a saját csatornája MŰKÖDIK,
+   és hogy a két szélső eset a helyén marad: egy kardióval teli hét ne
+   olvasódjon pihenőhétnek, egy laza séta pedig ne tiltson le semmit.
+
+   A VALÓDI katalógussal futnak, nem kitalálttal: a becsapódás-jelleg és a
+   testsúly-viselés onnan jön, és pont azok az adatok, amikkel élesben is
+   számol a motor.
+   ====================================================================== */
+
+const REAL_CATALOG = buildExerciseCatalog();
+
+/** Egy időalapú gyakorlat, egyetlen teljesített sorral. */
+const cardio = (name, minutes, intensity, weight = '') => ({
+  name,
+  logMode: 'duration',
+  sets: [{ duration: String(minutes * 60), intensity, weight, done: true }],
+});
+
+const cardioRun = (workouts) => run({
+  checkins: [fullCheckin()], workouts, catalog: REAL_CATALOG,
+});
+
+const loadScore = (report) => report.components.find((c) => c.key === 'load').score;
+const muscleScore = (report, key) => report.muscles.find((m) => m.key === key).readiness;
+
+test('kardióval teli hét NEM olvasódik pihenőhétnek', () => {
+  const restWeek = cardioRun([workout(20, 'Régi laza futás', [cardio('Futópad', 30, 'low')])]);
+  const cardioWeek = cardioRun([1, 2, 3, 4, 5].map(
+    (ago) => workout(ago, 'Futás', [cardio('Futópad', 55, 'high')]),
+  ));
+
+  assert.equal(loadScore(restWeek), 100, 'három hete egy laza futás: kipihent');
+  assert.ok(loadScore(cardioWeek) < 80,
+    `öt kemény futás egy héten nem lehet kipihent állapot (kapott: ${loadScore(cardioWeek)})`);
+});
+
+test('húszperces laza séta nem viszi le az izom-készenlétet', () => {
+  /* Ez a másik szélső eset. Kézenfekvő volna a könnyű fokozatra nulla
+     izomterhelést adni, de az a súlyozott menetet is eltörölné — a kapu ezért
+     az EREDMÉNYEN áll, nem a címkén, és ennek magától kell teljesülnie. */
+  const walk = cardioRun([workout(0, 'Séta', [cardio('Futópad', 20, 'veryLow')])]);
+  assert.ok(muscleScore(walk, 'quads') >= 95,
+    `egy laza séta után a comb nem lehet fáradt (kapott: ${muscleScore(walk, 'quads')})`);
+  assert.ok(muscleScore(walk, 'calves') >= 95);
+});
+
+test('azonos hosszú futás és tekerés: a láb NEM ugyanúgy fárad el', () => {
+  /* Azonos energiaköltség, más mechanika: a futás excentrikus és ütközéses, a
+     tekerés koncentrikus. A becsapódás-jelleg CSAK az izom-csatornán hat. */
+  const running = cardioRun([workout(0, 'Futás', [cardio('Futópad', 60, 'high')])]);
+  const cycling = cardioRun([workout(0, 'Tekerés', [cardio('Szobabicikli', 60, 'high')])]);
+
+  assert.ok(muscleScore(running, 'calves') < muscleScore(cycling, 'calves') - 20,
+    'a futás sokkal jobban leviszi a vádlit, mint a tekerés');
+  assert.equal(loadScore(running), loadScore(cycling),
+    'a SZISZTÉMÁS terhelésük viszont azonos — ott nincs becsapódás-szorzó');
+});
+
+test('a plusz súly emeli a terhelést, ülve végzett gépnél viszont nem', () => {
+  const ruckEmpty = cardioRun([workout(0, 'Menet', [cardio('Szabadtéri futás', 90, 'low')])]);
+  const ruckLoaded = cardioRun([workout(0, 'Menet', [cardio('Szabadtéri futás', 90, 'low', '25')])]);
+  assert.ok(loadScore(ruckLoaded) < loadScore(ruckEmpty),
+    'huszonöt kiló a háton nem ingyen van');
+
+  const bikeEmpty = cardioRun([workout(0, 'Tekerés', [cardio('Szobabicikli', 60, 'high')])]);
+  const bikeLoaded = cardioRun([workout(0, 'Tekerés', [cardio('Szobabicikli', 60, 'high', '25')])]);
+  assert.equal(loadScore(bikeLoaded), loadScore(bikeEmpty),
+    'ülve a gép tartja a súlyt, tehát a mellény nem kerül semmibe');
+});
+
+test('a felvitt súly egy testsúlynyi többletnél elvágódik', () => {
+  /* Elgépelés-korlát: a mező ma csak a negatív értéket zárja ki, egy beütött
+     200 kg viszont megháromszorozná a mozgatott tömeget. */
+  const sane = cardioRun([workout(0, 'Menet', [cardio('Szabadtéri futás', 60, 'low', '80')])]);
+  const typo = cardioRun([workout(0, 'Menet', [cardio('Szabadtéri futás', 60, 'low', '400')])]);
+  assert.equal(loadScore(typo), loadScore(sane), 'a testsúlynyi többlet a plafon');
+});
+
+test('a be nem pipált kardió sor nem terhel', () => {
+  const planned = cardioRun([workout(0, 'Tervezett', [{
+    name: 'Futópad',
+    logMode: 'duration',
+    sets: [{ duration: '3600', intensity: 'high', weight: '', done: false }],
+  }])]);
+  assert.equal(loadScore(planned), 100, 'amit nem csináltál meg, az nem fáraszt');
+});
+
+test('a kardió nem kerül be a gyakorlat-ajánlások közé', () => {
+  /* Nincs becsült 1RM, tehát nincs mihez mérni — egy futás nem gyakorlat-
+     javaslat. A szett-alapú sorokat viszont nem zavarhatja el. */
+  const report = cardioRun([1, 2, 3].map(
+    (ago) => workout(ago, 'Vegyes', [cardio('Futópad', 30, 'moderate'), ...HARD_LEG_DAY]),
+  ));
+  assert.ok(!report.exercises.some((e) => e.name === 'Futópad'));
 });

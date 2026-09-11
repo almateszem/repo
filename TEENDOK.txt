@@ -322,7 +322,7 @@ maga után. Az appban ma bőven lehet írni, javítani viszont alig.
     katalógusból: a nutrition_log szándékosan másolatban tárolja őket.
     AMI NEM: recept és kedvenc. A törlés továbbra is csak az aznapi sorra megy.
 
-[~] Kardió naplózás — a MEGJELENÍTÉS kész, a TERHELÉS-SZÁMÍTÁS nem   (2026-09-10)
+[~] Kardió naplózás — a NAPLÓZÁS és a SZÁMÍTÁS kész   (2026-09-11)
     A gyakorlatok kaptak egy naplózási módot (server/logmode.js -> logMode):
       'reps'      ismétlés + súly + RPE — ez minden eddigi sor, változatlanul,
       'duration'  eltöltött idő + intenzitás, öt fokozattal.
@@ -342,9 +342,10 @@ maga után. Az appban ma bőven lehet írni, javítani viszont alig.
     PR (nincs mihez mérni), és nincs „+ Szett" gomb sem: egy kardió gyakorlat
     EGY sor. A fázisokra bontás tudatosan maradt ki — a szerkezet elbírná, de
     a gomb meghagyása szabályozatlanul hozta volna vissza.
-    A plusz súly (súlymellény, szán) a három pöttyös menüben él, és FELJEGYZÉS
-    a körülményről: egyetlen számítás sem szorozza vele. A gomb az értéket írja
-    ki, ha van, különben egy csukott menüben ülne láthatatlanul.
+    A plusz súly (súlymellény, szán) a három pöttyös menüben él. A gomb az
+    ÉRTÉKET írja ki, ha van, különben egy csukott menüben ülne láthatatlanul.
+    2026-09-11 óta BELESZÁMÍT a terhelésbe és a kalóriába is — a mozgatott
+    tömegen keresztül, nem külön tagként (ld. lentebb, A SZÁMÍTÁS).
 
     ELDÖNTVE, hogy a súly NEM lépteti fel automatikusan az intenzitást. Két ok:
     három fokozatnál a léptetés azonnal betelt volna (a tetejéről nincs hova),
@@ -352,23 +353,7 @@ maga után. Az appban ma bőven lehet írni, javítani viszont alig.
     magától a magasabb fokozatot választja, tehát a felléptetés ugyanazt a
     mellényt könyvelné el kétszer.
 
-    AMI HÁTRAVAN, és amíg nincs meg, TUDNI KELL RÓLA:
-      · A Recovery Engine a kardióból NULLÁT lát. A setLoad ismétlést ÉS súlyt
-        követel, a setStimulus ismétlést — időalapú soron egyik sincs. Vagyis
-        egy kemény futóhét pihenőhétnek látszik, és a készenléti pontszám
-        feljebb áll a valósnál. Ez ugyanaz a csapda, amit a 2026-08-30-i
-        átvizsgálás egyszer már kijavított („nincs adat" != „tökéletes
-        állapot") — most tudatosan, átmenetileg áll így.
-        A képlet alakja megvan: perc × fokozat-szorzó, a szakirodalom
-        szesszió-RPE módszere szerint. Ami hiányzik, az EGY kalibrálás: mekkora
-        szorzók mellett esik egy kemény kardió edzés ugyanabba a sávba, mint egy
-        kemény súlyzós nap. Ezért nincs szám az INTENSITY_LEVELS mellett —
-        kalibrálatlan szorzót beírni rosszabb volna, mint megvárni.
-      · A heti volumen-diagram egy kardió sort EGY munkasorozatnak számol
-        (isWorkSet: teljesített és nem bemelegítő). Egy 45 perces futás így
-        egyenlő egy bicepszsorozattal egy olyan diagramon, ami kifejezetten
-        munkasorozatot jelent. A javítás egy sor a server.js isWorkSet-jében,
-        de az már a számítás kérdése, nem a megjelenítésé.
+    AMI HÁTRAVAN:
       · TÁV és PULZUS továbbra sincs. Ezek nélkül a napló arra a kérdésre nem
         tud válaszolni, hogy gyorsult-e a futó — csak arra, mennyi ideig és
         milyen nehezen ment. A pulzus opcionálisnak szánt (nem mindenki méri),
@@ -376,6 +361,179 @@ maga után. Az appban ma bőven lehet írni, javítani viszont alig.
       · A generált katalógus SORAI nem viselnek kimondott logMode-ot, csak a
         névmintán keresztül kapják meg. Ha egyszer lefut az exdb:build, érdemes
         a mezőt a generátorba is bevezetni — addig a mintázat tartja.
+
+    A SZÁMÍTÁS — 2026-09-11-én ELKÉSZÜLT
+    ------------------------------------
+    Az alábbi döntések a kódban élnek (server/logmode.js, server/recovery.js,
+    server/server.js); az indoklás azért marad itt, hogy ne kelljen újra
+    levezetni. Tesztek: recovery.test.js („Időalapú (kardió) terhelés"
+    szakasz) és api.test.js 12. szakasz.
+
+    SORREND VOLT: előbb a fáradtság, utána a kalória. A hiányzó kalória csak
+    hiányzó funkció; a hiányzó fáradtság viszont működő hazugság volt, mert a
+    készenlét magasabbnak mutatta magát, mint amilyen.
+
+    MÉRVE, a kész motoron (80 kg, előzmény nélkül, egyetlen mai edzés):
+        20 perc séta, nagyon könnyű    terhelés 99 · comb 98 · vádli 98
+        60 perc futás, magas           terhelés 83 · comb 66 · vádli 52
+        60 perc tekerés, magas         terhelés 83 · comb 82 · vádli 98
+        90 perc menet, könnyű, +25 kg  terhelés 91 · comb 81 · vádli 73
+        kemény lábnap (összevetésül)   terhelés 83 · comb 52 · vádli 100
+        öt kemény futás egy héten      terhelés 68
+    A tekerés és a futás szisztémás terhelése AZONOS, a vádlijuk nem — pont
+    ezt hivatott adni a becsapódás-szorzó. Az öt futás pedig nem pihenőhét.
+
+    KÉT LÉTRA, NEM EGY. (Ez FELÜLÍRJA a 09-10-i első változatot, ami a
+    fáradtságot is a kalóriából származtatta.) A MET KÜLSŐ terhelést mér: azt,
+    amit csináltál. A fáradtság BELSŐ terhelés: azt, hogy neked mennyibe
+    került. Ugyanaz a tempó az edzett futónál a kapacitása felét viszi el, a
+    kezdőnél a kilencven százalékát, a MET-jük mégis közel azonos. A kalóriát
+    ezért a MET hajtsa, a fáradtságot viszont egy MEREDEKEBB skála, mert a
+    maximális intervallum nem másfélszer, hanem sokszorosan drágább a
+    közepesnél.
+    Házon belüli minta pontosan erre van: a tonnatömeg lineárisan skálázódik
+    az RPE-vel (0.2 meredekség), az izomkárosodás meredekebben (0.3), az
+    idegrendszer pedig külön FELÁRAT kap a legmagasabb sávban. Három csatorna,
+    három görbe — a kardiónál is így.
+    Mindkét szám a FOKOZATHOZ tartozik, nem a gyakorlathoz, és oda kerül, ahol
+    a fokozatok címkéi élnek (logmode.js → INTENSITY_LEVELS) — egy hely, egy
+    igazság:
+        fokozat           met   strain
+        nagyon könnyű      3      1
+        könnyű             5      2
+        közepes            7      4
+        magas              9      7
+        maximális         12     11
+    Kalória:   (met − 1) × mozgatott tömeg × óra
+    Fáradtság: strain × perc × tömegszorzó
+    ahol a tömegszorzó = (testsúly + beszámított plusz súly) / testsúly.
+    A kiírt TÖBBLET-égés eggyel csökkentett MET-tel számol (a MET tartalmazza
+    a nyugalmi anyagcserét is; enélkül ~10%-kal túlbecsülnénk).
+    Testsúly nélkül NINCS kalória-kiírás. A motor belül 80 kg-mal skáláz
+    referenciát, de az más műfaj: viszonyítást skálázni szabad, a
+    felhasználónak kimondani egy meg nem mért égést nem.
+
+    A FÁRADTSÁGNAK HÁROM BEMENETE van, nem egy:
+      · szisztémás terhelés (bucket.load, tonna) — a strain-percből, egy K
+        osztóval. Kiindulás K ≈ 100. FIGYELEM: ez MÁS mértékegység, mint a
+        09-10-i jegyzet 150–250-es sávja, az kalóriára vonatkozott;
+      · izomterhelés (bucket.muscles, szett-egység) — az ELOSZLÁS már kész, a
+        katalógus minden kardió sorának ki van töltve a load-térképe;
+      · idegrendszer (bucket.cns) — felár NÉLKÜL indul, mert a meglévő felárak
+        axiális emeléshez és magas RPE-hez tapadnak; legfeljebb a legfelső
+        fokozat kaphat egyet.
+    KÉT OSZTÓ VAN, mert két különböző mértékegységbe kell beérkezni (tonna,
+    illetve szett-egység). Egyiket sem kitalálni kell, hanem lehorgonyozni:
+      · K (szisztémás): a saját naplókból a súlyzós napok napi tonnatömegének
+        mediánja és felső negyede adja a sávot; egy tipikus kemény kardió
+        edzésnek oda kell esnie. Az abszolút referencia 80 kg-ra 25 tonna,
+        egy kardió edzés helye kb. 1–4 tonna-egyenérték.
+      · M (izom): a szett-egység már ismert mérték — egy munkasorozat nagyjából
+        egy egység. Egy kemény lábnap 15–20 egység, tehát egy órás kemény
+        futásnak 4–8 egység a helye a terhelt csoportokon. Kiindulás M ≈ 50.
+    Ezekkel a számokkal az IZOM-KAPU magától adódik, külön szabály nélkül:
+    egy 20 perces laza séta 0.4 egység (elhanyagolható, nem tiltja le a
+    lábnapot), egy másfél órás, 25 kilós menet viszont közel 5 egység.
+
+    A PLUSZ SÚLY BELESZÁMÍT, és nem új tagként: a képlet a TELJES mozgatott
+    tömeggel szoroz (testsúly + felvitt kiló). Nincs új konstans, és a
+    mellény magától végigfut mindhárom bemeneten. (A teherhordás valódi
+    költsége kicsit meredekebben nő az arányosnál, de az arányos a
+    tisztességes első közelítés.) Következmény, vállalva: a súly így a kiírt
+    KALÓRIÁT is emeli, nem csak a fáradtságot — ugyanaz a képlet hajtja.
+    A felvitt súlyt a képletben MEG KELL SZORÍTANI (kb. egy testsúlynyi
+    többletnél feljebb nincs értelme számolni): ma a mező csak a negatív
+    értéket zárja ki, egy elgépelt 200 kg megháromszorozná a tömeget.
+
+    ÜLVE VÉGZETT MOZGÁSNÁL a felvitt súly NEM számít bele: a gép tartja, nem
+    a sportoló. Hét gyakorlat ilyen a huszonötből — szobabicikli, spinning,
+    kerékpár kereszt tréner, a két szobakerékpáros sor, evezőgép, assault
+    bike. A SkiErg és az elliptikus tréner a MEGTARTOTT oldalon marad: azokat
+    állva végzik, tehát a mellényt tényleg a sportoló viszi.
+    ELDÖNTVE, hogy a MEZŐ ettől még MINDENHOL OTT MARAD — a mellényt fel
+    lehessen jegyezni ott is, ahol nem számít. Cserébe KÖTELEZŐ, hogy a mező
+    alatti mondat gyakorlatonként mondja meg, beleszámít-e; enélkül a
+    figyelmen kívül hagyott súly néma hiba volna, és a felhasználó azt hinné,
+    elrontottuk. (Ma a mondat még egységesen azt írja, hogy nem számít bele —
+    ez IGAZ, amíg a képlet nincs kész, és a képlettel EGYÜTT kell átírni.)
+
+    AZ IZOM-KAPU AZ EREDMÉNYEN LEGYEN, NE A CÍMKÉN. Kézenfekvő volna azt
+    mondani, hogy a könnyű fokozat adjon nulla izomterhelést, nehogy egy
+    séta letiltsa a lábnapot — ez viszont pont a súlyozott menetet törölné
+    el, ami szándékosan alacsony intenzitású és magas terhelésű. A kapu
+    ezért a tömeg × idő × fokozat SZORZATÁN álljon (a fenti számokkal ez
+    magától teljesül, külön szabály nem kell hozzá).
+
+    BECSAPÓDÁS-JELLEG, és CSAK az izomcsatornán. Egy óra futás és egy óra
+    szobabicikli lehet azonos MET-en, a lábnak mégsem ugyanaz: a futás
+    excentrikus és ütközéses, a bicikli koncentrikus és ütközésmentes. A
+    kalória tényleg ugyanannyi, az izomkárosodás nem. Három sáv elég, nem
+    kell folytonos skála:
+        1.0  futás, sprint, ugrálókötél, lépcsőzőgép, medvejárás
+        0.5  elliptikus, SkiErg, battle rope, bear crawl (állva, ütközés nélkül)
+        0.3  szobabicikli, spinning, evezőgép, assault bike (ülve, koncentrikus)
+    Huszonöt gyakorlatot kell besorolni, és ugyanaz a névmintás feloldás
+    elvégzi, ami a naplózási módot is eldönti — nincs szükség új gépezetre.
+
+    AMIRE SZÁMÍTANI KELL A BEKAPCSOLÁSKOR: a bázis négy hétig csúszik. A
+    gyorsuló terhelés a 14 napos csillapított összegből jön, a referencia a
+    28 napos átlagból — az előbbi azonnal megugrik (visszamenőleg is, mert a
+    motor menet közben számol, gyorsítótár nélkül), az utóbbi lassan követi.
+    Vagyis MINDENKINEK esni fog a készenléti pontszáma kb. egy hónapig,
+    utána visszarendeződik. Vagy vállaljuk és megmondjuk, vagy fokozatosan
+    vezetjük be, de meglepetésnek ne érjen.
+
+    A CÉLT NEM ÍRJUK ÁT, a BEVITELT nettósítjuk   (2026-09-11)
+    A cél szándékos, kézzel beállított szám, azt nem mozdítja semmi. Helyette a
+    mozgással elégetett kalória LEVONÓDIK a bevitelből: a Táplálkozás oldal
+    fejléce és az Áttekintő kalória-kártyája nettó számot mutat.
+    A NYERS bevitel a végponton külön mezőben megmarad (intake és burned), a
+    kivonást a felület végzi el — ÉS KI IS ÍRJA. Kardió után a címke „Nettó
+    bevitel”-re vált, alatta egy sor kimondja, mennyit ettél és mennyit
+    mozogtál; enélkül a kisebb szám hibának látszana.
+    A MAKRÓK ÉRINTETLENEK: a mozgás energiát vesz el, nem fehérjét — a
+    fehérje-cél a ténylegesen bevitt mennyiséghez mérődik.
+    A nettó szám nullánál megáll: negatív bevitelt kiírni hibának látszana.
+
+    NYITOTT, ÉS TUDNI KELL RÓLA — KETTŐS SZÁMOLÁS. A napi kalória-célok
+    túlnyomó része eleve tartalmaz egy aktivitás-szorzót. Ha a felhasználó úgy
+    állította be a célját, hogy abban a futás MÁR benne van, akkor a levonás
+    mégegyszer levonja ugyanazt, és a nap deficitesebbnek látszik, mint
+    amilyen. Ez a kalóriakövetés legismertebb hibaforrása, és kódból nem
+    eldönthető: azon múlik, mit gondolt a felhasználó, amikor a célt beírta.
+    Ha egyszer lesz SZÁMÍTOTT cél (alapanyagcsere + aktivitás), ott kell
+    rendezni — addig a felület legalább kiírja a két nyers számot.
+
+    A KÉSZENLÉT-MOTOR EGYELŐRE A NYERS BEVITELLEL SZÁMOL. A nutritionScore a
+    bevitelt osztja a céllal, és az alultápláltságot bünteti — ha a nettó
+    számot kapná, minden kardió nap rontaná a készenléti pontszámot. Lehet,
+    hogy ez a helyes (a deficit tényleg rontja a regenerációt), de ez a motor
+    FŐ KIMENETÉT mozdítaná el, ezért külön döntés, nem mellékhatás.
+
+    BIZTONSÁGI HÁLÓ, két teszt: egy kardióval teli hét NE olvasódjon
+    pihenőhétnek, és egy húszperces könnyű séta NE váltson ki csökkentő
+    javaslatot lábnapra. Ha ez a kettő megy, a többi már finomhangolás.
+
+    A PONTOSSÁG NEM VÉLEMÉNY — van mihez mérni. A modell ARÁNYOKBÓL dolgozik:
+    a referencia a saját 28 napos átlag, tehát ugyanaz a torzítás ott van a
+    számlálóban és a nevezőben is, és jórészt kiejti magát. Nem kell
+    fiziológiailag igaz szám; két dolognak kell stimmelnie: a fokozatok
+    SORRENDJÉNEK egymáshoz képest, és a kardió LÉPTÉKÉNEK a súlyzós munkához
+    képest.
+    Utána pedig mérhető: az app már ma begyűjti a másnapi energiaszintet és az
+    izomcsoportonkénti izomlázat a check-inben. Ha a kardió hozzáadása után a
+    becsült terhelés ROSSZABBUL jósolja a másnapi állapotot, mint előtte, akkor
+    az osztó rossz. A becsapódás-jelleg külön is ellenőrizhető így: kemény
+    futás után a vádli és a comb izomlázának meg kell ugrania, ugyanolyan
+    hosszú tekerés után nem.
+
+    SZÁNDÉKOSAN KÉSŐBBRE: átlagpulzus mint második, pontosabb bemeneti út (ha
+    van, közvetlenül adja az egyénre vetített intenzitást; ugyanarra a
+    kimeneti skálára kell hangolni, és pulzusos meg pulzus nélküli alkalmakat
+    nem szabad jelöletlenül egy trendbe keverni), táv, watt, gyakorlatonkénti
+    MET, és az idő nemlineáris kezelése. Egyik sem jöhet azelőtt, hogy a
+    sorrend és a lépték ülne — minden új bemenet egy új kalibrálás és egy új
+    üresen hagyható mező.
 
 [x] Csak testsúly van, körfogat és testzsír nincs   (2026-09-03)
     Új tábla: body_measurements (user_id, date, site, value). Hét mérési hely

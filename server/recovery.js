@@ -39,6 +39,7 @@
  * jelzi. Kitalált számot sehol nem ad vissza: ami nem számolható, az `null`.
  */
 
+import { cardioProfileFor, intensityStrain } from './logmode.js';
 import {
   MUSCLE_GROUPS, MUSCLE_KEYS, TAU_BY_GROUP,
   resolveExerciseLoad, isAxialLift, emptyMuscleMap, normalizeName,
@@ -220,6 +221,76 @@ function setStimulus(set) {
   return (rpe === null ? 1 : clamp(1 + (rpe - 8) * 0.3, 0.6, 1.7)) * typeFactor;
 }
 
+/* ======================================================================
+   Időalapú (kardió) sorok terhelése
+   ----------------------------------------------------------------------
+   A kardió sor nem ismétlést és súlyt tartalmaz, hanem időt és fokozatot,
+   tehát a setLoad és a setStimulus NULLÁT adna rá. Ez nem elhanyagolható
+   pontatlanság volna, hanem a „nincs adat = tökéletes állapot" csapda: egy
+   kemény futóhét pihenőhétnek látszana, és a készenléti pontszám magasabban
+   állna a valósnál.
+
+   Az alapmennyiség a STRAIN-PERC: fokozat × perc × tömegszorzó. A fokozat
+   strain-értéke (nem a MET-je!) hajtja, mert a fáradtság BELSŐ terhelés —
+   lásd a logmode.js INTENSITY_LEVELS magyarázatát.
+
+   A KÉT OSZTÓ nem tetszőleges szám, hanem a motor SAJÁT referenciáihoz van
+   horgonyozva, hogy reprodukálható legyen:
+
+     CARDIO_LOAD_DIVISOR = 100
+       Egy kemény órás futás (magas fokozat, strain 7, 60 perc) 420 strain-perc,
+       ebből 4.2 tonna-egyenérték. Az ABS_FATIGUE_REF 25 tonna 80 kg-ra, vagyis
+       egy ilyen edzés a nullára vivő terhelés hatodát teszi ki — ez a helye egy
+       kemény, de nem kivételes szessziónak. Egy 20 perces laza séta ugyanezzel
+       0.2 tonna: elhanyagolható, ahogy kell.
+
+     CARDIO_STIMULUS_DIVISOR = 50
+       Ugyanaz az órás futás 8.4 szett-egység, ami a load-térképe szerint
+       megoszlik: a vádlira és a combra 2.5-2.5 jut. Az ABS_GROUP_REF a combra
+       5.0, a vádlira 3.5 — vagyis egy kemény futás nagyjából FÉL tipikus
+       szesszióval terheli ezeket. Egy 20 perces laza séta 0.4 egység, ami
+       szétosztva már nem mozdít semmit: pont ezért NEM kell külön „könnyű
+       fokozat = nulla" szabály, ami a súlyozott menetet is eltörölné.
+
+   A kalibrálás VÉGSŐ próbája nem ez, hanem az adat: az app gyűjti a másnapi
+   energiát és az izomcsoportonkénti izomlázat, tehát utólag mérhető, hogy a
+   becsült terhelés együtt mozog-e a bejelentett állapottal.
+   ====================================================================== */
+
+const CARDIO_LOAD_DIVISOR = 100;      // strain-perc → tonna-egyenérték
+const CARDIO_STIMULUS_DIVISOR = 50;   // strain-perc → szett-egység
+
+/** A legfelső fokozat idegrendszeri felára. A többi fokozat nem kap: a
+    meglévő felárak axiális emeléshez és bukáshoz közeli szetthez tapadnak,
+    azoknak egy egyenletes futáson nincs megfelelője. */
+const CARDIO_MAX_CNS_SURCHARGE = 0.3;
+
+/**
+ * Egy teljesített időalapú sor STRAIN-PERCE.
+ *
+ * A plusz súly a TÖMEGSZORZÓN keresztül hat: a teljes mozgatott tömeg és a
+ * testsúly aránya. Nem új tag, nem kitalált szorzó — ugyanaz a tömeg, amivel a
+ * kalória is számol. Két megkötéssel:
+ *   · ÜLVE nem számít (a gép tartja, nem a sportoló) — a mező a felületen ott
+ *     marad, hogy a mellényt fel lehessen jegyezni, de a képletből kimarad;
+ *   · a felvitt súly egy TESTSÚLYNYI többletnél elvágódik. A mező ma csak a
+ *     negatív értéket zárja ki; egy elgépelt 200 kg megháromszorozná a tömeget,
+ *     és vele a fáradtságot is.
+ */
+function cardioStrainMinutes(set, bodyWeight, carriesBodyWeight) {
+  if (!set?.done) return 0;
+  const seconds = num(set.duration);
+  const minutes = seconds === null ? 0 : seconds / 60;
+  if (!(minutes > 0)) return 0;
+
+  const strain = intensityStrain(set.intensity);
+  if (!(strain > 0)) return 0;
+
+  const mass = bodyWeight > 0 ? bodyWeight : REF_BODY_WEIGHT;
+  const extra = carriesBodyWeight ? clamp(num(set.weight) ?? 0, 0, mass) : 0;
+  return strain * minutes * ((mass + extra) / mass);
+}
+
 /** RIR-korrigált Epley-becslés az egyismétléses maximumra. Az RPE-ből
     következtetünk a tartalékra (RIR = 10 − RPE); ha nincs RPE, RPE 8-at
     feltételezünk (2 ismétlés tartalék), ami a naplózás tipikus esete. */
@@ -236,7 +307,7 @@ export function epley1RM(reps, weight, rpe) {
  * Visszaadja: napi összterhelés, napi CNS-terhelés, napi izomcsoport-terhelés,
  * valamint gyakorlatonként az alkalmak listája (dátum + becsült 1RM).
  */
-function summarizeWorkouts(workouts, todayKey, catalog) {
+function summarizeWorkouts(workouts, todayKey, catalog, bodyWeight) {
   const byDay = new Map();      // daysAgo → { load, cns, muscles }
   const exercises = new Map();  // név → { name, sessions: [{ daysAgo, best1RM, sets }] }
 
@@ -253,6 +324,35 @@ function summarizeWorkouts(workouts, todayKey, catalog) {
 
     for (const exercise of workout.exercises ?? []) {
       const muscleLoad = resolveExerciseLoad(exercise.name, catalog);
+
+      /* IDŐALAPÚ sor: külön ág, és a végén KILÉP. Nem csak azért, mert más a
+         képlete: nincs becsült 1RM sem, tehát a gyakorlat-térképbe (a
+         gyakorlat-ajánlások forrásába) sem kerülhet be. Egy futás nem
+         gyakorlat-javaslat, és nincs mihez mérni a terhelését. */
+      if (exercise.logMode === 'duration') {
+        const profile = cardioProfileFor(exercise.name, catalog);
+        let strainMinutes = 0;
+        let topIntensity = false;
+        for (const set of exercise.sets ?? []) {
+          strainMinutes += cardioStrainMinutes(set, bodyWeight, profile.carriesBodyWeight);
+          if (set?.done && set.intensity === 'max') topIntensity = true;
+        }
+        if (strainMinutes <= 0) continue;
+
+        const load = strainMinutes / CARDIO_LOAD_DIVISOR;
+        bucket.load += load;
+        bucket.cns += load * (1 + (topIntensity ? CARDIO_MAX_CNS_SURCHARGE : 0));
+
+        /* A BECSAPÓDÁS-JELLEG csak itt hat. Egy óra futás és egy óra
+           szobabicikli lehet azonos energiaköltségen, a lábnak mégsem
+           ugyanaz — de a szisztémás terhelésük és a kalóriájuk igen. */
+        const stimulus = (strainMinutes * profile.impact) / CARDIO_STIMULUS_DIVISOR;
+        for (const [group, share] of Object.entries(muscleLoad)) {
+          bucket.muscles[group] += stimulus * share;
+        }
+        continue;
+      }
+
       const axial = isAxialLift(exercise.name);
       let exerciseLoad = 0;
       let exerciseStimulus = 0;
@@ -718,7 +818,7 @@ export function computeReadiness({
   const bodyWeight = num(latestWeight?.kg) ?? REF_BODY_WEIGHT;
 
   // — Edzésadatok
-  const { byDay, exercises } = summarizeWorkouts(workouts, todayKey, catalog);
+  const { byDay, exercises } = summarizeWorkouts(workouts, todayKey, catalog, bodyWeight);
   const historyDays = byDay.size
     ? Math.max(...[...byDay.keys()]) + 1
     : 0;

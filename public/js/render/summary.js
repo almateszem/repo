@@ -75,6 +75,16 @@ function renderSummary() {
   animateNumber($('[data-su-sets-done]'), summary.done, { from: 0, duration: 700 });
   animateNumber($('[data-su-duration]'), summary.minutes, { from: 0, duration: 800 });
 
+  /* A becsült égetés a SZERVERTŐL jön a most mentett edzéssel, tehát csak a
+     lezárás utáni pillanatképben van meg. A mély-linkkel megnyitott összegző
+     az élő naplóból dolgozik, ott nincs mit kiírni — ilyenkor a csempe
+     rejtve marad, nem nullát mutat. */
+  const hasCalories = Number.isFinite(summary.calories);
+  $('[data-su-calories-stat]').hidden = !hasCalories;
+  if (hasCalories) {
+    animateNumber($('[data-su-calories]'), summary.calories, { from: 0, duration: 900 });
+  }
+
   // A visszajelzés-blokk minden megnyitáskor újraszinkronizál (más edzés,
   // vagy már elküldött visszajelzés).
   hooks.refreshSummaryFeedback?.();
