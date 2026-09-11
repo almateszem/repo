@@ -372,7 +372,6 @@ input.wk-chip:focus-visible {
 .fd-macro-label,
 .fd-macro-unit,
 .fd-goal-label,
-.pf-stat-label,
 .video-modal-history-label {
   font-family: var(--font-mono);
   text-transform: uppercase;
@@ -2355,10 +2354,12 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   font-size: var(--fs-sm);
   line-height: 1.4; /* a --wk-history-row számítás ezzel a sormagassággal egyezik */
   color: var(--fg-70);
-  padding: var(--sp-3) var(--sp-4);
-  background: var(--surface-soft);
-  border-radius: var(--r-md);
+  padding: var(--sp-5) 0;
   flex-shrink: 0; /* görgethető listában a sorok nem lapulhatnak össze */
+}
+
+.wk-history li + li {
+  border-top: 1px solid var(--hair-soft);
 }
 
 .wk-history-date {
@@ -2889,11 +2890,16 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   border-radius: var(--r-2xs);
 }
 
+/* A sor három művelete (szerkesztés, törlés, megnyitás) egy rendszer: azonos
+   méret, hajszálvonal-keret, felület nélkül. Eddig háromféleképp néztek ki —
+   tömör felület, keret és csupasz ikon egymás mellett —, ami a sugarak
+   nullázása után látható zajjá vált. A megnyitás marad a hangsúlyos: az kap
+   erősebb keretet. */
 .pl-card-open {
   width: 34px;
   height: 34px;
-  border: none;
-  background: var(--surface-strong);
+  border: 1px solid var(--fg-40);
+  background: none;
   color: var(--text-primary);
   flex-shrink: 0;
   font-size: var(--fs-base);
@@ -2908,7 +2914,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .pl-card-edit {
   width: 34px;
   height: 34px;
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--hair);
   background: none;
   color: var(--fg-70);
   flex-shrink: 0;
@@ -3975,7 +3981,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
      hogy az aktívvá válás ne tologassa a szöveget. */
   .side-nav-link {
     display: block;
-    padding: var(--sp-5) var(--sp-6) var(--sp-5) var(--sp-9);
+    padding: var(--sp-5) var(--sp-6) var(--sp-5) var(--sp-12);
     position: relative;
     color: var(--fg-60);
     text-decoration: none;
@@ -4006,9 +4012,13 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
     content: '■';
     position: absolute;
     left: var(--sp-5);
+    top: 50%;
+    transform: translateY(-50%);
     color: var(--c-accent);
-    font-size: var(--fs-2xs);
-    line-height: inherit;
+    /* 8px: a ■ karakter a betűméretnél nagyobbnak látszik, mert a glifa
+       kitölti a sort. Ennél nagyobb mérettel a jelölő a szövegre ért. */
+    font-size: 8px;
+    line-height: 1;
   }
 
   .app-content {
@@ -4450,9 +4460,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .st-input {
-  background: var(--surface-input);
-  border: 1px solid transparent;
-  border-radius: var(--r-md);
+  background: none;
+  border: 1px solid var(--hair);
   padding: var(--sp-3) var(--sp-5);
   color: var(--text-primary);
   font-size: var(--fs-input);
@@ -4487,9 +4496,12 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-5);
-  padding: var(--sp-3) var(--sp-4);
-  border-radius: var(--r-md);
-  background: var(--surface-soft);
+  min-height: var(--tap-min);
+  padding: var(--sp-4) 0;
+}
+
+.st-toggle + .st-toggle {
+  border-top: 1px solid var(--hair-soft);
 }
 
 .st-toggle-label {
@@ -4546,7 +4558,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .st-export {
   width: 100%;
   background: none;
-  border: 1px dashed var(--fg-25);
+  border: 1px solid var(--hair);
   color: var(--fg-70);
   border-radius: var(--r-md);
   padding: var(--sp-4);
@@ -4695,13 +4707,15 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   gap: var(--sp-3);
 }
 
+.wk-pr-item + .wk-pr-item {
+  border-top: 1px solid var(--hair-soft);
+}
+
 .wk-pr-item {
   display: flex;
   align-items: center;
   gap: var(--sp-4);
-  padding: var(--sp-3) var(--sp-4);
-  background: var(--surface-soft);
-  border-radius: var(--r-md);
+  padding: var(--sp-5) 0;
   cursor: pointer;
   transition: background var(--t-fast);
   animation: note-in 0.25s ease backwards;
@@ -4758,14 +4772,16 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   gap: var(--sp-3);
 }
 
+.pr-history-item + .pr-history-item {
+  border-top: 1px solid var(--hair-soft);
+}
+
 .pr-history-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-4);
-  padding: var(--sp-3) var(--sp-4);
-  background: var(--surface-soft);
-  border-radius: var(--r-md);
+  padding: var(--sp-5) 0;
   animation: note-in 0.25s ease backwards;
   animation-delay: calc(var(--i, 0) * 30ms);
 }
@@ -5196,12 +5212,14 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   gap: var(--sp-2);
 }
 
+.co-modal-activity-list li + li {
+  border-top: 1px solid var(--hair-soft);
+}
+
 .co-modal-activity-list li {
   font-size: var(--fs-sm);
   color: var(--fg-70);
-  background: var(--surface-soft);
-  border-radius: var(--r-md);
-  padding: var(--sp-3) var(--sp-4);
+  padding: var(--sp-4) 0;
   animation: note-in 0.25s ease backwards;
   animation-delay: calc(var(--i, 0) * 30ms);
 }
@@ -5372,9 +5390,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   font-size: var(--fs-sm);
   line-height: 1.6;
   color: var(--text-muted);
-  background: var(--surface-soft);
-  border: 1px dashed var(--fg-20);
-  border-radius: var(--r-xl);
+  border: 1px solid var(--hair-soft);
   padding: var(--sp-8);
   margin: 0;
 }
@@ -5487,9 +5503,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .co-invite-form input {
   flex: 1;
   min-width: 0;
-  background: var(--surface-input);
-  border: 1px solid transparent;
-  border-radius: var(--r-md);
+  background: none;
+  border: 1px solid var(--hair);
   padding: var(--sp-3) var(--sp-5);
   color: var(--text-primary);
   font-size: var(--fs-input);
@@ -5567,9 +5582,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   width: 100%;
   min-height: 44px;
   padding: var(--sp-3) var(--sp-4);
-  background: var(--surface-input);
-  border: 1px solid var(--border-card);
-  border-radius: var(--r-lg);
+  background: none;
+  border: 1px solid var(--hair);
   color: var(--text-primary);
   font: inherit;
   font-size: var(--fs-sm);
@@ -6548,10 +6562,11 @@ details[open] > .rc-details-summary::before {
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-5);
-  background: var(--surface-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--r-lg);
-  padding: var(--sp-4) var(--sp-6);
+  padding: var(--sp-4) 0;
+}
+
+.fd-today-item + .fd-today-item {
+  border-top: 1px solid var(--hair-soft);
 }
 
 .fd-today-meta {
@@ -6820,9 +6835,8 @@ details[open] > .rc-details-summary::before {
 .rc-body-field input {
   width: 100%;
   padding: var(--sp-3) var(--sp-4);
-  border-radius: var(--r-lg);
-  border: 1px solid var(--border-card);
-  background: var(--surface-strong);
+  border: 1px solid var(--hair);
+  background: none;
   color: var(--fg-100);
   font: inherit;
   font-size: var(--fs-sm);
@@ -7039,9 +7053,8 @@ details[open] > .rc-details-summary::before {
 .pf-assess-field input {
   width: 100%;
   padding: var(--sp-3) var(--sp-4);
-  border-radius: var(--r-lg);
-  border: 1px solid var(--border-card);
-  background: var(--surface-strong);
+  border: 1px solid var(--hair);
+  background: none;
   color: var(--fg-100);
   font: inherit;
   font-size: var(--fs-sm);
@@ -7098,9 +7111,8 @@ details[open] > .rc-details-summary::before {
 .su-note-text {
   width: 100%;
   padding: var(--sp-4) var(--sp-5);
-  border-radius: var(--r-lg);
-  border: 1px solid var(--border-card);
-  background: var(--surface-strong);
+  border: 1px solid var(--hair);
+  background: none;
   color: var(--fg-100);
   font: inherit;
   font-size: var(--fs-sm);
@@ -7238,9 +7250,8 @@ details[open] > .rc-details-summary::before {
   resize: vertical;
   min-height: 62px;
   padding: var(--sp-5);
-  border-radius: var(--r-lg);
-  border: 1px solid var(--border-card);
-  background: var(--surface-strong);
+  border: 1px solid var(--hair);
+  background: none;
   color: var(--fg-100);
   font: inherit;
   font-size: var(--fs-sm);
@@ -7508,9 +7519,8 @@ details[open] > .rc-details-summary::before {
 .nu-goal-field input {
   width: 100%;
   padding: var(--sp-3) var(--sp-4);
-  border-radius: var(--r-lg);
-  border: 1px solid var(--border-card);
-  background: var(--surface-strong);
+  border: 1px solid var(--hair);
+  background: none;
   color: var(--fg-100);
   font: inherit;
   font-size: var(--fs-sm);
@@ -8676,9 +8686,8 @@ body[data-onboarding] .app-page.ci-page {
    születik harmadik mezőstílus az appban. */
 .cf-input {
   width: 100%;
-  background: var(--surface-input);
-  border: 1px solid transparent;
-  border-radius: var(--r-md);
+  background: none;
+  border: 1px solid var(--hair);
   padding: var(--sp-4) var(--sp-5);
   color: var(--text-primary);
   font-family: inherit;
