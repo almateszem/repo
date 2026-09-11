@@ -32,6 +32,18 @@ async function setupNutrition(foodDetail) {
        tehát nem elég egyszer, betöltéskor kiírni. */
     const goalCalEl = $('[data-goal="calories"]');
     if (goalCalEl) goalCalEl.textContent = formatNumber(totals.goal.calories);
+
+    /* A hős alatti sáv a cél felé vezető utat mutatja — ugyanaz a minta, mint
+       a vízmérőé (ui/water.js). 100%-nál megáll: a túlevés nem „több mint
+       teli" sáv, azt a szám mondja meg, nem a rajz. A nulla cél ellen a
+       védelem nem elméleti — a cél szerkeszthető, és a hányados NaN-ként
+       érvénytelen CSS-szélességet adna. */
+    const intakeFill = $('[data-intake-fill]');
+    if (intakeFill) {
+      const goal = totals.goal.calories;
+      const ratio = goal > 0 ? Math.min(totals.intake / goal, 1) : 0;
+      intakeFill.style.width = `${Math.round(ratio * 100)}%`;
+    }
   };
   applyTotals(await api.getNutrition());
 
