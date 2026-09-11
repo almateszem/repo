@@ -1852,7 +1852,21 @@ felületet ír le, ami nincs a repóban:
 
 - [ ] **Step 1:** Összegző: a volumen a hero-szám, alatta `.ds-row` statisztikák.
 - [ ] **Step 2:** Profil: az adatsorok `.ds-row`-ra; a testmérés és a PR-lista `.ds-section`-be.
-- [ ] **Step 3:** A testsúly-trend diagram vonalai a `--hair` szintre állnak (ma erősebbek).
+**Tervjavítás — a 3. lépés tárgytalan.** Két okból:
+
+1. **A diagramnak nincsenek vonalai.** A `.chart` komponens (5. szakasz) nem
+   SVG és nem rácsos: az oszlopok `background: var(--fg-85)`, a tengely
+   (`.chart-axis`) szövegfelirat `--text-muted` színnel. Nincs benne rácsvonal,
+   keret vagy elválasztó, amit a `--hair` szintre lehetne vinni. Az oszlopok
+   halványítása nem ugyanaz: azok az ADATOT hordozzák, `--hair` (18% fehér)
+   szinten olvashatatlanok lennének.
+2. **A testsúly-trend nem ezen a lapon van.** A `data-chart="bodyWeight"`
+   diagram a Regeneráció lapján él (`.rc-weight-chart`), ami a 9. taskban már
+   elkészült. A `.chart` ráadásul három lap közös komponense (Áttekintés,
+   Edzés heti összehasonlítás, Regeneráció) — bármilyen módosítása
+   visszamenőleg átírná a két kész lapot.
+
+- [x] **Step 3:** Csere nincs. A diagram-komponens változatlan marad.
 - [ ] **Step 4:** `npm run lint && npm run format -- public && npm test`
 - [ ] **Step 5:** Fejezz be egy edzést (hogy az összegző megjelenjen), majd nézd meg a profilt méréssel és PR-rel.
 - [ ] **Step 6:** Commit: `"Összegző és Profil: hero-szám és sor-alapú adatlisták"`
