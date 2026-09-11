@@ -83,7 +83,7 @@
 **Interfaces:**
 - Produces: `--surface-panel`, `--hair`, `--hair-soft` CSS-tokenek; minden sugár-token `0px` értéken (kivéve `--r-full`). Minden későbbi task ezekre hivatkozik.
 
-- [ ] **Step 1: A paletta-tokenek átírása**
+- [x] **Step 1: A paletta-tokenek átírása**
 
 A `:root` blokkban cseréld le ezeket az értékeket. A prototípus papírja melegebb és világosabb a mostaninál, a panel pedig sötétebb a lapnál — ez a kettő adja a dizájn alap-rétegződését.
 
@@ -93,7 +93,7 @@ A `:root` blokkban cseréld le ezeket az értékeket. A prototípus papírja mel
   --c-bg-raised: #1e1f23;
 ```
 
-- [ ] **Step 2: A hajszálvonal- és panel-tokenek felvétele**
+- [x] **Step 2: A hajszálvonal- és panel-tokenek felvétele**
 
 A `--c-superset` sor után szúrd be. A `--hair` a prototípus `hair`-je (.18), a `--hair-soft` a `hairSoft`-ja (.11) — ezekből él a teljes rács:
 
@@ -108,7 +108,7 @@ A `--c-superset` sor után szúrd be. A `--hair` a prototípus `hair`-je (.18), 
   --surface-panel: #0a0a0b;
 ```
 
-- [ ] **Step 3: A szemantikus aliasok a hajszálvonalakhoz igazítása**
+- [x] **Step 3: A szemantikus aliasok a hajszálvonalakhoz igazítása**
 
 Cseréld le a meglévő sorokat:
 
@@ -119,7 +119,7 @@ Cseréld le a meglévő sorokat:
 
 `--surface-card`, `--surface-input`, `--surface-hover`, `--surface-strong` és `--border-strong` **változatlan** marad: azok nem elválasztók, hanem beviteli és hover-felületek.
 
-- [ ] **Step 4: A sugarak nullázása**
+- [x] **Step 4: A sugarak nullázása**
 
 Cseréld le a teljes „Lekerekítés" blokkot. A tokenek megmaradnak, hogy ne kelljen 8484 sorban `border-radius`-t vadászni, és hogy a döntés egy helyen visszafordítható legyen:
 
@@ -138,7 +138,7 @@ Cseréld le a teljes „Lekerekítés" blokkot. A tokenek megmaradnak, hogy ne k
   --r-full: 50%;
 ```
 
-- [ ] **Step 5: A `--text-faint` kommentjének pontosítása**
+- [x] **Step 5: A `--text-faint` kommentjének pontosítása**
 
 A `--text-faint` értéke **nem változik** (.55, WCAG-hangolt). Írd fölé, hogy miért nem vesszük át a prototípus .34-ét:
 
@@ -149,7 +149,7 @@ A `--text-faint` értéke **nem változik** (.55, WCAG-hangolt). Írd fölé, ho
      saját szabályban; címke ide sosem kerül. */
 ```
 
-- [ ] **Step 6: Ellenőrzés**
+- [x] **Step 6: Ellenőrzés**
 
 ```bash
 npm run format -- public/style.css
@@ -161,7 +161,7 @@ Várt: a formázás átmegy, 317 teszt zöld (a CSS-t nem érinti teszt).
 
 Indítsd el (`npm start`), és nyisd meg a `http://localhost:3000` címet. Az app **még vegyes lesz** — a kártyák elvesztették a lekerekítést, de még kártyák. Ez ebben a lépésben helyes. Amit ellenőrizz: nincs olvashatatlanná vált szöveg, és a lap háttere a melegebb `#17181b`.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add public/style.css
@@ -188,7 +188,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 **Interfaces:**
 - Produces: `.ds-grid`, `.ds-section`, `.ds-eyebrow`, `.ds-display`, `.ds-row`, `.ds-row-main`, `.ds-row-name`, `.ds-row-sub`, `.ds-row-value`, `.ds-cta`, `.ds-cta-text`, `.ds-cta-sub`, `.ds-step`, `.ds-step-btn`, `.ds-seg`, `.ds-seg-btn` osztályok. Minden oldal-task ezeket használja.
 
-- [ ] **Step 1: A tartalomjegyzék kiegészítése**
+- [x] **Step 1: A tartalomjegyzék kiegészítése**
 
 A `2b. Műszerfal-tipográfia` sor alá:
 
@@ -196,7 +196,7 @@ A `2b. Műszerfal-tipográfia` sor alá:
     2c. Dizájn-primitívek — a prototípus újrahasznált építőelemei (ds-*)
 ```
 
-- [ ] **Step 2: A primitívek megírása**
+- [x] **Step 2: A primitívek megírása**
 
 Szúrd be a 2b. szakasz után:
 
@@ -454,7 +454,7 @@ Szúrd be a 2b. szakasz után:
 }
 ```
 
-- [ ] **Step 3: Ellenőrzés**
+- [x] **Step 3: Ellenőrzés**
 
 ```bash
 npm run format -- public/style.css
@@ -463,7 +463,7 @@ npm run format:check
 
 A primitíveket még semmi nem használja — ez a lépés csak azt bizonyítja, hogy a CSS érvényes és formázott. Nyisd meg az appot (`npm start`): **semminek nem szabad megváltoznia** az 1. taskhoz képest.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add public/style.css
@@ -498,7 +498,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 **Interfaces:**
 - Produces: az izomláz mindenhol 0–10 tartományú. A `CI_MAP_MODES.soreness.max === 10` és `.defaultValue === 5` — a testtérkép-komponens (Task 5) ezeket olvassa.
 
-- [ ] **Step 1: Írd meg a bukó tesztet**
+- [x] **Step 1: Írd meg a bukó tesztet**
 
 A `server/recovery.test.js` végére. Ez a teszt azt rögzíti, hogy a maximális bejelentett izomláz nullára viszi a szubjektív komponenst — a régi skálán az 5 volt a maximum, az újon a 10:
 
@@ -522,7 +522,7 @@ test('a régi skála maximuma (5) már csak félúton van', () => {
 
 > A `restedLogger`, `fullCheckin` és `buildReport` segédek már léteznek a fájlban — nézd meg a 330–365. sorok környékén, hogyan hívja őket a meglévő `soreness: { chest: 5 }` teszt, és kövesd azt a mintát. Ha a `buildReport` neve a fájlban más, használd az ottanit.
 
-- [ ] **Step 2: Futtasd, hogy lásd a bukást**
+- [x] **Step 2: Futtasd, hogy lásd a bukást**
 
 ```bash
 npm test 2>&1 | grep -A5 "izomláz nullázza"
@@ -530,7 +530,7 @@ npm test 2>&1 | grep -A5 "izomláz nullázza"
 
 Várt: FAIL. A 10-es érték a `clamp01(10 / 5)` miatt ugyanúgy 0-t ad, mint az 5 — tehát az **első** teszt véletlenül átmegy, a **második** (az 5 → 50) bukik, mert ma 0-t ad. Ez a bukás a bizonyíték, hogy a skála tényleg 5-ös.
 
-- [ ] **Step 3: A szerver átállítása**
+- [x] **Step 3: A szerver átállítása**
 
 `server/recovery.js:452` — az osztó és a fölötte lévő komment:
 
@@ -556,7 +556,7 @@ Várt: FAIL. A 10-es érték a `clamp01(10 / 5)` miatt ugyanúgy 0-t ad, mint az
     soreness      TEXT NOT NULL DEFAULT '{}',  -- JSON: { chest: 0..10, … } izomcsoportonként
 ```
 
-- [ ] **Step 4: Futtasd a teszteket**
+- [x] **Step 4: Futtasd a teszteket**
 
 ```bash
 npm test 2>&1 | tail -8
@@ -564,7 +564,7 @@ npm test 2>&1 | tail -8
 
 Várt: az új tesztek zöldek. Ha egy régi teszt bukik, mert `soreness: { quads: 5 }`-tel „erős izomlázat" akart kifejezni, írd át **10**-re — a szándéka a maximum volt, nem az 5-ös szám.
 
-- [ ] **Step 5: A kliens átállítása**
+- [x] **Step 5: A kliens átállítása**
 
 `public/js/ui/checkin/constants.js`, a `CI_MAP_MODES.soreness` blokk:
 
@@ -589,7 +589,7 @@ Várt: az új tesztek zöldek. Ha egy régi teszt bukik, mert `soreness: { quads
     if (muscle.soreness !== null) meta.push(`izomláz ${muscle.soreness}/10`);
 ```
 
-- [ ] **Step 6: Az `index.html` súgószövege**
+- [x] **Step 6: Az `index.html` súgószövege**
 
 A Regeneráció oldalon, a 936. sor környékén:
 
@@ -598,7 +598,7 @@ A Regeneráció oldalon, a 936. sor környékén:
                 a csoportonkénti becslést. Amit kihagysz, annak a súlya újraoszlik.</p>
 ```
 
-- [ ] **Step 7: Teljes ellenőrzés**
+- [x] **Step 7: Teljes ellenőrzés**
 
 ```bash
 npm test && npm run lint && npm run format:check
@@ -606,7 +606,7 @@ npm test && npm run lint && npm run format:check
 
 Indítsd el (`npm start`), töltsd ki a check-int, és a térkép alatti chip-sorban ellenőrizd, hogy **10 chip** jelenik meg izomláznál (nem 5).
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add server public/js public/index.html
@@ -641,7 +641,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
     `Region = { key: string, d: string, labelX: number, labelY: number, mirrored: boolean }`
   - A `mirrored: true` régiók a bal félen vannak megrajzolva, és a komponens tükrözi őket; a `mirrored: false` régiók középen ülnek, azokat nem szabad tükrözni.
 
-- [ ] **Step 1: A tesztfuttatás kiterjesztése a frontendre**
+- [x] **Step 1: A tesztfuttatás kiterjesztése a frontendre**
 
 A `package.json`-ban a `test` script ma csak a szervert nézi. A testtérkép geometriája tiszta adat, DOM nélkül importálható — érdemes tesztelni:
 
@@ -649,7 +649,7 @@ A `package.json`-ban a `test` script ma csak a szervert nézi. A testtérkép ge
     "test": "node --test \"server/**/*.test.js\" \"public/**/*.test.js\"",
 ```
 
-- [ ] **Step 2: Írd meg a bukó tesztet**
+- [x] **Step 2: Írd meg a bukó tesztet**
 
 `public/js/ui/bodymap/paths.test.js`:
 
@@ -762,7 +762,7 @@ test('a sziluett mindkét nézethez ad rajzot', () => {
 });
 ```
 
-- [ ] **Step 3: Futtasd, hogy lásd a bukást**
+- [x] **Step 3: Futtasd, hogy lásd a bukást**
 
 ```bash
 npm test 2>&1 | grep -i "bodymap\|Cannot find"
@@ -770,7 +770,7 @@ npm test 2>&1 | grep -i "bodymap\|Cannot find"
 
 Várt: FAIL — `Cannot find module … paths.js`.
 
-- [ ] **Step 4: Írd meg a geometriát**
+- [x] **Step 4: Írd meg a geometriát**
 
 `public/js/ui/bodymap/paths.js`. A szimmetria **transzformációval** készül, nem duplikált koordinátákkal: csak a bal fél van megrajzolva, a komponens tükrözi. Így a figura garantáltan szimmetrikus, és feleannyi koordinátát kell karbantartani.
 
@@ -880,7 +880,7 @@ export const BODY_REGIONS = {
 };
 ```
 
-- [ ] **Step 5: Futtasd a teszteket**
+- [x] **Step 5: Futtasd a teszteket**
 
 ```bash
 npm test 2>&1 | tail -8
@@ -888,7 +888,7 @@ npm test 2>&1 | tail -8
 
 Várt: mind zöld. Az összes szerver-teszt is fut még (a glob most két mintát kap).
 
-- [ ] **Step 6: Nézd meg a rajzot**
+- [x] **Step 6: Nézd meg a rajzot**
 
 Ez a lépés **nem elhagyható**: a koordináták kézzel készültek, és papíron nem derül ki, hogy a figura felismerhető-e. Mentsd ki egy ideiglenes fájlba és nyisd meg böngészőben:
 
@@ -913,7 +913,7 @@ console.log('<body style=\"background:#17181b\">' + g('front') + g('back'));
 
 **Elfogadási feltétel:** a két ábra felismerhető emberi alak (fej, váll, két kar, törzs, két láb), a régiók nem lógnak ki a sziluettből, és nem fedik egymást. Ha nem az — igazítsd a koordinátákat, és futtasd újra. A tesztek végig zöldek maradnak, azok nem az arányokat őrzik.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add public/js/ui/bodymap/paths.js public/js/ui/bodymap/paths.test.js package.json
@@ -970,7 +970,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
   - `onChange()`: minden érték-változás után lefut, ha megadták (a hívó ezzel jelöli pl. a `ci.dirty`-t).
   - `refresh()`: kívülről betöltött értékek után újrarajzolja a régiókat és a sorokat.
 
-- [ ] **Step 1: A komponens megírása**
+- [x] **Step 1: A komponens megírása**
 
 `public/js/ui/bodymap/index.js`:
 
@@ -1259,7 +1259,7 @@ export { createBodyMap };
 
 > Ha a `$$` segéd szignatúrája a `core/dom.js`-ben más, mint `(selector, root)`, igazodj az ottanihoz.
 
-- [ ] **Step 2: A stílus megírása**
+- [x] **Step 2: A stílus megírása**
 
 A `style.css` végére, és a tartalomjegyzékbe is vedd fel (`29. Testtérkép (bm-*) — a check-in és a Regeneráció közös emberkéje`):
 
@@ -1389,7 +1389,7 @@ A `style.css` végére, és a tartalomjegyzékbe is vedd fel (`29. Testtérkép 
 }
 ```
 
-- [ ] **Step 3: Ellenőrzés**
+- [x] **Step 3: Ellenőrzés**
 
 ```bash
 npm run lint && npm run format -- public && npm run format:check && npm test
@@ -1403,7 +1403,7 @@ node --input-type=module -e "import('./public/js/ui/bodymap/paths.js').then(() =
 
 (Az `index.js` DOM-ot használ, azt Node-ból nem lehet betölteni — az a következő task böngészős ellenőrzésén derül ki.)
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add public/js/ui/bodymap/index.js public/style.css
@@ -1439,7 +1439,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Consumes: `createBodyMap` a `../../bodymap/index.js`-ből.
 - Produces: a `renderMap(stepName, nav)` szignatúra **változatlan** — a `wizard.js` nem tud a cseréről.
 
-- [ ] **Step 1: A sablon egyszerűsítése**
+- [x] **Step 1: A sablon egyszerűsítése**
 
 `public/index.html`, a `tpl-ci-map` sablon. A nézetváltót, a térképet és az érték-sorokat mostantól a komponens építi, tehát csak a horgot hagyjuk:
 
@@ -1464,7 +1464,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 A `tpl-ci-value-row` sablont **töröld** — a komponens saját sorokat épít.
 
-- [ ] **Step 2: A lépés-modul újraírása**
+- [x] **Step 2: A lépés-modul újraírása**
 
 `public/js/ui/checkin/steps/map.js` teljes tartalma:
 
@@ -1506,11 +1506,11 @@ export { renderMap };
 
 > A `ci.mapView` állapot megszűnik: a nézetet mostantól a komponens tartja. Keresd meg a `session.js`-ben, és töröld — `grep -rn "mapView" public/js`.
 
-- [ ] **Step 3: A holt konstansok törlése**
+- [x] **Step 3: A holt konstansok törlése**
 
 `public/js/ui/checkin/constants.js`: töröld a `CI_BODY_REGIONS` és a `CI_DRAG_PX_PER_STEP` deklarációt és az export-listából is. A `CI_PAIN_BLOCK` **maradjon** — a `wizard.js` és az összegzés is használja.
 
-- [ ] **Step 4: A holt CSS törlése**
+- [x] **Step 4: A holt CSS törlése**
 
 `public/style.css` 25. szakasz: töröld a `.ci-map`, `.ci-map-head`, `.ci-region` (és `:hover`, `[aria-pressed]` változatai), `.ci-values`, `.ci-value-row`, `.ci-value-name`, `.ci-value-chips`, `.ci-value-warn`, `.ci-chip`, `.ci-chip--pain`, `.ci-map-toggle` szabályokat. Ellenőrizd, hogy egyik osztály sem maradt használatban:
 
@@ -1520,7 +1520,7 @@ grep -rn "ci-map\|ci-region\|ci-value\|ci-chip" public/js public/index.html
 
 Várt: csak a `data-ci-map` horog találata marad.
 
-- [ ] **Step 5: Ellenőrzés böngészőben**
+- [x] **Step 5: Ellenőrzés böngészőben**
 
 ```bash
 npm run lint && npm test && npm start
@@ -1536,7 +1536,7 @@ Nyisd meg a check-int, és a **térkép-lépésen** ellenőrizd mind az ötöt:
 
 Majd ugyanez a **fájdalom-térképen**, ahol a 7-es vagy nagyobb értéknél megjelenik a „letiltva" jelzés.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add public/js public/index.html public/style.css
@@ -1563,7 +1563,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Consumes: `createBodyMap` a `../bodymap/index.js`-ből.
 - Produces: a `PUT /api/checkin` törzse **változatlan** — `{ soreness: {…}, pain: {…} }`, benne a `pain.general` kulccsal.
 
-- [ ] **Step 1: A markup cseréje**
+- [x] **Step 1: A markup cseréje**
 
 `public/index.html`, az `.rc-checkin-body` blokkban:
 
@@ -1578,7 +1578,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
               <div data-map="checkin-pain"></div>
 ```
 
-- [ ] **Step 2: A modul átírása**
+- [x] **Step 2: A modul átírása**
 
 `public/js/ui/recovery.js`. A `sorenessWrap` / `painWrap` skála-építés helyére két térkép. A `values` objektumokat a modul tartja, és a `fillForm`/`readForm` ezeket írja-olvassa:
 
@@ -1633,7 +1633,7 @@ A `readForm`-ban a megfelelő ág:
 
 A `MUSCLE_GROUPS` import és a `scaleFor('pain.general')` hívás elhal — töröld őket, ha semmi más nem használja (`grep -n "MUSCLE_GROUPS" public/js/ui/recovery.js`).
 
-- [ ] **Step 3: Ellenőrzés böngészőben**
+- [x] **Step 3: Ellenőrzés böngészőben**
 
 ```bash
 npm run lint && npm run format -- public && npm test && npm start
@@ -1646,7 +1646,7 @@ A Regeneráció oldalon nyisd le a „Részletes szerkesztés"-t:
 3. Az „Általános fájdalom" sor a fájdalom-térkép alatt van, chipekkel.
 4. Töltsd ki a **varázslót** is, majd térj vissza ide: ugyanazok az értékek látszanak. (Ez a fontos: a két felület ugyanazt a sort írja.)
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add public/index.html public/js/ui/recovery.js
@@ -1721,13 +1721,13 @@ Az `51df3c5` már kártya nélkülire építette. Itt csak annyi a dolog, hogy n
 - Modify: `public/style.css` (22. szakasz, `rc-*`)
 - Modify: `public/index.html:860-1060`
 
-- [ ] **Step 1:** A készenlét-blokk (`.rc-score`) a prototípus hero-ját kapja: `.ds-display` `--ds-display-size: clamp(72px, 20vw, 96px)`-szal, mellette a `%`-jel dekoratív halvány színnel. **A gyűrű marad** — a Regeneráció oldal az egyetlen hely, ahol a spec megtartja.
-- [ ] **Step 2:** A „Számítás" és „Javaslat" listák `.ds-section` + `.ds-row` szerkezetre állnak.
-- [ ] **Step 3:** A `.rc-checkin-cta` `.ds-cta` lesz.
-- [ ] **Step 4:** A `.rc-muscle-*` lista (a csoportonkénti készenlét) `.ds-row`-ra áll; a `izomláz x/10` meta a `.ds-row-sub`-ba.
-- [ ] **Step 5:** `npm run lint && npm run format -- public && npm test`
-- [ ] **Step 6:** Ellenőrizd, hogy a Task 7-ben beépített két emberke sértetlen maradt, és a készenlét-szám frissül check-in mentése után.
-- [ ] **Step 7:** Commit: `"Regeneráció: hero-készenlét, hajszálvonalas számítás- és javaslat-lista"`
+- [x] **Step 1:** A készenlét-blokk (`.rc-score`) a prototípus hero-ját kapja: `.ds-display` `--ds-display-size: clamp(72px, 20vw, 96px)`-szal, mellette a `%`-jel dekoratív halvány színnel. **A gyűrű marad** — a Regeneráció oldal az egyetlen hely, ahol a spec megtartja.
+- [x] **Step 2:** A „Számítás" és „Javaslat" listák `.ds-section` + `.ds-row` szerkezetre állnak.
+- [x] **Step 3:** A `.rc-checkin-cta` `.ds-cta` lesz.
+- [x] **Step 4:** A `.rc-muscle-*` lista (a csoportonkénti készenlét) `.ds-row`-ra áll; a `izomláz x/10` meta a `.ds-row-sub`-ba.
+- [x] **Step 5:** `npm run lint && npm run format -- public && npm test`
+- [x] **Step 6:** Ellenőrizd, hogy a Task 7-ben beépített két emberke sértetlen maradt, és a készenlét-szám frissül check-in mentése után.
+- [x] **Step 7:** Commit: `"Regeneráció: hero-készenlét, hajszálvonalas számítás- és javaslat-lista"`
 
 ---
 
@@ -1737,15 +1737,15 @@ Az `51df3c5` már kártya nélkülire építette. Itt csak annyi a dolog, hogy n
 - Modify: `public/style.css` (25. szakasz, `ci-*`)
 - Modify: `public/index.html:1940-2135` (a `tpl-ci-*` sablonok)
 
-- [ ] **Step 1:** Intro-lépés: `.ci-display` a prototípus 56px-es display-e; a „Kezdés" gomb `.ds-cta` accent háttérrel.
-- [ ] **Step 2:** Szám-lépés (alvás, testsúly): a 72px-es érték `.ds-display`-jel, a ± gombok `.ds-step`-pel, a gyorsgombok `.ds-grid`-ben.
-- [ ] **Step 3:** Skála-lépés: `.ds-seg`-re áll, 80px magas gombokkal (a prototípus mérete).
-- [ ] **Step 4:** Kapu-lépés: két nagy választókártya → keret nélküli, hajszálvonallal elválasztott sorok.
-- [ ] **Step 5:** Összegzés: a készenlét-szám `.ds-display`, a lista `.ds-row`.
-- [ ] **Step 6:** A fejléc-sáv (vissza / haladás / lépésszám / kilépés) a prototípus arányaira: 44px-es gombok, 4px-es haladássáv `--hair-soft` alapon, accent kitöltéssel.
-- [ ] **Step 7:** `npm run lint && npm run format -- public && npm test`
-- [ ] **Step 8:** Kattintsd végig a **teljes** varázslót mindkét kapun „igen"-nel, hogy minden lépéstípust láss.
-- [ ] **Step 9:** Commit: `"Check-in varázsló: display-számok, szegmensek, hajszálvonalas kapuk"`
+- [x] **Step 1:** Intro-lépés: `.ci-display` a prototípus 56px-es display-e; a „Kezdés" gomb `.ds-cta` accent háttérrel.
+- [x] **Step 2:** Szám-lépés (alvás, testsúly): a 72px-es érték `.ds-display`-jel, a ± gombok `.ds-step`-pel, a gyorsgombok `.ds-grid`-ben.
+- [x] **Step 3:** Skála-lépés: `.ds-seg`-re áll, 80px magas gombokkal (a prototípus mérete).
+- [x] **Step 4:** Kapu-lépés: két nagy választókártya → keret nélküli, hajszálvonallal elválasztott sorok.
+- [x] **Step 5:** Összegzés: a készenlét-szám `.ds-display`, a lista `.ds-row`.
+- [x] **Step 6:** A fejléc-sáv (vissza / haladás / lépésszám / kilépés) a prototípus arányaira: 44px-es gombok, 4px-es haladássáv `--hair-soft` alapon, accent kitöltéssel.
+- [x] **Step 7:** `npm run lint && npm run format -- public && npm test`
+- [x] **Step 8:** Kattintsd végig a **teljes** varázslót mindkét kapun „igen"-nel, hogy minden lépéstípust láss.
+- [x] **Step 9:** Commit: `"Check-in varázsló: display-számok, szegmensek, hajszálvonalas kapuk"`
 
 ---
 
