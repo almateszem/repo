@@ -1952,7 +1952,7 @@ Ez **nem** a világos téma megvalósítása — csak az, hogy a szerkezet kész
 
 **Files:** (nincs előre meghatározva — ami a végigjáráson kiderül)
 
-- [ ] **Step 1: Holt CSS keresése**
+- [x] **Step 1: Holt CSS keresése**
 
 ```bash
 for c in $(grep -oE '^\.[a-z][a-z0-9-]+' public/style.css | sort -u | tr -d '.'); do
@@ -1962,7 +1962,7 @@ done
 
 Nézd át a listát. Ami a régi kártyás nyelvhez tartozott, töröld; ami állapot-osztály (a JS `classList`-tel adja hozzá), maradjon — azt a grep nem mindig találja meg. Kétes esetben hagyd bent, és írd a commit-üzenetbe.
 
-- [ ] **Step 2: Nyers színértékek keresése**
+- [x] **Step 2: Nyers színértékek keresése**
 
 ```bash
 grep -nE '#[0-9a-fA-F]{3,8}|rgba?\(' public/style.css | grep -v '^\s*[0-9]*:\s*--' | sed -n '1,60p'
@@ -1974,7 +1974,7 @@ fájlban rengeteg *korábbi* nyers `rgba()` van a `:root`-on kívül (például 
 hatóköre, és nem szabad hozzájuk nyúlni. Ha egy általunk írt szabályban van
 szín-literál, azt cseréld tokenre.
 
-- [ ] **Step 3: Teljes kapu**
+- [x] **Step 3: Teljes kapu**
 
 ```bash
 npm test && npm run lint && npm run format:check
@@ -1990,11 +1990,11 @@ Várt: 317+ teszt zöld (317 szerver + 5 testtérkép-geometria), nincs lint-hib
 
 Amit keresel: hol maradt lekerekített sarok, hol duplázódik hajszálvonal, hol tűnt el egy állapotjelzés, hol lett olvashatatlanul halvány egy címke.
 
-- [ ] **Step 5: A talált hibák javítása**
+- [x] **Step 5: A talált hibák javítása**
 
 Egy commit hibánként vagy hibacsoportonként, beszédes üzenettel.
 
-- [ ] **Step 6: Záró commit**
+- [x] **Step 6: Záró commit**
 
 ```bash
 git add -A
