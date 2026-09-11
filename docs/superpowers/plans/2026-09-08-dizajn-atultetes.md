@@ -1927,7 +1927,7 @@ Ez **nem** a világos téma megvalósítása — csak az, hogy a szerkezet kész
 **Interfaces:**
 - Produces: `[data-theme="light"]` szelektor a `:root` mellett, üres törzzsel és a kitöltendő tokenek listájával kommentben.
 
-- [ ] **Step 1:** A `:root` blokk után:
+- [x] **Step 1:** A `:root` blokk után:
 
 ```css
 /* A világos téma helye. A prototípusban opció (paper: #f4f2ed), de a
@@ -1943,8 +1943,8 @@ Ez **nem** a világos téma megvalósítása — csak az, hogy a szerkezet kész
 }
 ```
 
-- [ ] **Step 2:** Ellenőrizd, hogy a sötét téma semmit nem változott (`npm start`, egy oldal megnézése), és `npm run format:check` átmegy.
-- [ ] **Step 3:** Commit: `"A világos téma helye előkészítve, kitöltés nélkül"`
+- [x] **Step 2:** Ellenőrizd, hogy a sötét téma semmit nem változott (`npm start`, egy oldal megnézése), és `npm run format:check` átmegy.
+- [x] **Step 3:** Commit: `"A világos téma helye előkészítve, kitöltés nélkül"`
 
 ---
 
