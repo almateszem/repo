@@ -1894,13 +1894,13 @@ felületet ír le, ami nincs a repóban:
 **Files:**
 - Modify: `public/style.css` (13., 13b., 14., 17., 19., 24., 28. szakasz)
 
-- [ ] **Step 1:** Közös modál-alap: `background: var(--surface-panel)`, 0 sugár, `--shadow-modal` marad, a fejléc alatt `1px solid var(--hair)`.
-- [ ] **Step 2:** A modál-címek `.ds-eyebrow` nyelvén (mono, nagybetűs) — kivéve, ahol a cím mondat (pl. a megerősítő ablak kérdése), ott marad mondat-szedés.
-- [ ] **Step 3:** A modál-műveletek `.ds-cta` vagy `.ds-seg` szerint.
-- [ ] **Step 4:** Toast: szögletes, `--surface-panel` hátterű, mono felirat.
-- [ ] **Step 5:** `npm run lint && npm run format -- public && npm test`
+- [x] **Step 1:** Közös modál-alap: `background: var(--surface-panel)`, 0 sugár, `--shadow-modal` marad, a fejléc alatt `1px solid var(--hair)`.
+- [x] **Step 2:** A modál-címek `.ds-eyebrow` nyelvén (mono, nagybetűs) — kivéve, ahol a cím mondat (pl. a megerősítő ablak kérdése), ott marad mondat-szedés.
+- [x] **Step 3:** A modál-műveletek `.ds-cta` vagy `.ds-seg` szerint.
+- [x] **Step 4:** Toast: szögletes, `--surface-panel` hátterű, mono felirat.
+- [x] **Step 5:** `npm run lint && npm run format -- public && npm test`
 - [ ] **Step 6:** Nyisd meg **mind a nyolcat**: technika-videó, PR-előzmény, beállítások, megerősítő, sportoló, étel-részlet, saját étel, szkenner. Plusz válts ki egy toastot (bármelyik mentés).
-- [ ] **Step 7:** Commit: `"Modálok és toast: panel-felület, szögletes forma, mono címek"`
+- [x] **Step 7:** Commit: `"Modálok és toast: panel-felület, szögletes forma, mono címek"`
 
 ---
 
