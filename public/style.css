@@ -3541,9 +3541,13 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   max-width: 420px;
   max-height: 100%; /* alacsony nézetablakban a kártya görgethető, nem lóg ki */
   overflow-y: auto;
-  background: var(--c-bg-raised);
-  border: 1px solid var(--fg-10);
-  border-radius: var(--r-3xl);
+  /* A modál-lap felülete a --surface-panel (a token kommentje eddig is ezt
+     ígérte, csak nem volt használója a modálokon). A --c-bg-raised-hez képest
+     sötétebb és semlegesebb — a fátyol fölött így válik el a laptól.
+     FIGYELEM: az étel-modál sticky akció-sávja (.fd-bar) ugyanezt a színt
+     használja a gradiensében; a kettő együtt mozog. */
+  background: var(--surface-panel);
+  border: 1px solid var(--hair);
   padding: var(--sp-10);
   box-shadow: var(--shadow-modal);
   animation: modal-in var(--t-base) both;
@@ -3574,7 +3578,9 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--sp-4);
-  margin-bottom: var(--sp-7);
+  padding-bottom: var(--sp-6);
+  margin-bottom: var(--sp-9);
+  border-bottom: 1px solid var(--hair);
 }
 
 .video-modal-head h3,
@@ -3585,9 +3591,31 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .custom-food-modal-head h3,
 .scanner-modal-head h3,
 .pr-modal-head h3 {
+  /* A .ds-eyebrow tipográfiája, de saját szabályként: ezek h3-ak nyolc külön
+     modálban, és osztályt adni mindegyiknek nem hozna semmit — a JS több
+     helyen a h3 szövegét írja (modals.js), nem az osztályát.
+
+     A megerősítő ablakok kivételt kapnak lent: ott a cím MONDAT, nem címke. */
   margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* A két megerősítő ablak címe kérdés vagy állítás („Biztosan folytatod?"),
+   nem rovatnév — mondat-szedéssel marad. Ugyanez az étel-részlet modálé: ott
+   a cím maga az étel NEVE, tulajdonnév. */
+.confirm-modal-head h3 {
+  font-family: var(--font-base);
   font-size: var(--fs-lg);
   font-weight: 700;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--text-primary);
 }
 
 .video-modal-close,
@@ -3676,30 +3704,32 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--text-secondary);
 }
 
+/* A két gomb egy összefüggő sáv két szegmense: a rést a .ds-grid
+   hajszálvonal-háttere adja (osztályként fel van téve). Keret nincs többé —
+   két keretes gomb között a rés kettős vonalat rajzolt volna. */
 .confirm-modal-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: var(--sp-4);
+  flex-wrap: nowrap;
 }
 
 .confirm-cancel,
 .confirm-ok {
   flex: 1 1 130px;
-  min-height: 44px;
-  border-radius: var(--r-md);
+  min-height: var(--tap-min);
+  border: 0;
   padding: var(--sp-4) var(--sp-7);
-  font-size: var(--fs-md);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
   font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
   transition:
     background var(--t-fast),
-    color var(--t-fast),
-    border-color var(--t-fast);
+    color var(--t-fast);
 }
 
+/* A mégse a lap felületét viseli — a modál-lapét, mert azon ül. */
 .confirm-cancel {
-  background: var(--surface-input);
-  border: 1px solid var(--border-strong);
+  background: var(--surface-panel);
   color: var(--text-secondary);
 }
 
@@ -3708,9 +3738,10 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--text-primary);
 }
 
+/* A megerősítés --c-alert marad, nem accent: ez a gomb visszafordíthatatlan
+   műveletet indít (törlés), és a két token szándékosan külön dolgot jelent. */
 .confirm-ok {
   background: var(--c-alert);
-  border: 1px solid var(--c-alert);
   color: var(--fg-100);
 }
 
@@ -3735,14 +3766,22 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   pointer-events: none;
 }
 
+/* A toast a modálokkal egy felületet visel: panel-háttér, hajszálvonal-keret,
+   szögletes forma. A felirat mono nagybetűs — rövid, rendszer-szintű üzenet
+   („Mentve", „Nincs kapcsolat"), nem olvasnivaló szöveg.
+
+   Az osztályt a js/core/toast.js írja className-nel, ezért ds-* osztályt nem
+   kaphat a markupból; a tipográfia itt áll explicit. */
 .toast {
-  background: var(--c-bg-raised);
-  border: 1px solid var(--border-strong);
-  color: var(--text-secondary);
-  font-size: var(--fs-md);
-  font-weight: 600;
-  padding: var(--sp-4) var(--sp-7);
-  border-radius: var(--r-lg);
+  background: var(--surface-panel);
+  border: 1px solid var(--hair);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
+  padding: var(--sp-5) var(--sp-7);
   box-shadow: var(--shadow-modal);
   max-width: 100%;
   text-align: center;
@@ -4245,7 +4284,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 
 /* ---- Toast változatok ---- */
 .toast--error {
-  border-color: rgba(224, 67, 90, 0.55); /* --c-alert, 55% átlátszósággal */
+  border-color: var(--c-alert);
+  color: var(--c-alert);
 }
 
 /* ---- Modal finom zárás ---- */
@@ -4427,7 +4467,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   left: 2px;
   width: 18px;
   height: 18px;
-  border-radius: var(--r-full);
   background: var(--fg-60);
   transition:
     transform var(--t-fast),
@@ -4463,30 +4502,10 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--text-secondary);
 }
 
+/* A mentés a modál lezáró művelete: teljes szélességű CTA-sáv, nem egy
+   jobbra igazított kis gomb. A formát a .ds-cta adja. */
 .settings-modal-actions {
   display: flex;
-  justify-content: flex-end;
-}
-
-.st-save {
-  background: var(--c-paper);
-  color: var(--c-ink);
-  border: none;
-  border-radius: var(--r-md);
-  padding: var(--sp-4) var(--sp-9);
-  font-size: var(--fs-md);
-  font-weight: 700;
-  transition:
-    background var(--t-fast),
-    transform var(--t-fast);
-}
-
-.st-save:hover {
-  background: var(--c-paper-bright);
-}
-
-.st-save:active {
-  transform: translateY(1px);
 }
 
 /* Kikapcsolt kategória az értesítés-panelen — szürkített megjelenés */
@@ -5128,26 +5147,29 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 /* ---- Gyors műveletek ---- */
+/* A három művelet egy hajszálvonalas sáv szegmensei (.ds-grid). A `wrap`
+   megmarad: 130px-es minimummal három gomb a 480px-es kártyán két sorba
+   törik, és a rés ott is vonal. */
 .co-modal-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--sp-4);
+  /* a rés és a háttér a .ds-grid-től */
+  margin-top: var(--sp-5);
 }
 
 .co-action {
   flex: 1;
   min-width: 130px;
-  background: var(--surface-input);
-  border: 1px solid var(--border-strong);
+  background: var(--surface-panel);
+  border: 0;
   color: var(--text-secondary);
-  border-radius: var(--r-md);
   padding: var(--sp-4) var(--sp-5);
-  font-size: var(--fs-md);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
   font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
   transition:
     background var(--t-fast),
-    color var(--t-fast),
-    transform var(--t-fast);
+    color var(--t-fast);
 }
 
 .co-action:hover {
@@ -6253,9 +6275,17 @@ details[open] > .rc-details-summary::before {
   min-width: 0;
 }
 
+/* Az étel-modál címe maga az étel NEVE — tulajdonnév, nem rovatnév. A közös
+   fejléc-recept (mono, nagybetűs, halvány) itt teljes egészében vissza van
+   vonva, nem csak a mérete: a betűcsalád, a ritkítás, a nagybetűsítés és a
+   halvány szín mind átütne rá. */
 .food-modal-head h3 {
+  font-family: var(--font-base);
   font-size: var(--fs-3xl);
   font-weight: 800;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--text-primary);
 }
 
 .fd-tag {
@@ -6421,7 +6451,6 @@ details[open] > .rc-details-summary::before {
 .fd-chip {
   background: var(--surface-input);
   border: 1px solid var(--border-card);
-  border-radius: var(--r-full);
   color: var(--text-secondary);
   font-size: var(--fs-xs);
   font-weight: 600;
@@ -6501,7 +6530,10 @@ details[open] > .rc-details-summary::before {
   bottom: 0;
   margin: 0 calc(var(--sp-10) * -1); /* a kártya belső térközén túlnyúlva teljes szélességű */
   padding: var(--sp-6) var(--sp-10) var(--sp-10);
-  background: linear-gradient(to top, var(--c-bg-raised) 70%, transparent);
+  /* A gradiensnek a KÁRTYA hátterével kell kezdődnie, különben a sáv alól
+     kilátszik egy másik színű csík. A 17. taskban a kártya --c-bg-raised-ről
+     --surface-panel-re váltott, ezért ez is. */
+  background: linear-gradient(to top, var(--surface-panel) 70%, transparent);
 }
 
 .fd-bar-inner {
@@ -6533,7 +6565,6 @@ details[open] > .rc-details-summary::before {
   width: 42px;
   height: 42px;
   flex: 0 0 auto;
-  border-radius: var(--r-full);
   border: 1.5px solid rgba(17, 17, 17, 0.55);
   background: none;
   color: var(--c-ink);
@@ -8683,7 +8714,6 @@ body[data-onboarding] .app-page.ci-page {
 
 .cf-kcal-reset {
   border: 1px solid var(--fg-15);
-  border-radius: var(--r-full);
   background: none;
   padding: 2px var(--sp-4);
   color: var(--text-primary);
@@ -8755,32 +8785,34 @@ body[data-onboarding] .app-page.ci-page {
   font-weight: 600;
 }
 
+/* A három gomb egy sáv szegmensei (.ds-grid); a rés a hajszálvonal. */
 .cf-actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: var(--sp-4);
-  margin-top: var(--sp-3);
+  margin-top: var(--sp-5);
 }
 
 .cf-cancel,
 .cf-save,
 .cf-save-log {
-  border-radius: var(--r-md);
+  flex: 1;
+  min-height: var(--tap-min);
+  border: 0;
   padding: var(--sp-5) var(--sp-7);
-  font-family: inherit;
-  font-size: var(--fs-sm);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
   font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
   cursor: pointer;
   transition:
     background var(--t-fast),
     filter var(--t-fast);
 }
 
+/* A keret elmarad: a .ds-grid rése rajzolja a vonalat a szegmensek közé.
+   A felület a modál-lapé, amin ülnek. */
 .cf-cancel,
 .cf-save {
-  background: none;
-  border: 1px solid var(--fg-15);
+  background: var(--surface-panel);
   color: var(--text-primary);
 }
 
@@ -8872,7 +8904,6 @@ body[data-onboarding] .app-page.ci-page {
   width: 38px;
   height: 38px;
   border: none;
-  border-radius: var(--r-full);
   background: rgba(0, 0, 0, 0.5);
   font-size: var(--fs-base);
   line-height: 1;
