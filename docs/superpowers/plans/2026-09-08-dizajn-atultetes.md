@@ -1909,11 +1909,11 @@ felületet ír le, ami nincs a repóban:
 **Files:**
 - Modify: `public/style.css` (11. szakasz `nav-*`, 12. szakasz `side-nav-*`)
 
-- [ ] **Step 1:** Nav gyűrű: a `panel` háttér a `--surface-panel`-re áll, az irány-címkék mono nagybetűsek `.16em` ritkítással, az aktív irány accent színű. A korong marad kör (`--r-full`).
-- [ ] **Step 2:** Oldalsáv: `--surface-panel` háttér, az aktív elem `--fg-10` háttérrel és accent `■` jelölővel, a márkajel mono nagybetűs `.22em` ritkítással.
-- [ ] **Step 3:** `npm run lint && npm run format -- public && npm test`
+- [x] **Step 1:** Nav gyűrű: a `panel` háttér a `--surface-panel`-re áll, az irány-címkék mono nagybetűsek `.16em` ritkítással, az aktív irány accent színű. A korong marad kör (`--r-full`).
+- [x] **Step 2:** Oldalsáv: `--surface-panel` háttér, az aktív elem `--fg-10` háttérrel és accent `■` jelölővel, a márkajel mono nagybetűs `.22em` ritkítással.
+- [x] **Step 3:** `npm run lint && npm run format -- public && npm test`
 - [ ] **Step 4:** Húzd meg a nav korongot mind a négy irányba, és nyomd meg a „Regeneráció" sávot. Széles nézetben járd végig az oldalsáv mind a hat elemét.
-- [ ] **Step 5:** Commit: `"Nav gyűrű és oldalsáv: panel-felület, mono iránycímkék"`
+- [x] **Step 5:** Commit: `"Nav gyűrű és oldalsáv: panel-felület, mono iránycímkék"`
 
 ---
 
