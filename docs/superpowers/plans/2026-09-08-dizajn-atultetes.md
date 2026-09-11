@@ -1784,13 +1784,13 @@ A módosítás a modulban egyetlen helyre szorítkozik: az `applyTotals` végén
 sáv szélességének beállítása. Új végpont, új állapot és új teszt nem kell —
 az adat már ott van.
 
-- [ ] **Step 1:** A makró-összegzés a prototípus hero-jára: nagy kcal-szám + haladássáv + `.ds-row` makrósorok.
-- [ ] **Step 2:** Az étkezés-lista és a gyors hozzáadás `.ds-row`-ra áll, jobb oldalt a művelet-gombbal.
-- [ ] **Step 3:** A vízmérő megtartja a mostani (frissen tervezett) formáját, csak a sugarak és a keretek igazodnak.
-- [ ] **Step 4:** **Marad:** vonalkód-olvasó, étel-részlet modál, saját étel. Ezek a 17. taskban kapnak modál-ruhát; itt csak a belépőik.
-- [ ] **Step 5:** `npm run lint && npm run format -- public && npm test`
+- [x] **Step 1:** A makró-összegzés a prototípus hero-jára: nagy kcal-szám + haladássáv + `.ds-row` makrósorok.
+- [x] **Step 2:** Az étkezés-lista és a gyors hozzáadás `.ds-row`-ra áll, jobb oldalt a művelet-gombbal.
+- [x] **Step 3:** A vízmérő megtartja a mostani (frissen tervezett) formáját, csak a sugarak és a keretek igazodnak.
+- [x] **Step 4:** **Marad:** vonalkód-olvasó, étel-részlet modál, saját étel. Ezek a 17. taskban kapnak modál-ruhát; itt csak a belépőik.
+- [x] **Step 5:** `npm run lint && npm run format -- public && npm test`
 - [ ] **Step 6:** Naplózz ételt, nyisd meg a részlet-modált, indítsd el a szkennert (a kamera-hiba is elfogadható válasz, a lényeg, hogy a felület megjelenik).
-- [ ] **Step 7:** Commit: `"Táplálkozás: kcal-hero, hajszálvonalas étkezés-lista"`
+- [x] **Step 7:** Commit: `"Táplálkozás: kcal-hero, hajszálvonalas étkezés-lista"`
 
 ---
 
