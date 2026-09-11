@@ -3379,10 +3379,13 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   transform: translate(-50%, -50%);
   width: 62px;
   height: 62px;
+  /* A korong marad KÖR — a --r-full kivétel-listája kimondottan tartalmazza
+     a nav-korongot. */
   border-radius: var(--r-full);
-  background: rgba(10, 10, 10, 0.55);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  /* Panel-felület a korábbi áttetsző fekete helyett. A backdrop-filter ezzel
+     együtt elmarad: opak háttér mögött nincs mit elmosni, a stacking
+     contextet és a mobil GPU-költséget viszont továbbra is hozná. */
+  background: var(--surface-panel);
   border: 2px solid var(--fg-92);
   box-shadow: var(--shadow-knob);
   cursor: grab;
@@ -3420,12 +3423,18 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   animation: knob-icon-in var(--t-base) var(--ease-spring) both;
 }
 
+/* Az irány-címkék a felkiáltók nyelvén: mono, nagybetűs, --ls-label (.16em).
+   A méret egy fokozattal kisebb lett: a mono betűkép szélesebb, a ritkítás
+   pedig tovább nyújtja a szót — a korábbi --fs-sm-mel a leghosszabb címke
+   („TÁPLÁLKOZÁS") benyúlt volna a korong 44px-es kitérési sugarába
+   (navring.js RING_RADIUS), és húzás közben alákerült volna. */
 .nl {
   position: absolute;
   color: var(--text-muted);
-  font-size: var(--fs-sm);
-  font-weight: 600;
-  letter-spacing: 0.1em;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: var(--ls-label);
   text-transform: uppercase;
   white-space: nowrap;
   transition:
@@ -3439,13 +3448,15 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
    aktuális oldalra mutat; a script.js syncNavRingState-je kapcsolja az
    .is-current osztályt. */
 .nl.is-current {
-  color: var(--text-primary);
-  font-weight: 800;
+  color: var(--c-accent);
 }
 
+/* A pont is accentre vált. Eddig --c-ok (zöld) volt, ami egy MÁSIK jelentést
+   hordoz a lapokon (készenlét, teljesítve) — itt viszont nem állapotot
+   jelöl, hanem azt, hogy melyik irányban állunk. */
 .nl.is-current::after {
   content: ' ·';
-  color: var(--c-ok);
+  color: var(--c-accent);
 }
 
 .nl--up {
@@ -3866,8 +3877,11 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
     /* Alul a fejléc-sávnak tartunk helyet: az ráfekszik az oldalsávra, és
        enélkül eltakarná az utolsó menüpontot alacsony nézetablakban. */
     padding: var(--sp-13) var(--sp-9) calc(var(--sp-16) + var(--sp-11));
-    background: var(--surface-soft);
-    border-right: 1px solid var(--border-card);
+    /* Panel-felület, mint a modáloké és a nav-korongé. A .app-chrome ugyanezt
+       kapja lent: desktopon az is ebben a hasábban ül, és két különböző
+       felület egymás alatt látható színtörést adna. */
+    background: var(--surface-panel);
+    border-right: 1px solid var(--hair);
     overflow-y: auto; /* alacsony nézetablakban a nav görgethető marad */
   }
 
@@ -3884,10 +3898,12 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
     flex-wrap: wrap;
     gap: var(--sp-3);
     padding: var(--sp-6) var(--sp-9);
-    background: var(--surface-soft);
+    /* Ugyanaz a felület, mint a fölötte lévő .side-nav-é: desktopon a kettő
+       egy hasáb, két különböző háttér látható színtörést adna a varratnál. */
+    background: var(--surface-panel);
     border-bottom: none;
-    border-top: 1px solid var(--border-card);
-    border-right: 1px solid var(--border-card);
+    border-top: 1px solid var(--hair);
+    border-right: 1px solid var(--hair);
   }
 
   /* Keskeny hasáb: a márkajel a nav tetején már ott van, itt csak a dátum
@@ -3927,10 +3943,17 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
     left: var(--sp-5);
   }
 
+  /* A márkajel mono nagybetűs, erős ritkítással — a belépő .ds-eyebrow
+     márkajelének nagyobb testvére. A .22em-hez nincs token: a fájl minden
+     letter-spacingje nyers érték ezen a szinten, és ez az egyetlen hely, ahol
+     ekkora ritkítás kell. */
   .side-nav-brand {
-    font-size: var(--fs-2xl);
-    font-weight: 800;
-    letter-spacing: 0.04em;
+    font-family: var(--font-mono);
+    font-size: var(--fs-md);
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
     margin-bottom: var(--sp-14);
   }
 
@@ -3943,10 +3966,13 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
     gap: var(--sp-2);
   }
 
+  /* A sugár elmarad (a token amúgy is 0, de a sor a kártyás nyelv maradványa
+     volt). A bal oldali hely az aktív jelölőé: minden elem behúzva tartja,
+     hogy az aktívvá válás ne tologassa a szöveget. */
   .side-nav-link {
     display: block;
-    padding: var(--sp-5) var(--sp-6);
-    border-radius: var(--r-md);
+    padding: var(--sp-5) var(--sp-6) var(--sp-5) var(--sp-9);
+    position: relative;
     color: var(--fg-60);
     text-decoration: none;
     font-size: var(--fs-base);
@@ -3962,10 +3988,23 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
     color: var(--text-primary);
   }
 
-  /* Az aktív oldal erősebb hátteret kap, hogy hover mellett is megkülönböztethető legyen */
+  /* Az aktív oldal erősebb hátteret kap, hogy hover mellett is
+     megkülönböztethető legyen, és egy accent ■ jelölőt a bal szélén.
+
+     A horgony az aria-current attribútum, nem osztály — a js/nav/router.js
+     setAttribute/removeAttribute-tal kezeli. */
   .side-nav-link[aria-current='page'] {
     background: var(--surface-strong);
     color: var(--text-primary);
+  }
+
+  .side-nav-link[aria-current='page']::before {
+    content: '■';
+    position: absolute;
+    left: var(--sp-5);
+    color: var(--c-accent);
+    font-size: var(--fs-2xs);
+    line-height: inherit;
   }
 
   .app-content {
