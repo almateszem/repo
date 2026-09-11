@@ -5576,7 +5576,13 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 /* ---- Az összegző oldal maga ---- */
-.su-page {
+/* A középre igazítás a fejlécre és a hősre szűkült. Lap-szinten nem
+   maradhatott: a .ds-row space-between elrendezésében a bal oldali név és a
+   jobb oldali érték is befelé húzódna, és a sor szétesne. A .su-note és a
+   .su-feedback saját `text-align: left`-je ezzel feleslegessé vált, de
+   ártalmatlan — a 20. task takarítása viszi el. */
+.su-header,
+.su-hero {
   text-align: center;
 }
 
@@ -5622,77 +5628,60 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   margin: 0 0 var(--sp-9);
 }
 
+/* A két egyenrangú kártya helyett hős + kísérő sor. A két szám nem
+   egyenrangú: a teljesített szett az edzés eredménye, az időtartam csak
+   kíséri. */
 .su-stats {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--sp-5);
+  display: flex;
+  flex-direction: column;
   margin-bottom: var(--sp-13);
 }
 
-.su-stat {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-2);
-  background: var(--surface-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--r-2xl);
-  padding: var(--sp-8) var(--sp-5);
-  min-width: 0;
+.su-hero {
+  padding-bottom: var(--sp-11);
   animation: note-in 0.3s ease backwards;
   animation-delay: calc(var(--i, 0) * 70ms);
 }
 
-.su-stat-value {
-  font-size: var(--fs-summary);
-  font-weight: 800;
-  line-height: 1;
+/* A .ds-display adja a súlyt és a tabular-nums-ot; a méret a lap hőséé. */
+.su-hero-value {
+  --ds-display-size: clamp(64px, 18vw, 88px);
+  margin: 0;
   white-space: nowrap;
 }
 
+.su-hero-label {
+  margin: var(--sp-5) 0 0;
+}
+
+/* A kísérő sor formáját a .ds-row adja; itt csak a beúszás marad. A kártya
+   háttere, kerete és belső margója elmarad. */
+.su-stat {
+  animation: note-in 0.3s ease backwards;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+
+/* Az egység mindkét helyen kicsi és halvány — a hősön a „/összes", a soron a
+   „perc". Az em-alapú méret a szülő betűméretéhez tapad, ezért működik a
+   88px-es hősön és a sor értékén is. */
 .su-stat-unit {
   font-size: 0.42em;
   font-weight: 700;
   color: var(--text-muted);
-  margin-left: 2px;
-}
-
-.su-stat-label {
-  font-size: var(--fs-2xs);
-  color: var(--text-muted);
+  margin-left: var(--sp-1);
 }
 
 .su-actions {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   gap: var(--sp-7);
 }
 
-/* Fő gomb — a dashboard CTA-val azonos hangsúly */
-.su-cta {
-  width: min(100%, 340px);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--c-paper);
-  color: var(--c-ink);
-  border: none;
-  border-radius: var(--r-xl);
-  padding: var(--sp-7) var(--sp-8);
-  font-size: var(--fs-lg);
-  font-weight: 600;
-  transition:
-    background var(--t-fast),
-    transform var(--t-fast);
-}
-
-.su-cta:hover {
-  background: var(--c-paper-bright);
-}
-
-.su-cta:active {
-  transform: translateY(1px);
-}
+/* A formát a .ds-cta adja (osztályként fel van téve). A korábbi 340px-es
+   középre igazított gomb helyett teljes szélességű sáv — a .su-actions
+   `align-items: center`-je emiatt `stretch`-re vált, különben a flex-oszlop
+   a 100%-os szélességet is összehúzná. */
 
 .su-cta-arrow {
   font-size: var(--fs-2xl);
@@ -8486,71 +8475,49 @@ body[data-onboarding] .app-page.ci-page {
   color: var(--text-muted);
 }
 
+/* A blokkok ritmusát a .ds-section adja (felső hajszálvonal + margó), ezért
+   a saját alsó margó itt már csak a legutolsó szekció alá kell. */
 .pf-stats,
 .pf-facts {
-  margin-bottom: var(--sp-13);
+  margin-bottom: 0;
 }
 
-/* Két oszlop: négy összesítő fér el két sorban, telefonon is olvashatóan. */
+/* A négy összesítő kártya-rácsból sorlista lett. Két 100%-os oszlopban a
+   hosszabb címkék („teljesített munkasorozat") két-három sorba törtek; a
+   soron a címke balra, a szám jobbra fér el egy sorban. */
 .pf-stat-grid {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--sp-5);
-}
-
-.pf-stat {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-2);
-  background: var(--surface-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--r-xl);
-  padding: var(--sp-8);
 }
 
+/* A méretet a .ds-row-value adja; a tabular-nums itt marad, mert a szám
+   felpörög (ui/profile.js), és nem ugrálhat közben a szélessége. */
 .pf-stat-value {
-  font-size: var(--fs-5xl);
-  font-weight: 800;
-  line-height: 1;
-  font-variant-numeric: tabular-nums; /* a felpörgetés ne ugráltassa a szélességet */
-}
-
-.pf-stat-label {
-  font-size: var(--fs-sm);
-  color: var(--text-muted);
-  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
 }
 
 .pf-fact-list {
   margin: 0;
 }
 
+/* A formát a .ds-row adja. A korábbi `border-bottom` + `:last-child` páros
+   nem csak stílusban tért el a recepttől — HIBÁS is volt: a sorokat a
+   js/ui/profile.js egyenként rejti el `hidden`-nel, a látható utolsó sor
+   tehát általában NEM `:last-child`, így a lista alján ott maradt egy
+   lelógó vonal. A `.ds-row + .ds-row { border-top }` ezt megoldja: a rejtett
+   szomszéd `display: none`, nem rajzol semmit. */
 .pf-fact {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
   gap: var(--sp-6);
-  padding: var(--sp-6) 0;
-  border-bottom: 1px solid var(--fg-08);
 }
 
-.pf-fact:last-child {
-  border-bottom: none;
-}
-
-.pf-fact dt {
-  font-size: var(--fs-base);
-  color: var(--text-muted);
-}
-
+/* A dt/dd megkapta a .ds-row-name / .ds-row-value osztályt; itt csak az marad,
+   amit azok nem adnak: a böngésző alapértelmezett dd-margója (40px!) és a
+   szám-oszlop viselkedése. */
 .pf-fact dd {
   margin: 0;
-  font-size: var(--fs-base);
-  font-weight: 700;
-  color: var(--text-secondary);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
