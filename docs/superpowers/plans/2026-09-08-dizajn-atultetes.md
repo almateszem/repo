@@ -1770,6 +1770,19 @@ Az `51df3c5` már kártya nélkülire építette. Itt csak annyi a dolog, hogy n
 **Files:**
 - Modify: `public/style.css` (8. szakasz `nu-*`, 24. szakasz `fd-*`, 28. szakasz `cf-*` / `sc-*`)
 - Modify: `public/index.html:544-669`
+- Modify: `public/js/ui/nutrition.js` (csak a haladássáv kitöltése)
+
+**Tervjavítás — a Files blokk kiegészül a nutrition modullal.** Az 1. lépés
+haladássávot kér a kcal-hero alá, a sáv kitöltése viszont a bevitel/cél
+arányból jön, és azt kizárólag az `applyTotals` ismeri (`totals.intake`,
+`totals.goal.calories`). CSS-ből nem számolható: a `data-goal="calories"`
+mező szöveg, nem custom property. A vízmérő ugyanezt a mintát követi már ma
+(`js/ui/water.js` írja a `[data-water-fill]` szélességét), tehát nem új
+mechanizmus, csak a második call-site-ja.
+
+A módosítás a modulban egyetlen helyre szorítkozik: az `applyTotals` végén a
+sáv szélességének beállítása. Új végpont, új állapot és új teszt nem kell —
+az adat már ott van.
 
 - [ ] **Step 1:** A makró-összegzés a prototípus hero-jára: nagy kcal-szám + haladássáv + `.ds-row` makrósorok.
 - [ ] **Step 2:** Az étkezés-lista és a gyors hozzáadás `.ds-row`-ra áll, jobb oldalt a művelet-gombbal.
