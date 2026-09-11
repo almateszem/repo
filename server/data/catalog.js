@@ -34,7 +34,7 @@ import { exercises as curatedExercises, GROUPS } from './exercises.hu.js';
 import { exdbExercises, exdbMediaForCurated } from './exercises.exdb.js';
 import { foods as curatedFoods } from './foods.hu.js';
 import { MUSCLE_KEYS } from '../muscles.js';
-import { isLogMode, resolveLogMode } from '../logmode.js';
+import { isLogMode, resolveCardioProfile, resolveLogMode } from '../logmode.js';
 
 /**
  * A gyakorlat-lista ellenőrzése. A Recovery Engine a `load` súlyokra épít, és
@@ -117,8 +117,20 @@ export function buildExerciseCatalog() {
   /* A naplózási mód RÁÉGETÉSE: innentől minden sor konkrét `logMode`-ot visel,
      és sem a felület, sem a szerver nem old fel többé nevet. A kurált sorok a
      saját kimondott értéküket tartják meg, a generált kardió a mintázatból
-     kapja meg — lásd logmode.js → resolveLogMode. */
-  return merged.map((entry) => ({ ...entry, logMode: resolveLogMode(entry) }));
+     kapja meg — lásd logmode.js → resolveLogMode.
+
+     Az IDŐALAPÚ sorok a kardió-profilt is megkapják (becsapódás-jelleg és
+     testsúly-viselés), mert a Recovery Engine ezekkel súlyoz. A szett-alapú
+     sorokra nem tesszük rá: ott nincs mit jelentenie, és a katalógus fele
+     fölöslegesen hízna tőle. */
+  return merged.map((entry) => {
+    const logMode = resolveLogMode(entry);
+    return {
+      ...entry,
+      logMode,
+      ...(logMode === 'duration' && resolveCardioProfile(entry)),
+    };
+  });
 }
 
 /**

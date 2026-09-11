@@ -2045,3 +2045,149 @@ test('ismeretlen naplózási módra a szett-alap érvényes, nem hiba', async ()
   assert.equal(res.json.exercises[0].logMode, undefined);
   assert.equal(res.json.exercises[0].sets[0].reps, '5');
 });
+
+
+/* ======================================================================
+   12. Kardió: becsült kalória és a volumen-diagram
+   ====================================================================== */
+
+let kcalCookie = '';
+
+test('testsúly nélkül NINCS kalória-becslés — nem találunk ki egyet', async () => {
+  const reg = await request('POST', '/api/auth/register', {
+    body: { username: 'kcal', displayName: 'Kalóriás Kál', password: 'jelszo123' },
+  });
+  kcalCookie = cookieFrom(reg);
+
+  const res = await request('POST', '/api/workouts', {
+    cookie: kcalCookie,
+    body: { name: 'Futás', exercises: [{
+      name: 'Futópad', logMode: 'duration',
+      sets: [{ duration: '3600', intensity: 'high', weight: '', done: true }],
+    }] },
+  });
+  assert.equal(res.status, 201);
+  assert.equal(res.json.calories, null, 'testsúly híján a becslés kimarad');
+});
+
+test('testsúllyal megjelenik a becsült égetés, szett-alapú edzésre viszont nem', async () => {
+  await request('POST', '/api/weight-log', { cookie: kcalCookie, body: { kg: 80 } });
+
+  const lista = (await request('GET', '/api/workouts', { cookie: kcalCookie })).json;
+  const futas = lista.find((w) => w.name === 'Futás');
+  /* Egy óra magas fokozat 80 kg-mal: (9 − 1) × 80 × 1 = 640 kcal. A mínusz egy
+     a nyugalmi anyagcsere, amit mozgás nélkül is elégetett volna. */
+  assert.equal(futas.calories, 640);
+
+  const eros = await request('POST', '/api/workouts', {
+    cookie: kcalCookie,
+    body: { name: 'Fekvenyomás nap', exercises: [gyakorlat('Fekvenyomás', 100)] },
+  });
+  assert.equal(eros.json.calories, null, 'szett-alapú edzéshez nincs se idő, se fokozat');
+});
+
+test('a plusz súly emeli az égetést, ülve végzett gépnél viszont nem', async () => {
+  const futasMellennyel = await request('POST', '/api/workouts', {
+    cookie: kcalCookie,
+    body: { name: 'Mellényes futás', exercises: [{
+      name: 'Futópad', logMode: 'duration',
+      sets: [{ duration: '3600', intensity: 'high', weight: '20', done: true }],
+    }] },
+  });
+  assert.equal(futasMellennyel.json.calories, 800, '(9 − 1) × (80 + 20) × 1');
+
+  const tekeresMellennyel = await request('POST', '/api/workouts', {
+    cookie: kcalCookie,
+    body: { name: 'Mellényes tekerés', exercises: [{
+      name: 'Szobabicikli', logMode: 'duration',
+      sets: [{ duration: '3600', intensity: 'high', weight: '20', done: true }],
+    }] },
+  });
+  assert.equal(tekeresMellennyel.json.calories, 640, 'ülve a gép tartja a mellényt');
+});
+
+test('a kardió sor NEM munkasorozat a heti volumen-diagramon', async () => {
+  const reg = await request('POST', '/api/auth/register', {
+    body: { username: 'volumen', displayName: 'Volumen Vili', password: 'jelszo123' },
+  });
+  const cookie = cookieFrom(reg);
+
+  await request('POST', '/api/workouts', {
+    cookie,
+    body: { name: 'Futás', exercises: [{
+      name: 'Futópad', logMode: 'duration',
+      sets: [{ duration: '2700', intensity: 'high', weight: '', done: true }],
+    }] },
+  });
+
+  const charts = (await request('GET', '/api/charts', { cookie })).json;
+  assert.equal(charts.volumeThisWeek.total, 0,
+    'egy 45 perces futás nem egy bicepszsorozat — a diagram munkasorozatot jelent');
+
+  await request('POST', '/api/workouts', {
+    cookie, body: { name: 'Mell', exercises: [gyakorlat('Fekvenyomás', 100)] },
+  });
+  const utana = (await request('GET', '/api/charts', { cookie })).json;
+  assert.equal(utana.volumeThisWeek.total, 1, 'a súlyzós munkasorozat viszont számít');
+});
+
+
+/* ======================================================================
+   13. A kardió-égetés levonódik a bevitelből
+   ----------------------------------------------------------------------
+   A napi összesítő a NYERS bevitelt is megtartja, mellette a mozgással
+   elégetett mennyiséget — a kivonást a felület végzi el, és ki is írja. Így
+   egyik szám sem lesz megmagyarázhatatlan.
+   ====================================================================== */
+
+let netCookie = '';
+
+test('a napi összesítő a mozgással elégetett kalóriát is megadja', async () => {
+  const reg = await request('POST', '/api/auth/register', {
+    body: { username: 'netto', displayName: 'Nettó Nándor', password: 'jelszo123' },
+  });
+  netCookie = cookieFrom(reg);
+
+  const ures = await request('GET', '/api/nutrition', { cookie: netCookie });
+  assert.equal(ures.json.burned, 0, 'mozgás nélkül nincs mit levonni');
+
+  await request('POST', '/api/weight-log', { cookie: netCookie, body: { kg: 80 } });
+  await request('POST', '/api/workouts', {
+    cookie: netCookie,
+    body: { name: 'Futás', exercises: [{
+      name: 'Futópad', logMode: 'duration',
+      sets: [{ duration: '3600', intensity: 'high', weight: '', done: true }],
+    }] },
+  });
+
+  const utana = await request('GET', '/api/nutrition', { cookie: netCookie });
+  assert.equal(utana.json.burned, 640, 'egy óra magas fokozat 80 kg-mal');
+  assert.equal(utana.json.intake, 0, 'a NYERS bevitel külön marad — a kivonás a felületé');
+});
+
+test('az Áttekintő nettó kalóriát mutat, a makrókat viszont nem csökkenti', async () => {
+  const foods = (await request('GET', '/api/foods', { cookie: netCookie })).json;
+  await request('POST', '/api/nutrition/log', {
+    cookie: netCookie, body: { name: seedFood(foods).name, grams: 100 },
+  });
+
+  const totals = (await request('GET', '/api/nutrition', { cookie: netCookie })).json;
+  const dash = (await request('GET', '/api/dashboard', { cookie: netCookie })).json;
+
+  assert.equal(dash.dailyStats.caloriesBurned, 640);
+  assert.equal(
+    dash.dailyStats.calories,
+    Math.max(0, Math.round(totals.intake) - 640),
+    'a kártya nettó számot mutat',
+  );
+  assert.equal(dash.dailyStats.protein, Math.round(totals.protein),
+    'a fehérje NEM csökken: a mozgás energiát vesz el, nem fehérjét');
+});
+
+test('a nettó bevitel nem megy nulla alá', async () => {
+  /* Aki többet mozgott, mint amennyit evett, ne „mínusz 400 kcal bevitelt"
+     lásson a kártyán — az hibának látszana. A valós két számot a Táplálkozás
+     oldal magyarázó sora írja ki. */
+  const dash = (await request('GET', '/api/dashboard', { cookie: netCookie })).json;
+  assert.ok(dash.dailyStats.calories >= 0);
+});

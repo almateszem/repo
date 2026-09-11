@@ -177,7 +177,7 @@
                A sáv kitöltését a renderDailyStats számolja. -->
           <section class="db-nutri" aria-label="Mai táplálkozás">
             <div class="db-nutri-head">
-              <span class="db-label">Kalória</span>
+              <span class="db-label" data-daily-label>Kalória</span>
               <span class="db-nutri-value">
                 <span data-daily="calories">0</span><span class="db-nutri-target" data-daily="caloriesTarget"></span>
               </span>
@@ -547,7 +547,7 @@
         <header class="nu-summary" aria-label="Napi kalória-összesítő">
           <div class="nu-summary-item">
             <span class="nu-summary-value"><span data-stat="intake"></span><span class="nu-summary-unit">kcal</span></span>
-            <span class="nu-summary-label">Bevitel</span>
+            <span class="nu-summary-label" data-nu-intake-label>Bevitel</span>
           </div>
           <span class="nu-summary-divider" aria-hidden="true">/</span>
           <div class="nu-summary-item">
@@ -555,6 +555,11 @@
             <span class="nu-summary-label">Cél</span>
           </div>
         </header>
+
+        <!-- A kivonás LÁTHATÓ. A fenti szám kardió után a nettó bevitel, ami
+             magyarázat nélkül hibának látszana; ez a sor kiírja, miből jött.
+             Csak akkor jelenik meg, ha tényleg volt ma elmozgatott kalória. -->
+        <p class="nu-net-note" data-nu-net-note hidden></p>
 
         <div class="nu-macros" aria-label="Makrotápanyagok">
           <div class="nu-macro"><span class="nu-macro-label">Fehérje</span><span class="nu-macro-value"><span data-stat="protein"></span><span class="nu-macro-unit">g</span></span></div>
@@ -800,6 +805,13 @@
           <div class="su-stat" style="--i:1">
             <span class="su-stat-value"><span data-su-duration>0</span><span class="su-stat-unit">perc</span></span>
             <span class="su-stat-label">Időtartam</span>
+          </div>
+          <!-- Csak akkor látszik, ha volt időalapú (kardió) sor az edzésben ÉS
+               van rögzített testsúly. Becslés, nem mérés: a felirat ezért
+               mondja ki. -->
+          <div class="su-stat" style="--i:2" data-su-calories-stat hidden>
+            <span class="su-stat-value"><span data-su-calories>0</span><span class="su-stat-unit">kcal</span></span>
+            <span class="su-stat-label">Becsült égetés</span>
           </div>
         </div>
 
@@ -1761,8 +1773,9 @@
             <input class="wk-num-input wk-set-weight" type="number" inputmode="decimal"
                    min="0" max="999" step="2.5" autocomplete="off" placeholder="0">
           </label>
-          <p class="wk-extra-note">Feljegyzés a körülményről. A terhelés-számításba
-             egyelőre nem számít bele.</p>
+          <p class="wk-extra-note">Beleszámít a terhelésbe és az elégetett
+             kalóriába. Ülve végzett gépeknél nem: ott a gép tartja a súlyt,
+             nem te.</p>
         </div>
       </div>
       <button class="wk-set-check tap-target" type="button" aria-pressed="false"

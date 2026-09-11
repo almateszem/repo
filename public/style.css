@@ -1941,6 +1941,15 @@ input.wk-chip:focus-visible {
   color: var(--text-faint);
 }
 
+/* A nettó bevitel magyarázó sora a Táplálkozás oldal összesítője alatt. Csak
+   akkor látszik, ha volt ma kardióval elmozgatott kalória. */
+.nu-net-note {
+  margin: calc(var(--sp-2) * -1) 0 var(--sp-4);
+  text-align: center;
+  font-size: var(--fs-2xs);
+  color: var(--text-faint);
+}
+
 .wk-chip {
   background: var(--surface-input);
   border-radius: var(--r-sm);

@@ -55,10 +55,11 @@ const trainingDayKeys = (workouts) => new Set(workouts.map((w) => dayKey(w.date)
     napra — egy nap akkor is EGY edzésnap, ezért halmaz. */
 const scheduledWeekdays = (plans) => new Set(plans.flatMap((plan) => plan.days ?? []));
 
-/** Teljesített munkasorozatok száma egy edzésben (a bemelegítő nem az). */
+/** Teljesített munkasorozatok száma egy edzésben (a bemelegítő nem az, és az
+    IDŐALAPÚ kardió sor sem — ld. server.js → isWorkSet, ugyanaz a szabály). */
 const workSetCount = (workout) => workout.exercises
   .flatMap((exercise) => exercise.sets ?? [])
-  .filter((set) => set.done && set.type !== 'warmup').length;
+  .filter((set) => set.done && set.type !== 'warmup' && set.duration === undefined).length;
 
 /**
  * A HETI állás: hány edzésnap valósult meg hétfőtől máig, mennyi volt kitűzve,

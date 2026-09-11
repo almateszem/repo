@@ -45,7 +45,8 @@ import {
    A katalógus minden sora konkrét `logMode`-ot visel (data/catalog.js), itt
    a beküldött sorok normalizálásához és a felület fokozat-listájához kell. */
 import {
-  DEFAULT_LOG_MODE, INTENSITY_LEVELS, isLogMode, normalizeDuration, normalizeIntensity,
+  DEFAULT_LOG_MODE, INTENSITY_LEVELS, cardioProfileFor, intensityMet,
+  isLogMode, normalizeDuration, normalizeIntensity,
 } from './logmode.js';
 // Vonalkód-feloldás: a normalizálás/ellenőrzés és az Open Food Facts hívás.
 import { normalizeBarcode, fetchProduct } from './openfoodfacts.js';
@@ -499,7 +500,14 @@ app.post('/api/auth/delete-account', async (req, res) => {
     az edzői panel összegzője (server/coaching.js). A drop set önálló
     sorozatnak számít itt; a Recovery Engine az izomkárosodásnál súlyozza le
     (0.5), de darabszámra az is elvégzett munka. */
-const isWorkSet = (set) => Boolean(set?.done) && set?.type !== 'warmup';
+const isWorkSet = (set) => Boolean(set?.done)
+  && set?.type !== 'warmup'
+  /* Az IDŐALAPÚ sor nem munkasorozat. A „volumen" itt kifejezetten
+     munkasorozatot jelent, és egy 45 perces futás nem egy bicepszsorozat —
+     a felirat és a diagram ettől válna hazuggá. A terhelését a Recovery
+     Engine számolja, a saját csatornáján. A jegy az időtartam-mező: a
+     szett-alapú sorokon sosem szerepel. */
+  && set?.duration === undefined;
 
 /** A profiloldal adatai: a fiók alapadatai és az eddigi teljesítmény
     összesítése. Szándékosan NEM a /api/user bővítése: az a seed-fájl demo-
@@ -1064,11 +1072,13 @@ const parseRowId = (raw) => (Number.isInteger(raw) && raw > 0 ? raw : null);
 app.get('/api/dashboard', (req, res) => {
   const userId = req.user.id;
   const dashboard = getCollection('dashboard') || {};
-  const totals = getNutritionTotals(userId, req.today);
   // A mentett edzéseket egyszer olvassuk be, és mindkét fogyasztónak átadjuk:
   // korábban a streak és a készenléti riport külön-külön beolvasta és
   // JSON-ből visszafejtette a TELJES workouts táblát.
   const workouts = getWorkouts(userId);
+  // A napi összesítő a mozgással elégetett kalóriát is tartalmazza; a már
+  // beolvasott edzés-listát adjuk át neki, hogy ne olvassa be másodszor.
+  const totals = nutritionWithBurn(userId, req.today, workouts);
   const readiness = readinessReport(userId, req.today, workouts);
 
   dashboard.streak = trainingStreak(workouts, req.today);
@@ -1079,7 +1089,11 @@ app.get('/api/dashboard', (req, res) => {
   dashboard.readinessConfidence = readiness.confidence;
   dashboard.checkinPresent = readiness.checkin.present;
   dashboard.dailyStats = {
-    calories: Math.round(totals.intake),
+    /* NETTÓ bevitel: a bevitt kalória mínusz a kardióval elmozgatott. A
+       nullánál nem megyünk lejjebb — a negatív bevitel a kártyán hibának
+       látszana, a valós számokat pedig a Táplálkozás oldal írja ki. */
+    calories: Math.max(0, Math.round(totals.intake) - totals.burned),
+    caloriesBurned: totals.burned,
     caloriesTarget: totals.goal.calories,
     protein: Math.round(totals.protein),
     // A teljes makró-bontás is ide tartozik: az áttekintő a kalória-sáv alatt
@@ -1804,7 +1818,7 @@ app.get('/api/weight-log', (req, res) => res.json(getWeightLog(req.user.id)));
 app.get('/api/foods', (req, res) => res.json(getFoodsForUser(req.user.id)));
 
 // Napi táplálkozási összesítő (alap + a MAI naplózott ételek)
-app.get('/api/nutrition', (req, res) => res.json(getNutritionTotals(req.user.id, req.today)));
+app.get('/api/nutrition', (req, res) => res.json(nutritionWithBurn(req.user.id, req.today)));
 
 // A MAI naplózott ételek tételesen — a Táplálkozás oldal „Mai napló" listájához
 
@@ -1833,6 +1847,91 @@ app.get('/api/measurements/sites', (req, res) => res.json(
 ));
 
 app.get('/api/measurements', (req, res) => res.json(getMeasurements(req.user.id)));
+
+/** A fiók LEGUTÓBBI testsúlya, vagy null. A kalória-becsléshez kell, és a
+    hiánya nem pótolható alapértékkel: a motor belül 80 kg-mal SKÁLÁZ egy
+    referenciát, de a felhasználónak kimondani egy meg nem mért égést nem
+    ugyanaz a műfaj. Adat híján inkább nincs szám. */
+function latestBodyWeight(userId) {
+  const log = getWeightLog(userId);
+  const kg = Number(log[log.length - 1]?.kg);
+  return Number.isFinite(kg) && kg > 0 ? kg : null;
+}
+
+/**
+ * Egy edzés becsült kalória-égetése az IDŐALAPÚ sorokból, MET-alapon:
+ * (MET − 1) × mozgatott tömeg × óra.
+ *
+ * A MÍNUSZ EGY nem elírás: a MET a nyugalmi anyagcsere többszöröse, tehát
+ * tartalmazza azt az energiát is, amit a sportoló mozgás nélkül is elégetett
+ * volna. Enélkül nagyjából tizedével túlbecsülnénk a TÖBBLET-égést.
+ *
+ * A plusz súly ugyanúgy a tömegben jelenik meg, mint a fáradtságnál, és
+ * ülve végzett mozgásnál ugyanúgy kimarad. Szett-alapú gyakorlatra NEM
+ * becsülünk: ahhoz nincs se időtartam, se fokozat.
+ *
+ * @returns {number|null} egész kcal, vagy null (nincs kardió, vagy nincs testsúly)
+ */
+function workoutCalories(workout, bodyWeight) {
+  if (!bodyWeight) return null;
+  const catalog = getCollection('exerciseCatalog') || [];
+  let kcal = 0;
+  let hasCardio = false;
+
+  for (const exercise of workout?.exercises ?? []) {
+    if (exercise?.logMode !== 'duration') continue;
+    const profile = cardioProfileFor(exercise.name, catalog);
+    for (const set of exercise.sets ?? []) {
+      if (!set?.done) continue;
+      const seconds = Number(set.duration);
+      if (!Number.isFinite(seconds) || seconds <= 0) continue;
+      hasCardio = true;
+      const extra = profile.carriesBodyWeight
+        ? Math.min(Math.max(Number(set.weight) || 0, 0), bodyWeight)
+        : 0;
+      kcal += (intensityMet(set.intensity) - 1) * (bodyWeight + extra) * (seconds / 3600);
+    }
+  }
+  return hasCardio ? Math.round(kcal) : null;
+}
+
+/** Az edzés a becsült égetéssel kiegészítve. SZÁRMAZTATOTT mező: nem tárolódik,
+    mert a testsúly változik, a régi sort viszont nem írjuk át utólag. */
+const withCalories = (workout, bodyWeight) => ({
+  ...workout, calories: workoutCalories(workout, bodyWeight),
+});
+
+/**
+ * Az adott NAPON kardióval elégetett kalória, a mentett edzésekből.
+ *
+ * A táplálkozási összesítő ezt vonja le a bevitelből. A MAKRÓKAT NEM érinti:
+ * a mozgás nem vesz el fehérjét, csak energiát — a fehérje-cél tehát
+ * változatlanul a bevitt mennyiséghez mérődik.
+ *
+ * A számot nem tároljuk: a testsúlyból számol, az pedig változik. Egy régi nap
+ * összesítője így a MAI testsúllyal számolna vissza — ez elfogadott pontatlanság
+ * egy becslésnél, cserébe nincs még egy hely, ahol az adat elavulhat.
+ */
+function caloriesBurnedOn(userId, date, workouts) {
+  const bodyWeight = latestBodyWeight(userId);
+  if (!bodyWeight) return 0;
+  const list = workouts ?? getWorkouts(userId);
+  let total = 0;
+  for (const workout of list) {
+    if (workout.date !== date) continue;
+    total += workoutCalories(workout, bodyWeight) ?? 0;
+  }
+  return Math.round(total);
+}
+
+/** A napi táplálkozási összesítő a mozgással elégetett kalóriával kiegészítve.
+    A `burned` KÜLÖN mező marad, nem vonjuk le az `intake`-ből: a nyers bevitel
+    attól még tény, és a felület mindkét számot kiírja, hogy a kivonás látható
+    legyen. Aki csak az egyiket nézi, ne kapjon megmagyarázhatatlan számot. */
+const nutritionWithBurn = (userId, date, workouts) => {
+  const totals = getNutritionTotals(userId, date);
+  return { ...totals, burned: caloriesBurnedOn(userId, date, workouts) };
+};
 
 /** Az időalapú sorok intenzitás-fokozatai a felületnek. A címke is innen jön,
     ugyanazért, amiért a mérési helyeké: a mentett adat a KULCS, a felirat csak
@@ -1947,7 +2046,10 @@ app.put('/api/athletes/:linkId/nutrition-goal', (req, res) => {
 app.get('/api/nutrition/log', (req, res) => res.json(getNutritionLogForDate(req.user.id, req.today)));
 
 // Mentett edzések (legújabb elöl)
-app.get('/api/workouts', (req, res) => res.json(getWorkouts(req.user.id)));
+app.get('/api/workouts', (req, res) => {
+  const bodyWeight = latestBodyWeight(req.user.id);
+  res.json(getWorkouts(req.user.id).map((workout) => withCalories(workout, bodyWeight)));
+});
 
 // Az épp szerkesztett edzés piszkozata ({ name, exercises }) vagy null
 app.get('/api/workout-draft', (req, res) => res.json(getWorkoutDraft(req.user.id)));
@@ -2422,9 +2524,10 @@ function parseWorkoutBody(body) {
 app.post('/api/workouts', (req, res) => {
   const workout = parseWorkoutBody(req.body);
   if (workout.error) return res.status(400).json({ error: workout.error });
-  res.status(201).json(
-    addWorkout(req.user.id, workout.name, req.today, workout.exercises, parseRowId(req.body?.planId)),
+  const saved = addWorkout(
+    req.user.id, workout.name, req.today, workout.exercises, parseRowId(req.body?.planId),
   );
+  res.status(201).json(withCalories(saved, latestBodyWeight(req.user.id)));
 });
 
 
@@ -2628,7 +2731,7 @@ app.put('/api/workouts/:id', (req, res) => {
 
   const updated = updateWorkout(req.user.id, id, workout.name, workout.exercises);
   if (!updated) return res.status(404).json({ error: 'Nincs ilyen edzés — lehet, hogy időközben törölték.' });
-  res.json(updated);
+  res.json(withCalories(updated, latestBodyWeight(req.user.id)));
 });
 
 /** Mentett edzés törlése. Az egyéni csúcsok újraszámolása az adatrétegben
