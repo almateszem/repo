@@ -358,7 +358,6 @@ input.wk-chip:focus-visible {
 
 .db-label,
 .db-stat-unit,
-.nu-summary-label,
 .nu-summary-unit,
 .nu-macro-label,
 .nu-macro-unit,
@@ -434,6 +433,16 @@ input.wk-chip:focus-visible {
   background: var(--hair);
 }
 
+/* HASZNÁLATLAN. A .ds-grid--column, a .ds-row-value--accent és a
+   .ds-step-value a primitív-készlet része, de a 20. task záró átvizsgálásán
+   egyik sem talált call-site-ot: az oszlop-irányú rácsokat a lapok saját
+   flex-oszlopa adja, az accent-értékű sort sehol nem kértük, a léptető
+   értékmezőjét pedig mindkét használó (.wk-num-input, .ci-num-input) saját
+   szabállyal viszi.
+
+   SZÁNDÉKOSAN bent maradnak: a .ds-step-value a .ds-step dokumentált
+   receptjének a fele (nélküle a primitív csonka lenne), a másik kettő pedig
+   egysoros variáns. Ha a következő olvasó helyet keres, itt kezdje. */
 .ds-grid--column {
   flex-direction: column;
   flex-wrap: nowrap;
@@ -835,7 +844,6 @@ input.wk-chip:focus-visible {
   height: var(--h);
   min-width: 3px;
   background: var(--fg-85);
-  border-radius: 2px 2px 0 0;
 }
 
 /* A mai oszlop. Csak ott kap kiemelést, ahol a szerver megmondja, melyik az
@@ -1047,7 +1055,6 @@ input.wk-chip:focus-visible {
   min-width: 16px;
   height: 16px;
   padding: 0 var(--sp-1);
-  border-radius: var(--r-full);
   background: var(--c-accent);
   color: var(--on-accent);
   font-size: var(--fs-2xs);
@@ -1757,7 +1764,6 @@ input.wk-chip:focus-visible {
 .wk-exercise-remove {
   background: none;
   border: none;
-  border-radius: var(--r-full);
   width: 30px;
   height: 30px;
   padding: 0;
@@ -2386,7 +2392,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   padding: 0 var(--sp-3);
   height: 26px;
   border: none;
-  border-radius: var(--r-full);
   background: none;
   color: var(--text-muted);
   font-size: var(--fs-2xs);
@@ -2981,7 +2986,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .co-banner-icon {
   width: 26px;
   height: 26px;
-  border-radius: var(--r-full);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -4224,7 +4228,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .notif-dot {
   width: 6px;
   height: 6px;
-  border-radius: var(--r-full);
   background: var(--c-accent);
   margin-top: 5px;
   flex-shrink: 0;
@@ -4300,7 +4303,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   flex-shrink: 0;
   width: 7px;
   height: 7px;
-  border-radius: var(--r-full);
   background: var(--fg-30);
   transform: translateY(-1px);
   transition: background var(--t-fast);
@@ -5306,7 +5308,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   height: 18px;
   margin-left: var(--sp-2);
   padding: 0 5px;
-  border-radius: var(--r-full);
   background: var(--c-accent);
   color: var(--on-accent);
   font-size: var(--fs-2xs);
@@ -5915,7 +5916,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   padding: 3px var(--sp-3);
-  border-radius: var(--r-full);
   background: var(--surface-strong);
   color: var(--text-secondary);
 }
@@ -6457,7 +6457,6 @@ details[open] > .rc-details-summary::before {
 
 .fd-goal-track {
   height: 4px;
-  border-radius: 2px;
   background: var(--fg-10);
   overflow: hidden;
 }
@@ -6837,7 +6836,6 @@ details[open] > .rc-details-summary::before {
 .rc-body-save {
   align-self: flex-start;
   border: 0;
-  border-radius: 999px;
   padding: var(--sp-3) var(--sp-8);
   background: var(--c-accent);
   color: var(--on-accent);
@@ -7056,7 +7054,6 @@ details[open] > .rc-details-summary::before {
 
 .pf-assess-save {
   border: 0;
-  border-radius: 999px;
   padding: var(--sp-3) var(--sp-7);
   background: var(--c-accent);
   color: var(--on-accent);
@@ -7188,7 +7185,6 @@ details[open] > .rc-details-summary::before {
 
 .co-note-reply button {
   border: 0;
-  border-radius: 999px;
   padding: 0 var(--sp-6);
   background: var(--c-accent);
   color: var(--on-accent);
@@ -7263,7 +7259,6 @@ details[open] > .rc-details-summary::before {
   align-self: flex-start;
   padding: var(--sp-4) var(--sp-8);
   border: 0;
-  border-radius: 999px;
   background: var(--c-accent);
   color: var(--on-accent);
   font: inherit;
@@ -7528,7 +7523,6 @@ details[open] > .rc-details-summary::before {
 
 .nu-goal-save {
   border: 0;
-  border-radius: 999px;
   padding: var(--sp-3) var(--sp-7);
   background: var(--c-accent);
   color: var(--on-accent);
@@ -7659,7 +7653,6 @@ body[data-onboarding] .app-page.ci-page {
   flex-shrink: 0;
   width: var(--tap-min);
   height: var(--tap-min);
-  border-radius: var(--r-full);
   background: none;
   border: 1px solid var(--border-strong);
   color: var(--text-secondary);
@@ -8140,7 +8133,6 @@ body[data-onboarding] .app-page.ci-page {
 
 .ci-readiness-bar {
   height: 8px;
-  border-radius: 20px;
   background: var(--surface-strong);
   overflow: hidden;
 }
@@ -8148,7 +8140,6 @@ body[data-onboarding] .app-page.ci-page {
 .ci-readiness-fill {
   height: 100%;
   width: 0;
-  border-radius: 20px;
   background: var(--c-paper);
   transition: width var(--t-slow) var(--ease-spring);
 }
