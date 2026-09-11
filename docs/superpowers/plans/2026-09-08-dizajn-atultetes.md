@@ -1755,13 +1755,13 @@ Az `51df3c5` már kártya nélkülire építette. Itt csak annyi a dolog, hogy n
 - Modify: `public/style.css` (7. szakasz, `wk-*`)
 - Modify: `public/index.html:397-480`
 
-- [ ] **Step 1:** A gyakorlat-kártyák keret nélküliek lesznek, hajszálvonallal elválasztva; a szett-sorok `.ds-grid`-ben.
-- [ ] **Step 2:** A súly- és ismétlés-léptetők `.ds-step`-re állnak.
-- [ ] **Step 3:** Az „Edzés indítása" / „Edzés befejezése" `.ds-cta`.
-- [ ] **Step 4:** **Marad és látható kell hogy maradjon:** szuperszett-jelölés (`--c-superset`), PR-jelvény pulzálása, gyakorlat-megjegyzés, autosave-jelző. Ezek nem díszek, hanem állapotjelzések — ha a kártya eltűnésével elvesznek, adj nekik saját helyet a soron.
-- [ ] **Step 5:** `npm run lint && npm run format -- public && npm test`
+- [x] **Step 1:** A gyakorlat-kártyák keret nélküliek lesznek, hajszálvonallal elválasztva; a szett-sorok `.ds-grid`-ben.
+- [x] **Step 2:** A súly- és ismétlés-léptetők `.ds-step`-re állnak.
+- [x] **Step 3:** Az „Edzés indítása" / „Edzés befejezése" `.ds-cta`.
+- [x] **Step 4:** **Marad és látható kell hogy maradjon:** szuperszett-jelölés (`--c-superset`), PR-jelvény pulzálása, gyakorlat-megjegyzés, autosave-jelző. Ezek nem díszek, hanem állapotjelzések — ha a kártya eltűnésével elvesznek, adj nekik saját helyet a soron.
+- [x] **Step 5:** `npm run lint && npm run format -- public && npm test`
 - [ ] **Step 6:** Indíts egy edzést, naplózz szettet, jelölj szuperszettet, és nézd meg, hogy mind a négy jelzés látszik.
-- [ ] **Step 7:** Commit: `"Edzés: hajszálvonalas szettnapló, a négy állapotjelzés megtartva"`
+- [x] **Step 7:** Commit: `"Edzés: hajszálvonalas szettnapló, a négy állapotjelzés megtartva"`
 
 ---
 
