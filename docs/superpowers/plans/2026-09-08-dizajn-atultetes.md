@@ -1850,8 +1850,8 @@ felületet ír le, ami nincs a repóban:
 - Modify: `public/style.css` (21. szakasz `su-*`, 27. szakasz `pf-*`, 18. szakasz analitika)
 - Modify: `public/index.html:290-396`, `public/index.html:783-859`
 
-- [ ] **Step 1:** Összegző: a volumen a hero-szám, alatta `.ds-row` statisztikák.
-- [ ] **Step 2:** Profil: az adatsorok `.ds-row`-ra; a testmérés és a PR-lista `.ds-section`-be.
+- [x] **Step 1:** Összegző: a volumen a hero-szám, alatta `.ds-row` statisztikák.
+- [x] **Step 2:** Profil: az adatsorok `.ds-row`-ra; a testmérés és a PR-lista `.ds-section`-be.
 **Tervjavítás — a 3. lépés tárgytalan.** Két okból:
 
 1. **A diagramnak nincsenek vonalai.** A `.chart` komponens (5. szakasz) nem
@@ -1867,9 +1867,9 @@ felületet ír le, ami nincs a repóban:
    visszamenőleg átírná a két kész lapot.
 
 - [x] **Step 3:** Csere nincs. A diagram-komponens változatlan marad.
-- [ ] **Step 4:** `npm run lint && npm run format -- public && npm test`
+- [x] **Step 4:** `npm run lint && npm run format -- public && npm test`
 - [ ] **Step 5:** Fejezz be egy edzést (hogy az összegző megjelenjen), majd nézd meg a profilt méréssel és PR-rel.
-- [ ] **Step 6:** Commit: `"Összegző és Profil: hero-szám és sor-alapú adatlisták"`
+- [x] **Step 6:** Commit: `"Összegző és Profil: hero-szám és sor-alapú adatlisták"`
 
 ---
 
