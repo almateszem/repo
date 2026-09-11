@@ -1819,11 +1819,11 @@ felületet ír le, ami nincs a repóban:
   meglévő három művelettel (szerkesztés / törlés / megnyitás).
 - [x] **Step 2:** A terv-építő hétnap-sora (`.pb-days-chips`) `.ds-grid`-be
   kerül.
-- [ ] **Step 3:** Terv-szerkesztő: flow-oldal felépítés — `.ds-eyebrow` + nagy cím + `.ds-row` lista + alul `.ds-cta`.
-- [ ] **Step 4:** Gyakorlat-választó: kereső mező hajszálvonalas kerettel, a találati lista `.ds-row`-kkal.
-- [ ] **Step 5:** `npm run lint && npm run format -- public && npm test`
+- [x] **Step 3:** Terv-szerkesztő: flow-oldal felépítés — `.ds-eyebrow` + nagy cím + `.ds-row` lista + alul `.ds-cta`.
+- [x] **Step 4:** Gyakorlat-választó: kereső mező hajszálvonalas kerettel, a találati lista `.ds-row`-kkal.
+- [x] **Step 5:** `npm run lint && npm run format -- public && npm test`
 - [ ] **Step 6:** Készíts egy új tervet elejétől végéig, gyakorlat-választással együtt.
-- [ ] **Step 7:** Commit: `"Tervek, terv-szerkesztő, gyakorlat-választó: egy folyamat, egy nyelv"`
+- [x] **Step 7:** Commit: `"Tervek, terv-szerkesztő, gyakorlat-választó: egy folyamat, egy nyelv"`
 
 ---
 
