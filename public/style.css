@@ -359,11 +359,7 @@ input.wk-chip:focus-visible {
 .db-label,
 .db-stat-unit,
 .nu-summary-unit,
-.nu-macro-label,
 .nu-macro-unit,
-.co-card-stat-label,
-.su-stat-label,
-.su-stat-unit,
 .rc-unit,
 .rc-muscle-label,
 .rc-body-row-label,
@@ -388,7 +384,22 @@ input.wk-chip:focus-visible {
 .fd-section-label,
 .wk-progress-title,
 .notif-title,
-.su-kicker {
+.co-card-stat-label,
+.su-stat-unit,
+.su-kicker,
+.co-card-tag,
+.ep-count,
+.ep-item-tag,
+.nu-summary-goal,
+.toast,
+.video-modal-head h3,
+.settings-modal-head h3,
+.athlete-modal-head h3,
+.food-modal-head h3,
+.confirm-modal-head h3,
+.custom-food-modal-head h3,
+.scanner-modal-head h3,
+.pr-modal-head h3 {
   font-family: var(--font-mono);
   text-transform: uppercase;
   letter-spacing: var(--ls-label-tight);
@@ -476,6 +487,9 @@ input.wk-chip:focus-visible {
 /* Display-szám. A méretet a hívó oldal adja (--ds-display-size), mert a
    lépcső oldalanként más: 96px az áttekintés hőse, 32px egy oldalcím. */
 .ds-display {
+  /* A hívók <p> és <h2> elemekre is felteszik — a UA-margót a primitív
+     semlegesíti, hogy ne három helyen kelljen. */
+  margin: 0;
   font-size: var(--ds-display-size, var(--fs-5xl));
   font-weight: 800;
   line-height: 1;
@@ -489,7 +503,9 @@ input.wk-chip:focus-visible {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--sp-7);
+  /* Hívónként állítható: a sűrű listák szűkebb rést kérnek, mint a lap
+     hőse melletti adatsorok. A minta a .ds-display --ds-display-size-jáé. */
+  gap: var(--ds-row-gap, var(--sp-7));
   min-height: var(--tap-min);
   padding: var(--sp-7) 0;
 }
@@ -502,8 +518,11 @@ input.wk-chip:focus-visible {
   border-top: 1px solid var(--hair-soft);
 }
 
+/* A `flex: 1` a primitívbe tartozik: a sor bal oldala mindig a maradék
+   helyet viszi, ezt eddig három hívó tette hozzá külön. */
 .ds-row-main {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: var(--sp-2);
   min-width: 0;
@@ -1893,12 +1912,8 @@ input.wk-chip:focus-visible {
    folytonossága az egész jelentése.
 
    A fejléc utáni első sor kivétel: a fejlécnek már van saját alsó vonala. */
-.wk-set-row + .wk-set-row {
+.wk-set-row:not(.wk-set-row--head) + .wk-set-row {
   border-top: 1px solid var(--hair-soft);
-}
-
-.wk-set-row--head + .wk-set-row {
-  border-top: 0;
 }
 
 /* ---- Drop set: összekötés az eredeti szettel ----
@@ -2339,14 +2354,11 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
    görgetni kell. A sor magassága a betűméretből számolódik (nem fix px),
    így a nagyobb mobil-tipográfiánál is pontosan 5 sor fér ki. */
 .wk-history {
-  --wk-history-row: calc(var(--fs-sm) * 1.4 + var(--sp-3) * 2);
+  --wk-history-row: calc(var(--fs-sm) * 1.4 + var(--sp-5) * 2 + 1px);
   list-style: none;
   margin: var(--sp-7) 0 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-3);
-  max-height: calc(var(--wk-history-row) * 5 + var(--sp-3) * 4);
+  max-height: calc(var(--wk-history-row) * 5);
   overflow-y: auto;
   overscroll-behavior: contain; /* a lista végén ne a lap kezdjen görögni */
 }
@@ -2459,7 +2471,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .nu-summary {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
   gap: var(--sp-5);
   margin-bottom: var(--sp-11);
 }
@@ -2468,7 +2479,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   /* A .ds-display adja a súlyt, a ritkítást és a tabular-nums-ot; a méret a
      lap hőséé, ezért itt kap értéket a primitív custom propertyje. */
   --ds-display-size: clamp(56px, 16vw, 76px);
-  margin: 0;
 }
 
 .nu-summary-unit {
@@ -2481,11 +2491,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 /* A cél a hős alatt, halkan: mérce, nem eredmény. */
 .nu-summary-goal {
   margin: 0;
-  font-family: var(--font-mono);
   font-size: var(--fs-2xs);
-  font-weight: 700;
-  letter-spacing: var(--ls-label-tight);
-  text-transform: uppercase;
   color: var(--text-muted);
 }
 
@@ -2493,7 +2499,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
    folyadék, itt a napi kalória tart a célja felé. A kitöltést a
    js/ui/nutrition.js írja (applyTotals). */
 .nu-summary-track {
-  width: 100%;
   height: 4px;
   background: var(--fg-10);
   overflow: hidden;
@@ -2557,22 +2562,15 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-2);
 }
 
 /* A formát a .ds-row adja; itt csak a beúszás marad, ami a sorok sorrendjét
    olvashatóvá teszi naplózás után. A háttér és a belső margó törölve: a sor
    határa a hajszálvonal. */
 .nu-log-item {
-  gap: var(--sp-4);
+  --ds-row-gap: var(--sp-4);
   animation: note-in 0.25s ease backwards;
   animation-delay: calc(var(--i, 0) * 30ms);
-}
-
-.nu-log-info {
-  flex: 1;
 }
 
 .nu-log-name {
@@ -2715,14 +2713,11 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-4);
 }
 
 /* A formát a .ds-row adja — háttér, keret és belső margó nélkül. */
 .nu-food {
-  gap: var(--sp-5);
+  --ds-row-gap: var(--sp-5);
 }
 
 .nu-food-info {
@@ -2870,14 +2865,13 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 
 /* A formát a .ds-row adja; kártya-háttér, keret és belső margó nincs többé. */
 .pl-card {
-  gap: var(--sp-6);
+  --ds-row-gap: var(--sp-6);
 }
 
 /* A .ds-row-main gap-je 2px, ami a haladássávnak kevés — a név, a meta, a
    figyelmeztetés és a sáv négy külön szint, nem egy tömb. */
 .pl-card-info {
   gap: var(--sp-3);
-  flex: 1;
 }
 
 .pl-progress {
@@ -3106,7 +3100,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
    jobb szélen álló szám viszi — nem a kártya kerete és gradiense. */
 .co-card {
   position: relative;
-  gap: var(--sp-5);
+  --ds-row-gap: var(--sp-5);
   padding-left: var(--sp-8);
   color: var(--text-primary);
   text-align: left;
@@ -3141,9 +3135,9 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   }
 }
 
-/* Az értékelés a sor jobb szélén. A .ds-row-value osztályt SZÁNDÉKOSAN nem
-   kapja meg: ott a szín fix, itt a rangé (--tier), és a szám alatt még egy
-   címke is áll. */
+/* Az értékelés a sor jobb szélén, a .ds-row-value receptjével — az osztály a
+   markupban fel is van téve. Itt már csak az marad, amit a primitív nem ad:
+   a rang színe és a szám alatti címkéhez a kétsoros elrendezés. */
 .co-card-side {
   flex-shrink: 0;
   display: flex;
@@ -3153,25 +3147,13 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .co-card-rating {
-  font-size: var(--fs-4xl);
-  font-weight: 800;
   line-height: 1;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
   color: var(--tier);
 }
 
 .co-card-tag {
-  font-family: var(--font-mono);
   font-size: var(--fs-2xs);
-  font-weight: 700;
-  letter-spacing: var(--ls-label-tight);
-  text-transform: uppercase;
   color: var(--text-muted);
-}
-
-.co-card-main {
-  gap: var(--sp-2);
 }
 
 /* A név és a két jelvény egy sorban: keret nélküli soron nincs sarok, amihez
@@ -3635,18 +3617,15 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .custom-food-modal-head h3,
 .scanner-modal-head h3,
 .pr-modal-head h3 {
-  /* A .ds-eyebrow tipográfiája, de saját szabályként: ezek h3-ak nyolc külön
-     modálban, és osztályt adni mindegyiknek nem hozna semmit — a JS több
-     helyen a h3 szövegét írja (modals.js), nem az osztályát.
+  /* A tipográfiát a 2b. szakasz szekciócím-gyűjtője adja (a nyolc szelektor
+     ott is fel van sorolva) — itt csak a méret, a sormagasság és a szín áll.
+     Osztályt azért nem kapnak, mert a JS több helyen a h3 SZÖVEGÉT írja
+     (modals.js), és a className-hez nem nyúl.
 
      A megerősítő ablakok kivételt kapnak lent: ott a cím MONDAT, nem címke. */
   margin: 0;
-  font-family: var(--font-mono);
   font-size: var(--fs-2xs);
-  font-weight: 700;
   line-height: 1.3;
-  letter-spacing: var(--ls-label);
-  text-transform: uppercase;
   color: var(--text-muted);
 }
 
@@ -3768,7 +3747,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   text-transform: uppercase;
   transition:
     background var(--t-fast),
-    color var(--t-fast);
+    color var(--t-fast),
+    filter var(--t-fast);
 }
 
 /* A mégse a lap felületét viseli — a modál-lapét, mert azon ül. */
@@ -3820,11 +3800,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   background: var(--surface-panel);
   border: 1px solid var(--hair);
   color: var(--text-primary);
-  font-family: var(--font-mono);
   font-size: var(--fs-2xs);
-  font-weight: 700;
-  letter-spacing: var(--ls-label-tight);
-  text-transform: uppercase;
   padding: var(--sp-5) var(--sp-7);
   box-shadow: var(--shadow-modal);
   max-width: 100%;
@@ -4141,26 +4117,18 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
    mozdulna vele, és hoveren elválna tőle.
 
    Helyettük a felület halvány kiemelése áll, ami semmit nem mozgat. A .pl-card
-   egyelőre marad kártya (13. task). */
+   is ide tartozik: a 13. task óta ő is .ds-row, tehát rá ugyanez a két hiba
+   érvényes volt. */
 @media (hover: hover) {
-  .pl-card {
-    transition:
-      border-color var(--t-fast),
-      transform var(--t-fast);
-  }
-
-  .pl-card:hover {
-    border-color: var(--border-strong);
-    transform: translateY(-1px);
-  }
-
   .wk-exercise,
-  .nu-food {
+  .nu-food,
+  .pl-card {
     transition: background var(--t-fast);
   }
 
   .wk-exercise:hover,
-  .nu-food:hover {
+  .nu-food:hover,
+  .pl-card:hover {
     background: var(--surface-hover);
   }
 }
@@ -4578,12 +4546,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--text-secondary);
 }
 
-/* A mentés a modál lezáró művelete: teljes szélességű CTA-sáv, nem egy
-   jobbra igazított kis gomb. A formát a .ds-cta adja. */
-.settings-modal-actions {
-  display: flex;
-}
-
 /* Kikapcsolt kategória az értesítés-panelen — szürkített megjelenés */
 .notif-item--muted {
   opacity: 0.5;
@@ -4706,9 +4668,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-3);
 }
 
 .wk-pr-item + .wk-pr-item {
@@ -4771,9 +4730,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-3);
 }
 
 .pr-history-item + .pr-history-item {
@@ -4913,8 +4869,13 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 
 /* A .ds-eyebrow adja a tipográfiát; itt csak a blokk-szintű elrendezés marad
    (a felkiáltó egy span, ami magától sorba folyna). */
+/* MONDAT, nem címke — ezért nem mono nagybetűs (lásd a 2b. szakasz
+   kommentjét, ami a .pb-days-label-t név szerint kiveszi a receptből). */
 .pb-days-label {
   display: block;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
   margin-bottom: var(--sp-5);
 }
 
@@ -5061,26 +5022,39 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 /* A .ds-eyebrow tipográfiája, de a saját szabály marad: ez egy aria-live
    régió a lista fölött, nem egy szekció felkiáltója. */
 .ep-count {
-  font-family: var(--font-mono);
   font-size: var(--fs-2xs);
-  font-weight: 700;
-  letter-spacing: var(--ls-label-tight);
-  text-transform: uppercase;
   color: var(--text-muted);
   margin: 0 0 var(--sp-5);
 }
 
 /* A gap 0: a sorokat a .ds-row szomszéd-szelektora választja el. */
+/* A .ds-grid--column rés-receptje, nem a .ds-row szomszéd-szelektora: a
+   katalógus szűréskor `hidden`-nel rejt, a `+` kombinátor pedig a DOM-ban
+   néz vissza, nem a képernyőn. Rejtett elemek után az első TALÁLAT is felső
+   vonalat kapott — a szűrt lista tetején lógó elválasztót. A rés ezzel
+   szemben csak látható elemek közt képződik. */
 .ep-list {
   display: flex;
   flex-direction: column;
+  gap: 1px;
+  background: var(--hair-soft);
+}
+
+/* A rést a sor háttere vágja vonallá; enélkül a szülő színe a teljes
+   listát befedné. */
+.ep-item {
+  background: var(--c-bg);
 }
 
 /* A formát a .ds-row adja; kártya-háttér, keret és belső margó nincs többé.
    A 88px-es becslés érvényben marad: a sor magasságát továbbra is az 56px-es
    thumbnail és a .ds-row függőleges margója adja ki, nagyjából ugyanannyit. */
+.ep-item + .ep-item {
+  border-top: 0;
+}
+
 .ep-item {
-  gap: var(--sp-5);
+  --ds-row-gap: var(--sp-5);
 
   /* A katalógus 1400+ kártyából áll. A content-visibility a képernyőn kívüli
      kártyák kirajzolását (elrendezés, festés) elhalasztja, amíg oda nem
@@ -5106,7 +5080,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .ep-item-info {
-  flex: 1;
   min-width: 0;
 }
 
@@ -5117,7 +5090,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .ep-item-meta {
-  margin: var(--sp-3) 0 0;
+  margin: 0;
   display: flex;
   align-items: center;
   gap: var(--sp-4);
@@ -5128,11 +5101,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .ep-item-tag {
   border: 1px solid var(--hair-soft);
   color: var(--text-muted);
-  font-family: var(--font-mono);
   font-size: var(--fs-2xs);
-  font-weight: 700;
-  letter-spacing: var(--ls-label-tight);
-  text-transform: uppercase;
   padding: var(--sp-1) var(--sp-3);
 }
 
@@ -5213,9 +5182,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-2);
 }
 
 .co-modal-activity-list li + li {
@@ -5747,7 +5713,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 /* A .ds-display adja a súlyt és a tabular-nums-ot; a méret a lap hőséé. */
 .su-hero-value {
   --ds-display-size: clamp(64px, 18vw, 88px);
-  margin: 0;
   white-space: nowrap;
 }
 
@@ -5775,7 +5740,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .su-actions {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
   gap: var(--sp-7);
 }
 
@@ -6485,7 +6449,6 @@ details[open] > .rc-details-summary::before {
   display: block;
   height: 100%;
   width: 0;
-  border-radius: inherit;
   background: var(--c-ok);
   transition: width var(--t-slow);
 }
@@ -6558,9 +6521,6 @@ details[open] > .rc-details-summary::before {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-3);
 }
 
 .fd-today-item {
@@ -7096,15 +7056,17 @@ details[open] > .rc-details-summary::before {
    nyertek — a 10. szakaszban átírt buborék-stílus némán hatástalan maradt
    volna. Ezért törölve; a szabályok egyetlen helyen élnek tovább. */
 
-.su-note {
-  background: var(--surface-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--r-2xl);
-  padding: var(--sp-8) var(--sp-7);
+/* A két űrlap-blokk (visszajelzés és gyakorlat-megjegyzés) azonos szerepű és
+   azonos formájú: a .ds-section ritmusát viselik, kártya nélkül. A korábbi
+   `text-align: left` a lap-szintű középre igazítás szűkítése óta tárgytalan. */
+.su-note,
+.su-feedback {
   display: flex;
   flex-direction: column;
   gap: var(--sp-5);
-  text-align: left;
+  padding-top: var(--sp-11);
+  border-top: 1px solid var(--hair);
+  margin-top: var(--sp-11);
 }
 
 .su-note-form {
@@ -7218,17 +7180,6 @@ details[open] > .rc-details-summary::before {
 }
 
 /* ---- Edzés utáni visszajelzés (su-feedback-*) + edzői megjelenítése ---- */
-.su-feedback {
-  background: var(--surface-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--r-2xl);
-  padding: var(--sp-8) var(--sp-7);
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-5);
-  text-align: left;
-}
-
 .su-feedback-title {
   font-size: var(--fs-lg);
   font-weight: 700;
@@ -8275,7 +8226,6 @@ body[data-onboarding] .app-page.ci-page {
      későbbi szabály némán felülírná a display-lépcsőt. */
   --ds-display-size: clamp(40px, 11vw, 52px);
   margin: 0 0 var(--sp-4);
-  font-weight: 800;
   color: var(--text-primary);
 }
 
@@ -8554,13 +8504,6 @@ body[data-onboarding] .app-page.ci-page {
   color: var(--text-muted);
 }
 
-/* A blokkok ritmusát a .ds-section adja (felső hajszálvonal + margó), ezért
-   a saját alsó margó itt már csak a legutolsó szekció alá kell. */
-.pf-stats,
-.pf-facts {
-  margin-bottom: 0;
-}
-
 /* A négy összesítő kártya-rácsból sorlista lett. Két 100%-os oszlopban a
    hosszabb címkék („teljesített munkasorozat") két-három sorba törtek; a
    soron a címke balra, a szám jobbra fér el egy sorban. */
@@ -8570,12 +8513,6 @@ body[data-onboarding] .app-page.ci-page {
   padding: 0;
   display: flex;
   flex-direction: column;
-}
-
-/* A méretet a .ds-row-value adja; a tabular-nums itt marad, mert a szám
-   felpörög (ui/profile.js), és nem ugrálhat közben a szélessége. */
-.pf-stat-value {
-  font-variant-numeric: tabular-nums;
 }
 
 .pf-fact-list {
@@ -8589,7 +8526,7 @@ body[data-onboarding] .app-page.ci-page {
    lelógó vonal. A `.ds-row + .ds-row { border-top }` ezt megoldja: a rejtett
    szomszéd `display: none`, nem rajzol semmit. */
 .pf-fact {
-  gap: var(--sp-6);
+  --ds-row-gap: var(--sp-6);
 }
 
 /* A dt/dd megkapta a .ds-row-name / .ds-row-value osztályt; itt csak az marad,
