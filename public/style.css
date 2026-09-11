@@ -549,6 +549,10 @@ input.wk-chip:focus-visible {
   min-height: 64px;
   padding: var(--sp-9) var(--sp-11);
   border: 0;
+  /* A CTA nem mindig <button>: a Regeneráció lapján <a href="#checkin">.
+     Enélkül a böngésző alapértelmezett aláhúzása a sávra és az alcímére is
+     rákerül — a gomb aláhúzott szöveggel néz ki. */
+  text-decoration: none;
   background: var(--c-accent);
   color: var(--on-accent);
   font-family: var(--font-base);
@@ -4889,13 +4893,15 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 
 /* Élő összegző a cím alatt: „3 gyakorlat · 8 szett · ~64 perc". A negatív
    felső margó elmaradt — a cím már nem a fejléc-sorban ül, nincs mit
-   felhúzni. */
+   felhúzni.
+
+   NEM mono nagybetűs, pedig elsőre annak látszó adatsor: üres tervnél a
+   szöveg MONDAT („Még nincs gyakorlat — adj hozzá a lenti gombbal."), és a
+   2b. szakasz kommentje pont ezt zárja ki a receptből — nagybetűsen a magyar
+   mondat nehezebben olvasható. */
 .pb-summary {
-  font-family: var(--font-mono);
-  font-size: var(--fs-2xs);
-  font-weight: 700;
-  letter-spacing: var(--ls-label-tight);
-  text-transform: uppercase;
+  font-size: var(--fs-sm);
+  font-weight: 600;
   color: var(--text-muted);
   margin: 0 0 var(--sp-11);
 }
