@@ -11,9 +11,14 @@ A tematikus szakaszok (üzemeltetés, adatminőség, kódtérkép…) mindhárom
 részen belül alcímként élnek tovább, tehát egy témát a három rész
 ugyanazon alcíme alatt lehet végigolvasni.
 
-Állás (2026-09-13):   26 nyitott · 7 részben kész · 30 kész
+Állás (2026-09-13):   34 nyitott · 7 részben kész · 33 kész
 
-Utolsó frissítés: 2026-09-13, második kör (a készenlét-modell három lelete
+Utolsó frissítés: 2026-09-13, harmadik kör (biztonsági audit: IDOR nincs; a
+                  három MAGAS lelet javítva — memória-kimerítés a belépésnél,
+                  fiók-kizárás, korlátlan mentés —, a KÖZEPES és ALACSONY
+                  leletek nyitott tételként a BIZTONSÁG szakaszban. A
+                  nyitottak száma ezért nőtt: új, eddig nem ismert tételek.)
+Előző frissítés:  2026-09-13, második kör (a készenlét-modell három lelete
                   javítva: a közérzet valódi súlyt kapott, szubjektív
                   padló-sapka, „mi húz vissza" + sapkás napon a gyakorlat-
                   ajánlás is korlátozott; két új nyitott kérdés maradt)
@@ -472,12 +477,14 @@ Hat tétel, mindegyik megfontolt döntés eredménye, nem feledékenységé.
     kellene mellé.
 
 --------------------------------------------------------------------------
-BIZTONSÁG — gyors átnézés (2026-09-12), NEM teljes audit
+BIZTONSÁG — gyors átnézés (2026-09-12) + audit (2026-09-13)
 --------------------------------------------------------------------------
 
-A tervezett három párhuzamos átvizsgálás (biztonság, logika, készenlét)
-közül csak a készenléti futott le; a másik kettő API-korlátba ütközött.
-Ami ebből a körből biztosan látszik:
+2026-09-12-én csak gyors átnézés volt (a tervezett két vizsgálat API-korlátba
+ütközött). 2026-09-13-án a kimaradt témák CSAK OLVASÓ auditja lefutott: minden
+id-alapú végpont, a rate limit, a kimenő hívás, a bemenet-validálás és az
+üzleti logika. A három MAGAS lelet ugyanaznap javítva (ld. a 3. részt), a
+többi lent, súlyosság szerint. Ami biztosan látszik:
 
 RENDBEN VAN (ellenőrizve):
   · Jelszó: scrypt, bejegyzésenként külön sóval, N=16384; az ellenőrzés
@@ -493,17 +500,81 @@ RENDBEN VAN (ellenőrizve):
     fixen teszi ki (server/auth.js:90-100), a server/auth.test.js
     „a védő jelzők mindig rajta vannak" tesztje őrzi. (2026-09-13: a korábbi
     „csak a Secure-t kezeli" gyanú téves volt, innen került át.)
+  · IDOR: NINCS (2026-09-13). Mind a ~25 id-alapú útvonal a hívó fiókjára
+    vagy AKTÍV edzői kapcsolatra szűr (az üzenetek activeLinkFor, a
+    megjegyzések athleteOfLink, a terv-kiosztás getPlan(user.id) mellett);
+    a bontott kapcsolat sora törlődik, a hozzáférés vele megszűnik.
+  · SSRF: nincs — a normalizeBarcode csak 13-14 számjegyet enged át.
+  · CSRF: nincs állapotot módosító GET (a vonalkód-cache írása ártalmatlan),
+    a JSON-törzs és a SameSite=Lax süti együtt kizárja.
+  · Jelszócsere minden munkamenetet töröl; a fióktörlés jelszót kér és
+    tranzakcióban fut; a server/ és a .db fájl nem szolgálódik ki.
 
-[ ] MÉG ÁTNÉZENDŐ (a kimaradt két vizsgálat témái)
-    · IDOR: minden id-alapú végpont szűr-e user_id-re? Külön az üzenetek
-      (/api/messages/:linkId), a terv-kiosztás és a megjegyzések.
-    · Az `x-forwarded-proto` fejlécre épülő isSecureRequest: proxy nélkül
-      hamisítható, ilyenkor a Secure jelző elmarad.
-    · Rate limit: mely végpontok maradnak védtelenül, és mi a limit kulcsa.
-    · Az openfoodfacts kimenő hívás: időkorlát, méretkorlát, SSRF.
-    · Üzleti logika: időzóna-határok, 1RM-képlet szélsőértékei, a volumen
-      számítása négy különböző lapon, a piszkozat és a mentett edzés
-      viszonya, versenyhelyzetek dupla mentésnél.
+--- KÖZEPES ---
+
+[ ] A vonalkód-keresés (GET /api/foods/barcode/:code) korlátlan
+    GET, tehát a writeLimiter nem fedi — pedig kimenő kérést indít és a
+    barcode_cache-be ír. Egy fiók végigsorolhatja a kódokat: korlátlan Open
+    Food Facts hívás a szerver User-Agentjével (OFF-oldali tiltás mindenkinek
+    elviheti a funkciót), és a negatív találatokkal a cache takarítás nélkül
+    nő. A kimenő fetch követi az átirányítást, a válasz mérete nincs
+    korlátozva. TEENDŐ: fiókonkénti limiter a végpontra, cache-takarítás,
+    `redirect: 'manual'` és méretkorlát.
+
+[ ] Élesítéskor: FITTRACK_TRUST_PROXY beállítása + HSTS
+    2026-09-13 óta VAN kapcsoló (FITTRACK_TRUST_PROXY, proxy-lépések száma;
+    a `true` tiltott, indításkor dob; beállítás nélküli proxy-fejlécre egyszeri
+    figyelmeztetés a naplóban — README Élesítés 3.). A kódátnézés hozta elő:
+    proxy mögött enélkül az új belépési korlát KÖZÖS keret lett volna
+    mindenkinek, és a név+forrás zárolás visszaesett volna puszta névre.
+    AMI HÁTRAVAN: a választott hostingon ténylegesen beállítani (Fly.io: 1).
+    Olyan HTTPS-proxy mögött, ami nem küld x-forwarded-proto-t, a Secure
+    jelző elmarad; HSTS nincs.
+
+--- ALACSONY ---
+
+[ ] Mérési helyek: `constructor` kulccsal megkerülhető a tartomány-ellenőrzés
+    server.js -> a MEASUREMENT_SITES[site] ellenőrzés prototípus-kulcsra is
+    igaz. `{"constructor":999999}` tárolódik (csak saját adat, a felület nem
+    mutatja). Javítás: Object.hasOwn(MEASUREMENT_SITES, site). Egysoros.
+
+[ ] Az edzés kétszer is menthető (POST /api/workouts)
+    Nincs idempotencia, a szerver nem törli a piszkozatot. Két fülön vagy
+    hálózati újrapróbálkozáskor duplikált edzés: torzul a PR, a volumen, a
+    sorozat és az edzői kártya. Javítás: a mentés tranzakcióban törölje a
+    piszkozatot, vagy kliens-generált idempotencia-kulcs.
+
+[ ] A sportoló belső user-id-je kiszivárog az edzőhöz
+    db.js -> toComment `authorId`-t ad, ami a GET /api/athletes/:linkId/
+    comments és az exerciseNotes válaszában kimegy. Ellentmond a kód saját
+    kommentjének („a belső user-id nem kerül ki"); a coach.test.js csak a
+    card.userId-t nézi. Javítás: authorId helyett „én vagyok-e a szerző".
+
+[ ] A volt edző táplálkozási célja a kapcsolat bontása után is él
+    A nutrition_goals 'coach' sorához a deleteCoachLink nem nyúl, a
+    getNutritionGoal nem nézi, él-e a kapcsolat, a sportoló pedig nem tudja
+    törölni (a clearOwnNutritionGoal csak az 'own' sort viszi).
+
+[ ] Meghívó: név-felderítés és újrameghívás tiltás nélkül
+    A POST /api/athletes 404-gyel megmondja, létezik-e a név, és visszaadja
+    a megjelenítendő nevet beleegyezés nélkül; elutasítás után az edző
+    azonnal újra meghívhat, blokkolni nem lehet.
+
+[ ] Check-in: a víznapló elveszett frissítése
+    A varázsló a betöltéskori `carried.hydration`-t küldi vissza, a szerver
+    replaceWaterDay-t hív: a közben (másik fülön) naplózott kortyok
+    törlődnek. Ugyanaz a gyökér, mint a KÓDTÉRKÉP saveCheckin-tételénél — a
+    merge-elő PUT mindkettőt megoldja.
+
+[ ] Hiányzó HTTP biztonsági fejlécek
+    Nincs CSP, X-Frame-Options / frame-ancestors, nosniff; az X-Powered-By
+    kint van. A clickjacking a SameSite=Lax miatt gyakorlatilag nem működik
+    (böngészőfüggő). Olcsó: egy köztes réteg néhány fejléccel.
+
+    Kisebbek, egy mondatban: a kliens-dátum ±1 napot enged, így a „csak a
+    mai étel törölhető" szabály a szomszédos napra megkerülhető (saját adat);
+    és GYANÚ — az első regisztráló megörökli a fiókok előtti („legacy")
+    adatokat, ami egy nyilvánosan induló régi adatbázisnál kockázat.
 
 
 ==========================================================================
@@ -627,7 +698,9 @@ EREDMÉNY (1 éves adat, azonos gépen), megtartva jövőbeli összevetéshez:
 [~] Rate limit   (2026-08-26: a hiányzó korlátok pótolva)
     Ami MEGVAN:
       · BELÉPÉS: 15 percen belül 10 sikertelen próbálkozás után a
-        felhasználónév zárolódik (server/auth.js).
+        felhasználónév zárolódik — 2026-09-13 óta név + forrás kulccsal, és
+        forrásonként 60 kísérlet / 15 perc (server/auth.js, ld. a BIZTONSÁG
+        KÉSZ tételeit).
       · REGISZTRÁCIÓ: forrásonként 30 óránként. Ez volt a legnagyobb rés —
         az egyetlen írás, amihez nem kell fiók, tehát bárki gyárthatott
         korlátlanul fiókot. A hibás próbálkozás is beleszámít, különben a
@@ -649,8 +722,9 @@ EREDMÉNY (1 éves adat, azonos gépen), megtartva jövőbeli összevetéshez:
     elosztott támadó ellen ez kevés — közös tár (Redis vagy DB-tábla) kellene
     hozzá. A cél most nem is ő volt, hanem az elszabadult kliens és a
     fiók-gyártó szkript.
-    Reverse proxy mögött a regisztrációs korláthoz app.set('trust proxy', …)
-    kell, különben minden kérés a proxy címéről érkezőnek látszik.
+    Reverse proxy mögött a forrásra szóló korlátokhoz (belépés, regisztráció)
+    FITTRACK_TRUST_PROXY kell (2026-09-13 óta), különben minden kérés a
+    proxy címéről érkezőnek látszik.
 
 --------------------------------------------------------------------------
 ADATMINŐSÉG — fokozatosan bővíthető, nincs határidő
@@ -1155,3 +1229,51 @@ valódi motoron mérve (nem kézzel), előtte → utána.
       a naplózott gyakorlat pontszáma a mai szubjektív állapotot nem látja.
     Tesztek: server/recovery.test.js „Szubjektív jelzések" szakasz (hat új
     teszt, előbb pirosan). README és doc.txt képlet-táblája frissítve.
+
+--------------------------------------------------------------------------
+BIZTONSÁG — gyors átnézés (2026-09-12) + audit (2026-09-13)
+--------------------------------------------------------------------------
+
+A 2026-09-13-i audit három MAGAS lelete, ugyanaznap javítva. Mindhárom
+kódútja végig követve, a tesztek előbb pirosan: server/auth.test.js (négy
+új) és az új server/security.test.js (hat végponti, saját szerverrel — külön
+fájl, mert a belépés forrásonkénti korlátja közös keret a 127.0.0.1-en).
+
+[x] Belépés nélküli memória-kimerítés a zárolási számlálón   (2026-09-13)
+    A login nem ellenőrizte a név formátumát, a `failures` Map-et semmi nem
+    söpörte, a belépésre pedig nem volt forrás-korlát. Nem létező névnél a
+    kérés olcsó volt (scrypt sem futott): ~10 000 egyedi, 100 KB-os névvel
+    ~1 GB memória.
+    JAVÍTVA: érvénytelen formátumú névnél azonnal 401, könyvelés nélkül
+    (ugyanaz az üzenet); a Map söprődik 1000 kulcs fölött (a ratelimit.js
+    mintájára); új loginLimiter: forrásonként 60 kísérlet / 15 perc, 429 +
+    Retry-After.
+
+[x] Bármely fiók kizárható volt 10 rossz jelszóval   (2026-09-13)
+    A zárolás kulcsa a puszta név volt, és ugyanez a számláló fékezte a
+    jelszócserét és a fióktörlést: egy idegen 15 percenként 10 próbával
+    kizárta a tulajdonost, aki a kompromittált jelszót sem tudta lecserélni.
+    A nevek a meghívó 404-éből és az időzítésből felderíthetők voltak.
+    JAVÍTVA: a belépés kulcsa név + forrás (loginFailureKey) — a próbálgató
+    csak a saját forrását zárja ki; a jelszócsere és a törlés fiókra szóló,
+    külön kulcsteret kap (accountFailureKey); nem létező névnél ál-scrypt fut
+    (verifyAgainstDummy), a válaszidő nem árulja el a foglalt neveket.
+    A KÓDÁTNÉZÉS LELETE, ugyanaznap javítva: proxy mögött a „forrás" a proxy
+    címe, tehát a fenti kettő (és az új belépési korlát) csak helyes
+    `trust proxy` mellett működik — enélkül az új korlát mindenkire közös
+    keret lett volna. Új kapcsoló: FITTRACK_TRUST_PROXY (ratelimit.js ->
+    parseTrustProxy; a `true` tiltott), végponti teszttel két forrásra.
+    NYITVA MARADT: a meghívó 404-e (ld. az ALACSONY tételek között), és a
+    kapcsoló tényleges beállítása a hostingon (ld. a KÖZEPES tételt).
+
+[x] Korlátlan méretű mentés   (2026-09-13)
+    A normalizeExercises nem korlátozta a gyakorlat- és szettszámot: egy
+    100 KB-os törzs ~3 MB-ként tárolódott (~30× szorzó), a getWorkouts pedig
+    szinkron JSON.parse-szal olvasta vissza, mindenkit blokkolva. A
+    megjegyzés targetId-je tetszőleges hosszú lehetett.
+    JAVÍTVA: edzés / terv / piszkozat max 50 gyakorlat, gyakorlatonként max
+    50 szett — túllépésnél 400 konkrét üzenettel, nem csendes levágás
+    (exerciseLimitError); a targetId csak „szám:szám" alakú; az express.json
+    korlátja KIMONDVA 256 KB. MÉRVE: az alapértelmezett 100 KB már a
+    megengedett legnagyobb edzést is 413-mal dobta volna — egy valószerű
+    50×50-es törzs 173 KB.

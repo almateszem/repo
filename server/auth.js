@@ -39,6 +39,19 @@ export async function hashPassword(password) {
  * Az üres tárolt hash SZÁNDÉKOSAN mindig hamis: az archív („korábbi adatok")
  * felhasználó ilyen, és soha nem szabad tudni belépni vele.
  */
+/* Egy jól formált, de SEMMILYEN jelszóhoz nem tartozó hash (a kulcs csupa
+   nulla, amit a scrypt kimenete gyakorlatilag soha nem ad ki). */
+const DUMMY_HASH = `scrypt$${SCRYPT.N}$${SCRYPT.r}$${SCRYPT.p}$${'0'.repeat(32)}$${'0'.repeat(128)}`;
+
+/** Ál-ellenőrzés nem létező felhasználónévre: ugyanazt a scryptet futtatja,
+    mint a valódi, és mindig hamis. Enélkül a belépés nem létező névnél
+    azonnal válaszolt, létezőnél ~50-80 ms után — az időzítésből így ki
+    lehetett olvasni, mely nevek foglaltak. */
+export const verifyAgainstDummy = async (password) => {
+  await verifyPassword(password, DUMMY_HASH);
+  return false;
+};
+
 export async function verifyPassword(password, stored) {
   const parts = String(stored ?? '').split('$');
   if (parts.length !== 6 || parts[0] !== 'scrypt') return false;
@@ -100,12 +113,41 @@ export function serializeCookie(name, value, { maxAge, secure = false } = {}) {
 }
 
 /* ---- Belépési kísérlet-korlátozás ----
-   Memóriában, felhasználónévre. Nem elosztott megoldás (újraindításkor
-   nullázódik), de a jelszó-próbálgatás ellen a scrypt lassúsága mellett ez
-   bőven elég — és nem igényel külső tárat. */
+   Memóriában. Nem elosztott megoldás (újraindításkor nullázódik), de a
+   jelszó-próbálgatás ellen a scrypt lassúsága mellett ez bőven elég — és nem
+   igényel külső tárat.
+
+   A KULCS dönti el, kit zár ki. Eredetileg a puszta felhasználónév volt: így
+   BÁRKI kizárhatta az áldozatot 15 percenként 10 rossz jelszóval — a
+   belépésből, a jelszócseréből és a fióktörlésből is. Ezért most két külön
+   kulcstér van (ld. loginFailureKey / accountFailureKey). */
 const FAILURE_LIMIT = 10;
 const FAILURE_WINDOW_MS = 15 * 60 * 1000;
 const failures = new Map(); // kulcs → { count, firstAt }
+
+/** Ennyi kulcs fölött söprünk a lejártakért — a ratelimit.js mintájára. A
+    söprés nélkül minden valaha próbált kulcs bent maradna: egyedi nevekkel
+    (vagy forrásokkal) a map a memória elfogyásáig hízlalható volt. */
+const FAILURE_SWEEP_THRESHOLD = 1000;
+
+/** Belépés: név ÉS forrás. A próbálgató így csak a saját forrását zárja ki —
+    az áldozat a saját gépéről továbbra is beléphet. Az elosztott, sok forrásból
+    jövő próbálgatást a forrásonkénti belépési korlát és a scrypt fékezi. */
+export const loginFailureKey = (username, source) => `login:${username}|${source}`;
+
+/** Belépett fiók műveletei (jelszócsere, törlés): a fiók azonosítója. Külön
+    kulcstér, hogy a belépés idegen próbálgatása ne blokkolhassa a tulajdonost
+    abban, hogy a kompromittált jelszavát lecserélje. */
+export const accountFailureKey = (userId) => `account:${userId}`;
+
+function sweepFailures(now) {
+  for (const [key, entry] of failures) {
+    if (now - entry.firstAt > FAILURE_WINDOW_MS) failures.delete(key);
+  }
+}
+
+/** Csak a teszteknek: hány kulcsot tartunk épp nyilván. */
+export const trackedFailureKeys = () => failures.size;
 
 /** Igaz, ha a kulcs (felhasználónév) épp zárolva van. */
 export function isLockedOut(key, now = Date.now()) {
@@ -120,6 +162,7 @@ export function isLockedOut(key, now = Date.now()) {
 
 /** Sikertelen belépés könyvelése. */
 export function recordFailure(key, now = Date.now()) {
+  if (failures.size > FAILURE_SWEEP_THRESHOLD) sweepFailures(now);
   const entry = failures.get(key);
   if (!entry || now - entry.firstAt > FAILURE_WINDOW_MS) {
     failures.set(key, { count: 1, firstAt: now });

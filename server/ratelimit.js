@@ -19,6 +19,33 @@
  * a kétszeres burst se legyen baj.
  */
 
+/**
+ * A FITTRACK_TRUST_PROXY környezeti változó értelmezése az Express
+ * `trust proxy` beállításához. Ettől függ, mi a kérés FORRÁSA (req.ip) — azaz
+ * a forrásonkénti korlátok kulcsa.
+ *
+ *   üres / 0 / false  → kikapcsolva: a forrás a TCP-kapcsolat címe (helyi futás)
+ *   pozitív egész     → ennyi megbízható proxy-lépés (Fly.io, egy nginx: 1)
+ *   egyéb sztring     → az Express nevesített értéke vagy címlistája (loopback…)
+ *
+ * A `true` SZÁNDÉKOSAN tiltott: mellette az Express a legbaloldalibb
+ * X-Forwarded-For címet hiszi el, amit a kliens maga ír — minden forrásonkénti
+ * korlát egy fejléccel megkerülhető volna. Hibás értéknél indításkor dobunk:
+ * a csendben rossz beállítás rosszabb, mint egy le nem induló szerver.
+ */
+export function parseTrustProxy(raw) {
+  const value = String(raw ?? '').trim();
+  if (value === '' || value === '0' || value === 'false') return false;
+  if (/^\d+$/.test(value)) return Number(value);
+  if (value === 'true' || /^-/.test(value)) {
+    throw new Error(
+      `FITTRACK_TRUST_PROXY="${value}": a megbízható proxy-lépések számát add meg (pl. 1), `
+      + 'vagy a proxy címét — a "true" bármelyik kliensnek megengedné, hogy a forrását hamisítsa.',
+    );
+  }
+  return value;
+}
+
 /** Ennyi kulcs fölött söprünk a lejárt bejegyzésekért (ld. sweep). */
 const SWEEP_THRESHOLD = 1000;
 

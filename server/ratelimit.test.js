@@ -7,7 +7,24 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createRateLimiter } from './ratelimit.js';
+import { createRateLimiter, parseTrustProxy } from './ratelimit.js';
+
+test('trust proxy: alapból KI, a proxy-lépések száma vagy az Express nevesített értéke', () => {
+  // Kikapcsolva a forrás a TCP-kapcsolat címe — helyi futtatásnál ez a helyes.
+  for (const off of [undefined, '', '  ', '0', 'false']) {
+    assert.equal(parseTrustProxy(off), false, `„${off}" → kikapcsolva`);
+  }
+  assert.equal(parseTrustProxy('1'), 1, 'egy proxy (pl. Fly.io) — szám, nem sztring');
+  assert.equal(parseTrustProxy('2'), 2);
+  assert.equal(parseTrustProxy('loopback'), 'loopback');
+});
+
+test('trust proxy: a „true" TILTOTT — bármelyik kliens hamisíthatná a forrását', () => {
+  // `true` mellett az Express a legbaloldalibb X-Forwarded-For címet hiszi el,
+  // amit a kliens maga ír: a forrásonkénti korlát így fejlécenként megkerülhető.
+  assert.throws(() => parseTrustProxy('true'), /proxy-lépések számát/);
+  assert.throws(() => parseTrustProxy('-1'), /proxy-lépések számát/);
+});
 
 test('a limitig átenged, utána elutasít', () => {
   const limiter = createRateLimiter({ limit: 3, windowMs: 1000 });
