@@ -24,6 +24,7 @@ Környezeti változók:
 | --- | --- | --- |
 | `PORT` | `3000` | A szerver portja |
 | `FITTRACK_DB` | `server/fittrack.db` | Az adatbázisfájl útvonala — **teszthez érdemes eldobható fájlra állítani**, hogy a valódi adat ne sérüljön |
+| `FITTRACK_TRUST_PROXY` | kikapcsolva | Reverse proxy mögött a megbízható proxy-lépések száma (pl. `1`) — ld. *Élesítés* |
 
 ```bash
 # Kísérletezés külön adatbázison, az éles adat érintése nélkül
@@ -32,7 +33,7 @@ PORT=3999 FITTRACK_DB=/tmp/proba.db npm start
 
 ## Élesítés
 
-Két dolgot kell elintézni, mielőtt az app másokhoz is kikerül. Egyik sem
+Három dolgot kell elintézni, mielőtt az app másokhoz is kikerül. Egyik sem
 kódkérdés — a telepítés környezetén múlnak.
 
 ### 1. Az adatbázisnak perzisztens tárolón kell lennie
@@ -74,6 +75,22 @@ a feltételek rendben vannak (az attribúció ki van téve a gyakorlat-választ�
 alján), **kereskedelmi felhasználáshoz viszont saját engedély kell** a
 jogtulajdonostól. Részletek: `public/exercises/ATTRIBUTION.txt`.
 
+### 3. Reverse proxy mögött: `FITTRACK_TRUST_PROXY`
+
+A belépés és a regisztráció korlátja a **kérés forrására** szól. Proxy mögött
+(Fly.io, nginx, a legtöbb PaaS) beállítás nélkül minden kérés a proxy címéről
+érkezőnek látszik: a korlát ilyenkor az **egész forgalomra közös**, és 60
+szemét-belépés 15 percre mindenkit kizár. Állítsd a megbízható proxy-lépések
+számára:
+
+```bash
+FITTRACK_TRUST_PROXY=1   # egy proxy a szerver előtt (Fly.io, egy nginx)
+```
+
+A `true` szándékosan tiltott (a szerver el sem indul vele): mellette a kliens
+maga írhatná meg a forrását az `X-Forwarded-For` fejlécben. Ha a beállítás
+hiányzik, de proxy-fejléc érkezik, a szerver egyszer figyelmeztet a naplóban.
+
 ### Kérés-korlátok
 
 Alapból be vannak kapcsolva, memóriában (nem elosztott — újraindításkor
@@ -81,14 +98,16 @@ nullázódnak, több példánynál példányonként számolnak):
 
 | Mi | Kulcs | Korlát |
 | --- | --- | --- |
-| Sikertelen belépés | felhasználónév | 10 / 15 perc után zárolás |
+| Sikertelen belépés | felhasználónév **és** kérés forrása | 10 / 15 perc után zárolás |
+| Belépési kísérlet (sikeres is) | kérés forrása | 60 / 15 perc |
+| Jelszócsere, fióktörlés (rossz jelszó) | fiók | 10 / 15 perc után zárolás |
 | Regisztráció | kérés forrása | 30 / óra |
 | Írások (`POST`/`PUT`/`PATCH`/`DELETE`) | fiók | 240 / perc |
 | Üzenetküldés | fiók | 20 / perc |
 
-Reverse proxy mögött a *regisztrációs* korláthoz `app.set('trust proxy', …)`
-kell, különben minden kérés a proxy címéről érkezőnek látszik, és a korlát az
-egész forgalomra közösen számol.
+Reverse proxy mögött a forrásra szóló korlátokhoz (belépés, regisztráció)
+`FITTRACK_TRUST_PROXY` kell (ld. fent), különben minden kérés a proxy címéről
+érkezőnek látszik, és a korlát az egész forgalomra közösen számol.
 
 ## Felépítés
 
@@ -152,7 +171,14 @@ látják és nem írhatják egymás adatát, id-re hivatkozva sem.
   adatbázisba **csak a token SHA-256 lenyomata** kerül, maga a token nem.
   HTTPS-en (vagy `x-forwarded-proto: https` mögött) a süti `Secure` jelzőt is kap.
 - **Belépési kísérlet-korlát:** 15 percen belül 10 sikertelen próbálkozás után a
-  felhasználónév átmenetileg zárolódik.
+  felhasználónév átmenetileg zárolódik — de csak ARRÓL a forrásról. Így egy
+  idegen nem zárhatja ki a tulajdonost; a jelszócsere és a fióktörlés pedig
+  saját, fiókra szóló számlálót kap. Érvénytelen formátumú névnél nincs
+  könyvelés, nem létező névnél ál-scrypt fut (a válaszidő nem árulja el,
+  foglalt-e a név).
+- **Méretkorlátok:** a JSON-törzs legfeljebb 256 KB; edzésben, tervben és
+  piszkozatban legfeljebb 50 gyakorlat, gyakorlatonként 50 szett (túllépésnél
+  400, nem csendes levágás).
 - **Jelszóváltoztatás** (`PUT /api/auth/password`): a JELENLEGI jelszót is kéri —
   a munkamenet-süti önmagában nem elég hozzá. Sikeres csere után a fiók összes
   korábbi munkamenete megszűnik (más eszközök, esetleg egy megszerzett token), a

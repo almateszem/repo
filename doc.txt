@@ -79,7 +79,12 @@ tölt be (<script type="module" src="js/main.js">).
 - Munkamenet: HttpOnly, SameSite=Lax süti, 30 nap. Az adatbázisba CSAK a
   token SHA-256 lenyomata kerül. HTTPS mögött a süti Secure jelzőt is kap.
 - Belépési kísérlet-korlát: 15 percen belül 10 sikertelen próbálkozás után a
-  felhasználónév átmenetileg zárolódik (memóriában él, újraindításkor nullázódik).
+  felhasználónév átmenetileg zárolódik — ARRÓL a forrásról (név + IP), tehát
+  idegen nem zárhatja ki a tulajdonost. Forrásonként 15 percenként 60 belépési
+  kísérlet. A jelszócsere és a fióktörlés saját, fiókra szóló számlálót kap.
+  Mind memóriában él, újraindításkor nullázódik.
+- Méretkorlátok: JSON-törzs max 256 KB; edzés/terv/piszkozat max 50 gyakorlat,
+  gyakorlatonként max 50 szett (túllépésnél 400-as hiba, nem levágás).
 - MINDEN /api/* végpont bejelentkezést követel az /api/auth/* kivételével. A
   védelem szándékosan az összes útvonal ELŐTT áll, tehát egy később felvett
   végpont automatikusan védett.

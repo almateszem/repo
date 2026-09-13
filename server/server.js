@@ -48,6 +48,7 @@ import {
   hashPassword, verifyPassword, createSessionToken, hashToken,
   parseCookies, serializeCookie, isLockedOut, recordFailure, clearFailures,
   USERNAME_RE, PASSWORD_MIN, normalizeUsername,
+  loginFailureKey, accountFailureKey, verifyAgainstDummy,
 } from './auth.js';
 // A készenlét-motor és a közös dátum-segédek. A dátumkezelés szándékosan egy
 // helyen (recovery.js) lakik, hogy a szerver és a motor sose csússzon el.
@@ -61,7 +62,7 @@ import { buildNotifications } from './notifications.js';
 import { MUSCLE_KEYS, MUSCLE_GROUPS, resolveExerciseLoad, normalizeName } from './muscles.js';
 // Kérés-korlátozás. Tiszta számláló, adatbázis és Express nélkül — a limitek
 // és a kulcsválasztás itt, a szerveren dőlnek el (server/ratelimit.js).
-import { createRateLimiter } from './ratelimit.js';
+import { createRateLimiter, parseTrustProxy } from './ratelimit.js';
 // Hibakezelő védőháló: a kezelők becsomagolása, a JSON-hibaválasz és a
 // folyamat-szintű őrök (server/errors.js).
 import { guardAsyncRoutes, apiErrorHandler, installProcessGuards } from './errors.js';
@@ -72,13 +73,24 @@ const PUBLIC_DIR = path.join(__dirname, '..', 'public'); // a statikus frontend 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+/* Reverse proxy mögött (Fly.io, nginx) a kérés FORRÁSA csak ezzel helyes: e
+   nélkül minden kérés a proxy címéről jön, és a forrásonkénti korlátok (a
+   belépésé és a regisztrációé) az EGÉSZ forgalomra közös keretet adnak — 60
+   szemét-belépés mindenkit kizárna. Alapból kikapcsolva (ld. parseTrustProxy). */
+const TRUST_PROXY = parseTrustProxy(process.env.FITTRACK_TRUST_PROXY);
+app.set('trust proxy', TRUST_PROXY);
+
 /* A hibakezelés MINDEN útvonal-regisztráció ELŐTT áll be — ugyanaz a minta,
    mint a hozzáférés-védelemnél: egy később felvett végpont automatikusan
    védett, nem kell rá emlékezni. Enélkül egy async kezelő elutasított ígérete
    Express 4 alatt válasz nélkül hagyná a kérést. */
 guardAsyncRoutes(app);
 
-app.use(express.json()); // a POST/PUT végpontokhoz (JSON törzs olvasása)
+/* A POST/PUT végpontokhoz (JSON törzs olvasása). A korlát KIMONDVA: az
+   alapértelmezett 100 KB már a megengedett legnagyobb edzést (50 gyakorlat ×
+   50 szett, ~175 KB) is 413-mal dobta volna, a szerkezet méretét pedig
+   úgyis a normalizálás korlátozza (MAX_EXERCISES / MAX_SETS_PER_EXERCISE). */
+app.use(express.json({ limit: '256kb' }));
 
 /* ======================================================================
    Fiókok — belépés, munkamenet, hozzáférés-védelem
@@ -113,6 +125,13 @@ const MINUTE = 60 * 1000;
     szabad kizárni. Egy fiók-gyártó szkriptet ez így is megállít. */
 const registerLimiter = createRateLimiter({ limit: 30, windowMs: 60 * MINUTE });
 
+/** Belépési kísérletek egy forrásból, sikeresek és sikertelenek együtt. A
+    névre szóló zárolás csak EGY nevet véd; enélkül egy forrás korlátlanul
+    próbálgathatott sok nevet (password spraying), és minden létező névre
+    kiküldött rossz jelszó egy scryptet futtatott a közös szálkészleten.
+    Bőkezű: egy közös IP mögül is többen beléphetnek, a munkamenet napokig él. */
+const loginLimiter = createRateLimiter({ limit: 60, windowMs: 15 * MINUTE });
+
 /** Írások fiókonként. Az autosave legrosszabb esetének a duplája. */
 const writeLimiter = createRateLimiter({ limit: 240, windowMs: MINUTE });
 
@@ -120,10 +139,25 @@ const writeLimiter = createRateLimiter({ limit: 240, windowMs: MINUTE });
     EMBER felületén jelenik meg, nem csak a szerveren okoz terhelést. */
 const messageLimiter = createRateLimiter({ limit: 20, windowMs: MINUTE });
 
-/** A kérés forrása. Reverse proxy mögött ehhez `app.set('trust proxy', …)`
-    kell, különben minden kérés a proxy címéről érkezőnek látszik — a
-    regisztrációs korlát ilyenkor az egész forgalomra közösen számol. */
+/** A kérés forrása. Reverse proxy mögött ehhez FITTRACK_TRUST_PROXY kell
+    (ld. fent), különben minden kérés a proxy címéről érkezőnek látszik — a
+    regisztrációs és a belépési korlát ilyenkor az egész forgalomra közösen
+    számol. */
 const requestSource = (req) => req.ip || req.socket?.remoteAddress || 'ismeretlen';
+
+/* Egyszeri figyelmeztetés, ha proxy-fejléc érkezik, de a trust proxy ki van
+   kapcsolva: ez a fenti hiba pontos tünete, és némán csak akkor derülne ki,
+   amikor egy támadó (vagy egy iroda) kimeríti a közös keretet. */
+let proxyWarned = false;
+app.use((req, res, next) => {
+  if (!TRUST_PROXY && !proxyWarned && req.get('x-forwarded-for')) {
+    proxyWarned = true;
+    console.warn('FIGYELEM: X-Forwarded-For fejléc érkezett, de a FITTRACK_TRUST_PROXY nincs beállítva — '
+      + 'proxy mögött a forrásonkénti korlátok (belépés, regisztráció) a TELJES forgalomra közösen számolnak. '
+      + 'Állítsd a proxy-lépések számára (pl. FITTRACK_TRUST_PROXY=1).');
+  }
+  next();
+});
 
 /** Elutasítás 429-cel, a szokásos Retry-After fejléccel. */
 function tooManyRequests(res, retryAfter, message) {
@@ -217,11 +251,23 @@ app.post('/api/auth/register', async (req, res) => {
 /** Belépés. A hibaüzenet szándékosan nem árulja el, a név vagy a jelszó
     volt-e rossz — így nem lehet vele létező fiókokat feltérképezni. */
 app.post('/api/auth/login', async (req, res) => {
+  const source = requestSource(req);
+  const quota = loginLimiter.hit(source);
+  if (!quota.allowed) {
+    return tooManyRequests(res, quota.retryAfter, 'Túl sok belépési kísérlet innen. Próbáld később.');
+  }
+
   const username = normalizeUsername(req.body?.username);
   const password = String(req.body?.password ?? '');
   const wrong = { error: 'Hibás felhasználónév vagy jelszó.' };
 
-  if (isLockedOut(username)) {
+  /* Érvénytelen formátumú név nem létezhet fiókként — nem könyveljük
+     zárolásnak, különben tetszőleges (akár 100 KB-os) nevekkel hízlalható
+     volna a számláló. Az üzenet ugyanaz, mint a nem létező érvényes névnél. */
+  if (!USERNAME_RE.test(username)) return res.status(401).json(wrong);
+
+  const lockKey = loginFailureKey(username, source);
+  if (isLockedOut(lockKey)) {
     return res.status(429).json({
       error: 'Túl sok sikertelen próbálkozás. Próbáld újra néhány perc múlva.',
     });
@@ -229,13 +275,17 @@ app.post('/api/auth/login', async (req, res) => {
 
   const row = getUserWithHash(username);
   // Az archív („korábbi adatok") fiók jelszó-hashe üres — a verifyPassword
-  // erre mindig hamisat ad, tehát vele nem lehet belépni.
-  if (!row || !await verifyPassword(password, row.password_hash)) {
-    recordFailure(username);
+  // erre mindig hamisat ad, tehát vele nem lehet belépni. Nem létező névnél
+  // ál-ellenőrzés fut, hogy a válaszidő ne árulja el, foglalt-e a név.
+  const ok = row
+    ? await verifyPassword(password, row.password_hash)
+    : await verifyAgainstDummy(password);
+  if (!ok) {
+    recordFailure(lockKey);
     return res.status(401).json(wrong);
   }
 
-  clearFailures(username);
+  clearFailures(lockKey);
   startSession(req, res, row.id);
   res.json(withOnboarding({ id: row.id, username: row.username, displayName: row.display_name }));
 });
@@ -435,8 +485,11 @@ app.put('/api/auth/password', async (req, res) => {
     return res.status(400).json({ error: `Az új jelszó legalább ${PASSWORD_MIN} karakter legyen.` });
   }
 
-  // A jelenlegi jelszó próbálgatását ugyanaz a számláló fékezi, mint a belépését
-  if (isLockedOut(req.user.username)) {
+  /* A jelenlegi jelszó próbálgatását (lopott süti) saját, FIÓKRA szóló
+     számláló fékezi — nem a belépésé: az idegen gépről próbálgatott belépés
+     különben a tulajdonost is megakadályozná a jelszó lecserélésében. */
+  const lockKey = accountFailureKey(req.user.id);
+  if (isLockedOut(lockKey)) {
     return res.status(429).json({
       error: 'Túl sok sikertelen próbálkozás. Próbáld újra néhány perc múlva.',
     });
@@ -444,10 +497,10 @@ app.put('/api/auth/password', async (req, res) => {
 
   const row = getUserWithHash(req.user.username);
   if (!row || !await verifyPassword(currentPassword, row.password_hash)) {
-    recordFailure(req.user.username);
+    recordFailure(lockKey);
     return res.status(401).json({ error: 'A jelenlegi jelszó nem stimmel.' });
   }
-  clearFailures(req.user.username);
+  clearFailures(lockKey);
 
   if (newPassword === currentPassword) {
     return res.status(400).json({ error: 'Az új jelszó nem lehet ugyanaz, mint a régi.' });
@@ -466,7 +519,9 @@ app.put('/api/auth/password', async (req, res) => {
 app.post('/api/auth/delete-account', async (req, res) => {
   const password = String(req.body?.password ?? '');
 
-  if (isLockedOut(req.user.username)) {
+  // Ugyanaz a fiókra szóló számláló, mint a jelszócserénél (ld. ott).
+  const lockKey = accountFailureKey(req.user.id);
+  if (isLockedOut(lockKey)) {
     return res.status(429).json({
       error: 'Túl sok sikertelen próbálkozás. Próbáld újra néhány perc múlva.',
     });
@@ -474,10 +529,10 @@ app.post('/api/auth/delete-account', async (req, res) => {
 
   const row = getUserWithHash(req.user.username);
   if (!row || !await verifyPassword(password, row.password_hash)) {
-    recordFailure(req.user.username);
+    recordFailure(lockKey);
     return res.status(401).json({ error: 'A jelszó nem stimmel — a fiók nem törlődött.' });
   }
-  clearFailures(req.user.username);
+  clearFailures(lockKey);
 
   deleteUser(req.user.id);
   setSessionCookie(req, res, null); // a süti is menjen, ne maradjon halott munkamenet
@@ -2296,6 +2351,25 @@ function nonNegativeField(value) {
   return text;
 }
 
+/* A mentett szerkezet felső korlátja. Enélkül egy 100 KB-os törzs (üres
+   szettekkel) ~3 MB-ként tárolódott, és a getWorkouts minden olvasásnál
+   szinkron JSON.parse-szal fejtette vissza — a szinkron SQLite miatt MINDEN
+   felhasználó kérését blokkolva. A számok messze a valódi használat fölött
+   vannak: egy edzés jellemzően 4-10 gyakorlat, gyakorlatonként 3-6 szett. */
+const MAX_EXERCISES = 50;
+const MAX_SETS_PER_EXERCISE = 50;
+
+/** A méretkorlát ellenőrzése a normalizálás ELŐTT, hogy a túl nagy törzs
+    konkrét hibaüzenetet kapjon — csendes levágás adatvesztés lenne. */
+function exerciseLimitError(raw) {
+  if (!Array.isArray(raw)) return null;
+  if (raw.length > MAX_EXERCISES) return `Legfeljebb ${MAX_EXERCISES} gyakorlat menthető.`;
+  if (raw.some((entry) => Array.isArray(entry?.sets) && entry.sets.length > MAX_SETS_PER_EXERCISE)) {
+    return `Gyakorlatonként legfeljebb ${MAX_SETS_PER_EXERCISE} szett menthető.`;
+  }
+  return null;
+}
+
 function normalizeExercises(raw) {
   if (!Array.isArray(raw) || raw.length === 0) return null;
   const exercises = [];
@@ -2337,6 +2411,8 @@ function parsePlanBody(body) {
   if (!name || name.length > 60) {
     return { error: 'A terv neve kötelező (legfeljebb 60 karakter).' };
   }
+  const tooBig = exerciseLimitError(body?.exercises);
+  if (tooBig) return { error: tooBig };
   const exercises = normalizeExercises(body?.exercises);
   if (!exercises) {
     return { error: 'A tervnek legalább egy érvényes gyakorlatot kell tartalmaznia.' };
@@ -2369,6 +2445,8 @@ function parseWorkoutBody(body) {
   if (!name || name.length > 60) {
     return { error: 'Az edzés neve kötelező (legfeljebb 60 karakter).' };
   }
+  const tooBig = exerciseLimitError(body?.exercises);
+  if (tooBig) return { error: tooBig };
   const exercises = normalizeExercises(body?.exercises);
   if (!exercises) {
     return { error: 'Az edzésnek legalább egy érvényes gyakorlatot kell tartalmaznia.' };
@@ -2402,14 +2480,20 @@ app.post('/api/workouts', (req, res) => {
 const COMMENT_TYPE = 'exercise';
 const COMMENT_MAX_LENGTH = 1000;
 
-/** A szöveg beolvasása. Hibánál { error }-t ad. */
+/** A megjegyzés célja: "edzésId:gyakorlat-index" (ld. db.js comments tábla).
+    Korábban tetszőleges hosszú szöveg is bekerült — tárolva és indexelve. */
+const COMMENT_TARGET_RE = /^\d{1,15}:\d{1,3}$/;
+
+/** A szöveg és a cél beolvasása. Hibánál { error }-t ad. */
 function parseCommentBody(body) {
   const text = String(body?.text ?? '').trim();
   if (!text) return { error: 'Üres megjegyzést nem mentünk el.' };
   if (text.length > COMMENT_MAX_LENGTH) {
     return { error: `Legfeljebb ${COMMENT_MAX_LENGTH} karakter.` };
   }
-  return { text };
+  const target = String(body?.targetId ?? '');
+  if (!COMMENT_TARGET_RE.test(target)) return { error: 'Érvénytelen megjegyzés-cél.' };
+  return { text, target };
 }
 
 /** A kapcsolat sportolójának azonosítója, ha a hívó az EDZŐ oldala és a
@@ -2432,9 +2516,8 @@ app.get('/api/comments/by-target', (req, res) => {
 });
 
 app.post('/api/comments', (req, res) => {
-  const { text, error } = parseCommentBody(req.body);
+  const { text, target, error } = parseCommentBody(req.body);
   if (error) return res.status(400).json({ error });
-  const target = String(req.body?.targetId ?? '');
   res.status(201).json(addComment(req.user.id, req.user.id, COMMENT_TYPE, target, text));
 });
 
@@ -2463,9 +2546,8 @@ app.get('/api/athletes/:linkId/comments', (req, res) => {
 app.post('/api/athletes/:linkId/comments', (req, res) => {
   const athleteId = athleteOfLink(req.user, req.params.linkId);
   if (athleteId === null) return res.status(404).json({ error: 'Nincs ilyen kapcsolat.' });
-  const { text, error } = parseCommentBody(req.body);
+  const { text, target, error } = parseCommentBody(req.body);
   if (error) return res.status(400).json({ error });
-  const target = String(req.body?.targetId ?? '');
   res.status(201).json(addComment(req.user.id, athleteId, COMMENT_TYPE, target, text));
 });
 
@@ -2608,6 +2690,8 @@ app.delete('/api/workouts/:id', (req, res) => {
 app.put('/api/workout-draft', (req, res) => {
   const name = String(req.body?.name ?? '').trim().slice(0, 60);
   const raw = req.body?.exercises;
+  const tooBig = exerciseLimitError(raw);
+  if (tooBig) return res.status(400).json({ error: tooBig });
   const exercises = Array.isArray(raw) && raw.length === 0 ? [] : normalizeExercises(raw);
   if (!exercises) {
     return res.status(400).json({ error: 'Érvénytelen piszkozat-szerkezet.' });

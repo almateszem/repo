@@ -12,6 +12,7 @@ import {
   hashPassword, verifyPassword, createSessionToken, hashToken,
   parseCookies, serializeCookie, isLockedOut, recordFailure, clearFailures,
   USERNAME_RE, normalizeUsername,
+  loginFailureKey, accountFailureKey, trackedFailureKeys, verifyAgainstDummy,
 } from './auth.js';
 
 test('a jelszó-hash ellenőrizhető, de nem visszafejthető', async () => {
@@ -101,6 +102,48 @@ test('a belépési kísérlet-korlát a 10. hiba után zár, sikerre nullázódi
   for (let i = 0; i < 10; i++) recordFailure(key, now);
   clearFailures(key);
   assert.equal(isLockedOut(key, now), false, 'sikeres belépés törli a számlálót');
+});
+
+test('a belépési zárolás névre ÉS forrásra szól — más gépről az áldozat beléphet', () => {
+  const now = Date.now();
+  const victim = `aldozat${Math.random().toString(36).slice(2, 8)}`;
+  const attacker = loginFailureKey(victim, '203.0.113.7');
+  for (let i = 0; i < 10; i++) recordFailure(attacker, now);
+
+  assert.equal(isLockedOut(attacker, now), true, 'a próbálgató forrás zárolva');
+  assert.equal(isLockedOut(loginFailureKey(victim, '198.51.100.2'), now), false,
+    'az áldozat saját gépéről továbbra is beléphet');
+});
+
+test('a fiók-műveletek (jelszócsere, törlés) számlálója független a belépésétől', () => {
+  const now = Date.now();
+  const username = `fiok${Math.random().toString(36).slice(2, 8)}`;
+  for (let i = 0; i < 10; i++) recordFailure(loginFailureKey(username, '203.0.113.7'), now);
+
+  // Enélkül a kompromittált jelszót sem lehetne lecserélni, amíg valaki
+  // idegen gépről próbálgatja a nevet.
+  assert.equal(isLockedOut(accountFailureKey(42), now), false);
+  assert.notEqual(accountFailureKey(42), loginFailureKey('42', ''), 'külön kulcstér');
+});
+
+test('a lejárt zárolási bejegyzések kisöprődnek — sok egyedi név sem hizlalja a memóriát', () => {
+  const start = Date.now();
+  for (let i = 0; i < 1500; i++) recordFailure(`sopres-${start}-${i}`, start);
+  const before = trackedFailureKeys();
+  assert.ok(before >= 1500, `a próbálkozások nyilvántartva (${before})`);
+
+  // Az ablak (15 perc) után az új hiba könyvelése kisöpri a lejártakat.
+  recordFailure(`sopres-${start}-uj`, start + 16 * 60 * 1000);
+  assert.ok(trackedFailureKeys() < 100, `a lejártak kikerültek (maradt: ${trackedFailureKeys()})`);
+});
+
+test('az ál-jelszóellenőrzés mindig hamis, de valódi scryptet futtat', async () => {
+  // Nem létező névnél is ugyanannyi ideig tartson a belépés, különben az
+  // időzítésből kiderülne, mely nevek léteznek.
+  const started = process.hrtime.bigint();
+  assert.equal(await verifyAgainstDummy('barmi-jelszo'), false);
+  const elapsedMs = Number(process.hrtime.bigint() - started) / 1e6;
+  assert.ok(elapsedMs > 5, `a scrypt tényleg lefutott (${elapsedMs.toFixed(1)} ms)`);
 });
 
 test('felhasználónév-szabályok', () => {
