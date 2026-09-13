@@ -336,6 +336,7 @@ seed-görbét mutatja, és ki is írja, hogy az demo-adat.
 | Izom-regeneráció | 0.15 | a kilenc izomcsoport „soft-min" átlaga |
 | Energiaszint | 0.15 | check-in, 1–5 |
 | Stressz-regeneráció | 0.10 | check-in, 1–5 (fordítva) |
+| Közérzet | 0.10 | check-in, 1–5 — csak a részletes űrlap kérdezi, a varázsló nem |
 | Edzésterhelés | 0.15 | exponenciálisan csillapított tonnatömeg (τ = 3 nap) |
 | Táplálkozás | 0.05 | a **tegnapi** kalória/fehérje a célhoz mérve + hidratáció |
 
@@ -364,8 +365,13 @@ szét, mint bármelyik ki nem töltött mezőé.
   konkrét súly- és volumen-javaslat (a fő emelésekhez egyetlen naplózott alkalom
   is elég, a többihez három kell).
 - **Sapkák**: 7/10 feletti fájdalom letiltja az érintett izmot terhelő
-  gyakorlatokat, és a teljes pontszámot is korlátozza — ezt egy súlyozott átlag
-  elmosná.
+  gyakorlatokat, és a teljes pontszámot is korlátozza (45); a nagyon rossz
+  közérzet és az alacsony energia + magas stressz együttese 40-re — ezt egy
+  súlyozott átlag elmosná. Sapkás napon a gyakorlat-ajánlás sem lehet jobb a
+  napnál.
+- **„Mi húz vissza"**: a riport `limiting` mezője a leggyengébb jelen lévő
+  komponens; a Regeneráció oldal 85 alatt kiírja a végszöveg alatt (sapkás
+  napon nem — ott a sapka indoklása mondja meg az okot).
 
 **Adatigény.** Ami nem számolható, az nem jelenik meg kitalált számként. A
 személyre szabott (saját előzményhez mért) referenciához 14 nap edzés-előzmény és

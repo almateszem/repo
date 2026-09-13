@@ -5863,6 +5863,13 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   line-height: 1.4;
 }
 
+/* A végszöveg indoklása — halkabb, mint maga az ítélet. */
+.rc-limiter {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
 .rc-ring {
   width: clamp(96px, 26vw, 132px);
   height: clamp(96px, 26vw, 132px);

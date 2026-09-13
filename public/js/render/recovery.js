@@ -119,6 +119,16 @@ function renderRecovery(report) {
         ? 'Fáradt vagy — érdemes visszavenni a volumenből.'
         : 'A tested pihenést kér — ma inkább könnyű nap.';
 
+  /* Mi húz vissza: csak ha a nap NEM „készen állsz" — ott nincs mit indokolni.
+     A szám a komponens saját 0–100-as pontszáma, nem a hozzájárulása.
+     Sapkás napon rejtve: ott a számot a sapka állította (pl. fájdalom), amit
+     a komponens-lista nem ismer — a sor egy ártatlan komponenst nevezne meg,
+     az okot pedig úgyis kimondja a sapkák listája. */
+  const limiter = $('[data-rc-limiter]');
+  const limiting = report.limiting;
+  limiter.hidden = !known || overall >= 85 || !limiting || report.caps.length > 0;
+  limiter.textContent = limiter.hidden ? '' : `Leginkább visszahúz: ${limiting.label} (${limiting.score})`;
+
   // — Megbízhatóság —
   const badge = $('[data-rc-confidence-badge]');
   badge.textContent = CONFIDENCE_LABELS[report.confidence] ?? report.confidence;
