@@ -7829,8 +7829,11 @@ body[data-onboarding] .app-page.ci-page {
 /* A megosztott .wk-num sávból itt .ds-step lesz (osztályként fel is van
    téve): szögletes, hajszálvonal-résű szegmensek a korábbi kerek gombpár
    helyett. A szabály itt EXPLICIT, nem a kaszkádra bízott — a .wk-num
-   alaprétege (padding, háttér) különben átütne. */
+   alaprétege (padding, háttér) különben átütne.
+   A stretch azért kell, mert a display-szám magasabb a 44px-es gomboknál:
+   középre igazítva a gombok fölött és alatt kilátszana a hajszálvonal-háttér. */
 .ci-num-dial {
+  align-items: stretch;
   gap: 1px;
   padding: 0;
   border: none;
@@ -7838,10 +7841,13 @@ body[data-onboarding] .app-page.ci-page {
 }
 
 /* .ds-step-btn is fel van téve rá osztályként; a saját szabály itt ugyan-
-   azokat az értékeket adja explicit, ugyanazért az okért, mint fent. */
+   azokat az értékeket adja explicit, ugyanazért az okért, mint fent. A
+   magasságot a sáv adja (stretch), a 44px csak alsó korlát. A `height: auto`
+   nem elhagyható: a .wk-num-step fix 30px-e különben kizárná a nyújtást. */
 .ci-round-btn {
   width: var(--tap-min);
-  height: var(--tap-min);
+  height: auto;
+  min-height: var(--tap-min);
   border: 0;
   background: var(--c-bg);
   color: var(--fg-85);
@@ -7854,20 +7860,35 @@ body[data-onboarding] .app-page.ci-page {
   background: var(--surface-hover);
 }
 
-/* A .ds-display adja a súlyt/ritkítést/tabular-nums-ot; a méretet a helyi
+/* A .ds-display adja a ritkítást/sormagasságot; a méretet a helyi
    --ci-fs-number vw-clamp adja (fix oszlop, lásd a .app-page.ci-page
-   komment), ezért él tovább a saját custom property itt. */
+   komment), ezért él tovább a saját custom property itt.
+   A méret és a súly MÉGIS explicit: a mezőn a .wk-num-input is rajta van,
+   és az a stíluslapban a .ds-display UTÁN áll, tehát a saját 16px-ét és
+   600-as súlyát tenné rá (a display-szám így némán kicsire zsugorodott).
+   A háttér a .ds-step recept másik fele: a gyerek takarja ki a .ci-num-dial
+   hajszálvonal-hátterét, különben a mező helyén világos folt marad (fókuszban
+   a .wk-num:focus-within még erősebbet).
+   A szélesség 118px-ről nő, ahogy a szám: a teljes 72px-en a négykarakteres
+   alvásidő („10.5") 131px, fix 118px mellett a szélső számjegy levágódott. */
 .ci-num-input {
   --ds-display-size: var(--ci-fs-number);
-  width: 118px;
+  width: clamp(118px, 34vw, 136px);
+  font-size: var(--ds-display-size);
+  font-weight: 800;
   text-align: center;
-  background: none;
+  background: var(--c-bg);
   border: none;
 }
 
 /* A testsúly négy-öt jegyű („82.9", „102.4"), az alvás három („7.5") — a
-   szélesebb változat elfér a két körgomb mellett a legkeskenyebb telefonon is. */
+   szélesebb változat elfér a két körgomb mellett a legkeskenyebb telefonon is.
+   A szám itt egy fokkal kisebb (16vw a 17 helyett): a teljes --ci-fs-number
+   mellett az ötkarakteres érték minden szélességen 1–3px-szel túlnőtt a
+   mezőn, és a szélső számjegy levágódott. A mező szélessége maradt, így a
+   sor a 320px-es telefonon is kifér. */
 .ci-num-input--wide {
+  --ds-display-size: clamp(44px, 16vw, 68px);
   width: clamp(120px, 40vw, 172px);
 }
 
