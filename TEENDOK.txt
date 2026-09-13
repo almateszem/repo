@@ -11,9 +11,14 @@ A tematikus szakaszok (üzemeltetés, adatminőség, kódtérkép…) mindhárom
 részen belül alcímként élnek tovább, tehát egy témát a három rész
 ugyanazon alcíme alatt lehet végigolvasni.
 
-Állás (2026-09-12):   28 nyitott · 7 részben kész · 25 kész
+Állás (2026-09-13):   27 nyitott · 7 részben kész · 27 kész
 
-Utolsó frissítés: 2026-09-12 (a készenlét-modell átvizsgálva — három konkrét
+Utolsó frissítés: 2026-09-13 (két dizájn-átültetési tétel kész: a
+                  gyorsbillentyűk közös modál-horgonyt kaptak, a check-in
+                  szám-sávja visszakapta a display-számot; két új melléklelet
+                  — a gyorsgombok sávja és a terv-építő fejléce —, és egy
+                  téves biztonsági gyanú lezárva)
+Előző frissítés:  2026-09-12 (a készenlét-modell átvizsgálva — három konkrét
                   lelettel és szakirodalmi háttérrel; plusz a minőségi kör hat
                   tudatosan elhalasztott tétele és egy biztonsági gyors-átnézés.
                   Mind a NYITOTT rész végén.)
@@ -293,29 +298,29 @@ hibajegyek: kérdések, amikre a válasz vagy egy javítás, vagy egy doksi-sor.
 DIZÁJN-ÁTÜLTETÉS — ami a 11-20. task alatt kiderült, de nem oda tartozott
 --------------------------------------------------------------------------
 
-Négy tétel a 2026-09-11-i átültetésből. Egyik sem blokkoló: mind olyan,
-amit a munka KÖZBEN találtunk, de a task hatókörén kívül esett, és a
-javítása önálló döntés.
+A 2026-09-11-i átültetés négy tételéből kettő maradt nyitva (a másik kettő
+2026-09-13-án kész, ld. a 3. részt), plusz kettő, amit a javítás ellenőrzése
+és kódátnézése hozott. Egyik sem blokkoló: mind olyan, amit a munka KÖZBEN találtunk, de a
+task hatókörén kívül esett, és a javítása önálló döntés.
 
-[ ] A gyorsbillentyűk csak öt modált ismernek a nyolcból
-    Hely: public/js/ui/shortcuts.js -> isModalOpen(). A szelektor-lista
-    kézzel van szinkronban tartva, és hiányzik belőle a .food-modal, a
-    .custom-food-modal és a .scanner-modal. Következmény: nyitott
-    étel-részlet / saját étel / szkenner modál MELLETT az 1-5 gyorsbillentyű
-    oldalt vált a háttérben.
-    Ez NEM a dizájn-átültetés okozta — már előtte is így volt; a 17. task
-    felderítése hozta elő. A javítás egy sor, de átgondolást kér: a lista
-    helyett jobb volna egy közös horgony (pl. `[aria-modal="true"]` vagy egy
-    közös osztály), különben a következő modálnál megint elfelejtődik.
+[ ] Az alvás-gyorsgombok mögött a teljes sorszélességben átüt a hajszálvonal
+    Hely: public/style.css -> .ci-presets (a .ds-grid-et viseli) és a
+    JS-generált .ci-preset. A gombok középre ülnek, a .ds-grid
+    `background: var(--hair)`-je viszont a sor TELJES szélességét festi: a
+    gombsor két oldalán széles szürke sáv látszik, a gombokon pedig világos
+    keret. 2026-09-13-án a szám-sáv ellenőrző képernyőképén tűnt fel, nem
+    javítottam (más elem, más recept). Rokon tétele „A .ds-grid primitív
+    fele hiányzik" a MINŐSÉGI KÖR alatt — valószínűleg együtt érdemes.
 
-[ ] A check-in szám-mezője mögött átüt a hajszálvonal-háttér
-    Hely: public/style.css -> .ci-num-input (25. szakasz). A mező
-    `background: none`, a szülő .ci-num-dial háttere viszont `var(--hair)`
-    — a 118px-es számmező területén így egy világos folt marad a .ds-step
-    recept réseként. A 10. taskból maradt; a 11. task felderítésekor tűnt
-    fel, de a szakasz nem tartozott a hatókörbe.
-    TEENDŐ: a mezőnek `background: var(--c-bg)` kell, ahogy a .wk-num-input
-    is kapta.
+[ ] A terv-építő fejléce szerkesztéskor is „Új edzésterv"-et ír
+    Hely: public/index.html:484 (.pb-eyebrow) és :486 (a sr-only
+    #title-builder: „Új edzésterv készítése"), vezérlő:
+    public/js/ui/plan-builder.js -> startNew / loadPlan. A loadPlan meglévő
+    tervet nyit (editingId), mentéskor „Terv frissítve" toast jön — a fejléc
+    viszont végig „új"-at mond. A látható felirat a dizájn-átültetéssel
+    került be (előtte csak a sr-only cím volt), a 2026-09-13-i kódátnézés
+    találta. TEENDŐ: a startNew/loadPlan állítsa a két szöveget
+    („Új edzésterv" / „Terv szerkesztése").
 
 [ ] Három primitív-variáns használat nélkül áll
     Hely: public/style.css 2c. szakasz -> .ds-grid--column,
@@ -323,11 +328,6 @@ javítása önálló döntés.
     egyiküknek sem talált call-site-ot; a kódban kommenttel meg vannak
     jelölve. Szándékosan maradtak bent (a .ds-step-value a .ds-step
     receptjének a fele), de ha a fájl fogyókúrára szorul, itt kezdjük.
-
-[x] Az Összegzőn két felesleges text-align maradt
-    2026-09-11: elvégezve. A .su-note és a .su-feedback betűre azonos
-    kártya-blokkja egy .ds-section receptre vonódott össze, a text-align
-    pedig elmaradt.
 
 --------------------------------------------------------------------------
 KÉSZENLÉT-SZÁMÍTÁS — a modell átvizsgálása (2026-09-12)
@@ -505,12 +505,14 @@ RENDBEN VAN (ellenőrizve):
     document.write / eval konstrukciót — minden felhasználói szöveg
     textContent-tel megy ki.
   · Süti: HTTPS-en Secure jelzővel (server/server.js:137-143).
+  · Süti: HttpOnly és SameSite=Lax MINDIG rajta van — a serializeCookie
+    fixen teszi ki (server/auth.js:90-100), a server/auth.test.js
+    „a védő jelzők mindig rajta vannak" tesztje őrzi. (2026-09-13: a korábbi
+    „csak a Secure-t kezeli" gyanú téves volt, innen került át.)
 
 [ ] MÉG ÁTNÉZENDŐ (a kimaradt két vizsgálat témái)
     · IDOR: minden id-alapú végpont szűr-e user_id-re? Külön az üzenetek
       (/api/messages/:linkId), a terv-kiosztás és a megjegyzések.
-    · A süti SameSite és HttpOnly jelzője — a serializeCookie csak a
-      Secure-t és a Max-Age-et kezeli láthatóan.
     · Az `x-forwarded-proto` fejlécre épülő isSecureRequest: proxy nélkül
       hamisítható, ilyenkor a Secure jelző elmarad.
     · Rate limit: mely végpontok maradnak védtelenül, és mi a limit kulcsa.
@@ -1086,3 +1088,46 @@ KÓDTÉRKÉP — a 2026-09-10-i graphify-futás nyitott kérdései
     fájlnév a README-ben lezárja.
     LEZÁRVA: a README most megnevezi a fájlt (steps/weight.js), a kód-komment
     pedig eddig is ott volt. A gráf bizonytalansága ezzel megszűnt.
+
+--------------------------------------------------------------------------
+DIZÁJN-ÁTÜLTETÉS — ami a 11-20. task alatt kiderült, de nem oda tartozott
+--------------------------------------------------------------------------
+
+[x] A gyorsbillentyűk nem ismertek minden modált   (2026-09-13)
+    A kézi szelektor-lista (public/js/ui/shortcuts.js -> isModalOpen) öt
+    modált ismert a KILENCBŐL — az étel-, a saját étel, a szkenner és az
+    advice modál kimaradt, így mögöttük az 1-6 billentyű oldalt váltott.
+    Böngészőben reprodukálva: nyitott étel-modálnál az „1" #dashboard-ra vitt.
+    JAVÍTVA közös horgonnyal: core/constants.js -> OPEN_MODAL_SELECTOR
+    (`.is-open > [aria-modal="true"]`). Mind a kilenc modál a
+    createModalController-en megy át (az adja az is-open-t), a kártya pedig
+    közvetlen gyerekként aria-modal. A belépő képernyő is aria-modal, de
+    sosem kap is-open-t, tehát helyesen kimarad.
+    A szerkezetet a public/js/ui/shortcuts.test.js őrzi: a modál-gyökerek
+    száma egyezik a createModalController-hívásokéval, és mindegyik kártyája
+    aria-modal párbeszédablak — egy új, eltérő szerkezetű modál így nem
+    csúszik ki némán.
+
+[x] A check-in szám-sávja: átütő háttér ÉS elveszett display-szám   (2026-09-13)
+    Hely: public/style.css 25. szakasz -> .ci-num-dial, .ci-round-btn,
+    .ci-num-input, .ci-num-input--wide.
+    A felvett tétel csak a hátteret említette, a gyökérok viszont tágabb volt:
+    a mezőn a .wk-num-input is rajta van, és a 119a4a7 commit a .ci-num-input
+    explicit font-size-át a .ds-display-re bízta — amit a stíluslapban később
+    álló .wk-num-input felülírt. A tervezett 46-72px-es szám így 16px-es és
+    600-as súlyú lett, a `background: none` pedig a --hair hátteret
+    engedte át (fókuszban a --fg-40-et).
+    JAVÍTVA (a user a „nagy szám, teljes magasságú szegmensek" változatot
+    választotta három próbakép közül): explicit háttér, méret és súly a
+    mezőn; a sáv stretch-csel igazít, a körgomb `height: auto` + 44px
+    min-height, így sehol nem marad hajszálvonal-csík.
+    A visszaállított méret két levágást hozott elő, mindkettő mérve és
+    javítva: az ötkarakteres testsúly (102.4, 300.0) 1-3px-szel túlnőtt a
+    széles mezőn (→ a széles változat 16vw-s számot kap), a négykarakteres
+    alvásidő (10.5) 390px fölött a fix 118px-es mezőn (→ clamp(118px, 34vw,
+    136px)). Ellenőrizve 280-1280px között, a sor 320px-en sem lóg ki.
+
+[x] Az Összegzőn két felesleges text-align maradt
+    2026-09-11: elvégezve. A .su-note és a .su-feedback betűre azonos
+    kártya-blokkja egy .ds-section receptre vonódott össze, a text-align
+    pedig elmaradt.

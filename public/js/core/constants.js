@@ -39,4 +39,11 @@ const DIR_TO_PAGE = {
 // mobilon az áttekintő készenlét-kártyája visz oda (lásd .db-readiness).
 const KEY_TO_PAGE = { 1: 'dashboard', 2: 'recovery', 3: 'coach', 4: 'plans', 5: 'workout', 6: 'nutrition' };
 
-export { DAY_LABELS, DAY_NAMES, DIR_TO_PAGE, FLOW_PAGES, KEY_TO_PAGE, NOTIF_CATEGORIES, PAGES };
+/** Nyitott modál felismerése: a createModalController `is-open`-t tesz a
+    gyökérre, a kártya pedig közvetlen gyerekként `aria-modal`. Így minden
+    modál benne van, a következő is — nincs kézzel bővítendő lista. A belépő
+    képernyő szándékosan kimarad: az is aria-modal, de sosem kap `is-open`-t.
+    A szerkezetet a ui/shortcuts.test.js őrzi. */
+const OPEN_MODAL_SELECTOR = '.is-open > [aria-modal="true"]';
+
+export { DAY_LABELS, DAY_NAMES, DIR_TO_PAGE, FLOW_PAGES, KEY_TO_PAGE, NOTIF_CATEGORIES, OPEN_MODAL_SELECTOR, PAGES };
