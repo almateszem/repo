@@ -408,6 +408,7 @@ A KÉPLET súlyozott átlag, de CSAK a jelen lévő komponensekre:
   Izom-regeneráció 0.15   a kilenc izomcsoport "soft-min" átlaga
   Energiaszint     0.15   check-in, 1–5
   Stressz-reg.     0.10   check-in, 1–5 (fordítva)
+  Közérzet         0.10   check-in, 1–5 (csak a részletes űrlap kérdezi)
   Edzésterhelés    0.15   exponenciálisan csillapított tonnatömeg (τ = 3 nap)
   Táplálkozás      0.05   a TEGNAPI kalória/fehérje a célhoz mérve + hidratáció
 
@@ -444,7 +445,13 @@ AMIT MÉG SZÁMOL
     alkalom is elég, a többihez három kell).
   · Sapkák: 7/10 feletti fájdalom letiltja az érintett izmot terhelő
     gyakorlatokat, és a teljes pontszámot 45%-ra korlátozza; a nagyon rossz
-    közérzet 40%-ra. Ezeket egy súlyozott átlag elmosná.
+    közérzet (1-es) 40%-ra, és ugyancsak 40%-ra az alacsony energia (≤ 2)
+    ÉS magas stressz (≥ 4) együttese — bármennyire pihent az izom. Ezeket
+    egy súlyozott átlag elmosná. Sapkás napon a gyakorlat-ajánlás sem lehet
+    jobb a korlátozott napnál (nincs PR- vagy „nehezebb sorozat"-javaslat).
+  · „Mi húz vissza": a riport megnevezi a leggyengébb jelen lévő komponenst
+    (limiting), a Regeneráció oldal 85 alatt ki is írja a végszöveg alatt —
+    sapkás napon nem, mert ott a számot a sapka állította.
 
 ADATIGÉNY
   A személyre szabott (saját előzményhez mért) referenciához 14 nap

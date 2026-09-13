@@ -97,12 +97,20 @@ const median = (values) => {
    ====================================================================== */
 
 /** A képlet bázissúlyai. A `hrv` szándékosan hiányzik (nincs adatforrás),
-    a súlya arányosan újraoszlik. */
+    a súlya arányosan újraoszlik.
+
+    A `mood` 2026-09-13 óta VALÓDI komponens. Korábban csak a mood===1 sapkán
+    át hatott, tehát 2 és 5 között pontosan semmit nem számított, 1-ről 2-re
+    viszont akár 40-ről 89-re ugrott a pontszám. A Hooper-index ugyanezt a
+    szubjektív négyest kéri (fáradtság, stressz, izomláz, alvásminőség), és a
+    szakirodalom szerint érzékenyebb jel, mint a HRV — okosóra nélkül tehát a
+    kérdőív súlyát növelni ésszerű, nem csökkenteni. */
 export const BASE_WEIGHTS = {
   sleep: 0.25,
   muscle: 0.15,
   energy: 0.15,
   stress: 0.10,
+  mood: 0.10,
   load: 0.15,
   nutrition: 0.05,
 };
@@ -112,9 +120,15 @@ const COMPONENT_LABELS = {
   muscle: 'Izom-regeneráció',
   energy: 'Energiaszint',
   stress: 'Stressz-regeneráció',
+  mood: 'Közérzet',
   load: 'Edzésterhelés',
   nutrition: 'Táplálkozás',
 };
+
+/* Szubjektív padló: ha a sportoló egyszerre kimerült ÉS stresszes, a pihent
+   izom és a nulla terhelés (együtt a nevező harmada) nem húzhatja „edzhetsz"
+   tartományba a napot. Ugyanaz a 40, mint a nagyon rossz közérzetnél. */
+const SUBJECTIVE_FLOOR = { maxEnergy: 2, minStress: 4, cap: 40 };
 
 const TAU_LOAD = 3.0;   // nap — az általános edzésterhelés csillapítása
 const TAU_CNS = 3.5;    // nap — az idegrendszer lassabban áll helyre
@@ -554,7 +568,7 @@ function recommend(readiness, { prWindow }) {
  * tudunk, és a „nincs adat" nem lehet „tökéletes állapot". A `basis` mező
  * mindkét esetben kimondja, min alapul a szám.
  */
-function exerciseReadiness({ exercises, muscles, cns, catalog, declared = [], overall = null }) {
+function exerciseReadiness({ exercises, muscles, cns, catalog, declared = [], overall = null, ceiling = null }) {
   const byKey = Object.fromEntries(muscles.map((m) => [m.key, m.readiness]));
   const painfulGroups = new Set(muscles.filter((m) => m.pain !== null && m.pain >= 7).map((m) => m.key));
 
@@ -606,6 +620,13 @@ function exerciseReadiness({ exercises, muscles, cns, catalog, declared = [], ov
          alapértelmezés), ami ismeretlen izomra hamis biztonságérzet. */
       readiness = overall;
     }
+
+    /* Sapkás napon (fájdalom, nagyon rossz közérzet, kimerültség + stressz) a
+       gyakorlat sem lehet jobb a napnál. A naplózott gyakorlat pontszáma
+       ugyanis az izomból, az idegrendszerből és a frissességből jön — a mai
+       szubjektív állapotot nem látja, és egy hete pihent guggolásra 1-es
+       közérzet mellett is PR-t ajánlott volna. */
+    if (ceiling !== null) readiness = Math.min(readiness, ceiling);
 
     // Ha a gyakorlat fájdalmas izomcsoportot terhel, letiltjuk — a fájdalom
     // felülír minden terhelés-alapú becslést.
@@ -773,6 +794,7 @@ export function computeReadiness({
     muscle: muscleComponent,
     energy: scaleUp(checkin ? checkin.energy : null),
     stress: scaleDown(checkin ? checkin.stress : null),
+    mood: scaleUp(checkin ? checkin.mood : null),
     load: loadComponent,
     // A regeneráció szempontjából a TEGNAPI bevitel a mérvadó: a check-in
     // reggel készül, amikor a mai étkezések még előtted vannak. Ha tegnapról
@@ -815,7 +837,24 @@ export function computeReadiness({
       overall = 40;
       caps.push('Nagyon rossz közérzet — a készenlét 40%-ra korlátozva.');
     }
+    const { maxEnergy, minStress, cap } = SUBJECTIVE_FLOOR;
+    const energy = checkin?.energy ?? null;
+    const stress = checkin?.stress ?? null;
+    // Mindkét jel KELL: a hiányzó mezőből nem következtetünk rossz állapotra.
+    if (energy !== null && stress !== null && energy <= maxEnergy && stress >= minStress && overall > cap) {
+      overall = cap;
+      caps.push(`Alacsony energia és magas stressz — a készenlét ${cap}%-ra korlátozva, bármennyire pihent az izom.`);
+    }
   }
+
+  /* A leggyengébb JELEN LÉVŐ komponens: a végszám mellé ez mondja meg, mi húz
+     vissza. Két gyökeresen más nap (pihent izom + szörnyű közérzet, ill.
+     fáradt izom + remek közérzet) adhatja ugyanazt a számot. Egyenlőségnél a
+     nagyobb súlyú nyer — az mozdítja jobban a pontszámot. */
+  const limiting = components
+    .filter((component) => component.present)
+    .sort((a, b) => (a.score - b.score) || (BASE_WEIGHTS[b.key] - BASE_WEIGHTS[a.key]))
+    .map(({ key, label, score }) => ({ key, label, score }))[0] ?? null;
 
   // — Megbízhatóság: mennyire van mire alapozni
   const checkinCount = normalized.filter((entry) => entry.daysAgo < CHRONIC_WINDOW_DAYS).length;
@@ -851,8 +890,11 @@ export function computeReadiness({
     exercises: exerciseReadiness({
       exercises, muscles, cns: cns.readiness ?? 100, catalog,
       declared: declaredMaxes, overall,
+      // A sapka az egész napot írja felül — a gyakorlatokét is.
+      ceiling: caps.length > 0 ? overall : null,
     }),
     caps,
+    limiting,
     // Az áttekintő „Regeneráció" kártyájának három sora — a mérésekből
     // képzett szöveg, nem demo-adat.
     recovery: {

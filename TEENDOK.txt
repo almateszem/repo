@@ -11,9 +11,13 @@ A tematikus szakaszok (üzemeltetés, adatminőség, kódtérkép…) mindhárom
 részen belül alcímként élnek tovább, tehát egy témát a három rész
 ugyanazon alcíme alatt lehet végigolvasni.
 
-Állás (2026-09-13):   27 nyitott · 7 részben kész · 27 kész
+Állás (2026-09-13):   26 nyitott · 7 részben kész · 30 kész
 
-Utolsó frissítés: 2026-09-13 (két dizájn-átültetési tétel kész: a
+Utolsó frissítés: 2026-09-13, második kör (a készenlét-modell három lelete
+                  javítva: a közérzet valódi súlyt kapott, szubjektív
+                  padló-sapka, „mi húz vissza" + sapkás napon a gyakorlat-
+                  ajánlás is korlátozott; két új nyitott kérdés maradt)
+Előző frissítés:  2026-09-13 (két dizájn-átültetési tétel kész: a
                   gyorsbillentyűk közös modál-horgonyt kaptak, a check-in
                   szám-sávja visszakapta a display-számot; két új melléklelet
                   — a gyorsgombok sávja és a terv-építő fejléce —, és egy
@@ -337,50 +341,29 @@ A gyanú az volt, hogy a pontszám nem azt adja, amit a sportolónak éreznie
 kéne. A server/recovery.js végigolvasva a modell alapvetően ÉPKÉZLÁB (a
 súlyozott átlag csak a jelen lévő komponensekre fut, a hiányzó adat nem
 torzít, a fáradtság Banister-féle exponenciális csillapítással megy) — de
-három konkrét dolog magyarázza a félreérzést.
+három konkrét dolog magyarázta a félreérzést. Mindhárom 2026-09-13-án
+javítva (ld. a 3. részt); ami a javítás közben nyitva maradt, az itt áll.
 
-[ ] A KÖZÉRZET (mood) gyakorlatilag nem számít a pontszámba
-    Hely: server/recovery.js -> BASE_WEIGHTS (101. sor) és a `caps` blokk
-    (805-818). A check-in minden nap elkéri a közérzetet, a szerver
-    validálja (server.js:1358, 1-5 skála), a normalizeCheckin beolvassa
-    (645-655) — de a BASE_WEIGHTS-ben NINCS `mood` kulcs, tehát a
-    súlyozott átlagba nem kerül bele.
-    Az EGYETLEN hatása egy szélsőérték-sapka: `checkin?.mood === 1` esetén
-    a pontszám 40-re korlátozódik.
-    KÖVETKEZMÉNY: a közérzet 1-ről 2-re javulása akár 8-10 pontot ugrik, a
-    2-ről 5-re javulás viszont PONTOSAN NULLÁT. Aki beírja, hogy pocsékul
-    van (2-es), ugyanazt a pontszámot kapja, mint aki kiválóan (5-ös).
-    Ez az első számú jelölt arra, amit a felhasználó észrevett.
-    TEENDŐ: vagy kapjon valódi súlyt (a Hooper-index alapján ~0.10-0.15,
-    lásd lent), vagy a felület mondja ki, hogy a mező csak jelzés.
+[ ] A mai edzés-javaslat (sessionAdvice) nem látja a sapkákat
+    Hely: server/server.js -> sessionAdvice / applySessionAdvice. A
+    „készenlét-javaslat" ablak és az általa ÁTÍRT napló csak az izomcsoport-
+    readinessből és a fájdalomból dolgozik. 1-es közérzet vagy kimerültség +
+    stressz mellett a Regeneráció oldal 40-et és „könnyű nap"-ot mond, a
+    gyakorlat-ajánlások is visszafogottak — a mai naplóra viszont nem jön
+    javaslat, ha az izmok pihentek.
+    2026-09-13-án SZÁNDÉKOSAN kimaradt: ez az út automatikusan súlyt vesz le
+    a naplóból, tehát a sapkára kötése viselkedés-döntés (mennyit vegyen le,
+    csak ajánljon-e vagy alkalmazzon is), nem a modell-javítás része.
 
-[ ] A pihenés két komponensen át automatikus 100%-ot ad
-    Hely: server/recovery.js -> loadComponent (769) és muscleComponent
-    (750-757). Aki VALAHA naplózott edzést (hasAnyWorkout), de mostanában
-    nem edzett, annál a terhelés-komponens 1.0 ÉS az izom-komponens 1.0.
-    A kettő súlya 0.15 + 0.15 = 0.30, ami a tényleges nevező (0.80-0.85)
-    ~35-37%-a.
-    SZÁMPÉLDA (kézzel végigszámolva a kódból): 6 óra alvás 2-es minőséggel,
-    energia 1, stressz 5, közérzet 2, két hete nincs edzés, nincs
-    étel-naplózás →
-      sleep 0.34 · muscle 1.00 · energy 0.00 · stress 0.00 · load 1.00
-      overall = 100 × (0.25·0.34 + 0.15·1 + 0.15·0 + 0.10·0 + 0.15·1) / 0.80
-              = 48
-    48% = „csökkentett súly és volumen" ajánlás. Egy energia nélküli,
-    maximális stresszben lévő sportolónak. A két „pihent" komponens
-    egymaga 0.30/0.80 = 37 pontot tesz alá.
-    Ez formálisan helyes (az izom TÉNYLEG friss), de a végszám azt sugallja,
-    hogy edzhet — pedig a szubjektív jelzés az ellenkezőjét mondja.
-    TEENDŐ: mérlegelni egy „szubjektív padló" sapkát: ha az energia és a
-    stressz is a skála rossz végén van, a pontszám ne mehessen 40 fölé,
-    függetlenül attól, mennyire pihent az izom.
-
-[ ] Az összesített pontszám nem mondja meg, MIÉRT annyi
-    Hely: a `components` tömb (794-800) megvan és a felület ki is írja, de
-    az ajánlás (recommend, 529-538) CSAK a végszámból dolgozik. Két
-    gyökeresen más állapot (pihent izom + szörnyű közérzet, illetve fáradt
-    izom + remek közérzet) ugyanazt a 48-at és ugyanazt a tanácsot kapja.
-    TEENDŐ: az ajánlás nézze a komponenseket is, ne csak az átlagot.
+[ ] A varázsló nem kérdez közérzetet — az új súlya így ritkán hat
+    A mood 2026-09-13 óta 0.10-es súlyú komponens, de csak a Regeneráció
+    oldal részletes űrlapja kérdezi (README „A check-in két kitöltési
+    útja"). A korábbi tétel „a check-in minden nap elkéri" állítása tehát
+    pontatlan volt. Aki csak a varázslót használja, annál a közérzet hiányzik,
+    és a súlya szétoszlik — ez helyes, de a javítás haszna így csak a
+    részletes űrlapot kitöltőknél jelentkezik.
+    TERMÉKI KÉRDÉS: kerüljön-e egy közérzet-lépés a varázslóba (+1 képernyő a
+    napi rutinban), vagy maradjon a mostani, rövidebb út.
 
 --- Amit a szakirodalom mond (2026-09-12-i keresés) ---
 
@@ -394,6 +377,7 @@ három konkrét dolog magyarázza a félreérzést.
   (a komment szerint 0.15) nem akkora veszteség, mint amekkorának látszik;
   (b) a szubjektív mezőknek ÖSSZESEN nagyobb súlyt érdemes adni — most
   sleep 0.25 + energy 0.15 + stress 0.10 = 0.50, a mood 0.
+  (2026-09-13: a mood 0.10-et kapott, a szubjektív összsúly így 0.60.)
   Para-sportolókon végzett 50 hetes prospektív vizsgálat ugyanezt a négy
   változót köti sérüléshez és kieséshez:
   https://pubmed.ncbi.nlm.nih.gov/42093762/
@@ -1131,3 +1115,43 @@ DIZÁJN-ÁTÜLTETÉS — ami a 11-20. task alatt kiderült, de nem oda tartozott
     2026-09-11: elvégezve. A .su-note és a .su-feedback betűre azonos
     kártya-blokkja egy .ds-section receptre vonódott össze, a text-align
     pedig elmaradt.
+
+--------------------------------------------------------------------------
+KÉSZENLÉT-SZÁMÍTÁS — a modell átvizsgálása (2026-09-12)
+--------------------------------------------------------------------------
+
+A három lelet, 2026-09-13-án javítva a user döntései szerint. A számok a
+valódi motoron mérve (nem kézzel), előtte → utána.
+
+[x] A KÖZÉRZET (mood) nem számított a pontszámba   (2026-09-13)
+    A BASE_WEIGHTS-ben nem volt `mood`, az egyetlen hatása a mood===1 → 40
+    sapka volt. MÉRVE: egy jó napon a közérzet 2, 3, 4 és 5 is 89-et adott,
+    1-ről 2-re pedig 40 → 89 volt az ugrás.
+    JAVÍTVA: `mood: 0.10` („Közérzet") valódi komponens (a Hooper-index
+    alapján; a szubjektív összsúly 0.50 → 0.60), a mood===1 sapka marad
+    vészfékként. Ugyanazon a jó napon most 2/3/4/5 → 82/85/87/90.
+    A hiányzó közérzet súlya szétoszlik, mint minden hiányzó adaté.
+    (A varázsló nem kérdezi — ld. a nyitott tételt a NYITOTT részben.)
+
+[x] A pihent izom rossz szubjektív állapotnál is „edzhetsz"-t mondott   (2026-09-13)
+    Az izom- és a terhelés-komponens rég nem edző naplózónál 1.0, együtt a
+    nevező harmada. MÉRVE (a korábbi kézi 48 helyett a motor 51-et adott):
+    6 óra rossz alvás, energia 1, stressz 5, két hete nincs edzés → 51.
+    JAVÍTVA: szubjektív padló-sapka — energia ≤ 2 ÉS stressz ≥ 4 esetén max
+    40, indoklással a sapkák között (recovery.js -> SUBJECTIVE_FLOOR). A
+    példa most 40. Mindkét jel kell: a hiányzó mezőből nem következtetünk.
+
+[x] Az ajánlás csak a végszámból dolgozott   (2026-09-13)
+    JAVÍTVA két helyen:
+    · a riport `limiting` mezője a leggyengébb jelen lévő komponens
+      (egyenlőségnél a nagyobb súlyú), a Regeneráció oldal 85 alatt kiírja:
+      „Leginkább visszahúz: Közérzet (25)". Sapkás napon a sor rejtve
+      marad (a kódátnézés lelete): ott a számot pl. a fájdalom állította,
+      amit a komponens-lista nem ismer, így egy ártatlan komponenst nevezne
+      meg — az okot a sapkák listája mondja ki;
+    · sapkás napon a gyakorlat-ajánlás sem lehet jobb a korlátozott napnál
+      (exerciseReadiness `ceiling`). Korábban 1-es közérzet mellett egy hete
+      pihent guggolás „normál intenzitás"/PR-ablak ajánlást kaphatott, mert
+      a naplózott gyakorlat pontszáma a mai szubjektív állapotot nem látja.
+    Tesztek: server/recovery.test.js „Szubjektív jelzések" szakasz (hat új
+    teszt, előbb pirosan). README és doc.txt képlet-táblája frissítve.

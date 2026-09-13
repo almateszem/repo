@@ -150,7 +150,7 @@ test('aki naplóz, annál a „régen edzettél" MÁR érvényes következtetés
 test('csak check-in, edzés nélkül: a szubjektív komponensek adják a pontszámot', () => {
   const report = run({ checkins: [fullCheckin()] });
   const present = report.components.filter((c) => c.present).map((c) => c.key).sort();
-  assert.deepEqual(present, ['nutrition', 'sleep', 'stress', 'energy'].sort(),
+  assert.deepEqual(present, ['nutrition', 'sleep', 'stress', 'energy', 'mood'].sort(),
     'a terhelés- és az izom-komponens hiányzik, mert nincs mire alapozni');
   assert.ok(report.overall !== null);
 });
@@ -159,13 +159,13 @@ test('a hiányzó komponensek súlya arányosan újraoszlik', () => {
   // Edzés-előzménnyel, hogy a terhelés- és az izom-komponens is jelen legyen.
   const report = restedLogger();
   const present = report.components.filter((c) => c.present);
-  assert.equal(present.length, 6, 'teljes check-innel mind a hat komponens jelen van');
+  assert.equal(present.length, 7, 'teljes check-innel mind a hét komponens jelen van');
   const sum = present.reduce((acc, c) => acc + c.weight, 0);
   assert.ok(Math.abs(sum - 100) <= 1, `az effektív súlyok 100%-ra jönnek ki (kapott: ${sum})`);
 
-  // HRV nélkül az alvás 0.25/0.85 ≈ 29.4%-ot kap
+  // HRV nélkül az alvás 0.25/0.95 ≈ 26.3%-ot kap
   const sleep = present.find((c) => c.key === 'sleep');
-  assert.equal(sleep.weight, 29, 'az alvás a HRV súlyából is részesül');
+  assert.equal(sleep.weight, 26, 'az alvás a HRV súlyából is részesül');
 });
 
 test('részleges check-in — a pontszám kiszámolódik, a hiányzók jelölve', () => {
@@ -198,7 +198,7 @@ test('check-in nélkül is ad pontszámot, de jelzi a hiányt', () => {
 test('a bázissúlyok között nincs HRV — nem teszünk kitalált értéket a képletbe', () => {
   assert.equal(BASE_WEIGHTS.hrv, undefined);
   const sum = Object.values(BASE_WEIGHTS).reduce((a, b) => a + b, 0);
-  assert.ok(Math.abs(sum - 0.85) < 1e-9, 'a hat implementált komponens 0.85-öt tesz ki');
+  assert.ok(Math.abs(sum - 0.95) < 1e-9, 'a hét implementált komponens 0.95-öt tesz ki');
 });
 
 /* ======================================================================
@@ -391,6 +391,62 @@ test('a fájó izmot terhelő gyakorlat „kerüld ma" ajánlást kap', () => {
 test('rossz közérzet-sapka', () => {
   const report = run({ checkins: [fullCheckin({ mood: 1 })] });
   assert.ok(report.overall <= 40, `beteg napon a készenlét 40 alatt (kapott: ${report.overall})`);
+});
+
+/* ======================================================================
+   Szubjektív jelzések — közérzet, padló-sapka, a „mi húz vissza"
+   ====================================================================== */
+
+test('a közérzet a teljes skálán számít, nem csak az 1-es értéknél', () => {
+  // Korábban a mood nem volt a súlyok között: 2 és 5 között pontosan
+  // ugyanazt a pontszámot adta, 1-ről 2-re viszont 40-ről 89-re ugrott.
+  const scoreAt = (mood) => restedLogger({ checkins: [fullCheckin({ mood })] }).overall;
+  assert.ok(scoreAt(2) < scoreAt(3), `2 → 3 javít (${scoreAt(2)} vs ${scoreAt(3)})`);
+  assert.ok(scoreAt(3) < scoreAt(5), `3 → 5 javít (${scoreAt(3)} vs ${scoreAt(5)})`);
+
+  const mood = restedLogger({ checkins: [fullCheckin({ mood: 5 })] }).components.find((c) => c.key === 'mood');
+  assert.ok(mood, 'a közérzet komponensként is látszik');
+  assert.equal(mood.present, true);
+  assert.equal(mood.score, 100);
+});
+
+test('hiányzó közérzet nem torzít — a súlya szétoszlik, mint minden hiányzó adaté', () => {
+  const report = restedLogger({ checkins: [fullCheckin({ mood: null })] });
+  const mood = report.components.find((c) => c.key === 'mood');
+  assert.equal(mood.present, false);
+  assert.equal(mood.weight, 0);
+});
+
+test('szubjektív padló: alacsony energia ÉS magas stressz mellett max 40, pihent izommal is', () => {
+  const report = restedLogger({ checkins: [fullCheckin({ energy: 1, stress: 5, mood: 3 })] });
+  assert.ok(report.overall <= 40, `a pihent izom nem húzhatja fel (kapott: ${report.overall})`);
+  assert.ok(report.caps.some((text) => /energia.*stressz/i.test(text)), 'az indoklás a sapkák között van');
+});
+
+test('szubjektív padló: a határ alatt nem lép életbe', () => {
+  for (const [energy, stress] of [[3, 5], [1, 3]]) {
+    const report = restedLogger({ checkins: [fullCheckin({ energy, stress })] });
+    assert.ok(!report.caps.some((text) => /energia.*stressz/i.test(text)),
+      `energia ${energy}, stressz ${stress}: nincs padló-sapka`);
+  }
+});
+
+test('a riport megnevezi a leggyengébb jelen lévő komponenst', () => {
+  const report = restedLogger({ checkins: [fullCheckin({ energy: 1, stress: 3 })] });
+  assert.equal(report.limiting.key, 'energy');
+  assert.equal(report.limiting.label, 'Energiaszint');
+  assert.equal(report.limiting.score, 0);
+});
+
+test('sapkás napon a gyakorlat-ajánlás sem lehet jobb az összesítettnél', () => {
+  // Egy hét pihenő után a guggolás magában friss (≥ 80, lásd a küszöb-tesztet)
+  // — de 1-es közérzet mellett a nap maga korlátozott.
+  const report = run({ checkins: [fullCheckin({ mood: 1 })], workouts: [workout(7, 'Láb', HARD_LEG_DAY)] });
+  const squat = report.exercises.find((e) => e.name === 'Guggolás');
+  assert.ok(squat, 'a guggolás szerepel az ajánlások között');
+  assert.ok(squat.readiness <= report.overall,
+    `a gyakorlat (${squat.readiness}) nem lehet az összesített (${report.overall}) fölött`);
+  assert.ok(!['pr', 'strong', 'normal'].includes(squat.verdict), `nincs teljes intenzitás (kapott: ${squat.verdict})`);
 });
 
 /* ======================================================================
@@ -645,7 +701,9 @@ test('a riport minden felület által várt mezőt tartalmaz', () => {
 
   assert.ok(report.overall >= 0 && report.overall <= 100);
   assert.ok(['low', 'medium', 'high'].includes(report.confidence));
-  assert.equal(report.components.length, 6);
+  assert.equal(report.components.length, 7);
+  assert.ok(report.limiting && report.components.some((c) => c.key === report.limiting.key),
+    'a „mi húz vissza" egy létező komponensre mutat');
   assert.equal(report.muscles.length, 9);
   assert.ok(typeof report.cns.readiness === 'number');
   assert.ok(Array.isArray(report.exercises));
