@@ -16,78 +16,25 @@
  * próbája a fájl minden későbbi belépését 429-re futtatná. Ugyanezért a
  * limit-teszt EBBEN a fájlban is az utolsó.
  */
-import test, { after } from 'node:test';
+import test from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { startServer, cookieFrom } from './test-harness.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const workDir = mkdtempSync(path.join(tmpdir(), 'fittrack-security-'));
+/* Egy proxy mögötti telepítést utánzunk (FITTRACK_TRUST_PROXY=1): a
+   forrásonkénti korlát csak így mérhető két KÜLÖNBÖZŐ forrásra, és ez a
+   beállítás nélkül proxy mögött az egész forgalom egyetlen forrásnak
+   látszana. X-Forwarded-For nélkül a forrás továbbra is a TCP-cím. */
+const { request: rawRequest } = await startServer({
+  label: 'security',
+  extraEnv: { FITTRACK_TRUST_PROXY: '1' },
+});
 
-const child = spawn(
-  process.execPath,
-  ['--disable-warning=ExperimentalWarning', path.join(__dirname, 'server.js')],
-  {
-    /* Egy proxy mögötti telepítést utánzunk (FITTRACK_TRUST_PROXY=1): a
-       forrásonkénti korlát csak így mérhető két KÜLÖNBÖZŐ forrásra, és ez a
-       beállítás nélkül proxy mögött az egész forgalom egyetlen forrásnak
-       látszana. X-Forwarded-For nélkül a forrás továbbra is a TCP-cím. */
-    env: {
-      ...process.env, FITTRACK_DB: path.join(workDir, 'security.db'), PORT: '0', FITTRACK_TRUST_PROXY: '1',
-    },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  },
+/** A közös harness a fejléceket `headers`-ben várja; itt a `forwardedFor`
+    kényelmi paramétert oldjuk fel X-Forwarded-For fejléccé. */
+const request = (method, urlPath, { body, cookie, forwardedFor } = {}) => rawRequest(
+  method, urlPath,
+  { body, cookie, headers: forwardedFor ? { 'X-Forwarded-For': forwardedFor } : undefined },
 );
-
-const baseUrl = await new Promise((resolve, reject) => {
-  let output = '';
-  const timer = setTimeout(() => reject(new Error(`A szerver nem indult el időben:\n${output}`)), 20_000);
-  child.stdout.setEncoding('utf8');
-  child.stdout.on('data', (chunk) => {
-    output += chunk;
-    const match = output.match(/http:\/\/localhost:(\d+)/);
-    if (match) {
-      clearTimeout(timer);
-      resolve(`http://localhost:${match[1]}`);
-    }
-  });
-  child.stderr.setEncoding('utf8');
-  child.stderr.on('data', (chunk) => { output += chunk; });
-  child.on('exit', (code) => {
-    clearTimeout(timer);
-    reject(new Error(`A szerver kilépett (kód: ${code}):\n${output}`));
-  });
-});
-
-after(async () => {
-  await new Promise((resolve) => {
-    child.once('exit', resolve);
-    child.kill();
-  });
-  rmSync(workDir, { recursive: true, force: true });
-});
-
-async function request(method, urlPath, { body, cookie, forwardedFor } = {}) {
-  const headers = {};
-  if (forwardedFor) headers['X-Forwarded-For'] = forwardedFor;
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
-  if (cookie) headers.Cookie = cookie;
-  const res = await fetch(`${baseUrl}${urlPath}`, {
-    method,
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const setCookie = res.headers.getSetCookie();
-  const text = await res.text();
-  let json = null;
-  try { json = text ? JSON.parse(text) : null; } catch { /* nem JSON */ }
-  return { status: res.status, json, setCookie, retryAfter: res.headers.get('retry-after') };
-}
-
-const cookieFrom = (res) => (res.setCookie[0] ?? '').split(';')[0];
 
 const register = async (username, password = 'jelszo123') => cookieFrom(
   await request('POST', '/api/auth/register', { body: { username, displayName: username, password } }),

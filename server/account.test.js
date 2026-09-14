@@ -10,71 +10,11 @@
  *   - a törlés tényleg mindent visz — a másik félnél lévő üzeneteket is —,
  *     és nem hagy gazdátlan sorokat.
  */
-import test, { after } from 'node:test';
+import test from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { startServer, gyakorlat as buildGyakorlat } from './test-harness.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const workDir = mkdtempSync(path.join(tmpdir(), 'fittrack-account-'));
-
-const child = spawn(
-  process.execPath,
-  ['--disable-warning=ExperimentalWarning', path.join(__dirname, 'server.js')],
-  {
-    env: { ...process.env, FITTRACK_DB: path.join(workDir, 'account.db'), PORT: '0' },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  },
-);
-
-const baseUrl = await new Promise((resolve, reject) => {
-  let output = '';
-  const timer = setTimeout(() => reject(new Error(`A szerver nem indult el időben:\n${output}`)), 20_000);
-  child.stdout.setEncoding('utf8');
-  child.stdout.on('data', (chunk) => {
-    output += chunk;
-    const match = output.match(/http:\/\/localhost:(\d+)/);
-    if (match) {
-      clearTimeout(timer);
-      resolve(`http://localhost:${match[1]}`);
-    }
-  });
-  child.stderr.setEncoding('utf8');
-  child.stderr.on('data', (chunk) => { output += chunk; });
-  child.on('exit', (code) => {
-    clearTimeout(timer);
-    reject(new Error(`A szerver kilépett (kód: ${code}):\n${output}`));
-  });
-});
-
-after(async () => {
-  await new Promise((resolve) => {
-    child.once('exit', resolve);
-    child.kill();
-  });
-  rmSync(workDir, { recursive: true, force: true });
-});
-
-async function request(method, urlPath, { body, cookie } = {}) {
-  const headers = {};
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
-  if (cookie) headers.Cookie = cookie;
-  const res = await fetch(`${baseUrl}${urlPath}`, {
-    method,
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const setCookie = res.headers.getSetCookie();
-  const text = await res.text();
-  let json = null;
-  try { json = text ? JSON.parse(text) : null; } catch { /* nem JSON */ }
-  return { status: res.status, json, setCookie };
-}
-
-const cookieFrom = (res) => (res.setCookie[0] ?? '').split(';')[0];
+const { request, cookieFrom } = await startServer({ label: 'account' });
 
 const register = async (username, displayName, password = 'jelszo123') => cookieFrom(
   await request('POST', '/api/auth/register', { body: { username, displayName, password } }),
@@ -83,10 +23,7 @@ const login = async (username, password) => cookieFrom(
   await request('POST', '/api/auth/login', { body: { username, password } }),
 );
 
-const gyakorlat = () => [{
-  name: 'Guggolás',
-  sets: [{ reps: '5', weight: '100', rpe: '8', type: 'work', done: true }],
-}];
+const gyakorlat = () => [buildGyakorlat('Guggolás', 100)];
 
 /* ======================================================================
    1. Jelszóváltoztatás

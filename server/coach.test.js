@@ -14,75 +14,11 @@
  * Az api.test.js-hez hasonlóan a VALÓDI szervert indítja el, saját ideiglenes
  * adatbázissal, és HTTP-n beszél vele.
  */
-import test, { after } from 'node:test';
+import test from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { startServer, cookieFrom, gyakorlat } from './test-harness.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const workDir = mkdtempSync(path.join(tmpdir(), 'fittrack-coach-'));
-
-const child = spawn(
-  process.execPath,
-  ['--disable-warning=ExperimentalWarning', path.join(__dirname, 'server.js')],
-  {
-    env: { ...process.env, FITTRACK_DB: path.join(workDir, 'coach.db'), PORT: '0' },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  },
-);
-
-const baseUrl = await new Promise((resolve, reject) => {
-  let output = '';
-  const timer = setTimeout(() => reject(new Error(`A szerver nem indult el időben:\n${output}`)), 20_000);
-
-  child.stdout.setEncoding('utf8');
-  child.stdout.on('data', (chunk) => {
-    output += chunk;
-    const match = output.match(/http:\/\/localhost:(\d+)/);
-    if (match) {
-      clearTimeout(timer);
-      resolve(`http://localhost:${match[1]}`);
-    }
-  });
-  child.stderr.setEncoding('utf8');
-  child.stderr.on('data', (chunk) => { output += chunk; });
-  child.on('exit', (code) => {
-    clearTimeout(timer);
-    reject(new Error(`A szerver kilépett (kód: ${code}):\n${output}`));
-  });
-});
-
-after(async () => {
-  await new Promise((resolve) => {
-    child.once('exit', resolve);
-    child.kill();
-  });
-  rmSync(workDir, { recursive: true, force: true });
-});
-
-async function request(method, urlPath, { body, cookie } = {}) {
-  const headers = {};
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
-  if (cookie) headers.Cookie = cookie;
-
-  const res = await fetch(`${baseUrl}${urlPath}`, {
-    method,
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
-    redirect: 'manual',
-  });
-
-  const setCookie = res.headers.getSetCookie();
-  const text = await res.text();
-  let json = null;
-  try { json = text ? JSON.parse(text) : null; } catch { /* nem JSON */ }
-  return { status: res.status, json, setCookie, retryAfter: res.headers.get('retry-after') };
-}
-
-const cookieFrom = (res) => (res.setCookie[0] ?? '').split(';')[0];
+const { request } = await startServer({ label: 'coach' });
 
 /** Új fiók + belépett munkamenet egy lépésben. */
 async function register(username, displayName) {
@@ -92,12 +28,6 @@ async function register(username, displayName) {
   assert.equal(res.status, 201, `${username} regisztrációja`);
   return cookieFrom(res);
 }
-
-/** Egy gyakorlat, egyetlen teljesített munkasorozattal. */
-const gyakorlat = (name, weight) => ({
-  name,
-  sets: [{ reps: '5', weight: String(weight), rpe: '8', type: 'work', done: true }],
-});
 
 /* A három szereplő: edző, sportoló, és egy kívülálló, akinek semmi köze
    hozzájuk — ő a teszt „támadója". */

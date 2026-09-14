@@ -19,15 +19,8 @@
  */
 import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const workDir = mkdtempSync(path.join(tmpdir(), 'fittrack-api-'));
+import { startServer, cookieFrom, today, gyakorlat } from './test-harness.js';
 
 /* ---- Az Open Food Facts helyi utánzata ----
    A /api/foods/barcode végpont kifelé hívna. A tesztcsomag viszont nem
@@ -81,105 +74,23 @@ const OFF_URL = `http://127.0.0.1:${offStub.address().port}`;
 /** A stub eddigi hívásszáma — a cache-tesztek ezt hasonlítják össze. */
 const offHitCount = async () => (await (await fetch(`${OFF_URL}/__hits`)).json()).hits;
 
-/* ---- A szerver elindítása és a port kiolvasása ---- */
+/* ---- A szerver elindítása ----
+   A közös harness kezeli a spawn-t, a port kiolvasását és a takarítást; az
+   OFF-stub leállítását külön after() hookkal fűzzük hozzá, mert az kizárólag
+   ebben a tesztfájlban él. */
 
-const child = spawn(
-  process.execPath,
-  ['--disable-warning=ExperimentalWarning', path.join(__dirname, 'server.js')],
-  {
-    env: {
-      ...process.env,
-      FITTRACK_DB: path.join(workDir, 'api.db'),
-      PORT: '0',
-      FITTRACK_OFF_URL: OFF_URL,
-    },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  },
-);
-
-/** A szerver indulási sorából kiolvasott alap-URL. Ha 20 mp alatt nem indul
-    el, inkább elbukunk egy beszédes üzenettel, mint hogy a futtató ölje meg. */
-const baseUrl = await new Promise((resolve, reject) => {
-  let output = '';
-  const timer = setTimeout(() => reject(new Error(`A szerver nem indult el időben:\n${output}`)), 20_000);
-
-  child.stdout.setEncoding('utf8');
-  child.stdout.on('data', (chunk) => {
-    output += chunk;
-    const match = output.match(/http:\/\/localhost:(\d+)/);
-    if (match) {
-      clearTimeout(timer);
-      resolve(`http://localhost:${match[1]}`);
-    }
-  });
-  child.stderr.setEncoding('utf8');
-  child.stderr.on('data', (chunk) => { output += chunk; });
-  child.on('exit', (code) => {
-    clearTimeout(timer);
-    reject(new Error(`A szerver kilépett (kód: ${code}):\n${output}`));
-  });
+const { baseUrl, request } = await startServer({
+  label: 'api',
+  extraEnv: { FITTRACK_OFF_URL: OFF_URL },
 });
 
-/* A szervert az UTOLSÓ teszt után állítjuk le, és megvárjuk, amíg tényleg
-   kilép. Ez nem elhagyható: amíg a gyerekfolyamat és a csővezetékei élnek, a
-   teszt-futtató eseményhurka sem ürül ki, tehát a `node --test` a legutolsó
-   pipa után is ott állna örökre. (A process.on('exit') ehhez késő: az csak
-   akkor sülne el, ha a folyamat már amúgy is kilépne.) */
-after(async () => {
-  await new Promise((resolve) => {
-    child.once('exit', resolve);
-    child.kill();
-  });
-  // Az OFF-stub is a teszt eseményhurkát tartaná életben.
-  await new Promise((resolve) => offStub.close(resolve));
-  // A DB-fájlt a gyerek tartotta nyitva — a törlés csak a kilépése után megy.
-  rmSync(workDir, { recursive: true, force: true });
-});
-
-/* ---- Kérés-segéd ----
-   A munkamenetet süti hordozza, ezért a hívó átadhatja a sajátját; a válaszból
-   kiolvasott új sütit visszaadjuk, hogy a belépés után tovább lehessen adni. */
-
-async function request(method, urlPath, { body, cookie } = {}) {
-  const headers = {};
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
-  if (cookie) headers.Cookie = cookie;
-
-  const res = await fetch(`${baseUrl}${urlPath}`, {
-    method,
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
-    redirect: 'manual',
-  });
-
-  const setCookie = res.headers.getSetCookie();
-  const text = await res.text();
-  let json = null;
-  try { json = text ? JSON.parse(text) : null; } catch { /* nem JSON — a json null marad */ }
-
-  return { status: res.status, json, text, setCookie };
-}
-
-/** A Set-Cookie fejlécből a `név=érték` rész (ezt küldjük vissza Cookie-ként). */
-const cookieFrom = (res) => (res.setCookie[0] ?? '').split(';')[0];
-
-/** A szerver által használt mai dátum — a végpontok ezt írják a sorokba. */
-const today = () => {
-  const d = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`;
-};
+// Az OFF-stub is a teszt eseményhurkát tartaná életben.
+after(async () => { await new Promise((resolve) => offStub.close(resolve)); });
 
 /** Az első BEÉPÍTETT étel a listából. A /api/foods mostantól a hívó saját
     ételeit teszi előre, ezért a json[0] nem feltétlenül seed-elem — ez a segéd
     teszi a régi eseteket függetlenné attól, hogy előtte felvittek-e sajátot. */
 const seedFood = (foods) => foods.find((food) => !food.custom);
-
-/** Egy gyakorlat, egyetlen teljesített munkasorozattal. */
-const gyakorlat = (name, weight, reps = 5) => ({
-  name,
-  sets: [{ reps: String(reps), weight: String(weight), rpe: '8', type: 'work', done: true }],
-});
 
 // A belépett fiókok sütijei — az első két teszt tölti fel őket.
 let annaCookie = '';
