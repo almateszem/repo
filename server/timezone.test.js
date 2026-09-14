@@ -11,72 +11,17 @@
  * a szerver EL IS FOGADJA a valós időzónákból jövő napot, de NEM fogad el
  * bármit: a fejléc nem lehet visszadátumozásra használható csatorna.
  */
-import test, { after } from 'node:test';
+import test from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { startServer } from './test-harness.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const workDir = mkdtempSync(path.join(tmpdir(), 'fittrack-tz-'));
-
-const child = spawn(
-  process.execPath,
-  ['--disable-warning=ExperimentalWarning', path.join(__dirname, 'server.js')],
-  {
-    env: { ...process.env, FITTRACK_DB: path.join(workDir, 'tz.db'), PORT: '0' },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  },
-);
-
-const baseUrl = await new Promise((resolve, reject) => {
-  let output = '';
-  const timer = setTimeout(() => reject(new Error(`A szerver nem indult el időben:\n${output}`)), 20_000);
-  child.stdout.setEncoding('utf8');
-  child.stdout.on('data', (chunk) => {
-    output += chunk;
-    const match = output.match(/http:\/\/localhost:(\d+)/);
-    if (match) {
-      clearTimeout(timer);
-      resolve(`http://localhost:${match[1]}`);
-    }
-  });
-  child.stderr.setEncoding('utf8');
-  child.stderr.on('data', (chunk) => { output += chunk; });
-  child.on('exit', (code) => {
-    clearTimeout(timer);
-    reject(new Error(`A szerver kilépett (kód: ${code}):\n${output}`));
-  });
-});
-
-after(async () => {
-  await new Promise((resolve) => {
-    child.once('exit', resolve);
-    child.kill();
-  });
-  rmSync(workDir, { recursive: true, force: true });
-});
+const { request: rawRequest } = await startServer({ label: 'tz' });
 
 /** Kérés tetszőleges X-Client-Date fejléccel (a `date` elhagyható). */
-async function request(method, urlPath, { body, cookie, date } = {}) {
-  const headers = {};
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
-  if (cookie) headers.Cookie = cookie;
-  if (date !== undefined) headers['X-Client-Date'] = date;
-
-  const res = await fetch(`${baseUrl}${urlPath}`, {
-    method,
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
-  const setCookie = res.headers.getSetCookie();
-  const text = await res.text();
-  let json = null;
-  try { json = text ? JSON.parse(text) : null; } catch { /* nem JSON */ }
-  return { status: res.status, json, setCookie };
-}
+const request = (method, urlPath, { body, cookie, date } = {}) => rawRequest(
+  method, urlPath,
+  { body, cookie, headers: date !== undefined ? { 'X-Client-Date': date } : undefined },
+);
 
 const pad = (n) => String(n).padStart(2, '0');
 const format = (d) => `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`;
