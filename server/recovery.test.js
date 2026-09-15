@@ -716,6 +716,11 @@ test('check-in nélkül a regenerációs sorok nem találnak ki alvásadatot', (
   assert.equal(report.recovery.sleep, '—');
 });
 
+test('check-in van, edzés és jelzett izomláz nincs: az izomláz sora „Nincs", nem „—"', () => {
+  assert.equal(run({ checkins: [fullCheckin()] }).recovery.soreness, 'Nincs');
+  assert.equal(run().recovery.soreness, '—', 'check-in nélkül továbbra sem találunk ki semmit');
+});
+
 /* ======================================================================
    Izomláz skála (0–10)
    ====================================================================== */
