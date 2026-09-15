@@ -73,7 +73,9 @@ function renderAthleteCard(athlete, index) {
   const msgEl = $('.co-card-msg', card);
   msgEl.hidden = !athlete.lastMessage;
   if (athlete.lastMessage) {
-    const who = athlete.lastMessage.mine ? 'Te' : athlete.name.split(' ')[0];
+    /* A teljes megjelenített név: az első szó magyar névsorrendnél a
+       VEZETÉKNÉV („Kiss: …"), és a név amúgy is szabad szöveg, nem bontható. */
+    const who = athlete.lastMessage.mine ? 'Te' : athlete.name;
     msgEl.textContent = `${who}: ${athlete.lastMessage.text}`;
     msgEl.classList.toggle('co-card-msg--unread', athlete.unread > 0);
   }
