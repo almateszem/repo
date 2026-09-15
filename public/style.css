@@ -367,8 +367,7 @@ input.wk-chip:focus-visible {
 .rc-lift-delta-label,
 .fd-macro-label,
 .fd-macro-unit,
-.fd-goal-label,
-.video-modal-history-label {
+.fd-goal-label {
   font-family: var(--font-mono);
   text-transform: uppercase;
   letter-spacing: var(--ls-label);
@@ -3860,46 +3859,12 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--fg-100);
 }
 
-.video-modal-player {
-  aspect-ratio: 16 / 10;
-  background: var(--surface-input);
-  border-radius: var(--r-xl);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: var(--sp-7);
-}
-
-.video-modal-player svg {
-  width: 44px;
-  height: 44px;
-  fill: var(--text-muted);
-}
-
-.video-modal-comment {
+/* A videós technika-napló még nem készült el — az ablak csak ezt mondja ki. */
+.video-modal-soon {
   font-size: var(--fs-sm);
   line-height: 1.5;
-  color: var(--fg-75);
-  margin: 0 0 var(--sp-8);
-}
-
-.video-modal-history-label {
-  font-size: var(--fs-xs);
-  color: var(--text-muted);
-  display: block;
-  margin-bottom: var(--sp-3);
-}
-
-.video-modal-thumbs {
-  display: flex;
-  gap: var(--sp-3);
-}
-
-.video-thumb {
-  width: 56px;
-  height: 40px;
-  border-radius: var(--r-sm);
-  background: var(--surface-hover);
+  color: var(--text-secondary);
+  margin: 0;
 }
 
 /* ==========================================================================
