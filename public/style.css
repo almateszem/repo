@@ -2739,10 +2739,21 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--text-muted);
 }
 
+/* A listából egyszerre kb. 5 tétel látszik, a többihez görgetni kell —
+   különben minél többet naplózol, annál lejjebb tolódik a kereső és a teljes
+   étel-katalógus. A sormagasság a .ds-row receptjéből számolódik: a tartalom
+   (két szövegsor: név + makrók, vagy a --tap-min, ha az a nagyobb), plusz a
+   két --sp-7 belső margó és az 1px-es hajszálvonal. Ha a .ds-row padding-je
+   vagy a sor szövegei változnak, ezt is követni kell. */
 .nu-log-list {
+  --nu-log-text: calc(var(--fs-sm) * 1.25 + var(--sp-2) + var(--fs-2xs) * 1.3);
+  --nu-log-row: calc(max(var(--tap-min), var(--nu-log-text)) + var(--sp-7) * 2 + 1px);
   list-style: none;
   margin: 0;
   padding: 0;
+  max-height: calc(var(--nu-log-row) * 5);
+  overflow-y: auto;
+  overscroll-behavior: contain; /* a lista végén ne a lap kezdjen görögni */
 }
 
 /* A formát a .ds-row adja; itt csak a beúszás marad, ami a sorok sorrendjét
