@@ -33,7 +33,7 @@ Node 22.5+ kell (a beépített node:sqlite modul miatt).
     npm install
     npm start          → http://localhost:3000
     npm run dev        → ugyanaz, fájlfigyeléssel
-    npm test           → 313 teszt (node --test, nulla függőség)
+    npm test           → 357 teszt (node --test, nulla függőség)
     npm run lint       → ESLint (nincs build-lépés, ez az egyetlen védőháló)
     npm run format     → Prettier
 
@@ -376,7 +376,8 @@ chipek, gyakorlatonként illusztrációval, izomcsoport-szöveggel és
 4.1 KLIENS RÉSZLETMODÁL — készenlét, terv-követés, sorozat, utolsó edzés,
     heti edzések, aktív terv, a készenlét megbízhatósága; a legutóbbi
     tényleges aktivitás (edzések, PR-ek, check-inek, testsúly); a kliens
-    tervei; "+ Terv kiosztása" gomb; szimulált üzenetváltás.
+    tervei; "+ Terv kiosztása" gomb; valódi, perzisztens üzenetváltás
+    (ld. 3.6b).
 
 4.2 KÉSZENLÉT-JAVASLAT — ld. 10. pont.
 
@@ -764,25 +765,26 @@ Tokenszinten betartott szabályok, hogy ne komponensenként kelljen
 ==========================================================================
 Szándékos egyszerűsítések és nyitott tételek. A teljes lista a TEENDOK.txt-ben.
 
-  · ÜZENETVÁLTÁS — szimulált. Az üzenet nem jut el a másik félhez, a
-    válaszok előre megírt sorok, a szál a lap újratöltésével elvész. A
-    felület ezt kiírja.
-  · VIDEÓ — a technika-videó ablak statikus mockup. Nincs feltöltés,
-    tárolás, edzői értékelés, komment vagy időbeli összehasonlítás.
-  · KOMMENTEK — sem gyakorlathoz, sem edzéshez nem lehet megjegyzést fűzni.
-    Nincs edzés utáni visszajelzés sem.
-  · TÁPLÁLKOZÁSI CÉL — fix és mindenkinek közös. Nincs fiókonkénti cél, és
-    az edző sem tud célt kitűzni.
-  · ELEMZÉS — nincs gyakorlatonkénti 1RM-görbe, összesített statisztika-
-    oldal, akut/krónikus terhelés-arány, deload-javaslat vagy előrejelzés.
-    Az edzőnek nincs kliensenkénti regeneráció-nézete (a végpont megvan, a
-    felület nem).
-  · Az edző NEM látja, ha a kliens elfogadott egy készenlét-javaslatot — a
-    naplója némán tér el a kiosztott tervtől.
-  · Nincs jelszó-visszaállítás és nincs fióktörlés.
-  · A dátumot a SZERVER helyi ideje adja: ha a szerver és a böngésző más
-    időzónában van, a "mai nap" elcsúszhat.
-  · Nincs pulzus/HRV adatforrás.
+  · VIDEÓ — a technika-videó ablak statikus mockup. A gyakorlat neve és az
+    „edzői megjegyzés" beégetett szöveg, az előzmény-bélyegképek üresek.
+    Nincs feltöltés, tárolás, edzői értékelés, komment vagy időbeli
+    összehasonlítás.
+  · ELEMZÉS — nincs összesített statisztika-oldal, akut/krónikus terhelés-
+    arány, deload-javaslat vagy előrejelzés. Gyakorlatonként a csúcsok
+    LISTÁBAN látszanak (PR-modál, GET /api/prs/history, 1RM-értékkel), de
+    görbe/diagram nincs. Az edző a sportoló-kártyán látja a készenléti
+    százalékot, teljes kliensenkénti regeneráció-riportot azonban nem kap.
+  · KARDIÓ — az időalapú sor (idő + intenzitás, server/logmode.js) naplózható,
+    de a készenlét-motor terhelésként NULLÁT lát belőle, és a heti volumen
+    egy munkasorozatnak számolja. Táv és pulzus nincs. Ld. TEENDOK.txt.
+  · Az edző NEM látja, ha a kliens elfogadott egy készenlét-javaslatot: az
+    applySessionAdvice CSAK a piszkozatot írja át, nyoma sehol nem marad —
+    a napló némán tér el a kiosztott tervtől.
+  · Nincs ELFELEJTETT-jelszó visszaállítás (nincs e-mail-cím, se ilyen
+    folyamat). Jelszót változtatni lehet: PUT /api/auth/password, a régi
+    jelszó megadásával.
+  · Nincs pulzus/HRV adatforrás — a készenléti képletből szándékosan
+    hiányzik (lásd server/recovery.js).
   · A gyakorlat-illusztrációk © Gym visual — NEM a mi tartalmunk.
     Kereskedelmi felhasználáshoz saját engedély kell.
 
@@ -790,14 +792,27 @@ Szándékos egyszerűsítések és nyitott tételek. A teljes lista a TEENDOK.tx
 ==========================================================================
 16. TESZTEK
 ==========================================================================
-`npm test` — 157 teszt, nulla külső függőség (node --test).
+`npm test` — 357 teszt, nulla külső függőség (node --test).
 
-    recovery.test.js    a készenlét-motor matematikája (tiszta függvények)
-    auth.test.js        jelszó-hash, munkamenet, süti
-    users.test.js       a felhasználók közti adatizoláció
-    coach.test.js       az edző–kliens kapcsolat és a KERESZT-FIÓK
-                        hozzáférés (valódi szervert indít, HTTP-n beszél)
-    api.test.js         végponti tesztek (validálás, hozzáférés-védelem)
-    prs.test.js         az egyéni csúcsok szabálya
-    cache.test.js       az adatréteg gyorsítótára
-    migration.test.js   a fiókok előtti adatbázis migrációja
+    recovery.test.js        a készenlét-motor matematikája (tiszta függvények)
+    auth.test.js            jelszó-hash, munkamenet, süti
+    account.test.js         jelszóváltoztatás és fióktörlés (végponti)
+    users.test.js           a felhasználók közti adatizoláció
+    coach.test.js           az edző–kliens kapcsolat és a KERESZT-FIÓK
+                            hozzáférés (valódi szervert indít, HTTP-n beszél)
+    coaching.test.js        a sportoló-kártya számolt mezői (terv-követés,
+                            értékelés, riasztás)
+    messages.test.js        az edző–sportoló üzenetváltás és olvasottság
+    notifications.test.js   a származtatott értesítések felépítése
+    api.test.js             végponti tesztek (validálás, hozzáférés-védelem)
+    security.test.js        a biztonsági átnézés őrei (belépési név, fiók-
+                            kizárás, mentési méretkorlát)
+    errors.test.js          a hibakezelő védőháló (dobó végpont, folyamat-őr)
+    ratelimit.test.js       a kérés-korlátozó
+    timezone.test.js        a kliens-dátum (x-client-date) és a napváltás
+    prs.test.js             az egyéni csúcsok szabálya
+    openfoodfacts.test.js   a vonalkód-lekérdezés és a válasz leképezése
+    cache.test.js           az adatréteg gyorsítótára
+    migration.test.js       a fiókok előtti adatbázis migrációja
+    public/js/ui/shortcuts.test.js
+                            a gyorsbillentyűk modál-őre (DOM nélkül)
