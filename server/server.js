@@ -1607,7 +1607,9 @@ app.get('/api/workout-template', (req, res) => res.json(workoutTemplate(req.user
     bemelegítés: a lista a könnyű bemelegítő sorozatot hirdette rekordnak. */
 function prEntryFor(userId, workout, exercise) {
   // A mértékegység már nem az értékben van (szám-mezők), ezért itt tesszük hozzá
-  const set = bestCompletedSet(exercise.sets);
+  // Csak kijelzés, és csak PR-jelölt gyakorlatra: a pipák előtti sorok
+  // részletszövegéhez a régi visszaesés (első sor) kell.
+  const set = bestCompletedSet(exercise.sets, { fallbackToFirst: true });
 
   // Az Epley-képlettel kiszámított 1RM
   let oneRM = 0;

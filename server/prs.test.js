@@ -83,9 +83,10 @@ test('a csúcslista csak a saját rekordokat adja vissza', () => {
   assert.equal(db.getExerciseMax(99999, 'Fekvenyomás'), null);
 });
 
-test('teljesített szett hiányában az első szett számít, üres edzés nem dob', () => {
+test('teljesített szett hiányában az új edzés nem mér rekordot, üres edzés nem dob', () => {
   const tervezett = db.addWorkout(kezdo.id, 'Csak megtervezve', HOLNAP, nyomas(50, 5, false));
-  assert.equal(tervezett.exercises[0].pr, true, 'a nem kipipált szett is mér — ez a szándékolt viselkedés');
+  assert.equal(tervezett.exercises[0].pr, false, 'a nem kipipált szett nem rekord — a 40 kg-os csúcs marad');
+  assert.equal(db.getExerciseMax(kezdo.id, 'Fekvenyomás').max1rm, db.calculateEpley1RM(40, 5));
 
   const üres = db.addWorkout(kezdo.id, 'Nincs szett', HOLNAP, [{ name: 'Húzódzkodás', pr: false, sets: [] }]);
   assert.equal(üres.exercises[0].pr, false);
@@ -124,11 +125,30 @@ test('a bemelegítő sor nem szorítja le a nyomon követett csúcsot', () => {
   assert.equal(db.getExerciseMax(user.id, 'Fekvenyomás').max1rm, db.calculateEpley1RM(100, 5));
 });
 
-test('teljesített szett híján az első sor a rekord, üres listára null', () => {
+test('teljesített szett híján nincs rekordot hozó szett — kivéve, ha kérjük a régi visszaesést', () => {
   const sets = [{ reps: '5', weight: '60', rpe: '8', type: 'work', done: false }];
-  assert.equal(db.bestCompletedSet(sets), sets[0]);
+  assert.equal(db.bestCompletedSet(sets), null);
+  assert.equal(db.bestCompletedSet(sets, { fallbackToFirst: true }), sets[0]);
   assert.equal(db.bestCompletedSet([]), null);
   assert.equal(db.bestCompletedSet(), null);
+});
+
+test('az új edzés pipálatlan szettje nem hoz PR-t és csúcsot sem rögzít', () => {
+  const user = db.createUser('pipalatlan', 'Pipálatlan Pál', 'scrypt$16384$8$1$gg$hh').user;
+  const saved = db.addWorkout(user.id, 'Előre kitöltve', TODAY, nyomas(60, 10, false));
+  assert.equal(saved.exercises[0].pr, false, 'pipa nélkül nincs rekord');
+  assert.equal(db.getExerciseMax(user.id, 'Fekvenyomás'), null);
+});
+
+test('törlés utáni újraszámolás sem csinál PR-t az új, pipálatlan edzésből', () => {
+  const user = db.createUser('ujraszamolt', 'Újra Számolt', 'scrypt$16384$8$1$ii$jj').user;
+  const valodi = db.addWorkout(user.id, 'Valódi', TODAY, nyomas(50, 5, true));
+  db.addWorkout(user.id, 'Kitöltött', HOLNAP, nyomas(90, 5, false));
+  const torlendo = db.addWorkout(user.id, 'Törlendő', HOLNAP, nyomas(40, 5, true));
+  db.deleteWorkout(user.id, torlendo.id);
+  assert.equal(db.getExerciseMax(user.id, 'Fekvenyomás').max1rm, db.calculateEpley1RM(50, 5),
+    'a pipálatlan 90 kg nem lehet csúcs');
+  assert.ok(valodi.exercises[0].pr);
 });
 
 /* ======================================================================
