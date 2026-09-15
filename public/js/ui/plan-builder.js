@@ -6,7 +6,7 @@ import { $, $$ } from '../core/dom.js';
 import { showToast } from '../core/toast.js';
 import { navigate } from '../nav/router.js';
 import { renderPlans } from '../render/plans.js';
-import { clampRpeInput, enableSetTypeSelect, handleAddSetClick, handleRemoveSetClick, handleStepClick, readSetRow, renderExercise } from '../render/sets.js';
+import { clampRpeInput, enableExtraMenu, enableIntensitySelect, enableSetTypeSelect, handleAddSetClick, handleRemoveSetClick, handleStepClick, readSetRow, renderExercise } from '../render/sets.js';
 
 /** A terv-építő flow-oldal (a Tervek „+ Új terv" és szerkesztés gombja hozza
     be): terv neve + élő összegző, hétnap-ütemezés chipek, gyakorlatkártyák
@@ -52,6 +52,8 @@ async function setupPlanBuilder(picker) {
   const readPlan = () => $$('.wk-exercise', page).map((card) => ({
     name: $('.wk-exercise-name', card).textContent.trim(),
     pr: false,
+    // A naplózási mód a tervben is a gyakorlaté marad (ld. readCurrentWorkout).
+    ...(card.dataset.logMode === 'duration' && { logMode: 'duration' }),
     sets: $$('.wk-set-list .wk-set-row', card)
       .map((row) => ({ ...readSetRow(row), done: false })),
   }));
@@ -80,6 +82,11 @@ async function setupPlanBuilder(picker) {
   // Szett-típus a tervben is: így a terv már megmondja, melyik sor
   // bemelegítés és melyik munkasorozat.
   enableSetTypeSelect(list, updateSummary);
+
+  // Az időalapú sorok vezérlői a tervben is működnek: egy terv is tartalmazhat
+  // futópadot, és ott is időt meg intenzitást kell tudni megadni.
+  enableIntensitySelect(list, updateSummary);
+  enableExtraMenu(list);
 
   // A közös gyakorlat-választó a terv-építő listáját célozza
   $('[data-action="builder-add-exercise"]').addEventListener('click', () => {

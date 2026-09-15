@@ -20,6 +20,7 @@ import { setupAthleteModal, setupCoachPage } from '../ui/coach.js';
 import { setupConnectivity } from '../ui/connectivity.js';
 import { setupCustomFood } from '../ui/custom-food.js';
 import { setupDashboard } from '../ui/dashboard.js';
+import { loadIntensityLevels } from '../render/sets.js';
 import { setupExercisePicker } from '../ui/exercise-picker.js';
 import { setupFoodDetail } from '../ui/food-detail.js';
 import { setupAdviceModal, setupConfirmDialog, setupPrModal, setupVideoModal } from '../ui/modals.js';
@@ -63,6 +64,10 @@ async function init() {
     safe(renderPrs),
     safe(renderFoods),
     safe(renderPlans),
+    /* Az intenzitás-fokozatok felirata a szervertől. A gyakorlat-kártyák
+       rajzolása szinkron, ezért a listának a setup-ok ELŐTT kell megérkeznie —
+       innentől minden időalapú sor készen találja. */
+    safe(loadIntensityLevels),
   ]);
 
   // Megerősítő ablak — szinkron felépítésű, mert több setup is erre épül

@@ -176,6 +176,11 @@ const api = {
      kérünk — a munkamenetre eltett válasz órákig hazudna. */
   getNotifications:  () => getJson('/api/notifications'),
   getDefaultSet:     () => getJsonCached('/api/default-set'),
+  // Az időalapú (kardió) sorok alapértékei és intenzitás-fokozatai. Mindkettő
+  // referencia-adat: a fokozat KULCSA mentődik, a felirat innen jön, hogy a
+  // kettő ne sodródjon szét (ugyanaz az elv, mint a mérési helyeknél).
+  getDefaultCardioSet: () => getJsonCached('/api/default-cardio-set'),
+  getCardioIntensities: () => getJsonCached('/api/cardio-intensities'),
   getExerciseCatalog: () => getJsonCached('/api/exercise-catalog'),
   // A választható edzés-célok (kulcs + kártya-címke + felirat) — referencia-adat
   getGoals:          () => getJsonCached('/api/goals'),

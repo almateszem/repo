@@ -51,6 +51,12 @@ export const data = {
   /* Az új szettek alapértékei. Tiszta számok: az ismétlés és az RPE darab,
      a súly kilogramm — a felület szám-mezőkkel szerkeszti őket. */
   defaultSet: { reps: '10', weight: '60', rpe: '8', done: false },
+  /* Az IDŐALAPÚ sorok alapértékei (logMode: 'duration'). Az idő másodpercben,
+     mert a mentett alak is az — a felület percre és másodpercre bontva mutatja.
+     Húsz perc közepes tempóval: az a tipikus kondimunka, amit át kell írni,
+     nem az, amit véletlenül otthagynak. Súly alapból nincs; azt a soron a
+     három pöttyös menüből lehet hozzáadni. */
+  defaultCardioSet: { duration: '1200', intensity: 'moderate', weight: '', done: false },
   /* A gyakorlat-katalógus NEM itt él, hanem két külön forrásfájlban:
      kézzel kurált gyakorlatok  → server/data/exercises.hu.js  (200 db)
      a külső datasetből generált → server/data/exercises.exdb.js (1216 db)
