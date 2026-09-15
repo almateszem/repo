@@ -13,6 +13,11 @@ const TOAST_ERROR_VISIBLE_MS = 5200;
 
 function showToast(message, variant = 'default') {
   const region = $('.toast-region');
+  /* Egyszerre egy toast: az új üzenet a régit elavulttá teszi („Adj legalább
+     egy gyakorlatot…" után a „Befejezve"). Korábban egymásra rakódtak, és a
+     régi hiba a sikeres mentés után is kint maradt. A régi toast időzítője
+     ettől még lefut — egy már leválasztott elemen a remove() ártalmatlan. */
+  region.replaceChildren();
   const toast = document.createElement('div');
   toast.className = variant === 'error' ? 'toast toast--error' : 'toast';
   toast.textContent = message;
