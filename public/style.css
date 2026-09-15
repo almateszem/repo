@@ -4117,8 +4117,11 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   }
 
   /* Az értesítés-panel itt FELFELÉ nyílik: a sáv a képernyő alján ül, lefelé
-     nem férne el. Balra igazítva, mert a jobb széle a tartalom fölé lógna. */
-  .notif-panel {
+     nem férne el. Balra igazítva, mert a jobb széle a tartalom fölé lógna.
+     A szelektor szándékosan `.app-chrome .notif-panel`: a lenti alapszabály
+     később áll a fájlban, azonos specificitással felülírná ezt a blokkot —
+     a panel így a képernyő alá került. */
+  .app-chrome .notif-panel {
     top: auto;
     bottom: calc(100% + var(--sp-3));
     right: auto;
