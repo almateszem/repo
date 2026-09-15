@@ -3,6 +3,7 @@
 import { api } from '../../../core/api.js';
 import { $, cloneTemplate } from '../../../core/dom.js';
 import { shared } from '../../../core/page-hooks.js';
+import { navigate, setOnboardingLock } from '../../../nav/router.js';
 import { ciDateStr } from '../helpers.js';
 import { ci } from '../session.js';
 
@@ -28,10 +29,10 @@ function applyOnboardingIntro(step) {
     + 'mennyire vagy ma terhelhető — pár gyors kérdés, kevesebb mint egy perc.';
   $('.ci-footnote', step).textContent = 'Az adataid csak hozzád tartoznak.';
 
-  /* A „Mégse" itt sehová nem vezetne: az app többi oldala zárva van. A
-     kijárat ezért a kijelentkezés — a check-in kötelező, de a lap nem
-     csapda (a #checkin-en nincs se beállítás-, se kilépés-gomb, azok a
-     dashboard fejlécében ülnek). */
+  /* A „Mégse" itt sehová nem vezetne: az app többi oldala zárva van. A fő
+     kiút ezért a lenti „Most kihagyom", a másodlagos a kijelentkezés (a
+     #checkin-en nincs se beállítás-, se kilépés-gomb, azok a fejlécben ülnek,
+     amit a zár elrejt). */
   const exit = $('.ci-exit', step);
   exit.textContent = 'Kijelentkezés';
   exit.href = '#';
@@ -40,6 +41,19 @@ function applyOnboardingIntro(step) {
     try { await api.logout(); } catch { /* a kilépést akkor is bevisszük */ }
     window.location.reload();
   });
+
+  /* Aki most nem akar check-int (pl. edző, aki csak a sportolóit kezelné),
+     az erre a munkamenetre továbbléphet. Nem tartós: újratöltéskor a szerver
+     `onboarding` jelzője visszahozza a varázslót, amíg nincs első check-in. */
+  const skip = document.createElement('button');
+  skip.type = 'button';
+  skip.className = 'ci-skip';
+  skip.textContent = 'Most kihagyom';
+  skip.addEventListener('click', () => {
+    setOnboardingLock(false);
+    navigate('dashboard');
+  });
+  exit.before(skip);
 }
 
 /** Az intro gombjának bekötése — a két ág után közös. */
