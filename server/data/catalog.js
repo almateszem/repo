@@ -19,6 +19,12 @@
  * A `loadSource` mező mindkét ágon ki van töltve (`curated` / `derived`), így
  * a becsült terhelés-eloszlás sosem álcázza magát mért adatnak.
  *
+ * A `logMode` mező is itt kerül rá MINDEN sorra, konkrét értékkel. Azért itt,
+ * és nem a felületen: a generált fájl kézzel nem szerkeszthető, tehát a
+ * gépi kardió-sorok („Futás”, „Futás (gépes)”) nem tudnának saját mezőt vinni,
+ * a felület pedig nem találgathat név alapján. Így egy hatóság van, és a
+ * mezőt a választó és a szerver is készen kapja (lásd logmode.js).
+ *
  * Miért itt fésülünk, és nem az exercises.hu.js-ben: a generátor
  * (scripts/build-exdb.js) az exercises.hu.js-ből olvassa ki, mely nevek
  * kuráltak. Ha az a fájl maga is beolvasztaná a generált listát, a saját
@@ -28,6 +34,7 @@ import { exercises as curatedExercises, GROUPS } from './exercises.hu.js';
 import { exdbExercises, exdbMediaForCurated } from './exercises.exdb.js';
 import { foods as curatedFoods } from './foods.hu.js';
 import { MUSCLE_KEYS } from '../muscles.js';
+import { isLogMode, resolveLogMode } from '../logmode.js';
 
 /**
  * A gyakorlat-lista ellenőrzése. A Recovery Engine a `load` súlyokra épít, és
@@ -57,6 +64,14 @@ export function validateExercises(list, source) {
         throw new Error(`${where}: ismeretlen izomkulcs („${key}”). Engedett: ${MUSCLE_KEYS.join(', ')}`);
       }
     }
+    /* A naplózási mód elgépelése ugyanolyan csendes hiba volna, mint egy rossz
+       izomkulcs: a sor a felületen szett-alapúként jelenne meg, és senki nem
+       keresné az okát. A mező elhagyható — a hiánya azt jelenti, hogy a
+       resolveLogMode dönt —, de ha ott van, ismertnek kell lennie. */
+    if (entry.logMode !== undefined && !isLogMode(entry.logMode)) {
+      throw new Error(`${where}: ismeretlen logMode („${entry.logMode}”)`);
+    }
+
     const sum = Object.values(entry.load).reduce((total, value) => total + value, 0);
     if (Math.abs(sum - 1) > 1e-6) {
       throw new Error(`${where}: a load súlyok összege ${sum.toFixed(3)}, nem 1`);
@@ -97,7 +112,13 @@ export function buildExerciseCatalog() {
   });
 
   const taken = new Set(curated.map((entry) => entry.name.toLowerCase()));
-  return [...curated, ...generated.filter((entry) => !taken.has(entry.name.toLowerCase()))];
+  const merged = [...curated, ...generated.filter((entry) => !taken.has(entry.name.toLowerCase()))];
+
+  /* A naplózási mód RÁÉGETÉSE: innentől minden sor konkrét `logMode`-ot visel,
+     és sem a felület, sem a szerver nem old fel többé nevet. A kurált sorok a
+     saját kimondott értéküket tartják meg, a generált kardió a mintázatból
+     kapja meg — lásd logmode.js → resolveLogMode. */
+  return merged.map((entry) => ({ ...entry, logMode: resolveLogMode(entry) }));
 }
 
 /**
