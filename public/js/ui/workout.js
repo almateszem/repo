@@ -279,6 +279,10 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
   // Gyakorlat hozzáadása közvetlenül az edzésnaplóhoz — a közös gyakorlat-
   // választó az edzésnapló listáját célozza, és minden változást ment.
   $('[data-action="workout-add-exercise"]').addEventListener('click', () => {
+    // A felhasználó továbblépett — a korábbi névhiba a következő befejezésnél
+    // úgyis újra megjelenik, ha még mindig nincs név.
+    titleInput.classList.remove('has-error');
+    titleError.hidden = true;
     picker?.use({
       targetList: list,
       nameInput: titleInput,
@@ -305,13 +309,14 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
     autosave();
   });
 
-  /** Közös név-validáció: a mentés és a befejezés is megköveteli az edzésnevet. */
+  /** Közös név-validáció: a mentés és a befejezés is megköveteli az edzésnevet.
+      Toast nincs: a mező alatti hiba és a fókusz ugyanazt mondja (a
+      képernyőolvasónak az aria-describedby), a kettő együtt duplán szólt. */
   const validateWorkoutName = () => {
     if (titleInput.value.trim()) return true;
     titleInput.classList.add('has-error');
     titleError.hidden = false;
     titleInput.focus();
-    showToast('Adj nevet az edzésnek', 'error');
     return false;
   };
 
@@ -370,11 +375,12 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
   const finishBtn = $('[data-action="finish-workout"]');
   finishBtn.addEventListener('click', async () => {
     if (finishBtn.disabled) return;
-    if (!validateWorkoutName()) return;
+    // Előbb a tartalom: üres edzésnél a „nevezd el" kérés félrevezető lenne.
     if (list.children.length === 0) {
       showToast('Adj legalább egy gyakorlatot az edzéshez', 'error');
       return;
     }
+    if (!validateWorkoutName()) return;
 
     finishBtn.disabled = true;
     try {
