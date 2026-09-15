@@ -27,8 +27,9 @@ const legacyExercises = JSON.stringify(
 
 /* Egy edzés, amiben EGYETLEN szett sincs bepipálva. Ez nem elméleti eset: aki
    a naplót előre kitölti és menet közben nem pipálgat, ilyen sorokat hagy maga
-   után. Az addWorkout az ilyen gyakorlatnál az ELSŐ szettre esik vissza, tehát
-   csúcsot rögzít — a visszatöltésnek ugyanígy kell viselkednie. */
+   után. A pipák előtti naplóban (workouts.pr_rule = 0) az ilyen gyakorlatnál az
+   ELSŐ szett számított, tehát a visszatöltésnek ebből is csúcsot kell rögzítenie.
+   Az új edzéseknél ez már nem így van: ott csak a pipált szett számít. */
 const legacyPipalatlan = JSON.stringify(
   [{ name: 'Vállnyomás', pr: false, sets: [{ reps: '8', weight: '40', rpe: '7', done: false }] }],
 );
@@ -169,14 +170,14 @@ test('a PR-követés előtti edzésekből visszatöltődnek az egyéni csúcsok'
   assert.equal(gyengebb.exercises[0].pr, false, 'a régi 120 kg-hoz mérődik, nem a semmihez');
 });
 
-test('a visszatöltés a bepipálatlan edzést is figyelembe veszi — mint az addWorkout', () => {
-  /* A visszatöltésnek és az addWorkout-nak UGYANAZT a szabályt kell követnie
-     (server/db.js → bestCompletedSet). A két ág egyszer már elcsúszott: a
-     visszatöltés csak a bepipált szetteket nézte, az addWorkout viszont
-     teljesített szett híján az első sorra esik vissza. Következmény: akinek a
-     régi edzéseiben nem volt pipa, annál a visszatöltés üresen maradt — és a
-     következő edzés hamis PR-t ütött, vagyis pont az történt, aminek a
-     megelőzésére a visszatöltés való. */
+test('a visszatöltés a pipák előtti, bepipálatlan edzést is figyelembe veszi', () => {
+  /* A pipák előtti sorokon (workouts.pr_rule = 0) a visszatöltés a régi
+     szabályt követi: teljesített szett híján az első sor számít (server/db.js
+     → bestCompletedSet, fallbackToFirst). Egyszer már elcsúszott: a
+     visszatöltés csak a bepipált szetteket nézte, a mentés viszont az első
+     sorra esett vissza. Következmény: akinek a régi edzéseiben nem volt pipa,
+     annál a visszatöltés üresen maradt — és a következő edzés hamis PR-t
+     ütött, vagyis pont az történt, aminek a megelőzésére a visszatöltés való. */
   const user = db.getUserWithHash('david');
   const max = db.getExerciseMax(user.id, 'Vállnyomás');
   assert.ok(max, 'a bepipálatlan edzés gyakorlatához is van csúcs');

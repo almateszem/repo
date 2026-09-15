@@ -364,6 +364,11 @@ ensureColumn('workouts', 'feedback_difficulty', 'feedback_difficulty INTEGER');
 ensureColumn('workouts', 'feedback_mood', 'feedback_mood INTEGER');
 ensureColumn('workouts', 'feedback_note', 'feedback_note TEXT');
 ensureColumn('workouts', 'feedback_at', 'feedback_at TEXT');
+/* Melyik PR-szabállyal mentették az edzést: 0 = a pipák előtti napló (pipa
+   híján az első sor a rekord), 1 = csak a pipált szett számít. A visszatöltés
+   soronként ebből dönt, hogy a régi napló csúcsai megmaradjanak, de egy mai,
+   előre kitöltött edzés ne üssön hamis rekordot. */
+ensureColumn('workouts', 'pr_rule', 'pr_rule INTEGER NOT NULL DEFAULT 0');
 /* Mire épül a csúcs: 'measured' — naplózott szettből számolt (Epley), vagy
    'declared' — az erőfelmérésen BEMONDOTT érték. A kettő nem ugyanaz, és a
    felületnek ki is kell mondania, min alapul: a bemondott szám nem mérés.
@@ -1592,7 +1597,10 @@ export function calculateEpley1RM(weight, reps) {
 
 /**
  * A gyakorlat REKORDOT HOZÓ szettje: a teljesítettek közül a legmagasabb
- * becsült 1RM-ű, vagy — ha egy sor sincs bepipálva — az első.
+ * becsült 1RM-ű. Ha egy sor sincs bepipálva, nincs ilyen szett (null) — egy
+ * előre kitöltött, el nem végzett sor nem lehet rekord. A `fallbackToFirst`
+ * a pipák előtti naplónak szól (workouts.pr_rule = 0): ott pipa híján az
+ * első sor számított, és ezeknek a soroknak a csúcsai nem veszhetnek el.
  *
  * Ez az egyetlen hely, ahol ez a szabály ki van mondva, és ennek oka van. A
  * szabály eddig kétszer, két ágon élt: az addWorkout a legjobb szettből
@@ -1603,9 +1611,10 @@ export function calculateEpley1RM(weight, reps) {
  * miközben a mellette álló csúcs a valódi értéket mutatta.
  *
  * @param {Array<object>} sets egy gyakorlat szettjei
- * @returns {object|null} a rekordot hozó szett, vagy null üres listára
+ * @param {{ fallbackToFirst?: boolean }} [options] pipa híján az első sor legyen-e a rekord
+ * @returns {object|null} a rekordot hozó szett, vagy null
  */
-export function bestCompletedSet(sets = []) {
+export function bestCompletedSet(sets = [], { fallbackToFirst = false } = {}) {
   let best = null;
   let best1rm = 0;
   for (const set of sets) {
@@ -1613,7 +1622,7 @@ export function bestCompletedSet(sets = []) {
     const oneRM = calculateEpley1RM(set.weight, set.reps);
     if (best === null || oneRM > best1rm) { best = set; best1rm = oneRM; }
   }
-  return best ?? sets[0] ?? null;
+  return best ?? (fallbackToFirst ? sets[0] ?? null : null);
 }
 
 /** A felhasználó jelenlegi maximális 1RM-je egy gyakorlatban, vagy null ha még nincs. */
@@ -1747,7 +1756,7 @@ export function updateExerciseMax(userId, exerciseName, new1rm, currentDate) {
  *     amit a lista kiír, annak a naplóból következnie kell.
  */
 export function recomputeExerciseMaxes(userId) {
-  const rows = db.prepare('SELECT id, date, exercises FROM workouts WHERE user_id = ? ORDER BY date, id')
+  const rows = db.prepare('SELECT id, date, exercises, pr_rule FROM workouts WHERE user_id = ? ORDER BY date, id')
     .all(userId);
 
   const best = new Map();      // gyakorlatnév → { max1rm, date }
@@ -1762,15 +1771,15 @@ export function recomputeExerciseMaxes(userId) {
     for (const exercise of exercises) {
       const name = exercise?.name;
       if (!name) continue;
-      /* PONTOSAN ugyanaz a szabály, mint az addWorkout-ban — a rekordot hozó
-         szettet a közös bestCompletedSet adja meg. Korábban itt egy saját,
-         csak a bepipált szetteket néző ciklus állt, és ez eltért: az
-         addWorkout teljesített szett HÍJÁN az első sorra esik vissza, ez a
-         ciklus viszont ilyenkor semmit nem talált. Akinek tehát a régi
-         edzéseiben egyetlen szett sem volt bepipálva, annak a visszatöltés
-         üresen maradt — vagyis pontosan az a hamis PR keletkezett a
-         következő edzésnél, aminek a megelőzésére ez a függvény való. */
-      const record = bestCompletedSet(exercise?.sets ?? []);
+      /* A rekordot hozó szettet a közös bestCompletedSet adja meg, azzal a
+         szabállyal, amivel az edzést MENTETTÉK (workouts.pr_rule). A pipák
+         előtti naplóban (0) pipa híján az első sor számít: enélkül akinek a
+         régi edzéseiben egyetlen szett sem volt bepipálva, annál a
+         visszatöltés üresen maradna, és a következő edzés hamis PR-t ütne.
+         Az új szabállyal mentett sorokon (1) csak a pipált szett számít —
+         különben egy törlés utáni újraszámolás visszahozná azt a hamis
+         rekordot, amit az addWorkout mentéskor már nem adott ki. */
+      const record = bestCompletedSet(exercise?.sets ?? [], { fallbackToFirst: row.pr_rule === 0 });
       const oneRM = record ? calculateEpley1RM(record.weight, record.reps) : 0;
       if (oneRM <= 0) continue;
 
@@ -2066,8 +2075,8 @@ export function addWorkout(userId, name, date, exercises, planId = null) {
   const processedExercises = exercises.map((exercise) => {
     const sets = exercise.sets || [];
 
-    // A rekordot hozó szett (teljesítettek közül a legjobb, különben az első)
-    // — ugyanaz a szabály, amit a /api/prs listája is kiír.
+    // A rekordot hozó szett: az új edzésen CSAK a pipáltak közül a legjobb
+    // (pr_rule = 1) — egy előre kitöltött, el nem végzett sor nem rekord.
     const record = bestCompletedSet(sets);
     const bestCompleted1rm = record ? calculateEpley1RM(record.weight, record.reps) : 0;
 
@@ -2084,7 +2093,7 @@ export function addWorkout(userId, name, date, exercises, planId = null) {
   });
 
   const { lastInsertRowid } = db
-    .prepare('INSERT INTO workouts (user_id, name, date, exercises, plan_id) VALUES (?, ?, ?, ?, ?)')
+    .prepare('INSERT INTO workouts (user_id, name, date, exercises, plan_id, pr_rule) VALUES (?, ?, ?, ?, ?, 1)')
     .run(userId, name, date, JSON.stringify(processedExercises), planId);
   // A friss edzésen még nincs visszajelzés — a mező alakja mégis azonos a
   // getWorkouts sorával, hogy a felületnek ne kelljen két esetre készülnie.
@@ -2178,7 +2187,8 @@ export function saveWorkoutFeedback(userId, workoutId, { difficulty, mood, note 
 export function updateWorkout(userId, id, name, exercises) {
   db.exec('BEGIN IMMEDIATE');
   try {
-    const { changes } = db.prepare('UPDATE workouts SET name = ?, exercises = ? WHERE id = ? AND user_id = ?')
+    // A most újramentett edzés már az új PR-szabály alá kerül (pr_rule = 1).
+    const { changes } = db.prepare('UPDATE workouts SET name = ?, exercises = ?, pr_rule = 1 WHERE id = ? AND user_id = ?')
       .run(name, JSON.stringify(exercises), id, userId);
     if (changes === 0) {
       db.exec('COMMIT');
