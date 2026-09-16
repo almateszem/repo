@@ -228,8 +228,9 @@ function setupVideoModal() {
 }
 
 /** Gyakorlat rekord-előzmény modál — a "Korábbi rekordok" listaelemre
-    kattintva nyílik, és időrendben (régitől az újig) mutatja az adott
-    gyakorlat összes korábbi rekordját, hogy a fejlődés követhető legyen. */
+    kattintva nyílik, és legújabb elöl mutatja az adott gyakorlat összes
+    korábbi rekordját (ahogy a /api/prs/history adja), hogy a fejlődés a
+    legfrissebb eredménytől visszafelé követhető legyen. */
 function setupPrModal() {
   const modal = $('#prModal');
   const exerciseLabel = $('.pr-modal-exercise', modal);
