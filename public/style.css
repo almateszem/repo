@@ -100,12 +100,10 @@
   --fg-10: rgba(255, 255, 255, 0.1);
   --fg-08: rgba(255, 255, 255, 0.08);
   --fg-06: rgba(255, 255, 255, 0.06);
-  --fg-05: rgba(
-    1,
-    108,
-    150,
-    0.295
-  ); /* szándékosan kékes — a háttér-ragyogások színe, nem fehér alfa */
+  /* A háttér-ragyogások színe: a piros kiemelőszín (--c-accent, #c8102e)
+     halvány árnyalata. Korábban kékes volt (rgba(1, 108, 150, .295)), de az
+     nem illett a szürke alaphoz és a piros kiemelőszínhez. */
+  --fg-05: rgba(200, 16, 46, 0.13);
   --fg-04: rgba(255, 255, 255, 0.04);
   --fg-03: rgba(255, 255, 255, 0.03);
 
