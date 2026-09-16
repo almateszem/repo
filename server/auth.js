@@ -104,8 +104,8 @@ export function serializeCookie(name, value, { maxAge, secure = false } = {}) {
   const bits = [
     `${name}=${encodeURIComponent(value)}`,
     'Path=/',
-    'HttpOnly',            // JS-ből nem olvasható → XSS esetén sem lopható ki
-    'SameSite=Lax',        // más oldalról indított kérésekhez nem megy el
+    'HttpOnly', // JS-ből nem olvasható → XSS esetén sem lopható ki
+    'SameSite=Lax', // más oldalról indított kérésekhez nem megy el
   ];
   if (maxAge !== undefined) bits.push(`Max-Age=${maxAge}`);
   if (secure) bits.push('Secure');
@@ -180,4 +180,7 @@ export const USERNAME_RE = /^[a-z0-9._-]{3,24}$/;
 export const PASSWORD_MIN = 8;
 
 /** A felhasználónév normalizált alakja (a bejelentkezés kisbetű-érzéketlen). */
-export const normalizeUsername = (raw) => String(raw ?? '').trim().toLowerCase();
+export const normalizeUsername = (raw) =>
+  String(raw ?? '')
+    .trim()
+    .toLowerCase();

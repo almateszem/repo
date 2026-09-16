@@ -66,7 +66,10 @@ const KEYWORD_MAP = [
   [/guggol|squat/, { quads: 0.55, glutes: 0.25, core: 0.2 }],
   [/kitores|lunge|bolgar|split.?squat/, { quads: 0.45, glutes: 0.35, hamstrings: 0.1, core: 0.1 }],
   [/labtolas|leg.?press|lab.?nyomas/, { quads: 0.7, glutes: 0.3 }],
-  [/csipo.?tolas|hip.?thrust|far.?hid|glute.?bridge/, { glutes: 0.7, hamstrings: 0.25, core: 0.05 }],
+  [
+    /csipo.?tolas|hip.?thrust|far.?hid|glute.?bridge/,
+    { glutes: 0.7, hamstrings: 0.25, core: 0.05 },
+  ],
   [/comb.?hajlit|leg.?curl|labhajlit/, { hamstrings: 1 }],
   [/comb.?nyujt|leg.?extension|labnyujt/, { quads: 1 }],
   [/vadli|calf|labujjhegy/, { calves: 1 }],
@@ -86,7 +89,10 @@ const KEYWORD_MAP = [
   [/hiperextenzio|hyperextension|torok?emel/, { back: 0.4, hamstrings: 0.3, glutes: 0.3 }],
 
   // — Váll —
-  [/arnold|vallbol.?nyom|vall.?nyom|overhead.?press|katonai/, { shoulders: 0.65, arms: 0.25, core: 0.1 }],
+  [
+    /arnold|vallbol.?nyom|vall.?nyom|overhead.?press|katonai/,
+    { shoulders: 0.65, arms: 0.25, core: 0.1 },
+  ],
   [/oldalemel|lateral.?raise/, { shoulders: 1 }],
   [/hatso.?vall|rear.?delt|face.?pull/, { shoulders: 0.7, back: 0.3 }],
   [/elolemel|front.?raise/, { shoulders: 1 }],
@@ -108,11 +114,12 @@ const KEYWORD_MAP = [
     illesztéshez („Fekvenyomás" → „fekvenyomas"). Azért kell exportálni, mert
     a recovery.js is ezzel párosítja a fő emeléseket — így az ékezet nélkül
     beírt „guggolas" is felismerhető marad. */
-export const normalizeName = (name) => String(name ?? '')
-  .toLowerCase()
-  .normalize('NFD')
-  .replace(/[̀-ͯ]/g, '') // a szétbontott ékezet-jelek eldobása
-  .trim();
+export const normalizeName = (name) =>
+  String(name ?? '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '') // a szétbontott ékezet-jelek eldobása
+    .trim();
 
 /** A megadott súlyok megtisztítása: csak ismert izomkulcs, csak pozitív szám,
     és a végén 1-re normalizálva — így egy elgépelt katalógus-bejegyzés sem
@@ -197,8 +204,9 @@ export function resolveExerciseLoad(name, catalog = []) {
     idegrendszeri költséget, ezért a CNS-becslés külön kezeli őket. */
 export function isAxialLift(name) {
   const normalized = normalizeName(name);
-  return /guggol|squat|felhuz|deadlift|roman|rdl|fekvenyom|bench|vallbol.?nyom|overhead.?press|katonai/
-    .test(normalized);
+  return /guggol|squat|felhuz|deadlift|roman|rdl|fekvenyom|bench|vallbol.?nyom|overhead.?press|katonai/.test(
+    normalized,
+  );
 }
 
 /** Egy üres, minden izomcsoportot tartalmazó számláló-objektum ({ chest: 0, … }).

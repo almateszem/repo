@@ -27,9 +27,15 @@ function countControllerCalls() {
 }
 
 /** A modál-gyökerek és a közvetlenül utánuk következő két nyitó tag
-    (fátyol, kártya) az index.html-ből. */
-const MODAL_ROOT = /<div class="([\w-]+-modal)\b[^"]*" id="(\w+)" aria-hidden="true">\s*<div class="\1-backdrop"[^>]*><\/div>\s*<div ([^>]*)>/g;
-const roots = [...html.matchAll(MODAL_ROOT)].map(([, cls, id, cardAttrs]) => ({ cls, id, cardAttrs }));
+    (fátyol, kártya) az index.html-ből. Az attribútumok közt bármilyen
+    whitespace állhat: a Prettier a hosszú tageket több sorra tördeli. */
+const MODAL_ROOT =
+  /<div\s+class="([\w-]+-modal)\b[^"]*"\s+id="(\w+)"\s+aria-hidden="true"\s*>\s*<div\s+class="\1-backdrop"[^>]*><\/div>\s*<div\s([^>]*)>/g;
+const roots = [...html.matchAll(MODAL_ROOT)].map(([, cls, id, cardAttrs]) => ({
+  cls,
+  id,
+  cardAttrs,
+}));
 
 test('a gyorsbillentyű-őr a közös horgonyt használja, nem modál-listát', () => {
   assert.equal(constants.OPEN_MODAL_SELECTOR, '.is-open > [aria-modal="true"]');
@@ -46,7 +52,11 @@ test('minden modál-vezérlőhöz tartozik egy felismert gyökér az index.html-
 
 test('minden modál-gyökér közvetlen kártyája aria-modal párbeszédablak', () => {
   for (const { id, cls, cardAttrs } of roots) {
-    assert.match(cardAttrs, new RegExp(`class="${cls}-card"`), `#${id}: nem a kártya a fátyol utáni elem`);
+    assert.match(
+      cardAttrs,
+      new RegExp(`class="${cls}-card"`),
+      `#${id}: nem a kártya a fátyol utáni elem`,
+    );
     assert.match(cardAttrs, /role="(alert)?dialog"/, `#${id}: a kártyán nincs dialog szerep`);
     assert.match(cardAttrs, /aria-modal="true"/, `#${id}: a kártyán nincs aria-modal`);
   }

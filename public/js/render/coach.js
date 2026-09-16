@@ -21,11 +21,12 @@ function createCoachNote({ meta, text, me = false }) {
    ≥ 85, ezüst ≥ 70, alatta bronz) ebből jön — FIFA-kártya ihletésű megjelenés.
    A kártya azonosítója a KAPCSOLAT azonosítója: a sportoló belső id-jét a
    szerver nem is adja ki. */
-const athleteTier = (rating) => (rating >= 85
-  ? { key: 'gold', label: 'Arany szint' }
-  : rating >= 70
-    ? { key: 'silver', label: 'Ezüst szint' }
-    : { key: 'bronze', label: 'Bronz szint' });
+const athleteTier = (rating) =>
+  rating >= 85
+    ? { key: 'gold', label: 'Arany szint' }
+    : rating >= 70
+      ? { key: 'silver', label: 'Ezüst szint' }
+      : { key: 'bronze', label: 'Bronz szint' };
 
 /** Hiányzó érték helyén gondolatjel. A „még nincs adat" NEM nulla: terv
     nélkül nincs terv-követés, edzés nélkül nincs utolsó edzés. */
@@ -47,12 +48,17 @@ function renderAthleteCard(athlete, index) {
   card.classList.add(`co-tier--${tier.key}`);
   card.dataset.athlete = athlete.linkId;
   card.style.setProperty('--i', index);
-  card.setAttribute('aria-label', [
-    `${athlete.name} — ${rating} pont, ${tier.label}`,
-    athlete.alert ? 'figyelmet igényel' : null,
-    athlete.unread > 0 ? `${athlete.unread} olvasatlan üzenet` : null,
-    'részletek megnyitása',
-  ].filter(Boolean).join(' — '));
+  card.setAttribute(
+    'aria-label',
+    [
+      `${athlete.name} — ${rating} pont, ${tier.label}`,
+      athlete.alert ? 'figyelmet igényel' : null,
+      athlete.unread > 0 ? `${athlete.unread} olvasatlan üzenet` : null,
+      'részletek megnyitása',
+    ]
+      .filter(Boolean)
+      .join(' — '),
+  );
 
   const ratingEl = $('.co-card-rating', card);
   ratingEl.textContent = rating;
@@ -153,7 +159,9 @@ function renderPlanOffer(offer) {
     offer.from,
     `${offer.exercises.length} gyakorlat`,
     days.length ? days.join(', ') : null,
-  ].filter(Boolean).join(' · ');
+  ]
+    .filter(Boolean)
+    .join(' · ');
   info.append(nameEl, metaEl);
 
   // Az edző kísérő sora, ha írt ilyet — külön sorban, idézve
@@ -239,9 +247,17 @@ function renderCoachPanel({ athletes, invites }) {
 
   const sent = $('[data-list="sent-invites"]');
   sent.replaceChildren();
-  invites.forEach((invite) => sent.appendChild(renderInviteRow(invite, [
-    { label: 'Visszavonás', action: 'cancel-invite' },
-  ])));
+  invites.forEach((invite) =>
+    sent.appendChild(renderInviteRow(invite, [{ label: 'Visszavonás', action: 'cancel-invite' }])),
+  );
 }
 
-export { ATHLETE_CARD_STATS, athleteTier, createCoachNote, orDash, renderCoachPanel, renderInviteRow, renderPlanOffer };
+export {
+  ATHLETE_CARD_STATS,
+  athleteTier,
+  createCoachNote,
+  orDash,
+  renderCoachPanel,
+  renderInviteRow,
+  renderPlanOffer,
+};

@@ -15,8 +15,11 @@ function setupShortcuts() {
   document.addEventListener('keydown', (event) => {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     if (isModalOpen()) return;
-    if (event.target instanceof Element
-      && event.target.matches('input, textarea, select, [contenteditable]')) return;
+    if (
+      event.target instanceof Element &&
+      event.target.matches('input, textarea, select, [contenteditable]')
+    )
+      return;
     // A check-in varázslóban az 1–5 a VÁLASZ, nem oldalváltás: a skálák és a
     // testtérkép gombok (nem input-ok), így a fenti input-őr nem védi meg
     // őket. A számbillentyűket ott a varázsló saját kezelője dolgozza fel.

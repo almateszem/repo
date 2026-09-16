@@ -54,14 +54,18 @@ export function validateExercises(list, source) {
     seen.add(entry.name);
 
     if (!GROUPS.includes(entry.group)) {
-      throw new Error(`${where}: ismeretlen csoport („${entry.group}”). Engedett: ${GROUPS.join(', ')}`);
+      throw new Error(
+        `${where}: ismeretlen csoport („${entry.group}”). Engedett: ${GROUPS.join(', ')}`,
+      );
     }
     if (!entry.load || !Object.keys(entry.load).length) {
       throw new Error(`${where}: hiányzó load — a Recovery Engine nem tud vele mit kezdeni`);
     }
     for (const key of Object.keys(entry.load)) {
       if (!MUSCLE_KEYS.includes(key)) {
-        throw new Error(`${where}: ismeretlen izomkulcs („${key}”). Engedett: ${MUSCLE_KEYS.join(', ')}`);
+        throw new Error(
+          `${where}: ismeretlen izomkulcs („${key}”). Engedett: ${MUSCLE_KEYS.join(', ')}`,
+        );
       }
     }
     /* A naplózási mód elgépelése ugyanolyan csendes hiba volna, mint egy rossz
@@ -106,7 +110,10 @@ export function buildExerciseCatalog() {
       ...entry,
       loadSource: 'curated',
       ...(media && {
-        equipment: media.equipment, extId: media.extId, image: media.image, gif: media.gif,
+        equipment: media.equipment,
+        extId: media.extId,
+        image: media.image,
+        gif: media.gif,
       }),
     };
   });

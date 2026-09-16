@@ -40,8 +40,13 @@
  */
 
 import {
-  MUSCLE_GROUPS, MUSCLE_KEYS, TAU_BY_GROUP,
-  resolveExerciseLoad, isAxialLift, emptyMuscleMap, normalizeName,
+  MUSCLE_GROUPS,
+  MUSCLE_KEYS,
+  TAU_BY_GROUP,
+  resolveExerciseLoad,
+  isAxialLift,
+  emptyMuscleMap,
+  normalizeName,
 } from './muscles.js';
 
 /* ======================================================================
@@ -109,8 +114,8 @@ export const BASE_WEIGHTS = {
   sleep: 0.25,
   muscle: 0.15,
   energy: 0.15,
-  stress: 0.10,
-  mood: 0.10,
+  stress: 0.1,
+  mood: 0.1,
   load: 0.15,
   nutrition: 0.05,
 };
@@ -130,19 +135,19 @@ const COMPONENT_LABELS = {
    tartományba a napot. Ugyanaz a 40, mint a nagyon rossz közérzetnél. */
 const SUBJECTIVE_FLOOR = { maxEnergy: 2, minStress: 4, cap: 40 };
 
-const TAU_LOAD = 3.0;   // nap — az általános edzésterhelés csillapítása
-const TAU_CNS = 3.5;    // nap — az idegrendszer lassabban áll helyre
+const TAU_LOAD = 3.0; // nap — az általános edzésterhelés csillapítása
+const TAU_CNS = 3.5; // nap — az idegrendszer lassabban áll helyre
 
-const LOAD_WINDOW_DAYS = 14;    // ennyi nap terhelését összegezzük
+const LOAD_WINDOW_DAYS = 14; // ennyi nap terhelését összegezzük
 const CHRONIC_WINDOW_DAYS = 28; // ennyiből képezzük a személyes referenciát
-const MUSCLE_WINDOW_DAYS = 7;   // az izomkárosodás ennél régebbről már elhanyagolható
+const MUSCLE_WINDOW_DAYS = 7; // az izomkárosodás ennél régebbről már elhanyagolható
 
 /** Ennyi nap előzmény kell ahhoz, hogy a személyes referenciát használjuk az
     abszolút (testsúlyra skálázott) helyett. */
 const PERSONAL_REF_MIN_DAYS = 14;
 
-const FATIGUE_REF_MULT = 10;  // személyes referencia: napi átlagterhelés × ennyi
-const MUSCLE_REF_MULT = 1.5;  // ennyiszer tipikus szesszió visz egy csoportot nulláig
+const FATIGUE_REF_MULT = 10; // személyes referencia: napi átlagterhelés × ennyi
+const MUSCLE_REF_MULT = 1.5; // ennyiszer tipikus szesszió visz egy csoportot nulláig
 
 /** Referencia-testsúly, amihez az abszolút terhelés-referenciák skálázódnak. */
 const REF_BODY_WEIGHT = 80;
@@ -160,9 +165,15 @@ const ABS_CNS_REF = 18;
     setStimulus magyarázatát): mennyi egy tipikus, kemény edzés az adott
     izomcsoportra. A nagy izmok szessziónként több közvetlen szettet kapnak. */
 const ABS_GROUP_REF = {
-  chest: 5.0, back: 5.0, quads: 5.0,
-  shoulders: 4.2, hamstrings: 4.2, glutes: 4.2,
-  arms: 3.5, calves: 3.5, core: 3.5,
+  chest: 5.0,
+  back: 5.0,
+  quads: 5.0,
+  shoulders: 4.2,
+  hamstrings: 4.2,
+  glutes: 4.2,
+  arms: 3.5,
+  calves: 3.5,
+  core: 3.5,
 };
 
 /** A fő emelések: ezekre akkor is adunk becslést, ha csak egyszer szerepeltek.
@@ -251,8 +262,8 @@ export function epley1RM(reps, weight, rpe) {
  * valamint gyakorlatonként az alkalmak listája (dátum + becsült 1RM).
  */
 function summarizeWorkouts(workouts, todayKey, catalog) {
-  const byDay = new Map();      // daysAgo → { load, cns, muscles }
-  const exercises = new Map();  // név → { name, sessions: [{ daysAgo, best1RM, sets }] }
+  const byDay = new Map(); // daysAgo → { load, cns, muscles }
+  const exercises = new Map(); // név → { name, sessions: [{ daysAgo, best1RM, sets }] }
 
   const dayBucket = (ago) => {
     if (!byDay.has(ago)) byDay.set(ago, { load: 0, cns: 0, muscles: emptyMuscleMap() });
@@ -311,7 +322,9 @@ function summarizeWorkouts(workouts, todayKey, catalog) {
       if (doneSets > 0) {
         const key = exercise.name.trim();
         if (!exercises.has(key)) exercises.set(key, { name: key, sessions: [] });
-        exercises.get(key).sessions.push({ daysAgo: ago, best1RM, load: exerciseLoad, sets: doneSets });
+        exercises
+          .get(key)
+          .sessions.push({ daysAgo: ago, best1RM, load: exerciseLoad, sets: doneSets });
       }
     }
   }
@@ -395,7 +408,8 @@ const scaleDown = (value) => (value === null ? null : clamp01((5 - value) / 4));
 /** Van-e egyáltalán naplózott étel az adott napi összesítőben. A „nem
     naplóztam" NEM azonos a „nem ettem"-mel — üres naplóból nem következtetünk
     alultápláltságra. */
-const hasNutritionEntries = (totals) => Boolean(totals) && (num(totals.intake) > 0 || num(totals.protein) > 0);
+const hasNutritionEntries = (totals) =>
+  Boolean(totals) && (num(totals.intake) > 0 || num(totals.protein) > 0);
 
 /**
  * Táplálkozás / hidratáció. Az alultápláltságot büntetjük, a többletet nem:
@@ -434,7 +448,8 @@ function muscleReadiness({ byDay, checkin, hasHistory, hasAnyWorkout }) {
   for (const group of MUSCLE_KEYS) {
     const nonZero = [];
     for (const [ago, bucket] of byDay) {
-      if (ago <= CHRONIC_WINDOW_DAYS && bucket.muscles[group] > 0) nonZero.push(bucket.muscles[group]);
+      if (ago <= CHRONIC_WINDOW_DAYS && bucket.muscles[group] > 0)
+        nonZero.push(bucket.muscles[group]);
     }
     personalRef[group] = nonZero.length >= 2 ? mean(nonZero) : 0;
   }
@@ -446,9 +461,10 @@ function muscleReadiness({ byDay, checkin, hasHistory, hasAnyWorkout }) {
     // A szett-egység nem skálázódik testsúllyal (öt szett az öt szett) —
     // ellentétben a tonna-alapú fáradtság- és CNS-referenciákkal.
     const absoluteRef = ABS_GROUP_REF[group];
-    const base = hasHistory && personalRef[group] > 0
-      ? Math.max(personalRef[group], absoluteRef * 0.5)
-      : absoluteRef;
+    const base =
+      hasHistory && personalRef[group] > 0
+        ? Math.max(personalRef[group], absoluteRef * 0.5)
+        : absoluteRef;
     const modelled = 100 * (1 - clamp01(damage / (base * MUSCLE_REF_MULT)));
 
     /* Szubjektív izomláz (0–10) bekeverése, ha a check-inben megadta.
@@ -464,21 +480,15 @@ function muscleReadiness({ byDay, checkin, hasHistory, hasAnyWorkout }) {
        Ez nem elméleti eset: terhelés-előzmény nélkül a régi keverés a
        maximális izomlázat is csak 60%-ig engedte le. */
     const reportedSoreness = num(soreness[group]);
-    const subjective = reportedSoreness === null
-      ? null
-      : (1 - clamp01(reportedSoreness / 10)) * 100;
-    const readiness = subjective === null
-      ? modelled
-      : damage > 0
-        ? 0.6 * modelled + 0.4 * subjective
-        : subjective;
+    const subjective =
+      reportedSoreness === null ? null : (1 - clamp01(reportedSoreness / 10)) * 100;
+    const readiness =
+      subjective === null ? modelled : damage > 0 ? 0.6 * modelled + 0.4 * subjective : subjective;
 
     // Fájdalom-sapka: 7/10 felett a csoport nem edzhető normál intenzitással,
     // bármit is mond a terhelés-modell.
     const reportedPain = num(pain[group]);
-    const capped = reportedPain !== null && reportedPain >= 7
-      ? Math.min(readiness, 30)
-      : readiness;
+    const capped = reportedPain !== null && reportedPain >= 7 ? Math.min(readiness, 30) : readiness;
 
     // Mikor terhelted utoljára ezt a csoportot? (a felület ezt is kiírja)
     let lastLoadedDaysAgo = null;
@@ -502,7 +512,7 @@ function muscleReadiness({ byDay, checkin, hasHistory, hasAnyWorkout }) {
       known,
       soreness: reportedSoreness,
       pain: reportedPain,
-      source: reportedSoreness === null ? 'model' : (damage > 0 ? 'blend' : 'reported'),
+      source: reportedSoreness === null ? 'model' : damage > 0 ? 'blend' : 'reported',
       lastLoadedDaysAgo,
     };
   });
@@ -518,9 +528,7 @@ function cnsReadiness({ byDay, sleep, bodyWeight, hasHistory, hasAnyWorkout }) {
 
   const absoluteRef = ABS_CNS_REF * scale;
   const chronic = dailyAverage(byDay, CHRONIC_WINDOW_DAYS, (bucket) => bucket.cns);
-  const ref = hasHistory
-    ? Math.max(chronic * FATIGUE_REF_MULT, absoluteRef * 0.4)
-    : absoluteRef;
+  const ref = hasHistory ? Math.max(chronic * FATIGUE_REF_MULT, absoluteRef * 0.4) : absoluteRef;
 
   // A rossz alvás közvetlenül rontja az idegrendszeri állapotot — legfeljebb
   // 25%-ot vág le. Ha nincs alvásadat, nem szorzunk (nem találunk ki értéket).
@@ -542,13 +550,47 @@ function cnsReadiness({ byDay, sleep, bodyWeight, hasHistory, hasAnyWorkout }) {
     a szám csak az indoklás. */
 function recommend(readiness, { prWindow }) {
   if (readiness >= 90 && prWindow) {
-    return { verdict: 'pr', loadDelta: '+2.5–5 kg', volumeDelta: 'normál', text: '+2.5–5 kg is várhatóan teljesíthető' };
+    return {
+      verdict: 'pr',
+      loadDelta: '+2.5–5 kg',
+      volumeDelta: 'normál',
+      text: '+2.5–5 kg is várhatóan teljesíthető',
+    };
   }
-  if (readiness >= 90) return { verdict: 'strong', loadDelta: 'normál', volumeDelta: 'normál', text: 'nyugodtan mehet a nehezebb sorozat' };
-  if (readiness >= 80) return { verdict: 'normal', loadDelta: 'normál', volumeDelta: 'normál', text: 'normál intenzitás' };
-  if (readiness >= 70) return { verdict: 'trim', loadDelta: 'normál', volumeDelta: '−1 szett', text: 'normál súly, −1 szett' };
-  if (readiness >= 60) return { verdict: 'reduce', loadDelta: '−5–10%', volumeDelta: '−25%', text: 'csökkentett súly és volumen' };
-  return { verdict: 'skip', loadDelta: '−15%', volumeDelta: '−50%', text: 'technikai nap vagy hagyd ki' };
+  if (readiness >= 90)
+    return {
+      verdict: 'strong',
+      loadDelta: 'normál',
+      volumeDelta: 'normál',
+      text: 'nyugodtan mehet a nehezebb sorozat',
+    };
+  if (readiness >= 80)
+    return {
+      verdict: 'normal',
+      loadDelta: 'normál',
+      volumeDelta: 'normál',
+      text: 'normál intenzitás',
+    };
+  if (readiness >= 70)
+    return {
+      verdict: 'trim',
+      loadDelta: 'normál',
+      volumeDelta: '−1 szett',
+      text: 'normál súly, −1 szett',
+    };
+  if (readiness >= 60)
+    return {
+      verdict: 'reduce',
+      loadDelta: '−5–10%',
+      volumeDelta: '−25%',
+      text: 'csökkentett súly és volumen',
+    };
+  return {
+    verdict: 'skip',
+    loadDelta: '−15%',
+    volumeDelta: '−50%',
+    text: 'technikai nap vagy hagyd ki',
+  };
 }
 
 /**
@@ -568,9 +610,19 @@ function recommend(readiness, { prWindow }) {
  * tudunk, és a „nincs adat" nem lehet „tökéletes állapot". A `basis` mező
  * mindkét esetben kimondja, min alapul a szám.
  */
-function exerciseReadiness({ exercises, muscles, cns, catalog, declared = [], overall = null, ceiling = null }) {
+function exerciseReadiness({
+  exercises,
+  muscles,
+  cns,
+  catalog,
+  declared = [],
+  overall = null,
+  ceiling = null,
+}) {
   const byKey = Object.fromEntries(muscles.map((m) => [m.key, m.readiness]));
-  const painfulGroups = new Set(muscles.filter((m) => m.pain !== null && m.pain >= 7).map((m) => m.key));
+  const painfulGroups = new Set(
+    muscles.filter((m) => m.pain !== null && m.pain >= 7).map((m) => m.key),
+  );
 
   const logged = [...exercises.values()]
     .map((entry) => ({ ...entry, isMain: MAIN_LIFTS.includes(normalizeName(entry.name)) }))
@@ -581,12 +633,19 @@ function exerciseReadiness({ exercises, muscles, cns, catalog, declared = [], ov
   const loggedNames = new Set(logged.map((entry) => normalizeName(entry.name)));
   /* Összesített készenlét nélkül a bemondott gyakorlatról semmit nem tudnánk
      mondani — ilyenkor inkább nem mondunk semmit. */
-  const declaredOnly = overall === null ? [] : declared
-    .filter((entry) => !loggedNames.has(normalizeName(entry.name)))
-    .map((entry) => ({ name: entry.name, sessions: [], isMain: MAIN_LIFTS.includes(normalizeName(entry.name)) }));
+  const declaredOnly =
+    overall === null
+      ? []
+      : declared
+          .filter((entry) => !loggedNames.has(normalizeName(entry.name)))
+          .map((entry) => ({
+            name: entry.name,
+            sessions: [],
+            isMain: MAIN_LIFTS.includes(normalizeName(entry.name)),
+          }));
 
   const candidates = [...logged, ...declaredOnly]
-    .sort((a, b) => (Number(b.isMain) - Number(a.isMain)) || (b.sessions.length - a.sessions.length))
+    .sort((a, b) => Number(b.isMain) - Number(a.isMain) || b.sessions.length - a.sessions.length)
     .slice(0, MAX_EXERCISE_RECS);
 
   return candidates.map((entry) => {
@@ -612,7 +671,7 @@ function exerciseReadiness({ exercises, muscles, cns, catalog, declared = [], ov
       const gaps = sorted.slice(1).map((session, i) => session.daysAgo - sorted[i].daysAgo);
       const typicalGap = gaps.length ? clamp(median(gaps), 2, 7) : 3.5;
       const freshness = clamp01(sinceLast / typicalGap) * 100;
-      readiness = 0.45 * muscleScore + 0.30 * cns + 0.25 * freshness;
+      readiness = 0.45 * muscleScore + 0.3 * cns + 0.25 * freshness;
     } else {
       /* Bemondott gyakorlat: az izomcsoport-szintű regeneráció és a frissesség
          is hiányzik, ezért az ÖSSZESÍTETT készenlétet vesszük — az legalább a
@@ -635,7 +694,10 @@ function exerciseReadiness({ exercises, muscles, cns, catalog, declared = [], ov
 
     // PR-ablak csak akkor, ha a becsült 1RM az utolsó három alkalommal is
     // emelkedő trendet mutat — a jó közérzet önmagában nem elég indok.
-    const estimates = sorted.slice(0, 3).map((session) => session.best1RM).filter((v) => v !== null);
+    const estimates = sorted
+      .slice(0, 3)
+      .map((session) => session.best1RM)
+      .filter((v) => v !== null);
     const prWindow = estimates.length >= 3 && estimates[0] > estimates[estimates.length - 1];
 
     const rounded = Math.round(clamp(readiness, 0, 100));
@@ -650,7 +712,12 @@ function exerciseReadiness({ exercises, muscles, cns, catalog, declared = [], ov
       basis: hasSessions ? 'logged' : 'declared',
       painBlocked: hitsPainful,
       ...(hitsPainful
-        ? { verdict: 'avoid', loadDelta: '—', volumeDelta: '—', text: 'kerüld ma — fájdalmat jeleztél' }
+        ? {
+            verdict: 'avoid',
+            loadDelta: '—',
+            volumeDelta: '—',
+            text: 'kerüld ma — fájdalmat jeleztél',
+          }
         : recommend(rounded, { prWindow })),
     };
   });
@@ -702,7 +769,12 @@ const QUICK_FIELDS = [
  *                                       ({ name, max1rm }) — ezekből is lesz ajánlás
  */
 export function computeReadiness({
-  checkins = [], workouts = [], nutrition = null, weightLog = [], catalog = [], today,
+  checkins = [],
+  workouts = [],
+  nutrition = null,
+  weightLog = [],
+  catalog = [],
+  today,
   declaredMaxes = [],
 }) {
   const todayKey = dayKey(today);
@@ -727,22 +799,27 @@ export function computeReadiness({
      tegnapi bevitel mellé — ezért adott egy friss fióknak egyetlen rögzített
      korty rögtön alacsony pontszámot a „még nincs mire alapozni" helyett. */
   const useYesterdayNutrition = hasNutritionEntries(nutrition?.yesterday);
-  const nutritionSource = useYesterdayNutrition ? nutrition.yesterday
-    : hasNutritionEntries(nutrition?.today) ? nutrition.today : null;
-  const nutritionHydration = useYesterdayNutrition || nutritionSource === null
-    ? (yesterdayCheckin ? yesterdayCheckin.hydration : null)
-    : (checkin ? checkin.hydration : null);
+  const nutritionSource = useYesterdayNutrition
+    ? nutrition.yesterday
+    : hasNutritionEntries(nutrition?.today)
+      ? nutrition.today
+      : null;
+  const nutritionHydration =
+    useYesterdayNutrition || nutritionSource === null
+      ? yesterdayCheckin
+        ? yesterdayCheckin.hydration
+        : null
+      : checkin
+        ? checkin.hydration
+        : null;
 
   // — Testsúly (a terhelés-referenciák skálázásához)
-  const latestWeight = [...weightLog]
-    .sort((a, b) => dayKey(b.date) - dayKey(a.date))[0];
+  const latestWeight = [...weightLog].sort((a, b) => dayKey(b.date) - dayKey(a.date))[0];
   const bodyWeight = num(latestWeight?.kg) ?? REF_BODY_WEIGHT;
 
   // — Edzésadatok
   const { byDay, exercises } = summarizeWorkouts(workouts, todayKey, catalog);
-  const historyDays = byDay.size
-    ? Math.max(...[...byDay.keys()]) + 1
-    : 0;
+  const historyDays = byDay.size ? Math.max(...[...byDay.keys()]) + 1 : 0;
   const hasHistory = historyDays >= PERSONAL_REF_MIN_DAYS;
 
   // — Izomcsoportok
@@ -770,12 +847,13 @@ export function computeReadiness({
      a tudatlanság tökéletes állapotnak látszott. */
   const knownMuscles = muscles.filter((m) => m.known);
   const muscleValues = knownMuscles.map((m) => m.readiness / 100);
-  const muscleComponent = muscleValues.length === 0
-    ? null
-    : (() => {
-      const muscleAvg = mean(muscleValues);
-      return clamp01(muscleAvg - 0.5 * (muscleAvg - Math.min(...muscleValues)));
-    })();
+  const muscleComponent =
+    muscleValues.length === 0
+      ? null
+      : (() => {
+          const muscleAvg = mean(muscleValues);
+          return clamp01(muscleAvg - 0.5 * (muscleAvg - Math.min(...muscleValues)));
+        })();
 
   // Edzésterhelés-regeneráció
   const fatigue = decayedSum(byDay, TAU_LOAD, LOAD_WINDOW_DAYS, (bucket) => bucket.load);
@@ -841,9 +919,17 @@ export function computeReadiness({
     const energy = checkin?.energy ?? null;
     const stress = checkin?.stress ?? null;
     // Mindkét jel KELL: a hiányzó mezőből nem következtetünk rossz állapotra.
-    if (energy !== null && stress !== null && energy <= maxEnergy && stress >= minStress && overall > cap) {
+    if (
+      energy !== null &&
+      stress !== null &&
+      energy <= maxEnergy &&
+      stress >= minStress &&
+      overall > cap
+    ) {
       overall = cap;
-      caps.push(`Alacsony energia és magas stressz — a készenlét ${cap}%-ra korlátozva, bármennyire pihent az izom.`);
+      caps.push(
+        `Alacsony energia és magas stressz — a készenlét ${cap}%-ra korlátozva, bármennyire pihent az izom.`,
+      );
     }
   }
 
@@ -851,10 +937,11 @@ export function computeReadiness({
      vissza. Két gyökeresen más nap (pihent izom + szörnyű közérzet, ill.
      fáradt izom + remek közérzet) adhatja ugyanazt a számot. Egyenlőségnél a
      nagyobb súlyú nyer — az mozdítja jobban a pontszámot. */
-  const limiting = components
-    .filter((component) => component.present)
-    .sort((a, b) => (a.score - b.score) || (BASE_WEIGHTS[b.key] - BASE_WEIGHTS[a.key]))
-    .map(({ key, label, score }) => ({ key, label, score }))[0] ?? null;
+  const limiting =
+    components
+      .filter((component) => component.present)
+      .sort((a, b) => a.score - b.score || BASE_WEIGHTS[b.key] - BASE_WEIGHTS[a.key])
+      .map(({ key, label, score }) => ({ key, label, score }))[0] ?? null;
 
   // — Megbízhatóság: mennyire van mire alapozni
   const checkinCount = normalized.filter((entry) => entry.daysAgo < CHRONIC_WINDOW_DAYS).length;
@@ -871,7 +958,8 @@ export function computeReadiness({
     confidenceNote = 'Kevés edzés-előzmény — a terhelés-becslés általános referenciával fut.';
   } else {
     confidence = 'low';
-    confidenceNote = 'Nincs mai check-in — a pontszám csak az edzésnaplóra és a táplálkozásra épül.';
+    confidenceNote =
+      'Nincs mai check-in — a pontszám csak az edzésnaplóra és a táplálkozásra épül.';
   }
 
   const missing = checkin
@@ -888,8 +976,12 @@ export function computeReadiness({
     muscles,
     cns: { readiness: cns.readiness },
     exercises: exerciseReadiness({
-      exercises, muscles, cns: cns.readiness ?? 100, catalog,
-      declared: declaredMaxes, overall,
+      exercises,
+      muscles,
+      cns: cns.readiness ?? 100,
+      catalog,
+      declared: declaredMaxes,
+      overall,
       // A sapka az egész napot írja felül — a gyakorlatokét is.
       ceiling: caps.length > 0 ? overall : null,
     }),
@@ -898,16 +990,18 @@ export function computeReadiness({
     // Az áttekintő „Regeneráció" kártyájának három sora — a mérésekből
     // képzett szöveg, nem demo-adat.
     recovery: {
-      sleep: checkin?.sleepHours !== null && checkin?.sleepHours !== undefined
-        ? `${checkin.sleepHours} óra`
-        : '—',
+      sleep:
+        checkin?.sleepHours !== null && checkin?.sleepHours !== undefined
+          ? `${checkin.sleepHours} óra`
+          : '—',
       fatigue: describe(loadComponent, ['Nagyon magas', 'Magas', 'Közepes', 'Alacsony']),
       /* Az izom-komponens null, ha se edzés-előzmény, se jelzett izomláz nincs.
          Ha viszont van mai check-in, a felhasználó ott nyilatkozott: nem jelzett
          izomlázat — ez „Nincs", nem ismeretlen. */
-      soreness: muscleComponent === null && checkin
-        ? 'Nincs'
-        : describe(muscleComponent, ['Erős', 'Közepes', 'Enyhe', 'Nincs']),
+      soreness:
+        muscleComponent === null && checkin
+          ? 'Nincs'
+          : describe(muscleComponent, ['Erős', 'Közepes', 'Enyhe', 'Nincs']),
     },
     meta: { historyDays, checkinCount, bodyWeight },
   };

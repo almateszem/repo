@@ -9,8 +9,24 @@ import { showToast } from '../core/toast.js';
 import { navigate } from '../nav/router.js';
 import { renderDashboard } from '../render/dashboard.js';
 import { renderPrs } from '../render/prs.js';
-import { clampRpeInput, enableExtraMenu, enableIntensitySelect, enableOrderSelect, enableSetTypeSelect, handleAddSetClick, handleRemoveSetClick, handleStepClick, readSetRow, refreshExerciseList } from '../render/sets.js';
-import { WORKOUT_START_KEY, markWorkoutStarted, setLastSummary, summarizeWorkout } from '../render/summary.js';
+import {
+  clampRpeInput,
+  enableExtraMenu,
+  enableIntensitySelect,
+  enableOrderSelect,
+  enableSetTypeSelect,
+  handleAddSetClick,
+  handleRemoveSetClick,
+  handleStepClick,
+  readSetRow,
+  refreshExerciseList,
+} from '../render/sets.js';
+import {
+  WORKOUT_START_KEY,
+  markWorkoutStarted,
+  setLastSummary,
+  summarizeWorkout,
+} from '../render/summary.js';
 import { historyEntryEl, syncHistoryEmpty, workoutHistoryEntry } from '../render/workout.js';
 import { createDraftAutosave } from './workout/autosave.js';
 import { createPrIndicators } from './workout/pr-indicator.js';
@@ -23,7 +39,9 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
   const list = $('[data-list="exercises"]', page);
 
   /** Az üres állapot csak addig látszik, amíg nincs gyakorlat a naplóban. */
-  const syncEmpty = () => { $('[data-workout-empty]').hidden = list.children.length > 0; };
+  const syncEmpty = () => {
+    $('[data-workout-empty]').hidden = list.children.length > 0;
+  };
 
   // Az új szettek alapértékei (ha egy gyakorlatnak még nincs szettje)
   const defaultSet = await api.getDefaultSet();
@@ -35,7 +53,11 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
   // A napló kártyái: kapcsolható PR-jelvény, „+ Szett" gomb és sorszám-
   // választó (a sorrend átrendezéséhez — lásd enableOrderSelect)
   const exerciseOptions = {
-    prToggle: true, withAddSet: true, reorder: true, supersets: true, removable: true,
+    prToggle: true,
+    withAddSet: true,
+    reorder: true,
+    supersets: true,
+    removable: true,
   };
 
   /* A szerkesztett edzés azonossága EGY objektumban.
@@ -49,7 +71,6 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
      Azért objektum és nem három `let`: a betöltő modul (workout/loading.js)
      is írja, importált kötésre pedig nem lehet értéket adni. */
   const editing = { planId: null, workoutId: null, date: '' };
-
 
   const editingBar = $('[data-editing-workout]');
   const editingText = $('[data-editing-text]', editingBar);
@@ -78,13 +99,14 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
       szerver ebből tudja, idő- vagy ismétlés-alapú sorként normalizálja-e a
       gyakorlatot. Enélkül egy futópad-sor mentéskor visszaesne szettre, és az
       ideje elveszne. */
-  const readCurrentWorkout = () => $$('.wk-exercise', page).map((card) => ({
-    name: $('.wk-exercise-name', card).textContent.trim(),
-    pr: $('.wk-pr', card).getAttribute('aria-pressed') === 'true',
-    superset: $('.wk-superset-link', card).getAttribute('aria-pressed') === 'true',
-    ...(card.dataset.logMode === 'duration' && { logMode: 'duration' }),
-    sets: $$('.wk-set-list .wk-set-row', card).map(readSetRow),
-  }));
+  const readCurrentWorkout = () =>
+    $$('.wk-exercise', page).map((card) => ({
+      name: $('.wk-exercise-name', card).textContent.trim(),
+      pr: $('.wk-pr', card).getAttribute('aria-pressed') === 'true',
+      superset: $('.wk-superset-link', card).getAttribute('aria-pressed') === 'true',
+      ...(card.dataset.logMode === 'duration' && { logMode: 'duration' }),
+      sets: $$('.wk-set-list .wk-set-row', card).map(readSetRow),
+    }));
 
   /** A piszkozat-végpont törzse a DOM aktuális állapotából. Egy helyen áll,
       mert a debounce-olt mentés és a lapelrejtéskori keepalive-kérés
@@ -132,14 +154,19 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
      A sablon, a javításra visszanyitott edzés és a terv ugyanabba a
      szerkesztőbe érkezik; a közös út a workout/loading.js-ben áll. */
   const loader = createContentLoader({
-    page, list, titleInput, titleError, exerciseOptions, editing,
-    syncEmpty, syncEditingState,
+    page,
+    list,
+    titleInput,
+    titleError,
+    exerciseOptions,
+    editing,
+    syncEmpty,
+    syncEditingState,
     refreshPrIndicators: refreshAllPrIndicators,
-    autosave, confirmAction,
+    autosave,
+    confirmAction,
   });
   const { applyTemplate, reopenWorkout, loadPlan } = loader;
-
-
 
   // Az induló tartalom a szervertől: aznapi piszkozat, vagy — új napon —
   // a mai hétnapra ütemezett terv. Ha nincs egyik sem, a napló üres, és az
@@ -155,8 +182,9 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
      nem írjuk felül a félkész edzést — csak jelezzük, mi a teendő. Enélkül
      a napokon át nyitva hagyott app a tegnapi edzést mutatta tovább. */
   onDayChange(async () => {
-    const hasProgress = $$('.wk-set-check', page)
-      .some((check) => check.getAttribute('aria-pressed') === 'true');
+    const hasProgress = $$('.wk-set-check', page).some(
+      (check) => check.getAttribute('aria-pressed') === 'true',
+    );
     if (hasProgress) {
       showToast('Új nap kezdődött — zárd le az edzést, hogy a mai terv betölthesse magát');
       return;
@@ -189,8 +217,9 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
       az üres listát is elfogadja, a napló pedig az üres állapotra vált. */
   const removeExercise = async (card) => {
     const name = $('.wk-exercise-name', card).textContent.trim();
-    const doneSets = $$('.wk-set-check', card)
-      .filter((check) => check.getAttribute('aria-pressed') === 'true').length;
+    const doneSets = $$('.wk-set-check', card).filter(
+      (check) => check.getAttribute('aria-pressed') === 'true',
+    ).length;
     if (doneSets > 0) {
       const ok = await confirmAction(
         `A(z) „${name}” gyakorlaton ${doneSets} teljesített szett van. Az eltávolítással ezek elvesznek.`,
@@ -357,7 +386,9 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
       a legfrissebb edzés. */
   const finishEdit = async () => {
     const updated = await api.updateWorkout(
-      editing.workoutId, titleInput.value.trim(), readCurrentWorkout(),
+      editing.workoutId,
+      titleInput.value.trim(),
+      readCurrentWorkout(),
     );
     const row = $(`[data-list="history"] [data-workout-id="${updated.id}"]`);
     row?.replaceWith(historyEntryEl(workoutHistoryEntry(updated)));
@@ -394,7 +425,11 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
 
       // Az összegző értékeit még a kiürítés előtt rögzítjük
       const summary = summarizeWorkout();
-      const saved = await api.saveWorkout(titleInput.value.trim(), readCurrentWorkout(), editing.planId);
+      const saved = await api.saveWorkout(
+        titleInput.value.trim(),
+        readCurrentWorkout(),
+        editing.planId,
+      );
 
       // A függő automatikus mentés leállítása (különben visszaírná a most
       // törölt piszkozatot) és a napló kiürítése — programozott változás,
@@ -428,7 +463,6 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
       finishBtn.disabled = false;
     }
   });
-
 
   /* A „Korábbi edzések" sorainak műveletei. Delegálva, a táplálkozás-napló
      mintájára: a lista teljesen újrarajzolódik, egyedi kezelők nem élnék túl. */
@@ -491,7 +525,6 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
     showToast('Szerkesztés megszakítva — az edzés változatlan');
   });
 
-
   return { loadPlan };
 }
 
@@ -513,19 +546,37 @@ function setupThumb(img, entry) {
   if (!img || !entry.image) return;
   img.src = `/exercises/${entry.image}`;
   img.hidden = false;
-  img.addEventListener('error', () => { img.hidden = true; }, { once: true });
+  img.addEventListener(
+    'error',
+    () => {
+      img.hidden = true;
+    },
+    { once: true },
+  );
   if (!entry.gif) return;
 
   const still = img.src;
   const animated = `/exercises/${entry.gif}`;
   let preloaded = false;
   const play = () => {
-    if (preloaded) { img.src = animated; return; }
+    if (preloaded) {
+      img.src = animated;
+      return;
+    }
     const probe = new Image();
-    probe.addEventListener('load', () => { preloaded = true; img.src = animated; }, { once: true });
+    probe.addEventListener(
+      'load',
+      () => {
+        preloaded = true;
+        img.src = animated;
+      },
+      { once: true },
+    );
     probe.src = animated;
   };
-  const stop = () => { img.src = still; };
+  const stop = () => {
+    img.src = still;
+  };
 
   const card = img.closest('.ep-item');
   card.addEventListener('pointerenter', play);

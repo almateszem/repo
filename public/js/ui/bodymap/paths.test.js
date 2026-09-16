@@ -26,10 +26,14 @@ test('minden régiónak van rajza és felirat-helye a rajzterületen belül', ()
   for (const view of VIEWS) {
     for (const region of BODY_REGIONS[view]) {
       assert.match(region.d, /^M[\s\d]/, `${view}/${region.key}: üres vagy hibás path`);
-      assert.ok(region.labelX > 0 && region.labelX < BODY_VIEW_BOX.width,
-        `${view}/${region.key}: a felirat x-e kilóg`);
-      assert.ok(region.labelY > 0 && region.labelY < BODY_VIEW_BOX.height,
-        `${view}/${region.key}: a felirat y-a kilóg`);
+      assert.ok(
+        region.labelX > 0 && region.labelX < BODY_VIEW_BOX.width,
+        `${view}/${region.key}: a felirat x-e kilóg`,
+      );
+      assert.ok(
+        region.labelY > 0 && region.labelY < BODY_VIEW_BOX.height,
+        `${view}/${region.key}: a felirat y-a kilóg`,
+      );
     }
   }
 });
@@ -49,7 +53,11 @@ test('a tükrözött régiók a bal félen vannak megrajzolva', () => {
 /** Egy `d` attribútum összes x-koordinátája. A path-ok csak M/L/C/Z
     parancsokat használnak, és azok mind koordináta-PÁROKAT várnak — így a
     számsor páros indexei pontosan az x értékek. */
-const xsOf = (d) => d.match(/-?\d+(?:\.\d+)?/g).map(Number).filter((_, i) => i % 2 === 0);
+const xsOf = (d) =>
+  d
+    .match(/-?\d+(?:\.\d+)?/g)
+    .map(Number)
+    .filter((_, i) => i % 2 === 0);
 
 test('a tükrözött régiók RAJZA is a bal félen van, nem csak a feliratuk', () => {
   // A felirat helyét külön teszt őrzi. Ez a rajzot nézi: ha egy oldalsó
@@ -60,8 +68,10 @@ test('a tükrözött régiók RAJZA is a bal félen van, nem csak a feliratuk', 
   for (const view of VIEWS) {
     for (const region of BODY_REGIONS[view].filter((r) => r.mirrored)) {
       const maxX = Math.max(...xsOf(region.d));
-      assert.ok(maxX <= half,
-        `${view}/${region.key}: a rajz átlóg a középvonalon (max x = ${maxX})`);
+      assert.ok(
+        maxX <= half,
+        `${view}/${region.key}: a rajz átlóg a középvonalon (max x = ${maxX})`,
+      );
     }
   }
 });
@@ -71,15 +81,25 @@ test('a tükrözött régiók RAJZA is a bal félen van, nem csak a feliratuk', 
     kerül egymásra, az oldalsót NEM tükrözve pedig a figurának hiányzik a fél
     végtagja. Ezért itt ki van írva, nem a `paths.js`-ből olvassuk vissza. */
 const MIRRORING = {
-  shoulders: true, arms: true, quads: true, hamstrings: true, calves: true,
-  chest: false, core: false, back: false, glutes: false,
+  shoulders: true,
+  arms: true,
+  quads: true,
+  hamstrings: true,
+  calves: true,
+  chest: false,
+  core: false,
+  back: false,
+  glutes: false,
 };
 
 test('minden izomcsoport a hozzá tartozó tükrözési móddal szerepel', () => {
   for (const view of VIEWS) {
     for (const region of BODY_REGIONS[view]) {
-      assert.equal(region.mirrored, MIRRORING[region.key],
-        `${view}/${region.key}: rossz tükrözési mód`);
+      assert.equal(
+        region.mirrored,
+        MIRRORING[region.key],
+        `${view}/${region.key}: rossz tükrözési mód`,
+      );
     }
   }
 });
@@ -92,8 +112,10 @@ test('a nem tükrözött régiók átérnek a középvonalon', () => {
   for (const view of VIEWS) {
     for (const region of BODY_REGIONS[view].filter((r) => !r.mirrored)) {
       const xs = xsOf(region.d);
-      assert.ok(Math.min(...xs) < half && Math.max(...xs) > half,
-        `${view}/${region.key}: a középen ülő régió nem éri át a középvonalat`);
+      assert.ok(
+        Math.min(...xs) < half && Math.max(...xs) > half,
+        `${view}/${region.key}: a középen ülő régió nem éri át a középvonalat`,
+      );
     }
   }
 });

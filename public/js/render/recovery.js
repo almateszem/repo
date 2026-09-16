@@ -6,9 +6,15 @@ import { $, $$, cloneTemplate } from '../core/dom.js';
     MUSCLE_GROUPS-ával azonos sorrendben (server/muscles.js). A check-in
     izomláz- és fájdalom-mezői ebből épülnek. */
 const MUSCLE_GROUPS = [
-  ['chest', 'Mell'], ['back', 'Hát'], ['shoulders', 'Váll'], ['arms', 'Karok'],
-  ['quads', 'Quadriceps'], ['hamstrings', 'Hamstring'], ['glutes', 'Farizom'],
-  ['calves', 'Vádli'], ['core', 'Törzs'],
+  ['chest', 'Mell'],
+  ['back', 'Hát'],
+  ['shoulders', 'Váll'],
+  ['arms', 'Karok'],
+  ['quads', 'Quadriceps'],
+  ['hamstrings', 'Hamstring'],
+  ['glutes', 'Farizom'],
+  ['calves', 'Vádli'],
+  ['core', 'Törzs'],
 ];
 
 /** A gyors check-in 1–5-ös skálái:
@@ -74,7 +80,10 @@ const readScale = (scaleEl) => {
 /** Egy chip-skála beállítása (null → semmi sincs kiválasztva). */
 const writeScale = (scaleEl, value) => {
   $$('.rc-chip', scaleEl).forEach((chip) => {
-    chip.setAttribute('aria-pressed', String(value !== null && value !== undefined && Number(chip.dataset.value) === Number(value)));
+    chip.setAttribute(
+      'aria-pressed',
+      String(value !== null && value !== undefined && Number(chip.dataset.value) === Number(value)),
+    );
   });
 };
 
@@ -90,8 +99,8 @@ function fillBar(barEl, value, label) {
    check-in, se naplózott edzés). Ezt sem 0-nak, sem 100-nak nem szabad
    mutatni — előbbi „pihenj ma"-t, utóbbi „tökéletes állapot"-ot állítana
    ott, ahol semmit nem tudunk. (server/recovery.js) */
-const NO_READINESS_TEXT = 'Még nincs elég adat a készenléthez — töltsd ki a napi check-int, '
-  + 'vagy naplózz egy edzést.';
+const NO_READINESS_TEXT =
+  'Még nincs elég adat a készenléthez — töltsd ki a napi check-int, ' + 'vagy naplózz egy edzést.';
 
 const hasReadiness = (value) => value !== null && value !== undefined;
 
@@ -106,18 +115,21 @@ function renderRecovery(report) {
   const ring = $('[data-rc-ring]');
   ring.style.setProperty('--readiness', known ? overall : 0);
   ring.dataset.tone = known ? readinessTone(overall) : 'none';
-  ring.setAttribute('aria-label', known ? `${overall} pont készenlét` : 'Készenlét: nincs elég adat');
+  ring.setAttribute(
+    'aria-label',
+    known ? `${overall} pont készenlét` : 'Készenlét: nincs elég adat',
+  );
   $('.rc-score-num').textContent = known ? String(overall) : '—';
 
   $('[data-rc-verdict]').textContent = !known
     ? NO_READINESS_TEXT
     : overall >= 85
-    ? 'Készen állsz — ma mehet a nehezebb edzés.'
-    : overall >= 70
-      ? 'Rendben vagy — tartsd a tervezett terhelést.'
-      : overall >= 55
-        ? 'Fáradt vagy — érdemes visszavenni a volumenből.'
-        : 'A tested pihenést kér — ma inkább könnyű nap.';
+      ? 'Készen állsz — ma mehet a nehezebb edzés.'
+      : overall >= 70
+        ? 'Rendben vagy — tartsd a tervezett terhelést.'
+        : overall >= 55
+          ? 'Fáradt vagy — érdemes visszavenni a volumenből.'
+          : 'A tested pihenést kér — ma inkább könnyű nap.';
 
   /* Mi húz vissza: csak ha a nap NEM „készen állsz" — ott nincs mit indokolni.
      A szám a komponens saját 0–100-as pontszáma, nem a hozzájárulása.
@@ -127,7 +139,9 @@ function renderRecovery(report) {
   const limiter = $('[data-rc-limiter]');
   const limiting = report.limiting;
   limiter.hidden = !known || overall >= 85 || !limiting || report.caps.length > 0;
-  limiter.textContent = limiter.hidden ? '' : `Leginkább visszahúz: ${limiting.label} (${limiting.score})`;
+  limiter.textContent = limiter.hidden
+    ? ''
+    : `Leginkább visszahúz: ${limiting.label} (${limiting.score})`;
 
   // — Megbízhatóság —
   const badge = $('[data-rc-confidence-badge]');
@@ -154,7 +168,9 @@ function renderRecovery(report) {
     row.style.setProperty('--i', index);
     row.classList.toggle('rc-component--absent', !component.present);
     $('.rc-component-label', row).textContent = component.label;
-    $('.rc-component-weight', row).textContent = component.present ? `${component.weight}%` : 'nincs adat';
+    $('.rc-component-weight', row).textContent = component.present
+      ? `${component.weight}%`
+      : 'nincs adat';
     $('.rc-component-value', row).textContent = component.present ? `${component.score}` : '—';
     fillBar($('.rc-bar', row), component.present ? component.score : 0, component.label);
     components.appendChild(row);
@@ -190,7 +206,11 @@ function renderRecovery(report) {
     const meta = [];
     if (muscle.known === false) meta.push('még nincs adat');
     if (muscle.lastLoadedDaysAgo !== null) {
-      meta.push(muscle.lastLoadedDaysAgo === 0 ? 'ma terhelted' : `${muscle.lastLoadedDaysAgo} napja terhelted`);
+      meta.push(
+        muscle.lastLoadedDaysAgo === 0
+          ? 'ma terhelted'
+          : `${muscle.lastLoadedDaysAgo} napja terhelted`,
+      );
     }
     if (muscle.soreness !== null) meta.push(`izomláz ${muscle.soreness}/10`);
     if (muscle.pain !== null && muscle.pain > 0) meta.push(`fájdalom ${muscle.pain}/10`);
@@ -215,7 +235,8 @@ function renderRecovery(report) {
     const basisEl = $('[data-lift-basis]', item);
     basisEl.hidden = lift.basis !== 'declared';
     if (!basisEl.hidden) {
-      basisEl.textContent = 'A bemondott erőfelmérésed alapján — a mai összesített készenlétedre mérve.';
+      basisEl.textContent =
+        'A bemondott erőfelmérésed alapján — a mai összesített készenlétedre mérve.';
     }
 
     $('[data-lift-load]', item).textContent = lift.loadDelta;
@@ -229,4 +250,15 @@ function renderRecovery(report) {
    7. Interakciók
    ====================================================================== */
 
-export { CHECKIN_SCALES, CONFIDENCE_LABELS, MOOD_SCALE, MUSCLE_GROUPS, buildScale, hasReadiness, readScale, readinessTone, renderRecovery, writeScale };
+export {
+  CHECKIN_SCALES,
+  CONFIDENCE_LABELS,
+  MOOD_SCALE,
+  MUSCLE_GROUPS,
+  buildScale,
+  hasReadiness,
+  readScale,
+  readinessTone,
+  renderRecovery,
+  writeScale,
+};

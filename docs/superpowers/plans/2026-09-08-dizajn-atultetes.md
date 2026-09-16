@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - **Ág:** `dizajn-atultetes`. Nem mergeljük, amíg a záró task le nem futott.
-- **Nyelv:** minden kód-komment, commit-üzenet és felhasználói szöveg **magyar**, a repó meglévő stílusában. A kommentek a *miértet* magyarázzák, nem a mit.
+- **Nyelv:** minden kód-komment, commit-üzenet és felhasználói szöveg **magyar**, a repó meglévő stílusában. A kommentek a _miértet_ magyarázzák, nem a mit.
 - **Nincs build-lépés.** Semmilyen új futásidejű függőség nem kerül be; a `package.json` `dependencies` blokkja változatlan marad.
 - **Tokenek, nem literálok.** Új CSS-szabály nem tartalmazhat nyers színértéket — kizárólag `var(--…)`. Az egyetlen hely, ahol szín-literál születik, a `:root` blokk.
 - **Érintési minimum:** `--tap-min: 44px`. Minden új interaktív elem eléri, kivéve a testtérkép régióit — ott a térkép alatti érték-sorok az egyenértékű út (ez a kivétel már ma is dokumentálva van a `style.css`-ben, tartsuk meg a kommentet).
@@ -41,6 +41,7 @@
   Új kódot a **környező stílushoz** igazítva írj: ugyanaz a behúzás,
   ugyanaz az idézőjel-használat, ugyanaz a sorhossz, mint a szomszéd
   sorokban.
+
 - **Nem érintett fájl nem változhat.** Ha egy task diffje olyan fájlt is
   módosít, amit a task „Files" blokkja nem sorol fel, az hiba — akkor is, ha
   csak formázás.
@@ -54,22 +55,22 @@
 
 **Új fájlok**
 
-| Fájl | Felelősség |
-|---|---|
-| `public/js/ui/bodymap/paths.js` | Tiszta adat: a sziluett és a 9 izomcsoport SVG-geometriája nézetenként. Nincs benne DOM. |
+| Fájl                                 | Felelősség                                                                                    |
+| ------------------------------------ | --------------------------------------------------------------------------------------------- |
+| `public/js/ui/bodymap/paths.js`      | Tiszta adat: a sziluett és a 9 izomcsoport SVG-geometriája nézetenként. Nincs benne DOM.      |
 | `public/js/ui/bodymap/paths.test.js` | A geometria ellenőrzése: minden izomcsoport elérhető, a koordináták a viewBoxon belül vannak. |
-| `public/js/ui/bodymap/index.js` | A komponens: SVG kirajzolás, húzás, billentyűzet, nézetváltó, érték-sorok. |
+| `public/js/ui/bodymap/index.js`      | A komponens: SVG kirajzolás, húzás, billentyűzet, nézetváltó, érték-sorok.                    |
 
 **Jelentősen módosuló fájlok**
 
-| Fájl | Mi történik vele |
-|---|---|
-| `public/style.css` | Új 2c. szakasz (primitívek) és 29. szakasz (testtérkép); a tokenek hangolása; oldalanként a kártyás szabályok hajszálvonalasra cserélése. |
-| `public/index.html` | A Regeneráció oldal izomláz/fájdalom-blokkja térképre cserélve; a `tpl-ci-map` sablon egyszerűsítve; oldalanként a kártya-burkolók elhagyása. |
-| `public/js/ui/checkin/steps/map.js` | Vékony burkoló lesz a közös komponens fölött. |
-| `public/js/ui/checkin/constants.js` | `CI_BODY_REGIONS` törlődik; `CI_MAP_MODES.soreness` a 10-es skálára áll. |
-| `public/js/ui/recovery.js` | A 9+9 skála helyett két testtérkép. |
-| `server/server.js`, `server/recovery.js`, `server/db.js` | Az izomláz-skála 5 → 10. |
+| Fájl                                                     | Mi történik vele                                                                                                                              |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `public/style.css`                                       | Új 2c. szakasz (primitívek) és 29. szakasz (testtérkép); a tokenek hangolása; oldalanként a kártyás szabályok hajszálvonalasra cserélése.     |
+| `public/index.html`                                      | A Regeneráció oldal izomláz/fájdalom-blokkja térképre cserélve; a `tpl-ci-map` sablon egyszerűsítve; oldalanként a kártya-burkolók elhagyása. |
+| `public/js/ui/checkin/steps/map.js`                      | Vékony burkoló lesz a közös komponens fölött.                                                                                                 |
+| `public/js/ui/checkin/constants.js`                      | `CI_BODY_REGIONS` törlődik; `CI_MAP_MODES.soreness` a 10-es skálára áll.                                                                      |
+| `public/js/ui/recovery.js`                               | A 9+9 skála helyett két testtérkép.                                                                                                           |
+| `server/server.js`, `server/recovery.js`, `server/db.js` | Az izomláz-skála 5 → 10.                                                                                                                      |
 
 ---
 
@@ -78,9 +79,11 @@
 ### Task 1: Tokenek a prototípus palettájára
 
 **Files:**
+
 - Modify: `public/style.css:33-206` (az 1. szakasz `:root` blokkja)
 
 **Interfaces:**
+
 - Produces: `--surface-panel`, `--hair`, `--hair-soft` CSS-tokenek; minden sugár-token `0px` értéken (kivéve `--r-full`). Minden későbbi task ezekre hivatkozik.
 
 - [x] **Step 1: A paletta-tokenek átírása**
@@ -88,9 +91,9 @@
 A `:root` blokkban cseréld le ezeket az értékeket. A prototípus papírja melegebb és világosabb a mostaninál, a panel pedig sötétebb a lapnál — ez a kettő adja a dizájn alap-rétegződését.
 
 ```css
-  --c-bg: #17181b;
-  --c-bg-deep: #0a0a0b;
-  --c-bg-raised: #1e1f23;
+--c-bg: #17181b;
+--c-bg-deep: #0a0a0b;
+--c-bg-raised: #1e1f23;
 ```
 
 - [x] **Step 2: A hajszálvonal- és panel-tokenek felvétele**
@@ -98,14 +101,14 @@ A `:root` blokkban cseréld le ezeket az értékeket. A prototípus papírja mel
 A `--c-superset` sor után szúrd be. A `--hair` a prototípus `hair`-je (.18), a `--hair-soft` a `hairSoft`-ja (.11) — ezekből él a teljes rács:
 
 ```css
-  /* A dizájn két elválasztó-szintje. A rácsokat NEM border adja, hanem a
+/* A dizájn két elválasztó-szintje. A rácsokat NEM border adja, hanem a
      szülő háttere, amit 1px-es gap enged át (lásd 2c. szakasz): így a
      vonalak sosem duplázódnak két szomszédos elem között. */
-  --hair: rgba(255, 255, 255, .18);
-  --hair-soft: rgba(255, 255, 255, .11);
+--hair: rgba(255, 255, 255, 0.18);
+--hair-soft: rgba(255, 255, 255, 0.11);
 
-  /* A lapnál sötétebb felület: oldalsáv, CTA-sáv, modál-lap. */
-  --surface-panel: #0a0a0b;
+/* A lapnál sötétebb felület: oldalsáv, CTA-sáv, modál-lap. */
+--surface-panel: #0a0a0b;
 ```
 
 - [x] **Step 3: A szemantikus aliasok a hajszálvonalakhoz igazítása**
@@ -113,8 +116,8 @@ A `--c-superset` sor után szúrd be. A `--hair` a prototípus `hair`-je (.18), 
 Cseréld le a meglévő sorokat:
 
 ```css
-  --surface-soft: var(--hair-soft);
-  --border-card: var(--hair);
+--surface-soft: var(--hair-soft);
+--border-card: var(--hair);
 ```
 
 `--surface-card`, `--surface-input`, `--surface-hover`, `--surface-strong` és `--border-strong` **változatlan** marad: azok nem elválasztók, hanem beviteli és hover-felületek.
@@ -124,18 +127,18 @@ Cseréld le a meglévő sorokat:
 Cseréld le a teljes „Lekerekítés" blokkot. A tokenek megmaradnak, hogy ne kelljen 8484 sorban `border-radius`-t vadászni, és hogy a döntés egy helyen visszafordítható legyen:
 
 ```css
-  /* A dizájn szögletes: a formát a hajszálvonalak adják, nem a sarkok. A
+/* A dizájn szögletes: a formát a hajszálvonalak adják, nem a sarkok. A
      tokenek szándékosan megmaradnak 0-n — így egy helyen visszafordítható a
      döntés, és az új szabályoknak sem kell tudniuk, hogy épp nulla. */
-  --r-2xs: 0;
-  --r-xs: 0;
-  --r-sm: 0;
-  --r-md: 0;
-  --r-lg: 0;
-  --r-xl: 0;
-  --r-2xl: 0;
-  --r-3xl: 0;
-  --r-full: 50%;
+--r-2xs: 0;
+--r-xs: 0;
+--r-sm: 0;
+--r-md: 0;
+--r-lg: 0;
+--r-xl: 0;
+--r-2xl: 0;
+--r-3xl: 0;
+--r-full: 50%;
 ```
 
 - [x] **Step 5: A `--text-faint` kommentjének pontosítása**
@@ -143,7 +146,7 @@ Cseréld le a teljes „Lekerekítés" blokkot. A tokenek megmaradnak, hogy ne k
 A `--text-faint` értéke **nem változik** (.55, WCAG-hangolt). Írd fölé, hogy miért nem vesszük át a prototípus .34-ét:
 
 ```css
-  /* A prototípus harmadlagos szintje (fehér .34) információt hordozó
+/* A prototípus harmadlagos szintje (fehér .34) információt hordozó
      szövegre nem elég — a 10–11px-es feliratokon 3:1 alá esne. Ezért a
      .34 csak dekoratív elemre megy (pl. a % jel egy nagy szám mellett),
      saját szabályban; címke ide sosem kerül. */
@@ -182,10 +185,12 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ### Task 2: A dizájn primitívei
 
 **Files:**
+
 - Modify: `public/style.css` (új 2c. szakasz a 2b. után, a `.rc-score-num { … }` szabályt lezáró blokk és a `3. Akadálymentességi segédosztályok` fejléc közé, a jelenlegi 372. sor környékén)
 - Modify: `public/style.css:1-31` (tartalomjegyzék)
 
 **Interfaces:**
+
 - Produces: `.ds-grid`, `.ds-section`, `.ds-eyebrow`, `.ds-display`, `.ds-row`, `.ds-row-main`, `.ds-row-name`, `.ds-row-sub`, `.ds-row-value`, `.ds-cta`, `.ds-cta-text`, `.ds-cta-sub`, `.ds-step`, `.ds-step-btn`, `.ds-seg`, `.ds-seg-btn` osztályok. Minden oldal-task ezeket használja.
 
 - [x] **Step 1: A tartalomjegyzék kiegészítése**
@@ -261,7 +266,7 @@ Szúrd be a 2b. szakasz után:
   font-size: var(--ds-display-size, var(--fs-5xl));
   font-weight: 800;
   line-height: 1;
-  letter-spacing: -.045em;
+  letter-spacing: -0.045em;
   font-variant-numeric: tabular-nums;
 }
 
@@ -294,7 +299,7 @@ Szúrd be a 2b. szakasz után:
 .ds-row-name {
   font-size: var(--fs-xl);
   font-weight: 700;
-  letter-spacing: -.01em;
+  letter-spacing: -0.01em;
 }
 
 .ds-row-sub {
@@ -311,7 +316,7 @@ Szúrd be a 2b. szakasz után:
   flex-shrink: 0;
   font-size: var(--fs-4xl);
   font-weight: 800;
-  letter-spacing: -.02em;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
 
@@ -336,15 +341,17 @@ Szúrd be a 2b. szakasz után:
   font-family: var(--font-base);
   font-size: var(--fs-base);
   font-weight: 800;
-  letter-spacing: .02em;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
   text-align: left;
   cursor: pointer;
-  transition: background var(--t-fast), opacity var(--t-fast);
+  transition:
+    background var(--t-fast),
+    opacity var(--t-fast);
 }
 
 .ds-cta:hover {
-  opacity: .9;
+  opacity: 0.9;
 }
 
 /* Széles nézetben a CTA nem a hüvelykujj alatti egyetlen művelet, hanem egy
@@ -382,7 +389,7 @@ Szúrd be a 2b. szakasz után:
   font-weight: 700;
   line-height: 1.2;
   letter-spacing: var(--ls-label-tight);
-  opacity: .72;
+  opacity: 0.72;
   max-width: 100%;
   overflow: hidden;
   white-space: nowrap;
@@ -445,10 +452,12 @@ Szúrd be a 2b. szakasz után:
   letter-spacing: var(--ls-label-tight);
   text-transform: uppercase;
   cursor: pointer;
-  transition: background var(--t-fast), color var(--t-fast);
+  transition:
+    background var(--t-fast),
+    color var(--t-fast);
 }
 
-.ds-seg-btn[aria-pressed="true"] {
+.ds-seg-btn[aria-pressed='true'] {
   background: var(--c-accent);
   color: var(--on-accent);
 }
@@ -487,6 +496,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ### Task 3: Az izomláz skálája 1–10
 
 **Files:**
+
 - Modify: `server/server.js:1389`
 - Modify: `server/recovery.js:452`
 - Modify: `server/db.js:270` (csak komment)
@@ -496,6 +506,7 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 - Test: `server/recovery.test.js`
 
 **Interfaces:**
+
 - Produces: az izomláz mindenhol 0–10 tartományú. A `CI_MAP_MODES.soreness.max === 10` és `.defaultValue === 5` — a testtérkép-komponens (Task 5) ezeket olvassa.
 
 - [x] **Step 1: Írd meg a bukó tesztet**
@@ -504,17 +515,21 @@ A `server/recovery.test.js` végére. Ez a teszt azt rögzíti, hogy a maximáli
 
 ```js
 test('a 10-es izomláz nullázza a szubjektív komponenst (1–10-es skála)', () => {
-  const report = buildReport(restedLogger({
-    checkins: [fullCheckin({ soreness: { chest: 10 } })],
-  }));
+  const report = buildReport(
+    restedLogger({
+      checkins: [fullCheckin({ soreness: { chest: 10 } })],
+    }),
+  );
   const chest = report.muscles.find((m) => m.key === 'chest');
   assert.equal(chest.readiness, 0);
 });
 
 test('a régi skála maximuma (5) már csak félúton van', () => {
-  const report = buildReport(restedLogger({
-    checkins: [fullCheckin({ soreness: { chest: 5 } })],
-  }));
+  const report = buildReport(
+    restedLogger({
+      checkins: [fullCheckin({ soreness: { chest: 5 } })],
+    }),
+  );
   const chest = report.muscles.find((m) => m.key === 'chest');
   assert.equal(chest.readiness, 50);
 });
@@ -539,15 +554,13 @@ Várt: FAIL. A 10-es érték a `clamp01(10 / 5)` miatt ugyanúgy 0-t ad, mint az
 ```
 
 ```js
-    const subjective = reportedSoreness === null
-      ? null
-      : (1 - clamp01(reportedSoreness / 10)) * 100;
+const subjective = reportedSoreness === null ? null : (1 - clamp01(reportedSoreness / 10)) * 100;
 ```
 
 `server/server.js:1389`:
 
 ```js
-  fields.soreness = normalizeMuscleMap(body.soreness, 10);
+fields.soreness = normalizeMuscleMap(body.soreness, 10);
 ```
 
 `server/db.js:270` — csak a séma-komment:
@@ -580,13 +593,13 @@ Várt: az új tesztek zöldek. Ha egy régi teszt bukik, mert `soreness: { quads
 `public/js/ui/recovery.js:62`:
 
 ```js
-    sorenessWrap.appendChild(buildScale({ name: `soreness.${key}`, label, min: 0, max: 10 }));
+sorenessWrap.appendChild(buildScale({ name: `soreness.${key}`, label, min: 0, max: 10 }));
 ```
 
 `public/js/render/recovery.js:185`:
 
 ```js
-    if (muscle.soreness !== null) meta.push(`izomláz ${muscle.soreness}/10`);
+if (muscle.soreness !== null) meta.push(`izomláz ${muscle.soreness}/10`);
 ```
 
 - [x] **Step 6: Az `index.html` súgószövege**
@@ -594,8 +607,10 @@ Várt: az új tesztek zöldek. Ha egy régi teszt bukik, mert `soreness: { quads
 A Regeneráció oldalon, a 936. sor környékén:
 
 ```html
-              <p class="rc-hint">Az izomcsoportonkénti izomláz (0 = semmi, 10 = nagyon erős) pontosítja
-                a csoportonkénti becslést. Amit kihagysz, annak a súlya újraoszlik.</p>
+<p class="rc-hint">
+  Az izomcsoportonkénti izomláz (0 = semmi, 10 = nagyon erős) pontosítja a csoportonkénti becslést.
+  Amit kihagysz, annak a súlya újraoszlik.
+</p>
 ```
 
 - [x] **Step 7: Teljes ellenőrzés**
@@ -628,11 +643,13 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ### Task 4: A testtérkép geometriája
 
 **Files:**
+
 - Create: `public/js/ui/bodymap/paths.js`
 - Create: `public/js/ui/bodymap/paths.test.js`
 - Modify: `package.json` (a `test` script glob-ja)
 
 **Interfaces:**
+
 - Produces:
   - `BODY_VIEW_BOX` — `{ width: 220, height: 460 }`
   - `BODY_HEAD` — `{ cx: 110, cy: 32, r: 21 }`
@@ -682,10 +699,14 @@ test('minden régiónak van rajza és felirat-helye a rajzterületen belül', ()
   for (const view of VIEWS) {
     for (const region of BODY_REGIONS[view]) {
       assert.match(region.d, /^M[\s\d]/, `${view}/${region.key}: üres vagy hibás path`);
-      assert.ok(region.labelX > 0 && region.labelX < BODY_VIEW_BOX.width,
-        `${view}/${region.key}: a felirat x-e kilóg`);
-      assert.ok(region.labelY > 0 && region.labelY < BODY_VIEW_BOX.height,
-        `${view}/${region.key}: a felirat y-a kilóg`);
+      assert.ok(
+        region.labelX > 0 && region.labelX < BODY_VIEW_BOX.width,
+        `${view}/${region.key}: a felirat x-e kilóg`,
+      );
+      assert.ok(
+        region.labelY > 0 && region.labelY < BODY_VIEW_BOX.height,
+        `${view}/${region.key}: a felirat y-a kilóg`,
+      );
     }
   }
 });
@@ -705,7 +726,11 @@ test('a tükrözött régiók a bal félen vannak megrajzolva', () => {
 /** Egy `d` attribútum összes x-koordinátája. A path-ok csak M/L/C/Z
     parancsokat használnak, és azok mind koordináta-PÁROKAT várnak — így a
     számsor páros indexei pontosan az x értékek. */
-const xsOf = (d) => d.match(/-?\d+(?:\.\d+)?/g).map(Number).filter((_, i) => i % 2 === 0);
+const xsOf = (d) =>
+  d
+    .match(/-?\d+(?:\.\d+)?/g)
+    .map(Number)
+    .filter((_, i) => i % 2 === 0);
 
 test('a tükrözött régiók RAJZA is a bal félen van, nem csak a feliratuk', () => {
   // A felirat helyét külön teszt őrzi. Ez a rajzot nézi: ha egy oldalsó
@@ -716,8 +741,10 @@ test('a tükrözött régiók RAJZA is a bal félen van, nem csak a feliratuk', 
   for (const view of VIEWS) {
     for (const region of BODY_REGIONS[view].filter((r) => r.mirrored)) {
       const maxX = Math.max(...xsOf(region.d));
-      assert.ok(maxX <= half,
-        `${view}/${region.key}: a rajz átlóg a középvonalon (max x = ${maxX})`);
+      assert.ok(
+        maxX <= half,
+        `${view}/${region.key}: a rajz átlóg a középvonalon (max x = ${maxX})`,
+      );
     }
   }
 });
@@ -727,15 +754,25 @@ test('a tükrözött régiók RAJZA is a bal félen van, nem csak a feliratuk', 
     kerül egymásra, az oldalsót NEM tükrözve pedig a figurának hiányzik a fél
     végtagja. Ezért itt ki van írva, nem a `paths.js`-ből olvassuk vissza. */
 const MIRRORING = {
-  shoulders: true, arms: true, quads: true, hamstrings: true, calves: true,
-  chest: false, core: false, back: false, glutes: false,
+  shoulders: true,
+  arms: true,
+  quads: true,
+  hamstrings: true,
+  calves: true,
+  chest: false,
+  core: false,
+  back: false,
+  glutes: false,
 };
 
 test('minden izomcsoport a hozzá tartozó tükrözési móddal szerepel', () => {
   for (const view of VIEWS) {
     for (const region of BODY_REGIONS[view]) {
-      assert.equal(region.mirrored, MIRRORING[region.key],
-        `${view}/${region.key}: rossz tükrözési mód`);
+      assert.equal(
+        region.mirrored,
+        MIRRORING[region.key],
+        `${view}/${region.key}: rossz tükrözési mód`,
+      );
     }
   }
 });
@@ -748,8 +785,10 @@ test('a nem tükrözött régiók átérnek a középvonalon', () => {
   for (const view of VIEWS) {
     for (const region of BODY_REGIONS[view].filter((r) => !r.mirrored)) {
       const xs = xsOf(region.d);
-      assert.ok(Math.min(...xs) < half && Math.max(...xs) > half,
-        `${view}/${region.key}: a középen ülő régió nem éri át a középvonalat`);
+      assert.ok(
+        Math.min(...xs) < half && Math.max(...xs) > half,
+        `${view}/${region.key}: a középen ülő régió nem éri át a középvonalat`,
+      );
     }
   }
 });
@@ -797,19 +836,22 @@ export const BODY_VIEW_BOX = { width: 220, height: 460 };
 export const BODY_HEAD = { cx: 110, cy: 32, r: 21 };
 
 /** Törzs + láb külső kontúrja, majd a kar kontúrja. Bal fél, nyitott. */
-const TORSO_LEFT = 'M 110 52 L 99 55 L 97 64 C 86 68 76 74 70 84 '
-  + 'C 66 92 65 100 68 106 L 78 100 C 80 116 79 132 82 148 '
-  + 'C 84 158 82 168 84 178 C 80 188 78 198 80 208 L 110 216';
+const TORSO_LEFT =
+  'M 110 52 L 99 55 L 97 64 C 86 68 76 74 70 84 ' +
+  'C 66 92 65 100 68 106 L 78 100 C 80 116 79 132 82 148 ' +
+  'C 84 158 82 168 84 178 C 80 188 78 198 80 208 L 110 216';
 
-const LEGS_LEFT = 'M 80 208 C 76 240 78 262 82 288 C 80 300 78 316 82 336 '
-  + 'C 85 356 88 372 90 392 L 86 404 L 104 406 L 102 392 '
-  + 'C 104 366 106 348 104 330 C 102 306 104 296 103 288 '
-  + 'C 106 260 108 236 110 216';
+const LEGS_LEFT =
+  'M 80 208 C 76 240 78 262 82 288 C 80 300 78 316 82 336 ' +
+  'C 85 356 88 372 90 392 L 86 404 L 104 406 L 102 392 ' +
+  'C 104 366 106 348 104 330 C 102 306 104 296 103 288 ' +
+  'C 106 260 108 236 110 216';
 
-const ARM_LEFT = 'M 70 84 C 60 92 55 106 53 122 C 51 140 50 156 49 172 '
-  + 'C 47 190 45 202 44 214 C 42 224 44 232 50 232 '
-  + 'C 56 230 58 222 57 212 C 59 196 61 182 63 170 '
-  + 'C 65 152 67 134 69 116 C 71 104 72 94 70 84';
+const ARM_LEFT =
+  'M 70 84 C 60 92 55 106 53 122 C 51 140 50 156 49 172 ' +
+  'C 47 190 45 202 44 214 C 42 224 44 232 50 232 ' +
+  'C 56 230 58 222 57 212 C 59 196 61 182 63 170 ' +
+  'C 65 152 67 134 69 116 C 71 104 72 94 70 84';
 
 const HALF_BODY = [TORSO_LEFT, LEGS_LEFT, ARM_LEFT];
 
@@ -819,61 +861,96 @@ export const BODY_SILHOUETTE = { front: HALF_BODY, back: HALF_BODY };
    hátulról is ugyanott van — nincs okunk kétszer megrajzolni. */
 
 const SHOULDER = {
-  key: 'shoulders', mirrored: true, labelX: 66, labelY: 96,
+  key: 'shoulders',
+  mirrored: true,
+  labelX: 66,
+  labelY: 96,
   d: 'M 68 78 C 60 84 56 96 58 108 C 66 112 74 108 77 100 C 76 90 73 82 68 78 Z',
 };
 
 const ARM = {
-  key: 'arms', mirrored: true, labelX: 55, labelY: 160,
-  d: 'M 56 112 C 50 128 49 152 48 172 C 47 190 45 204 45 214 '
-    + 'C 52 218 58 214 58 206 C 60 188 62 168 64 150 '
-    + 'C 66 134 68 122 68 114 C 64 110 59 110 56 112 Z',
+  key: 'arms',
+  mirrored: true,
+  labelX: 55,
+  labelY: 160,
+  d:
+    'M 56 112 C 50 128 49 152 48 172 C 47 190 45 204 45 214 ' +
+    'C 52 218 58 214 58 206 C 60 188 62 168 64 150 ' +
+    'C 66 134 68 122 68 114 C 64 110 59 110 56 112 Z',
 };
 
 const CALF = {
-  key: 'calves', mirrored: true, labelX: 92, labelY: 330,
-  d: 'M 82 300 C 78 318 79 340 84 360 C 90 364 97 362 100 356 '
-    + 'C 103 336 104 316 103 300 C 96 296 88 296 82 300 Z',
+  key: 'calves',
+  mirrored: true,
+  labelX: 92,
+  labelY: 330,
+  d:
+    'M 82 300 C 78 318 79 340 84 360 C 90 364 97 362 100 356 ' +
+    'C 103 336 104 316 103 300 C 96 296 88 296 82 300 Z',
 };
 
 export const BODY_REGIONS = {
   front: [
     SHOULDER,
     {
-      key: 'chest', mirrored: false, labelX: 110, labelY: 102,
-      d: 'M 86 84 C 96 78 124 78 134 84 C 137 98 134 112 128 118 '
-        + 'C 116 122 104 122 92 118 C 86 112 83 98 86 84 Z',
+      key: 'chest',
+      mirrored: false,
+      labelX: 110,
+      labelY: 102,
+      d:
+        'M 86 84 C 96 78 124 78 134 84 C 137 98 134 112 128 118 ' +
+        'C 116 122 104 122 92 118 C 86 112 83 98 86 84 Z',
     },
     ARM,
     {
-      key: 'core', mirrored: false, labelX: 110, labelY: 154,
-      d: 'M 92 122 C 104 118 116 118 128 122 C 130 140 128 164 124 186 '
-        + 'C 114 192 106 192 96 186 C 92 164 90 140 92 122 Z',
+      key: 'core',
+      mirrored: false,
+      labelX: 110,
+      labelY: 154,
+      d:
+        'M 92 122 C 104 118 116 118 128 122 C 130 140 128 164 124 186 ' +
+        'C 114 192 106 192 96 186 C 92 164 90 140 92 122 Z',
     },
     {
-      key: 'quads', mirrored: true, labelX: 92, labelY: 250,
-      d: 'M 82 214 C 76 240 77 264 82 288 C 90 292 98 290 101 284 '
-        + 'C 103 258 105 234 106 216 C 98 212 89 212 82 214 Z',
+      key: 'quads',
+      mirrored: true,
+      labelX: 92,
+      labelY: 250,
+      d:
+        'M 82 214 C 76 240 77 264 82 288 C 90 292 98 290 101 284 ' +
+        'C 103 258 105 234 106 216 C 98 212 89 212 82 214 Z',
     },
     CALF,
   ],
   back: [
     SHOULDER,
     {
-      key: 'back', mirrored: false, labelX: 110, labelY: 114,
-      d: 'M 84 82 C 96 76 124 76 136 82 C 139 104 136 130 130 148 '
-        + 'C 116 154 104 154 90 148 C 84 130 81 104 84 82 Z',
+      key: 'back',
+      mirrored: false,
+      labelX: 110,
+      labelY: 114,
+      d:
+        'M 84 82 C 96 76 124 76 136 82 C 139 104 136 130 130 148 ' +
+        'C 116 154 104 154 90 148 C 84 130 81 104 84 82 Z',
     },
     ARM,
     {
-      key: 'glutes', mirrored: false, labelX: 110, labelY: 178,
-      d: 'M 88 158 C 100 152 120 152 132 158 C 136 172 134 190 128 200 '
-        + 'C 116 206 104 206 92 200 C 86 190 84 172 88 158 Z',
+      key: 'glutes',
+      mirrored: false,
+      labelX: 110,
+      labelY: 178,
+      d:
+        'M 88 158 C 100 152 120 152 132 158 C 136 172 134 190 128 200 ' +
+        'C 116 206 104 206 92 200 C 86 190 84 172 88 158 Z',
     },
     {
-      key: 'hamstrings', mirrored: true, labelX: 93, labelY: 245,
-      d: 'M 84 206 C 78 232 79 258 84 284 C 92 288 99 286 102 280 '
-        + 'C 104 256 106 232 107 208 C 99 204 90 204 84 206 Z',
+      key: 'hamstrings',
+      mirrored: true,
+      labelX: 93,
+      labelY: 245,
+      d:
+        'M 84 206 C 78 232 79 258 84 284 C 92 288 99 286 102 280 ' +
+        'C 104 256 106 232 107 208 C 99 204 90 204 84 206 Z',
     },
     CALF,
   ],
@@ -940,12 +1017,15 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ### Task 5: A testtérkép-komponens
 
 **Files:**
+
 - Create: `public/js/ui/bodymap/index.js`
 - Modify: `public/style.css` (új 29. szakasz a fájl végén + tartalomjegyzék)
 
 **Interfaces:**
+
 - Consumes: `BODY_HEAD`, `BODY_REGIONS`, `BODY_SILHOUETTE`, `BODY_VIEW_BOX` a `./paths.js`-ből. **Semmi mást** — a komponens nem importál sem a `checkin/`, sem a `render/` alól.
 - Produces:
+
   ```js
   createBodyMap({ max, defaultValue, noun, values, muscleLabel,
                   blockFrom = null, extraRows = [], onChange })
@@ -1008,8 +1088,14 @@ const svgEl = (name, attrs = {}) => {
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
 function createBodyMap({
-  max, defaultValue, noun, values, muscleLabel,
-  blockFrom = null, extraRows = [], onChange,
+  max,
+  defaultValue,
+  noun,
+  values,
+  muscleLabel,
+  blockFrom = null,
+  extraRows = [],
+  onChange,
 }) {
   let view = 'front';
 
@@ -1021,7 +1107,10 @@ function createBodyMap({
   toggle.className = 'ds-seg bm-toggle';
   toggle.setAttribute('role', 'group');
   toggle.setAttribute('aria-label', 'Testnézet');
-  for (const [key, label] of [['front', 'Elöl'], ['back', 'Hátul']]) {
+  for (const [key, label] of [
+    ['front', 'Elöl'],
+    ['back', 'Hátul'],
+  ]) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'ds-seg-btn';
@@ -1047,9 +1136,12 @@ function createBodyMap({
     const on = value > 0;
     $$(`[data-region="${key}"]`, stage).forEach((node) => {
       node.setAttribute('aria-pressed', String(on));
-      node.setAttribute('aria-label', on
-        ? `${muscleLabel(key)} — ${noun} ${value} / ${max}`
-        : `${muscleLabel(key)} — nincs megjelölve`);
+      node.setAttribute(
+        'aria-label',
+        on
+          ? `${muscleLabel(key)} — ${noun} ${value} / ${max}`
+          : `${muscleLabel(key)} — nincs megjelölve`,
+      );
     });
     $$(`[data-region-label="${key}"]`, stage).forEach((node) => {
       node.textContent = on ? String(value) : '';
@@ -1086,7 +1178,11 @@ function createBodyMap({
       startValue = wasSelected ? values[key] : defaultValue;
       startY = event.clientY;
       moved = false;
-      try { node.setPointerCapture(pointerId); } catch { /* nem kritikus */ }
+      try {
+        node.setPointerCapture(pointerId);
+      } catch {
+        /* nem kritikus */
+      }
       setValue(key, startValue);
       event.preventDefault();
     });
@@ -1100,7 +1196,11 @@ function createBodyMap({
 
     const end = (event) => {
       if (event.pointerId !== pointerId) return;
-      try { node.releasePointerCapture(pointerId); } catch { /* már elengedve */ }
+      try {
+        node.releasePointerCapture(pointerId);
+      } catch {
+        /* már elengedve */
+      }
       pointerId = null;
       if (!moved && wasSelected) clearValue(key);
     };
@@ -1116,7 +1216,8 @@ function createBodyMap({
         setValue(key, current ? current + 1 : defaultValue);
       } else if (event.key === 'ArrowDown' || event.key === 'ArrowLeft') {
         event.preventDefault();
-        if (current <= 1) clearValue(key); else setValue(key, current - 1);
+        if (current <= 1) clearValue(key);
+        else setValue(key, current - 1);
       } else if (event.key === 'Delete' || event.key === 'Backspace') {
         event.preventDefault();
         clearValue(key);
@@ -1125,7 +1226,8 @@ function createBodyMap({
     node.addEventListener('click', (event) => {
       // Billentyűs aktiválás: a pointerdown-ág nem futott le.
       if (event.detail !== 0) return;
-      if (values[key] > 0) clearValue(key); else setValue(key, defaultValue);
+      if (values[key] > 0) clearValue(key);
+      else setValue(key, defaultValue);
     });
   }
 
@@ -1144,9 +1246,14 @@ function createBodyMap({
       for (const d of BODY_SILHOUETTE[view]) group.appendChild(svgEl('path', { d }));
       svg.appendChild(group);
     }
-    svg.appendChild(svgEl('circle', {
-      class: 'bm-silhouette-head', cx: BODY_HEAD.cx, cy: BODY_HEAD.cy, r: BODY_HEAD.r,
-    }));
+    svg.appendChild(
+      svgEl('circle', {
+        class: 'bm-silhouette-head',
+        cx: BODY_HEAD.cx,
+        cy: BODY_HEAD.cy,
+        r: BODY_HEAD.r,
+      }),
+    );
 
     // — Régiók. A tükörképek aria-hidden-ek: egy izomcsoport egy vezérlő. —
     const regions = BODY_REGIONS[view];
@@ -1193,48 +1300,52 @@ function createBodyMap({
 
   /** A térkép alatti pontos-érték sorok. Ezek a KANONIKUS vezérlők. */
   function renderRows() {
-    const marked = Object.keys(values).filter((key) => values[key] > 0
-      && !extraRows.some((row) => row.key === key));
+    const marked = Object.keys(values).filter(
+      (key) => values[key] > 0 && !extraRows.some((row) => row.key === key),
+    );
     const entries = [
       ...marked.map((key) => ({ key, label: muscleLabel(key), removable: true })),
       ...extraRows.map((row) => ({ ...row, removable: false })),
     ];
 
-    rows.replaceChildren(...entries.map(({ key, label, removable }) => {
-      const row = document.createElement('div');
-      row.className = 'bm-row';
+    rows.replaceChildren(
+      ...entries.map(({ key, label, removable }) => {
+        const row = document.createElement('div');
+        row.className = 'bm-row';
 
-      const name = document.createElement('span');
-      name.className = 'bm-row-name';
-      name.textContent = label;
-      row.appendChild(name);
+        const name = document.createElement('span');
+        name.className = 'bm-row-name';
+        name.textContent = label;
+        row.appendChild(name);
 
-      const chips = document.createElement('div');
-      chips.className = 'bm-chips';
-      chips.setAttribute('role', 'group');
-      chips.setAttribute('aria-label', `${label} — ${noun} értéke`);
-      for (let value = 1; value <= max; value += 1) {
-        const chip = document.createElement('button');
-        chip.type = 'button';
-        chip.className = 'bm-chip';
-        chip.textContent = String(value);
-        chip.setAttribute('aria-pressed', String(values[key] === value));
-        chip.setAttribute('aria-label', `${label} — ${noun} ${value}`);
-        chip.addEventListener('click', () => {
-          if (values[key] === value && removable) clearValue(key); else setValue(key, value);
-        });
-        chips.appendChild(chip);
-      }
-      row.appendChild(chips);
+        const chips = document.createElement('div');
+        chips.className = 'bm-chips';
+        chips.setAttribute('role', 'group');
+        chips.setAttribute('aria-label', `${label} — ${noun} értéke`);
+        for (let value = 1; value <= max; value += 1) {
+          const chip = document.createElement('button');
+          chip.type = 'button';
+          chip.className = 'bm-chip';
+          chip.textContent = String(value);
+          chip.setAttribute('aria-pressed', String(values[key] === value));
+          chip.setAttribute('aria-label', `${label} — ${noun} ${value}`);
+          chip.addEventListener('click', () => {
+            if (values[key] === value && removable) clearValue(key);
+            else setValue(key, value);
+          });
+          chips.appendChild(chip);
+        }
+        row.appendChild(chips);
 
-      if (blockFrom !== null && values[key] >= blockFrom) {
-        const warn = document.createElement('span');
-        warn.className = 'bm-row-warn';
-        warn.textContent = 'letiltva';
-        row.appendChild(warn);
-      }
-      return row;
-    }));
+        if (blockFrom !== null && values[key] >= blockFrom) {
+          const warn = document.createElement('span');
+          warn.className = 'bm-row-warn';
+          warn.textContent = 'letiltva';
+          row.appendChild(warn);
+        }
+        return row;
+      }),
+    );
   }
 
   function setView(next) {
@@ -1250,7 +1361,10 @@ function createBodyMap({
 
   return {
     el,
-    refresh() { renderStage(); renderRows(); },
+    refresh() {
+      renderStage();
+      renderRows();
+    },
   };
 }
 
@@ -1310,14 +1424,16 @@ A `style.css` végére, és a tartalomjegyzékbe is vedd fel (`29. Testtérkép 
   cursor: ns-resize;
   /* Enélkül a függőleges húzás görgetne, nem értéket állítana. */
   touch-action: none;
-  transition: fill var(--t-fast), stroke var(--t-fast);
+  transition:
+    fill var(--t-fast),
+    stroke var(--t-fast);
 }
 
 .bm-region:hover {
   fill: var(--surface-hover);
 }
 
-.bm-region[aria-pressed="true"] {
+.bm-region[aria-pressed='true'] {
   fill: var(--c-accent-dim);
   stroke: var(--c-accent-line);
 }
@@ -1367,14 +1483,16 @@ A `style.css` végére, és a tartalomjegyzékbe is vedd fel (`29. Testtérkép 
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
-  transition: background var(--t-fast), color var(--t-fast);
+  transition:
+    background var(--t-fast),
+    color var(--t-fast);
 }
 
 .bm-chip:hover {
   background: var(--surface-hover);
 }
 
-.bm-chip[aria-pressed="true"] {
+.bm-chip[aria-pressed='true'] {
   background: var(--c-accent);
   color: var(--on-accent);
 }
@@ -1430,12 +1548,14 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ### Task 6: A varázsló térkép-lépése átáll a komponensre
 
 **Files:**
+
 - Modify: `public/js/ui/checkin/steps/map.js` (a fájl nagy része törlődik)
 - Modify: `public/js/ui/checkin/constants.js` (`CI_BODY_REGIONS` és `CI_DRAG_PX_PER_STEP` törlése)
 - Modify: `public/index.html` (`tpl-ci-map` és `tpl-ci-value-row` sablonok)
 - Modify: `public/style.css` (a 25. szakasz `.ci-map`, `.ci-map-head`, `.ci-region`, `.ci-values`, `.ci-value-row` szabályai törlődnek)
 
 **Interfaces:**
+
 - Consumes: `createBodyMap` a `../../bodymap/index.js`-ből.
 - Produces: a `renderMap(stepName, nav)` szignatúra **változatlan** — a `wizard.js` nem tud a cseréről.
 
@@ -1444,22 +1564,22 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 `public/index.html`, a `tpl-ci-map` sablon. A nézetváltót, a térképet és az érték-sorokat mostantól a komponens építi, tehát csak a horgot hagyjuk:
 
 ```html
-  <!-- Testtérkép. A nézetváltót, az emberkét és az érték-sorokat a
+<!-- Testtérkép. A nézetváltót, az emberkét és az érték-sorokat a
        bodymap komponens építi be a [data-ci-map] konténerbe. -->
-  <template id="tpl-ci-map">
-    <div class="ci-step">
-      <div class="ci-head-block">
-        <p class="ci-eyebrow" data-ci-eyebrow></p>
-        <h2 class="ci-question" data-ci-title></h2>
-        <p class="ci-sub" data-ci-sub></p>
-      </div>
-      <div data-ci-map></div>
-      <p class="ci-legend" data-ci-legend></p>
-      <button class="ci-primary" type="button" data-action="checkin-next">
-        Tovább <span aria-hidden="true">→</span>
-      </button>
+<template id="tpl-ci-map">
+  <div class="ci-step">
+    <div class="ci-head-block">
+      <p class="ci-eyebrow" data-ci-eyebrow></p>
+      <h2 class="ci-question" data-ci-title></h2>
+      <p class="ci-sub" data-ci-sub></p>
     </div>
-  </template>
+    <div data-ci-map></div>
+    <p class="ci-legend" data-ci-legend></p>
+    <button class="ci-primary" type="button" data-action="checkin-next">
+      Tovább <span aria-hidden="true">→</span>
+    </button>
+  </div>
+</template>
 ```
 
 A `tpl-ci-value-row` sablont **töröld** — a komponens saját sorokat épít.
@@ -1493,7 +1613,9 @@ function renderMap(stepName, nav) {
     values: ci.answers[mode.field],
     muscleLabel: ciMuscleLabel,
     blockFrom: mode.field === 'pain' ? CI_PAIN_BLOCK : null,
-    onChange: () => { ci.dirty = true; },
+    onChange: () => {
+      ci.dirty = true;
+    },
   });
   $('[data-ci-map]', step).replaceWith(map.el);
 
@@ -1556,10 +1678,12 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ### Task 7: A Regeneráció oldal űrlapja is testtérképet kap
 
 **Files:**
+
 - Modify: `public/index.html:930-945` (a `checkin-soreness` és `checkin-pain` konténerek)
 - Modify: `public/js/ui/recovery.js:51-120` (a skála-építés és a `fillForm`/`readForm`)
 
 **Interfaces:**
+
 - Consumes: `createBodyMap` a `../bodymap/index.js`-ből.
 - Produces: a `PUT /api/checkin` törzse **változatlan** — `{ soreness: {…}, pain: {…} }`, benne a `pain.general` kulccsal.
 
@@ -1568,14 +1692,19 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 `public/index.html`, az `.rc-checkin-body` blokkban:
 
 ```html
-            <div class="rc-checkin-body">
-              <p class="rc-hint">Jelöld be az emberkén, hol van izomlázad (1 = alig érezhető,
-                10 = nagyon erős). Amit kihagysz, annak a súlya újraoszlik.</p>
-              <div data-map="checkin-soreness"></div>
+<div class="rc-checkin-body">
+  <p class="rc-hint">
+    Jelöld be az emberkén, hol van izomlázad (1 = alig érezhető, 10 = nagyon erős). Amit kihagysz,
+    annak a súlya újraoszlik.
+  </p>
+  <div data-map="checkin-soreness"></div>
 
-              <p class="rc-hint">Fájdalom vagy sérülés (1–10). A 7-es vagy nagyobb érték letiltja az
-                érintett izomcsoportot terhelő gyakorlatokat.</p>
-              <div data-map="checkin-pain"></div>
+  <p class="rc-hint">
+    Fájdalom vagy sérülés (1–10). A 7-es vagy nagyobb érték letiltja az érintett izomcsoportot
+    terhelő gyakorlatokat.
+  </p>
+  <div data-map="checkin-pain"></div>
+</div>
 ```
 
 - [x] **Step 2: A modul átírása**
@@ -1583,27 +1712,31 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 `public/js/ui/recovery.js`. A `sorenessWrap` / `painWrap` skála-építés helyére két térkép. A `values` objektumokat a modul tartja, és a `fillForm`/`readForm` ezeket írja-olvassa:
 
 ```js
-  // A két testtérkép élő értéktárai. A komponens ezeket módosítja helyben,
-  // a fillForm kicseréli a tartalmukat, a readForm pedig beolvassa —
-  // ugyanaz az objektum végig, hogy a komponensnek ne kelljen újraépülnie.
-  const sorenessValues = {};
-  const painValues = {};
+// A két testtérkép élő értéktárai. A komponens ezeket módosítja helyben,
+// a fillForm kicseréli a tartalmukat, a readForm pedig beolvassa —
+// ugyanaz az objektum végig, hogy a komponensnek ne kelljen újraépülnie.
+const sorenessValues = {};
+const painValues = {};
 
-  const sorenessMap = createBodyMap({
-    max: 10, defaultValue: 5, noun: 'izomláz',
-    values: sorenessValues,
-    muscleLabel: ciMuscleLabel,
-  });
-  $('[data-map="checkin-soreness"]', page).replaceWith(sorenessMap.el);
+const sorenessMap = createBodyMap({
+  max: 10,
+  defaultValue: 5,
+  noun: 'izomláz',
+  values: sorenessValues,
+  muscleLabel: ciMuscleLabel,
+});
+$('[data-map="checkin-soreness"]', page).replaceWith(sorenessMap.el);
 
-  const painMap = createBodyMap({
-    max: 10, defaultValue: 5, noun: 'fájdalom',
-    values: painValues,
-    muscleLabel: ciMuscleLabel,
-    blockFrom: CI_PAIN_BLOCK,
-    extraRows: [{ key: 'general', label: 'Általános fájdalom' }],
-  });
-  $('[data-map="checkin-pain"]', page).replaceWith(painMap.el);
+const painMap = createBodyMap({
+  max: 10,
+  defaultValue: 5,
+  noun: 'fájdalom',
+  values: painValues,
+  muscleLabel: ciMuscleLabel,
+  blockFrom: CI_PAIN_BLOCK,
+  extraRows: [{ key: 'general', label: 'Általános fájdalom' }],
+});
+$('[data-map="checkin-pain"]', page).replaceWith(painMap.el);
 ```
 
 Az importok a fájl tetején: `createBodyMap` a `./bodymap/index.js`-ből,
@@ -1613,22 +1746,22 @@ Az importok a fájl tetején: `createBodyMap` a `./bodymap/index.js`-ből,
 A `fillForm`-ban a `MUSCLE_GROUPS.forEach(…)` soreness/pain ága és a `pain.general` sora helyére:
 
 ```js
-    // A térképek értéktárait helyben cseréljük, nem újat adunk: a komponens
-    // az eredeti objektumra tart hivatkozást.
-    for (const store of [sorenessValues, painValues]) {
-      for (const key of Object.keys(store)) delete store[key];
-    }
-    Object.assign(sorenessValues, checkin?.soreness ?? {});
-    Object.assign(painValues, checkin?.pain ?? {});
-    sorenessMap.refresh();
-    painMap.refresh();
+// A térképek értéktárait helyben cseréljük, nem újat adunk: a komponens
+// az eredeti objektumra tart hivatkozást.
+for (const store of [sorenessValues, painValues]) {
+  for (const key of Object.keys(store)) delete store[key];
+}
+Object.assign(sorenessValues, checkin?.soreness ?? {});
+Object.assign(painValues, checkin?.pain ?? {});
+sorenessMap.refresh();
+painMap.refresh();
 ```
 
 A `readForm`-ban a megfelelő ág:
 
 ```js
-    body.soreness = { ...sorenessValues };
-    body.pain = { ...painValues };
+body.soreness = { ...sorenessValues };
+body.pain = { ...painValues };
 ```
 
 A `MUSCLE_GROUPS` import és a `scaleFor('pain.general')` hívás elhal — töröld őket, ha semmi más nem használja (`grep -n "MUSCLE_GROUPS" public/js/ui/recovery.js`).
@@ -1681,13 +1814,14 @@ Minden oldal-task azonos szerkezetű, ezért a receptet itt írom le egyszer. **
 6. Nézd meg **keskeny (≤1024px) és széles (≥1280px)** nézetben is.
 7. Commit — a commit-üzenet mondja el, mit veszít és mit nyer az oldal.
 
-**Az egyetlen szabály, ami alól van kivétel:** a kártya nem mindig dísz. Ahol egy blokk *teendő*, nem adat (mint az Áttekintés check-in emlékeztetője, amit az `51df3c5` szándékosan kerettel hagyott), ott a keret marad. Ez egyedi döntés minden előfordulásnál, nem szabály — és a commit-üzenetben mondd ki, ha éltél vele.
+**Az egyetlen szabály, ami alól van kivétel:** a kártya nem mindig dísz. Ahol egy blokk _teendő_, nem adat (mint az Áttekintés check-in emlékeztetője, amit az `51df3c5` szándékosan kerettel hagyott), ott a keret marad. Ez egyedi döntés minden előfordulásnál, nem szabály — és a commit-üzenetben mondd ki, ha éltél vele.
 
 ---
 
 ### Task 8: Áttekintés
 
 **Files:**
+
 - Modify: `public/style.css` (6. szakasz, `db-*`)
 - Modify: `public/index.html:153-289`
 
@@ -1718,6 +1852,7 @@ Az `51df3c5` már kártya nélkülire építette. Itt csak annyi a dolog, hogy n
 ### Task 9: Regeneráció oldal
 
 **Files:**
+
 - Modify: `public/style.css` (22. szakasz, `rc-*`)
 - Modify: `public/index.html:860-1060`
 
@@ -1734,6 +1869,7 @@ Az `51df3c5` már kártya nélkülire építette. Itt csak annyi a dolog, hogy n
 ### Task 10: A check-in varázsló többi lépése
 
 **Files:**
+
 - Modify: `public/style.css` (25. szakasz, `ci-*`)
 - Modify: `public/index.html:1940-2135` (a `tpl-ci-*` sablonok)
 
@@ -1752,6 +1888,7 @@ Az `51df3c5` már kártya nélkülire építette. Itt csak annyi a dolog, hogy n
 ### Task 11: Edzés
 
 **Files:**
+
 - Modify: `public/style.css` (7. szakasz, `wk-*`)
 - Modify: `public/index.html:397-480`
 
@@ -1768,6 +1905,7 @@ Az `51df3c5` már kártya nélkülire építette. Itt csak annyi a dolog, hogy n
 ### Task 12: Táplálkozás
 
 **Files:**
+
 - Modify: `public/style.css` (8. szakasz `nu-*`, 24. szakasz `fd-*`, 28. szakasz `cf-*` / `sc-*`)
 - Modify: `public/index.html:544-669`
 - Modify: `public/js/ui/nutrition.js` (csak a haladássáv kitöltése)
@@ -1797,6 +1935,7 @@ az adat már ott van.
 ### Task 13: Tervek + terv-szerkesztő + gyakorlat-választó
 
 **Files:**
+
 - Modify: `public/style.css` (9. szakasz `pl-*`, 22. szakasz `pb-*`, 23. szakasz `ep-*`)
 - Modify: `public/index.html:481-543`, `public/index.html:670-688`
 
@@ -1816,9 +1955,9 @@ felületet ír le, ami nincs a repóban:
   a 2. lépés átkerül a terv-építőhöz.
 
 - [x] **Step 1:** Tervek: a terv-kártyák `.ds-row`-ra állnak, jobb oldalt a
-  meglévő három művelettel (szerkesztés / törlés / megnyitás).
+      meglévő három művelettel (szerkesztés / törlés / megnyitás).
 - [x] **Step 2:** A terv-építő hétnap-sora (`.pb-days-chips`) `.ds-grid`-be
-  kerül.
+      kerül.
 - [x] **Step 3:** Terv-szerkesztő: flow-oldal felépítés — `.ds-eyebrow` + nagy cím + `.ds-row` lista + alul `.ds-cta`.
 - [x] **Step 4:** Gyakorlat-választó: kereső mező hajszálvonalas kerettel, a találati lista `.ds-row`-kkal.
 - [x] **Step 5:** `npm run lint && npm run format -- public && npm test`
@@ -1830,6 +1969,7 @@ felületet ír le, ami nincs a repóban:
 ### Task 14: Edző
 
 **Files:**
+
 - Modify: `public/style.css` (10. szakasz és 20. szakasz, `co-*`)
 - Modify: `public/index.html:689-782`
 
@@ -1847,12 +1987,13 @@ felületet ír le, ami nincs a repóban:
 ### Task 15: Edzés-összegző és Profil
 
 **Files:**
+
 - Modify: `public/style.css` (21. szakasz `su-*`, 27. szakasz `pf-*`, 18. szakasz analitika)
 - Modify: `public/index.html:290-396`, `public/index.html:783-859`
 
 - [x] **Step 1:** Összegző: a volumen a hero-szám, alatta `.ds-row` statisztikák.
 - [x] **Step 2:** Profil: az adatsorok `.ds-row`-ra; a testmérés és a PR-lista `.ds-section`-be.
-**Tervjavítás — a 3. lépés tárgytalan.** Két okból:
+      **Tervjavítás — a 3. lépés tárgytalan.** Két okból:
 
 1. **A diagramnak nincsenek vonalai.** A `.chart` komponens (5. szakasz) nem
    SVG és nem rácsos: az oszlopok `background: var(--fg-85)`, a tengely
@@ -1876,6 +2017,7 @@ felületet ír le, ami nincs a repóban:
 ### Task 16: Belépő képernyő
 
 **Files:**
+
 - Modify: `public/style.css` (26. szakasz, `au-*`)
 - Modify: `public/index.html:40-90`
 
@@ -1892,6 +2034,7 @@ felületet ír le, ami nincs a repóban:
 ### Task 17: Modálok és toast
 
 **Files:**
+
 - Modify: `public/style.css` (13., 13b., 14., 17., 19., 24., 28. szakasz)
 
 - [x] **Step 1:** Közös modál-alap: `background: var(--surface-panel)`, 0 sugár, `--shadow-modal` marad, a fejléc alatt `1px solid var(--hair)`.
@@ -1907,6 +2050,7 @@ felületet ír le, ami nincs a repóban:
 ### Task 18: Nav gyűrű és oldalsáv
 
 **Files:**
+
 - Modify: `public/style.css` (11. szakasz `nav-*`, 12. szakasz `side-nav-*`)
 
 - [x] **Step 1:** Nav gyűrű: a `panel` háttér a `--surface-panel`-re áll, az irány-címkék mono nagybetűsek `.16em` ritkítással, az aktív irány accent színű. A korong marad kör (`--r-full`).
@@ -1920,11 +2064,13 @@ felületet ír le, ami nincs a repóban:
 ### Task 19: A világos téma tokenszintű előkészítése
 
 **Files:**
+
 - Modify: `public/style.css:33-206`
 
 Ez **nem** a világos téma megvalósítása — csak az, hogy a szerkezet készen álljon rá.
 
 **Interfaces:**
+
 - Produces: `[data-theme="light"]` szelektor a `:root` mellett, üres törzzsel és a kitöltendő tokenek listájával kommentben.
 
 - [x] **Step 1:** A `:root` blokk után:
@@ -1969,7 +2115,7 @@ grep -nE '#[0-9a-fA-F]{3,8}|rgba?\(' public/style.css | grep -v '^\s*[0-9]*:\s*-
 ```
 
 **Csak azokat a szabályokat nézd, amiket ez a terv írt vagy módosított.** A
-fájlban rengeteg *korábbi* nyers `rgba()` van a `:root`-on kívül (például a
+fájlban rengeteg _korábbi_ nyers `rgba()` van a `:root`-on kívül (például a
 `.sc-frame` kerete és az `.au-error` háttere) — azok nem ennek a munkának a
 hatóköre, és nem szabad hozzájuk nyúlni. Ha egy általunk írt szabályban van
 szín-literál, azt cseréld tokenre.
@@ -2010,20 +2156,20 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 
 ## Önellenőrzés — a spec lefedettsége
 
-| Spec-pont | Task |
-|---|---|
-| 4.1 Tokenek | 1 |
-| 4.2 Lekerekítés | 1 (Step 4) |
-| 4.3 Primitívek (8 db) | 2 |
-| 5. Áttekintés / Regeneráció / varázsló | 8, 9, 10 |
-| 5. Edzés / Táplálkozás / Tervek / Edző | 11, 12, 13, 14 |
-| 5. Összegző / Profil / szerkesztő / választó | 13, 15 |
-| 5. Belépő | 16 |
-| 5. Modálok | 17 |
-| 5. Nav gyűrű / oldalsáv / toast | 17, 18 |
-| 6. Testtérkép | 4, 5, 6, 7 |
-| 6.5 `pain.general` | 7 |
-| 6.6 A Regeneráció oldal űrlapja | 7 |
-| 7. Izomláz 1–10 | 3 |
-| 8. Világos téma előkészítése | 19 |
-| 10. Ellenőrzés | 20 |
+| Spec-pont                                    | Task           |
+| -------------------------------------------- | -------------- |
+| 4.1 Tokenek                                  | 1              |
+| 4.2 Lekerekítés                              | 1 (Step 4)     |
+| 4.3 Primitívek (8 db)                        | 2              |
+| 5. Áttekintés / Regeneráció / varázsló       | 8, 9, 10       |
+| 5. Edzés / Táplálkozás / Tervek / Edző       | 11, 12, 13, 14 |
+| 5. Összegző / Profil / szerkesztő / választó | 13, 15         |
+| 5. Belépő                                    | 16             |
+| 5. Modálok                                   | 17             |
+| 5. Nav gyűrű / oldalsáv / toast              | 17, 18         |
+| 6. Testtérkép                                | 4, 5, 6, 7     |
+| 6.5 `pain.general`                           | 7              |
+| 6.6 A Regeneráció oldal űrlapja              | 7              |
+| 7. Izomláz 1–10                              | 3              |
+| 8. Világos téma előkészítése                 | 19             |
+| 10. Ellenőrzés                               | 20             |

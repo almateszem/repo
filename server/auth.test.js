@@ -9,10 +9,21 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  hashPassword, verifyPassword, createSessionToken, hashToken,
-  parseCookies, serializeCookie, isLockedOut, recordFailure, clearFailures,
-  USERNAME_RE, normalizeUsername,
-  loginFailureKey, accountFailureKey, trackedFailureKeys, verifyAgainstDummy,
+  hashPassword,
+  verifyPassword,
+  createSessionToken,
+  hashToken,
+  parseCookies,
+  serializeCookie,
+  isLockedOut,
+  recordFailure,
+  clearFailures,
+  USERNAME_RE,
+  normalizeUsername,
+  loginFailureKey,
+  accountFailureKey,
+  trackedFailureKeys,
+  verifyAgainstDummy,
 } from './auth.js';
 
 test('a jelszó-hash ellenőrizhető, de nem visszafejthető', async () => {
@@ -36,10 +47,15 @@ test('ugyanaz a jelszó kétszer más hasht ad (külön só)', async () => {
 
 test('sérült vagy hiányzó hash mindig hamis — sosem dob', async () => {
   for (const stored of [
-    '', null, undefined, 'akármi', 'scrypt$rossz', 'scrypt$16384$8$1$só',
-    'scrypt$16384$8$1$abcd$',              // üres kulcs
-    'scrypt$nemszám$8$1$abcd$beef',        // értelmezhetetlen paraméter
-    'bcrypt$16384$8$1$abcd$beef',          // más algoritmus
+    '',
+    null,
+    undefined,
+    'akármi',
+    'scrypt$rossz',
+    'scrypt$16384$8$1$só',
+    'scrypt$16384$8$1$abcd$', // üres kulcs
+    'scrypt$nemszám$8$1$abcd$beef', // értelmezhetetlen paraméter
+    'bcrypt$16384$8$1$abcd$beef', // más algoritmus
   ]) {
     assert.equal(await verifyPassword('bármi', stored), false, `elbukik erre: ${stored}`);
   }
@@ -111,8 +127,11 @@ test('a belépési zárolás névre ÉS forrásra szól — más gépről az ál
   for (let i = 0; i < 10; i++) recordFailure(attacker, now);
 
   assert.equal(isLockedOut(attacker, now), true, 'a próbálgató forrás zárolva');
-  assert.equal(isLockedOut(loginFailureKey(victim, '198.51.100.2'), now), false,
-    'az áldozat saját gépéről továbbra is beléphet');
+  assert.equal(
+    isLockedOut(loginFailureKey(victim, '198.51.100.2'), now),
+    false,
+    'az áldozat saját gépéről továbbra is beléphet',
+  );
 });
 
 test('a fiók-műveletek (jelszócsere, törlés) számlálója független a belépésétől', () => {

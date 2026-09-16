@@ -72,15 +72,18 @@ async function setupNutrition(foodDetail) {
       const removeBtn = $('.nu-log-remove', item);
       removeBtn.dataset.entryId = entry.id;
       removeBtn.title = 'Bejegyzés törlése';
-      removeBtn.setAttribute('aria-label',
-        `${entry.name} (${formatNumber(entry.grams)} g) törlése a mai naplóból`);
+      removeBtn.setAttribute(
+        'aria-label',
+        `${entry.name} (${formatNumber(entry.grams)} g) törlése a mai naplóból`,
+      );
       logList.appendChild(item);
     });
 
     logEmpty.hidden = logEntries.length > 0;
-    logCount.textContent = logEntries.length > 0
-      ? `${logEntries.length} tétel · ${formatNumber(logEntries.reduce((sum, e) => sum + e.kcal, 0))} kcal`
-      : '';
+    logCount.textContent =
+      logEntries.length > 0
+        ? `${logEntries.length} tétel · ${formatNumber(logEntries.reduce((sum, e) => sum + e.kcal, 0))} kcal`
+        : '';
   };
 
   const reloadLog = async () => {
@@ -136,8 +139,14 @@ async function setupNutrition(foodDetail) {
     };
 
     input.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') { event.preventDefault(); save(); }
-      if (event.key === 'Escape') { event.preventDefault(); cancel(); }
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        save();
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        cancel();
+      }
     });
     input.addEventListener('blur', cancel);
 
@@ -223,8 +232,8 @@ async function setupNutrition(foodDetail) {
     goalDiffEl.hidden = !goal.differs;
     if (goal.differs) {
       goalDiffTextEl.textContent =
-        `${goal.coach.setBy ?? 'Az edződ'} célja: ${formatNumber(goal.coach.calories)} kcal · `
-        + `${formatNumber(goal.coach.protein)} g fehérje — eltértél tőle.`;
+        `${goal.coach.setBy ?? 'Az edződ'} célja: ${formatNumber(goal.coach.calories)} kcal · ` +
+        `${formatNumber(goal.coach.protein)} g fehérje — eltértél tőle.`;
     }
 
     // A szerkesztő mezői mindig az ÉRVÉNYES célról indulnak.
@@ -245,9 +254,12 @@ async function setupNutrition(foodDetail) {
     event.preventDefault();
     goalSaveBtn.disabled = true;
     try {
-      renderGoal(await api.saveNutritionGoal(
-        Number(goalCaloriesInput.value), Number(goalProteinInput.value),
-      ));
+      renderGoal(
+        await api.saveNutritionGoal(
+          Number(goalCaloriesInput.value),
+          Number(goalProteinInput.value),
+        ),
+      );
       setGoalFormOpen(false);
       // A napi összesítő ugyanezt a célt méri — újra le kell kérni.
       applyTotals(await api.getNutrition());
@@ -334,7 +346,9 @@ async function setupNutrition(foodDetail) {
     renderLog();
     // Az áttekintő kalória-statja is kövesse a naplózást (közös forrás a szerveren)
     refreshDailyStats().catch(console.error);
-    showToast(`${food.name} · ${formatNumber(grams)} ${food.unit || 'g'} hozzáadva · +${formatNumber(entry.kcal)} kcal`);
+    showToast(
+      `${food.name} · ${formatNumber(grams)} ${food.unit || 'g'} hozzáadva · +${formatNumber(entry.kcal)} kcal`,
+    );
   };
 
   // A kártya nyila az adagválasztó modált nyitja. Ha az (betöltési hiba

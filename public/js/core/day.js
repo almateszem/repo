@@ -15,7 +15,8 @@ function startDayWatcher() {
     if (day === currentDay) return;
     currentDay = day;
     dayChangeListeners.forEach((listener) => {
-      Promise.resolve().then(listener)
+      Promise.resolve()
+        .then(listener)
         .catch((err) => console.error('Napváltás-frissítési hiba:', err));
     });
   };

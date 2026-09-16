@@ -57,11 +57,14 @@ function setupPlans(planBuilder, workout, confirmAction) {
     if (!openBtn) return;
     const plan = plansData[Number(openBtn.closest('.pl-card').dataset.planIndex)];
     if (!plan?.exercises || !workout) return;
-    workout.loadPlan(plan).then((loaded) => {
-      if (!loaded) return;
-      showToast(`„${plan.name}” betöltve az edzésnaplóba`);
-      navigate('workout');
-    }).catch((err) => console.error('Terv betöltési hiba:', err));
+    workout
+      .loadPlan(plan)
+      .then((loaded) => {
+        if (!loaded) return;
+        showToast(`„${plan.name}” betöltve az edzésnaplóba`);
+        navigate('workout');
+      })
+      .catch((err) => console.error('Terv betöltési hiba:', err));
   });
 
   // Új terv készítése — üres terv-építővel

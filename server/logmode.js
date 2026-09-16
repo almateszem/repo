@@ -114,7 +114,7 @@ export function resolveLogMode(entry) {
 /** Egy naplózott sor intenzitása. Ismeretlen vagy hiányzó értékre a skála
     közepe jár — üresen hagyni nem lehet, mert a fokozat maga a mérés. */
 export const normalizeIntensity = (value) =>
-  (INTENSITY_KEYS.includes(value) ? value : DEFAULT_INTENSITY);
+  INTENSITY_KEYS.includes(value) ? value : DEFAULT_INTENSITY;
 
 /**
  * Egy naplózott sor időtartama MÁSODPERCBEN, szövegként tárolva (a szett többi

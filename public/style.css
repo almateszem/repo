@@ -2122,7 +2122,6 @@ input.wk-chip:focus-visible {
   color: var(--c-accent);
 }
 
-
 /* ---- IDŐALAPÚ (kardió) sor ----
    Négy oszlop a hat helyett: idő, intenzitás, plusz súly, pipa. Ismétlés-,
    súly- és RPE-oszlop nincs — amit nem ismétlésben mérnek, ott azok a mezők
@@ -2168,11 +2167,13 @@ input.wk-chip:focus-visible {
   overflow: hidden;
   text-overflow: ellipsis;
   cursor: pointer;
-  transition: background var(--t-fast), border-color var(--t-fast);
+  transition:
+    background var(--t-fast),
+    border-color var(--t-fast);
 }
 
 .wk-intensity-trigger:hover,
-.wk-intensity-trigger[aria-expanded="true"] {
+.wk-intensity-trigger[aria-expanded='true'] {
   background: var(--surface-hover);
   border-color: var(--fg-25);
 }
@@ -2207,7 +2208,9 @@ input.wk-chip:focus-visible {
   text-align: left;
   white-space: nowrap;
   cursor: pointer;
-  transition: background var(--t-fast), color var(--t-fast);
+  transition:
+    background var(--t-fast),
+    color var(--t-fast);
 }
 
 .wk-intensity-option:hover {
@@ -2215,7 +2218,7 @@ input.wk-chip:focus-visible {
   color: var(--fg-100);
 }
 
-.wk-intensity-option[aria-selected="true"] {
+.wk-intensity-option[aria-selected='true'] {
   background: var(--surface-strong);
   color: var(--fg-100);
   font-weight: 600;
@@ -2241,17 +2244,20 @@ input.wk-chip:focus-visible {
   font-variant-numeric: tabular-nums;
   color: var(--text-faint);
   cursor: pointer;
-  transition: color var(--t-fast), background var(--t-fast), border-color var(--t-fast);
+  transition:
+    color var(--t-fast),
+    background var(--t-fast),
+    border-color var(--t-fast);
 }
 
 .wk-extra-trigger:hover,
-.wk-extra-trigger[aria-expanded="true"] {
+.wk-extra-trigger[aria-expanded='true'] {
   background: var(--surface-hover);
   border-color: var(--fg-25);
   color: var(--fg-70);
 }
 
-.wk-set-row[data-has-weight="true"] .wk-extra-trigger {
+.wk-set-row[data-has-weight='true'] .wk-extra-trigger {
   color: var(--fg-70);
   font-weight: 600;
 }
@@ -9204,14 +9210,16 @@ body[data-onboarding] .app-page.ci-page {
   cursor: ns-resize;
   /* Enélkül a függőleges húzás görgetne, nem értéket állítana. */
   touch-action: none;
-  transition: fill var(--t-fast), stroke var(--t-fast);
+  transition:
+    fill var(--t-fast),
+    stroke var(--t-fast);
 }
 
 .bm-region:hover {
   fill: var(--surface-hover);
 }
 
-.bm-region[aria-pressed="true"] {
+.bm-region[aria-pressed='true'] {
   fill: var(--c-accent-dim);
   stroke: var(--c-accent-line);
 }
@@ -9274,14 +9282,16 @@ body[data-onboarding] .app-page.ci-page {
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
-  transition: background var(--t-fast), color var(--t-fast);
+  transition:
+    background var(--t-fast),
+    color var(--t-fast);
 }
 
 .bm-chip:hover {
   background: var(--surface-hover);
 }
 
-.bm-chip[aria-pressed="true"] {
+.bm-chip[aria-pressed='true'] {
   background: var(--c-accent);
   color: var(--on-accent);
 }

@@ -9,7 +9,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  computeReadiness, sleepDurationScore, sleepScore, nutritionScore, epley1RM, BASE_WEIGHTS,
+  computeReadiness,
+  sleepDurationScore,
+  sleepScore,
+  nutritionScore,
+  epley1RM,
+  BASE_WEIGHTS,
 } from './recovery.js';
 import { resolveExerciseLoad, isAxialLift, MUSCLE_KEYS } from './muscles.js';
 
@@ -25,16 +30,33 @@ function dateAgo(n) {
   return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`;
 }
 
-const set = (reps, weight, rpe = 8, done = true) => ({ reps: String(reps), weight: String(weight), rpe: String(rpe), done });
+const set = (reps, weight, rpe = 8, done = true) => ({
+  reps: String(reps),
+  weight: String(weight),
+  rpe: String(rpe),
+  done,
+});
 
-const workout = (ago, name, exercises) => ({ id: ago, date: dateAgo(ago), name, exercises, planId: null });
+const workout = (ago, name, exercises) => ({
+  id: ago,
+  date: dateAgo(ago),
+  name,
+  exercises,
+  planId: null,
+});
 
 const exercise = (name, sets, pr = false) => ({ name, pr, sets });
 
 const fullCheckin = (overrides = {}) => ({
   date: TODAY,
-  sleepHours: 8, sleepQuality: 4, energy: 4, stress: 2, mood: 4, hydration: 3,
-  soreness: {}, pain: {},
+  sleepHours: 8,
+  sleepQuality: 4,
+  energy: 4,
+  stress: 2,
+  mood: 4,
+  hydration: 3,
+  soreness: {},
+  pain: {},
   ...overrides,
 });
 
@@ -44,10 +66,16 @@ const NUTRITION = {
   yesterday: { intake: 2900, protein: 170, goal: NUTRITION_GOAL },
 };
 
-const run = (overrides = {}) => computeReadiness({
-  checkins: [], workouts: [], nutrition: NUTRITION, weightLog: [{ kg: 80, date: TODAY }],
-  catalog: [], today: TODAY, ...overrides,
-});
+const run = (overrides = {}) =>
+  computeReadiness({
+    checkins: [],
+    workouts: [],
+    nutrition: NUTRITION,
+    weightLog: [{ kg: 80, date: TODAY }],
+    catalog: [],
+    today: TODAY,
+    ...overrides,
+  });
 
 /* Naplózó felhasználó, aki MA nem végzett munkát: van edzés-előzménye (üres
    edzés), tehát a terhelés- és az izom-komponens JELEN VAN, de nulla
@@ -61,11 +89,12 @@ const run = (overrides = {}) => computeReadiness({
 
    Korábban a motor a hiányzó adatból is 100-at gyártott, ezért ez a
    különbség nem látszott — és egy vadonatúj fiók 100%-os készenlétet kapott. */
-const restedLogger = (overrides = {}) => run({
-  checkins: [fullCheckin()],
-  workouts: [workout(0, 'Pihenőnap', [])],
-  ...overrides,
-});
+const restedLogger = (overrides = {}) =>
+  run({
+    checkins: [fullCheckin()],
+    workouts: [workout(0, 'Pihenőnap', [])],
+    ...overrides,
+  });
 
 /* ======================================================================
    Alvás
@@ -122,7 +151,12 @@ test('sleepScore — csak az egyik mező megadva is számol', () => {
 
 test('vadonatúj fiók: nincs pontszám, nem pedig tökéletes pontszám', () => {
   const empty = computeReadiness({
-    checkins: [], workouts: [], nutrition: null, weightLog: [], catalog: [], today: TODAY,
+    checkins: [],
+    workouts: [],
+    nutrition: null,
+    weightLog: [],
+    catalog: [],
+    today: TODAY,
   });
   assert.equal(empty.overall, null, 'semmiből nem gyártunk 100-at');
   assert.ok(
@@ -149,9 +183,15 @@ test('aki naplóz, annál a „régen edzettél" MÁR érvényes következtetés
 
 test('csak check-in, edzés nélkül: a szubjektív komponensek adják a pontszámot', () => {
   const report = run({ checkins: [fullCheckin()] });
-  const present = report.components.filter((c) => c.present).map((c) => c.key).sort();
-  assert.deepEqual(present, ['nutrition', 'sleep', 'stress', 'energy', 'mood'].sort(),
-    'a terhelés- és az izom-komponens hiányzik, mert nincs mire alapozni');
+  const present = report.components
+    .filter((c) => c.present)
+    .map((c) => c.key)
+    .sort();
+  assert.deepEqual(
+    present,
+    ['nutrition', 'sleep', 'stress', 'energy', 'mood'].sort(),
+    'a terhelés- és az izom-komponens hiányzik, mert nincs mire alapozni',
+  );
   assert.ok(report.overall !== null);
 });
 
@@ -205,7 +245,9 @@ test('a bázissúlyok között nincs HRV — nem teszünk kitalált értéket a 
    Terhelés és csillapítás
    ====================================================================== */
 
-const HARD_LEG_DAY = [exercise('Guggolás', [set(5, 140, 9), set(5, 140, 9), set(5, 140, 9), set(5, 140, 9)])];
+const HARD_LEG_DAY = [
+  exercise('Guggolás', [set(5, 140, 9), set(5, 140, 9), set(5, 140, 9), set(5, 140, 9)]),
+];
 
 test('a friss edzésterhelés csökkenti a készenlétet', () => {
   const rested = restedLogger();
@@ -215,12 +257,18 @@ test('a friss edzésterhelés csökkenti a készenlétet', () => {
 
 test('a terhelés hatása exponenciálisan csillapodik — a régebbi edzés kevesebbet számít', () => {
   const today = run({ checkins: [fullCheckin()], workouts: [workout(0, 'Láb', HARD_LEG_DAY)] });
-  const threeDaysAgo = run({ checkins: [fullCheckin()], workouts: [workout(3, 'Láb', HARD_LEG_DAY)] });
+  const threeDaysAgo = run({
+    checkins: [fullCheckin()],
+    workouts: [workout(3, 'Láb', HARD_LEG_DAY)],
+  });
   assert.ok(threeDaysAgo.overall > today.overall, '3 nappal későbbre már visszaépült');
 
   const quadsToday = today.muscles.find((m) => m.key === 'quads').readiness;
   const quadsLater = threeDaysAgo.muscles.find((m) => m.key === 'quads').readiness;
-  assert.ok(quadsLater > quadsToday + 15, `a quadriceps érdemben regenerálódott (${quadsToday}% → ${quadsLater}%)`);
+  assert.ok(
+    quadsLater > quadsToday + 15,
+    `a quadriceps érdemben regenerálódott (${quadsToday}% → ${quadsLater}%)`,
+  );
 });
 
 test('a be nem pipált szettek nem terhelnek', () => {
@@ -256,7 +304,10 @@ test('a bemelegítő tonnatömege ettől még beleszámít a szisztémás terhel
     workouts: [workout(0, 'Láb', [exercise('Guggolás', [typedSet('warmup', 8, 60, 5)])])],
   });
   const loadOf = (report) => report.components.find((c) => c.key === 'load').score;
-  assert.ok(loadOf(warmupOnly) < loadOf(rested), 'elvégzett munka, tehát a terhelés-komponens látja');
+  assert.ok(
+    loadOf(warmupOnly) < loadOf(rested),
+    'elvégzett munka, tehát a terhelés-komponens látja',
+  );
 });
 
 test('a drop set fél munkasorozatnyi izomkárosodást ad', () => {
@@ -274,7 +325,10 @@ test('a drop set fél munkasorozatnyi izomkárosodást ad', () => {
     workouts: [workout(0, 'Láb', [exercise('Guggolás', [...base, typedSet('work', 5, 140, 9)])])],
   });
   assert.ok(quadsOf(withDrop) < quadsOf(oneWork), 'a drop set valódi többletkárosodás');
-  assert.ok(quadsOf(withDrop) > quadsOf(withSecondWork), 'de kevesebb, mint egy friss munkasorozat');
+  assert.ok(
+    quadsOf(withDrop) > quadsOf(withSecondWork),
+    'de kevesebb, mint egy friss munkasorozat',
+  );
 });
 
 test('a típus nélküli (régi) szettek továbbra is teljes munkasorozatnak számítanak', () => {
@@ -326,7 +380,10 @@ test('a saját testsúlyos munka is terhel izmot, pedig nincs tonnatömege', () 
 
 test('mind a kilenc izomcsoportra ad értéket', () => {
   const report = run({ checkins: [fullCheckin()] });
-  assert.deepEqual(report.muscles.map((m) => m.key), MUSCLE_KEYS);
+  assert.deepEqual(
+    report.muscles.map((m) => m.key),
+    MUSCLE_KEYS,
+  );
   assert.ok(report.muscles.every((m) => Number.isInteger(m.readiness)));
 });
 
@@ -340,7 +397,10 @@ test('a szubjektív izomláz lehúzza a csoport pontszámát', () => {
     workouts: [workout(1, 'Mell', [exercise('Fekvenyomás', [set(8, 80), set(8, 80), set(8, 80)])])],
   });
   const chestBlend = withLoad.muscles.find((m) => m.key === 'chest');
-  assert.ok(chestBlend.readiness < 70, `erős izomláz mellett a mell nem lehet friss (kapott: ${chestBlend.readiness}%)`);
+  assert.ok(
+    chestBlend.readiness < 70,
+    `erős izomláz mellett a mell nem lehet friss (kapott: ${chestBlend.readiness}%)`,
+  );
   assert.equal(chestBlend.source, 'blend', 'a modell és az érzet keverékéből jött');
 
   /* Ha NINCS naplózott terhelés a csoporton, a modell „100% friss" válasza
@@ -370,9 +430,15 @@ test('fájdalom-sapka: a csoport 30%-ra korlátozva, a teljes pontszám 45-re', 
   const report = run({ checkins: [fullCheckin({ pain: { hamstrings: 8 } })] });
 
   const hamstrings = report.muscles.find((m) => m.key === 'hamstrings');
-  assert.ok(hamstrings.readiness <= 30, `a fájó csoport sapkázva (kapott: ${hamstrings.readiness}%)`);
+  assert.ok(
+    hamstrings.readiness <= 30,
+    `a fájó csoport sapkázva (kapott: ${hamstrings.readiness}%)`,
+  );
   assert.ok(report.overall <= 45, `a teljes készenlét sapkázva (kapott: ${report.overall})`);
-  assert.ok(report.caps.some((text) => /fájdalm/i.test(text)), 'a sapka indoklása szerepel a riportban');
+  assert.ok(
+    report.caps.some((text) => /fájdalm/i.test(text)),
+    'a sapka indoklása szerepel a riportban',
+  );
 });
 
 test('a fájó izmot terhelő gyakorlat „kerüld ma" ajánlást kap', () => {
@@ -404,7 +470,9 @@ test('a közérzet a teljes skálán számít, nem csak az 1-es értéknél', ()
   assert.ok(scoreAt(2) < scoreAt(3), `2 → 3 javít (${scoreAt(2)} vs ${scoreAt(3)})`);
   assert.ok(scoreAt(3) < scoreAt(5), `3 → 5 javít (${scoreAt(3)} vs ${scoreAt(5)})`);
 
-  const mood = restedLogger({ checkins: [fullCheckin({ mood: 5 })] }).components.find((c) => c.key === 'mood');
+  const mood = restedLogger({ checkins: [fullCheckin({ mood: 5 })] }).components.find(
+    (c) => c.key === 'mood',
+  );
   assert.ok(mood, 'a közérzet komponensként is látszik');
   assert.equal(mood.present, true);
   assert.equal(mood.score, 100);
@@ -420,14 +488,22 @@ test('hiányzó közérzet nem torzít — a súlya szétoszlik, mint minden hi�
 test('szubjektív padló: alacsony energia ÉS magas stressz mellett max 40, pihent izommal is', () => {
   const report = restedLogger({ checkins: [fullCheckin({ energy: 1, stress: 5, mood: 3 })] });
   assert.ok(report.overall <= 40, `a pihent izom nem húzhatja fel (kapott: ${report.overall})`);
-  assert.ok(report.caps.some((text) => /energia.*stressz/i.test(text)), 'az indoklás a sapkák között van');
+  assert.ok(
+    report.caps.some((text) => /energia.*stressz/i.test(text)),
+    'az indoklás a sapkák között van',
+  );
 });
 
 test('szubjektív padló: a határ alatt nem lép életbe', () => {
-  for (const [energy, stress] of [[3, 5], [1, 3]]) {
+  for (const [energy, stress] of [
+    [3, 5],
+    [1, 3],
+  ]) {
     const report = restedLogger({ checkins: [fullCheckin({ energy, stress })] });
-    assert.ok(!report.caps.some((text) => /energia.*stressz/i.test(text)),
-      `energia ${energy}, stressz ${stress}: nincs padló-sapka`);
+    assert.ok(
+      !report.caps.some((text) => /energia.*stressz/i.test(text)),
+      `energia ${energy}, stressz ${stress}: nincs padló-sapka`,
+    );
   }
 });
 
@@ -441,12 +517,20 @@ test('a riport megnevezi a leggyengébb jelen lévő komponenst', () => {
 test('sapkás napon a gyakorlat-ajánlás sem lehet jobb az összesítettnél', () => {
   // Egy hét pihenő után a guggolás magában friss (≥ 80, lásd a küszöb-tesztet)
   // — de 1-es közérzet mellett a nap maga korlátozott.
-  const report = run({ checkins: [fullCheckin({ mood: 1 })], workouts: [workout(7, 'Láb', HARD_LEG_DAY)] });
+  const report = run({
+    checkins: [fullCheckin({ mood: 1 })],
+    workouts: [workout(7, 'Láb', HARD_LEG_DAY)],
+  });
   const squat = report.exercises.find((e) => e.name === 'Guggolás');
   assert.ok(squat, 'a guggolás szerepel az ajánlások között');
-  assert.ok(squat.readiness <= report.overall,
-    `a gyakorlat (${squat.readiness}) nem lehet az összesített (${report.overall}) fölött`);
-  assert.ok(!['pr', 'strong', 'normal'].includes(squat.verdict), `nincs teljes intenzitás (kapott: ${squat.verdict})`);
+  assert.ok(
+    squat.readiness <= report.overall,
+    `a gyakorlat (${squat.readiness}) nem lehet az összesített (${report.overall}) fölött`,
+  );
+  assert.ok(
+    !['pr', 'strong', 'normal'].includes(squat.verdict),
+    `nincs teljes intenzitás (kapott: ${squat.verdict})`,
+  );
 });
 
 /* ======================================================================
@@ -454,10 +538,12 @@ test('sapkás napon a gyakorlat-ajánlás sem lehet jobb az összesítettnél', 
    ====================================================================== */
 
 test('a fő emelés egyetlen alkalom után is kap ajánlást, az egyéb gyakorlat nem', () => {
-  const workouts = [workout(4, 'Vegyes', [
-    exercise('Guggolás', [set(5, 100)]),
-    exercise('Oldalemelés', [set(12, 12)]),
-  ])];
+  const workouts = [
+    workout(4, 'Vegyes', [
+      exercise('Guggolás', [set(5, 100)]),
+      exercise('Oldalemelés', [set(12, 12)]),
+    ]),
+  ];
   const report = run({ checkins: [fullCheckin()], workouts });
   const names = report.exercises.map((e) => e.name);
   assert.ok(names.includes('Guggolás'), 'fő emelés: 1 alkalom is elég');
@@ -470,7 +556,10 @@ test('az ajánlási küszöbök konkrét edzésdöntést adnak', () => {
   assert.ok(squat.readiness >= 80, 'egy hét pihenő után friss');
   assert.ok(['normal', 'strong', 'pr'].includes(squat.verdict));
   assert.ok(typeof squat.text === 'string' && squat.text.length > 0, 'van szöveges ajánlás');
-  assert.ok('loadDelta' in squat && 'volumeDelta' in squat, 'a kimenet szerkezetes, nem csak szöveg');
+  assert.ok(
+    'loadDelta' in squat && 'volumeDelta' in squat,
+    'a kimenet szerkezetes, nem csak szöveg',
+  );
 });
 
 test('a friss kemény edzés után a gyakorlat volumen-vágást kap', () => {
@@ -481,7 +570,10 @@ test('a friss kemény edzés után a gyakorlat volumen-vágást kap', () => {
   ];
   const report = run({ checkins: [fullCheckin()], workouts });
   const squat = report.exercises.find((e) => e.name === 'Guggolás');
-  assert.ok(['trim', 'reduce', 'skip'].includes(squat.verdict), `három egymást követő lábnap után könnyítés kell (kapott: ${squat.verdict})`);
+  assert.ok(
+    ['trim', 'reduce', 'skip'].includes(squat.verdict),
+    `három egymást követő lábnap után könnyítés kell (kapott: ${squat.verdict})`,
+  );
 });
 
 /* ======================================================================
@@ -489,21 +581,36 @@ test('a friss kemény edzés után a gyakorlat volumen-vágást kap', () => {
    ====================================================================== */
 
 test('a nehéz, magas RPE-s axiális emelés jobban terheli az idegrendszert, mint az izolációs munka', () => {
-  const heavy = run({ checkins: [fullCheckin()], workouts: [workout(0, 'Erő', [
-    exercise('Felhúzás', [set(3, 180, 10), set(3, 180, 10), set(3, 180, 10)], true),
-  ])] });
-  const light = run({ checkins: [fullCheckin()], workouts: [workout(0, 'Izoláció', [
-    exercise('Bicepsz hajlítás', [set(12, 20, 7), set(12, 20, 7), set(12, 20, 7)]),
-  ])] });
-  assert.ok(heavy.cns.readiness < light.cns.readiness - 10,
-    `a nehéz felhúzás jobban viszi a CNS-t (${heavy.cns.readiness}% vs ${light.cns.readiness}%)`);
+  const heavy = run({
+    checkins: [fullCheckin()],
+    workouts: [
+      workout(0, 'Erő', [
+        exercise('Felhúzás', [set(3, 180, 10), set(3, 180, 10), set(3, 180, 10)], true),
+      ]),
+    ],
+  });
+  const light = run({
+    checkins: [fullCheckin()],
+    workouts: [
+      workout(0, 'Izoláció', [
+        exercise('Bicepsz hajlítás', [set(12, 20, 7), set(12, 20, 7), set(12, 20, 7)]),
+      ]),
+    ],
+  });
+  assert.ok(
+    heavy.cns.readiness < light.cns.readiness - 10,
+    `a nehéz felhúzás jobban viszi a CNS-t (${heavy.cns.readiness}% vs ${light.cns.readiness}%)`,
+  );
 });
 
 test('a rossz alvás lehúzza a CNS-t azonos edzésterhelés mellett', () => {
   const workouts = [workout(1, 'Erő', HARD_LEG_DAY)];
   const slept = run({ checkins: [fullCheckin({ sleepHours: 8.5, sleepQuality: 5 })], workouts });
   const tired = run({ checkins: [fullCheckin({ sleepHours: 4.5, sleepQuality: 1 })], workouts });
-  assert.ok(tired.cns.readiness < slept.cns.readiness, 'az alvás közvetlenül hat az idegrendszerre');
+  assert.ok(
+    tired.cns.readiness < slept.cns.readiness,
+    'az alvás közvetlenül hat az idegrendszerre',
+  );
 });
 
 /* ======================================================================
@@ -544,13 +651,23 @@ test('a MAI hiányos folyadék nem húzza le a pontszámot — a tegnapi a mérv
 
   // Friss fiók: csak a mai, töredék folyadék van meg, tegnapról semmi.
   const csakMaiViz = run({
-    checkins: [{ date: TODAY, sleepHours: null, sleepQuality: null, energy: null,
-                 stress: null, mood: null, hydration: 0.25, soreness: {}, pain: {} }],
+    checkins: [
+      {
+        date: TODAY,
+        sleepHours: null,
+        sleepQuality: null,
+        energy: null,
+        stress: null,
+        mood: null,
+        hydration: 0.25,
+        soreness: {},
+        pain: {},
+      },
+    ],
     nutrition: unlogged,
   });
   const komponens = csakMaiViz.components.find((c) => c.key === 'nutrition');
-  assert.equal(komponens.present, false,
-    'a mai töredék folyadék nem alap — a komponens kimarad');
+  assert.equal(komponens.present, false, 'a mai töredék folyadék nem alap — a komponens kimarad');
 
   // Tegnapi TELJES folyadék viszont beszámít: az a nap már lezárult.
   const tegnapiViz = run({
@@ -576,12 +693,19 @@ test('a tegnapi bevitel a mérvadó — reggel a mai étkezések még előtted v
   });
   const scoreOf = (report) => report.components.find((c) => c.key === 'nutrition').score;
   assert.equal(scoreOf(goodYesterday), 100);
-  assert.ok(scoreOf(badYesterday) < 50, 'a tegnapi hiány akkor is látszik, ha ma már rendben eszik');
+  assert.ok(
+    scoreOf(badYesterday) < 50,
+    'a tegnapi hiány akkor is látszik, ha ma már rendben eszik',
+  );
 });
 
 test('nutritionScore — hidratáció testsúlyra skálázva, hiányában újraosztva', () => {
   const goal = { calories: 3000, protein: 150 };
-  assert.equal(nutritionScore({ intake: 3000, protein: 150, goal }, 2.64, 80), 1, '80 kg-hoz 2.64 l a cél');
+  assert.equal(
+    nutritionScore({ intake: 3000, protein: 150, goal }, 2.64, 80),
+    1,
+    '80 kg-hoz 2.64 l a cél',
+  );
   const dry = nutritionScore({ intake: 3000, protein: 150, goal }, 0, 80);
   assert.ok(dry < 1 && dry >= 0.79, 'a hiányzó folyadék a 20%-nyi súlyát viszi');
   assert.equal(nutritionScore(null, null, 80), null, 'adat híján null, nem 0');
@@ -593,7 +717,10 @@ test('nutritionScore — hidratáció testsúlyra skálázva, hiányában újrao
 
 test('epley1RM — RIR-korrekcióval', () => {
   assert.equal(epley1RM(1, 100, 10), 100, 'RPE 10-es szingli maga az 1RM');
-  assert.ok(epley1RM(5, 100, 8) > epley1RM(5, 100, 10), 'a tartalékkal végzett szett magasabb 1RM-et jelez');
+  assert.ok(
+    epley1RM(5, 100, 8) > epley1RM(5, 100, 10),
+    'a tartalékkal végzett szett magasabb 1RM-et jelez',
+  );
   assert.equal(epley1RM(0, 100, 8), null);
   assert.equal(epley1RM(5, 0, 8), null);
 });
@@ -608,7 +735,11 @@ test('a katalógus load-súlyai és a kulcsszavas fallback is 1-re normalizáló
   assert.ok(Math.abs(Object.values(fromKeyword).reduce((a, b) => a + b, 0) - 1) < 1e-9);
   assert.ok(fromKeyword.hamstrings > 0 && fromKeyword.back > 0);
 
-  assert.deepEqual(resolveExerciseLoad('Trambulin ugrálás', []), {}, 'ismeretlen név nem terhel hamisan izmot');
+  assert.deepEqual(
+    resolveExerciseLoad('Trambulin ugrálás', []),
+    {},
+    'ismeretlen név nem terhel hamisan izmot',
+  );
 });
 
 /* A katalógus-keresés név-index mögé került (muscles.js → catalogLoadIndex),
@@ -618,43 +749,74 @@ test('a katalógus load-súlyai és a kulcsszavas fallback is 1-re normalizáló
 test('a katalógus név-indexe a lineáris keresés viselkedését őrzi', () => {
   const catalog = [
     { name: 'Guggolás', load: { quads: 1 } },
-    { name: 'guggolas', load: { chest: 1 } },        // ugyanaz normalizálva
-    { name: 'Rossz sor', load: { nincsilyen: 1 } },  // érvénytelen izomkulcs
-    { name: '', load: { back: 1 } },                 // névtelen sor
+    { name: 'guggolas', load: { chest: 1 } }, // ugyanaz normalizálva
+    { name: 'Rossz sor', load: { nincsilyen: 1 } }, // érvénytelen izomkulcs
+    { name: '', load: { back: 1 } }, // névtelen sor
   ];
 
-  assert.deepEqual(resolveExerciseLoad('Guggolás', catalog), { quads: 1 },
-    'névütközésnél az ELSŐ sor nyer (a kurált sorok állnak elöl)');
-  assert.deepEqual(resolveExerciseLoad('  GUGGOLÁS  ', catalog), { quads: 1 },
-    'a keresés ékezet-, kisbetű- és szóköz-független');
+  assert.deepEqual(
+    resolveExerciseLoad('Guggolás', catalog),
+    { quads: 1 },
+    'névütközésnél az ELSŐ sor nyer (a kurált sorok állnak elöl)',
+  );
+  assert.deepEqual(
+    resolveExerciseLoad('  GUGGOLÁS  ', catalog),
+    { quads: 1 },
+    'a keresés ékezet-, kisbetű- és szóköz-független',
+  );
 
   // Érvénytelen load esetén a kulcsszavas rétegre esünk vissza — NEM a
   // következő azonos nevű sorra, és nem is üres eredményre.
-  assert.deepEqual(resolveExerciseLoad('Rossz sor', catalog), {},
-    'érvénytelen load + nem illeszkedő kulcsszó → üres');
-  assert.ok(resolveExerciseLoad('Fekvenyomás', catalog).chest > 0,
-    'a katalógusban nem szereplő név a kulcsszavas réteget kapja');
+  assert.deepEqual(
+    resolveExerciseLoad('Rossz sor', catalog),
+    {},
+    'érvénytelen load + nem illeszkedő kulcsszó → üres',
+  );
+  assert.ok(
+    resolveExerciseLoad('Fekvenyomás', catalog).chest > 0,
+    'a katalógusban nem szereplő név a kulcsszavas réteget kapja',
+  );
 
   // Ugyanaz a katalógus-tömb kétszer: az index gyorsítótárazva van, de az
   // eredmény nem változhat a második hívásra.
-  assert.deepEqual(resolveExerciseLoad('Guggolás', catalog),
-    resolveExerciseLoad('Guggolás', catalog), 'a cache-elt index ugyanazt adja');
+  assert.deepEqual(
+    resolveExerciseLoad('Guggolás', catalog),
+    resolveExerciseLoad('Guggolás', catalog),
+    'a cache-elt index ugyanazt adja',
+  );
 
   // Két KÜLÖNBÖZŐ katalógus nem keveredhet össze egymás indexével.
   const other = [{ name: 'Guggolás', load: { core: 1 } }];
-  assert.deepEqual(resolveExerciseLoad('Guggolás', other), { core: 1 },
-    'katalógusonként külön index');
-  assert.deepEqual(resolveExerciseLoad('Guggolás', catalog), { quads: 1 },
-    'az első katalógus indexe érintetlen marad');
+  assert.deepEqual(
+    resolveExerciseLoad('Guggolás', other),
+    { core: 1 },
+    'katalógusonként külön index',
+  );
+  assert.deepEqual(
+    resolveExerciseLoad('Guggolás', catalog),
+    { quads: 1 },
+    'az első katalógus indexe érintetlen marad',
+  );
 });
 
 test('az ismeretlen nevű gyakorlat is számít az általános terhelésbe', () => {
   const rested = restedLogger();
-  const unknown = run({ checkins: [fullCheckin()], workouts: [workout(0, 'Vegyes', [
-    exercise('Trambulin ugrálás', [set(10, 100), set(10, 100), set(10, 100)]),
-  ])] });
-  assert.ok(unknown.overall < rested.overall, 'a terhelés-komponens akkor is látja, ha az izom ismeretlen');
-  assert.ok(unknown.muscles.every((m) => m.readiness === 100), 'de egyetlen izomcsoportot sem terhel');
+  const unknown = run({
+    checkins: [fullCheckin()],
+    workouts: [
+      workout(0, 'Vegyes', [
+        exercise('Trambulin ugrálás', [set(10, 100), set(10, 100), set(10, 100)]),
+      ]),
+    ],
+  });
+  assert.ok(
+    unknown.overall < rested.overall,
+    'a terhelés-komponens akkor is látja, ha az izom ismeretlen',
+  );
+  assert.ok(
+    unknown.muscles.every((m) => m.readiness === 100),
+    'de egyetlen izomcsoportot sem terhel',
+  );
 });
 
 test('isAxialLift', () => {
@@ -674,9 +836,9 @@ test('kevés előzménnyel alacsony a megbízhatóság', () => {
 });
 
 test('elég előzménnyel és check-innel magas a megbízhatóság', () => {
-  const workouts = Array.from({ length: 8 }, (_, i) => workout(i * 2 + 1, 'Edzés', [
-    exercise('Fekvenyomás', [set(8, 80), set(8, 80), set(8, 80)]),
-  ]));
+  const workouts = Array.from({ length: 8 }, (_, i) =>
+    workout(i * 2 + 1, 'Edzés', [exercise('Fekvenyomás', [set(8, 80), set(8, 80), set(8, 80)])]),
+  );
   const checkins = Array.from({ length: 10 }, (_, i) => fullCheckin({ date: dateAgo(i) }));
   const report = run({ checkins, workouts });
   assert.equal(report.confidence, 'high');
@@ -688,7 +850,10 @@ test('a jövőbeli dátumú edzés nem torzítja a számítást', () => {
      egy jövőbeli dátumú sor teljesen inert — még „naplózó felhasználóvá" sem
      tesz, tehát a komponensek meglétét sem billenti át. */
   const rested = run({ checkins: [fullCheckin()] });
-  const withFuture = run({ checkins: [fullCheckin()], workouts: [workout(-3, 'Jövőbeli', HARD_LEG_DAY)] });
+  const withFuture = run({
+    checkins: [fullCheckin()],
+    workouts: [workout(-3, 'Jövőbeli', HARD_LEG_DAY)],
+  });
   assert.equal(withFuture.overall, rested.overall);
 });
 
@@ -702,8 +867,10 @@ test('a riport minden felület által várt mezőt tartalmaz', () => {
   assert.ok(report.overall >= 0 && report.overall <= 100);
   assert.ok(['low', 'medium', 'high'].includes(report.confidence));
   assert.equal(report.components.length, 7);
-  assert.ok(report.limiting && report.components.some((c) => c.key === report.limiting.key),
-    'a „mi húz vissza" egy létező komponensre mutat');
+  assert.ok(
+    report.limiting && report.components.some((c) => c.key === report.limiting.key),
+    'a „mi húz vissza" egy létező komponensre mutat',
+  );
   assert.equal(report.muscles.length, 9);
   assert.ok(typeof report.cns.readiness === 'number');
   assert.ok(Array.isArray(report.exercises));

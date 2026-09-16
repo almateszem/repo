@@ -60,8 +60,10 @@ function createModalController(modal) {
     // A [tabindex="0"] is kell: az étel-modál gramm-választója nem gomb, de
     // billentyűzettel kezelhető — enélkül a csapda átugraná.
     if (event.key === 'Tab') {
-      const focusables = $$('button, [href], input, select, textarea, [tabindex="0"]', modal)
-        .filter((el) => !el.disabled && !el.closest('[hidden]'));
+      const focusables = $$(
+        'button, [href], input, select, textarea, [tabindex="0"]',
+        modal,
+      ).filter((el) => !el.disabled && !el.closest('[hidden]'));
       if (focusables.length === 0) return;
 
       const first = focusables[0];
@@ -116,9 +118,8 @@ function setupAdviceModal() {
       const el = cloneTemplate('tpl-advice-item');
       if (item.action !== 'reduce') el.classList.add('ad-item--drop');
       $('.ad-item-action', el).textContent = ACTION_LABELS[item.action] ?? item.action;
-      $('.ad-item-name', el).textContent = item.action === 'reduce'
-        ? `${item.name} — −${item.percent}%`
-        : item.name;
+      $('.ad-item-name', el).textContent =
+        item.action === 'reduce' ? `${item.name} — −${item.percent}%` : item.name;
       $('.ad-item-detail', el).textContent = `${item.detail} · ${item.reason}`;
       list.appendChild(el);
     });
@@ -133,9 +134,11 @@ function setupAdviceModal() {
       const { applied } = await api.applySessionAdvice();
       // A szerver a piszkozatot írta át — a képernyőn lévő napló elavult.
       await workout?.reloadFromServer();
-      showToast(applied === 1
-        ? 'A mai naplód egy gyakorlaton módosult'
-        : `A mai naplód ${applied} gyakorlaton módosult`);
+      showToast(
+        applied === 1
+          ? 'A mai naplód egy gyakorlaton módosult'
+          : `A mai naplód ${applied} gyakorlaton módosult`,
+      );
       controller.close();
     } catch (err) {
       console.error('A javaslat alkalmazása nem sikerült:', err);
@@ -188,7 +191,9 @@ function setupConfirmDialog() {
   cancelBtn.addEventListener('click', () => settle(false));
   // Bezárás (✕, backdrop) és Escape = elutasítás. A createModalController
   // ezekre már zárja az ablakot; itt csak az ígéretet kell lezárni.
-  $$('[data-close-modal]', modal).forEach((el) => el.addEventListener('click', () => settle(false)));
+  $$('[data-close-modal]', modal).forEach((el) =>
+    el.addEventListener('click', () => settle(false)),
+  );
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && modal.classList.contains('is-open')) settle(false);
   });
@@ -258,4 +263,10 @@ function setupPrModal() {
   };
 }
 
-export { createModalController, setupAdviceModal, setupConfirmDialog, setupPrModal, setupVideoModal };
+export {
+  createModalController,
+  setupAdviceModal,
+  setupConfirmDialog,
+  setupPrModal,
+  setupVideoModal,
+};

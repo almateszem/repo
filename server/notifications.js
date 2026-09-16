@@ -53,8 +53,13 @@ function preview(text) {
  * @param {object[]} input.athleteFeedback { id, workout, athlete, difficulty, at }
  */
 export function buildNotifications({
-  unreadThreads = [], incomingInvites = [], acceptedLinks = [],
-  planOffers = [], answeredPlans = [], recentPrs = [], athleteFeedback = [],
+  unreadThreads = [],
+  incomingInvites = [],
+  acceptedLinks = [],
+  planOffers = [],
+  answeredPlans = [],
+  recentPrs = [],
+  athleteFeedback = [],
 } = {}) {
   const items = [];
 
@@ -64,9 +69,10 @@ export function buildNotifications({
     items.push({
       id: `message:${thread.linkId}`,
       cat: 'message',
-      text: thread.unread === 1
-        ? `Új üzenet — ${thread.partner}: „${preview(thread.lastText)}”`
-        : `${thread.unread} új üzenet — ${thread.partner}`,
+      text:
+        thread.unread === 1
+          ? `Új üzenet — ${thread.partner}: „${preview(thread.lastText)}”`
+          : `${thread.unread} új üzenet — ${thread.partner}`,
       at: thread.at,
     });
   }
@@ -123,9 +129,10 @@ export function buildNotifications({
   /* Az edző oldala: a sportoló elmondta, hogyan élte meg az edzést. Valódi
      esemény, valódi időbélyeggel (feedback_at) — ezért kerülhet a panelre. */
   for (const feedback of athleteFeedback) {
-    const nehezseg = feedback.difficulty === null || feedback.difficulty === undefined
-      ? ''
-      : ` (nehézség ${feedback.difficulty}/5)`;
+    const nehezseg =
+      feedback.difficulty === null || feedback.difficulty === undefined
+        ? ''
+        : ` (nehézség ${feedback.difficulty}/5)`;
     items.push({
       id: `feedback:${feedback.id}`,
       cat: 'feedback',

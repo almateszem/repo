@@ -80,7 +80,9 @@ function feedNotice(text) {
  *        frissítéséhez). Nem kötelező.
  */
 function createChatController({ feed, form, input, getLinkId, isVisible = () => true, onRead }) {
-  const scrollFeedToEnd = () => { feed.scrollTop = feed.scrollHeight; };
+  const scrollFeedToEnd = () => {
+    feed.scrollTop = feed.scrollHeight;
+  };
 
   /* A legutóbb kirajzolt szál ujjlenyomata: az üzenet-azonosítók ÉS az
      olvasottság. Ha a frissítés ugyanazt hozza, NEM rajzolunk újra — a
@@ -89,8 +91,8 @@ function createChatController({ feed, form, input, getLinkId, isVisible = () => 
      Az olvasottság is része, különben az „olvasva" jelölés csak a következő
      ÚJ üzenetnél jelenne meg. */
   let lastSignature = null;
-  const signatureOf = (messages) => messages
-    .map((message) => `${message.id}${message.read ? 'r' : ''}`).join(',');
+  const signatureOf = (messages) =>
+    messages.map((message) => `${message.id}${message.read ? 'r' : ''}`).join(',');
 
   const render = (messages) => {
     const signature = signatureOf(messages);

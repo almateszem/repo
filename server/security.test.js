@@ -31,24 +31,38 @@ const { request: rawRequest } = await startServer({
 
 /** A közös harness a fejléceket `headers`-ben várja; itt a `forwardedFor`
     kényelmi paramétert oldjuk fel X-Forwarded-For fejléccé. */
-const request = (method, urlPath, { body, cookie, forwardedFor } = {}) => rawRequest(
-  method, urlPath,
-  { body, cookie, headers: forwardedFor ? { 'X-Forwarded-For': forwardedFor } : undefined },
-);
+const request = (method, urlPath, { body, cookie, forwardedFor } = {}) =>
+  rawRequest(method, urlPath, {
+    body,
+    cookie,
+    headers: forwardedFor ? { 'X-Forwarded-For': forwardedFor } : undefined,
+  });
 
-const register = async (username, password = 'jelszo123') => cookieFrom(
-  await request('POST', '/api/auth/register', { body: { username, displayName: username, password } }),
-);
+const register = async (username, password = 'jelszo123') =>
+  cookieFrom(
+    await request('POST', '/api/auth/register', {
+      body: { username, displayName: username, password },
+    }),
+  );
 
-const login = (username, password, forwardedFor) => request('POST', '/api/auth/login', {
-  body: { username, password }, forwardedFor,
-});
+const login = (username, password, forwardedFor) =>
+  request('POST', '/api/auth/login', {
+    body: { username, password },
+    forwardedFor,
+  });
 
 /** `count` gyakorlat, mindegyik `sets` szettel. */
-const exercises = (count, sets = 1) => Array.from({ length: count }, (_, i) => ({
-  name: `Gyakorlat ${i + 1}`,
-  sets: Array.from({ length: sets }, () => ({ reps: '5', weight: '100', rpe: '8', type: 'work', done: true })),
-}));
+const exercises = (count, sets = 1) =>
+  Array.from({ length: count }, (_, i) => ({
+    name: `Gyakorlat ${i + 1}`,
+    sets: Array.from({ length: sets }, () => ({
+      reps: '5',
+      weight: '100',
+      rpe: '8',
+      type: 'work',
+      done: true,
+    })),
+  }));
 
 /* ======================================================================
    1. A belépés neve
@@ -59,11 +73,16 @@ test('hibás formátumú névvel a belépés 401, és nem zárol', async () => {
   const valaszok = [];
   for (let i = 0; i < 12; i++) valaszok.push(await login(hosszu, 'barmi-jelszo'));
 
-  assert.ok(valaszok.every((res) => res.status === 401),
-    `mindig 401, soha 429 (kapott: ${[...new Set(valaszok.map((r) => r.status))]})`);
+  assert.ok(
+    valaszok.every((res) => res.status === 401),
+    `mindig 401, soha 429 (kapott: ${[...new Set(valaszok.map((r) => r.status))]})`,
+  );
   const rendes = await login('senki', 'barmi-jelszo');
-  assert.equal(valaszok[0].json.error, rendes.json.error,
-    'ugyanaz az üzenet, mint a nem létező érvényes névnél — nem árul el semmit');
+  assert.equal(
+    valaszok[0].json.error,
+    rendes.json.error,
+    'ugyanaz az üzenet, mint a nem létező érvényes névnél — nem árul el semmit',
+  );
 });
 
 /* ======================================================================
@@ -79,7 +98,8 @@ test('a belépés próbálgatása nem blokkolja a tulajdonos jelszócseréjét',
 
   // A tulajdonos a már élő munkamenetéből le tudja cserélni a (kompromittált) jelszót.
   const csere = await request('PUT', '/api/auth/password', {
-    cookie, body: { currentPassword: 'jelszo123', newPassword: 'ujjelszo123' },
+    cookie,
+    body: { currentPassword: 'jelszo123', newPassword: 'ujjelszo123' },
   });
   assert.equal(csere.status, 200, `a jelszócsere nem kap 429-et (kapott: ${csere.status})`);
 });
@@ -93,9 +113,14 @@ let meretCookie;
 test('50 gyakorlat, gyakorlatonként 50 szett még menthető', async () => {
   meretCookie = await register('meretes');
   const res = await request('POST', '/api/workouts', {
-    cookie: meretCookie, body: { name: 'Nagy edzés', exercises: exercises(50, 50) },
+    cookie: meretCookie,
+    body: { name: 'Nagy edzés', exercises: exercises(50, 50) },
   });
-  assert.equal(res.status, 201, `a legnagyobb megengedett edzés átmegy (kapott: ${res.status} ${res.json?.error ?? ''})`);
+  assert.equal(
+    res.status,
+    201,
+    `a legnagyobb megengedett edzés átmegy (kapott: ${res.status} ${res.json?.error ?? ''})`,
+  );
 });
 
 test('51 gyakorlat vagy 51 szett 400 — edzésnél, tervnél és piszkozatnál is', async () => {
@@ -114,12 +139,14 @@ test('51 gyakorlat vagy 51 szett 400 — edzésnél, tervnél és piszkozatnál 
 
 test('a megjegyzés célja csak „edzés:gyakorlat" alakú lehet', async () => {
   const hosszu = await request('POST', '/api/comments', {
-    cookie: meretCookie, body: { targetId: 'x'.repeat(5000), text: 'szöveg' },
+    cookie: meretCookie,
+    body: { targetId: 'x'.repeat(5000), text: 'szöveg' },
   });
   assert.equal(hosszu.status, 400);
 
   const rendes = await request('POST', '/api/comments', {
-    cookie: meretCookie, body: { targetId: '1:0', text: 'szöveg' },
+    cookie: meretCookie,
+    body: { targetId: '1:0', text: 'szöveg' },
   });
   assert.equal(rendes.status, 201);
 });

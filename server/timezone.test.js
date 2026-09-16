@@ -18,10 +18,12 @@ import { startServer } from './test-harness.js';
 const { request: rawRequest } = await startServer({ label: 'tz' });
 
 /** Kérés tetszőleges X-Client-Date fejléccel (a `date` elhagyható). */
-const request = (method, urlPath, { body, cookie, date } = {}) => rawRequest(
-  method, urlPath,
-  { body, cookie, headers: date !== undefined ? { 'X-Client-Date': date } : undefined },
-);
+const request = (method, urlPath, { body, cookie, date } = {}) =>
+  rawRequest(method, urlPath, {
+    body,
+    cookie,
+    headers: date !== undefined ? { 'X-Client-Date': date } : undefined,
+  });
 
 const pad = (n) => String(n).padStart(2, '0');
 const format = (d) => `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`;
@@ -32,10 +34,12 @@ const shift = (days) => {
 };
 const SERVER_TODAY = format(new Date());
 
-const gyakorlat = () => [{
-  name: 'Guggolás',
-  sets: [{ reps: '5', weight: '100', rpe: '8', type: 'work', done: true }],
-}];
+const gyakorlat = () => [
+  {
+    name: 'Guggolás',
+    sets: [{ reps: '5', weight: '100', rpe: '8', type: 'work', done: true }],
+  },
+];
 
 const reg = await request('POST', '/api/auth/register', {
   body: { username: 'utazo', displayName: 'Utazó Ubul', password: 'jelszo123' },
@@ -50,7 +54,8 @@ async function lastWorkoutDate() {
 
 test('fejléc nélkül a szerver saját napja marad az irányadó', async () => {
   const saved = await request('POST', '/api/workouts', {
-    cookie, body: { name: 'Fejléc nélkül', exercises: gyakorlat() },
+    cookie,
+    body: { name: 'Fejléc nélkül', exercises: gyakorlat() },
   });
   assert.equal(saved.status, 201);
   assert.equal(saved.json.date, SERVER_TODAY);
@@ -62,7 +67,9 @@ test('a kliens napját elfogadja — ez a lényeg: a naplózás a FELHASZNÁLÓ 
      kerülnie, nem a szerverére. */
   const holnap = shift(1);
   const saved = await request('POST', '/api/workouts', {
-    cookie, date: holnap, body: { name: 'Késő esti edzés', exercises: gyakorlat() },
+    cookie,
+    date: holnap,
+    body: { name: 'Késő esti edzés', exercises: gyakorlat() },
   });
   assert.equal(saved.json.date, holnap);
   assert.equal(await lastWorkoutDate(), holnap);
@@ -70,7 +77,9 @@ test('a kliens napját elfogadja — ez a lényeg: a naplózás a FELHASZNÁLÓ 
   // A másik irányban is (UTC-8: a szervernél már holnap van, a kliensnél még ma)
   const tegnap = shift(-1);
   const earlier = await request('POST', '/api/workouts', {
-    cookie, date: tegnap, body: { name: 'Hajnali edzés', exercises: gyakorlat() },
+    cookie,
+    date: tegnap,
+    body: { name: 'Hajnali edzés', exercises: gyakorlat() },
   });
   assert.equal(earlier.json.date, tegnap);
 });
@@ -83,7 +92,9 @@ test('a távoli dátumot NEM fogadja el — a fejléc nem visszadátumozásra va
   ];
   for (const [date, eset] of esetek) {
     const saved = await request('POST', '/api/workouts', {
-      cookie, date, body: { name: `Hamis nap (${eset})`, exercises: gyakorlat() },
+      cookie,
+      date,
+      body: { name: `Hamis nap (${eset})`, exercises: gyakorlat() },
     });
     assert.equal(saved.json.date, SERVER_TODAY, `${eset}: a szerver napjára esik vissza`);
   }
@@ -93,7 +104,9 @@ test('az értelmezhetetlen fejléc nem borítja fel a mentést', async () => {
   const rosszak = ['2026-08-25', '2026.13.45', 'ma', '', '   ', '2026.8.5'];
   for (const date of rosszak) {
     const saved = await request('POST', '/api/workouts', {
-      cookie, date, body: { name: 'Rossz fejléc', exercises: gyakorlat() },
+      cookie,
+      date,
+      body: { name: 'Rossz fejléc', exercises: gyakorlat() },
     });
     assert.equal(saved.status, 201, `"${date}": a kérés nem hibázik el`);
     assert.equal(saved.json.date, SERVER_TODAY, `"${date}": a szerver napja marad`);
@@ -104,7 +117,9 @@ test('a check-in és a napi táplálkozási napló ugyanazt a napot használja',
   const holnap = shift(1);
 
   const saved = await request('PUT', '/api/checkin', {
-    cookie, date: holnap, body: { sleepHours: 7, sleepQuality: 4, energy: 4, stress: 2, mood: 4, hydration: 2.5 },
+    cookie,
+    date: holnap,
+    body: { sleepHours: 7, sleepQuality: 4, energy: 4, stress: 2, mood: 4, hydration: 2.5 },
   });
   assert.equal(saved.status, 200);
   assert.equal(saved.json.checkin.date, holnap, 'a check-in a kliens napjára kerül');
@@ -121,7 +136,9 @@ test('a check-in és a napi táplálkozási napló ugyanazt a napot használja',
   const foods = await request('GET', '/api/foods', { cookie });
   const food = foods.json[0];
   const logged = await request('POST', '/api/nutrition/log', {
-    cookie, date: holnap, body: { name: food.name, grams: 100 },
+    cookie,
+    date: holnap,
+    body: { name: food.name, grams: 100 },
   });
   assert.equal(logged.status, 201);
   assert.equal(logged.json.entry.date, holnap);
@@ -129,8 +146,10 @@ test('a check-in és a napi táplálkozási napló ugyanazt a napot használja',
   const listedTomorrow = await request('GET', '/api/nutrition/log', { cookie, date: holnap });
   assert.ok(listedTomorrow.json.some((entry) => entry.id === logged.json.entry.id));
   const listedToday = await request('GET', '/api/nutrition/log', { cookie });
-  assert.ok(!listedToday.json.some((entry) => entry.id === logged.json.entry.id),
-    'a másik nap naplója nem keveredik bele');
+  assert.ok(
+    !listedToday.json.some((entry) => entry.id === logged.json.entry.id),
+    'a másik nap naplója nem keveredik bele',
+  );
 });
 
 test('a sorozat is a kliens napjához igazodik', async () => {

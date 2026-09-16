@@ -25,19 +25,41 @@ const NOTIF_CATEGORIES = [
     gyűrű irányai és a gyorsbillentyűk között (az „Edzés befejezése", az
     „+ Új terv", a „+ Gyakorlat hozzáadása", ill. az áttekintő check-in
     emlékeztetője és a Regeneráció oldal gombja visz oda). */
-const PAGES = ['dashboard', 'recovery', 'workout', 'nutrition', 'plans', 'coach', 'profile', 'summary', 'plan-builder', 'exercise-picker', 'checkin'];
+const PAGES = [
+  'dashboard',
+  'recovery',
+  'workout',
+  'nutrition',
+  'plans',
+  'coach',
+  'profile',
+  'summary',
+  'plan-builder',
+  'exercise-picker',
+  'checkin',
+];
 
 const FLOW_PAGES = ['summary', 'plan-builder', 'exercise-picker', 'checkin']; // friss megnyitáskor nem állnak vissza
 
 const DIR_TO_PAGE = {
-  up: 'coach', down: 'plans', left: 'workout', right: 'nutrition',
+  up: 'coach',
+  down: 'plans',
+  left: 'workout',
+  right: 'nutrition',
   home: 'dashboard',
 };
 
 // A gyorsbillentyűk a desktop side-nav sorrendjét követik.
 // A Regeneráció oldal szándékosan nincs a nav gyűrű négy iránya között —
 // mobilon az áttekintő készenlét-kártyája visz oda (lásd .db-readiness).
-const KEY_TO_PAGE = { 1: 'dashboard', 2: 'recovery', 3: 'coach', 4: 'plans', 5: 'workout', 6: 'nutrition' };
+const KEY_TO_PAGE = {
+  1: 'dashboard',
+  2: 'recovery',
+  3: 'coach',
+  4: 'plans',
+  5: 'workout',
+  6: 'nutrition',
+};
 
 /** Nyitott modál felismerése: a createModalController `is-open`-t tesz a
     gyökérre, a kártya pedig közvetlen gyerekként `aria-modal`. Így minden
@@ -46,4 +68,13 @@ const KEY_TO_PAGE = { 1: 'dashboard', 2: 'recovery', 3: 'coach', 4: 'plans', 5: 
     A szerkezetet a ui/shortcuts.test.js őrzi. */
 const OPEN_MODAL_SELECTOR = '.is-open > [aria-modal="true"]';
 
-export { DAY_LABELS, DAY_NAMES, DIR_TO_PAGE, FLOW_PAGES, KEY_TO_PAGE, NOTIF_CATEGORIES, OPEN_MODAL_SELECTOR, PAGES };
+export {
+  DAY_LABELS,
+  DAY_NAMES,
+  DIR_TO_PAGE,
+  FLOW_PAGES,
+  KEY_TO_PAGE,
+  NOTIF_CATEGORIES,
+  OPEN_MODAL_SELECTOR,
+  PAGES,
+};

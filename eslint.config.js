@@ -36,13 +36,16 @@ export default [
       // Az ignoreRestSiblings az "elhagyás" mintát engedi: a
       // `({ load, extId, ...visible }) => visible` nem hanyagság, hanem az a
       // szándék, hogy a két mező NE kerüljön a válaszba.
-      'no-unused-vars': ['error', {
-        args: 'after-used',
-        argsIgnorePattern: '^_',
-        caughtErrorsIgnorePattern: '^_',
-        varsIgnorePattern: '^_',
-        ignoreRestSiblings: true,
-      }],
+      'no-unused-vars': [
+        'error',
+        {
+          args: 'after-used',
+          argsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          ignoreRestSiblings: true,
+        },
+      ],
       // Az elnyelt hiba a legdrágább hiba: a felhasználó azt hiszi, minden
       // rendben. Üres blokk csak kifejezett szándékkal, kommenttel maradhat.
       'no-empty': ['error', { allowEmptyCatch: false }],

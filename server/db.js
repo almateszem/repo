@@ -339,7 +339,11 @@ db.exec(`
    bevezetett oszlopokat itt pótoljuk a régebbi DB-fájlokon.
    ====================================================================== */
 
-const columnsOf = (table) => db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
+const columnsOf = (table) =>
+  db
+    .prepare(`PRAGMA table_info(${table})`)
+    .all()
+    .map((c) => c.name);
 const hasColumn = (table, column) => columnsOf(table).includes(column);
 
 function ensureColumn(table, column, ddl) {
@@ -395,9 +399,15 @@ ensureColumn('messages', 'read_at', 'read_at TEXT');
    fiókhoz. Egy helyen felsorolva, mert két művelet is végigmegy rajtuk: az
    első regisztráció adat-öröklése és a fiók törlése. Ha új ilyen tábla
    születik, ITT kell felvenni. */
-const USER_DATA_TABLES = ['weight_log', 'nutrition_log', 'workouts', 'plans',
-  'workout_draft', 'checkins', 'exercise_maxes'];
-
+const USER_DATA_TABLES = [
+  'weight_log',
+  'nutrition_log',
+  'workouts',
+  'plans',
+  'workout_draft',
+  'checkins',
+  'exercise_maxes',
+];
 
 const LEGACY_USERNAME = '__archiv__';
 
@@ -405,9 +415,11 @@ const LEGACY_USERNAME = '__archiv__';
 function ensureLegacyUser() {
   const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(LEGACY_USERNAME);
   if (existing) return existing.id;
-  const { lastInsertRowid } = db.prepare(
-    "INSERT INTO users (username, display_name, password_hash) VALUES (?, 'Korábbi adatok', '')",
-  ).run(LEGACY_USERNAME);
+  const { lastInsertRowid } = db
+    .prepare(
+      "INSERT INTO users (username, display_name, password_hash) VALUES (?, 'Korábbi adatok', '')",
+    )
+    .run(LEGACY_USERNAME);
   return Number(lastInsertRowid);
 }
 
@@ -430,7 +442,9 @@ for (const table of ['weight_log', 'nutrition_log', 'workouts', 'plans']) {
 
 function rebuildWorkoutDraft() {
   if (hasColumn('workout_draft', 'user_id')) return;
-  const legacy = db.prepare('SELECT name, exercises, date, plan_id FROM workout_draft WHERE id = 1').get();
+  const legacy = db
+    .prepare('SELECT name, exercises, date, plan_id FROM workout_draft WHERE id = 1')
+    .get();
 
   db.exec(`
     CREATE TABLE workout_draft_new (
@@ -443,17 +457,22 @@ function rebuildWorkoutDraft() {
     );
   `);
   if (legacy) {
-    db.prepare(`INSERT INTO workout_draft_new (user_id, name, exercises, date, plan_id)
-                VALUES (?, ?, ?, ?, ?)`)
-      .run(ensureLegacyUser(), legacy.name, legacy.exercises, legacy.date, legacy.plan_id);
+    db.prepare(
+      `INSERT INTO workout_draft_new (user_id, name, exercises, date, plan_id)
+                VALUES (?, ?, ?, ?, ?)`,
+    ).run(ensureLegacyUser(), legacy.name, legacy.exercises, legacy.date, legacy.plan_id);
   }
   db.exec('DROP TABLE workout_draft; ALTER TABLE workout_draft_new RENAME TO workout_draft;');
 }
 
 function rebuildCheckins() {
   if (hasColumn('checkins', 'user_id')) return;
-  const legacy = db.prepare(`SELECT date, sleep_hours, sleep_quality, energy, stress, mood,
-                                    hydration, soreness, pain FROM checkins`).all();
+  const legacy = db
+    .prepare(
+      `SELECT date, sleep_hours, sleep_quality, energy, stress, mood,
+                                    hydration, soreness, pain FROM checkins`,
+    )
+    .all();
 
   db.exec(`
     CREATE TABLE checkins_new (
@@ -477,8 +496,18 @@ function rebuildCheckins() {
       (user_id, date, sleep_hours, sleep_quality, energy, stress, mood, hydration, soreness, pain)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
     for (const row of legacy) {
-      insert.run(userId, row.date, row.sleep_hours, row.sleep_quality, row.energy,
-        row.stress, row.mood, row.hydration, row.soreness, row.pain);
+      insert.run(
+        userId,
+        row.date,
+        row.sleep_hours,
+        row.sleep_quality,
+        row.energy,
+        row.stress,
+        row.mood,
+        row.hydration,
+        row.soreness,
+        row.pain,
+      );
     }
   }
   db.exec('DROP TABLE checkins; ALTER TABLE checkins_new RENAME TO checkins;');
@@ -503,7 +532,8 @@ function rebuildExerciseMaxes() {
   `);
   if (legacy.length) {
     const userId = ensureLegacyUser();
-    const insert = db.prepare(`INSERT INTO exercise_maxes_new (user_id, exercise_name, max_1rm, date)
+    const insert =
+      db.prepare(`INSERT INTO exercise_maxes_new (user_id, exercise_name, max_1rm, date)
                                VALUES (?, ?, ?, ?)`);
     for (const row of legacy) insert.run(userId, row.exercise_name, row.max_1rm, row.date);
   }
@@ -530,7 +560,9 @@ ensureColumn('workout_draft', 'workout_id', 'workout_id INTEGER');
    idempotens (számból ugyanaz a szám lesz), és csak a ténylegesen változó
    sorokat írja vissza, így minden induláskor nyugodtan lefuthat. */
 const firstNumber = (raw) => {
-  const match = String(raw ?? '').replace(',', '.').match(/\d+(\.\d+)?/);
+  const match = String(raw ?? '')
+    .replace(',', '.')
+    .match(/\d+(\.\d+)?/);
   return match ? match[0] : '';
 };
 
@@ -539,7 +571,11 @@ function migrateSetValuesToNumbers(table, key) {
   const update = db.prepare(`UPDATE ${table} SET exercises = ? WHERE ${key} = ?`);
   for (const row of rows) {
     let exercises;
-    try { exercises = JSON.parse(row.exercises); } catch { continue; }
+    try {
+      exercises = JSON.parse(row.exercises);
+    } catch {
+      continue;
+    }
     if (!Array.isArray(exercises)) continue;
 
     let changed = false;
@@ -584,10 +620,15 @@ migrateSetValuesToNumbers('workout_draft', 'user_id');
    helyen álló, lassan elcsúszó másolatból pontosan a bestCompletedSet
    kommentjében leírt hiba születne. */
 function backfillExerciseMaxes() {
-  const userIds = db.prepare(`
+  const userIds = db
+    .prepare(
+      `
     SELECT DISTINCT w.user_id AS id FROM workouts w
     WHERE NOT EXISTS (SELECT 1 FROM exercise_maxes m WHERE m.user_id = w.user_id)
-  `).all().map((row) => row.id);
+  `,
+    )
+    .all()
+    .map((row) => row.id);
 
   for (const userId of userIds) recomputeExerciseMaxes(userId);
 }
@@ -642,22 +683,31 @@ const collections = {
   foods: buildFoodCatalog(),
 };
 
-const insertCollection = db.prepare('INSERT OR REPLACE INTO collections (key, value) VALUES (?, ?)');
+const insertCollection = db.prepare(
+  'INSERT OR REPLACE INTO collections (key, value) VALUES (?, ?)',
+);
 for (const [key, value] of Object.entries(collections)) {
   insertCollection.run(key, JSON.stringify(value));
 }
 // Az időközben eltávolított kulcsok a meglévő DB-kből is tűnjenek el.
 const seedKeys = Object.keys(collections);
-db.prepare(`DELETE FROM collections WHERE key NOT IN (${seedKeys.map(() => '?').join(', ')})`)
-  .run(...seedKeys);
+db.prepare(`DELETE FROM collections WHERE key NOT IN (${seedKeys.map(() => '?').join(', ')})`).run(
+  ...seedKeys,
+);
 // eslint-disable-next-line no-console -- indulási kiírás: a feloldott DB-útvonal
-console.log('SQLite kész →', path.resolve(DB_PATH), dbExisted ? '(meglévő)' : '(ÚJ adatbázis jött létre)');
+console.log(
+  'SQLite kész →',
+  path.resolve(DB_PATH),
+  dbExisted ? '(meglévő)' : '(ÚJ adatbázis jött létre)',
+);
 if (!dbExisted) {
   /* Élesben ez a sor CSAK EGYSZER, a legelső indításkor helyénvaló. Ha minden
      deploy után látod, akkor a fájlrendszer ephemeral, és a felhasználói
      naplók deployonként elvesznek — perzisztens volume kell (README → Élesítés). */
   // eslint-disable-next-line no-console -- figyelmeztetés ephemeral tárolóra
-  console.log('   → ha ezt MINDEN indításkor látod, az adatbázis nem marad meg: perzisztens tároló kell.');
+  console.log(
+    '   → ha ezt MINDEN indításkor látod, az adatbázis nem marad meg: perzisztens tároló kell.',
+  );
 }
 
 /* ======================================================================
@@ -665,22 +715,23 @@ if (!dbExisted) {
    ====================================================================== */
 
 /** Egy felhasználó sora → a felület által látott alak (jelszó nélkül!). */
-const toUser = (row) => (row
-  ? { id: row.id, username: row.username, displayName: row.display_name }
-  : null);
+const toUser = (row) =>
+  row ? { id: row.id, username: row.username, displayName: row.display_name } : null;
 
 /** Egy felhasználó NYILVÁNOS alakja: ennyit lát róla a kapcsolat másik
     oldala (meghíváskor, a sportoló-kártyán, az üzenet-szálban). Az id
     szándékosan nincs benne — a felület a kapcsolat azonosítójával dolgozik. */
-const toPublicUser = (row) => (row
-  ? { username: row.username, name: row.display_name, goal: row.goal ?? null }
-  : null);
+const toPublicUser = (row) =>
+  row ? { username: row.username, name: row.display_name, goal: row.goal ?? null } : null;
 
 /** Felhasználó a (már kisbetűsített) felhasználónév alapján, a hash-sel együtt
     — kizárólag a belépés ellenőrzéséhez. */
 export function getUserWithHash(username) {
-  return db.prepare('SELECT id, username, display_name, password_hash FROM users WHERE username = ?')
-    .get(username) || null;
+  return (
+    db
+      .prepare('SELECT id, username, display_name, password_hash FROM users WHERE username = ?')
+      .get(username) || null
+  );
 }
 
 /** Felhasználó azonosító alapján (jelszó nélkül). */
@@ -712,7 +763,10 @@ export function setUserGoal(id, goal) {
     meghíváshoz. Az archív fiók SOSEM találat: az nem egy valódi ember, és a
     hozzárendelt adat az első regisztrálóé lesz. */
 export function findUserByUsername(username) {
-  const row = db.prepare('SELECT id, username, display_name, goal FROM users WHERE username = ? AND username != ?')
+  const row = db
+    .prepare(
+      'SELECT id, username, display_name, goal FROM users WHERE username = ? AND username != ?',
+    )
     .get(username, LEGACY_USERNAME);
   return row ? { id: row.id, ...toPublicUser(row) } : null;
 }
@@ -720,7 +774,9 @@ export function findUserByUsername(username) {
 /** Van-e már valódi (nem archív) fiók? A felület ebből tudja, hogy az első
     regisztráció következik-e. */
 export function hasAnyUser() {
-  return db.prepare('SELECT COUNT(*) AS n FROM users WHERE username != ?').get(LEGACY_USERNAME).n > 0;
+  return (
+    db.prepare('SELECT COUNT(*) AS n FROM users WHERE username != ?').get(LEGACY_USERNAME).n > 0
+  );
 }
 
 /* A migráció során félretett, gazdátlan adat átadása az első valódi fióknak.
@@ -730,7 +786,8 @@ function adoptLegacyData(newUserId) {
   const legacy = db.prepare('SELECT id FROM users WHERE username = ?').get(LEGACY_USERNAME);
   if (!legacy) return false;
 
-  const realUsers = db.prepare('SELECT COUNT(*) AS n FROM users WHERE username != ?')
+  const realUsers = db
+    .prepare('SELECT COUNT(*) AS n FROM users WHERE username != ?')
     .get(LEGACY_USERNAME).n;
   if (realUsers !== 1) return false; // nem az első regisztráció — nem nyúlunk hozzá
 
@@ -750,9 +807,9 @@ function adoptLegacyData(newUserId) {
 export function createUser(username, displayName, passwordHash) {
   if (db.prepare('SELECT 1 FROM users WHERE username = ?').get(username)) return null;
 
-  const { lastInsertRowid } = db.prepare(
-    'INSERT INTO users (username, display_name, password_hash) VALUES (?, ?, ?)',
-  ).run(username, displayName, passwordHash);
+  const { lastInsertRowid } = db
+    .prepare('INSERT INTO users (username, display_name, password_hash) VALUES (?, ?, ?)')
+    .run(username, displayName, passwordHash);
   const id = Number(lastInsertRowid);
 
   return { user: getUser(id), adoptedLegacy: adoptLegacyData(id) };
@@ -760,7 +817,9 @@ export function createUser(username, displayName, passwordHash) {
 
 /** A fiók jelszó-hashének cseréje (a hashelés a hívó dolga, ld. auth.js). */
 export function updateUserPassword(id, passwordHash) {
-  return db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(passwordHash, id).changes > 0;
+  return (
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(passwordHash, id).changes > 0
+  );
 }
 
 /** A fiók ÖSSZES munkamenetének törlése — jelszóváltáskor hívjuk, hogy a
@@ -785,9 +844,10 @@ export function deleteUserSessions(userId) {
 export function deleteUser(userId) {
   db.exec('BEGIN IMMEDIATE');
   try {
-    db.prepare(`DELETE FROM messages
-                WHERE link_id IN (SELECT id FROM coach_links WHERE coach_id = ? OR athlete_id = ?)`)
-      .run(userId, userId);
+    db.prepare(
+      `DELETE FROM messages
+                WHERE link_id IN (SELECT id FROM coach_links WHERE coach_id = ? OR athlete_id = ?)`,
+    ).run(userId, userId);
     // Öv és nadrágtartó: ha egy üzenet valahogy kapcsolat nélkül maradt volna
     db.prepare('DELETE FROM messages WHERE sender_id = ?').run(userId);
     db.prepare('DELETE FROM coach_links WHERE coach_id = ? OR athlete_id = ?').run(userId, userId);
@@ -808,18 +868,25 @@ export function deleteUser(userId) {
 
 /** Munkamenet létrehozása a token lenyomatához. */
 export function createSession(tokenHash, userId, expiresAt) {
-  db.prepare('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)')
-    .run(tokenHash, userId, expiresAt);
+  db.prepare('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)').run(
+    tokenHash,
+    userId,
+    expiresAt,
+  );
 }
 
 /** A munkamenethez tartozó felhasználó, vagy null (ismeretlen vagy lejárt
     token). A lejárt sorokat menet közben takarítjuk. */
 export function getSessionUser(tokenHash) {
-  const row = db.prepare(`
+  const row = db
+    .prepare(
+      `
     SELECT u.id, u.username, u.display_name, s.expires_at
     FROM sessions s JOIN users u ON u.id = s.user_id
     WHERE s.token_hash = ?
-  `).get(tokenHash);
+  `,
+    )
+    .get(tokenHash);
   if (!row) return null;
 
   if (new Date(row.expires_at).getTime() <= Date.now()) {
@@ -862,51 +929,72 @@ const toIso = (stamp) => (stamp ? `${String(stamp).replace(' ', 'T')}Z` : null);
     (server.js): az önmagában érvényes sor lenne, csak épp értelmetlen. */
 export function createCoachInvite(coachId, athleteId) {
   if (coachId === athleteId) return null;
-  if (db.prepare('SELECT 1 FROM coach_links WHERE coach_id = ? AND athlete_id = ?').get(coachId, athleteId)) {
+  if (
+    db
+      .prepare('SELECT 1 FROM coach_links WHERE coach_id = ? AND athlete_id = ?')
+      .get(coachId, athleteId)
+  ) {
     return null;
   }
-  const { lastInsertRowid } = db.prepare(
-    "INSERT INTO coach_links (coach_id, athlete_id, status) VALUES (?, ?, 'pending')",
-  ).run(coachId, athleteId);
+  const { lastInsertRowid } = db
+    .prepare("INSERT INTO coach_links (coach_id, athlete_id, status) VALUES (?, ?, 'pending')")
+    .run(coachId, athleteId);
   return getCoachLink(Number(lastInsertRowid));
 }
 
 /** Egy kapcsolat a saját azonosítója alapján (a végpontok ebből döntik el,
     hogy a hívó fél egyáltalán érintett-e). Ismeretlen id-re null. */
 export function getCoachLink(linkId) {
-  const row = db.prepare(`SELECT id, coach_id, athlete_id, status, created_at, responded_at
-                          FROM coach_links WHERE id = ?`).get(linkId);
-  return row ? {
-    id: row.id,
-    coachId: row.coach_id,
-    athleteId: row.athlete_id,
-    status: row.status,
-    createdAt: toIso(row.created_at),
-    respondedAt: toIso(row.responded_at),
-  } : null;
+  const row = db
+    .prepare(
+      `SELECT id, coach_id, athlete_id, status, created_at, responded_at
+                          FROM coach_links WHERE id = ?`,
+    )
+    .get(linkId);
+  return row
+    ? {
+        id: row.id,
+        coachId: row.coach_id,
+        athleteId: row.athlete_id,
+        status: row.status,
+        createdAt: toIso(row.created_at),
+        respondedAt: toIso(row.responded_at),
+      }
+    : null;
 }
 
 /** A sportoló ÉLŐ edzője, vagy null. */
 export function getActiveCoach(athleteId) {
-  const row = db.prepare(`
+  const row = db
+    .prepare(
+      `
     SELECT l.id AS link_id, u.username, u.display_name, u.goal
     FROM coach_links l JOIN users u ON u.id = l.coach_id
     WHERE l.athlete_id = ? AND l.status = 'active'
     ORDER BY l.id LIMIT 1
-  `).get(athleteId);
+  `,
+    )
+    .get(athleteId);
   return row ? { linkId: row.link_id, ...toPublicUser(row) } : null;
 }
 
 /** A sportolóhoz érkezett, még el nem fogadott meghívók (legújabb elöl). */
 export function getPendingCoachInvites(athleteId) {
-  return db.prepare(`
+  return db
+    .prepare(
+      `
     SELECT l.id AS link_id, l.created_at, u.username, u.display_name, u.goal
     FROM coach_links l JOIN users u ON u.id = l.coach_id
     WHERE l.athlete_id = ? AND l.status = 'pending'
     ORDER BY l.id DESC
-  `).all(athleteId).map((row) => ({
-    linkId: row.link_id, at: toIso(row.created_at), coach: toPublicUser(row),
-  }));
+  `,
+    )
+    .all(athleteId)
+    .map((row) => ({
+      linkId: row.link_id,
+      at: toIso(row.created_at),
+      coach: toPublicUser(row),
+    }));
 }
 
 /**
@@ -916,29 +1004,36 @@ export function getPendingCoachInvites(athleteId) {
  * kimenő alakba az id nem kerül bele — ott a linkId az azonosító.
  */
 export function getCoachAthletes(coachId, status = 'active') {
-  return db.prepare(`
+  return db
+    .prepare(
+      `
     SELECT l.id AS link_id, l.created_at, l.responded_at, u.id AS user_id,
            u.username, u.display_name, u.goal
     FROM coach_links l JOIN users u ON u.id = l.athlete_id
     WHERE l.coach_id = ? AND l.status = ?
     ORDER BY l.id
-  `).all(coachId, status).map((row) => ({
-    linkId: row.link_id,
-    at: toIso(row.created_at),
-    // Mikor fogadta el a sportoló. Csak élő kapcsolatnál van értéke — az
-    // értesítés-panel ebből tudja, hogy „X elfogadta a meghívódat".
-    respondedAt: toIso(row.responded_at),
-    userId: row.user_id,
-    ...toPublicUser(row),
-  }));
+  `,
+    )
+    .all(coachId, status)
+    .map((row) => ({
+      linkId: row.link_id,
+      at: toIso(row.created_at),
+      // Mikor fogadta el a sportoló. Csak élő kapcsolatnál van értéke — az
+      // értesítés-panel ebből tudja, hogy „X elfogadta a meghívódat".
+      respondedAt: toIso(row.responded_at),
+      userId: row.user_id,
+      ...toPublicUser(row),
+    }));
 }
 
 /** Meghívó elfogadása. A hívó előbb ellenőrzi, hogy a sportolónak nincs-e már
     élő edzője — ez a függvény csak az állapotot állítja át. */
 export function acceptCoachInvite(linkId) {
-  const { changes } = db.prepare(
-    "UPDATE coach_links SET status = 'active', responded_at = datetime('now') WHERE id = ? AND status = 'pending'",
-  ).run(linkId);
+  const { changes } = db
+    .prepare(
+      "UPDATE coach_links SET status = 'active', responded_at = datetime('now') WHERE id = ? AND status = 'pending'",
+    )
+    .run(linkId);
   return changes > 0 ? getCoachLink(linkId) : null;
 }
 
@@ -968,27 +1063,37 @@ const MESSAGE_COLUMNS = `
 
 /** Egy kapcsolat üzenetei időrendben (a legutóbbi `limit` darab). */
 export function getMessages(linkId, limit = 100) {
-  return db.prepare(`
+  return db
+    .prepare(
+      `
     SELECT ${MESSAGE_COLUMNS}
     WHERE m.link_id = ? ORDER BY m.id DESC LIMIT ?
-  `).all(linkId, limit).map(toMessage).reverse();
+  `,
+    )
+    .all(linkId, limit)
+    .map(toMessage)
+    .reverse();
 }
 
 /** A kapcsolat legutóbbi üzenete, vagy null (a sportoló-kártya idézi). */
 export function getLastMessage(linkId) {
-  const row = db.prepare(`
+  const row = db
+    .prepare(
+      `
     SELECT ${MESSAGE_COLUMNS}
     WHERE m.link_id = ? ORDER BY m.id DESC LIMIT 1
-  `).get(linkId);
+  `,
+    )
+    .get(linkId);
   return row ? toMessage(row) : null;
 }
 
 /** Üzenet küldése egy kapcsolatba. A küldő fél jogosultságát a végpont
     ellenőrzi (csak a kapcsolat két oldala írhat bele). */
 export function addMessage(linkId, senderId, body) {
-  const { lastInsertRowid } = db.prepare(
-    'INSERT INTO messages (link_id, sender_id, body) VALUES (?, ?, ?)',
-  ).run(linkId, senderId, body);
+  const { lastInsertRowid } = db
+    .prepare('INSERT INTO messages (link_id, sender_id, body) VALUES (?, ?, ?)')
+    .run(linkId, senderId, body);
   const row = db.prepare(`SELECT ${MESSAGE_COLUMNS} WHERE m.id = ?`).get(Number(lastInsertRowid));
   return toMessage(row);
 }
@@ -1002,10 +1107,14 @@ export function addMessage(linkId, senderId, body) {
  * @returns {number} hány üzenet vált olvasottá (0 = nem volt hátralék)
  */
 export function markMessagesRead(linkId, readerId) {
-  return db.prepare(`
+  return db
+    .prepare(
+      `
     UPDATE messages SET read_at = datetime('now')
     WHERE link_id = ? AND sender_id != ? AND read_at IS NULL
-  `).run(linkId, readerId).changes;
+  `,
+    )
+    .run(linkId, readerId).changes;
 }
 
 /**
@@ -1017,13 +1126,17 @@ export function markMessagesRead(linkId, readerId) {
  * teljes event loopot blokkolná (ld. TEENDOK.txt, teljesítmény-szakasz).
  */
 export function getUnreadCounts(userId) {
-  const rows = db.prepare(`
+  const rows = db
+    .prepare(
+      `
     SELECT m.link_id, COUNT(*) AS unread
     FROM messages m JOIN coach_links l ON l.id = m.link_id
     WHERE m.read_at IS NULL AND m.sender_id != ?
       AND (l.coach_id = ? OR l.athlete_id = ?)
     GROUP BY m.link_id
-  `).all(userId, userId, userId);
+  `,
+    )
+    .all(userId, userId, userId);
   return new Map(rows.map((row) => [row.link_id, row.unread]));
 }
 
@@ -1045,17 +1158,31 @@ const toAssignment = (row) => ({
 /* A kiosztás mezői. Kétszer kell: egyszer önmagában, egyszer `a.` előtaggal a
    kapcsolat- és felhasználó-JOIN-os lekérdezésekhez (ott a display_name miatt
    a csillag nem volna egyértelmű). */
-const ASSIGNMENT_FIELDS = ['id', 'link_id', 'name', 'exercises', 'days', 'note', 'status', 'created_at', 'responded_at'];
+const ASSIGNMENT_FIELDS = [
+  'id',
+  'link_id',
+  'name',
+  'exercises',
+  'days',
+  'note',
+  'status',
+  'created_at',
+  'responded_at',
+];
 const ASSIGNMENT_COLUMNS = ASSIGNMENT_FIELDS.join(', ');
 const ASSIGNMENT_COLUMNS_A = ASSIGNMENT_FIELDS.map((field) => `a.${field}`).join(', ');
 
 /** Terv felajánlása a kapcsolat sportolójának. A hívó (server.js) ellenőrzi,
     hogy a kapcsolat él-e, és hogy tényleg az EDZŐ oldala kéri. */
 export function assignPlan(linkId, { name, exercises, days, note = null }) {
-  const { lastInsertRowid } = db.prepare(`
+  const { lastInsertRowid } = db
+    .prepare(
+      `
     INSERT INTO plan_assignments (link_id, name, exercises, days, note)
     VALUES (?, ?, ?, ?, ?)
-  `).run(linkId, name, JSON.stringify(exercises), JSON.stringify(days), note);
+  `,
+    )
+    .run(linkId, name, JSON.stringify(exercises), JSON.stringify(days), note);
   return getPlanAssignment(Number(lastInsertRowid));
 }
 
@@ -1072,17 +1199,22 @@ export function getPlanAssignment(id) {
  * ajánlata nem lóghat ott a sportolónál.
  */
 export function getPendingPlanOffers(athleteId) {
-  return db.prepare(`
+  return db
+    .prepare(
+      `
     SELECT ${ASSIGNMENT_COLUMNS_A}, u.display_name, u.username
     FROM plan_assignments a
     JOIN coach_links l ON l.id = a.link_id
     JOIN users u ON u.id = l.coach_id
     WHERE l.athlete_id = ? AND l.status = 'active' AND a.status = 'pending'
     ORDER BY a.id DESC
-  `).all(athleteId).map((row) => ({
-    ...toAssignment(row),
-    coach: { username: row.username, name: row.display_name },
-  }));
+  `,
+    )
+    .all(athleteId)
+    .map((row) => ({
+      ...toAssignment(row),
+      coach: { username: row.username, name: row.display_name },
+    }));
 }
 
 /**
@@ -1091,26 +1223,35 @@ export function getPendingPlanOffers(athleteId) {
  * `limit` legutóbbi, a sportoló nevével.
  */
 export function getAnsweredPlanOffers(coachId, limit = 10) {
-  return db.prepare(`
+  return db
+    .prepare(
+      `
     SELECT ${ASSIGNMENT_COLUMNS_A}, u.display_name, u.username
     FROM plan_assignments a
     JOIN coach_links l ON l.id = a.link_id
     JOIN users u ON u.id = l.athlete_id
     WHERE l.coach_id = ? AND a.status != 'pending'
     ORDER BY a.responded_at DESC LIMIT ?
-  `).all(coachId, limit).map((row) => ({
-    ...toAssignment(row),
-    athlete: { username: row.username, name: row.display_name },
-  }));
+  `,
+    )
+    .all(coachId, limit)
+    .map((row) => ({
+      ...toAssignment(row),
+      athlete: { username: row.username, name: row.display_name },
+    }));
 }
 
 /** A kiosztás lezárása ('accepted' vagy 'declined'). Csak FÜGGŐ sort mozdít
     meg, tehát a kétszer elküldött válasz nem írja felül az elsőt. */
 export function resolvePlanAssignment(id, status) {
-  const { changes } = db.prepare(`
+  const { changes } = db
+    .prepare(
+      `
     UPDATE plan_assignments SET status = ?, responded_at = datetime('now')
     WHERE id = ? AND status = 'pending'
-  `).run(status, id);
+  `,
+    )
+    .run(status, id);
   return changes > 0 ? getPlanAssignment(id) : null;
 }
 
@@ -1149,7 +1290,9 @@ export function getCollection(key) {
 
 /** A testsúly-bejegyzések a valódi táblából, rögzítési sorrendben. */
 export function getWeightLog(userId) {
-  return db.prepare('SELECT id, kg, date FROM weight_log WHERE user_id = ? ORDER BY id').all(userId);
+  return db
+    .prepare('SELECT id, kg, date FROM weight_log WHERE user_id = ? ORDER BY id')
+    .all(userId);
 }
 
 /** A `sinceDate` óta rögzített testsúlyok, a getWeightLog sorrendjében
@@ -1158,22 +1301,31 @@ export function getWeightLog(userId) {
     „legutóbbi aktivitás" pedig négy eseményt mutat. Napi méréssel a teljes
     napló évente ~365 sorral hízik — sportolónként, minden panel-frissítésnél. */
 export function getWeightLogSince(userId, sinceDate) {
-  return db.prepare('SELECT id, kg, date FROM weight_log WHERE user_id = ? AND date >= ? ORDER BY id')
+  return db
+    .prepare('SELECT id, kg, date FROM weight_log WHERE user_id = ? AND date >= ? ORDER BY id')
     .all(userId, sinceDate);
 }
 
 /** A naplózott ételek, rögzítési sorrendben. */
 export function getNutritionLog(userId) {
-  return db.prepare(`SELECT id, name, grams, kcal, protein, carbs, fat, date
-                     FROM nutrition_log WHERE user_id = ? ORDER BY id`).all(userId);
+  return db
+    .prepare(
+      `SELECT id, name, grams, kcal, protein, carbs, fat, date
+                     FROM nutrition_log WHERE user_id = ? ORDER BY id`,
+    )
+    .all(userId);
 }
 
 /** Egy adott nap naplózott ételei, rögzítési sorrendben. A Táplálkozás oldal
     mai naplója ebből épül — enélkül a felhasználó csak összesítést látott, és
     egy téves koppintást nem tudott visszavonni. */
 export function getNutritionLogForDate(userId, date) {
-  return db.prepare(`SELECT id, name, grams, kcal, protein, carbs, fat, date
-                     FROM nutrition_log WHERE user_id = ? AND date = ? ORDER BY id`).all(userId, date);
+  return db
+    .prepare(
+      `SELECT id, name, grams, kcal, protein, carbs, fat, date
+                     FROM nutrition_log WHERE user_id = ? AND date = ? ORDER BY id`,
+    )
+    .all(userId, date);
 }
 
 /* ---- Megjegyzések ----
@@ -1200,17 +1352,27 @@ const COMMENT_SELECT = `
 
 /** Egy cél megjegyzései, időrendben (a legrégebbi elöl — így olvasható). */
 export function getComments(subjectId, targetType, targetId) {
-  return db.prepare(`${COMMENT_SELECT}
+  return db
+    .prepare(
+      `${COMMENT_SELECT}
     WHERE c.subject_id = ? AND c.target_type = ? AND c.target_id = ?
-    ORDER BY c.id ASC`).all(subjectId, targetType, String(targetId)).map(toComment);
+    ORDER BY c.id ASC`,
+    )
+    .all(subjectId, targetType, String(targetId))
+    .map(toComment);
 }
 
 /** Egy típus ÖSSZES megjegyzése célonként csoportosítva. Az összegző oldal így
     egyetlen kérésből tudja, melyik gyakorlathoz tartozik megjegyzés. */
 export function getCommentsByTarget(subjectId, targetType) {
-  const rows = db.prepare(`${COMMENT_SELECT}
+  const rows = db
+    .prepare(
+      `${COMMENT_SELECT}
     WHERE c.subject_id = ? AND c.target_type = ?
-    ORDER BY c.id ASC`).all(subjectId, targetType).map(toComment);
+    ORDER BY c.id ASC`,
+    )
+    .all(subjectId, targetType)
+    .map(toComment);
   const grouped = {};
   for (const row of rows) (grouped[row.targetId] ??= []).push(row);
   return grouped;
@@ -1218,17 +1380,23 @@ export function getCommentsByTarget(subjectId, targetType) {
 
 /** Új megjegyzés. Visszaadja a mentett sort (a szerző nevével együtt). */
 export function addComment(authorId, subjectId, targetType, targetId, text) {
-  const { lastInsertRowid } = db.prepare(`
+  const { lastInsertRowid } = db
+    .prepare(
+      `
     INSERT INTO comments (author_id, subject_id, target_type, target_id, text)
-    VALUES (?, ?, ?, ?, ?)`).run(authorId, subjectId, targetType, String(targetId ?? ''), text);
+    VALUES (?, ?, ?, ?, ?)`,
+    )
+    .run(authorId, subjectId, targetType, String(targetId ?? ''), text);
   return toComment(db.prepare(`${COMMENT_SELECT} WHERE c.id = ?`).get(lastInsertRowid));
 }
 
 /** Megjegyzés törlése. CSAK a szerző törölhet, ezért az author_id is feltétel —
     így egy idegen id-vel küldött kérés nem talál sort, és 404-et kap. */
 export function deleteComment(commentId, authorId) {
-  return db.prepare('DELETE FROM comments WHERE id = ? AND author_id = ?')
-    .run(commentId, authorId).changes > 0;
+  return (
+    db.prepare('DELETE FROM comments WHERE id = ? AND author_id = ?').run(commentId, authorId)
+      .changes > 0
+  );
 }
 
 /* ---- Víznapló ---- */
@@ -1237,9 +1405,13 @@ export function deleteComment(commentId, authorId) {
     Milliliterben tároljuk: a +250 ml lépés egész szám, a liter csak
     megjelenítés — így nem gyűlik lebegőpontos hiba a nap folyamán. */
 export function getWaterDay(userId, date) {
-  const entries = db.prepare(`SELECT id, ml, logged_at AS loggedAt FROM water_log
+  const entries = db
+    .prepare(
+      `SELECT id, ml, logged_at AS loggedAt FROM water_log
                               WHERE user_id = ? AND date = ?
-                              ORDER BY id DESC`).all(userId, date);
+                              ORDER BY id DESC`,
+    )
+    .all(userId, date);
   return { totalMl: entries.reduce((sum, row) => sum + row.ml, 0), entries };
 }
 
@@ -1253,8 +1425,10 @@ export function addWaterEntry(userId, date, ml) {
 /** Egy bejegyzés törlése. A user_id is feltétel, hogy idegen sorra ne
     lehessen törölni — ilyenkor nem talál sort, és a végpont 404-et ad. */
 export function deleteWaterEntry(userId, entryId) {
-  return db.prepare('DELETE FROM water_log WHERE id = ? AND user_id = ?')
-    .run(entryId, userId).changes > 0;
+  return (
+    db.prepare('DELETE FROM water_log WHERE id = ? AND user_id = ?').run(entryId, userId).changes >
+    0
+  );
 }
 
 /** A nap naplójának lecserélése EGYETLEN bejegyzésre. A check-in űrlapján
@@ -1263,7 +1437,8 @@ export function deleteWaterEntry(userId, entryId) {
     időbélyegek elvesznek — cserébe a két felület sosem mond két számot. */
 export function replaceWaterDay(userId, date, ml) {
   db.prepare('DELETE FROM water_log WHERE user_id = ? AND date = ?').run(userId, date);
-  if (ml > 0) db.prepare('INSERT INTO water_log (user_id, date, ml) VALUES (?, ?, ?)').run(userId, date, ml);
+  if (ml > 0)
+    db.prepare('INSERT INTO water_log (user_id, date, ml) VALUES (?, ?, ?)').run(userId, date, ml);
   return getWaterDay(userId, date);
 }
 
@@ -1272,8 +1447,12 @@ export function replaceWaterDay(userId, date, ml) {
 /** Egy fiók mérései, legfrissebb elöl. A felület ebből rajzol trendet és
     tölti fel az űrlapot a legutóbbi értékekkel. */
 export function getMeasurements(userId) {
-  return db.prepare(`SELECT id, date, site, value FROM body_measurements
-                     WHERE user_id = ? ORDER BY date DESC, id DESC`).all(userId);
+  return db
+    .prepare(
+      `SELECT id, date, site, value FROM body_measurements
+                     WHERE user_id = ? ORDER BY date DESC, id DESC`,
+    )
+    .all(userId);
 }
 
 /** Mérések mentése egy napra. Helyenként EGY sor van naponta: az aznapi
@@ -1291,8 +1470,10 @@ export function saveMeasurements(userId, date, values) {
 
 /** Egy mérés törlése. Csak a SAJÁT sorát — idegen id-re false jön. */
 export function deleteMeasurement(userId, id) {
-  return db.prepare('DELETE FROM body_measurements WHERE id = ? AND user_id = ?')
-    .run(id, userId).changes > 0;
+  return (
+    db.prepare('DELETE FROM body_measurements WHERE id = ? AND user_id = ?').run(id, userId)
+      .changes > 0
+  );
 }
 
 /* ---- Napi táplálkozási cél ----
@@ -1300,12 +1481,15 @@ export function deleteMeasurement(userId, id) {
    marad, hogy az eltérés LÁTSZÓDJON. */
 
 /** Egy cél-sor a felület alakjában (a szerző nevével együtt). */
-const toGoalRow = (row) => (row ? {
-  calories: row.calories,
-  protein: row.protein,
-  setBy: row.set_by_name ?? null,
-  setAt: row.updated_at,
-} : null);
+const toGoalRow = (row) =>
+  row
+    ? {
+        calories: row.calories,
+        protein: row.protein,
+        setBy: row.set_by_name ?? null,
+        setAt: row.updated_at,
+      }
+    : null;
 
 const GOAL_SELECT = `
   SELECT g.calories, g.protein, g.updated_at, u.display_name AS set_by_name
@@ -1314,8 +1498,9 @@ const GOAL_SELECT = `
 /** Egy fiók cél-sora forrás szerint ('own' vagy 'coach'), vagy null. */
 /* Modulon belüli segéd — kifelé a getNutritionGoal ad teljes képet. */
 function getNutritionGoalRow(userId, source) {
-  return toGoalRow(db.prepare(`${GOAL_SELECT} WHERE g.user_id = ? AND g.source = ?`)
-    .get(userId, source));
+  return toGoalRow(
+    db.prepare(`${GOAL_SELECT} WHERE g.user_id = ? AND g.source = ?`).get(userId, source),
+  );
 }
 
 /** A felhasználóra ÉRVÉNYES cél, a származásával együtt. A felület ebből
@@ -1326,7 +1511,7 @@ export function getNutritionGoal(userId) {
   const fallback = getCollection('nutritionGoal') || { calories: 0, protein: 0 };
 
   const active = own ?? coach ?? { ...fallback, setBy: null, setAt: null };
-  const source = own ? 'own' : (coach ? 'coach' : 'default');
+  const source = own ? 'own' : coach ? 'coach' : 'default';
 
   return {
     calories: active.calories,
@@ -1338,21 +1523,24 @@ export function getNutritionGoal(userId) {
     /* Eltérés CSAK akkor, ha mindkettő létezik és tényleg más. Enélkül a
        felület akkor is „eltértél"-t írna, ha a saját célod történetesen
        megegyezik az edzőével. */
-    differs: Boolean(own && coach
-      && (own.calories !== coach.calories || own.protein !== coach.protein)),
+    differs: Boolean(
+      own && coach && (own.calories !== coach.calories || own.protein !== coach.protein),
+    ),
   };
 }
 
 /** Cél mentése/felülírása egy forrásra. A `setBy` az, AKI beállította — az
     edzői sornál az edző, a sajátnál a felhasználó maga. */
 export function saveNutritionGoal(userId, source, { calories, protein }, setBy) {
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO nutrition_goals (user_id, source, calories, protein, set_by, updated_at)
     VALUES (?, ?, ?, ?, ?, datetime('now'))
     ON CONFLICT(user_id, source) DO UPDATE SET
       calories = excluded.calories, protein = excluded.protein,
       set_by = excluded.set_by, updated_at = excluded.updated_at
-  `).run(userId, source, calories, protein, setBy);
+  `,
+  ).run(userId, source, calories, protein, setBy);
   return getNutritionGoal(userId);
 }
 
@@ -1371,14 +1559,18 @@ export function clearOwnNutritionGoal(userId) {
     összege, valamint az edző által kitűzött napi cél (a felület a célhoz
     méri a bevitelt). */
 export function getNutritionTotals(userId, date) {
-  const sum = db.prepare(`
+  const sum = db
+    .prepare(
+      `
     SELECT COALESCE(SUM(kcal), 0)    AS intake,
            COALESCE(SUM(protein), 0) AS protein,
            COALESCE(SUM(carbs), 0)   AS carbs,
            COALESCE(SUM(fat), 0)     AS fat
     FROM nutrition_log
     WHERE user_id = ? AND date = ?
-  `).get(userId, date);
+  `,
+    )
+    .get(userId, date);
   return { ...sum, goal: getNutritionGoal(userId) };
 }
 
@@ -1392,46 +1584,63 @@ export function getNutritionTotals(userId, date) {
 /** Egy custom_foods sor → a felület (és a naplózás) által várt étel-alak.
     A `per` címkét ugyanúgy képezzük, mint a catalog.js a seed-ételeknél —
     enélkül az étel-kártya „undefined"-ot írna ki. */
-const toCustomFood = (row) => (row ? {
-  id: row.id,
-  name: row.name,
-  brand: row.brand || undefined,
-  // A csoport nélküli saját ételek is kapjanak besorolást: a felület a
-  // group mezőt írja ki a kártyára, és keresni is lehet rá.
-  group: row.food_group || 'Saját étel',
-  unit: row.unit,
-  per: `100 ${row.unit}`,
-  kcal: row.kcal,
-  protein: row.protein,
-  carbs: row.carbs,
-  fat: row.fat,
-  kcalAuto: row.kcal_auto === 1,
-  portions: JSON.parse(row.portions || '[]'),
-  barcode: row.barcode || undefined,
-  source: row.source,
-  custom: true,
-} : null);
+const toCustomFood = (row) =>
+  row
+    ? {
+        id: row.id,
+        name: row.name,
+        brand: row.brand || undefined,
+        // A csoport nélküli saját ételek is kapjanak besorolást: a felület a
+        // group mezőt írja ki a kártyára, és keresni is lehet rá.
+        group: row.food_group || 'Saját étel',
+        unit: row.unit,
+        per: `100 ${row.unit}`,
+        kcal: row.kcal,
+        protein: row.protein,
+        carbs: row.carbs,
+        fat: row.fat,
+        kcalAuto: row.kcal_auto === 1,
+        portions: JSON.parse(row.portions || '[]'),
+        barcode: row.barcode || undefined,
+        source: row.source,
+        custom: true,
+      }
+    : null;
 
 const CUSTOM_FOOD_COLS = `id, name, brand, food_group, unit, kcal, protein, carbs, fat,
                           kcal_auto, barcode, portions, source`;
 
 /** A hívó saját ételei, felvitel sorrendjében. */
 export function listCustomFoods(userId) {
-  return db.prepare(`SELECT ${CUSTOM_FOOD_COLS} FROM custom_foods WHERE user_id = ? ORDER BY id`)
-    .all(userId).map(toCustomFood);
+  return db
+    .prepare(`SELECT ${CUSTOM_FOOD_COLS} FROM custom_foods WHERE user_id = ? ORDER BY id`)
+    .all(userId)
+    .map(toCustomFood);
 }
 
 /** Saját étel név szerint (kis/nagybetű-érzéketlen — a name COLLATE NOCASE). */
 export function getCustomFoodByName(userId, name) {
-  return toCustomFood(db.prepare(`SELECT ${CUSTOM_FOOD_COLS} FROM custom_foods
-                                  WHERE user_id = ? AND name = ?`).get(userId, name));
+  return toCustomFood(
+    db
+      .prepare(
+        `SELECT ${CUSTOM_FOOD_COLS} FROM custom_foods
+                                  WHERE user_id = ? AND name = ?`,
+      )
+      .get(userId, name),
+  );
 }
 
 /** Saját étel vonalkód szerint — a beolvasás ezzel zárható rövidre (ha a
     terméket már felvitte, nincs se hálózati kör, se újabb kitöltés). */
 export function getCustomFoodByBarcode(userId, barcode) {
-  return toCustomFood(db.prepare(`SELECT ${CUSTOM_FOOD_COLS} FROM custom_foods
-                                  WHERE user_id = ? AND barcode = ?`).get(userId, barcode));
+  return toCustomFood(
+    db
+      .prepare(
+        `SELECT ${CUSTOM_FOOD_COLS} FROM custom_foods
+                                  WHERE user_id = ? AND barcode = ?`,
+      )
+      .get(userId, barcode),
+  );
 }
 
 /** Névütközés a hívó saját ételei közt, ÉKEZETEKKEL EGYÜTT.
@@ -1451,17 +1660,32 @@ export function addCustomFood(userId, food) {
   if (customNameTaken(userId, food.name)) return null;
   if (food.barcode && getCustomFoodByBarcode(userId, food.barcode)) return null;
 
-  const { lastInsertRowid } = db.prepare(
-    `INSERT INTO custom_foods (user_id, name, brand, food_group, unit, kcal,
+  const { lastInsertRowid } = db
+    .prepare(
+      `INSERT INTO custom_foods (user_id, name, brand, food_group, unit, kcal,
                                protein, carbs, fat, kcal_auto, barcode, portions, source)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    userId, food.name, food.brand ?? '', food.group ?? '', food.unit,
-    food.kcal, food.protein, food.carbs, food.fat, food.kcalAuto ? 1 : 0,
-    food.barcode ?? null, JSON.stringify(food.portions ?? []), food.source ?? 'manual',
+    )
+    .run(
+      userId,
+      food.name,
+      food.brand ?? '',
+      food.group ?? '',
+      food.unit,
+      food.kcal,
+      food.protein,
+      food.carbs,
+      food.fat,
+      food.kcalAuto ? 1 : 0,
+      food.barcode ?? null,
+      JSON.stringify(food.portions ?? []),
+      food.source ?? 'manual',
+    );
+  return toCustomFood(
+    db
+      .prepare(`SELECT ${CUSTOM_FOOD_COLS} FROM custom_foods WHERE id = ?`)
+      .get(Number(lastInsertRowid)),
   );
-  return toCustomFood(db.prepare(`SELECT ${CUSTOM_FOOD_COLS} FROM custom_foods WHERE id = ?`)
-    .get(Number(lastInsertRowid)));
 }
 
 /** Saját étel törlése. Ismeretlen id-re vagy MÁS felhasználó ételére false —
@@ -1469,8 +1693,9 @@ export function addCustomFood(userId, food) {
     nutrition_log a nevet és a kiszámolt makrókat MÁSOLATBAN tárolja, tehát a
     korábbi napok összesítői változatlanok maradnak. */
 export function deleteCustomFood(userId, id) {
-  return db.prepare('DELETE FROM custom_foods WHERE id = ? AND user_id = ?')
-    .run(id, userId).changes > 0;
+  return (
+    db.prepare('DELETE FROM custom_foods WHERE id = ? AND user_id = ?').run(id, userId).changes > 0
+  );
 }
 
 /** A hívónak megjelenítendő teljes étel-lista: elöl a sajátjai (azokat keresi
@@ -1485,9 +1710,11 @@ export function getFoodsForUser(userId) {
     katalógus később bővülhet egy olyan névvel, amit a felhasználó már felvitt
     — ilyenkor is az ő tápértékei az érvényesek. */
 export function findFoodForUser(userId, name) {
-  return getCustomFoodByName(userId, name)
-    || (getCollection('foods') || []).find((f) => f.name === name)
-    || null;
+  return (
+    getCustomFoodByName(userId, name) ||
+    (getCollection('foods') || []).find((f) => f.name === name) ||
+    null
+  );
 }
 
 /* ---- Vonalkód-gyorsítótár ---- */
@@ -1499,53 +1726,70 @@ export function findFoodForUser(userId, name) {
     A CASE-t szándékosan SQL-ben számoljuk: a SQLite dátumformátuma
     („ÉÉÉÉ-HH-NN óó:pp:mm") JS-ben nem szabványosan parse-olható. */
 export function readBarcodeCache(barcode) {
-  const row = db.prepare(`
+  const row = db
+    .prepare(
+      `
     SELECT found, payload FROM barcode_cache
     WHERE barcode = ?
       AND fetched_at > datetime('now', CASE found WHEN 1 THEN '-30 days' ELSE '-1 day' END)
-  `).get(barcode);
+  `,
+    )
+    .get(barcode);
   if (!row) return null;
   return { found: row.found === 1, product: row.found === 1 ? JSON.parse(row.payload) : null };
 }
 
 /** Cache-írás. A `product === null` a negatív találatot rögzíti. */
 export function writeBarcodeCache(barcode, product) {
-  db.prepare(`INSERT INTO barcode_cache (barcode, found, payload, fetched_at)
+  db.prepare(
+    `INSERT INTO barcode_cache (barcode, found, payload, fetched_at)
               VALUES (?, ?, ?, datetime('now'))
               ON CONFLICT(barcode) DO UPDATE SET
                 found = excluded.found, payload = excluded.payload,
-                fetched_at = excluded.fetched_at`)
-    .run(barcode, product ? 1 : 0, JSON.stringify(product ?? {}));
+                fetched_at = excluded.fetched_at`,
+  ).run(barcode, product ? 1 : 0, JSON.stringify(product ?? {}));
 }
 
 /** Egy DB-sor → a Recovery Engine által várt check-in alak (JSON-mezők
     visszafejtve, a hiányzó értékek null-ok maradnak). */
-const toCheckin = (row) => (row ? {
-  date: row.date,
-  sleepHours: row.sleep_hours,
-  sleepQuality: row.sleep_quality,
-  energy: row.energy,
-  stress: row.stress,
-  mood: row.mood,
-  hydration: row.hydration,
-  soreness: JSON.parse(row.soreness || '{}'),
-  pain: JSON.parse(row.pain || '{}'),
-} : null);
+const toCheckin = (row) =>
+  row
+    ? {
+        date: row.date,
+        sleepHours: row.sleep_hours,
+        sleepQuality: row.sleep_quality,
+        energy: row.energy,
+        stress: row.stress,
+        mood: row.mood,
+        hydration: row.hydration,
+        soreness: JSON.parse(row.soreness || '{}'),
+        pain: JSON.parse(row.pain || '{}'),
+      }
+    : null;
 
 const CHECKIN_COLUMNS = `date, sleep_hours, sleep_quality, energy, stress, mood,
                          hydration, soreness, pain`;
 
 /** Egy adott nap check-inje, vagy null. */
 export function getCheckin(userId, date) {
-  return toCheckin(db.prepare(`SELECT ${CHECKIN_COLUMNS} FROM checkins
-                               WHERE user_id = ? AND date = ?`).get(userId, date));
+  return toCheckin(
+    db
+      .prepare(
+        `SELECT ${CHECKIN_COLUMNS} FROM checkins
+                               WHERE user_id = ? AND date = ?`,
+      )
+      .get(userId, date),
+  );
 }
 
 /** A legutóbbi `limit` check-in, legújabb elöl. A motor ebből számolja az
     alvásadósságot és a becslés megbízhatóságát. */
 export function getCheckins(userId, limit = 60) {
-  return db.prepare(`SELECT ${CHECKIN_COLUMNS} FROM checkins
-                     WHERE user_id = ? ORDER BY date DESC LIMIT ?`)
+  return db
+    .prepare(
+      `SELECT ${CHECKIN_COLUMNS} FROM checkins
+                     WHERE user_id = ? ORDER BY date DESC LIMIT ?`,
+    )
     .all(userId, limit)
     .map(toCheckin);
 }
@@ -1568,7 +1812,8 @@ export function saveCheckin(userId, date, fields) {
      azon egy hiányzó kulcs miatt elszállna a mentés. */
   const value = (raw) => (raw === undefined ? null : raw);
 
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO checkins (user_id, date, sleep_hours, sleep_quality, energy, stress, mood,
                           hydration, soreness, pain, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
@@ -1578,11 +1823,18 @@ export function saveCheckin(userId, date, fields) {
       mood        = excluded.mood,        hydration     = excluded.hydration,
       soreness    = excluded.soreness,    pain          = excluded.pain,
       updated_at  = excluded.updated_at
-  `).run(
-    userId, date,
-    value(fields.sleepHours), value(fields.sleepQuality), value(fields.energy),
-    value(fields.stress), value(fields.mood), value(fields.hydration),
-    JSON.stringify(fields.soreness ?? {}), JSON.stringify(fields.pain ?? {}),
+  `,
+  ).run(
+    userId,
+    date,
+    value(fields.sleepHours),
+    value(fields.sleepQuality),
+    value(fields.energy),
+    value(fields.stress),
+    value(fields.mood),
+    value(fields.hydration),
+    JSON.stringify(fields.soreness ?? {}),
+    JSON.stringify(fields.pain ?? {}),
   );
   return getCheckin(userId, date);
 }
@@ -1620,15 +1872,21 @@ export function bestCompletedSet(sets = [], { fallbackToFirst = false } = {}) {
   for (const set of sets) {
     if (!set?.done) continue;
     const oneRM = calculateEpley1RM(set.weight, set.reps);
-    if (best === null || oneRM > best1rm) { best = set; best1rm = oneRM; }
+    if (best === null || oneRM > best1rm) {
+      best = set;
+      best1rm = oneRM;
+    }
   }
-  return best ?? (fallbackToFirst ? sets[0] ?? null : null);
+  return best ?? (fallbackToFirst ? (sets[0] ?? null) : null);
 }
 
 /** A felhasználó jelenlegi maximális 1RM-je egy gyakorlatban, vagy null ha még nincs. */
 export function getExerciseMax(userId, exerciseName) {
-  const row = db.prepare(`SELECT max_1rm, date, source FROM exercise_maxes
-                          WHERE user_id = ? AND exercise_name = ?`)
+  const row = db
+    .prepare(
+      `SELECT max_1rm, date, source FROM exercise_maxes
+                          WHERE user_id = ? AND exercise_name = ?`,
+    )
     .get(userId, exerciseName);
   // A `source` megmondja, mire épül a szám: naplózott szett vagy bemondás.
   return row ? { max1rm: row.max_1rm, date: row.date, source: row.source } : null;
@@ -1636,7 +1894,10 @@ export function getExerciseMax(userId, exerciseName) {
 
 /** A felhasználó összes nyomon követett maximális 1RM-je. */
 export function getAllExerciseMaxes(userId) {
-  return db.prepare('SELECT exercise_name, max_1rm, date FROM exercise_maxes WHERE user_id = ? ORDER BY date DESC')
+  return db
+    .prepare(
+      'SELECT exercise_name, max_1rm, date FROM exercise_maxes WHERE user_id = ? ORDER BY date DESC',
+    )
     .all(userId);
 }
 
@@ -1655,16 +1916,21 @@ export function getAllExerciseMaxes(userId) {
  * időrendi is (nullákkal feltöltött, évvel kezdődő mezők).
  */
 export function getRecentExerciseMaxes(userId, sinceDate, limit = 5) {
-  return db.prepare(`
+  return db
+    .prepare(
+      `
     SELECT exercise_name, max_1rm, date, updated_at FROM exercise_maxes
     WHERE user_id = ? AND date >= ?
     ORDER BY updated_at DESC, date DESC LIMIT ?
-  `).all(userId, sinceDate, limit).map((row) => ({
-    exercise: row.exercise_name,
-    max1rm: row.max_1rm,
-    date: row.date,
-    at: toIso(row.updated_at),
-  }));
+  `,
+    )
+    .all(userId, sinceDate, limit)
+    .map((row) => ({
+      exercise: row.exercise_name,
+      max1rm: row.max_1rm,
+      date: row.date,
+      at: toIso(row.updated_at),
+    }));
 }
 
 /** Egy gyakorlat maximum 1RM-jének frissítése, ha az új érték nagyobb.
@@ -1685,13 +1951,15 @@ export function setDeclaredMax(userId, exerciseName, max1rm, date) {
   const existing = getExerciseMax(userId, exerciseName);
   if (existing && existing.source === 'measured') return { stored: false, max1rm: existing.max1rm };
 
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO exercise_maxes (user_id, exercise_name, max_1rm, date, source, updated_at)
     VALUES (?, ?, ?, ?, 'declared', datetime('now'))
     ON CONFLICT(user_id, exercise_name) DO UPDATE SET
       max_1rm = excluded.max_1rm, date = excluded.date,
       source = 'declared', updated_at = excluded.updated_at
-  `).run(userId, exerciseName, max1rm, date);
+  `,
+  ).run(userId, exerciseName, max1rm, date);
   return { stored: true, max1rm };
 }
 
@@ -1699,8 +1967,11 @@ export function setDeclaredMax(userId, exerciseName, max1rm, date) {
     egy gyakorlatot ismer és nagyjából milyen szinten — akkor is, ha még
     egyetlen edzést sem naplózott ide. */
 export function getDeclaredMaxes(userId) {
-  return db.prepare(`SELECT exercise_name, max_1rm, date FROM exercise_maxes
-                     WHERE user_id = ? AND source = 'declared'`)
+  return db
+    .prepare(
+      `SELECT exercise_name, max_1rm, date FROM exercise_maxes
+                     WHERE user_id = ? AND source = 'declared'`,
+    )
     .all(userId)
     .map((row) => ({ name: row.exercise_name, max1rm: row.max_1rm, date: row.date }));
 }
@@ -1710,7 +1981,8 @@ export function updateExerciseMax(userId, exerciseName, new1rm, currentDate) {
   const isPr = !existing || new1rm > existing.max1rm;
 
   if (isPr) {
-    db.prepare(`
+    db.prepare(
+      `
       INSERT INTO exercise_maxes (user_id, exercise_name, max_1rm, date, source, updated_at)
       VALUES (?, ?, ?, ?, 'measured', datetime('now'))
       ON CONFLICT(user_id, exercise_name) DO UPDATE SET
@@ -1719,10 +1991,15 @@ export function updateExerciseMax(userId, exerciseName, new1rm, currentDate) {
         -- A naplózott szett FELÜLÍRJA a bemondott alapot: a mérés erősebb bizonyíték.
         source = 'measured',
         updated_at = excluded.updated_at
-    `).run(userId, exerciseName, new1rm, currentDate);
+    `,
+    ).run(userId, exerciseName, new1rm, currentDate);
   }
 
-  return { max1rm: isPr ? new1rm : existing.max1rm, date: isPr ? currentDate : existing.date, isPr };
+  return {
+    max1rm: isPr ? new1rm : existing.max1rm,
+    date: isPr ? currentDate : existing.date,
+    isPr,
+  };
 }
 
 /**
@@ -1756,15 +2033,22 @@ export function updateExerciseMax(userId, exerciseName, new1rm, currentDate) {
  *     amit a lista kiír, annak a naplóból következnie kell.
  */
 export function recomputeExerciseMaxes(userId) {
-  const rows = db.prepare('SELECT id, date, exercises, pr_rule FROM workouts WHERE user_id = ? ORDER BY date, id')
+  const rows = db
+    .prepare(
+      'SELECT id, date, exercises, pr_rule FROM workouts WHERE user_id = ? ORDER BY date, id',
+    )
     .all(userId);
 
-  const best = new Map();      // gyakorlatnév → { max1rm, date }
-  const rewrites = [];         // [{ id, exercises }] — csak a ténylegesen változó sorok
+  const best = new Map(); // gyakorlatnév → { max1rm, date }
+  const rewrites = []; // [{ id, exercises }] — csak a ténylegesen változó sorok
 
   for (const row of rows) {
     let exercises;
-    try { exercises = JSON.parse(row.exercises); } catch { continue; }
+    try {
+      exercises = JSON.parse(row.exercises);
+    } catch {
+      continue;
+    }
     if (!Array.isArray(exercises)) continue;
 
     let changed = false;
@@ -1811,7 +2095,8 @@ export function recomputeExerciseMaxes(userId) {
     számol, a kártyán a terv NEVE látszik), a gyakorlatok JSON-ja viszont a
     terv legnagyobb része. Sportolónként, minden panel-frissítésnél. */
 export function getUserPlanSchedules(userId) {
-  return db.prepare('SELECT id, name, days FROM plans WHERE user_id = ? ORDER BY id DESC')
+  return db
+    .prepare('SELECT id, name, days FROM plans WHERE user_id = ? ORDER BY id DESC')
     .all(userId)
     .map((row) => ({ id: row.id, name: row.name, days: JSON.parse(row.days) }));
 }
@@ -1819,21 +2104,31 @@ export function getUserPlanSchedules(userId) {
 /** EGY terv a felhasználó sajátjai közül, vagy null. A userId nem díszítés:
     ez akadályozza meg, hogy más tervére lehessen hivatkozni az azonosítóval. */
 export function getPlan(userId, id) {
-  const row = db.prepare('SELECT id, name, date, exercises, days FROM plans WHERE user_id = ? AND id = ?')
+  const row = db
+    .prepare('SELECT id, name, date, exercises, days FROM plans WHERE user_id = ? AND id = ?')
     .get(userId, id);
-  return row ? {
-    id: row.id, name: row.name, date: row.date,
-    exercises: JSON.parse(row.exercises), days: JSON.parse(row.days),
-  } : null;
+  return row
+    ? {
+        id: row.id,
+        name: row.name,
+        date: row.date,
+        exercises: JSON.parse(row.exercises),
+        days: JSON.parse(row.days),
+      }
+    : null;
 }
 
 /** A felhasználó által készített edzéstervek, legújabb elöl. */
 export function getUserPlans(userId) {
-  return db.prepare('SELECT id, name, date, exercises, days FROM plans WHERE user_id = ? ORDER BY id DESC')
+  return db
+    .prepare('SELECT id, name, date, exercises, days FROM plans WHERE user_id = ? ORDER BY id DESC')
     .all(userId)
     .map((row) => ({
-      id: row.id, name: row.name, date: row.date,
-      exercises: JSON.parse(row.exercises), days: JSON.parse(row.days),
+      id: row.id,
+      name: row.name,
+      date: row.date,
+      exercises: JSON.parse(row.exercises),
+      days: JSON.parse(row.days),
     }));
 }
 
@@ -1846,35 +2141,50 @@ export function getPlanForDay(userId, dayIndex) {
 /** Az épp szerkesztett edzés piszkozata ({ name, exercises, date, planId })
     vagy null. A planId mutatja, melyik tervből indult az edzés. */
 export function getWorkoutDraft(userId) {
-  const row = db.prepare('SELECT name, exercises, date, plan_id, workout_id FROM workout_draft WHERE user_id = ?')
+  const row = db
+    .prepare(
+      'SELECT name, exercises, date, plan_id, workout_id FROM workout_draft WHERE user_id = ?',
+    )
     .get(userId);
   return row
     ? {
-      name: row.name, exercises: JSON.parse(row.exercises), date: row.date,
-      planId: row.plan_id, workoutId: row.workout_id,
-    }
+        name: row.name,
+        exercises: JSON.parse(row.exercises),
+        date: row.date,
+        planId: row.plan_id,
+        workoutId: row.workout_id,
+      }
     : null;
 }
 
 /** Egy edzés-sor → a hívók által várt alak (a gyakorlatok JSON-ból vissza). */
 const toWorkout = (row) => ({
-  id: row.id, name: row.name, date: row.date,
-  exercises: JSON.parse(row.exercises), planId: row.plan_id,
+  id: row.id,
+  name: row.name,
+  date: row.date,
+  exercises: JSON.parse(row.exercises),
+  planId: row.plan_id,
   /* A visszajelzés csak akkor kerül bele, ha tényleg érkezett — üres objektum
      helyett `null`, hogy a „nem küldött" eset egyértelmű maradjon. */
-  feedback: row.feedback_at ? {
-    difficulty: row.feedback_difficulty,
-    mood: row.feedback_mood,
-    note: row.feedback_note,
-    at: row.feedback_at,
-  } : null,
+  feedback: row.feedback_at
+    ? {
+        difficulty: row.feedback_difficulty,
+        mood: row.feedback_mood,
+        note: row.feedback_note,
+        at: row.feedback_at,
+      }
+    : null,
 });
 
 /** A mentett edzések, legújabb elöl (a gyakorlatok JSON-ból visszafejtve). */
 export function getWorkouts(userId) {
-  return db.prepare(`SELECT id, name, date, exercises, plan_id,
-          feedback_difficulty, feedback_mood, feedback_note, feedback_at FROM workouts WHERE user_id = ? ORDER BY id DESC`)
-    .all(userId).map(toWorkout);
+  return db
+    .prepare(
+      `SELECT id, name, date, exercises, plan_id,
+          feedback_difficulty, feedback_mood, feedback_note, feedback_at FROM workouts WHERE user_id = ? ORDER BY id DESC`,
+    )
+    .all(userId)
+    .map(toWorkout);
 }
 
 /**
@@ -1889,12 +2199,17 @@ export function getWorkouts(userId) {
  * A dátum "ÉÉÉÉ.HH.NN" alakú, tehát a szöveges összehasonlítás időrendi is.
  */
 export function getWorkoutsSince(userId, sinceDate) {
-  return db.prepare(`
+  return db
+    .prepare(
+      `
     SELECT id, name, date, exercises, plan_id,
            feedback_difficulty, feedback_mood, feedback_note, feedback_at
     FROM workouts
     WHERE user_id = ? AND date >= ? ORDER BY id DESC
-  `).all(userId, sinceDate).map(toWorkout);
+  `,
+    )
+    .all(userId, sinceDate)
+    .map(toWorkout);
 }
 
 /**
@@ -1908,8 +2223,10 @@ export function getWorkoutsSince(userId, sinceDate) {
  * sportolóra, aki csak régen edzett utoljára.
  */
 export function getWorkoutDates(userId) {
-  return db.prepare('SELECT DISTINCT date FROM workouts WHERE user_id = ? ORDER BY date DESC')
-    .all(userId).map((row) => row.date);
+  return db
+    .prepare('SELECT DISTINCT date FROM workouts WHERE user_id = ? ORDER BY date DESC')
+    .all(userId)
+    .map((row) => row.date);
 }
 
 /** Teljes pillanatkép a beállítások exportjához: a közös referencia-adat és a
@@ -1956,7 +2273,8 @@ export function getSnapshot(userId) {
     javítás nem áthelyezés (ugyanaz az elv, mint a mentett edzésnél). Idegen
     sorra nem talál semmit. Visszaadja a frissített sort, vagy null-t. */
 export function updateWeightEntry(userId, id, kg) {
-  const { changes } = db.prepare('UPDATE weight_log SET kg = ? WHERE id = ? AND user_id = ?')
+  const { changes } = db
+    .prepare('UPDATE weight_log SET kg = ? WHERE id = ? AND user_id = ?')
     .run(kg, id, userId);
   return changes > 0
     ? db.prepare('SELECT id, kg, date FROM weight_log WHERE id = ?').get(id)
@@ -1967,19 +2285,25 @@ export function updateWeightEntry(userId, id, kg) {
     trend-kártya skáláját lapos vonallá nyomja, és a Testsúly Δ statot is
     elviszi — enélkül nem volt út a javításához. */
 export function deleteWeightEntry(userId, id) {
-  return db.prepare('DELETE FROM weight_log WHERE id = ? AND user_id = ?').run(id, userId).changes > 0;
+  return (
+    db.prepare('DELETE FROM weight_log WHERE id = ? AND user_id = ?').run(id, userId).changes > 0
+  );
 }
 
 export function addWeightEntry(userId, kg, date) {
-  const existing = db.prepare('SELECT id FROM weight_log WHERE user_id = ? AND date = ? ORDER BY id DESC')
+  const existing = db
+    .prepare('SELECT id FROM weight_log WHERE user_id = ? AND date = ? ORDER BY id DESC')
     .get(userId, date);
   if (existing) {
     db.prepare('UPDATE weight_log SET kg = ? WHERE id = ?').run(kg, Number(existing.id));
     return db.prepare('SELECT id, kg, date FROM weight_log WHERE id = ?').get(Number(existing.id));
   }
-  const { lastInsertRowid } = db.prepare('INSERT INTO weight_log (user_id, kg, date) VALUES (?, ?, ?)')
+  const { lastInsertRowid } = db
+    .prepare('INSERT INTO weight_log (user_id, kg, date) VALUES (?, ?, ?)')
     .run(userId, kg, date);
-  return db.prepare('SELECT id, kg, date FROM weight_log WHERE id = ?').get(Number(lastInsertRowid));
+  return db
+    .prepare('SELECT id, kg, date FROM weight_log WHERE id = ?')
+    .get(Number(lastInsertRowid));
 }
 
 /** Étel naplózása a megadott adaggal (a makrók a szerver-oldali food
@@ -1992,15 +2316,27 @@ export function addNutritionEntry(userId, food, date, grams = 100) {
   // lebegőpontos szemetet (pl. 0.30000000000000004 g zsír).
   const round1 = (value) => Math.round(value * factor * 10) / 10;
 
-  const { lastInsertRowid } = db.prepare(
-    `INSERT INTO nutrition_log (user_id, name, grams, kcal, protein, carbs, fat, date)
+  const { lastInsertRowid } = db
+    .prepare(
+      `INSERT INTO nutrition_log (user_id, name, grams, kcal, protein, carbs, fat, date)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    userId, food.name, grams, Math.round(food.kcal * factor),
-    round1(food.protein), round1(food.carbs), round1(food.fat), date,
-  );
-  const entry = db.prepare(`SELECT id, name, grams, kcal, protein, carbs, fat, date
-                            FROM nutrition_log WHERE id = ?`).get(Number(lastInsertRowid));
+    )
+    .run(
+      userId,
+      food.name,
+      grams,
+      Math.round(food.kcal * factor),
+      round1(food.protein),
+      round1(food.carbs),
+      round1(food.fat),
+      date,
+    );
+  const entry = db
+    .prepare(
+      `SELECT id, name, grams, kcal, protein, carbs, fat, date
+                            FROM nutrition_log WHERE id = ?`,
+    )
+    .get(Number(lastInsertRowid));
   return { entry, totals: getNutritionTotals(userId, date) };
 }
 
@@ -2020,17 +2356,29 @@ export function addNutritionEntry(userId, food, date, grams = 100) {
  * másik nap számait frissítené.
  */
 export function updateNutritionEntry(userId, id, grams) {
-  const row = db.prepare(`SELECT grams, kcal, protein, carbs, fat, date
-                          FROM nutrition_log WHERE id = ? AND user_id = ?`).get(id, userId);
+  const row = db
+    .prepare(
+      `SELECT grams, kcal, protein, carbs, fat, date
+                          FROM nutrition_log WHERE id = ? AND user_id = ?`,
+    )
+    .get(id, userId);
   if (!row || !(row.grams > 0)) return null;
 
   const ratio = grams / row.grams;
   const round1 = (value) => Math.round(value * 10) / 10;
-  db.prepare(`UPDATE nutrition_log
+  db.prepare(
+    `UPDATE nutrition_log
                  SET grams = ?, kcal = ?, protein = ?, carbs = ?, fat = ?
-               WHERE id = ? AND user_id = ?`)
-    .run(grams, Math.round(row.kcal * ratio), round1(row.protein * ratio),
-         round1(row.carbs * ratio), round1(row.fat * ratio), id, userId);
+               WHERE id = ? AND user_id = ?`,
+  ).run(
+    grams,
+    Math.round(row.kcal * ratio),
+    round1(row.protein * ratio),
+    round1(row.carbs * ratio),
+    round1(row.fat * ratio),
+    id,
+    userId,
+  );
 
   return { date: row.date, totals: getNutritionTotals(userId, row.date) };
 }
@@ -2038,7 +2386,8 @@ export function updateNutritionEntry(userId, id, grams) {
 /** Naplóbejegyzés törlése. A dátumot a hívó adja meg — a mai napló
     visszavonásához ez elég, és a régebbi napokat véletlenül nem bántja. */
 export function deleteNutritionEntry(userId, id, date) {
-  const { changes } = db.prepare('DELETE FROM nutrition_log WHERE id = ? AND user_id = ? AND date = ?')
+  const { changes } = db
+    .prepare('DELETE FROM nutrition_log WHERE id = ? AND user_id = ? AND date = ?')
     .run(id, userId, date);
   return changes > 0 ? getNutritionTotals(userId, date) : null;
 }
@@ -2047,14 +2396,15 @@ export function deleteNutritionEntry(userId, id, date) {
     hívjuk. A date a szerver helyi napja: ebből dönti el a /api/workout-template,
     hogy a piszkozat aznapi-e, vagy jöhet helyette a napra ütemezett terv. */
 export function saveWorkoutDraft(userId, name, exercises, date, planId = null, workoutId = null) {
-  db.prepare(`INSERT INTO workout_draft (user_id, name, exercises, date, plan_id, workout_id, updated_at)
+  db.prepare(
+    `INSERT INTO workout_draft (user_id, name, exercises, date, plan_id, workout_id, updated_at)
               VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
               ON CONFLICT(user_id) DO UPDATE SET
                 name = excluded.name, exercises = excluded.exercises,
                 date = excluded.date, plan_id = excluded.plan_id,
                 workout_id = excluded.workout_id,
-                updated_at = excluded.updated_at`)
-    .run(userId, name, JSON.stringify(exercises), date, planId, workoutId);
+                updated_at = excluded.updated_at`,
+  ).run(userId, name, JSON.stringify(exercises), date, planId, workoutId);
   return { name, exercises, planId, workoutId };
 }
 
@@ -2093,11 +2443,20 @@ export function addWorkout(userId, name, date, exercises, planId = null) {
   });
 
   const { lastInsertRowid } = db
-    .prepare('INSERT INTO workouts (user_id, name, date, exercises, plan_id, pr_rule) VALUES (?, ?, ?, ?, ?, 1)')
+    .prepare(
+      'INSERT INTO workouts (user_id, name, date, exercises, plan_id, pr_rule) VALUES (?, ?, ?, ?, ?, 1)',
+    )
     .run(userId, name, date, JSON.stringify(processedExercises), planId);
   // A friss edzésen még nincs visszajelzés — a mező alakja mégis azonos a
   // getWorkouts sorával, hogy a felületnek ne kelljen két esetre készülnie.
-  return { id: Number(lastInsertRowid), name, date, exercises: processedExercises, planId, feedback: null };
+  return {
+    id: Number(lastInsertRowid),
+    name,
+    date,
+    exercises: processedExercises,
+    planId,
+    feedback: null,
+  };
 }
 
 /**
@@ -2112,14 +2471,17 @@ export function addWorkout(userId, name, date, exercises, planId = null) {
 export function deleteWorkout(userId, id) {
   db.exec('BEGIN IMMEDIATE');
   try {
-    const { changes } = db.prepare('DELETE FROM workouts WHERE id = ? AND user_id = ?').run(id, userId);
+    const { changes } = db
+      .prepare('DELETE FROM workouts WHERE id = ? AND user_id = ?')
+      .run(id, userId);
     if (changes > 0) {
       /* Ha épp ez az edzés volt visszanyitva a szerkesztőbe, a piszkozat egy
          megszűnt sorra hivatkozna, és a befejezés 404-be futna. A tartalmát
          nem dobjuk el (azt a felhasználó írta) — csak elengedjük a
          hivatkozást, így új edzésként menthető. */
-      db.prepare('UPDATE workout_draft SET workout_id = NULL WHERE user_id = ? AND workout_id = ?')
-        .run(userId, id);
+      db.prepare(
+        'UPDATE workout_draft SET workout_id = NULL WHERE user_id = ? AND workout_id = ?',
+      ).run(userId, id);
       recomputeExerciseMaxes(userId);
     }
     db.exec('COMMIT');
@@ -2146,7 +2508,9 @@ export function deleteWorkout(userId, id) {
     az edzést, a naplóból nem számolható ki — csak tőle tudható meg.
     Csak ÉLŐ kapcsolat számít, ugyanúgy, mint mindenhol máshol. */
 export function getAthleteFeedbackSince(coachId, sinceDate) {
-  return db.prepare(`
+  return db
+    .prepare(
+      `
     SELECT w.id, w.name, w.feedback_difficulty, w.feedback_at,
            u.display_name AS athlete_name
     FROM workouts w
@@ -2154,19 +2518,25 @@ export function getAthleteFeedbackSince(coachId, sinceDate) {
     JOIN users u ON u.id = w.user_id
     WHERE cl.coach_id = ? AND w.feedback_at IS NOT NULL AND w.date >= ?
     ORDER BY w.feedback_at DESC
-  `).all(coachId, sinceDate).map((row) => ({
-    id: row.id,
-    workout: row.name,
-    athlete: row.athlete_name,
-    difficulty: row.feedback_difficulty,
-    at: row.feedback_at,
-  }));
+  `,
+    )
+    .all(coachId, sinceDate)
+    .map((row) => ({
+      id: row.id,
+      workout: row.name,
+      athlete: row.athlete_name,
+      difficulty: row.feedback_difficulty,
+      at: row.feedback_at,
+    }));
 }
 
 /* Modulon belüli segéd — a saveWorkoutFeedback ezen adja vissza a friss sort. */
 function getWorkout(userId, workoutId) {
-  const row = db.prepare(`SELECT id, name, date, exercises, plan_id,
-          feedback_difficulty, feedback_mood, feedback_note, feedback_at FROM workouts WHERE id = ? AND user_id = ?`)
+  const row = db
+    .prepare(
+      `SELECT id, name, date, exercises, plan_id,
+          feedback_difficulty, feedback_mood, feedback_note, feedback_at FROM workouts WHERE id = ? AND user_id = ?`,
+    )
     .get(workoutId, userId);
   return row ? toWorkout(row) : null;
 }
@@ -2175,11 +2545,14 @@ function getWorkout(userId, workoutId) {
     az UPDATE a user_id-re is szűr, tehát idegen sorra nem talál semmit.
     Visszaadja a frissített edzést, vagy null-t, ha nem volt ilyen sor. */
 export function saveWorkoutFeedback(userId, workoutId, { difficulty, mood, note }) {
-  const changed = db.prepare(`
+  const changed = db
+    .prepare(
+      `
     UPDATE workouts
        SET feedback_difficulty = ?, feedback_mood = ?, feedback_note = ?,
            feedback_at = datetime('now')
-     WHERE id = ? AND user_id = ?`)
+     WHERE id = ? AND user_id = ?`,
+    )
     .run(difficulty ?? null, mood ?? null, note ?? null, workoutId, userId).changes;
   return changed ? getWorkout(userId, workoutId) : null;
 }
@@ -2188,14 +2561,19 @@ export function updateWorkout(userId, id, name, exercises) {
   db.exec('BEGIN IMMEDIATE');
   try {
     // A most újramentett edzés már az új PR-szabály alá kerül (pr_rule = 1).
-    const { changes } = db.prepare('UPDATE workouts SET name = ?, exercises = ?, pr_rule = 1 WHERE id = ? AND user_id = ?')
+    const { changes } = db
+      .prepare(
+        'UPDATE workouts SET name = ?, exercises = ?, pr_rule = 1 WHERE id = ? AND user_id = ?',
+      )
       .run(name, JSON.stringify(exercises), id, userId);
     if (changes === 0) {
       db.exec('COMMIT');
       return null;
     }
     recomputeExerciseMaxes(userId);
-    const row = db.prepare('SELECT id, name, date, exercises, plan_id FROM workouts WHERE id = ?').get(id);
+    const row = db
+      .prepare('SELECT id, name, date, exercises, plan_id FROM workouts WHERE id = ?')
+      .get(id);
     db.exec('COMMIT');
     return toWorkout(row);
   } catch (err) {
@@ -2223,7 +2601,8 @@ export function addPlan(userId, name, date, exercises, days) {
     A frissített sort adja vissza, vagy null-t, ha nincs ilyen id — MÁS
     felhasználó tervére is null jön, azt nem lehet átírni. */
 export function updatePlan(userId, id, name, exercises, days) {
-  const { changes } = db.prepare('UPDATE plans SET name = ?, exercises = ?, days = ? WHERE id = ? AND user_id = ?')
+  const { changes } = db
+    .prepare('UPDATE plans SET name = ?, exercises = ?, days = ? WHERE id = ? AND user_id = ?')
     .run(name, JSON.stringify(exercises), JSON.stringify(days), id, userId);
   if (changes === 0) return null;
   const row = db.prepare('SELECT id, name, date, exercises, days FROM plans WHERE id = ?').get(id);

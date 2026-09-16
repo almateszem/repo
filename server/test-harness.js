@@ -63,7 +63,9 @@ export async function startServer({ label, extraEnv = {} }) {
       }
     });
     child.stderr.setEncoding('utf8');
-    child.stderr.on('data', (chunk) => { output += chunk; });
+    child.stderr.on('data', (chunk) => {
+      output += chunk;
+    });
     child.on('exit', (code) => {
       clearTimeout(timer);
       reject(new Error(`A szerver kilépett (kód: ${code}):\n${output}`));
@@ -105,7 +107,11 @@ function makeRequest(baseUrl) {
     const setCookie = res.headers.getSetCookie();
     const text = await res.text();
     let json = null;
-    try { json = text ? JSON.parse(text) : null; } catch { /* nem JSON — a json null marad */ }
+    try {
+      json = text ? JSON.parse(text) : null;
+    } catch {
+      /* nem JSON — a json null marad */
+    }
 
     return {
       status: res.status,

@@ -118,10 +118,13 @@ const referenceCache = new Map();
 
 function getJsonCached(path) {
   if (!referenceCache.has(path)) {
-    referenceCache.set(path, getJson(path).catch((err) => {
-      referenceCache.delete(path);
-      throw err;
-    }));
+    referenceCache.set(
+      path,
+      getJson(path).catch((err) => {
+        referenceCache.delete(path);
+        throw err;
+      }),
+    );
   }
   return referenceCache.get(path);
 }
@@ -133,49 +136,58 @@ function getJsonCached(path) {
 const invalidateCache = (path) => referenceCache.delete(path);
 
 const api = {
-  getUser:           () => getJsonCached('/api/user'),
+  getUser: () => getJsonCached('/api/user'),
   // Friss fiók-adat a cache megkerülésével (edzés-cél mentése, kapcsolat változása után)
-  refreshUser:       () => { invalidateCache('/api/user'); return getJsonCached('/api/user'); },
+  refreshUser: () => {
+    invalidateCache('/api/user');
+    return getJsonCached('/api/user');
+  },
   // Az edzés-cél mentése — a válasz a fiók frissített felületi alakja
-  saveGoal:          (goal) => putJson('/api/user', { goal }),
+  saveGoal: (goal) => putJson('/api/user', { goal }),
   // Nem cache-elt: a profiloldal összesítői minden edzés-mentés után változnak
   getMeasurementSites: () => getJsonCached('/api/measurements/sites'),
-  getMeasurements:   () => getJson('/api/measurements'),
-  saveMeasurements:  (values) => putJson('/api/measurements', { values }),
+  getMeasurements: () => getJson('/api/measurements'),
+  saveMeasurements: (values) => putJson('/api/measurements', { values }),
   deleteMeasurement: (id) => del(`/api/measurements/${id}`),
-  deletePlan:        (id) => del(`/api/plans/${id}`),
+  deletePlan: (id) => del(`/api/plans/${id}`),
   updateWeightEntry: (id, kg) => putJson(`/api/weight-log/${id}`, { kg }),
   deleteWeightEntry: (id) => del(`/api/weight-log/${id}`),
   // A válasz az ÉRINTETT nap összesítője — régebbi nap is javítható.
   updateNutritionEntry: (id, grams) => putJson(`/api/nutrition/log/${id}`, { grams }),
-  getProfile:        () => getJson('/api/profile'),
+  getProfile: () => getJson('/api/profile'),
   /* ---- Erőfelmérés ----
      A BEMONDOTT csúcsok. Nem mérés: viszonyítási alap, amit a naplózott
      edzés felülír — a riport `basis` mezője ki is mondja, min alapul. */
   getStrengthAssessment: () => getJson('/api/strength-assessment'),
   saveStrengthAssessment: (entries) => postJson('/api/strength-assessment', { entries }),
   // Nem cache-elt: a dailyStats a naplózással és a nap váltásával változik
-  getDashboard:      () => getJson('/api/dashboard'),
-  getCharts:         () => getJsonCached('/api/charts'),
+  getDashboard: () => getJson('/api/dashboard'),
+  getCharts: () => getJsonCached('/api/charts'),
   // Friss chart-adat a cache megkerülésével (edzés naplózása után)
-  refreshCharts:     () => { invalidateCache('/api/charts'); return getJsonCached('/api/charts'); },
+  refreshCharts: () => {
+    invalidateCache('/api/charts');
+    return getJsonCached('/api/charts');
+  },
   // A /api/foods FIÓKFÜGGŐ (elöl a saját ételek), de a cache-elés így is
   // helyes: fiókváltáskor az app teljes oldalt tölt. Saját étel felvitele
   // vagy törlése után viszont el kell dobni — erre való a refreshFoods.
-  getFoods:          () => getJsonCached('/api/foods'),
-  refreshFoods:      () => { invalidateCache('/api/foods'); return getJsonCached('/api/foods'); },
+  getFoods: () => getJsonCached('/api/foods'),
+  refreshFoods: () => {
+    invalidateCache('/api/foods');
+    return getJsonCached('/api/foods');
+  },
   // Nem cache-elt: a saját tervek mentés/szerkesztés után változnak
-  getPlans:          () => getJson('/api/plans'),
+  getPlans: () => getJson('/api/plans'),
   // Nem cache-elt: a PR-lista a mentett edzésekből épül, mentés után frissül
-  getPrs:            () => getJson('/api/prs'),
-  getPrHistory:      (exercise) => getJson(`/api/prs/history?exercise=${encodeURIComponent(exercise)}`),
+  getPrs: () => getJson('/api/prs'),
+  getPrHistory: (exercise) => getJson(`/api/prs/history?exercise=${encodeURIComponent(exercise)}`),
   // Nem cache-elt: az exercise maxes-ek az edzés közben változhatnak
-  getExerciseMaxes:  () => getJson('/api/exercise-maxes'),
+  getExerciseMaxes: () => getJson('/api/exercise-maxes'),
   /* Nem cache-elt: a lista a hívó VALÓDI eseményeiből áll össze (olvasatlan
      üzenet, meghívó, friss PR), tehát a panel minden megnyitásakor frisset
      kérünk — a munkamenetre eltett válasz órákig hazudna. */
-  getNotifications:  () => getJson('/api/notifications'),
-  getDefaultSet:     () => getJsonCached('/api/default-set'),
+  getNotifications: () => getJson('/api/notifications'),
+  getDefaultSet: () => getJsonCached('/api/default-set'),
   // Az időalapú (kardió) sorok alapértékei és intenzitás-fokozatai. Mindkettő
   // referencia-adat: a fokozat KULCSA mentődik, a felirat innen jön, hogy a
   // kettő ne sodródjon szét (ugyanaz az elv, mint a mérési helyeknél).
@@ -183,36 +195,36 @@ const api = {
   getCardioIntensities: () => getJsonCached('/api/cardio-intensities'),
   getExerciseCatalog: () => getJsonCached('/api/exercise-catalog'),
   // A választható edzés-célok (kulcs + kártya-címke + felirat) — referencia-adat
-  getGoals:          () => getJsonCached('/api/goals'),
+  getGoals: () => getJsonCached('/api/goals'),
 
   /* ---- Edző–sportoló kapcsolat ----
      EGYIK sem cache-elt: a kapcsolatok, a sportolók állapota és az üzenetek
      a másik fél lépéseitől is változnak, tehát minden megnyitáskor friss
      adat kell. */
-  getCoach:          () => getJson('/api/coach'),
+  getCoach: () => getJson('/api/coach'),
   acceptCoachInvite: (linkId) => postJson(`/api/coach/invites/${linkId}/accept`),
   declineCoachInvite: (linkId) => del(`/api/coach/invites/${linkId}`),
-  leaveCoach:        () => del('/api/coach'),
-  getAthletes:       () => getJson('/api/athletes'),
-  inviteAthlete:     (username) => postJson('/api/athletes', { username }),
-  removeAthlete:     (linkId) => del(`/api/athletes/${linkId}`),
+  leaveCoach: () => del('/api/coach'),
+  getAthletes: () => getJson('/api/athletes'),
+  inviteAthlete: (username) => postJson('/api/athletes', { username }),
+  removeAthlete: (linkId) => del(`/api/athletes/${linkId}`),
   /* Terv-kiosztás. Az edző a SAJÁT tervei közül ajánl fel egyet; a sportoló
      fiókjába csak az elfogadás után kerül be — másolatként, a meglévő
      tervei mellé. */
-  assignPlan:        (linkId, planId, note) => postJson(`/api/athletes/${linkId}/plan`, { planId, note }),
-  acceptPlanOffer:   (id) => postJson(`/api/plan-offers/${id}/accept`),
-  declinePlanOffer:  (id) => del(`/api/plan-offers/${id}`),
+  assignPlan: (linkId, planId, note) => postJson(`/api/athletes/${linkId}/plan`, { planId, note }),
+  acceptPlanOffer: (id) => postJson(`/api/plan-offers/${id}/accept`),
+  declinePlanOffer: (id) => del(`/api/plan-offers/${id}`),
   // Üzenetváltás — ugyanaz a szál mindkét oldalról, a kapcsolat azonosítójával
-  getMessages:       (linkId) => getJson(`/api/messages/${linkId}`),
-  sendMessage:       (linkId, text) => postJson(`/api/messages/${linkId}`, { text }),
+  getMessages: (linkId) => getJson(`/api/messages/${linkId}`),
+  sendMessage: (linkId, text) => postJson(`/api/messages/${linkId}`, { text }),
   // A szál nyugtázása: a másik fél üzenetei olvasottá válnak. A felület
   // akkor küldi, amikor a hírfolyam TÉNYLEG látszik — nem minden lekérésnél.
-  markMessagesRead:  (linkId) => postJson(`/api/messages/${linkId}/read`),
+  markMessagesRead: (linkId) => postJson(`/api/messages/${linkId}/read`),
   // A testsúly-napló. Írni nem innen írunk: a testsúlyt a napi check-in
   // kérdi, és a PUT /api/checkin weightKg mezője rögzíti (naponta egy sor).
-  getWeightLog:      () => getJson('/api/weight-log'),
-  getNutrition:      () => getJson('/api/nutrition'),
-    /* ---- Víznapló ----
+  getWeightLog: () => getJson('/api/weight-log'),
+  getNutrition: () => getJson('/api/nutrition'),
+  /* ---- Víznapló ----
      A válasz mindig a nap FRISS állapota ({ totalMl, entries, targetMl }),
      ezért a felületnek nem kell külön újrakérdeznie. A szerver ugyanebben a
      körben a check-in folyadék-mezőjét is frissíti, tehát a készenlét is
@@ -230,7 +242,7 @@ const api = {
   setAthleteNutritionGoal: (linkId, calories, protein) =>
     putJson(`/api/athletes/${linkId}/nutrition-goal`, { calories, protein }),
   // A mai naplózott tételek — a Táplálkozás oldal „Mai napló" listájához
-  getNutritionLog:   () => getJson('/api/nutrition/log'),
+  getNutritionLog: () => getJson('/api/nutrition/log'),
   // Étel naplózása név + adag (gramm) alapján — a válasz { entry, totals }.
   // A makrókat a szerver számolja át az adagra, a kliens csak a grammot küldi.
   addNutritionEntry: (name, grams) => postJson('/api/nutrition/log', { name, grams }),
@@ -240,12 +252,12 @@ const api = {
   /* ---- Saját ételek + vonalkód ----
      A kalóriát a szerver számolja a makrókból (Atwater 4/4/9); a kcalMode
      'manual' esetén a megadott érték marad, de a szerver akkor is sávban tartja. */
-  addCustomFood:     (food) => postJson('/api/foods/custom', food),
-  removeCustomFood:  (id) => del(`/api/foods/custom/${id}`),
+  addCustomFood: (food) => postJson('/api/foods/custom', food),
+  removeCustomFood: (id) => del(`/api/foods/custom/${id}`),
   // Vonalkód feloldása: saját étel → szerver-cache → Open Food Facts.
   // getJsonDetailed, mert itt a szerver magyar hibaüzenete a lényeg.
-  lookupBarcode:     (code) => getJsonDetailed(`/api/foods/barcode/${encodeURIComponent(code)}`),
-  getWorkouts:       () => getJson('/api/workouts'),
+  lookupBarcode: (code) => getJsonDetailed(`/api/foods/barcode/${encodeURIComponent(code)}`),
+  getWorkouts: () => getJson('/api/workouts'),
   // Edzés mentése — a szerver visszaadja a mentett { id, name, date, exercises }-t.
   // A planId azt rögzíti, melyik tervből indult az edzés (a Tervek oldali
   // haladás ebből párosít, nem névegyezésből).
@@ -258,37 +270,38 @@ const api = {
   addMyComment: (targetId, text) => postJson('/api/comments', { targetId, text }),
   addAthleteComment: (linkId, targetId, text) =>
     postJson(`/api/athletes/${linkId}/comments`, { targetId, text }),
-  saveWorkoutFeedback: (workoutId, feedback) => putJson(`/api/workouts/${workoutId}/feedback`, feedback),
-  saveWorkout:       (name, exercises, planId) => postJson('/api/workouts', { name, exercises, planId }),
+  saveWorkoutFeedback: (workoutId, feedback) =>
+    putJson(`/api/workouts/${workoutId}/feedback`, feedback),
+  saveWorkout: (name, exercises, planId) => postJson('/api/workouts', { name, exercises, planId }),
   // Mentett edzés javítása. A dátumot NEM küldjük: az edzés a saját napján
   // marad — a javítás nem helyezi át a naplóban.
-  updateWorkout:     (id, name, exercises) => putJson(`/api/workouts/${id}`, { name, exercises }),
+  updateWorkout: (id, name, exercises) => putJson(`/api/workouts/${id}`, { name, exercises }),
   // Mentett edzés törlése. A szerver az egyéni csúcsokat is újraszámolja,
   // ezért utána a PR-lista és a diagramok is frissítendők.
-  deleteWorkout:     (id) => del(`/api/workouts/${id}`),
+  deleteWorkout: (id) => del(`/api/workouts/${id}`),
   // Az épp szerkesztett edzés piszkozata — betöltéskor visszaáll, minden változtatás menti
-  saveWorkoutDraft:  (name, exercises, planId, workoutId) =>
+  saveWorkoutDraft: (name, exercises, planId, workoutId) =>
     putJson('/api/workout-draft', { name, exercises, planId, workoutId }),
   // Az edzés lezárása után a piszkozat törlődik — új edzés kezdhető ugyanaznap
   clearWorkoutDraft: () => del('/api/workout-draft'),
   // Edzésterv mentése/szerkesztése (terv-építő) — a szerver a mentett tervet adja vissza
-  savePlan:          (name, exercises, days) => postJson('/api/plans', { name, exercises, days }),
-  updatePlan:        (id, name, exercises, days) => putJson(`/api/plans/${id}`, { name, exercises, days }),
+  savePlan: (name, exercises, days) => postJson('/api/plans', { name, exercises, days }),
+  updatePlan: (id, name, exercises, days) => putJson(`/api/plans/${id}`, { name, exercises, days }),
   // Az Edzés oldal induló tartalma: aznapi piszkozat / napra ütemezett terv / null
   getWorkoutTemplate: () => getJson('/api/workout-template'),
   // Teljes adat-pillanatkép a beállítások exportjához
-  exportAll:         () => getJson('/api/export'),
+  exportAll: () => getJson('/api/export'),
   // Recovery Engine — egyik sem cache-elt: naponta (és minden check-in,
   // ill. edzés-mentés után) változnak.
-  getReadiness:      () => getJson('/api/readiness'),
+  getReadiness: () => getJson('/api/readiness'),
   /* Készenlét-alapú javaslat a MAI naplóra. Az apply ÚJRASZÁMOLJA a
      javaslatot a szerveren — a kliens listáját nem fogadja el bemenetként,
      különben egy hamisított kérés tetszőleges gyakorlatot törölhetne. */
-  getSessionAdvice:  () => getJson('/api/readiness/advice'),
+  getSessionAdvice: () => getJson('/api/readiness/advice'),
   applySessionAdvice: () => postJson('/api/readiness/advice/apply'),
-  getCheckin:        () => getJson('/api/checkin'),
+  getCheckin: () => getJson('/api/checkin'),
   // A mentés a friss riportot is visszaadja, hogy a felület egy körből frissüljön
-  saveCheckin:       (fields) => putJson('/api/checkin', fields),
+  saveCheckin: (fields) => putJson('/api/checkin', fields),
 
   /* ---- Fiók ----
      A me() a 401-et NEM hibaként kezeli: az a „nincs belépve" normális
@@ -303,10 +316,10 @@ const api = {
     if (!res.ok) throw new Error(`GET /api/auth/me → ${res.status}`);
     return { user: await res.json(), firstRun: false };
   },
-  login:    (username, password) => authRequest('/api/auth/login', { username, password }),
+  login: (username, password) => authRequest('/api/auth/login', { username, password }),
   register: (username, displayName, password) =>
     authRequest('/api/auth/register', { username, displayName, password }),
-  logout:   () => authRequest('/api/auth/logout'),
+  logout: () => authRequest('/api/auth/logout'),
   /* Jelszóváltoztatás és fióktörlés. Mindkettő a JELENLEGI jelszót is kéri —
      a munkamenet-süti önmagában nem elég hozzájuk. A jelszóváltás válasza új
      sütit ad (a többi eszköz munkamenete megszűnik), a törlésé pedig törli a

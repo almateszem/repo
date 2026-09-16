@@ -95,8 +95,8 @@ async function setupNotifications() {
     panel.hidden = !open;
     button.setAttribute('aria-expanded', String(open));
     if (!open) return;
-    renderList();      // előbb a meglévő tartalom, hogy ne legyen üres pillanat
-    await load();      // majd a friss lista
+    renderList(); // előbb a meglévő tartalom, hogy ne legyen üres pillanat
+    await load(); // majd a friss lista
     if (panel.hidden) return; // időközben becsukták
     renderList();
     updateBadge();
@@ -119,7 +119,10 @@ async function setupNotifications() {
 
   // Kattintás a panelen kívülre / Escape / oldalváltás → zárás
   document.addEventListener('pointerdown', (event) => {
-    if (!panel.hidden && !event.target.closest('[data-notif-panel], [data-action="notifications"]')) {
+    if (
+      !panel.hidden &&
+      !event.target.closest('[data-notif-panel], [data-action="notifications"]')
+    ) {
       setOpen(false);
     }
   });

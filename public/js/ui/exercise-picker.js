@@ -15,7 +15,9 @@ import { setupThumb } from './workout.js';
     a hívó (setupPlanBuilder / setupWorkout) adja meg, mielőtt idenavigál. */
 async function setupExercisePicker(confirmAction) {
   const [catalog, defaultSet, defaultCardioSet] = await Promise.all([
-    api.getExerciseCatalog(), api.getDefaultSet(), api.getDefaultCardioSet(),
+    api.getExerciseCatalog(),
+    api.getDefaultSet(),
+    api.getDefaultCardioSet(),
   ]);
   const pickerPage = $('[data-page="exercise-picker"]');
   const list = $('[data-list="picker-catalog"]');
@@ -82,13 +84,15 @@ async function setupExercisePicker(confirmAction) {
       A keresés/szűrés cél (context) nélkül is működik — csak a ✓/→
       gombállapot múlik a célon, mert csak annak van mihez igazodnia. */
   const refresh = () => {
-    if (context) $('[data-picker-workout]').textContent = context.nameInput.value.trim() || 'Névtelen';
+    if (context)
+      $('[data-picker-workout]').textContent = context.nameInput.value.trim() || 'Névtelen';
     const query = searchInput.value.trim().toLowerCase();
     const added = context ? namesInTarget() : null;
     let visibleCount = 0;
     $$('.ep-item', list).forEach((item) => {
-      const matches = (activeGroup === 'Mind' || item.dataset.group === activeGroup)
-        && item.dataset.search.includes(query);
+      const matches =
+        (activeGroup === 'Mind' || item.dataset.group === activeGroup) &&
+        item.dataset.search.includes(query);
       item.hidden = !matches;
       if (matches) visibleCount += 1;
       if (!context) return;
@@ -97,9 +101,12 @@ async function setupExercisePicker(confirmAction) {
       const toggle = $('.ep-item-toggle', item);
       toggle.setAttribute('aria-pressed', String(inTarget));
       toggle.textContent = inTarget ? '✓' : '→';
-      toggle.setAttribute('aria-label', inTarget
-        ? `${item.dataset.name} eltávolítása`
-        : `${item.dataset.name} hozzáadása ${context.toastTarget}`);
+      toggle.setAttribute(
+        'aria-label',
+        inTarget
+          ? `${item.dataset.name} eltávolítása`
+          : `${item.dataset.name} hozzáadása ${context.toastTarget}`,
+      );
     });
     countEl.textContent = visibleCount;
     emptyState.hidden = visibleCount > 0;
@@ -114,14 +121,16 @@ async function setupExercisePicker(confirmAction) {
 
     const item = toggle.closest('.ep-item');
     const name = item.dataset.name;
-    const existing = $$('.wk-exercise', context.targetList)
-      .find((card) => $('.wk-exercise-name', card).textContent.trim() === name);
+    const existing = $$('.wk-exercise', context.targetList).find(
+      (card) => $('.wk-exercise-name', card).textContent.trim() === name,
+    );
     if (existing) {
       // Az edzésnaplóban a gyakorlattal együtt a már kipipált szettek is
       // elvesznének — ilyenkor rákérdezünk. Frissen hozzáadott (még nem
       // teljesített) gyakorlatnál marad az azonnali eltávolítás.
-      const doneSets = $$('.wk-set-check', existing)
-        .filter((check) => check.getAttribute('aria-pressed') === 'true').length;
+      const doneSets = $$('.wk-set-check', existing).filter(
+        (check) => check.getAttribute('aria-pressed') === 'true',
+      ).length;
       if (doneSets > 0) {
         const ok = await confirmAction(
           `A(z) „${name}” gyakorlaton ${doneSets} teljesített szett van. Az eltávolítással ezek elvesznek.`,
@@ -136,14 +145,19 @@ async function setupExercisePicker(confirmAction) {
          három szett a súlyzós munka szokása; egy futásból nem csinál senki
          hármat, és a „+ Szett" gomb ezeken a kártyákon nincs is ott. */
       const cardio = item.dataset.logMode === 'duration';
-      context.targetList.appendChild(renderExercise({
-        name,
-        pr: false,
-        ...(cardio && { logMode: 'duration' }),
-        sets: cardio
-          ? [{ ...defaultCardioSet }]
-          : [{ ...defaultSet }, { ...defaultSet }, { ...defaultSet }],
-      }, context.exerciseOptions));
+      context.targetList.appendChild(
+        renderExercise(
+          {
+            name,
+            pr: false,
+            ...(cardio && { logMode: 'duration' }),
+            sets: cardio
+              ? [{ ...defaultCardioSet }]
+              : [{ ...defaultSet }, { ...defaultSet }, { ...defaultSet }],
+          },
+          context.exerciseOptions,
+        ),
+      );
       showToast(`${name} hozzáadva ${context.toastTarget}`);
     }
     context.onChange();

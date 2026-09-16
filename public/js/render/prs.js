@@ -15,7 +15,7 @@ async function renderPrs() {
     item.style.setProperty('--i', index);
     item.dataset.exercise = pr.exercise;
     $('.wk-pr-exercise', item).textContent = pr.exercise;
-    
+
     // Detail: szett információ + 1RM érték
     let detailText = pr.detail;
     if (pr.oneRM !== null && pr.oneRM > 0) {

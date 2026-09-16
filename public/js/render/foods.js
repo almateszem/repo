@@ -9,7 +9,7 @@ import { formatNumber } from '../core/format.js';
     naplózás ugyanabból az egy válaszból épül, és nem csúszhatnak el.
     A SAJÁT ételek a szervertől elöl jönnek, és jelvényt + törlés-gombot kapnak. */
 async function renderFoods(foodList = null) {
-  const foods = foodList ?? await api.getFoods();
+  const foods = foodList ?? (await api.getFoods());
   const list = $('[data-list="foods"]');
   list.replaceChildren(); // újrahíváskor se duplázódjon a lista
   foods.forEach((food) => {
@@ -19,7 +19,9 @@ async function renderFoods(foodList = null) {
     // belépő, mint végiggörgetni a listát. A márka a vonalkódról felvitt
     // termékeknél az, amiről a felhasználó felismeri őket.
     item.dataset.foodName = [food.name, food.group, food.brand]
-      .filter(Boolean).join(' ').toLowerCase();
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
 
     // A kcal-jelvény a név span-jén belül ül, ezért a nevet elé szúrjuk be.
     const nameEl = $('.nu-food-name', item);
