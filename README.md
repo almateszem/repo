@@ -130,8 +130,19 @@ server/
   migration.test.js  a fiókok előtti adatbázis migrációjának tesztje (npm test)
   errors.js      hibakezelő védőháló: kezelő-becsomagolás, JSON-hibaválasz, folyamat-őrök
   errors.test.js a védőháló tesztjei (npm test)
+  ratelimit.js   kérés-korlátozás: rögzített ablakos számláló memóriában — tiszta függvények
+  ratelimit.test.js  a korlátozó unit-tesztjei (npm test)
   db.js          SQLite adatréteg — az egyetlen modul, ami a tárolást ismeri
-  data.js        seed / referencia-adat (ételek, gyakorlat-katalógus, edzés-célok)
+  cache.test.js  a kollekció-cache szerződése: mi osztozik és mi nem (npm test)
+  messages.test.js  az üzenet-olvasottság migrációja és számlálója (npm test)
+  prs.test.js    az egyéni csúcsok fiókonkénti elkülönítése (npm test)
+  data.js        seed / referencia-adat (edzés-célok és egyéb vegyes seed)
+  data/          a nagy referencia-katalógusok forrásai
+    catalog.js   a gyakorlat- és étel-katalógus összeállítása a seed előtt
+    exercises.hu.js    kézzel kurált gyakorlatok
+    exercises.exdb.js  a külső datasetből GENERÁLT gyakorlatok (npm run exdb:build — kézzel ne szerkeszd)
+    exdb.map.js, exdb.names.hu.js  a generálás leképezése és angol → magyar névszótára
+    foods.hu.js  az étel-katalógus
   openfoodfacts.js  vonalkód-ellenőrzés + Open Food Facts proxy (a kliens nem hívja közvetlenül)
   openfoodfacts.test.js  a leképezés és a vonalkód-normalizálás tesztjei (npm test)
   recovery.js    Recovery Engine — a készenlét-számítás (tiszta függvények, DB nélkül)
@@ -139,19 +150,32 @@ server/
   coaching.js    az edzői panel sportoló-összegzője (tiszta függvények, DB nélkül)
   coaching.test.js  az összegző unit-tesztjei (npm test)
   coach.test.js  az edző–sportoló kapcsolat végponti tesztjei (npm test)
+  notifications.js  az értesítés-panel sorai valódi eseményekből — tiszta függvények
+  notifications.test.js  az értesítés-összeállítás tesztjei (npm test)
   muscles.js     izomcsoport-taxonómia + gyakorlat → izom leképezés
+  logmode.js     a gyakorlatok naplózási módja (ismétlés + súly vagy időtartam)
+  test-harness.js  közös váz a végponti tesztekhez: izolált szerver saját ideiglenes adatbázissal
+  api.test.js    végponti (HTTP) tesztek a valódi szerveren (npm test)
+  account.test.js  jelszóváltoztatás és fióktörlés végponti tesztjei (npm test)
+  security.test.js  biztonsági végponti tesztek: belépési korlát, kizárás, méretkorlátok (npm test)
+  timezone.test.js  a kérés napja (X-Client-Date) végponti tesztjei (npm test)
   fittrack.db    az adatbázisfájl (nem verziókövetett, a szerver hozza létre)
+scripts/
+  build-exdb.js  a server/data/exercises.exdb.js generálása (npm run exdb:build)
+  fetch-exdb-media.js  a hivatkozott gyakorlat-képek letöltése a public/exercises/ alá (npm run exdb:media)
 ```
 
 Az adat kétféle: a `collections` táblában a **csak olvasható** referencia-adat,
 amit a szerver minden induláskor a `data.js`-ből szinkronizál (tehát a `data.js`
 az egyetlen szerkesztési hely) — ez minden fióknak közös —, illetve a
-**felhasználói adat** saját táblákban (`weight_log`, `nutrition_log`, `workouts`,
-`plans`, `workout_draft`, `checkins`, `exercise_maxes`, `custom_foods`). Ezeket a
-seed nem írja felül, és minden soruk egy fiókhoz tartozik (`user_id`). A fiókok
-KÖZTI adat — az edző–sportoló kapcsolatok (`coach_links`) és az üzenetek
-(`messages`) — külön táblákban áll; ezekhez mindkét érintett fél hozzáfér, más
-senki.
+**felhasználói adat** saját táblákban (`weight_log`, `nutrition_log`, `water_log`,
+`workouts`, `plans`, `workout_draft`, `checkins`, `exercise_maxes`, `custom_foods`,
+`body_measurements`). Ezeket a seed nem írja felül, és minden soruk egy fiókhoz
+tartozik (`user_id`). A fiókok KÖZTI adat — az edző–sportoló kapcsolatok
+(`coach_links`), az üzenetek (`messages`), a terv-ajánlatok (`plan_assignments`),
+a gyakorlatokhoz fűzött megjegyzések (`comments`) és az edző által kitűzött
+táplálkozási cél (`nutrition_goals`, a sportoló saját céljával egy táblában) —
+külön táblákban áll; ezekhez mindkét érintett fél hozzáfér, más senki.
 
 Egy kivétel van: a `barcode_cache` (vonalkód → Open Food Facts termék) tudatosan
 **nem** felhasználói adat és nincs rajta `user_id` — ugyanaz a vonalkód
@@ -230,8 +254,8 @@ helyben fut, semmit nem küld ki a gépről. Az eredmény a `graphify-out/`
 könyvtárba kerül (`graph.html`, `graph.json`, `GRAPH_REPORT.md`) — ez
 generált, ezért nincs verziókövetve. Kódváltozás után futtasd újra.
 
-A projekt gráfja jelenleg nagyjából 280 csomópont / 600 él; a legtöbb kapcsolattal bíró
-függvények: `init()`, `computeReadiness()`, `showToast()`. A `.graphifyignore`
+A projekt gráfja jelenleg nagyjából 960 csomópont / 2500 él; a legtöbb kapcsolattal bíró
+függvények: `showToast()`, `init()`, `cloneTemplate()`. A `.graphifyignore`
 tartja ki a gráfból magát a vendorolt skillt (különben a saját dokumentációja
 61 csomóponttal hígítaná a képet).
 
@@ -465,30 +489,32 @@ hogy elolvasták az üzenetét.
 **Terv-kiosztás.** Az edző a **saját tervei** közül ajánl fel egyet a sportolónak
 (részletmodál → _Terv kiosztása_), akár kísérő sorral. A terv **nem íródik** a
 sportoló tervei közé: az ajánlat `pending` állapotban áll, amíg a sportoló el nem
-fogadja — és akkor is **másolatként, a meglévő tervei mellé** kerül. Két okból:
-tervet törölni nem lehet az appban (amit egyszer belepakolnánk, azt nem tudná
-kiszedni), és ugyanaz az elv, mint a kapcsolaté — ami a másik fiókjában
-megjelenik, ahhoz a másik beleegyezése kell. A kiosztott gyakorlat-lista
+fogadja — és akkor is **másolatként, a meglévő tervei mellé** kerül. Az elv
+ugyanaz, mint a kapcsolaté: ami a másik fiókjában megjelenik, ahhoz a másik
+beleegyezése kell. Az elfogadott másolat a sportoló saját terve, tehát ő
+szerkesztheti és törölheti is (`DELETE /api/plans/:id`). A kiosztott gyakorlat-lista
 **pillanatkép**: az edző későbbi szerkesztése nem változtatja meg némán a
 sportolónál lévő példányt.
 
 **Végpontok**
 
-| Végpont                                  | Mit csinál                                                        |
-| ---------------------------------------- | ----------------------------------------------------------------- |
-| `GET /api/athletes`                      | a sportolóim kártyái + a kiküldött meghívóim                      |
-| `POST /api/athletes`                     | meghívó felhasználónévre                                          |
-| `DELETE /api/athletes/:linkId`           | meghívó visszavonása vagy a kapcsolat bontása (edzőként)          |
-| `POST /api/athletes/:linkId/plan`        | terv felajánlása a sportolónak (`{ planId, note }`)               |
-| `GET /api/coach`                         | a saját edzőm, a hozzám érkezett meghívók és a felajánlott tervek |
-| `POST /api/coach/invites/:linkId/accept` | meghívó elfogadása                                                |
-| `DELETE /api/coach/invites/:linkId`      | meghívó elutasítása                                               |
-| `DELETE /api/coach`                      | leválás az edzőről                                                |
-| `POST /api/plan-offers/:id/accept`       | felajánlott terv elfogadása (másolatként bekerül)                 |
-| `DELETE /api/plan-offers/:id`            | felajánlott terv elutasítása                                      |
-| `GET` / `POST /api/messages/:linkId`     | a kapcsolat üzenet-szála                                          |
-| `POST /api/messages/:linkId/read`        | a szál nyugtázása (a másik fél üzenetei olvasottá válnak)         |
-| `GET /api/notifications`                 | az értesítés-panel sorai a hívó valódi eseményeiből               |
+| Végpont                                       | Mit csinál                                                         |
+| --------------------------------------------- | ------------------------------------------------------------------ |
+| `GET /api/athletes`                           | a sportolóim kártyái + a kiküldött meghívóim                       |
+| `POST /api/athletes`                          | meghívó felhasználónévre                                           |
+| `DELETE /api/athletes/:linkId`                | meghívó visszavonása vagy a kapcsolat bontása (edzőként)           |
+| `POST /api/athletes/:linkId/plan`             | terv felajánlása a sportolónak (`{ planId, note }`)                |
+| `PUT /api/athletes/:linkId/nutrition-goal`    | táplálkozási cél kitűzése a sportolónak (a saját célját nem törli) |
+| `GET` / `POST /api/athletes/:linkId/comments` | a sportoló gyakorlataihoz fűzött megjegyzés-szál (edzőként)        |
+| `GET /api/coach`                              | a saját edzőm, a hozzám érkezett meghívók és a felajánlott tervek  |
+| `POST /api/coach/invites/:linkId/accept`      | meghívó elfogadása                                                 |
+| `DELETE /api/coach/invites/:linkId`           | meghívó elutasítása                                                |
+| `DELETE /api/coach`                           | leválás az edzőről                                                 |
+| `POST /api/plan-offers/:id/accept`            | felajánlott terv elfogadása (másolatként bekerül)                  |
+| `DELETE /api/plan-offers/:id`                 | felajánlott terv elutasítása                                       |
+| `GET` / `POST /api/messages/:linkId`          | a kapcsolat üzenet-szála                                           |
+| `POST /api/messages/:linkId/read`             | a szál nyugtázása (a másik fél üzenetei olvasottá válnak)          |
+| `GET /api/notifications`                      | az értesítés-panel sorai a hívó valódi eseményeiből                |
 
 Minden végpont ellenőrzi, hogy a hívó a kapcsolat melyik oldala: a `linkId`
 önmagában semmire nem jogosít (`server/coach.test.js`).
@@ -527,7 +553,9 @@ Ezek szándékos egyszerűsítések, nem hibák:
   időzónára elég, visszadátumozásra viszont nem használható). Hiányzó vagy
   gyanús fejléc esetén a szerver saját napja marad.
 - **Nincs pulzus/HRV adatforrás.** Nincs okosóra-integráció, ezért a Recovery
-  Engine hat komponensből számol, nem hétből (lásd fentebb).
+  Engine képletéből kimarad a HRV/pulzus: a készenlét a fenti táblázat hét
+  komponenséből számol, amelyek mind az app saját adataiból jönnek (lásd
+  fentebb).
 - **Az üzenetek frissítése lekérdezéssel megy**, nem websockettel: a látható
   beszélgetés 20 másodpercenként és minden oldalra lépéskor frissül. Kis
   felhasználószámnál ez elég; sok egyidejű felhasználónál SSE vagy websocket
@@ -536,8 +564,8 @@ Ezek szándékos egyszerűsítések, nem hibák:
   nullázódnak, és több példány futtatásakor példányonként külön számolnak —
   lásd az _Élesítés_ szakaszt.
 - **Az értesítés-panel csak eseményeket mutat**, állapotokat nem. Ami bekerül:
-  olvasatlan üzenet, edző-meghívó, terv-kiosztás és -válasz, friss egyéni
-  csúcs. Ami szándékosan nem: a „töltsd ki a check-int" és a „sorozat
+  olvasatlan üzenet, edző-meghívó és a kiküldött meghívó elfogadása,
+  terv-kiosztás és -válasz, friss egyéni csúcs. Ami szándékosan nem: a „töltsd ki a check-int" és a „sorozat
   mérföldkő" — azoknak nincs valódi időpontjuk, csak kitalálni lehetne, és a
   panel minden sora relatív időt ír ki. (A check-in emlékeztetője az
   áttekintőn van.)
