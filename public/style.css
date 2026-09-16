@@ -3299,6 +3299,10 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   position: relative;
   --ds-row-gap: var(--sp-5);
   padding-left: var(--sp-8);
+  /* A kártya <button>: a böngésző gomb-kerete és -háttere nélkül ez sima
+     listasor. A sorokat a .ds-row + .ds-row border-top választja el. */
+  border: 0;
+  background: none;
   color: var(--text-primary);
   text-align: left;
   animation: note-in 0.25s ease backwards;
@@ -8094,6 +8098,11 @@ body[data-onboarding] .app-page.ci-page {
    generált (weight.js/sleep.js), ezért a gyerek saját szabállyal, nem
    osztállyal követi a receptet — lásd .ci-preset lent. */
 .ci-presets {
+  /* A sáv csak a gombok szélességéig tart, középre igazítva. Teljes
+     szélességen a .ds-grid vonalszínű háttere a gombok két oldalán széles
+     szürke sávként látszana. */
+  width: fit-content;
+  margin-inline: auto;
   justify-content: center;
 }
 
@@ -8102,6 +8111,9 @@ body[data-onboarding] .app-page.ci-page {
      szerepel benne) — itt csak a szélesség kell. */
   min-width: 44px;
   padding: 0 var(--sp-5);
+  /* A keretet a .ds-grid rése adja. Nullázás nélkül a böngésző saját 2px-es
+     gomb-kerete marad rajta, és a gombok kilógnak a hajszálvonalas sávból. */
+  border: 0;
   background: var(--c-bg);
   color: var(--fg-70);
   font-size: var(--fs-base);
