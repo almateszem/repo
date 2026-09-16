@@ -1933,8 +1933,6 @@ export function getRecentExerciseMaxes(userId, sinceDate, limit = 5) {
     }));
 }
 
-/** Egy gyakorlat maximum 1RM-jének frissítése, ha az új érték nagyobb.
-    Visszaadja az objektumot { max1rm, date, isPr } formában (isPr = true ha PR-t ütöttünk). */
 /**
  * Az erőfelmérésen BEMONDOTT csúcs rögzítése.
  *
@@ -1976,6 +1974,8 @@ export function getDeclaredMaxes(userId) {
     .map((row) => ({ name: row.exercise_name, max1rm: row.max_1rm, date: row.date }));
 }
 
+/** Egy gyakorlat maximum 1RM-jének frissítése, ha az új érték nagyobb.
+    Visszaadja az objektumot { max1rm, date, isPr } formában (isPr = true ha PR-t ütöttünk). */
 export function updateExerciseMax(userId, exerciseName, new1rm, currentDate) {
   const existing = getExerciseMax(userId, exerciseName);
   const isPr = !existing || new1rm > existing.max1rm;
@@ -2582,7 +2582,6 @@ export function updateWorkout(userId, id, name, exercises) {
   }
 }
 
-/** Edzésterv mentése; visszaadja a létrejött { id, name, date, exercises, days } sort. */
 /** Terv törlése. Csak a SAJÁT sorát törli — idegen id-re false jön, tehát a
     hívó 404-et képez belőle. Az edzőtől kapott, elfogadott terv a sportoló
     saját sora (az elfogadás MÁSOLATOT hoz létre), ezért az is törölhető. */
@@ -2590,6 +2589,7 @@ export function deletePlan(userId, id) {
   return db.prepare('DELETE FROM plans WHERE id = ? AND user_id = ?').run(id, userId).changes > 0;
 }
 
+/** Edzésterv mentése; visszaadja a létrejött { id, name, date, exercises, days } sort. */
 export function addPlan(userId, name, date, exercises, days) {
   const { lastInsertRowid } = db
     .prepare('INSERT INTO plans (user_id, name, date, exercises, days) VALUES (?, ?, ?, ?, ?)')

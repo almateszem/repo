@@ -3,7 +3,7 @@
  * -------------------------------------------
  * Ez a modul VÁLTJA KI azt, amit korábban a data.js beégetett demo-listája
  * játszott el (egy nem létező edző, kitalált tervekkel és „5 órája" idővel).
- * A panel innentől VALÓDI eseményekből épül, és pontosan négyből:
+ * A panel innentől VALÓDI eseményekből épül, és pontosan hatból:
  *
  *   · olvasatlan üzenet egy élő edző–sportoló szálban,
  *   · hozzám érkezett, még függő edző-meghívó,
