@@ -100,12 +100,10 @@
   --fg-10: rgba(255, 255, 255, 0.1);
   --fg-08: rgba(255, 255, 255, 0.08);
   --fg-06: rgba(255, 255, 255, 0.06);
-  --fg-05: rgba(
-    1,
-    108,
-    150,
-    0.295
-  ); /* szándékosan kékes — a háttér-ragyogások színe, nem fehér alfa */
+  /* A háttér-ragyogások színe: a piros kiemelőszín (--c-accent, #c8102e)
+     halvány árnyalata. Korábban kékes volt (rgba(1, 108, 150, .295)), de az
+     nem illett a szürke alaphoz és a piros kiemelőszínhez. */
+  --fg-05: rgba(200, 16, 46, 0.13);
   --fg-04: rgba(255, 255, 255, 0.04);
   --fg-03: rgba(255, 255, 255, 0.03);
 
@@ -3299,6 +3297,10 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   position: relative;
   --ds-row-gap: var(--sp-5);
   padding-left: var(--sp-8);
+  /* A kártya <button>: a böngésző gomb-kerete és -háttere nélkül ez sima
+     listasor. A sorokat a .ds-row + .ds-row border-top választja el. */
+  border: 0;
+  background: none;
   color: var(--text-primary);
   text-align: left;
   animation: note-in 0.25s ease backwards;
@@ -8094,6 +8096,11 @@ body[data-onboarding] .app-page.ci-page {
    generált (weight.js/sleep.js), ezért a gyerek saját szabállyal, nem
    osztállyal követi a receptet — lásd .ci-preset lent. */
 .ci-presets {
+  /* A sáv csak a gombok szélességéig tart, középre igazítva. Teljes
+     szélességen a .ds-grid vonalszínű háttere a gombok két oldalán széles
+     szürke sávként látszana. */
+  width: fit-content;
+  margin-inline: auto;
   justify-content: center;
 }
 
@@ -8102,6 +8109,9 @@ body[data-onboarding] .app-page.ci-page {
      szerepel benne) — itt csak a szélesség kell. */
   min-width: 44px;
   padding: 0 var(--sp-5);
+  /* A keretet a .ds-grid rése adja. Nullázás nélkül a böngésző saját 2px-es
+     gomb-kerete marad rajta, és a gombok kilógnak a hajszálvonalas sávból. */
+  border: 0;
   background: var(--c-bg);
   color: var(--fg-70);
   font-size: var(--fs-base);
