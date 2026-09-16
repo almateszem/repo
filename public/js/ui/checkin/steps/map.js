@@ -22,7 +22,9 @@ function renderMap(stepName, nav) {
     values: ci.answers[mode.field],
     muscleLabel: ciMuscleLabel,
     blockFrom: mode.field === 'pain' ? CI_PAIN_BLOCK : null,
-    onChange: () => { ci.dirty = true; },
+    onChange: () => {
+      ci.dirty = true;
+    },
   });
   $('[data-ci-map]', step).replaceWith(map.el);
 

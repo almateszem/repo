@@ -20,11 +20,11 @@ npm test           # unit-tesztek (node --test, nulla függőség):
 
 Környezeti változók:
 
-| Változó | Alapérték | Mire jó |
-| --- | --- | --- |
-| `PORT` | `3000` | A szerver portja |
-| `FITTRACK_DB` | `server/fittrack.db` | Az adatbázisfájl útvonala — **teszthez érdemes eldobható fájlra állítani**, hogy a valódi adat ne sérüljön |
-| `FITTRACK_TRUST_PROXY` | kikapcsolva | Reverse proxy mögött a megbízható proxy-lépések száma (pl. `1`) — ld. *Élesítés* |
+| Változó                | Alapérték            | Mire jó                                                                                                    |
+| ---------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `PORT`                 | `3000`               | A szerver portja                                                                                           |
+| `FITTRACK_DB`          | `server/fittrack.db` | Az adatbázisfájl útvonala — **teszthez érdemes eldobható fájlra állítani**, hogy a valódi adat ne sérüljön |
+| `FITTRACK_TRUST_PROXY` | kikapcsolva          | Reverse proxy mögött a megbízható proxy-lépések száma (pl. `1`) — ld. _Élesítés_                           |
 
 ```bash
 # Kísérletezés külön adatbázison, az éles adat érintése nélkül
@@ -96,14 +96,14 @@ hiányzik, de proxy-fejléc érkezik, a szerver egyszer figyelmeztet a naplóban
 Alapból be vannak kapcsolva, memóriában (nem elosztott — újraindításkor
 nullázódnak, több példánynál példányonként számolnak):
 
-| Mi | Kulcs | Korlát |
-| --- | --- | --- |
-| Sikertelen belépés | felhasználónév **és** kérés forrása | 10 / 15 perc után zárolás |
-| Belépési kísérlet (sikeres is) | kérés forrása | 60 / 15 perc |
-| Jelszócsere, fióktörlés (rossz jelszó) | fiók | 10 / 15 perc után zárolás |
-| Regisztráció | kérés forrása | 30 / óra |
-| Írások (`POST`/`PUT`/`PATCH`/`DELETE`) | fiók | 240 / perc |
-| Üzenetküldés | fiók | 20 / perc |
+| Mi                                     | Kulcs                               | Korlát                    |
+| -------------------------------------- | ----------------------------------- | ------------------------- |
+| Sikertelen belépés                     | felhasználónév **és** kérés forrása | 10 / 15 perc után zárolás |
+| Belépési kísérlet (sikeres is)         | kérés forrása                       | 60 / 15 perc              |
+| Jelszócsere, fióktörlés (rossz jelszó) | fiók                                | 10 / 15 perc után zárolás |
+| Regisztráció                           | kérés forrása                       | 30 / óra                  |
+| Írások (`POST`/`PUT`/`PATCH`/`DELETE`) | fiók                                | 240 / perc                |
+| Üzenetküldés                           | fiók                                | 20 / perc                 |
 
 Reverse proxy mögött a forrásra szóló korlátokhoz (belépés, regisztráció)
 `FITTRACK_TRUST_PROXY` kell (ld. fent), különben minden kérés a proxy címéről
@@ -239,8 +239,8 @@ tartja ki a gráfból magát a vendorolt skillt (különben a saját dokumentác
 
 - **Automatikus mentés.** Az edzésnapló minden változtatása fél másodperc múlva
   piszkozatként a szerverre mentődik, így újratöltés után is megmarad. Az
-  edzésnév alatti sor mutatja az állapotot (*Mentés… / Mentve · 18:42 / nem
-  sikerült*); hiba esetén 3, 8 és 20 másodperc múlva automatikusan újrapróbálja,
+  edzésnév alatti sor mutatja az állapotot (_Mentés… / Mentve · 18:42 / nem
+  sikerült_); hiba esetén 3, 8 és 20 másodperc múlva automatikusan újrapróbálja,
   és csak utána adja fel — a felhasználó soha nem hiszi tévesen mentettnek a
   naplót.
 - **Táplálkozás — mai napló.** A bevitt tételek listája a napi összesítő alatt
@@ -264,6 +264,7 @@ tartja ki a gráfból magát a vendorolt skillt (különben a saját dokumentác
 
   A már lenaplózott tételeket a saját étel törlése **nem** írja át: a
   `nutrition_log` a nevet és a makrókat másolatban tárolja.
+
 - **Megerősítés adatvesztés előtt.** Ha egy terv betöltése megkezdett edzést
   írna felül, vagy egy teljesített szetteket tartalmazó gyakorlatot vennél ki,
   az app rákérdez (saját modállal, nem natív `confirm`-mal).
@@ -271,7 +272,7 @@ tartja ki a gráfból magát a vendorolt skillt (különben a saját dokumentác
   edzésekhez, a piszkozat törlődik, az Edzés oldal pedig üresen áll készen a
   következőre. Ugyanaznap így nyugodtan kezdhető második edzés is.
 - **Mentett edzés javítása és törlése.** A Korábbi edzések minden sorának van
-  *Javítás* és *törlés* gombja. A javítás a szerkesztőbe nyitja vissza az
+  _Javítás_ és _törlés_ gombja. A javítás a szerkesztőbe nyitja vissza az
   edzést (`workout_draft.workout_id`), és a mentés a **meglévő sort frissíti a
   saját napján** — `PUT /api/workouts/:id`, dátum nélkül: a javítás nem
   helyezi át az edzést a mai napra, különben elcsúszna a sorozat, a heti
@@ -291,7 +292,7 @@ tartja ki a gráfból magát a vendorolt skillt (különben a saját dokumentác
 - **Szett-értékek.** Az ismétlés, a súly (kg) és az RPE szám; a mértékegység a
   táblázat fejlécében van. A régebbi, mértékegységgel együtt tárolt értékeket
   (`"12 rep"`, `"60% TM"`) a szerver induláskor egyszer átalakítja számokká.
-- **Szett-típusok.** Minden szett *bemelegítő*, *munkasorozat* vagy *drop set* —
+- **Szett-típusok.** Minden szett _bemelegítő_, _munkasorozat_ vagy _drop set_ —
   az első sor alapból bemelegítő. A típus nem csak színezés: a Recovery Engine
   izomkárosodás-becslése a bemelegítőt nullának, a drop setet fél
   munkasorozatnak veszi (a tonnatömeg viszont mindegyikből számít). A típus
@@ -354,17 +355,17 @@ bejegyzése, a tényleges értékekhez igazított skálával); az áttekintőn c
 „Testsúly Δ" stat maradt. Amíg nincs egyetlen saját bejegyzés sem, a kártya a
 seed-görbét mutatja, és ki is írja, hogy az demo-adat.
 
-**A képlet** súlyozott átlag, de csak a *jelen lévő* komponensekre:
+**A képlet** súlyozott átlag, de csak a _jelen lévő_ komponensekre:
 
-| Komponens | Súly | Miből |
-| --- | --- | --- |
-| Alvás | 0.25 | időtartam (trapéz-görbe) + minőség, 3 napos alvásadósság-levonással |
-| Izom-regeneráció | 0.15 | a kilenc izomcsoport „soft-min" átlaga |
-| Energiaszint | 0.15 | check-in, 1–5 |
-| Stressz-regeneráció | 0.10 | check-in, 1–5 (fordítva) |
-| Közérzet | 0.10 | check-in, 1–5 — csak a részletes űrlap kérdezi, a varázsló nem |
-| Edzésterhelés | 0.15 | exponenciálisan csillapított tonnatömeg (τ = 3 nap) |
-| Táplálkozás | 0.05 | a **tegnapi** kalória/fehérje a célhoz mérve + hidratáció |
+| Komponens           | Súly | Miből                                                               |
+| ------------------- | ---- | ------------------------------------------------------------------- |
+| Alvás               | 0.25 | időtartam (trapéz-görbe) + minőség, 3 napos alvásadósság-levonással |
+| Izom-regeneráció    | 0.15 | a kilenc izomcsoport „soft-min" átlaga                              |
+| Energiaszint        | 0.15 | check-in, 1–5                                                       |
+| Stressz-regeneráció | 0.10 | check-in, 1–5 (fordítva)                                            |
+| Közérzet            | 0.10 | check-in, 1–5 — csak a részletes űrlap kérdezi, a varázsló nem      |
+| Edzésterhelés       | 0.15 | exponenciálisan csillapított tonnatömeg (τ = 3 nap)                 |
+| Táplálkozás         | 0.05 | a **tegnapi** kalória/fehérje a célhoz mérve + hidratáció           |
 
 Ami nincs kitöltve, az nem nullaként számít bele: a súlya arányosan újraoszlik a
 többi komponens között. Ezért **hiányzó adattól a pontszám nem torzul**, csak a
@@ -414,7 +415,7 @@ valaki másnak a sportolója:
   még el nem fogadott meghívók.
 - **Edzetteim** — a sportolóid kártyái és a kiküldött meghívóid.
 
-**A kapcsolat beleegyezéssel jön létre.** Az edző a sportoló *felhasználónevével*
+**A kapcsolat beleegyezéssel jön létre.** Az edző a sportoló _felhasználónevével_
 küld meghívót; az `pending` állapotban áll, amíg a másik fél el nem fogadja.
 **Elfogadás előtt az edző nem lát az adataiból.** A függő meghívó során csak
 az azonosításhoz szükséges kettő utazik — a felhasználónév (amit az edző maga
@@ -430,14 +431,14 @@ CASCADE`), tehát a levált sportoló előzménye nem marad az edzőnél.
 **A sportoló-kártya minden száma számolt érték** (`server/coaching.js`), a
 sportoló saját naplójából:
 
-| Mező | Miből |
-| --- | --- |
-| Készenlét | a sportolóra lefuttatott Recovery Engine (`overall`) |
-| Terv-követés | az elmúlt 4 hét ütemezett napjaihoz mért edzésnapok, 100%-on tetőzve |
-| Összpontszám | a kettő átlaga (terv híján maga a készenlét) → ebből jön az arany/ezüst/bronz szint |
-| Sorozat / utolsó edzés / heti állás | a mentett edzésekből és a tervek hétnapjaiból |
-| Állapot-sáv | kihagyott edzés, leállás, gyenge készenlét, hiányzó check-in — a két legsúlyosabb ok |
-| Legutóbbi aktivitás | edzések, PR-ek, check-inek és testsúly-bejegyzések összefésülve |
+| Mező                                | Miből                                                                                |
+| ----------------------------------- | ------------------------------------------------------------------------------------ |
+| Készenlét                           | a sportolóra lefuttatott Recovery Engine (`overall`)                                 |
+| Terv-követés                        | az elmúlt 4 hét ütemezett napjaihoz mért edzésnapok, 100%-on tetőzve                 |
+| Összpontszám                        | a kettő átlaga (terv híján maga a készenlét) → ebből jön az arany/ezüst/bronz szint  |
+| Sorozat / utolsó edzés / heti állás | a mentett edzésekből és a tervek hétnapjaiból                                        |
+| Állapot-sáv                         | kihagyott edzés, leállás, gyenge készenlét, hiányzó check-in — a két legsúlyosabb ok |
+| Legutóbbi aktivitás                 | edzések, PR-ek, check-inek és testsúly-bejegyzések összefésülve                      |
 
 Terv nélkül nincs terv-követés: ilyenkor a mező `null`, és a felület `—`-t ír ki,
 nem 0%-ot — az azt hazudná, hogy elmaradt valami. Ugyanez a szabály a
@@ -450,7 +451,7 @@ FGY, ÁLL) a fiók saját beállítása (Beállítások → Edzés-cél); a vál
 a `data.js` `goals` listájában élnek egy helyen.
 
 **Üzenetek.** A szál a kapcsolathoz tartozik, és mindkét oldalról ugyanaz — a
-szerver a *néző* szemszögéből jelöli meg a saját üzeneteket. Nincs websocket: a
+szerver a _néző_ szemszögéből jelöli meg a saját üzeneteket. Nincs websocket: a
 **látható** beszélgetés 20 másodpercenként (és minden oldalra lépéskor) frissül.
 
 Az olvasottságot a `messages.read_at` tartja nyilván. Ebből lesz a kártya és a
@@ -462,7 +463,7 @@ felület nem küld nyugtázást — az „olvasva" különben azt hazudná a má
 hogy elolvasták az üzenetét.
 
 **Terv-kiosztás.** Az edző a **saját tervei** közül ajánl fel egyet a sportolónak
-(részletmodál → *Terv kiosztása*), akár kísérő sorral. A terv **nem íródik** a
+(részletmodál → _Terv kiosztása_), akár kísérő sorral. A terv **nem íródik** a
 sportoló tervei közé: az ajánlat `pending` állapotban áll, amíg a sportoló el nem
 fogadja — és akkor is **másolatként, a meglévő tervei mellé** kerül. Két okból:
 tervet törölni nem lehet az appban (amit egyszer belepakolnánk, azt nem tudná
@@ -473,21 +474,21 @@ sportolónál lévő példányt.
 
 **Végpontok**
 
-| Végpont | Mit csinál |
-| --- | --- |
-| `GET /api/athletes` | a sportolóim kártyái + a kiküldött meghívóim |
-| `POST /api/athletes` | meghívó felhasználónévre |
-| `DELETE /api/athletes/:linkId` | meghívó visszavonása vagy a kapcsolat bontása (edzőként) |
-| `POST /api/athletes/:linkId/plan` | terv felajánlása a sportolónak (`{ planId, note }`) |
-| `GET /api/coach` | a saját edzőm, a hozzám érkezett meghívók és a felajánlott tervek |
-| `POST /api/coach/invites/:linkId/accept` | meghívó elfogadása |
-| `DELETE /api/coach/invites/:linkId` | meghívó elutasítása |
-| `DELETE /api/coach` | leválás az edzőről |
-| `POST /api/plan-offers/:id/accept` | felajánlott terv elfogadása (másolatként bekerül) |
-| `DELETE /api/plan-offers/:id` | felajánlott terv elutasítása |
-| `GET` / `POST /api/messages/:linkId` | a kapcsolat üzenet-szála |
-| `POST /api/messages/:linkId/read` | a szál nyugtázása (a másik fél üzenetei olvasottá válnak) |
-| `GET /api/notifications` | az értesítés-panel sorai a hívó valódi eseményeiből |
+| Végpont                                  | Mit csinál                                                        |
+| ---------------------------------------- | ----------------------------------------------------------------- |
+| `GET /api/athletes`                      | a sportolóim kártyái + a kiküldött meghívóim                      |
+| `POST /api/athletes`                     | meghívó felhasználónévre                                          |
+| `DELETE /api/athletes/:linkId`           | meghívó visszavonása vagy a kapcsolat bontása (edzőként)          |
+| `POST /api/athletes/:linkId/plan`        | terv felajánlása a sportolónak (`{ planId, note }`)               |
+| `GET /api/coach`                         | a saját edzőm, a hozzám érkezett meghívók és a felajánlott tervek |
+| `POST /api/coach/invites/:linkId/accept` | meghívó elfogadása                                                |
+| `DELETE /api/coach/invites/:linkId`      | meghívó elutasítása                                               |
+| `DELETE /api/coach`                      | leválás az edzőről                                                |
+| `POST /api/plan-offers/:id/accept`       | felajánlott terv elfogadása (másolatként bekerül)                 |
+| `DELETE /api/plan-offers/:id`            | felajánlott terv elutasítása                                      |
+| `GET` / `POST /api/messages/:linkId`     | a kapcsolat üzenet-szála                                          |
+| `POST /api/messages/:linkId/read`        | a szál nyugtázása (a másik fél üzenetei olvasottá válnak)         |
+| `GET /api/notifications`                 | az értesítés-panel sorai a hívó valódi eseményeiből               |
 
 Minden végpont ellenőrzi, hogy a hívó a kapcsolat melyik oldala: a `linkId`
 önmagában semmire nem jogosít (`server/coach.test.js`).
@@ -517,7 +518,7 @@ komponensenként kelljen újratárgyalni:
 Ezek szándékos egyszerűsítések, nem hibák:
 
 - **Nincs jelszó-visszaállítás** az elfelejtett jelszóra (e-mail-cím nélkül nem
-  megoldható). Jelszóváltoztatás és fióktörlés viszont van — lásd a *Fiókok*
+  megoldható). Jelszóváltoztatás és fióktörlés viszont van — lásd a _Fiókok_
   szakaszt.
 - **A napot a kliens mondja meg.** Minden kérés viszi a böngésző szerinti mai
   napot (`X-Client-Date`), és a naplózás ehhez igazodik — így egy UTC-s szerver
@@ -533,7 +534,7 @@ Ezek szándékos egyszerűsítések, nem hibák:
   kellene.
 - **A kérés-korlátok memóriában élnek**, tehát a szerver újraindításakor
   nullázódnak, és több példány futtatásakor példányonként külön számolnak —
-  lásd az *Élesítés* szakaszt.
+  lásd az _Élesítés_ szakaszt.
 - **Az értesítés-panel csak eseményeket mutat**, állapotokat nem. Ami bekerül:
   olvasatlan üzenet, edző-meghívó, terv-kiosztás és -válasz, friss egyéni
   csúcs. Ami szándékosan nem: a „töltsd ki a check-int" és a „sorozat

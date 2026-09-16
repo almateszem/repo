@@ -16,9 +16,9 @@ import { dayKeyOf } from './measurements.js';
    testsúly a diagram aljára lapult, a tengelyfeliratok pedig hazudtak. A
    seed-görbe csak addig látszik, amíg nincs egyetlen valódi bejegyzés sem —
    és ilyenkor a kártya ki is mondja, hogy demo-adatot néz a felhasználó. */
-const WEIGHT_CHART_BARS = 12;      // legfeljebb ennyi oszlop látszik
+const WEIGHT_CHART_BARS = 12; // legfeljebb ennyi oszlop látszik
 
-const WEIGHT_CHART_MIN_SPAN = 2;   // kg — ekkora sávot mindenképp lefed a skála
+const WEIGHT_CHART_MIN_SPAN = 2; // kg — ekkora sávot mindenképp lefed a skála
 
 /** A testsúly Δ előjelesen olvasható (+1.2 / -0.8), a 0 előjel nélkül. */
 const formatDelta = (value) => (value > 0 ? '+' : '') + formatNumber(value);
@@ -37,7 +37,7 @@ function weightChartData(log) {
   const span = high - low;
 
   return {
-    heights: kgs.map((kg) => Math.min(Math.max((kg - low) / span * 100, 6), 100)),
+    heights: kgs.map((kg) => Math.min(Math.max(((kg - low) / span) * 100, 6), 100)),
     // Négy felirat felülről lefelé, ahogy a seed-charton is
     axis: [0, 1, 2, 3].map((i) => `${formatNumber(high - (span / 3) * i)} kg`),
   };
@@ -113,71 +113,77 @@ function renderWeightList() {
   const list = $('[data-weight-list]');
   if (!list) return;
 
-  const rows = [...weightLog].sort((a, b) => dayKeyOf(b.date) - dayKeyOf(a.date))
+  const rows = [...weightLog]
+    .sort((a, b) => dayKeyOf(b.date) - dayKeyOf(a.date))
     .slice(0, WEIGHT_LIST_LIMIT);
 
-  list.replaceChildren(...rows.map((entry) => {
-    const li = document.createElement('li');
-    li.className = 'rc-weight-row';
+  list.replaceChildren(
+    ...rows.map((entry) => {
+      const li = document.createElement('li');
+      li.className = 'rc-weight-row';
 
-    const date = document.createElement('span');
-    date.className = 'rc-weight-date';
-    date.textContent = entry.date;
+      const date = document.createElement('span');
+      date.className = 'rc-weight-date';
+      date.textContent = entry.date;
 
-    const input = document.createElement('input');
-    input.className = 'rc-weight-input';
-    input.type = 'number';
-    input.inputMode = 'decimal';
-    input.min = '30';
-    input.max = '300';
-    input.step = '0.1';
-    input.value = String(entry.kg);
-    input.setAttribute('aria-label', `${entry.date} testsúlya kilogrammban`);
+      const input = document.createElement('input');
+      input.className = 'rc-weight-input';
+      input.type = 'number';
+      input.inputMode = 'decimal';
+      input.min = '30';
+      input.max = '300';
+      input.step = '0.1';
+      input.value = String(entry.kg);
+      input.setAttribute('aria-label', `${entry.date} testsúlya kilogrammban`);
 
-    // Mentés a mező elhagyásakor, ha tényleg változott.
-    input.addEventListener('change', async () => {
-      const kg = Number(input.value);
-      if (!Number.isFinite(kg) || kg === entry.kg) { input.value = String(entry.kg); return; }
-      input.disabled = true;
-      try {
-        mergeWeightEntry(await api.updateWeightEntry(entry.id, kg));
-        renderWeightList();
-        refreshDailyStats().catch(console.error);
-        showToast('Testsúly javítva');
-      } catch (err) {
-        console.error(err);
-        input.value = String(entry.kg);
-        showToast(err.message || 'Nem sikerült javítani a bejegyzést', 'error');
-      } finally {
-        input.disabled = false;
-      }
-    });
+      // Mentés a mező elhagyásakor, ha tényleg változott.
+      input.addEventListener('change', async () => {
+        const kg = Number(input.value);
+        if (!Number.isFinite(kg) || kg === entry.kg) {
+          input.value = String(entry.kg);
+          return;
+        }
+        input.disabled = true;
+        try {
+          mergeWeightEntry(await api.updateWeightEntry(entry.id, kg));
+          renderWeightList();
+          refreshDailyStats().catch(console.error);
+          showToast('Testsúly javítva');
+        } catch (err) {
+          console.error(err);
+          input.value = String(entry.kg);
+          showToast(err.message || 'Nem sikerült javítani a bejegyzést', 'error');
+        } finally {
+          input.disabled = false;
+        }
+      });
 
-    const del = document.createElement('button');
-    del.className = 'rc-weight-del';
-    del.type = 'button';
-    del.textContent = '✕';
-    del.title = 'Bejegyzés törlése';
-    del.setAttribute('aria-label', `${entry.date} bejegyzésének törlése`);
-    del.addEventListener('click', async () => {
-      del.disabled = true;
-      try {
-        await api.deleteWeightEntry(entry.id);
-        weightLog = weightLog.filter((item) => item.id !== entry.id);
-        syncWeightViews({ animateDelta: true });
-        renderWeightList();
-        refreshDailyStats().catch(console.error);
-        showToast('Bejegyzés törölve');
-      } catch (err) {
-        console.error(err);
-        del.disabled = false;
-        showToast(err.message || 'Nem sikerült törölni a bejegyzést', 'error');
-      }
-    });
+      const del = document.createElement('button');
+      del.className = 'rc-weight-del';
+      del.type = 'button';
+      del.textContent = '✕';
+      del.title = 'Bejegyzés törlése';
+      del.setAttribute('aria-label', `${entry.date} bejegyzésének törlése`);
+      del.addEventListener('click', async () => {
+        del.disabled = true;
+        try {
+          await api.deleteWeightEntry(entry.id);
+          weightLog = weightLog.filter((item) => item.id !== entry.id);
+          syncWeightViews({ animateDelta: true });
+          renderWeightList();
+          refreshDailyStats().catch(console.error);
+          showToast('Bejegyzés törölve');
+        } catch (err) {
+          console.error(err);
+          del.disabled = false;
+          showToast(err.message || 'Nem sikerült törölni a bejegyzést', 'error');
+        }
+      });
 
-    li.append(date, input, del);
-    return li;
-  }));
+      li.append(date, input, del);
+      return li;
+    }),
+  );
 }
 
 /** A napló újratöltése a szerverről + újrarajzolás. A Regeneráció oldal
@@ -194,9 +200,8 @@ async function refreshWeightLog() {
 function mergeWeightEntry(entry) {
   if (!entry) return;
   const index = weightLog.findIndex((item) => item.id === entry.id);
-  weightLog = index >= 0
-    ? weightLog.map((item, i) => (i === index ? entry : item))
-    : [...weightLog, entry];
+  weightLog =
+    index >= 0 ? weightLog.map((item, i) => (i === index ? entry : item)) : [...weightLog, entry];
   syncWeightViews({ animateDelta: true });
 }
 

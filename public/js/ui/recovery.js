@@ -6,7 +6,14 @@ import { formatNumber } from '../core/format.js';
 import { hooks } from '../core/page-hooks.js';
 import { showToast } from '../core/toast.js';
 import { renderDashboard } from '../render/dashboard.js';
-import { CHECKIN_SCALES, MOOD_SCALE, buildScale, readScale, renderRecovery, writeScale } from '../render/recovery.js';
+import {
+  CHECKIN_SCALES,
+  MOOD_SCALE,
+  buildScale,
+  readScale,
+  renderRecovery,
+  writeScale,
+} from '../render/recovery.js';
 import { handleStepClick } from '../render/sets.js';
 import { createBodyMap } from './bodymap/index.js';
 import { CI_MAP_MODES, CI_PAIN_BLOCK } from './checkin/constants.js';
@@ -57,7 +64,9 @@ async function setupRecovery() {
 
   // — Az űrlap dinamikus részei —
   CHECKIN_SCALES.forEach(([name, label, [low, high]]) => {
-    scalesWrap.appendChild(buildScale({ name, label, min: 1, max: 5, hint: `1 = ${low} · 5 = ${high}` }));
+    scalesWrap.appendChild(
+      buildScale({ name, label, min: 1, max: 5, hint: `1 = ${low} · 5 = ${high}` }),
+    );
   });
 
   // A két testtérkép élő értéktárai. A komponens ezeket módosítja helyben,
@@ -70,7 +79,8 @@ async function setupRecovery() {
   // (jelenleg 0–10) egyetlen helyen éljen — a Task 3 ennek hiányában több
   // fájlt kellett érintsen, amikor az izomláz-skálát 5-ről 10-re bővítette.
   const sorenessMap = createBodyMap({
-    max: CI_MAP_MODES.soreness.max, defaultValue: CI_MAP_MODES.soreness.defaultValue,
+    max: CI_MAP_MODES.soreness.max,
+    defaultValue: CI_MAP_MODES.soreness.defaultValue,
     noun: CI_MAP_MODES.soreness.noun,
     values: sorenessValues,
     muscleLabel: ciMuscleLabel,
@@ -78,7 +88,8 @@ async function setupRecovery() {
   $('[data-map="checkin-soreness"]', page).replaceWith(sorenessMap.el);
 
   const painMap = createBodyMap({
-    max: CI_MAP_MODES.painMap.max, defaultValue: CI_MAP_MODES.painMap.defaultValue,
+    max: CI_MAP_MODES.painMap.max,
+    defaultValue: CI_MAP_MODES.painMap.defaultValue,
     noun: CI_MAP_MODES.painMap.noun,
     values: painValues,
     muscleLabel: ciMuscleLabel,
@@ -88,7 +99,9 @@ async function setupRecovery() {
   $('[data-map="checkin-pain"]', page).replaceWith(painMap.el);
   {
     const [name, label, [low, high]] = MOOD_SCALE;
-    $('.rc-extra-fields', page).before(buildScale({ name, label, min: 1, max: 5, hint: `1 = ${low} · 5 = ${high}` }));
+    $('.rc-extra-fields', page).before(
+      buildScale({ name, label, min: 1, max: 5, hint: `1 = ${low} · 5 = ${high}` }),
+    );
   }
 
   /** Egy skála a mező-neve alapján. */
@@ -104,7 +117,9 @@ async function setupRecovery() {
     // — naponta egy bejegyzés van, a mentés felülír.
     weightInput.value = numberOrEmpty(todayWeightEntry()?.kg);
 
-    [...CHECKIN_SCALES, MOOD_SCALE].forEach(([name]) => writeScale(scaleFor(name), checkin?.[name] ?? null));
+    [...CHECKIN_SCALES, MOOD_SCALE].forEach(([name]) =>
+      writeScale(scaleFor(name), checkin?.[name] ?? null),
+    );
 
     // A térképek értéktárait helyben cseréljük, nem újat adunk: a komponens
     // az eredeti objektumra tart hivatkozást.
@@ -138,12 +153,16 @@ async function setupRecovery() {
       soreness: { ...sorenessValues },
       pain: { ...painValues },
     };
-    [...CHECKIN_SCALES, MOOD_SCALE].forEach(([name]) => { body[name] = readScale(scaleFor(name)); });
+    [...CHECKIN_SCALES, MOOD_SCALE].forEach(([name]) => {
+      body[name] = readScale(scaleFor(name));
+    });
     return body;
   };
 
   // A ± léptetőgombok ugyanúgy működnek, mint az edzésnaplóban
-  form.addEventListener('click', (event) => { handleStepClick(event); });
+  form.addEventListener('click', (event) => {
+    handleStepClick(event);
+  });
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -151,12 +170,18 @@ async function setupRecovery() {
 
     // Kliens-oldali előellenőrzés a beszédesebb hibaüzenetért; a szerver
     // ugyanezt újra elvégzi (a kliens értékeiben nem bízunk).
-    if (body.sleepHours !== null && (!Number.isFinite(body.sleepHours) || body.sleepHours < 0 || body.sleepHours > 24)) {
+    if (
+      body.sleepHours !== null &&
+      (!Number.isFinite(body.sleepHours) || body.sleepHours < 0 || body.sleepHours > 24)
+    ) {
       showToast('Az alvás időtartama 0 és 24 óra között adható meg', 'error');
       sleepInput.focus();
       return;
     }
-    if (body.weightKg !== null && (!Number.isFinite(body.weightKg) || body.weightKg < 30 || body.weightKg > 300)) {
+    if (
+      body.weightKg !== null &&
+      (!Number.isFinite(body.weightKg) || body.weightKg < 30 || body.weightKg > 300)
+    ) {
       showToast('Adj meg érvényes testsúlyt (30–300 kg)', 'error');
       weightInput.focus();
       return;
@@ -169,9 +194,11 @@ async function setupRecovery() {
       const { checkin, weightEntry, readiness } = await api.saveCheckin(body);
       mergeWeightEntry(weightEntry); // a trend-diagram és a Δ stat frissítése
       hooks.applyCheckinSaved(checkin, readiness);
-      showToast(weightEntry
-        ? `Check-in mentve · testsúly ${formatNumber(weightEntry.kg)} kg`
-        : 'Check-in mentve');
+      showToast(
+        weightEntry
+          ? `Check-in mentve · testsúly ${formatNumber(weightEntry.kg)} kg`
+          : 'Check-in mentve',
+      );
       // Az áttekintő készenlét-gyűrűje ugyanebből a motorból jön
       renderDashboard().catch((err) => console.error('Áttekintő frissítési hiba:', err));
     } catch (err) {
@@ -200,7 +227,9 @@ async function setupRecovery() {
     // A testsúly-napló is ide tartozik: a trend-kártya ezen az oldalon van,
     // és a fillForm a mai bejegyzésből tölti a testsúly-mezőt.
     const [report, checkin] = await Promise.all([
-      api.getReadiness(), api.getCheckin(), refreshWeightLog(),
+      api.getReadiness(),
+      api.getCheckin(),
+      refreshWeightLog(),
       // A testösszetétel is ezen az oldalon él, a testsúly-kártya mellett.
       refreshMeasurements(),
     ]);

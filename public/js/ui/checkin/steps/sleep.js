@@ -3,7 +3,12 @@
 import { $, $$, cloneTemplate } from '../../../core/dom.js';
 import { formatNumber } from '../../../core/format.js';
 import { handleStepClick } from '../../../render/sets.js';
-import { CI_PRESET_ADVANCE_MS, CI_SLEEP_MAX, CI_SLEEP_MIN, CI_SLEEP_PRESETS } from '../constants.js';
+import {
+  CI_PRESET_ADVANCE_MS,
+  CI_SLEEP_MAX,
+  CI_SLEEP_MIN,
+  CI_SLEEP_PRESETS,
+} from '../constants.js';
 import { ciClamp } from '../helpers.js';
 import { ci } from '../session.js';
 
@@ -30,7 +35,10 @@ function renderSleep(nav) {
     if (!handleStepClick(event)) return;
     nav.cancelAdvance();
   });
-  input.addEventListener('input', () => { syncPresets(); commitSleep(); });
+  input.addEventListener('input', () => {
+    syncPresets();
+    commitSleep();
+  });
 
   CI_SLEEP_PRESETS.forEach((value) => {
     const btn = document.createElement('button');

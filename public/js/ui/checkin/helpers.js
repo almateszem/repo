@@ -18,18 +18,21 @@ function ciPickPositive(map, skipKey = null) {
 
 const ciEmptyState = () => ({
   step: 'intro',
-  sessionDate: null,   // a betöltés helyi napja — napváltáskor újraindul
-  loaded: false,       // lekértük-e már a mai állapotot a szervertől
+  sessionDate: null, // a betöltés helyi napja — napváltáskor újraindul
+  loaded: false, // lekértük-e már a mai állapotot a szervertől
   saved: false,
-  readiness: null,     // a szerver riportja; helyi becslést NEM számolunk
-  hadCheckin: false,   // volt-e ma már check-in (az összegzésre ugráshoz)
-  dirty: false,        // változott-e valami a betöltött állapothoz képest
+  readiness: null, // a szerver riportja; helyi becslést NEM számolunk
+  hadCheckin: false, // volt-e ma már check-in (az összegzésre ugráshoz)
+  dirty: false, // változott-e valami a betöltött állapothoz képest
   gates: { sore: null, pain: null },
   answers: {
-    sleepHours: null, sleepQuality: null, energy: null, stress: null,
-    weightKg: null,    // null = ma nem mértél; ilyenkor nem születik bejegyzés
-    soreness: {},      // { chest: 3, … } 1..5, csak a megjelöltek
-    pain: {},          // { back: 8, … }  1..10, 'general' NÉLKÜL
+    sleepHours: null,
+    sleepQuality: null,
+    energy: null,
+    stress: null,
+    weightKg: null, // null = ma nem mértél; ilyenkor nem születik bejegyzés
+    soreness: {}, // { chest: 3, … } 1..5, csak a megjelöltek
+    pain: {}, // { back: 8, … }  1..10, 'general' NÉLKÜL
   },
   carried: { mood: null, hydration: null, painGeneral: null },
 });

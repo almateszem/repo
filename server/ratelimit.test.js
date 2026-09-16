@@ -64,7 +64,8 @@ test('a Retry-After a hátralévő időt adja, másodpercre felkerekítve', () =
   assert.equal(limiter.hit('a', 0).retryAfter, 60);
   assert.equal(limiter.hit('a', 30_000).retryAfter, 30);
   assert.equal(
-    limiter.hit('a', 59_500).retryAfter, 1,
+    limiter.hit('a', 59_500).retryAfter,
+    1,
     'a maradék fél másodperc is egy egész — a 0 azt jelentené, „most már jó"',
   );
 });

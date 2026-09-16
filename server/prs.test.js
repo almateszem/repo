@@ -38,9 +38,13 @@ const TODAY = '2026.08.15';
 const HOLNAP = '2026.08.16';
 
 /** Egy gyakorlatból álló edzés, egyetlen teljesített szettel. */
-const nyomas = (weight, reps = 5, done = true) => ([
-  { name: 'Fekvenyomás', pr: false, sets: [{ reps: String(reps), weight: String(weight), rpe: '8', done }] },
-]);
+const nyomas = (weight, reps = 5, done = true) => [
+  {
+    name: 'Fekvenyomás',
+    pr: false,
+    sets: [{ reps: String(reps), weight: String(weight), rpe: '8', done }],
+  },
+];
 
 test('az Epley-képlet a várt 1RM-et adja, érvénytelen bemenetre nullát', () => {
   assert.equal(db.calculateEpley1RM(100, 5), 100 * (1 + 5 / 30));
@@ -48,8 +52,17 @@ test('az Epley-képlet a várt 1RM-et adja, érvénytelen bemenetre nullát', ()
   // tankönyvi Epley itt magát a súlyt adná — a becslés tehát egyismétléses
   // szettnél enyhén felfelé tér el. Nem hiba, csak tudni kell róla.
   assert.equal(db.calculateEpley1RM(100, 1), 100 * (1 + 1 / 30));
-  assert.ok(db.calculateEpley1RM(100, 8) > db.calculateEpley1RM(100, 5), 'több ismétlés = nagyobb becsült 1RM');
-  for (const [w, r] of [[0, 5], [-10, 5], [100, 0], ['', 5], [100, 'x']]) {
+  assert.ok(
+    db.calculateEpley1RM(100, 8) > db.calculateEpley1RM(100, 5),
+    'több ismétlés = nagyobb becsült 1RM',
+  );
+  for (const [w, r] of [
+    [0, 5],
+    [-10, 5],
+    [100, 0],
+    ['', 5],
+    [100, 'x'],
+  ]) {
     assert.equal(db.calculateEpley1RM(w, r), 0, `érvénytelen: ${w} × ${r}`);
   }
 });
@@ -62,7 +75,11 @@ test('az első edzés PR, a gyengébb második nem', () => {
   assert.equal(weaker.exercises[0].pr, false, 'a kisebb 1RM nem rekord');
 
   assert.equal(db.getExerciseMax(eros.id, 'Fekvenyomás').max1rm, db.calculateEpley1RM(100, 5));
-  assert.equal(db.getExerciseMax(eros.id, 'Fekvenyomás').date, TODAY, 'a csúcs dátuma nem lép előre');
+  assert.equal(
+    db.getExerciseMax(eros.id, 'Fekvenyomás').date,
+    TODAY,
+    'a csúcs dátuma nem lép előre',
+  );
 });
 
 test('a PR a SAJÁT korábbi csúcshoz mérődik, nem a legerősebb felhasználóéhoz', () => {
@@ -72,25 +89,44 @@ test('a PR a SAJÁT korábbi csúcshoz mérődik, nem a legerősebb felhasznál�
   assert.equal(katáé.exercises[0].pr, true);
 
   assert.equal(db.getExerciseMax(kezdo.id, 'Fekvenyomás').max1rm, db.calculateEpley1RM(40, 5));
-  assert.equal(db.getExerciseMax(eros.id, 'Fekvenyomás').max1rm, db.calculateEpley1RM(100, 5),
-    'Kata mentése nem írta felül Elek csúcsát');
+  assert.equal(
+    db.getExerciseMax(eros.id, 'Fekvenyomás').max1rm,
+    db.calculateEpley1RM(100, 5),
+    'Kata mentése nem írta felül Elek csúcsát',
+  );
 });
 
 test('a csúcslista csak a saját rekordokat adja vissza', () => {
-  assert.deepEqual(db.getAllExerciseMaxes(kezdo.id).map((r) => r.max_1rm), [db.calculateEpley1RM(40, 5)]);
-  assert.deepEqual(db.getAllExerciseMaxes(eros.id).map((r) => r.max_1rm), [db.calculateEpley1RM(100, 5)]);
+  assert.deepEqual(
+    db.getAllExerciseMaxes(kezdo.id).map((r) => r.max_1rm),
+    [db.calculateEpley1RM(40, 5)],
+  );
+  assert.deepEqual(
+    db.getAllExerciseMaxes(eros.id).map((r) => r.max_1rm),
+    [db.calculateEpley1RM(100, 5)],
+  );
   assert.deepEqual(db.getAllExerciseMaxes(99999), [], 'ismeretlen fiókra üres, nem más adata');
   assert.equal(db.getExerciseMax(99999, 'Fekvenyomás'), null);
 });
 
 test('teljesített szett hiányában az új edzés nem mér rekordot, üres edzés nem dob', () => {
   const tervezett = db.addWorkout(kezdo.id, 'Csak megtervezve', HOLNAP, nyomas(50, 5, false));
-  assert.equal(tervezett.exercises[0].pr, false, 'a nem kipipált szett nem rekord — a 40 kg-os csúcs marad');
+  assert.equal(
+    tervezett.exercises[0].pr,
+    false,
+    'a nem kipipált szett nem rekord — a 40 kg-os csúcs marad',
+  );
   assert.equal(db.getExerciseMax(kezdo.id, 'Fekvenyomás').max1rm, db.calculateEpley1RM(40, 5));
 
-  const üres = db.addWorkout(kezdo.id, 'Nincs szett', HOLNAP, [{ name: 'Húzódzkodás', pr: false, sets: [] }]);
+  const üres = db.addWorkout(kezdo.id, 'Nincs szett', HOLNAP, [
+    { name: 'Húzódzkodás', pr: false, sets: [] },
+  ]);
   assert.equal(üres.exercises[0].pr, false);
-  assert.equal(db.getExerciseMax(kezdo.id, 'Húzódzkodás'), null, 'szett nélkül nem születik rekord');
+  assert.equal(
+    db.getExerciseMax(kezdo.id, 'Húzódzkodás'),
+    null,
+    'szett nélkül nem születik rekord',
+  );
 });
 
 /* ======================================================================
@@ -114,14 +150,16 @@ test('a rekordot a legjobb teljesített szett hozza, nem a bemelegítő', () => 
 
 test('a bemelegítő sor nem szorítja le a nyomon követett csúcsot', () => {
   const user = db.createUser('tipusos', 'Típusos Tibor', 'scrypt$16384$8$1$ee$ff').user;
-  db.addWorkout(user.id, 'Mellnap', TODAY, [{
-    name: 'Fekvenyomás',
-    pr: false,
-    sets: [
-      { reps: '10', weight: '40', rpe: '6', type: 'warmup', done: true },
-      { reps: '5', weight: '100', rpe: '9', type: 'work', done: true },
-    ],
-  }]);
+  db.addWorkout(user.id, 'Mellnap', TODAY, [
+    {
+      name: 'Fekvenyomás',
+      pr: false,
+      sets: [
+        { reps: '10', weight: '40', rpe: '6', type: 'warmup', done: true },
+        { reps: '5', weight: '100', rpe: '9', type: 'work', done: true },
+      ],
+    },
+  ]);
   assert.equal(db.getExerciseMax(user.id, 'Fekvenyomás').max1rm, db.calculateEpley1RM(100, 5));
 });
 
@@ -146,8 +184,11 @@ test('törlés utáni újraszámolás sem csinál PR-t az új, pipálatlan edzé
   db.addWorkout(user.id, 'Kitöltött', HOLNAP, nyomas(90, 5, false));
   const torlendo = db.addWorkout(user.id, 'Törlendő', HOLNAP, nyomas(40, 5, true));
   db.deleteWorkout(user.id, torlendo.id);
-  assert.equal(db.getExerciseMax(user.id, 'Fekvenyomás').max1rm, db.calculateEpley1RM(50, 5),
-    'a pipálatlan 90 kg nem lehet csúcs');
+  assert.equal(
+    db.getExerciseMax(user.id, 'Fekvenyomás').max1rm,
+    db.calculateEpley1RM(50, 5),
+    'a pipálatlan 90 kg nem lehet csúcs',
+  );
   assert.ok(valodi.exercises[0].pr);
 });
 
@@ -188,8 +229,11 @@ test('a törlés a megmaradt edzés `pr` jelzőjét is átbillenti', () => {
 test('az utolsó edzés törlésével a csúcs is eltűnik', () => {
   const [maradt] = db.getWorkouts(torlo.id);
   assert.equal(db.deleteWorkout(torlo.id, maradt.id), true);
-  assert.equal(db.getExerciseMax(torlo.id, 'Fekvenyomás'), null,
-    'edzés nélkül nincs mire hivatkozni — a rekord nem élheti túl a naplóját');
+  assert.equal(
+    db.getExerciseMax(torlo.id, 'Fekvenyomás'),
+    null,
+    'edzés nélkül nincs mire hivatkozni — a rekord nem élheti túl a naplóját',
+  );
   assert.deepEqual(db.getWorkouts(torlo.id), []);
 });
 
@@ -197,8 +241,11 @@ test('MÁS felhasználó edzését nem lehet törölni, és a csúcsaihoz sem ny
   const [elekE] = db.getWorkouts(eros.id);
   assert.equal(db.deleteWorkout(torlo.id, elekE.id), false, 'idegen sorra false');
   assert.equal(db.deleteWorkout(torlo.id, 999999), false, 'nem létező sorra is false');
-  assert.equal(db.getExerciseMax(eros.id, 'Fekvenyomás').max1rm, db.calculateEpley1RM(100, 5),
-    'Elek csúcsa érintetlen');
+  assert.equal(
+    db.getExerciseMax(eros.id, 'Fekvenyomás').max1rm,
+    db.calculateEpley1RM(100, 5),
+    'Elek csúcsa érintetlen',
+  );
   assert.equal(db.getWorkouts(eros.id).length, 2, 'és az edzései is megvannak');
 });
 
@@ -211,8 +258,11 @@ test('a javítás a saját napján hagyja az edzést, és újraszámolja a csúc
 
   assert.equal(javitott.date, TODAY, 'a javítás NEM helyezi át a mai napra');
   assert.equal(javitott.id, elgepelt.id, 'ugyanaz a sor, nem új');
-  assert.equal(db.getExerciseMax(user.id, 'Fekvenyomás').max1rm, db.calculateEpley1RM(80, 5),
-    'az elgépelt 180 kg-os rekord nem ragadhat bent');
+  assert.equal(
+    db.getExerciseMax(user.id, 'Fekvenyomás').max1rm,
+    db.calculateEpley1RM(80, 5),
+    'az elgépelt 180 kg-os rekord nem ragadhat bent',
+  );
 });
 
 test('MÁS felhasználó edzését javítani sem lehet', () => {

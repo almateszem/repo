@@ -42,8 +42,10 @@ async function setupWaterMeter() {
     const pct = day.targetMl > 0 ? Math.min(100, (day.totalMl / day.targetMl) * 100) : 0;
     fillEl.style.width = `${pct}%`;
     trackEl.classList.toggle('is-full', day.totalMl >= day.targetMl);
-    trackEl.setAttribute('aria-label',
-      `Napi folyadékbevitel: ${formatNumber(liters)} liter a ${formatNumber(target)} literes célból`);
+    trackEl.setAttribute(
+      'aria-label',
+      `Napi folyadékbevitel: ${formatNumber(liters)} liter a ${formatNumber(target)} literes célból`,
+    );
 
     // Visszavonni csak akkor van mit, ha van bejegyzés. A gomb azért kell,
     // mert a hozzáadás egyetlen koppintás: téves érintés után különben csak
@@ -51,7 +53,10 @@ async function setupWaterMeter() {
     undoBtn.hidden = day.entries.length === 0;
   };
 
-  const apply = (next) => { day = next; render(); };
+  const apply = (next) => {
+    day = next;
+    render();
+  };
 
   /* A hálózati hiba nem hagyhatja a gombot letiltva: a felhasználó különben
      úgy érezné, hogy elakadt, pedig csak nem ment át a kérés. */
@@ -68,9 +73,13 @@ async function setupWaterMeter() {
   };
 
   addBtn.addEventListener('click', () => guard(addBtn, () => api.addWater(SIP_ML)));
-  undoBtn.addEventListener('click', () => guard(undoBtn, () => api.deleteWaterEntry(day.entries[0].id)));
+  undoBtn.addEventListener('click', () =>
+    guard(undoBtn, () => api.deleteWaterEntry(day.entries[0].id)),
+  );
 
-  hooks.refreshWater = async () => { apply(await api.getWater()); };
+  hooks.refreshWater = async () => {
+    apply(await api.getWater());
+  };
   await hooks.refreshWater();
 }
 

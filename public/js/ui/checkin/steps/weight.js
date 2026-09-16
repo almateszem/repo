@@ -3,7 +3,13 @@
 import { $, $$, cloneTemplate } from '../../../core/dom.js';
 import { formatNumber } from '../../../core/format.js';
 import { formatDelta, latestWeightEntry, todayWeightEntry } from '../../weight.js';
-import { CI_PRESET_ADVANCE_MS, CI_WEIGHT_FALLBACK, CI_WEIGHT_MAX, CI_WEIGHT_MIN, CI_WEIGHT_PRESET_OFFSETS } from '../constants.js';
+import {
+  CI_PRESET_ADVANCE_MS,
+  CI_WEIGHT_FALLBACK,
+  CI_WEIGHT_MAX,
+  CI_WEIGHT_MIN,
+  CI_WEIGHT_PRESET_OFFSETS,
+} from '../constants.js';
 import { ciClamp } from '../helpers.js';
 import { ci } from '../session.js';
 
@@ -53,9 +59,10 @@ function renderWeight(nav) {
   function commitWeight() {
     const raw = input.value.trim();
     const value = Number(raw);
-    ci.answers.weightKg = raw === '' || !Number.isFinite(value)
-      ? null
-      : ciClamp(Math.round(value * 10) / 10, CI_WEIGHT_MIN, CI_WEIGHT_MAX);
+    ci.answers.weightKg =
+      raw === '' || !Number.isFinite(value)
+        ? null
+        : ciClamp(Math.round(value * 10) / 10, CI_WEIGHT_MIN, CI_WEIGHT_MAX);
     ci.dirty = true;
     syncStep();
   }

@@ -47,11 +47,13 @@ async function setupProfile() {
     if (catalogLoaded) return;
     try {
       const catalog = await api.getExerciseCatalog();
-      assessOptions.replaceChildren(...catalog.map((item) => {
-        const option = document.createElement('option');
-        option.value = item.name;
-        return option;
-      }));
+      assessOptions.replaceChildren(
+        ...catalog.map((item) => {
+          const option = document.createElement('option');
+          option.value = item.name;
+          return option;
+        }),
+      );
       catalogLoaded = true;
     } catch (err) {
       // A datalist csak kényelem — nélküle is be lehet gépelni a nevet.
@@ -61,34 +63,40 @@ async function setupProfile() {
 
   const renderAssessment = (entries) => {
     assessEmpty.hidden = entries.length > 0;
-    assessList.replaceChildren(...entries.map((entry) => {
-      const li = document.createElement('li');
-      li.className = 'pf-assess-item';
-      const name = document.createElement('b');
-      name.textContent = entry.name;
-      const value = document.createElement('span');
-      value.textContent = `${formatNumber(entry.max1rm)} kg (becsült 1RM)`;
-      li.append(name, value);
-      return li;
-    }));
+    assessList.replaceChildren(
+      ...entries.map((entry) => {
+        const li = document.createElement('li');
+        li.className = 'pf-assess-item';
+        const name = document.createElement('b');
+        name.textContent = entry.name;
+        const value = document.createElement('span');
+        value.textContent = `${formatNumber(entry.max1rm)} kg (becsült 1RM)`;
+        li.append(name, value);
+        return li;
+      }),
+    );
   };
 
   assessForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     assessSave.disabled = true;
     try {
-      const res = await api.saveStrengthAssessment([{
-        exercise: assessExercise.value.trim(),
-        weight: Number(assessWeight.value),
-        reps: Number(assessReps.value),
-      }]);
+      const res = await api.saveStrengthAssessment([
+        {
+          exercise: assessExercise.value.trim(),
+          weight: Number(assessWeight.value),
+          reps: Number(assessReps.value),
+        },
+      ]);
       assessForm.reset();
       renderAssessment(await api.getStrengthAssessment());
       // A készenléti riport azonnal változik: innentől van mit ajánlani.
       hooks.refreshRecovery?.().catch((err) => console.error('Regeneráció frissítési hiba:', err));
-      showToast(res.entries[0].stored
-        ? 'Felmérés mentve'
-        : 'A naplózott csúcsod magasabb — az marad érvényben');
+      showToast(
+        res.entries[0].stored
+          ? 'Felmérés mentve'
+          : 'A naplózott csúcsod magasabb — az marad érvényben',
+      );
     } catch (err) {
       console.error(err);
       showToast(err.message || 'A felmérést nem sikerült menteni', 'error');
@@ -112,8 +120,12 @@ async function setupProfile() {
     joinedEl.hidden = !profile.joinedAt;
     if (profile.joinedAt) joinedEl.textContent = `Tag ${profile.joinedAt} óta`;
 
-    [['workouts', stats.workouts], ['streak', stats.streak],
-      ['prs', stats.prs], ['workSets', stats.workSets]].forEach(([key, value]) => {
+    [
+      ['workouts', stats.workouts],
+      ['streak', stats.streak],
+      ['prs', stats.prs],
+      ['workSets', stats.workSets],
+    ].forEach(([key, value]) => {
       animateNumber($(`[data-pf-stat="${key}"]`, page), value, { from: 0, format: formatWhole });
     });
 
@@ -122,9 +134,12 @@ async function setupProfile() {
     setFact('weight', stats.weight ? `${formatNumber(stats.weight.current)} kg` : null);
     // A delta csak több mérésből értelmes — egyetlen bejegyzésnél a szerver
     // null-t ad, és a sor kimarad.
-    setFact('weightDelta', stats.weight?.delta === null || stats.weight === null
-      ? null
-      : `${formatDelta(stats.weight.delta)} kg`);
+    setFact(
+      'weightDelta',
+      stats.weight?.delta === null || stats.weight === null
+        ? null
+        : `${formatDelta(stats.weight.delta)} kg`,
+    );
 
     // Ha egyetlen részletsor sincs, a lista helyett a magyarázó szöveg áll ott
     const anyFact = $$('.pf-fact', page).some((row) => !row.hidden);

@@ -27,7 +27,9 @@ function workoutHistoryEntry(workout) {
   const sets = workout.exercises.flatMap((exercise) => exercise.sets || []);
   const done = sets.filter((set) => set.done).length;
   return {
-    id: workout.id, date: workout.date, detail: workout.name,
+    id: workout.id,
+    date: workout.date,
+    detail: workout.name,
     rpe: `${done}/${sets.length} szett`,
   };
 }
@@ -44,7 +46,9 @@ async function renderWorkout() {
   const savedWorkouts = await api.getWorkouts();
   const history = $('[data-list="history"]');
   history.replaceChildren();
-  savedWorkouts.forEach((workout) => history.appendChild(historyEntryEl(workoutHistoryEntry(workout))));
+  savedWorkouts.forEach((workout) =>
+    history.appendChild(historyEntryEl(workoutHistoryEntry(workout))),
+  );
   syncHistoryEmpty();
 }
 

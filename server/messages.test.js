@@ -50,13 +50,19 @@ const DB_PATH = path.join(workDir, 'messages.db');
   const addUser = old.prepare(
     'INSERT INTO users (username, display_name, password_hash) VALUES (?, ?, ?)',
   );
-  addUser.run('edzo', 'Kovács Bence', 'x');      // id 1
-  addUser.run('sportolo', 'Nagy Petra', 'x');    // id 2
-  addUser.run('masik', 'Tóth Dani', 'x');        // id 3
-  old.prepare("INSERT INTO coach_links (coach_id, athlete_id, status) VALUES (1, 2, 'active')").run();
-  old.prepare("INSERT INTO coach_links (coach_id, athlete_id, status) VALUES (1, 3, 'active')").run();
+  addUser.run('edzo', 'Kovács Bence', 'x'); // id 1
+  addUser.run('sportolo', 'Nagy Petra', 'x'); // id 2
+  addUser.run('masik', 'Tóth Dani', 'x'); // id 3
+  old
+    .prepare("INSERT INTO coach_links (coach_id, athlete_id, status) VALUES (1, 2, 'active')")
+    .run();
+  old
+    .prepare("INSERT INTO coach_links (coach_id, athlete_id, status) VALUES (1, 3, 'active')")
+    .run();
 
-  const addMessage = old.prepare('INSERT INTO messages (link_id, sender_id, body) VALUES (?, ?, ?)');
+  const addMessage = old.prepare(
+    'INSERT INTO messages (link_id, sender_id, body) VALUES (?, ?, ?)',
+  );
   addMessage.run(1, 1, 'Régi üzenet az edzőtől');
   addMessage.run(1, 2, 'Régi válasz a sportolótól');
   old.close();
@@ -74,14 +80,21 @@ process.on('exit', () => {
 test('a read_at oszlop és a részleges index a meglévő adatbázison is létrejön', () => {
   const raw = new DatabaseSync(DB_PATH);
 
-  const columns = raw.prepare('PRAGMA table_info(messages)').all().map((c) => c.name);
+  const columns = raw
+    .prepare('PRAGMA table_info(messages)')
+    .all()
+    .map((c) => c.name);
   assert.ok(columns.includes('read_at'), 'a migráció pótolta a read_at oszlopot');
 
-  const indexes = raw.prepare('PRAGMA index_list(messages)').all().map((i) => i.name);
+  const indexes = raw
+    .prepare('PRAGMA index_list(messages)')
+    .all()
+    .map((i) => i.name);
   assert.ok(indexes.includes('idx_messages_unread'), 'az oszlopra épülő index is felépült');
 
   assert.equal(
-    raw.prepare('SELECT COUNT(*) AS n FROM messages').get().n, 2,
+    raw.prepare('SELECT COUNT(*) AS n FROM messages').get().n,
+    2,
     'egyetlen régi üzenet sem veszett el',
   );
   raw.close();
@@ -93,7 +106,10 @@ test('a migrált üzenetek OLVASATLANOK — nem hazudunk olvasást', () => {
   assert.equal(db.getUnreadCounts(2).get(1), 1, 'és fordítva ugyanígy');
 
   const thread = db.getMessages(1);
-  assert.deepEqual(thread.map((m) => m.readAt), [null, null]);
+  assert.deepEqual(
+    thread.map((m) => m.readAt),
+    [null, null],
+  );
 });
 
 test('a nyugtázás CSAK a másik fél üzeneteit érinti, és idempotens', () => {

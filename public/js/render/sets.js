@@ -42,16 +42,17 @@ const defaultSetType = (index) => (index === 0 ? 'warmup' : 'work');
 /** Egy mentett szett típusa. A régi (típus nélküli) bejegyzésekre és az
     ismeretlen értékekre a pozíció szerinti alap érvényes. */
 const setTypeOf = (set, index) =>
-  (SET_TYPES.some(([value]) => value === set?.type) ? set.type : defaultSetType(index));
+  SET_TYPES.some(([value]) => value === set?.type) ? set.type : defaultSetType(index);
 
-const setTypeLabel = (type) =>
-  (SET_TYPES.find(([value]) => value === type) ?? SET_TYPES[1])[1];
+const setTypeLabel = (type) => (SET_TYPES.find(([value]) => value === type) ?? SET_TYPES[1])[1];
 
 /** Szám-mezőbe tölthető érték. A régi, mértékegységgel együtt tárolt
     bejegyzésekből („12 rep", „60% TM", „–") kinyeri a számot — a szerver
     induláskor migrálja az adatbázist, ez a kliens-oldali védőháló. */
 function numericValue(raw) {
-  const match = String(raw ?? '').replace(',', '.').match(/\d+(\.\d+)?/);
+  const match = String(raw ?? '')
+    .replace(',', '.')
+    .match(/\d+(\.\d+)?/);
   return match ? match[0] : '';
 }
 
@@ -86,10 +87,9 @@ const defaultIntensityKey = () =>
   intensityLevels[Math.floor(intensityLevels.length / 2)]?.key ?? '';
 
 const intensityKeyOf = (value) =>
-  (intensityLevels.some((level) => level.key === value) ? value : defaultIntensityKey());
+  intensityLevels.some((level) => level.key === value) ? value : defaultIntensityKey();
 
-const intensityLabel = (key) =>
-  intensityLevels.find((level) => level.key === key)?.label ?? key;
+const intensityLabel = (key) => intensityLevels.find((level) => level.key === key)?.label ?? key;
 
 /* A mező PERCET tartalmaz, a tárolt érték viszont MÁSODPERC.
    Másodpercet szándékosan nem lehet megadni: egy kardió edzésen az egy-két
@@ -100,7 +100,11 @@ const intensityLabel = (key) =>
 
 /** A mezőbe írt PERC → tárolt másodperc. */
 function parseDurationInput(raw) {
-  const minutes = Number(String(raw ?? '').trim().replace(',', '.'));
+  const minutes = Number(
+    String(raw ?? '')
+      .trim()
+      .replace(',', '.'),
+  );
   if (!Number.isFinite(minutes) || minutes <= 0) return 0;
   return Math.round(minutes) * 60;
 }
@@ -128,15 +132,17 @@ function applyIntensity(row, key) {
 /** A fokozat-lenyíló feltöltése. A lista fix, ezért a sorral együtt, egyszer
     épül fel — ugyanúgy, mint a szett-típus menüje. */
 function buildIntensityMenu(row) {
-  $('.wk-intensity-menu', row).replaceChildren(...intensityLevels.map((level) => {
-    const option = document.createElement('button');
-    option.type = 'button';
-    option.className = 'wk-intensity-option';
-    option.setAttribute('role', 'option');
-    option.dataset.intensity = level.key;
-    option.textContent = level.label;
-    return option;
-  }));
+  $('.wk-intensity-menu', row).replaceChildren(
+    ...intensityLevels.map((level) => {
+      const option = document.createElement('button');
+      option.type = 'button';
+      option.className = 'wk-intensity-option';
+      option.setAttribute('role', 'option');
+      option.dataset.intensity = level.key;
+      option.textContent = level.label;
+      return option;
+    }),
+  );
 }
 
 /** A plusz súly a három pötty MÖGÖTT lakik, ezért a gombnak ki kell mondania,
@@ -148,9 +154,10 @@ function syncExtraWeight(row) {
   const hasWeight = Number.isFinite(kg) && kg > 0;
   row.dataset.hasWeight = String(hasWeight);
   trigger.textContent = hasWeight ? `+${formatNumber(kg)}` : '⋮';
-  trigger.setAttribute('aria-label', hasWeight
-    ? `Plusz súly: ${formatNumber(kg)} kg — módosítás`
-    : 'Plusz súly hozzáadása');
+  trigger.setAttribute(
+    'aria-label',
+    hasWeight ? `Plusz súly: ${formatNumber(kg)} kg — módosítás` : 'Plusz súly hozzáadása',
+  );
 }
 
 function renderCardioRow(set) {
@@ -172,9 +179,11 @@ const isCardioRow = (row) => row.classList.contains('wk-set-row--cardio');
 function numberSetRow(row, label, dropCount = 0) {
   const trigger = $('.wk-set-num', row);
   trigger.textContent = label;
-  trigger.setAttribute('aria-label',
-    `${label}. szett típusa: ${setTypeLabel(row.dataset.setType)}`
-    + (dropCount > 0 ? `, ${dropCount} drop settel` : ''));
+  trigger.setAttribute(
+    'aria-label',
+    `${label}. szett típusa: ${setTypeLabel(row.dataset.setType)}` +
+      (dropCount > 0 ? `, ${dropCount} drop settel` : ''),
+  );
   SET_FIELDS.forEach(([selector, , fieldLabel]) => {
     $(selector, row).setAttribute('aria-label', `${label}. szett — ${fieldLabel}`);
   });
@@ -195,15 +204,17 @@ function applySetType(row, type) {
 /** A típusválasztó lenyíló feltöltése. A három opció fix, ezért a sorral
     együtt, egyszer épül fel. */
 function buildSetTypeMenu(row) {
-  $('.wk-set-type-menu', row).replaceChildren(...SET_TYPES.map(([value, label]) => {
-    const option = document.createElement('button');
-    option.type = 'button';
-    option.className = 'wk-set-type-option';
-    option.setAttribute('role', 'option');
-    option.dataset.type = value;
-    option.textContent = label;
-    return option;
-  }));
+  $('.wk-set-type-menu', row).replaceChildren(
+    ...SET_TYPES.map(([value, label]) => {
+      const option = document.createElement('button');
+      option.type = 'button';
+      option.className = 'wk-set-type-option';
+      option.setAttribute('role', 'option');
+      option.dataset.type = value;
+      option.textContent = label;
+      return option;
+    }),
+  );
 }
 
 /** A drop setek betűjelei: 2 → 2a → 2b (dupla/tripla drop). Ennél többet
@@ -248,7 +259,7 @@ function renumberSets(setList) {
     // átmenő drop, 'last' a lezáró. A szerep nélküli sorok nem tagjai
     // egyetlen füzérnek sem.
     const nextIsDrop = rows[index + 1]?.dataset.setType === 'drop';
-    const role = isDrop ? (nextIsDrop ? 'mid' : 'last') : (nextIsDrop ? 'parent' : '');
+    const role = isDrop ? (nextIsDrop ? 'mid' : 'last') : nextIsDrop ? 'parent' : '';
     if (role) row.dataset.dropRole = role;
     else delete row.dataset.dropRole;
 
@@ -258,7 +269,11 @@ function renumberSets(setList) {
       while (rows[index + 1 + drops]?.dataset.setType === 'drop') drops += 1;
     }
 
-    numberSetRow(row, isDrop ? `${number}${DROP_LETTERS[dropIndex - 1] ?? ''}` : String(number), drops);
+    numberSetRow(
+      row,
+      isDrop ? `${number}${DROP_LETTERS[dropIndex - 1] ?? ''}` : String(number),
+      drops,
+    );
   });
 }
 
@@ -279,13 +294,17 @@ const readSetRow = (row) => {
     done: $('.wk-set-check', row).getAttribute('aria-pressed') === 'true',
     type: row.dataset.setType || 'work',
   };
-  SET_FIELDS.forEach(([selector, key]) => { set[key] = $(selector, row).value.trim(); });
+  SET_FIELDS.forEach(([selector, key]) => {
+    set[key] = $(selector, row).value.trim();
+  });
   return set;
 };
 
 function renderSetRow(set, index) {
   const row = cloneTemplate('tpl-set-row');
-  SET_FIELDS.forEach(([selector, key]) => { $(selector, row).value = numericValue(set[key]); });
+  SET_FIELDS.forEach(([selector, key]) => {
+    $(selector, row).value = numericValue(set[key]);
+  });
   $('.wk-set-check', row).setAttribute('aria-pressed', String(set.done));
   buildSetTypeMenu(row);
   applySetType(row, setTypeOf(set, index));
@@ -367,7 +386,10 @@ function handleRemoveSetClick(event, onChange) {
   const row = removeBtn.closest('.wk-set-row');
   const setList = row.parentElement;
   if (setList.children.length <= 1) {
-    showToast('Az utolsó szett nem törölhető — a gyakorlatot a fejlécében lévő ✕-szel veheted ki', 'error');
+    showToast(
+      'Az utolsó szett nem törölhető — a gyakorlatot a fejlécében lévő ✕-szel veheted ki',
+      'error',
+    );
     return true;
   }
   const wasFirst = row === setList.firstElementChild;
@@ -388,9 +410,16 @@ function promoteFirstSetToWarmup(setList) {
   if (first && first.dataset.setType !== 'warmup') applySetType(first, defaultSetType(0));
 }
 
-function renderExercise(exercise, {
-  withAddSet = false, prToggle = false, reorder = false, supersets = false, removable = false,
-} = {}) {
+function renderExercise(
+  exercise,
+  {
+    withAddSet = false,
+    prToggle = false,
+    reorder = false,
+    supersets = false,
+    removable = false,
+  } = {},
+) {
   const card = cloneTemplate('tpl-exercise');
   $('.wk-exercise-name', card).textContent = exercise.name;
 
@@ -436,11 +465,13 @@ function renderExercise(exercise, {
        „Idő/Intenzitás". A két üres cella a pötty-gombé és a pipáé. */
     const head = $('.wk-set-row--head', card);
     head.classList.add('wk-set-row--cardio');
-    head.replaceChildren(...['Idő·perc', 'Intenzitás', '', ''].map((text) => {
-      const cell = document.createElement('span');
-      cell.textContent = text;
-      return cell;
-    }));
+    head.replaceChildren(
+      ...['Idő·perc', 'Intenzitás', '', ''].map((text) => {
+        const cell = document.createElement('span');
+        cell.textContent = text;
+        return cell;
+      }),
+    );
     /* Gyakorlatonként EGY sor a szabály. Ha egy mentett bejegyzésben mégis több
        áll, mindet kirajzoljuk: a naplóból nem tüntetünk el adatot. */
     const rows = exercise.sets?.length ? exercise.sets : [{}];
@@ -515,8 +546,12 @@ function refreshSupersetGroups(list) {
     // előzőhöz, vagy a következő kapcsolódik hozzám.
     const nextLinked = Boolean(groups[index + 1]?.linked);
     card.dataset.supersetRole = linked
-      ? (nextLinked ? 'middle' : 'end')
-      : (nextLinked ? 'start' : 'solo');
+      ? nextLinked
+        ? 'middle'
+        : 'end'
+      : nextLinked
+        ? 'start'
+        : 'solo';
 
     const inGroup = linked || nextLinked;
     return inGroup ? `${number}${SUPERSET_LETTERS[letter] ?? ''}` : String(number);
@@ -542,14 +577,16 @@ function renumberOrderSelects(list, labels) {
 
     const menu = $('.wk-order-menu', wrap);
     if (menu.children.length !== cards.length) {
-      menu.replaceChildren(...cards.map((_, i) => {
-        const option = document.createElement('button');
-        option.type = 'button';
-        option.className = 'wk-order-option';
-        option.setAttribute('role', 'option');
-        option.dataset.index = String(i);
-        return option;
-      }));
+      menu.replaceChildren(
+        ...cards.map((_, i) => {
+          const option = document.createElement('button');
+          option.type = 'button';
+          option.className = 'wk-order-option';
+          option.setAttribute('role', 'option');
+          option.dataset.index = String(i);
+          return option;
+        }),
+      );
     }
     // A feliratok a darabszám változása nélkül is módosulhatnak (kapcsolás),
     // ezért ezek MINDIG frissülnek, nem csak a menü újraépítésekor.
@@ -570,8 +607,12 @@ function refreshExerciseList(list) {
 /** Az összes nyitott sorszám-lenyíló bezárása (kívülre kattintás, Escape,
     vagy egy opció kiválasztása után). */
 function closeAllOrderMenus(list) {
-  $$('.wk-order-menu', list).forEach((menu) => { menu.hidden = true; });
-  $$('.wk-order-trigger', list).forEach((trigger) => trigger.setAttribute('aria-expanded', 'false'));
+  $$('.wk-order-menu', list).forEach((menu) => {
+    menu.hidden = true;
+  });
+  $$('.wk-order-trigger', list).forEach((trigger) =>
+    trigger.setAttribute('aria-expanded', 'false'),
+  );
 }
 
 /** A gyakorlatok sorrendjének átrendezése a saját (nem natív) sorszám-
@@ -625,7 +666,9 @@ function enableOrderSelect(list, onReorder) {
 
 /** Az összes nyitott szett-típus lenyíló bezárása. */
 function closeAllSetTypeMenus(list) {
-  $$('.wk-set-type-menu', list).forEach((menu) => { menu.hidden = true; });
+  $$('.wk-set-type-menu', list).forEach((menu) => {
+    menu.hidden = true;
+  });
   $$('.wk-set-num', list).forEach((trigger) => trigger.setAttribute('aria-expanded', 'false'));
 }
 
@@ -677,10 +720,11 @@ function enableSetTypeSelect(list, onChange) {
   });
 }
 
-
 /** Az összes nyitott intenzitás-lenyíló bezárása. */
 function closeAllIntensityMenus(list) {
-  $$('.wk-intensity-menu', list).forEach((menu) => { menu.hidden = true; });
+  $$('.wk-intensity-menu', list).forEach((menu) => {
+    menu.hidden = true;
+  });
   $$('.wk-intensity-trigger', list).forEach((t) => t.setAttribute('aria-expanded', 'false'));
 }
 
@@ -720,7 +764,9 @@ function enableIntensitySelect(list, onChange) {
 
 /** Az összes nyitott plusz-súly menü bezárása. */
 function closeAllExtraMenus(list) {
-  $$('.wk-extra-menu', list).forEach((menu) => { menu.hidden = true; });
+  $$('.wk-extra-menu', list).forEach((menu) => {
+    menu.hidden = true;
+  });
   $$('.wk-extra-trigger', list).forEach((t) => t.setAttribute('aria-expanded', 'false'));
 }
 
@@ -754,4 +800,17 @@ function enableExtraMenu(list) {
   });
 }
 
-export { clampRpeInput, enableExtraMenu, enableIntensitySelect, enableOrderSelect, enableSetTypeSelect, handleAddSetClick, handleRemoveSetClick, handleStepClick, loadIntensityLevels, readSetRow, refreshExerciseList, renderExercise };
+export {
+  clampRpeInput,
+  enableExtraMenu,
+  enableIntensitySelect,
+  enableOrderSelect,
+  enableSetTypeSelect,
+  handleAddSetClick,
+  handleRemoveSetClick,
+  handleStepClick,
+  loadIntensityLevels,
+  readSetRow,
+  refreshExerciseList,
+  renderExercise,
+};

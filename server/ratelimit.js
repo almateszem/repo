@@ -39,8 +39,8 @@ export function parseTrustProxy(raw) {
   if (/^\d+$/.test(value)) return Number(value);
   if (value === 'true' || /^-/.test(value)) {
     throw new Error(
-      `FITTRACK_TRUST_PROXY="${value}": a megbízható proxy-lépések számát add meg (pl. 1), `
-      + 'vagy a proxy címét — a "true" bármelyik kliensnek megengedné, hogy a forrását hamisítsa.',
+      `FITTRACK_TRUST_PROXY="${value}": a megbízható proxy-lépések számát add meg (pl. 1), ` +
+        'vagy a proxy címét — a "true" bármelyik kliensnek megengedné, hogy a forrását hamisítsa.',
     );
   }
   return value;

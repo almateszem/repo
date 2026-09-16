@@ -59,7 +59,10 @@ async function renderCharts() {
 
 /** Az áttekintő napi statjainak (kalória/fehérje) kiírása. */
 function renderDailyStats(dailyStats) {
-  const setText = (selector, value) => { const el = $(selector); if (el) el.textContent = value; };
+  const setText = (selector, value) => {
+    const el = $(selector);
+    if (el) el.textContent = value;
+  };
   setText('[data-daily="calories"]', dailyStats.calories);
   setText('[data-daily="caloriesTarget"]', '/' + dailyStats.caloriesTarget);
   setText('[data-daily="protein"]', dailyStats.protein);
@@ -112,7 +115,10 @@ async function renderDashboard() {
   dashboardData = await api.getDashboard();
   const { readiness, streak, recovery, dailyStats, workoutName } = dashboardData;
 
-  const setText = (selector, value) => { const el = $(selector); if (el) el.textContent = value; };
+  const setText = (selector, value) => {
+    const el = $(selector);
+    if (el) el.textContent = value;
+  };
 
   // Sorozat + napi statok
   setText('[data-stat="streak"]', streak);
@@ -139,9 +145,10 @@ async function renderDashboard() {
   const readinessKnown = hasReadiness(readiness);
   if (ring) {
     ring.style.setProperty('--readiness', readinessKnown ? readiness : 0);
-    ring.setAttribute('aria-label', readinessKnown
-      ? `${readiness} százalék készenlét`
-      : 'Készenlét: nincs elég adat');
+    ring.setAttribute(
+      'aria-label',
+      readinessKnown ? `${readiness} százalék készenlét` : 'Készenlét: nincs elég adat',
+    );
   }
   // A szám animálását a pageEffects végzi — ha nincs adat, ott sincs mit
   // felpörgetni, ezért a helyőrzőt itt írjuk ki.
@@ -152,13 +159,16 @@ async function renderDashboard() {
 
   // A kártya alsó sora megmondja, mire épül a szám — a Recovery Engine
   // enélkül csak egy önmagát magyarázó szám lenne.
-  setText('[data-readiness-note]', !readinessKnown
-    ? 'még nincs elég adat →'
-    : dashboardData.checkinPresent
-      ? (dashboardData.readinessConfidence === 'high'
-        ? 'a saját előzményedhez mérve'
-        : 'részben általános referenciával')
-      : 'töltsd ki a napi check-int →');
+  setText(
+    '[data-readiness-note]',
+    !readinessKnown
+      ? 'még nincs elég adat →'
+      : dashboardData.checkinPresent
+        ? dashboardData.readinessConfidence === 'high'
+          ? 'a saját előzményedhez mérve'
+          : 'részben általános referenciával'
+        : 'töltsd ki a napi check-int →',
+  );
 
   // A check-in emlékeztető gomb. A check-in mentése renderDashboard-ot hív,
   // így a gomb azonnal eltűnik — újratöltés nélkül.
@@ -177,32 +187,34 @@ async function renderDashboard() {
   const sideList = $('[data-list="today-exercises"]');
   if (sideList) {
     const exercises = dashboardData.workoutPlan?.exercises ?? [];
-    sideList.replaceChildren(...exercises.map((exercise, index) => {
-      const li = document.createElement('li');
-      li.className = 'db-side-item';
+    sideList.replaceChildren(
+      ...exercises.map((exercise, index) => {
+        const li = document.createElement('li');
+        li.className = 'db-side-item';
 
-      const no = document.createElement('span');
-      no.className = 'db-side-no';
-      no.textContent = String(index + 1).padStart(2, '0');
+        const no = document.createElement('span');
+        no.className = 'db-side-no';
+        no.textContent = String(index + 1).padStart(2, '0');
 
-      const text = document.createElement('span');
-      text.className = 'db-side-text';
-      const name = document.createElement('span');
-      name.className = 'db-side-name';
-      name.textContent = exercise.name;
-      text.appendChild(name);
-      // A részletsor elmarad, ha a tervben nincs súly és ismétlés — az üres
-      // sor csak helyet foglalna.
-      if (exercise.detail) {
-        const detail = document.createElement('span');
-        detail.className = 'db-side-detail';
-        detail.textContent = exercise.detail;
-        text.appendChild(detail);
-      }
+        const text = document.createElement('span');
+        text.className = 'db-side-text';
+        const name = document.createElement('span');
+        name.className = 'db-side-name';
+        name.textContent = exercise.name;
+        text.appendChild(name);
+        // A részletsor elmarad, ha a tervben nincs súly és ismétlés — az üres
+        // sor csak helyet foglalna.
+        if (exercise.detail) {
+          const detail = document.createElement('span');
+          detail.className = 'db-side-detail';
+          detail.textContent = exercise.detail;
+          text.appendChild(detail);
+        }
 
-      li.append(no, text);
-      return li;
-    }));
+        li.append(no, text);
+        return li;
+      }),
+    );
 
     const meta = $('[data-workout-meta]');
     if (meta) {
@@ -219,11 +231,15 @@ async function renderDashboard() {
   // hogy az adatból származó rész se kerülhessen soha HTML-ként a lapra.
   const quoteEl = $('[data-db-quote]');
   if (quoteEl) {
-    const [first, second] = readiness >= 85
-      ? [`${streak} napos sorozatban vagy, és a tested is készen áll —`, 'ma mehet a nehezebb edzés.']
-      : readiness >= 65
-        ? [`${streak} napos sorozat — tartsd a lendületet,`, 'de figyelj a regenerációra is.']
-        : ['A tested pihenést kér —', 'ma inkább könnyebb edzés jöhet.'];
+    const [first, second] =
+      readiness >= 85
+        ? [
+            `${streak} napos sorozatban vagy, és a tested is készen áll —`,
+            'ma mehet a nehezebb edzés.',
+          ]
+        : readiness >= 65
+          ? [`${streak} napos sorozat — tartsd a lendületet,`, 'de figyelj a regenerációra is.']
+          : ['A tested pihenést kér —', 'ma inkább könnyebb edzés jöhet.'];
     quoteEl.replaceChildren(
       document.createTextNode(first),
       document.createElement('br'),
@@ -252,6 +268,11 @@ function renderChromeDate() {
 }
 
 export {
-  dashboardData, refreshDailyStats, renderChart, renderCharts,
-  renderChromeDate, renderDashboard, renderUserName,
+  dashboardData,
+  refreshDailyStats,
+  renderChart,
+  renderCharts,
+  renderChromeDate,
+  renderDashboard,
+  renderUserName,
 };

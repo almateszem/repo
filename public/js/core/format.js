@@ -13,7 +13,7 @@ const runningNumberAnimations = new WeakMap();
 function animateNumber(el, to, { from = null, duration = 800, format = formatNumber } = {}) {
   cancelAnimationFrame(runningNumberAnimations.get(el));
 
-  const start = from !== null ? from : (parseFloat(el.textContent) || 0);
+  const start = from !== null ? from : parseFloat(el.textContent) || 0;
   if (prefersReducedMotion || start === to) {
     el.textContent = format(to);
     return;

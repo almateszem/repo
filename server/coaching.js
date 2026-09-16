@@ -29,10 +29,10 @@ const WINDOW_DAYS = 28;
 const ACTIVITY_LIMIT = 4;
 
 /* ---- Küszöbök a figyelmeztetésekhez ---- */
-const LOW_READINESS = 65;      // ez alatt a készenlét már riasztás
-const MISSED_LIMIT = 2;        // ennyi kihagyott edzéstől jelzünk a héten
-const STALE_CHECKIN_DAYS = 4;  // ennyi napja nincs check-in → jelzés
-const INACTIVE_DAYS = 7;       // ennyi napja nem edzett → jelzés
+const LOW_READINESS = 65; // ez alatt a készenlét már riasztás
+const MISSED_LIMIT = 2; // ennyi kihagyott edzéstől jelzünk a héten
+const STALE_CHECKIN_DAYS = 4; // ennyi napja nincs check-in → jelzés
+const INACTIVE_DAYS = 7; // ennyi napja nem edzett → jelzés
 
 /** "ma" / "tegnap" / "N napja" — a jövőbeli dátum is „ma"-ként jelenik meg
     (elgépelt dátumnál ez kevésbé zavaró, mint egy negatív szám). */
@@ -56,9 +56,10 @@ const trainingDayKeys = (workouts) => new Set(workouts.map((w) => dayKey(w.date)
 const scheduledWeekdays = (plans) => new Set(plans.flatMap((plan) => plan.days ?? []));
 
 /** Teljesített munkasorozatok száma egy edzésben (a bemelegítő nem az). */
-const workSetCount = (workout) => workout.exercises
-  .flatMap((exercise) => exercise.sets ?? [])
-  .filter((set) => set.done && set.type !== 'warmup').length;
+const workSetCount = (workout) =>
+  workout.exercises
+    .flatMap((exercise) => exercise.sets ?? [])
+    .filter((set) => set.done && set.type !== 'warmup').length;
 
 /**
  * A HETI állás: hány edzésnap valósult meg hétfőtől máig, mennyi volt kitűzve,
@@ -115,9 +116,8 @@ export function adherence({ workouts, plans, today }) {
 
 /** Az összpontszám: a készenlét és a terv-követés átlaga (terv nélkül maga a
     készenlét). A kártya szintje (arany/ezüst/bronz) ebből jön a felületen. */
-export const athleteRating = (readiness, adherenceValue) => (adherenceValue === null
-  ? Math.round(readiness)
-  : Math.round((readiness + adherenceValue) / 2));
+export const athleteRating = (readiness, adherenceValue) =>
+  adherenceValue === null ? Math.round(readiness) : Math.round((readiness + adherenceValue) / 2);
 
 /**
  * A kártya állapot-sora. Legfeljebb KÉT ok kerül bele, súlyosság szerint:
@@ -130,7 +130,13 @@ export const athleteRating = (readiness, adherenceValue) => (adherenceValue === 
  * minden frissen csatlakozott sportoló azonnal pirosra váltana, pedig épp
  * csak most kezdett — az edző meg megtanulná figyelmen kívül hagyni a sávot.
  */
-export function athleteAlert({ missed, daysSinceWorkout, readiness, daysSinceCheckin, activeDays = 0 }) {
+export function athleteAlert({
+  missed,
+  daysSinceWorkout,
+  readiness,
+  daysSinceCheckin,
+  activeDays = 0,
+}) {
   const reasons = [];
   if (missed >= MISSED_LIMIT) reasons.push(`${missed} kihagyott edzés`);
   if (daysSinceWorkout === null) {
@@ -199,8 +205,18 @@ export function recentActivity({ workouts, checkins, weightLog, today }) {
  * @param {string} input.today     a mai nap "ÉÉÉÉ.HH.NN" alakban
  */
 export function buildAthleteCard({
-  athlete, workouts, workoutDates = null, plans, checkins, weightLog,
-  readiness, confidence = null, streak, lastMessage, unread = 0, today,
+  athlete,
+  workouts,
+  workoutDates = null,
+  plans,
+  checkins,
+  weightLog,
+  readiness,
+  confidence = null,
+  streak,
+  lastMessage,
+  unread = 0,
+  today,
 }) {
   const todayKey = dayKey(today);
   const week = weekProgress({ workouts, plans, today });
@@ -217,9 +233,8 @@ export function buildAthleteCard({
   const allDates = workoutDates ?? workouts.map((workout) => workout.date);
   const lastWorkoutDate = allDates[0] ?? null;
   const lastCheckin = checkins[0] ?? null;
-  const daysSince = (dateStr) => (dateStr
-    ? Math.max(0, Math.round((todayKey - dayKey(dateStr)) / DAY_MS))
-    : null);
+  const daysSince = (dateStr) =>
+    dateStr ? Math.max(0, Math.round((todayKey - dayKey(dateStr)) / DAY_MS)) : null;
 
   /* Mióta használja egyáltalán az appot: a legrégebbi naplózott nap (edzés
      vagy check-in) óta eltelt napok. A listák legújabbal kezdődnek, tehát a
@@ -247,7 +262,9 @@ export function buildAthleteCard({
     weekly: `${week.done}/${week.target || '–'}`,
     // Aktív terv: amelyik a MAI hétnapra szól, különben a legutóbb készített
     // (a getUserPlans legújabb elöl ad vissza).
-    plan: (plans.find((plan) => (plan.days ?? []).includes(weekdayOf(today))) ?? plans[0])?.name ?? null,
+    plan:
+      (plans.find((plan) => (plan.days ?? []).includes(weekdayOf(today))) ?? plans[0])?.name ??
+      null,
     alert: athleteAlert({
       missed: week.missed,
       daysSinceWorkout: daysSince(lastWorkoutDate),
@@ -261,11 +278,11 @@ export function buildAthleteCard({
        meg (server.js); saját üzenetnél a felület „Te"-t ír a név helyére. */
     lastMessage: lastMessage
       ? {
-        text: lastMessage.text,
-        at: lastMessage.at,
-        from: lastMessage.author,
-        mine: lastMessage.mine === true,
-      }
+          text: lastMessage.text,
+          at: lastMessage.at,
+          from: lastMessage.author,
+          mine: lastMessage.mine === true,
+        }
       : null,
     unread,
   };

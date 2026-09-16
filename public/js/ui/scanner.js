@@ -31,8 +31,9 @@ const SCAN_CANVAS_W = 640;
 /** A getUserMedia hibái emberi nyelven. A böngésző `err.name`-je pontos, de
     a felhasználónak semmit nem mond. */
 const CAMERA_ERRORS = {
-  NotAllowedError: 'A kamerához nem adtál engedélyt. A böngésző címsorában visszavonhatod '
-    + 'a tiltást — addig írd be a kódot kézzel.',
+  NotAllowedError:
+    'A kamerához nem adtál engedélyt. A böngésző címsorában visszavonhatod ' +
+    'a tiltást — addig írd be a kódot kézzel.',
   SecurityError: 'A böngésző letiltotta a kamerát ezen az oldalon.',
   NotFoundError: 'Nem találtunk kamerát ezen az eszközön.',
   OverconstrainedError: 'Nem találtunk használható hátsó kamerát.',
@@ -58,13 +59,15 @@ function setupScanner() {
   const manualForm = $('[data-form="manual-barcode"]', modal);
   const manualInput = $('#sc-manual-code', modal);
 
-  let pending = null;      // a futó scan() feloldója
+  let pending = null; // a futó scan() feloldója
   let stream = null;
   let rafId = 0;
   let canvas = null;
   let zxingReader = null;
 
-  const setStatus = (text) => { statusEl.textContent = text; };
+  const setStatus = (text) => {
+    statusEl.textContent = text;
+  };
   const setError = (text) => {
     errorEl.textContent = text || '';
     errorEl.hidden = !text;
@@ -75,8 +78,17 @@ function setupScanner() {
      hiszi, hogy figyeljük), és a KÖVETKEZŐ megnyitás NotReadableError-t kap,
      mert az eszköz még foglalt. Ezért MINDEN kilépési út ezen megy át. */
   const stopCamera = () => {
-    if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
-    if (zxingReader) { try { zxingReader.reset(); } catch { /* nincs mit tenni */ } }
+    if (rafId) {
+      cancelAnimationFrame(rafId);
+      rafId = 0;
+    }
+    if (zxingReader) {
+      try {
+        zxingReader.reset();
+      } catch {
+        /* nincs mit tenni */
+      }
+    }
     if (stream) {
       stream.getTracks().forEach((track) => track.stop());
       stream = null;
@@ -103,7 +115,9 @@ function setupScanner() {
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && modal.classList.contains('is-open')) settle(null);
   });
-  window.addEventListener('hashchange', () => { if (pending) settle(null); });
+  window.addEventListener('hashchange', () => {
+    if (pending) settle(null);
+  });
   // Háttérbe került fül: a rAF magától megáll, a kamera-LED viszont nem.
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && stream) stopCamera();
@@ -118,10 +132,16 @@ function setupScanner() {
 
     const reader = new ZX.MultiFormatReader();
     const hints = new Map([
-      [ZX.DecodeHintType.POSSIBLE_FORMATS, [
-        ZX.BarcodeFormat.EAN_13, ZX.BarcodeFormat.EAN_8,
-        ZX.BarcodeFormat.UPC_A, ZX.BarcodeFormat.UPC_E, ZX.BarcodeFormat.CODE_128,
-      ]],
+      [
+        ZX.DecodeHintType.POSSIBLE_FORMATS,
+        [
+          ZX.BarcodeFormat.EAN_13,
+          ZX.BarcodeFormat.EAN_8,
+          ZX.BarcodeFormat.UPC_A,
+          ZX.BarcodeFormat.UPC_E,
+          ZX.BarcodeFormat.CODE_128,
+        ],
+      ],
       // A csomagolás ritkán fekszik síkban a kamera előtt; a TRY_HARDER a
       // ferde és a gyengébb kontrasztú képet is megpróbálja.
       [ZX.DecodeHintType.TRY_HARDER, true],
@@ -202,8 +222,10 @@ function setupScanner() {
        jelentik, és nincs mit debugolni rajta. */
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
       setStatus('');
-      setError('A kamera csak https-en vagy localhoston érhető el. Telefonról, a gép '
-        + 'IP-címéről nyitva a böngésző letiltja — írd be a vonalkódot kézzel.');
+      setError(
+        'A kamera csak https-en vagy localhoston érhető el. Telefonról, a gép ' +
+          'IP-címéről nyitva a böngésző letiltja — írd be a vonalkódot kézzel.',
+      );
       return;
     }
 
@@ -218,7 +240,9 @@ function setupScanner() {
       });
     } catch (err) {
       setStatus('');
-      setError(CAMERA_ERRORS[err.name] || 'A kamerát nem sikerült elindítani — írd be a kódot kézzel.');
+      setError(
+        CAMERA_ERRORS[err.name] || 'A kamerát nem sikerült elindítani — írd be a kódot kézzel.',
+      );
       return;
     }
 

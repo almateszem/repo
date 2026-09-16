@@ -28,22 +28,22 @@ nézete és a meghívók mind maradnak, csak új ruhát kapnak.
 
 ## 3. Rögzített döntések
 
-| # | Döntés |
-|---|--------|
-| 1 | Az átültetés az **igazi appba** megy (`public/`, ahol kell, `server/`), nem az artifactba. |
-| 2 | Egy ágon, egy menetben — belül több commit, oldalanként. |
-| 3 | Mind a **11 oldal** + belépő + modálok. |
-| 4 | Az **adatok az appé** maradnak; a prototípus dummy tartalma (Kovács Bence, 4 sportoló) nem jön át. |
-| 5 | Sötét téma most; a világos téma **tokenszinten előkészítve**, de a paletta kitöltése későbbre marad. |
-| 6 | A nyelv **mindenre** kiterjed — modálok, toastok, űrlapok, belépő is. |
-| 7 | Breakpointok: az **app** meglévő 1025 / 1280px határai maradnak (nem a prototípus 1120px-e). |
-| 8 | A testtérkép **igazi SVG emberke** lesz, vonalrajz-sziluett. |
-| 9 | Az „Elöl / Hátul" kapcsoló és a térkép alatti érték-sorok **maradnak**. |
-| 10 | Az izomláz skálája **1–5 → 1–10** lesz, a fájdaloméval azonos. |
-| 11 | A testtérkép a **Regeneráció oldalra is** bekerül — az ottani 9+9 skálás lista helyére. |
-| 12 | Minden meglévő funkció megmarad, csak új ruhát kap. |
-| 13 | A `server/fittrack.db` eldobható demóadat — **nincs adatmigráció**. |
-| 14 | A Regeneráció oldal többi skálája (alvásminőség, energia, stressz, hangulat) **marad léptetős skála**, új ruhában. |
+| #   | Döntés                                                                                                             |
+| --- | ------------------------------------------------------------------------------------------------------------------ |
+| 1   | Az átültetés az **igazi appba** megy (`public/`, ahol kell, `server/`), nem az artifactba.                         |
+| 2   | Egy ágon, egy menetben — belül több commit, oldalanként.                                                           |
+| 3   | Mind a **11 oldal** + belépő + modálok.                                                                            |
+| 4   | Az **adatok az appé** maradnak; a prototípus dummy tartalma (Kovács Bence, 4 sportoló) nem jön át.                 |
+| 5   | Sötét téma most; a világos téma **tokenszinten előkészítve**, de a paletta kitöltése későbbre marad.               |
+| 6   | A nyelv **mindenre** kiterjed — modálok, toastok, űrlapok, belépő is.                                              |
+| 7   | Breakpointok: az **app** meglévő 1025 / 1280px határai maradnak (nem a prototípus 1120px-e).                       |
+| 8   | A testtérkép **igazi SVG emberke** lesz, vonalrajz-sziluett.                                                       |
+| 9   | Az „Elöl / Hátul" kapcsoló és a térkép alatti érték-sorok **maradnak**.                                            |
+| 10  | Az izomláz skálája **1–5 → 1–10** lesz, a fájdaloméval azonos.                                                     |
+| 11  | A testtérkép a **Regeneráció oldalra is** bekerül — az ottani 9+9 skálás lista helyére.                            |
+| 12  | Minden meglévő funkció megmarad, csak új ruhát kap.                                                                |
+| 13  | A `server/fittrack.db` eldobható demóadat — **nincs adatmigráció**.                                                |
+| 14  | A Regeneráció oldal többi skálája (alvásminőség, energia, stressz, hangulat) **marad léptetős skála**, új ruhában. |
 
 ## 4. A dizájn nyelve
 
@@ -114,24 +114,24 @@ Ezek kerülnek a `style.css` új, 2c. szakaszába, és minden oldal ezekből ép
 Mind a 11 oldal + a belépő + a modálok. A „forrás" oszlop azt mondja, honnan
 származik a felépítés.
 
-| Oldal (CSS-előtag) | Forrás | Amire figyelni kell |
-|---|---|---|
-| Áttekintés (`db-`) | prototípus, kész | Az `51df3c5` már megcsinálta — csak a primitívekre húzzuk rá, hogy ne két úton szülessen ugyanaz. |
-| Regeneráció (`rc-`) | prototípus | A 9+9 skálás űrlap **helyére testtérkép**. A készenlét-gyűrű marad. A számítás- és javaslat-szekció a prototípus sor-elemeire. |
-| Check-in varázsló (`ci-`) | prototípus | Lépésenként megvan a terv; a térkép-lépés az új komponenst kapja. |
-| Edzés (`wk-`) | prototípus | A szettnapló a prototípus jobb hasábjában van megtervezve. **Marad:** szuperszett-jelölés, PR-jelvény, gyakorlat-megjegyzés, autosave-jelző. |
-| Táplálkozás (`nu-`) | prototípus | **Marad:** vonalkód-olvasó, étel-részlet modál, saját étel, vízmérő. |
-| Tervek (`pl-`) | prototípus | **Marad:** a terv-szerkesztőbe és gyakorlat-választóba vivő belépők. |
-| Edző (`co-`) | prototípus | **Marad:** a két nézet (edző / kliens), meghívók, sportoló-modál, üres állapotok. A prototípus csak az edzői listát mutatja. |
-| Edzés-összegző (`su-`) | levezetve | Hero-szám (volumen) + szekciók. |
-| Profil (`pf-`) | levezetve | Sor-elemek + szekciók; a testmérés és a PR-lista is ide tartozik. |
-| Terv-szerkesztő (`pb-`) | levezetve | Flow-oldal: felkiáltó + cím + sor-elemek + CTA-sáv. |
-| Gyakorlat-választó (`ep-`) | levezetve | Kereső + hajszálvonalas találati lista. |
-| Belépő (`au-`) | levezetve | A varázsló intro-lépésének nyelvén: felkiáltó, nagy display-cím, hajszálvonalas mezők, accent CTA. |
-| Modálok | levezetve | Közös alap: `panel` hátterű lap, 0 sugár, hajszálvonalas fejléc, uppercase mono cím. Érinti: technika-videó, PR-előzmény, beállítások, megerősítő, sportoló, étel-részlet, saját étel, szkenner. |
-| Nav gyűrű (`nav-`) | prototípus | A prototípus megtartotta: húzható korong + 4 irány + alul Regeneráció. Csak a tipográfia és a színek igazodnak. |
-| Oldalsáv (`side-nav-`) | prototípus | `panel` háttér, aktív elem `rgba(255,255,255,.10)` + accent `■` jelölő. |
-| Toast | prototípus | Szögletes, `panel` hátterű, mono felirat. |
+| Oldal (CSS-előtag)         | Forrás           | Amire figyelni kell                                                                                                                                                                              |
+| -------------------------- | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Áttekintés (`db-`)         | prototípus, kész | Az `51df3c5` már megcsinálta — csak a primitívekre húzzuk rá, hogy ne két úton szülessen ugyanaz.                                                                                                |
+| Regeneráció (`rc-`)        | prototípus       | A 9+9 skálás űrlap **helyére testtérkép**. A készenlét-gyűrű marad. A számítás- és javaslat-szekció a prototípus sor-elemeire.                                                                   |
+| Check-in varázsló (`ci-`)  | prototípus       | Lépésenként megvan a terv; a térkép-lépés az új komponenst kapja.                                                                                                                                |
+| Edzés (`wk-`)              | prototípus       | A szettnapló a prototípus jobb hasábjában van megtervezve. **Marad:** szuperszett-jelölés, PR-jelvény, gyakorlat-megjegyzés, autosave-jelző.                                                     |
+| Táplálkozás (`nu-`)        | prototípus       | **Marad:** vonalkód-olvasó, étel-részlet modál, saját étel, vízmérő.                                                                                                                             |
+| Tervek (`pl-`)             | prototípus       | **Marad:** a terv-szerkesztőbe és gyakorlat-választóba vivő belépők.                                                                                                                             |
+| Edző (`co-`)               | prototípus       | **Marad:** a két nézet (edző / kliens), meghívók, sportoló-modál, üres állapotok. A prototípus csak az edzői listát mutatja.                                                                     |
+| Edzés-összegző (`su-`)     | levezetve        | Hero-szám (volumen) + szekciók.                                                                                                                                                                  |
+| Profil (`pf-`)             | levezetve        | Sor-elemek + szekciók; a testmérés és a PR-lista is ide tartozik.                                                                                                                                |
+| Terv-szerkesztő (`pb-`)    | levezetve        | Flow-oldal: felkiáltó + cím + sor-elemek + CTA-sáv.                                                                                                                                              |
+| Gyakorlat-választó (`ep-`) | levezetve        | Kereső + hajszálvonalas találati lista.                                                                                                                                                          |
+| Belépő (`au-`)             | levezetve        | A varázsló intro-lépésének nyelvén: felkiáltó, nagy display-cím, hajszálvonalas mezők, accent CTA.                                                                                               |
+| Modálok                    | levezetve        | Közös alap: `panel` hátterű lap, 0 sugár, hajszálvonalas fejléc, uppercase mono cím. Érinti: technika-videó, PR-előzmény, beállítások, megerősítő, sportoló, étel-részlet, saját étel, szkenner. |
+| Nav gyűrű (`nav-`)         | prototípus       | A prototípus megtartotta: húzható korong + 4 irány + alul Regeneráció. Csak a tipográfia és a színek igazodnak.                                                                                  |
+| Oldalsáv (`side-nav-`)     | prototípus       | `panel` háttér, aktív elem `rgba(255,255,255,.10)` + accent `■` jelölő.                                                                                                                          |
+| Toast                      | prototípus       | Szögletes, `panel` hátterű, mono felirat.                                                                                                                                                        |
 
 ## 6. Testtérkép — az új komponens
 
@@ -204,15 +204,15 @@ törzs megy a `PUT /api/checkin`-re.
 
 Érintett helyek:
 
-| Fájl | Mi |
-|---|---|
-| [`server/server.js:1389`](../../../server/server.js#L1389) | `normalizeMuscleMap(body.soreness, 5)` → `10` |
-| [`server/recovery.js:452`](../../../server/recovery.js#L452) | `clamp01(reportedSoreness / 5)` → `/ 10` |
-| [`server/db.js:270`](../../../server/db.js#L270) | séma-komment: `0..5` → `0..10` |
-| `public/js/ui/checkin/constants.js` | `CI_MAP_MODES.soreness`: `max: 5 → 10`, `defaultValue: 3 → 5`, legenda-szöveg |
-| [`public/js/ui/recovery.js:62`](../../../public/js/ui/recovery.js#L62) | `max: 5` → `10` |
-| [`public/js/render/recovery.js:185`](../../../public/js/render/recovery.js#L185) | `izomláz ${x}/5` → `/10` |
-| `server/recovery.test.js` | a `soreness: { chest: 5 }` fajta fixture-ök a 10-es skálára |
+| Fájl                                                                             | Mi                                                                            |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| [`server/server.js:1389`](../../../server/server.js#L1389)                       | `normalizeMuscleMap(body.soreness, 5)` → `10`                                 |
+| [`server/recovery.js:452`](../../../server/recovery.js#L452)                     | `clamp01(reportedSoreness / 5)` → `/ 10`                                      |
+| [`server/db.js:270`](../../../server/db.js#L270)                                 | séma-komment: `0..5` → `0..10`                                                |
+| `public/js/ui/checkin/constants.js`                                              | `CI_MAP_MODES.soreness`: `max: 5 → 10`, `defaultValue: 3 → 5`, legenda-szöveg |
+| [`public/js/ui/recovery.js:62`](../../../public/js/ui/recovery.js#L62)           | `max: 5` → `10`                                                               |
+| [`public/js/render/recovery.js:185`](../../../public/js/render/recovery.js#L185) | `izomláz ${x}/5` → `/10`                                                      |
+| `server/recovery.test.js`                                                        | a `soreness: { chest: 5 }` fajta fixture-ök a 10-es skálára                   |
 
 A `describe(muscleComponent, ['Erős','Közepes','Enyhe','Nincs'])` a
 [`recovery.js:863`](../../../server/recovery.js#L863)-ban a **számított**

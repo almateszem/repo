@@ -56,8 +56,11 @@ test('a dashboard NEM cache-elt — minden kérés friss objektumot kap', () => 
 
   // És tényleg: az egyikre írva a másik érintetlen marad.
   first.readiness = 42;
-  assert.equal(db.getCollection('dashboard').readiness, undefined,
-    'a ráírt mező nem szivárog át a következő kérésbe');
+  assert.equal(
+    db.getCollection('dashboard').readiness,
+    undefined,
+    'a ráírt mező nem szivárog át a következő kérésbe',
+  );
 });
 
 test('a felhasználó-specifikusan felülírt kulcsok egyike sem cache-elt', () => {

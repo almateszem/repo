@@ -22,11 +22,10 @@ function renderIntro(nav) {
 function applyOnboardingIntro(step) {
   // Csak a felvezető szó cserélődik — a dátum-span a helyén marad.
   $('.ci-eyebrow', step).firstChild.nodeValue = 'Első lépés · ';
-  $('.ci-display', step).replaceChildren(
-    'Kezdjük', document.createElement('br'), 'a készenléttel',
-  );
-  $('.ci-lead', step).textContent = 'Ez az első check-ined. Ebből számolja ki a rendszer, '
-    + 'mennyire vagy ma terhelhető — pár gyors kérdés, kevesebb mint egy perc.';
+  $('.ci-display', step).replaceChildren('Kezdjük', document.createElement('br'), 'a készenléttel');
+  $('.ci-lead', step).textContent =
+    'Ez az első check-ined. Ebből számolja ki a rendszer, ' +
+    'mennyire vagy ma terhelhető — pár gyors kérdés, kevesebb mint egy perc.';
   $('.ci-footnote', step).textContent = 'Az adataid csak hozzád tartoznak.';
 
   /* A „Mégse" itt sehová nem vezetne: az app többi oldala zárva van. A fő
@@ -38,7 +37,11 @@ function applyOnboardingIntro(step) {
   exit.href = '#';
   exit.addEventListener('click', async (event) => {
     event.preventDefault();
-    try { await api.logout(); } catch { /* a kilépést akkor is bevisszük */ }
+    try {
+      await api.logout();
+    } catch {
+      /* a kilépést akkor is bevisszük */
+    }
     window.location.reload();
   });
 

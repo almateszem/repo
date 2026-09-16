@@ -31,8 +31,14 @@ const svgEl = (name, attrs = {}) => {
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
 function createBodyMap({
-  max, defaultValue, noun, values, muscleLabel,
-  blockFrom = null, extraRows = [], onChange,
+  max,
+  defaultValue,
+  noun,
+  values,
+  muscleLabel,
+  blockFrom = null,
+  extraRows = [],
+  onChange,
 }) {
   let view = 'front';
 
@@ -44,7 +50,10 @@ function createBodyMap({
   toggle.className = 'ds-seg bm-toggle';
   toggle.setAttribute('role', 'group');
   toggle.setAttribute('aria-label', 'Testnézet');
-  for (const [key, label] of [['front', 'Elöl'], ['back', 'Hátul']]) {
+  for (const [key, label] of [
+    ['front', 'Elöl'],
+    ['back', 'Hátul'],
+  ]) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'ds-seg-btn';
@@ -70,9 +79,12 @@ function createBodyMap({
     const on = value > 0;
     $$(`[data-region="${key}"]`, stage).forEach((node) => {
       node.setAttribute('aria-pressed', String(on));
-      node.setAttribute('aria-label', on
-        ? `${muscleLabel(key)} — ${noun} ${value} / ${max}`
-        : `${muscleLabel(key)} — nincs megjelölve`);
+      node.setAttribute(
+        'aria-label',
+        on
+          ? `${muscleLabel(key)} — ${noun} ${value} / ${max}`
+          : `${muscleLabel(key)} — nincs megjelölve`,
+      );
     });
     $$(`[data-region-label="${key}"]`, stage).forEach((node) => {
       node.textContent = on ? String(value) : '';
@@ -114,7 +126,11 @@ function createBodyMap({
       startValue = wasSelected ? values[key] : defaultValue;
       startY = event.clientY;
       moved = false;
-      try { node.setPointerCapture(pointerId); } catch { /* nem kritikus */ }
+      try {
+        node.setPointerCapture(pointerId);
+      } catch {
+        /* nem kritikus */
+      }
       setValue(key, startValue);
       event.preventDefault();
     });
@@ -128,7 +144,11 @@ function createBodyMap({
 
     const end = (event) => {
       if (event.pointerId !== pointerId) return;
-      try { node.releasePointerCapture(pointerId); } catch { /* már elengedve */ }
+      try {
+        node.releasePointerCapture(pointerId);
+      } catch {
+        /* már elengedve */
+      }
       pointerId = null;
       if (!moved && wasSelected) clearValue(key);
     };
@@ -144,7 +164,8 @@ function createBodyMap({
         setValue(key, current ? current + 1 : defaultValue);
       } else if (event.key === 'ArrowDown' || event.key === 'ArrowLeft') {
         event.preventDefault();
-        if (current <= 1) clearValue(key); else setValue(key, current - 1);
+        if (current <= 1) clearValue(key);
+        else setValue(key, current - 1);
       } else if (event.key === 'Delete' || event.key === 'Backspace') {
         event.preventDefault();
         clearValue(key);
@@ -153,13 +174,15 @@ function createBodyMap({
         // valódi <button>, tehát a böngésző nem szintetizál click-et —
         // enélkül a felhasználó első próbálkozása némán nem csinál semmit.
         event.preventDefault();
-        if (values[key] > 0) clearValue(key); else setValue(key, defaultValue);
+        if (values[key] > 0) clearValue(key);
+        else setValue(key, defaultValue);
       }
     });
     node.addEventListener('click', (event) => {
       // Billentyűs aktiválás: a pointerdown-ág nem futott le.
       if (event.detail !== 0) return;
-      if (values[key] > 0) clearValue(key); else setValue(key, defaultValue);
+      if (values[key] > 0) clearValue(key);
+      else setValue(key, defaultValue);
     });
   }
 
@@ -178,9 +201,14 @@ function createBodyMap({
       for (const d of BODY_SILHOUETTE[view]) group.appendChild(svgEl('path', { d }));
       svg.appendChild(group);
     }
-    svg.appendChild(svgEl('circle', {
-      class: 'bm-silhouette-head', cx: BODY_HEAD.cx, cy: BODY_HEAD.cy, r: BODY_HEAD.r,
-    }));
+    svg.appendChild(
+      svgEl('circle', {
+        class: 'bm-silhouette-head',
+        cx: BODY_HEAD.cx,
+        cy: BODY_HEAD.cy,
+        r: BODY_HEAD.r,
+      }),
+    );
 
     // — Régiók. A tükörképek aria-hidden-ek: egy izomcsoport egy vezérlő. —
     const regions = BODY_REGIONS[view];
@@ -232,73 +260,80 @@ function createBodyMap({
     // felhasználó minden egyes érték után a lap tetejéről tabolhatna vissza.
     // Márpedig a chipek ÉPPEN a billentyűzetes út.
     const active = document.activeElement;
-    const focused = active && rows.contains(active)
-      ? { key: active.dataset.chipKey, value: active.dataset.chipValue }
-      : null;
+    const focused =
+      active && rows.contains(active)
+        ? { key: active.dataset.chipKey, value: active.dataset.chipValue }
+        : null;
 
-    const marked = Object.keys(values).filter((key) => values[key] > 0
-      && !extraRows.some((row) => row.key === key));
+    const marked = Object.keys(values).filter(
+      (key) => values[key] > 0 && !extraRows.some((row) => row.key === key),
+    );
     const entries = [
       ...marked.map((key) => ({ key, label: muscleLabel(key), blocks: true })),
       ...extraRows.map((row) => ({ ...row, blocks: false })),
     ];
 
-    rows.replaceChildren(...entries.map(({ key, label, blocks }) => {
-      const row = document.createElement('div');
-      row.className = 'bm-row';
+    rows.replaceChildren(
+      ...entries.map(({ key, label, blocks }) => {
+        const row = document.createElement('div');
+        row.className = 'bm-row';
 
-      const name = document.createElement('span');
-      name.className = 'bm-row-name';
-      name.textContent = label;
-      row.appendChild(name);
+        const name = document.createElement('span');
+        name.className = 'bm-row-name';
+        name.textContent = label;
+        row.appendChild(name);
 
-      const chips = document.createElement('div');
-      chips.className = 'bm-chips';
-      chips.setAttribute('role', 'group');
-      chips.setAttribute('aria-label', `${label} — ${noun} értéke`);
-      for (let value = 1; value <= max; value += 1) {
-        const chip = document.createElement('button');
-        chip.type = 'button';
-        chip.className = 'bm-chip';
-        chip.dataset.chipKey = key;
-        chip.dataset.chipValue = String(value);
-        chip.textContent = String(value);
-        chip.setAttribute('aria-pressed', String(values[key] === value));
-        chip.setAttribute('aria-label', `${label} — ${noun} ${value}`);
-        chip.addEventListener('click', () => {
-          // Minden érték visszavonható, az extra sorokban is: a „nincs
-          // megadva" valódi, mentett állapot (pain.general), nem csak
-          // kezdeti üresség. Ha nem lehetne visszatérni rá, egy
-          // félrekoppintás véglegesen rögzítene egy letiltó fájdalomértéket.
-          if (values[key] === value) clearValue(key); else setValue(key, value);
-        });
-        chips.appendChild(chip);
-      }
-      row.appendChild(chips);
+        const chips = document.createElement('div');
+        chips.className = 'bm-chips';
+        chips.setAttribute('role', 'group');
+        chips.setAttribute('aria-label', `${label} — ${noun} értéke`);
+        for (let value = 1; value <= max; value += 1) {
+          const chip = document.createElement('button');
+          chip.type = 'button';
+          chip.className = 'bm-chip';
+          chip.dataset.chipKey = key;
+          chip.dataset.chipValue = String(value);
+          chip.textContent = String(value);
+          chip.setAttribute('aria-pressed', String(values[key] === value));
+          chip.setAttribute('aria-label', `${label} — ${noun} ${value}`);
+          chip.addEventListener('click', () => {
+            // Minden érték visszavonható, az extra sorokban is: a „nincs
+            // megadva" valódi, mentett állapot (pain.general), nem csak
+            // kezdeti üresség. Ha nem lehetne visszatérni rá, egy
+            // félrekoppintás véglegesen rögzítene egy letiltó fájdalomértéket.
+            if (values[key] === value) clearValue(key);
+            else setValue(key, value);
+          });
+          chips.appendChild(chip);
+        }
+        row.appendChild(chips);
 
-      // A „letiltva" jelzés CSAK a régióhoz köthető sorokra vonatkozik. Az
-      // extra sorok (általános fájdalom) nem tiltanak gyakorlatot: a motor a
-      // painfulGroups halmazt kizárólag az izomcsoportonkénti pain[group]
-      // értékekből építi, az általános fájdalom csak az összesített
-      // készenlétet sapkázza. A jelzés ott olyan következményt ígérne, ami
-      // sosem következik be.
-      if (blocks && blockFrom !== null && values[key] >= blockFrom) {
-        const warn = document.createElement('span');
-        warn.className = 'bm-row-warn';
-        warn.textContent = 'letiltva';
-        row.appendChild(warn);
-      }
-      return row;
-    }));
+        // A „letiltva" jelzés CSAK a régióhoz köthető sorokra vonatkozik. Az
+        // extra sorok (általános fájdalom) nem tiltanak gyakorlatot: a motor a
+        // painfulGroups halmazt kizárólag az izomcsoportonkénti pain[group]
+        // értékekből építi, az általános fájdalom csak az összesített
+        // készenlétet sapkázza. A jelzés ott olyan következményt ígérne, ami
+        // sosem következik be.
+        if (blocks && blockFrom !== null && values[key] >= blockFrom) {
+          const warn = document.createElement('span');
+          warn.className = 'bm-row-warn';
+          warn.textContent = 'letiltva';
+          row.appendChild(warn);
+        }
+        return row;
+      }),
+    );
 
     if (focused?.key) restoreFocus(focused);
   }
 
   /** A fókusz visszahelyezése a sorok újraépítése után. */
   function restoreFocus({ key, value }) {
-    const sameChip = rows.querySelector(
-      `[data-chip-key="${key}"][data-chip-value="${value}"]`);
-    if (sameChip) { sameChip.focus(); return; }
+    const sameChip = rows.querySelector(`[data-chip-key="${key}"][data-chip-value="${value}"]`);
+    if (sameChip) {
+      sameChip.focus();
+      return;
+    }
     // A sor eltűnt, mert az érték törlődött. A fókusz ilyenkor az izomcsoport
     // térkép-régiójára megy: az ugyanannak az adatnak a másik vezérlője,
     // tehát a felhasználó ott folytathatja, ahol abbahagyta.
@@ -318,7 +353,10 @@ function createBodyMap({
 
   return {
     el,
-    refresh() { renderStage(); renderRows(); },
+    refresh() {
+      renderStage();
+      renderRows();
+    },
   };
 }
 

@@ -7,7 +7,14 @@ import { shared } from '../core/page-hooks.js';
 import { prefs } from '../core/prefs.js';
 import { showToast } from '../core/toast.js';
 import { animateCoachRatings } from '../nav/router.js';
-import { ATHLETE_CARD_STATS, athleteTier, orDash, renderCoachPanel, renderInviteRow, renderPlanOffer } from '../render/coach.js';
+import {
+  ATHLETE_CARD_STATS,
+  athleteTier,
+  orDash,
+  renderCoachPanel,
+  renderInviteRow,
+  renderPlanOffer,
+} from '../render/coach.js';
 import { renderPlans } from '../render/plans.js';
 import { CONFIDENCE_LABELS } from '../render/recovery.js';
 import { createChatController, relativeTime } from './chat.js';
@@ -241,18 +248,22 @@ function setupAthleteModal({ confirmAction, onUnlink, onRead, onAssign } = {}) {
       egyikük sem írhatja felül a másikat. */
   function renderAthleteGoal(athlete) {
     const goal = athlete.nutritionGoal;
-    if (!goal) { goalStateEl.textContent = ''; return; }
+    if (!goal) {
+      goalStateEl.textContent = '';
+      return;
+    }
 
     if (goal.source === 'own') {
       goalStateEl.textContent = goal.coach
-        ? `A kitűzött célod ${formatNumber(goal.coach.calories)} kcal · `
-          + `${formatNumber(goal.coach.protein)} g, de ${athlete.name} `
-          + `${formatNumber(goal.calories)} kcal · ${formatNumber(goal.protein)} g-ot állított be magának.`
-        : `${athlete.name} saját célja: ${formatNumber(goal.calories)} kcal · `
-          + `${formatNumber(goal.protein)} g fehérje. Amit kitűzöl, azt ő látni fogja.`;
+        ? `A kitűzött célod ${formatNumber(goal.coach.calories)} kcal · ` +
+          `${formatNumber(goal.coach.protein)} g, de ${athlete.name} ` +
+          `${formatNumber(goal.calories)} kcal · ${formatNumber(goal.protein)} g-ot állított be magának.`
+        : `${athlete.name} saját célja: ${formatNumber(goal.calories)} kcal · ` +
+          `${formatNumber(goal.protein)} g fehérje. Amit kitűzöl, azt ő látni fogja.`;
     } else if (goal.source === 'coach') {
-      goalStateEl.textContent = `Érvényben: ${formatNumber(goal.calories)} kcal · `
-        + `${formatNumber(goal.protein)} g fehérje — ezt te tűzted ki.`;
+      goalStateEl.textContent =
+        `Érvényben: ${formatNumber(goal.calories)} kcal · ` +
+        `${formatNumber(goal.protein)} g fehérje — ezt te tűzted ki.`;
     } else {
       goalStateEl.textContent = 'Még nincs kitűzött cél — az alapértelmezett szám szól.';
     }
@@ -268,7 +279,9 @@ function setupAthleteModal({ confirmAction, onUnlink, onRead, onAssign } = {}) {
     submit.disabled = true;
     try {
       current.nutritionGoal = await api.setAthleteNutritionGoal(
-        current.linkId, Number(goalCaloriesInput.value), Number(goalProteinInput.value),
+        current.linkId,
+        Number(goalCaloriesInput.value),
+        Number(goalProteinInput.value),
       );
       renderAthleteGoal(current);
       showToast('Napi cél kitűzve');
@@ -311,9 +324,8 @@ function setupAthleteModal({ confirmAction, onUnlink, onRead, onAssign } = {}) {
       });
 
       activityEl.replaceChildren();
-      const entries = athlete.recent.length > 0
-        ? athlete.recent
-        : ['Még nincs naplózott aktivitás.'];
+      const entries =
+        athlete.recent.length > 0 ? athlete.recent : ['Még nincs naplózott aktivitás.'];
       entries.forEach((entry, index) => {
         const li = document.createElement('li');
         li.style.setProperty('--i', index);
@@ -399,10 +411,14 @@ async function setupCoachPage(athleteModal, confirmAction) {
     }
 
     inviteList.replaceChildren();
-    invites.forEach((invite) => inviteList.appendChild(renderInviteRow(invite, [
-      { label: 'Elfogadás', action: 'accept-invite', variant: 'primary' },
-      { label: 'Elutasítás', action: 'decline-invite' },
-    ])));
+    invites.forEach((invite) =>
+      inviteList.appendChild(
+        renderInviteRow(invite, [
+          { label: 'Elfogadás', action: 'accept-invite', variant: 'primary' },
+          { label: 'Elutasítás', action: 'decline-invite' },
+        ]),
+      ),
+    );
 
     offerLead.hidden = planOffers.length === 0;
     offerList.replaceChildren();
@@ -428,12 +444,16 @@ async function setupCoachPage(athleteModal, confirmAction) {
     const invites = coachData.invites.length;
     const offers = (coachData.planOffers ?? []).length;
     const coachUnread = coachData.coach?.unread ?? 0;
-    setBadge(inviteBadge, invites + offers + coachUnread, () => [
-      'Edződ',
-      invites > 0 ? `${invites} új meghívó` : null,
-      offers > 0 ? `${offers} felajánlott terv` : null,
-      coachUnread > 0 ? `${coachUnread} olvasatlan üzenet` : null,
-    ].filter(Boolean).join(' — '));
+    setBadge(inviteBadge, invites + offers + coachUnread, () =>
+      [
+        'Edződ',
+        invites > 0 ? `${invites} új meghívó` : null,
+        offers > 0 ? `${offers} felajánlott terv` : null,
+        coachUnread > 0 ? `${coachUnread} olvasatlan üzenet` : null,
+      ]
+        .filter(Boolean)
+        .join(' — '),
+    );
 
     const athleteUnread = panel.athletes.reduce((sum, athlete) => sum + athlete.unread, 0);
     setBadge(athleteBadge, athleteUnread, () => `Edzetteim — ${athleteUnread} olvasatlan üzenet`);

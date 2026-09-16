@@ -1,17 +1,21 @@
 # FitTrack Pro — PR (Personal Record) Tracking Implementation Guide
 
 ## Overview
+
 This guide documents the automatic PR tracking system implemented for FitTrack Pro using the **Epley formula** to calculate estimated 1RM (one-rep maximum) from any set.
 
 ## The Epley Formula
+
 $$1\text{RM} = w \times \left( 1 + \frac{r}{30} \right)$$
 
 Where:
+
 - **w** = weight lifted (kg)
 - **r** = number of reps completed
 - **1RM** = estimated one-rep maximum
 
 ### Examples:
+
 - 5 reps @ 100 kg → 1RM = 100 × (1 + 5/30) = **116.7 kg**
 - 10 reps @ 80 kg → 1RM = 80 × (1 + 10/30) = **86.7 kg**
 - 1 rep @ 120 kg → 1RM = 120 × (1 + 1/30) = **124 kg**
@@ -21,6 +25,7 @@ Where:
 ### Database Changes
 
 #### New Table: `exercise_maxes`
+
 ```sql
 CREATE TABLE exercise_maxes (
   exercise_name TEXT PRIMARY KEY,    -- The exercise name
@@ -35,6 +40,7 @@ This table stores the highest estimated 1RM for each exercise, tracking personal
 ### Backend Functions (server/db.js)
 
 #### 1. Calculate Epley 1RM
+
 ```javascript
 export function calculateEpley1RM(weight, reps) {
   return weight * (1 + reps / 30);
@@ -42,6 +48,7 @@ export function calculateEpley1RM(weight, reps) {
 ```
 
 #### 2. Get Exercise Maximum
+
 ```javascript
 export function getExerciseMax(exerciseName) {
   // Returns: { max1rm: number, date: string } or null
@@ -49,6 +56,7 @@ export function getExerciseMax(exerciseName) {
 ```
 
 #### 3. Update Exercise Maximum
+
 ```javascript
 export function updateExerciseMax(exerciseName, new1rm, currentDate) {
   // Compares new1rm with stored max
@@ -99,13 +107,16 @@ Returns the 6 most recent PR-marked exercises with:
 ## Frontend Implementation
 
 ### PR List Display
+
 The `renderPrs()` function in `public/js/render/prs.js`:
+
 - Fetches PR data from `/api/prs`
 - Displays exercise name
 - Shows set details with calculated 1RM value
 - Shows workout date
 
 ### Visual Indicators
+
 - PR flag button shows when an exercise is marked as PR
 - 1RM values are displayed to 1 decimal place for precision
 - List updates automatically after logging a workout
@@ -113,6 +124,7 @@ The `renderPrs()` function in `public/js/render/prs.js`:
 ## Workflow
 
 ### User Perspective
+
 1. **Log a workout:**
    - Enter exercise name, sets (reps × weight)
    - System automatically calculates 1RM during save
@@ -128,6 +140,7 @@ The `renderPrs()` function in `public/js/render/prs.js`:
    - No manual PR marking needed!
 
 ### Key Advantages
+
 ✅ **Automatic detection** — No manual PR marking required
 ✅ **Accurate estimation** — Epley formula works for any rep range
 ✅ **Complete history** — All records stored in database
@@ -158,16 +171,19 @@ Frontend renders PR list with 1RM values
 ## Technical Notes
 
 ### Error Handling
+
 - Invalid weight/reps values (non-numeric, ≤0) are skipped
 - If no valid sets exist: No 1RM calculation
 - Empty exercise lists rejected at API validation level
 
 ### Precision
+
 - 1RM values stored as REAL (float) in database
 - Displayed to 1 decimal place: `value.toFixed(1)`
 - Stored with full precision for future calculations
 
 ### Database Consistency
+
 - `exercise_maxes` uses exercise name as primary key
 - Prevents duplicate tracking of same exercise
 - `date` field tracks when max was achieved
@@ -176,16 +192,19 @@ Frontend renders PR list with 1RM values
 ## Testing the Implementation
 
 ### Test Scenario 1: First-Time PR
+
 1. Create new exercise "Bench Press"
 2. Log workout: 5 reps @ 100 kg
 3. Expected: Marked as PR, 1RM calculated as 116.7 kg
 
 ### Test Scenario 2: Beat Previous PR
+
 1. Previous max for "Squat": 150 kg (1RM)
 2. New workout: 8 reps @ 130 kg → 1RM = 130 × (1 + 8/30) = 164.7 kg
 3. Expected: Marked as PR, updated maximum shown
 
 ### Test Scenario 3: Miss Previous PR
+
 1. Previous max for "Deadlift": 200 kg (1RM)
 2. New workout: 3 reps @ 180 kg → 1RM = 180 × (1 + 3/30) = 198 kg
 3. Expected: Not marked as PR, max stays 200 kg
@@ -194,17 +213,17 @@ Frontend renders PR list with 1RM values
 
 ```sql
 -- View all recorded exercise maxes
-SELECT exercise_name, max_1rm, date 
-FROM exercise_maxes 
+SELECT exercise_name, max_1rm, date
+FROM exercise_maxes
 ORDER BY date DESC;
 
 -- View single exercise max
-SELECT * FROM exercise_maxes 
+SELECT * FROM exercise_maxes
 WHERE exercise_name = 'Squat';
 
 -- View all workouts with their exercises
-SELECT id, name, date, exercises 
-FROM workouts 
+SELECT id, name, date, exercises
+FROM workouts
 ORDER BY id DESC;
 ```
 
@@ -220,6 +239,7 @@ ORDER BY id DESC;
 ## References
 
 The Epley formula for estimating 1RM is a widely-used formula in strength training:
+
 - Created by fitness researcher Boyd Epley
 - Works well for reps 1-10
 - More accurate than Brzycki for higher reps (8-15)
