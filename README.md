@@ -130,8 +130,19 @@ server/
   migration.test.js  a fiókok előtti adatbázis migrációjának tesztje (npm test)
   errors.js      hibakezelő védőháló: kezelő-becsomagolás, JSON-hibaválasz, folyamat-őrök
   errors.test.js a védőháló tesztjei (npm test)
+  ratelimit.js   kérés-korlátozás: rögzített ablakos számláló memóriában — tiszta függvények
+  ratelimit.test.js  a korlátozó unit-tesztjei (npm test)
   db.js          SQLite adatréteg — az egyetlen modul, ami a tárolást ismeri
-  data.js        seed / referencia-adat (ételek, gyakorlat-katalógus, edzés-célok)
+  cache.test.js  a kollekció-cache szerződése: mi osztozik és mi nem (npm test)
+  messages.test.js  az üzenet-olvasottság migrációja és számlálója (npm test)
+  prs.test.js    az egyéni csúcsok fiókonkénti elkülönítése (npm test)
+  data.js        seed / referencia-adat (edzés-célok és egyéb vegyes seed)
+  data/          a nagy referencia-katalógusok forrásai
+    catalog.js   a gyakorlat- és étel-katalógus összeállítása a seed előtt
+    exercises.hu.js    kézzel kurált gyakorlatok
+    exercises.exdb.js  a külső datasetből GENERÁLT gyakorlatok (npm run exdb:build — kézzel ne szerkeszd)
+    exdb.map.js, exdb.names.hu.js  a generálás leképezése és angol → magyar névszótára
+    foods.hu.js  az étel-katalógus
   openfoodfacts.js  vonalkód-ellenőrzés + Open Food Facts proxy (a kliens nem hívja közvetlenül)
   openfoodfacts.test.js  a leképezés és a vonalkód-normalizálás tesztjei (npm test)
   recovery.js    Recovery Engine — a készenlét-számítás (tiszta függvények, DB nélkül)
@@ -139,8 +150,19 @@ server/
   coaching.js    az edzői panel sportoló-összegzője (tiszta függvények, DB nélkül)
   coaching.test.js  az összegző unit-tesztjei (npm test)
   coach.test.js  az edző–sportoló kapcsolat végponti tesztjei (npm test)
+  notifications.js  az értesítés-panel sorai valódi eseményekből — tiszta függvények
+  notifications.test.js  az értesítés-összeállítás tesztjei (npm test)
   muscles.js     izomcsoport-taxonómia + gyakorlat → izom leképezés
+  logmode.js     a gyakorlatok naplózási módja (ismétlés + súly vagy időtartam)
+  test-harness.js  közös váz a végponti tesztekhez: izolált szerver saját ideiglenes adatbázissal
+  api.test.js    végponti (HTTP) tesztek a valódi szerveren (npm test)
+  account.test.js  jelszóváltoztatás és fióktörlés végponti tesztjei (npm test)
+  security.test.js  biztonsági végponti tesztek: belépési korlát, kizárás, méretkorlátok (npm test)
+  timezone.test.js  a kérés napja (X-Client-Date) végponti tesztjei (npm test)
   fittrack.db    az adatbázisfájl (nem verziókövetett, a szerver hozza létre)
+scripts/
+  build-exdb.js  a server/data/exercises.exdb.js generálása (npm run exdb:build)
+  fetch-exdb-media.js  a hivatkozott gyakorlat-képek letöltése a public/exercises/ alá (npm run exdb:media)
 ```
 
 Az adat kétféle: a `collections` táblában a **csak olvasható** referencia-adat,
@@ -527,7 +549,9 @@ Ezek szándékos egyszerűsítések, nem hibák:
   időzónára elég, visszadátumozásra viszont nem használható). Hiányzó vagy
   gyanús fejléc esetén a szerver saját napja marad.
 - **Nincs pulzus/HRV adatforrás.** Nincs okosóra-integráció, ezért a Recovery
-  Engine hat komponensből számol, nem hétből (lásd fentebb).
+  Engine képletéből kimarad a HRV/pulzus: a készenlét a fenti táblázat hét
+  komponenséből számol, amelyek mind az app saját adataiból jönnek (lásd
+  fentebb).
 - **Az üzenetek frissítése lekérdezéssel megy**, nem websockettel: a látható
   beszélgetés 20 másodpercenként és minden oldalra lépéskor frissül. Kis
   felhasználószámnál ez elég; sok egyidejű felhasználónál SSE vagy websocket
