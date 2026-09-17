@@ -19,7 +19,7 @@
  *   - ÖSSZPONTSZÁM (rating): a készenlét és a terv-követés átlaga; terv nélkül
  *     maga a készenlét. Ebből jön a kártya szintje (arany/ezüst/bronz).
  */
-import { parseDate, dayKey, DAY_MS } from './recovery.js';
+import { parseDate, dayKey, daysBetween, formatDecimal, shiftDayKey } from './recovery.js';
 
 /** A terv-követés ablaka: 4 teljes hét, a MAI napot nem beleszámítva — a ma
     még hátralévő edzés nem számítható elmaradásnak. */
@@ -39,10 +39,33 @@ const INACTIVE_DAYS = 7; // ennyi napja nem edzett → jelzés
 export function relativeDay(dateStr, todayKey) {
   const key = dayKey(dateStr);
   if (!Number.isFinite(key)) return null;
-  const diff = Math.round((todayKey - key) / DAY_MS);
+  const diff = daysBetween(key, todayKey);
   if (diff <= 0) return 'ma';
   if (diff === 1) return 'tegnap';
   return `${diff} napja`;
+}
+
+/** Hány napja edzel megszakítás nélkül, puszta NAPOKBÓL. A mai naptól számol
+    visszafelé; ha ma még nem volt edzés, tegnaptól — így a sorozat nem törik
+    meg attól, hogy a mai edzés még előtted áll. Az edzői panel a teljes
+    előzmény napjaiból hívja (getWorkoutDates), a profil és az áttekintő a
+    mentett edzésekéből (server.js → trainingStreak).
+
+    Tiszta függvény, ezért él itt és nem a server.js-ben: így tesztelhető
+    (dst.test.js). Naptári lépés (shiftDayKey), nem 24 órás: az
+    óraátállításnál a 24 órás lépés nem éjfélre esett, és a sorozat ott
+    megszakadt. */
+export function streakFromDates(dates, today) {
+  const trainedDays = new Set(dates.map(dayKey));
+  const todayKey = dayKey(today);
+
+  let streak = 0;
+  let cursor = trainedDays.has(todayKey) ? todayKey : shiftDayKey(todayKey, -1);
+  while (trainedDays.has(cursor)) {
+    streak += 1;
+    cursor = shiftDayKey(cursor, -1);
+  }
+  return streak;
 }
 
 /** A hétnap indexe hétfőtől számolva (0 = hétfő … 6 = vasárnap). */
@@ -78,18 +101,18 @@ const cardioMinutes = (workout) =>
 export function weekProgress({ workouts, plans, today }) {
   const todayKey = dayKey(today);
   const weekday = weekdayOf(today);
-  const monday = todayKey - weekday * DAY_MS;
+  const monday = shiftDayKey(todayKey, -weekday);
   const trained = trainingDayKeys(workouts);
   const scheduled = scheduledWeekdays(plans);
 
   let done = 0;
   for (let i = 0; i <= weekday; i += 1) {
-    if (trained.has(monday + i * DAY_MS)) done += 1;
+    if (trained.has(shiftDayKey(monday, i))) done += 1;
   }
 
   let missed = 0;
   for (const day of scheduled) {
-    if (day < weekday && !trained.has(monday + day * DAY_MS)) missed += 1;
+    if (day < weekday && !trained.has(shiftDayKey(monday, day))) missed += 1;
   }
 
   return { done, target: scheduled.size, missed };
@@ -113,9 +136,11 @@ export function adherence({ workouts, plans, today }) {
   let planned = 0;
   let done = 0;
 
-  // Tegnaptól visszafelé 28 nap — a mai nap szándékosan kimarad.
+  // Tegnaptól visszafelé 28 nap — a mai nap szándékosan kimarad. Naptári
+  // lépéssel (shiftDayKey), nem 24 órással: az óraátállításon túli napok
+  // különben egyetlen edzésnappal sem egyeztek, és a követés 36%-ra esett.
   for (let back = 1; back <= WINDOW_DAYS; back += 1) {
-    const key = todayKey - back * DAY_MS;
+    const key = shiftDayKey(todayKey, -back);
     if (scheduled.has((new Date(key).getDay() + 6) % 7)) planned += 1;
     if (trained.has(key)) done += 1;
   }
@@ -125,9 +150,21 @@ export function adherence({ workouts, plans, today }) {
 }
 
 /** Az összpontszám: a készenlét és a terv-követés átlaga (terv nélkül maga a
-    készenlét). A kártya szintje (arany/ezüst/bronz) ebből jön a felületen. */
-export const athleteRating = (readiness, adherenceValue) =>
-  adherenceValue === null ? Math.round(readiness) : Math.round((readiness + adherenceValue) / 2);
+    készenlét, készenlét nélkül maga a terv-követés). A kártya szintje
+    (arany/ezüst/bronz) ebből jön a felületen.
+
+    A készenlét lehet null (a motor nem tud mit mondani: nincs check-in, edzés
+    és mérhető táplálkozás). Ez NEM nulla — korábban a Math.round(null) 0-t
+    adott, és a kártya „0 pont, bronz" mellé „készenlét 0%" riasztást tett.
+    Ha egyik jel sincs, a pontszám is null. */
+export const athleteRating = (readiness, adherenceValue) => {
+  if (readiness === null || readiness === undefined) {
+    return adherenceValue === null ? null : Math.round(adherenceValue);
+  }
+  return adherenceValue === null
+    ? Math.round(readiness)
+    : Math.round((readiness + adherenceValue) / 2);
+};
 
 /**
  * A kártya állapot-sora. Legfeljebb KÉT ok kerül bele, súlyosság szerint:
@@ -155,7 +192,10 @@ export function athleteAlert({
   } else if (daysSinceWorkout >= INACTIVE_DAYS) {
     reasons.push(`${daysSinceWorkout} napja nem edzett`);
   }
-  if (readiness < LOW_READINESS) reasons.push(`készenlét ${Math.round(readiness)}%`);
+  // A hiányzó készenlét nem alacsony készenlét — arról a check-in sor szól
+  if (readiness !== null && readiness !== undefined && readiness < LOW_READINESS) {
+    reasons.push(`készenlét ${Math.round(readiness)}%`);
+  }
   if (daysSinceCheckin === null) {
     if (activeDays >= STALE_CHECKIN_DAYS) reasons.push('nincs kitöltött check-in');
   } else if (daysSinceCheckin >= STALE_CHECKIN_DAYS) {
@@ -193,11 +233,16 @@ export function recentActivity({ workouts, checkins, weightLog, today }) {
       const best = (exercise.sets ?? [])
         .filter((set) => set.done)
         .reduce((a, b) => (Number(b.weight) > Number(a?.weight ?? -Infinity) ? b : a), null);
-      add(workout.date, `Új PR: ${exercise.name}${best ? ` ${best.weight} kg` : ''}`);
+      add(
+        workout.date,
+        `Új PR: ${exercise.name}${best ? ` ${formatDecimal(best.weight)} kg` : ''}`,
+      );
     }
   }
   for (const checkin of checkins) add(checkin.date, 'Regenerációs check-in kitöltve');
-  for (const entry of weightLog) add(entry.date, `Testsúly rögzítve: ${entry.kg} kg`);
+  for (const entry of weightLog) {
+    add(entry.date, `Testsúly rögzítve: ${formatDecimal(entry.kg)} kg`);
+  }
 
   return events
     .sort((a, b) => b.key - a.key)
@@ -251,7 +296,7 @@ export function buildAthleteCard({
   const lastWorkoutDate = allDates[0] ?? null;
   const lastCheckin = checkins[0] ?? null;
   const daysSince = (dateStr) =>
-    dateStr ? Math.max(0, Math.round((todayKey - dayKey(dateStr)) / DAY_MS)) : null;
+    dateStr ? Math.max(0, daysBetween(dayKey(dateStr), todayKey)) : null;
 
   /* Mióta használja egyáltalán az appot: a legrégebbi naplózott nap (edzés
      vagy check-in) óta eltelt napok. A listák legújabbal kezdődnek, tehát a
@@ -266,10 +311,10 @@ export function buildAthleteCard({
     username: athlete.username,
     name: athlete.name,
     goal: athlete.goal ?? null,
-    readiness: Math.round(readiness),
-    /* Mennyire megbízható a fenti szám. Ez NEM dísz: napló nélküli fiókra a
-       motor 100%-ot ad (nincs mit levonni), és az edző ezt „arany szintnek"
-       olvasná. A modál kiírja, hogy min alapul. */
+    readiness: readiness === null || readiness === undefined ? null : Math.round(readiness),
+    /* Mennyire megbízható a fenti szám. Ez NEM dísz: kevés naplónál a motor
+       általános referenciával számol, és az edző a magas számot „arany
+       szintnek" olvasná. A modál kiírja, hogy min alapul. */
     confidence,
     adherence: adherenceValue,
     rating: athleteRating(readiness, adherenceValue),

@@ -105,6 +105,32 @@ test('az összpontszám terv nélkül maga a készenlét', () => {
   assert.equal(athleteRating(81, 90), 86, 'kerekít');
 });
 
+test('hiányzó készenlét: nem nulla, nem riaszt, a pontszám a terv-követésből jön', () => {
+  assert.equal(athleteRating(null, null), null, 'se készenlét, se terv: nincs pontszám');
+  assert.equal(athleteRating(null, 75), 75, 'csak terv-követés');
+  assert.equal(
+    athleteAlert({ missed: 0, daysSinceWorkout: 1, readiness: null, daysSinceCheckin: 0 }),
+    null,
+    'a null nem „készenlét 0%"',
+  );
+
+  const card = buildAthleteCard({
+    athlete: { linkId: 9, username: 'adatlan', name: 'Adat Nélkül', goal: null },
+    workouts: [],
+    plans: [],
+    checkins: [],
+    weightLog: [],
+    readiness: null,
+    confidence: 'low',
+    streak: 0,
+    lastMessage: null,
+    today: TODAY,
+  });
+  assert.equal(card.readiness, null);
+  assert.equal(card.rating, null);
+  assert.equal(card.alert, null);
+});
+
 test('a riasztás a súlyosabb okokat mondja, legfeljebb kettőt', () => {
   const alert = athleteAlert({
     missed: 3,
@@ -214,7 +240,7 @@ test('a legutóbbi aktivitás a naplókból fésülődik össze, legújabb elöl
     'a PR a legnehezebb szettel',
   );
   assert.ok(list.some((entry) => entry === 'Erőnap · 2 munkasorozat — tegnap'));
-  assert.ok(list.some((entry) => entry === 'Testsúly rögzítve: 82.4 kg — 3 napja'));
+  assert.ok(list.some((entry) => entry === 'Testsúly rögzítve: 82,4 kg — 3 napja'));
 });
 
 test('a bemelegítő szett nem munkasorozat', () => {

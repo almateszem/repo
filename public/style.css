@@ -3277,6 +3277,13 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   --tier-border: rgba(205, 149, 105, 0.34);
 }
 
+/* Még nincs pontszám (se készenlét, se terv-követés): semleges, nem bronz */
+.co-tier--none {
+  --tier: var(--text-muted);
+  --tier-soft: transparent;
+  --tier-border: var(--hair);
+}
+
 /* ---- Sportoló-kártya rács ---- */
 /* A pajzs-kártyás rács sorlistává vált. A `display: grid` és az auto-fill
    elmarad: két 158px-es oszlopban a név, a két statisztika és az idézett
