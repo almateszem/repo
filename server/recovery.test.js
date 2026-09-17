@@ -907,3 +907,95 @@ test('a régi skála maximuma (5) már csak félúton van', () => {
   const chest = report.muscles.find((m) => m.key === 'chest');
   assert.equal(chest.readiness, 50);
 });
+
+/* ======================================================================
+   Kardió: szesszió-RPE terhelés (kalibrálva 2026-09-17)
+   A kalibráció horgonya: 1 AU = 0,02 t, vagyis 90 perc „Magas" (5) futás =
+   450 AU = 9 t — ugyanannyi, mint egy 9 tonnás súlyzós nap RPE 8-on.
+   ====================================================================== */
+
+const cardio = (minutes, intensity, done = true, name = 'Futópad') => ({
+  name,
+  pr: false,
+  logMode: 'duration',
+  sets: [{ duration: String(minutes * 60), intensity, weight: '', done }],
+});
+
+const loadScore = (report) => report.components.find((c) => c.key === 'load').score;
+
+test('a kemény futóedzés TERHEL — korábban a motor nullát látott belőle', () => {
+  const rested = restedLogger();
+  const ran = restedLogger({ workouts: [workout(0, 'Futás', [cardio(60, 'high')])] });
+  assert.equal(loadScore(rested), 100);
+  assert.ok(loadScore(ran) < 100, `a terhelés-komponens leesett (${loadScore(ran)})`);
+  assert.ok(ran.overall < rested.overall, 'és vele az összesített készenlét is');
+});
+
+test('kalibráció: 90 perc „Magas" futás = egy 9 tonnás súlyzós nap', () => {
+  const lifting = restedLogger({
+    workouts: [workout(0, 'Erő', [exercise('Guggolás', Array(9).fill(set(5, 200, 8)))])],
+  });
+  const running = restedLogger({ workouts: [workout(0, 'Futás', [cardio(90, 'high')])] });
+  assert.equal(loadScore(running), loadScore(lifting));
+});
+
+test('a terhelés az intenzitással és az idővel is nő', () => {
+  const scores = ['veryLow', 'low', 'moderate', 'high', 'max'].map((level) =>
+    loadScore(restedLogger({ workouts: [workout(0, 'K', [cardio(60, level)])] })),
+  );
+  for (let i = 1; i < scores.length; i++) {
+    assert.ok(scores[i] < scores[i - 1], `a fokozatok szigorúan rontanak: ${scores.join(' > ')}`);
+  }
+  const short = loadScore(restedLogger({ workouts: [workout(0, 'K', [cardio(20, 'high')])] }));
+  assert.ok(short > scores[3], 'a rövidebb edzés kevesebbet terhel');
+});
+
+test('a be nem pipált és az idő nélküli kardió sor nem terhel', () => {
+  const notDone = restedLogger({ workouts: [workout(0, 'K', [cardio(60, 'max', false)])] });
+  const noTime = restedLogger({ workouts: [workout(0, 'K', [cardio(0, 'max')])] });
+  assert.equal(loadScore(notDone), 100);
+  assert.equal(loadScore(noTime), 100);
+});
+
+test('ismeretlen fokozat a skála közepét kapja, ahogy a mentés is', () => {
+  const unknown = restedLogger({ workouts: [workout(0, 'K', [cardio(60, 'kitalalt')])] });
+  const moderate = restedLogger({ workouts: [workout(0, 'K', [cardio(60, 'moderate')])] });
+  assert.equal(loadScore(unknown), loadScore(moderate));
+});
+
+test('idegrendszer: csak a Magas/Maximális fokozat terheli, azonos AU mellett is', () => {
+  // 50 perc × 3 = 150 AU és 30 perc × 5 = 150 AU: a szisztémás terhelés azonos.
+  const easy = restedLogger({ workouts: [workout(0, 'K', [cardio(50, 'moderate')])] });
+  const hard = restedLogger({ workouts: [workout(0, 'K', [cardio(30, 'high')])] });
+  const rested = restedLogger();
+  assert.equal(loadScore(easy), loadScore(hard));
+  assert.equal(easy.cns.readiness, rested.cns.readiness, 'közepes aerob munka nem CNS-teher');
+  assert.ok(hard.cns.readiness < easy.cns.readiness, 'a kemény fokozat igen');
+});
+
+test('a kardió nem terheli az izomcsoportokat, és nem szül gyakorlat-ajánlást', () => {
+  const rested = restedLogger();
+  const ran = restedLogger({
+    workouts: [
+      workout(0, 'Futás', [cardio(90, 'max')]),
+      workout(2, 'Futás', [cardio(90, 'max')]),
+      workout(4, 'Futás', [cardio(90, 'max')]),
+    ],
+  });
+  assert.deepEqual(
+    ran.muscles.map((m) => m.readiness),
+    rested.muscles.map((m) => m.readiness),
+  );
+  assert.deepEqual(ran.exercises, []);
+});
+
+test('testsúly-független: ugyanaz a futás ugyanakkora hányada a referenciának', () => {
+  const at = (kg) =>
+    loadScore(
+      restedLogger({
+        weightLog: [{ kg, date: TODAY }],
+        workouts: [workout(0, 'Futás', [cardio(60, 'high')])],
+      }),
+    );
+  assert.equal(at(60), at(100));
+});
