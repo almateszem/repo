@@ -2065,24 +2065,30 @@ export function recomputeExerciseMaxes(userId) {
      egy edzés törlése után eltűntek a felmérésre épülő ajánlások. Ezért ők a
      kiindulópont — pont úgy, ahogy mentéskor is az addWorkout hozzájuk méri
      a naplózott szettet (updateExerciseMax). */
-  const declared = db
-    .prepare(
-      `SELECT exercise_name, max_1rm, date FROM exercise_maxes
-        WHERE user_id = ? AND source = 'declared'`,
-    )
-    .all(userId);
+  const existing = new Map(
+    db
+      .prepare(
+        `SELECT exercise_name, max_1rm, date, source, updated_at FROM exercise_maxes
+          WHERE user_id = ?`,
+      )
+      .all(userId)
+      .map((row) => [row.exercise_name, row]),
+  );
   const rows = db
     .prepare(
-      'SELECT id, date, exercises, pr_rule FROM workouts WHERE user_id = ? ORDER BY date, id',
+      `SELECT id, date, exercises, pr_rule, created_at FROM workouts
+        WHERE user_id = ? ORDER BY date, id`,
     )
     .all(userId);
 
-  // gyakorlatnév → { max1rm, date, source }
+  // gyakorlatnév → { max1rm, date, source, bornAt }
   const best = new Map(
-    declared.map((row) => [
-      row.exercise_name,
-      { max1rm: row.max_1rm, date: row.date, source: 'declared' },
-    ]),
+    [...existing.values()]
+      .filter((row) => row.source === 'declared')
+      .map((row) => [
+        row.exercise_name,
+        { max1rm: row.max_1rm, date: row.date, source: 'declared', bornAt: row.updated_at },
+      ]),
   );
   const rewrites = []; // [{ id, exercises }] — csak a ténylegesen változó sorok
 
@@ -2113,7 +2119,14 @@ export function recomputeExerciseMaxes(userId) {
 
       const current = best.get(name);
       const isPr = !current || oneRM > current.max1rm;
-      if (isPr) best.set(name, { max1rm: oneRM, date: row.date, source: 'measured' });
+      if (isPr) {
+        best.set(name, {
+          max1rm: oneRM,
+          date: row.date,
+          source: 'measured',
+          bornAt: row.created_at,
+        });
+      }
 
       // A hiányzó és a false jelző ugyanaz — a régi sorokon nincs is `pr` mező
       if (Boolean(exercise.pr) !== isPr) {
@@ -2125,14 +2138,25 @@ export function recomputeExerciseMaxes(userId) {
   }
 
   const clear = db.prepare('DELETE FROM exercise_maxes WHERE user_id = ?');
-  const insert =
-    db.prepare(`INSERT INTO exercise_maxes (user_id, exercise_name, max_1rm, date, source)
-                             VALUES (?, ?, ?, ?, ?)`);
+  const insert = db.prepare(`INSERT INTO exercise_maxes
+                               (user_id, exercise_name, max_1rm, date, source, updated_at)
+                             VALUES (?, ?, ?, ?, ?, COALESCE(?, datetime('now')))`);
   const rewrite = db.prepare('UPDATE workouts SET exercises = ? WHERE id = ?');
 
   clear.run(userId);
   for (const [name, record] of best) {
-    insert.run(userId, name, record.max1rm, record.date, record.source);
+    /* Az updated_at a rekord SZÜLETÉSE — az értesítés-panel ebből dönti el,
+       mi „új" (notifications.js → notifSeenAt). Az újraépítés nem születés:
+       ha ugyanaz az edzés-nap viszi a rekordot, marad a régi időbélyeg (a
+       képlet-migráció csak az értéket számolja át); ha egy MÁSIK edzésre száll
+       át (törlés után), annak a mentési ideje. Korábban minden sor „most"
+       született, és a friss PR-ek egy törlés után újra olvasatlanként jöttek. */
+    const previous = existing.get(name);
+    const bornAt =
+      previous && previous.date === record.date && previous.source === record.source
+        ? previous.updated_at
+        : record.bornAt;
+    insert.run(userId, name, record.max1rm, record.date, record.source, bornAt);
   }
   for (const row of rewrites) rewrite.run(JSON.stringify(row.exercises), row.id);
 }
