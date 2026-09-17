@@ -390,7 +390,7 @@ seed-görbét mutatja, és ki is írja, hogy az demo-adat.
 | Energiaszint        | 0.15 | check-in, 1–5                                                       |
 | Stressz-regeneráció | 0.10 | check-in, 1–5 (fordítva)                                            |
 | Közérzet            | 0.10 | check-in, 1–5 — csak a részletes űrlap kérdezi, a varázsló nem      |
-| Edzésterhelés       | 0.15 | exponenciálisan csillapított tonnatömeg (τ = 3 nap)                 |
+| Edzésterhelés       | 0.15 | exponenciálisan csillapított tonnatömeg (τ = 3 nap), kardióval      |
 | Táplálkozás         | 0.05 | a **tegnapi** kalória/fehérje a célhoz mérve + hidratáció           |
 
 Ami nincs kitöltve, az nem nullaként számít bele: a súlya arányosan újraoszlik a
@@ -411,6 +411,15 @@ szét, mint bármelyik ki nem töltött mezőé.
   szett TÍPUSÁVAL is súlyozódik: bemelegítő 0, munkasorozat 1, drop set 0.5.
   A csillapítás csoportonként eltér: kis izmok τ = 1.5 nap, nagy tolók/húzók
   2.2, a hamstring/farizom/törzs 3.0 nap.
+- **Kardió terhelés** szesszió-RPE módszerrel (Foster): perc × a fokozat CR-10
+  értéke (Nagyon könnyű 1 · Könnyű 2 · Közepes 3 · Magas 5 · Maximális 8), majd
+  1 AU = 0,02 t átváltással a tonnatömeg skálájára, testsúllyal arányosan. A
+  horgony: egy kemény súlyzós nap ≈ 60 perc × 7 = 420 AU ≈ 9 t (online
+  forrásokkal ellenőrizve, ld. a recovery.js kommentjét) — így 90 perc „Magas”
+  futás annyit terhel, mint egy kemény súlyzós nap. A Magas és Maximális fokozat a
+  terhelés felével a CNS-t is terheli; az izomcsoportokat a kardió nem terheli
+  (ahhoz mozgásonként külön kalibráció kellene). A heti volumen-diagram és a
+  profil a kardió sort nem számolja munkasorozatnak.
 - **CNS-becslés**: az axiális összetett emelések, a magas RPE-s szettek és a
   PR-próbálkozások költsége, lassabb csillapítással (τ = 3.5 nap), az alvással
   szorozva.

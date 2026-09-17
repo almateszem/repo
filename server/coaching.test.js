@@ -233,6 +233,47 @@ test('a bemelegítő szett nem munkasorozat', () => {
   assert.equal(entry, 'Nap · 1 munkasorozat — ma');
 });
 
+test('a kardió nem munkasorozat, hanem perc — a futóedzés sem „0 munkasorozat"', () => {
+  const futas = {
+    date: daysAgo(0),
+    name: 'Futás',
+    exercises: [
+      {
+        name: 'Futópad',
+        logMode: 'duration',
+        sets: [{ duration: '2700', intensity: 'high', done: true }],
+      },
+    ],
+  };
+  const vegyes = {
+    date: daysAgo(1),
+    name: 'Láb',
+    exercises: [
+      { name: 'Guggolás', sets: [{ done: true, type: 'work', weight: '100' }] },
+      {
+        name: 'Szobabicikli',
+        logMode: 'duration',
+        sets: [{ duration: '600', intensity: 'low', done: true }],
+      },
+      {
+        name: 'Evezőgép',
+        logMode: 'duration',
+        sets: [{ duration: '900', intensity: 'low', done: false }],
+      },
+    ],
+  };
+  const list = recentActivity({
+    workouts: [futas, vegyes],
+    checkins: [],
+    weightLog: [],
+    today: TODAY,
+  });
+  assert.deepEqual(list, [
+    'Futás · 45 perc kardió — ma',
+    'Láb · 1 munkasorozat · 10 perc kardió — tegnap',
+  ]);
+});
+
 test('a kártya a mai hétnapra ütemezett tervet mutatja aktívként', () => {
   const card = buildAthleteCard({
     athlete: { linkId: 7, username: 'petra', name: 'Nagy Petra', goal: 'ERŐ' },
