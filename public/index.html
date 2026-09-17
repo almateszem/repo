@@ -797,6 +797,21 @@
             aria-label="Szűrés izomcsoportra"
           ></div>
 
+          <!-- Ajánlott gyakorlatok (js/ui/exercise-picker.js -> loadSuggestions):
+             az edzés címéből és a mai regeneráltságból, soronként kiírt
+             indoklással. Csak szűretlen listánál látszik — keresés vagy chip
+             mellett a felhasználó már maga választ. -->
+          <section
+            class="ep-suggest"
+            data-picker-suggest
+            aria-labelledby="title-picker-suggest"
+            hidden
+          >
+            <h3 class="ep-suggest-title ds-eyebrow" id="title-picker-suggest">Javasolt</h3>
+            <p class="ep-suggest-note" data-picker-suggest-note hidden></p>
+            <div class="ep-list" data-list="picker-suggestions"></div>
+          </section>
+
           <p class="ep-count" aria-live="polite">Találatok · <span data-picker-count>0</span></p>
 
           <div class="ep-list" data-list="picker-catalog"></div>
@@ -2820,6 +2835,8 @@
           <p class="ep-item-meta">
             <span class="ep-item-tag"></span><span class="ep-item-muscles ds-row-sub"></span>
           </p>
+          <!-- Csak a „Javasolt" blokk sorain: miért került ide a gyakorlat. -->
+          <p class="ep-item-reasons" hidden></p>
         </div>
         <button class="ep-item-toggle tap-target" type="button" aria-pressed="false"></button>
       </article>

@@ -11,9 +11,12 @@ A tematikus szakaszok (üzemeltetés, adatminőség, kódtérkép…) mindhárom
 részen belül alcímként élnek tovább, tehát egy témát a három rész
 ugyanazon alcíme alatt lehet végigolvasni.
 
-Állás (2026-09-13):   34 nyitott · 7 részben kész · 33 kész
+Állás (2026-09-17):   33 nyitott · 7 részben kész · 34 kész
 
-Utolsó frissítés: 2026-09-13, harmadik kör (biztonsági audit: IDOR nincs; a
+Utolsó frissítés: 2026-09-17 (4. funkció-ötlet kész: ajánlott gyakorlat a
+                  választóban — cím + regeneráltság, indoklással; ld. a 3.
+                  részt)
+Előző frissítés:  2026-09-13, harmadik kör (biztonsági audit: IDOR nincs; a
                   három MAGAS lelet javítva — memória-kimerítés a belépésnél,
                   fiók-kizárás, korlátlan mentés —, a KÖZEPES és ALACSONY
                   leletek nyitott tételként a BIZTONSÁG szakaszban. A
@@ -68,9 +71,9 @@ fájdalmat (0–10), 7/10 felett letiltja az érintett gyakorlatokat, és számo
 gyakorlat-szintű ajánlást konkrét súly/volumen javaslattal. Nem új motor
 kell hozzájuk, hanem hiányzó belépési pontok.
 
-SORRENDJAVASLAT: az erőfelmérés az első (a legkisebb kockázat, dokumentált
-hibát javít), és FELOLDÁS a gyakorlat-ajánláshoz — enélkül friss
-felhasználónak nincs miből ajánlani. A többi három egymástól független.
+SORRENDJAVASLAT: az erőfelmérés (1.) és az ajánlott gyakorlat (4.) kész, ld.
+a 3. részt. A maradék kettő (2. SOS gomb, 3. szezon-célsúly) egymástól
+független.
 
 [ ] 2. SOS sérülés gomb
     Edzés közben elérhető gomb: hol fáj, mennyire, mi közben. Rögzíti,
@@ -107,23 +110,6 @@ felhasználónak nincs miből ajánlani. A többi három egymástól független.
     MEGKÖTÉS: ütem-korlát kell. A modul számolja ki, mit jelent a cél heti
     százalékban, és kb. 1%/hét testsúly fölött jelezzen. Nem kell megtiltani,
     de egy „−15 kg 4 hét alatt" cél nem mehet át némán.
-
-[ ] 4. Ajánlott gyakorlat — a címből ÉS a regeneráltságból
-    A gyakorlat-választó ajánljon gyakorlatokat magától.
-    A CÍMBŐL OLVASÁS ÖNMAGÁBAN TÖRÉKENY: az emberek „Hétfő", „A nap",
-    „Push #3" néven mentenek. Ha nem talál, nem kapsz semmit, és azt sem
-    érted, miért.
-    A másik jel viszont már megvan, és ilyet más app nem tud: a
-    GET /api/readiness izomcsoportonkénti készenlétet ad. A választó pedig
-    már ismeri az edzés nevét (js/ui/exercise-picker.js -> setupExercisePicker, context.
-    nameInput), tehát a cím-egyezés is olcsó.
-    ELDÖNTVE: MINDKÉT JEL, EGYENRANGÚAN — de minden javaslat írja ki, MIÉRT
-    került oda („a címből: Láb" / „88% regenerált"). Két összekevert jel
-    indoklás nélkül kiszámíthatatlannak látszana.
-    MEGKÖTÉS: fájdalommal letiltott csoport (painBlocked) SOSEM kerülhet a
-    javaslatok közé — ezt a cím sem írhatja felül.
-    Ha a címből nincs értelmezhető szó, a lista essen vissza a
-    regeneráltságra, ne maradjon üres.
 
 --------------------------------------------------------------------------
 FELDERÍTETT HIÁNYOK — a végpontlistából, 2026-08-27
@@ -930,6 +916,40 @@ EDZŐ–SPORTOLÓ KAPCSOLAT — a 2026-08-25-i átállás után maradt tételek
 
     FELOLDÁS a 4. ponthoz (ajánlott gyakorlat): innentől friss fióknak is van
     miből ajánlani.
+
+[x] 4. Ajánlott gyakorlat — a címből ÉS a regeneráltságból   (2026-09-17)
+    A gyakorlat-választó tetején „Javasolt" blokk, soronként kiírt okkal
+    („a címből: Láb" / „Mell 92% regenerált"). Tiszta modul:
+    server/suggestions.js, végpont: GET /api/exercise-suggestions?title=
+    &readiness=1. Mindhárom kikötés tartva, tesztekkel:
+      · a fájdalommal letiltott csoport (7/10 felett) sosem kerül be, a cím
+        sem írja felül — és az a gyakorlat sem, ami csak MÁSODLAGOSAN terheli;
+      · értelmezhetetlen címnél („Hétfő") a regeneráltság marad, a blokk ezt
+        ki is írja;
+      · a két jel EGYENRANGÚ.
+    AMIT TERVEZÉSKOR NEM LÁTTUNK ELŐRE (valódi adaton mérve): a készenlét
+    szerinti rendezés NEM egyenrangú. Kemény lábnap másnapján a „Lábnap"
+    csoportjai 60% körül, a pihent felsőtest 100%-on áll, így a nyolcas
+    korlát előtt csak felsőtest maradt — a „Lábnap"-ra egyetlen lábgyakorlat
+    sem jött. Ezért: elöl, amit mindkét jel támogat, utána cím és
+    regeneráltság VÁLTAKOZVA. A fáradt címcsoport „Quadriceps csak 62%
+    regenerált" figyelmeztetést kap — nem tiltás, de nem is rábólintás.
+    DÖNTÉSEK, amiket a tétel nem rögzített, és felülvizsgálhatók:
+      · A TERV-ÉPÍTŐ csak a címet nézi: egy jövőbeli tervről a mai készenlét
+        nem mond semmit. Az edzésnapló mindkét jelet kéri.
+      · „Regenerált" = legalább 80% (a recovery.js „normál intenzitás" sávja).
+      · Sapkás napon egy izom sem lehet jobb a napnál (a 2026-09-13-i
+        exerciseReadiness `ceiling` elve) — cím nélkül ilyenkor nincs
+        javaslat. A fájdalom az egész napot sapkázza, tehát egy fájó mell
+        mellett a pihent hátra sem jön „regenerált" indoklás.
+      · Csoportonként 2, összesen 8 gyakorlat; kardió és nyújtás kimarad.
+        Sorrend: a felhasználó által már naplózott, utána kurált, összetett.
+      · A cím-szótár (TITLE_RULES) ékezettel illeszt prefixet („hát" ≠
+        „hatodik"), a kétértelmű rövid szavakat csak teljes szóként
+        („leg" ≠ „legjobb").
+    NEM ELLENŐRIZVE BÖNGÉSZŐBEN (a fejlesztői gépen nem volt böngésző): a
+    végpont valódi szerveren és adaton igen, a blokk kinézete nem.
+    Tesztek: server/suggestions.test.js (16), api.test.js (2 végponti).
 
 --------------------------------------------------------------------------
 FELDERÍTETT HIÁNYOK — a végpontlistából, 2026-08-27

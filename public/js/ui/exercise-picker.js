@@ -27,9 +27,15 @@ async function setupExercisePicker(confirmAction) {
   const emptyState = $('.ep-empty', pickerPage);
   const backBtn = $('[data-action="picker-back"]');
   const nounEl = $('[data-picker-noun]');
+  const suggestBlock = $('[data-picker-suggest]');
+  const suggestList = $('[data-list="picker-suggestions"]');
+  const suggestNote = $('[data-picker-suggest-note]');
 
   /** Az aktuális cél: { targetList, nameInput, backPage, backLabel,
-      subtitleNoun, toastTarget, exerciseOptions, onChange }. */
+      subtitleNoun, toastTarget, exerciseOptions, onChange, suggestReadiness }.
+      A `suggestReadiness` az ajánlásba a mai regeneráltságot is bekéri — az
+      edzésnapló igen, a terv-építő nem (egy jövőbeli tervről a mai készenlét
+      semmit nem mond). */
   let context = null;
 
   /* A kártyák egyszer épülnek fel; a szűrés csak elrejt/megmutat.
@@ -38,8 +44,9 @@ async function setupExercisePicker(confirmAction) {
      egyszer számol elrendezést, nem elemenként. A kártyák tényleges
      kirajzolását a CSS `content-visibility: auto` halasztja a láthatóságig
      (lásd .ep-item a style.css-ben). */
-  const fragment = document.createDocumentFragment();
-  catalog.forEach((entry) => {
+  /** Egy katalógus-sor kártyája — a teljes lista és a „Javasolt" blokk is
+      ebből épül, így a két helyen ugyanúgy néz ki és ugyanúgy kattintható. */
+  const buildItem = (entry) => {
     const item = cloneTemplate('tpl-picker-item');
     item.dataset.name = entry.name;
     item.dataset.group = entry.group;
@@ -56,9 +63,14 @@ async function setupExercisePicker(confirmAction) {
     $('.ep-item-tag', item).textContent = entry.tag;
     $('.ep-item-muscles', item).textContent = entry.muscles;
     setupThumb($('.ep-item-thumb', item), entry);
-    fragment.appendChild(item);
-  });
+    return item;
+  };
+
+  const fragment = document.createDocumentFragment();
+  catalog.forEach((entry) => fragment.appendChild(buildItem(entry)));
   list.appendChild(fragment);
+
+  const catalogByName = new Map(catalog.map((entry) => [entry.name, entry]));
 
   // Szűrő-chipek a katalógus csoportjaiból (+ Mind)
   let activeGroup = 'Mind';
@@ -80,6 +92,20 @@ async function setupExercisePicker(confirmAction) {
   const namesInTarget = () =>
     new Set($$('.wk-exercise-name', context.targetList).map((el) => el.textContent.trim()));
 
+  /** Egy kártya ✓/→ gombjának állapota: benne van-e már a cél-listában. */
+  const syncToggle = (item, added) => {
+    const inTarget = added.has(item.dataset.name);
+    const toggle = $('.ep-item-toggle', item);
+    toggle.setAttribute('aria-pressed', String(inTarget));
+    toggle.textContent = inTarget ? '✓' : '→';
+    toggle.setAttribute(
+      'aria-label',
+      inTarget
+        ? `${item.dataset.name} eltávolítása`
+        : `${item.dataset.name} hozzáadása ${context.toastTarget}`,
+    );
+  };
+
   /** Szűrés + a fejléc és a gombállapotok szinkronja a cél állapotával.
       A keresés/szűrés cél (context) nélkül is működik — csak a ✓/→
       gombállapot múlik a célon, mert csak annak van mihez igazodnia. */
@@ -95,27 +121,76 @@ async function setupExercisePicker(confirmAction) {
         item.dataset.search.includes(query);
       item.hidden = !matches;
       if (matches) visibleCount += 1;
-      if (!context) return;
-
-      const inTarget = added.has(item.dataset.name);
-      const toggle = $('.ep-item-toggle', item);
-      toggle.setAttribute('aria-pressed', String(inTarget));
-      toggle.textContent = inTarget ? '✓' : '→';
-      toggle.setAttribute(
-        'aria-label',
-        inTarget
-          ? `${item.dataset.name} eltávolítása`
-          : `${item.dataset.name} hozzáadása ${context.toastTarget}`,
-      );
+      if (context) syncToggle(item, added);
     });
     countEl.textContent = visibleCount;
     emptyState.hidden = visibleCount > 0;
+
+    // A „Javasolt" blokk csak szűretlen listán látszik: keresés vagy chip
+    // mellett a felhasználó már maga választ, és a blokk csak útban volna.
+    const suggestItems = $$('.ep-item', suggestList);
+    suggestBlock.hidden =
+      !context || suggestItems.length === 0 || query !== '' || activeGroup !== 'Mind';
+    if (context) suggestItems.forEach((item) => syncToggle(item, added));
+  };
+
+  /* Ajánlások betöltése a cél nevéhez. A kérés lassabb lehet, mint egy
+     célváltás (a felhasználó visszalép és másik oldalról jön vissza), ezért
+     csak a LEGUTÓBBI kérés válasza rajzolódik ki. Hiba esetén a blokk rejtve
+     marad — a választó nélküle is teljes értékű. */
+  let suggestRequest = 0;
+  const loadSuggestions = async () => {
+    const requestId = ++suggestRequest;
+    suggestList.replaceChildren();
+    refresh();
+    const title = context.nameInput.value.trim();
+    let result;
+    try {
+      result = await api.getExerciseSuggestions(title, {
+        withReadiness: Boolean(context.suggestReadiness),
+      });
+    } catch (err) {
+      console.error('Ajánlott gyakorlatok betöltési hiba:', err);
+      return;
+    }
+    if (requestId !== suggestRequest) return;
+
+    const items = result.suggestions
+      .map((suggestion) => {
+        const entry = catalogByName.get(suggestion.name);
+        if (!entry) return null;
+        const item = buildItem(entry);
+        // A javasolt sor mindig látszik: a content-visibility becslése itt
+        // nem spórol semmit, csak a blokk magasságát rontaná el.
+        item.classList.add('ep-item--suggested');
+        const reasons = $('.ep-item-reasons', item);
+        suggestion.reasons.forEach((reason) => {
+          const span = document.createElement('span');
+          span.className = `ep-reason ep-reason--${reason.kind}`;
+          span.textContent = reason.text;
+          reasons.appendChild(span);
+        });
+        reasons.hidden = suggestion.reasons.length === 0;
+        return item;
+      })
+      .filter(Boolean);
+    suggestList.replaceChildren(...items);
+
+    /* Ha a cím nem mondott semmit, ezt ki is mondjuk — különben a felhasználó
+       nem érti, miért nem a „Hétfő" nevű edzéséhez illő gyakorlatokat látja. */
+    const fromReadinessOnly = title !== '' && result.titleLabels.length === 0 && items.length > 0;
+    suggestNote.textContent = fromReadinessOnly
+      ? 'A címből nem derül ki izomcsoport — a mai regeneráltság alapján.'
+      : '';
+    suggestNote.hidden = !fromReadinessOnly;
+    refresh();
   };
 
   searchInput.addEventListener('input', refresh);
 
-  // Hozzáadás/eltávolítás: közvetlenül a cél-lista DOM-ját módosítja
-  list.addEventListener('click', async (event) => {
+  // Hozzáadás/eltávolítás: közvetlenül a cél-lista DOM-ját módosítja. A
+  // teljes lista és a „Javasolt" blokk ugyanazt a kezelőt kapja.
+  const onToggleClick = async (event) => {
     const toggle = event.target.closest('.ep-item-toggle');
     if (!toggle || !context) return;
 
@@ -162,7 +237,9 @@ async function setupExercisePicker(confirmAction) {
     }
     context.onChange();
     refresh();
-  });
+  };
+  list.addEventListener('click', onToggleClick);
+  suggestList.addEventListener('click', onToggleClick);
 
   backBtn.addEventListener('click', () => navigate(context?.backPage || 'plans'));
 
@@ -173,7 +250,7 @@ async function setupExercisePicker(confirmAction) {
     context = next;
     backBtn.setAttribute('aria-label', context.backLabel);
     nounEl.textContent = context.subtitleNoun;
-    refresh();
+    loadSuggestions();
   };
 
   return { use };
