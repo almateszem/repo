@@ -137,3 +137,34 @@ test('a súlycsökkentési javaslat kis súlyon sem visz nullára', async () => 
   const weights = applied.json.template.exercises[0].sets.map((set) => set.weight);
   assert.deepEqual(weights, ['2', '17'], 'a 2 kg-os szettnek nincs értelmes lépcsője — marad');
 });
+
+test('egy másik edzés törlése nem teszi újra „friss" értesítéssé a meglévő PR-t', async () => {
+  const cookie = await register('prertesito');
+  const save = (name, exercise, weight) =>
+    request('POST', '/api/workouts', {
+      cookie,
+      body: {
+        name,
+        exercises: [
+          {
+            name: exercise,
+            sets: [{ reps: '5', weight, rpe: '8', type: 'work', done: true }],
+          },
+        ],
+      },
+    });
+  await save('Mellnap', 'Fekvenyomás', '80');
+  const other = await save('Lábnap', 'Guggolás', '100');
+
+  const prAt = async () =>
+    (await request('GET', '/api/notifications', { cookie })).json.find(
+      (item) => item.id === 'pr:Fekvenyomás',
+    )?.at;
+  const before = await prAt();
+  assert.ok(before, 'van PR-értesítés');
+
+  // Az SQLite datetime('now') másodperc-pontosságú: várunk, hogy egy újraírás látsszon
+  await new Promise((resolve) => setTimeout(resolve, 1100));
+  assert.equal((await request('DELETE', `/api/workouts/${other.json.id}`, { cookie })).status, 204);
+  assert.equal(await prAt(), before, 'az újraépítés megtartja a rekord születési idejét');
+});

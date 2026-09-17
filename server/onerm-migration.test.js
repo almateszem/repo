@@ -49,9 +49,12 @@ execFileSync(
 /* 2. A régi állapot: a nyers Epley-érték és a migráció előtti séma-verzió. */
 {
   const raw = new DatabaseSync(DB_PATH);
+  // A rekord „születése" régi: a migráció nem teheti újra friss értesítéssé
   raw
-    .prepare("UPDATE exercise_maxes SET max_1rm = ? WHERE exercise_name = 'Fekvenyomás'")
-    .run(100 * (1 + 1 / 30));
+    .prepare(
+      "UPDATE exercise_maxes SET max_1rm = ?, updated_at = ? WHERE exercise_name = 'Fekvenyomás'",
+    )
+    .run(100 * (1 + 1 / 30), '2026-09-01 10:00:00');
   raw.exec('PRAGMA user_version = 0');
   raw.close();
 }
@@ -67,18 +70,23 @@ process.on('exit', () => {
 const maxOf = (name) => {
   const raw = new DatabaseSync(DB_PATH);
   const row = raw
-    .prepare('SELECT max_1rm, source FROM exercise_maxes WHERE exercise_name = ?')
+    .prepare('SELECT max_1rm, source, updated_at FROM exercise_maxes WHERE exercise_name = ?')
     .get(name);
   raw.close();
   return row;
 };
 
 test('a migráció a mért csúcsot az új képlettel építi újra', () => {
-  assert.deepEqual({ ...maxOf('Fekvenyomás') }, { max_1rm: 100, source: 'measured' });
+  const bench = maxOf('Fekvenyomás');
+  assert.equal(bench.max_1rm, 100);
+  assert.equal(bench.source, 'measured');
+  assert.equal(bench.updated_at, '2026-09-01 10:00:00', 'az újraszámolás nem új rekord-születés');
 });
 
 test('a bemondott csúcs megmarad, és a séma-verzió 1 lesz', () => {
-  assert.deepEqual({ ...maxOf('Guggolás') }, { max_1rm: 130, source: 'declared' });
+  const squat = maxOf('Guggolás');
+  assert.equal(squat.max_1rm, 130);
+  assert.equal(squat.source, 'declared');
   const raw = new DatabaseSync(DB_PATH);
   assert.equal(raw.prepare('PRAGMA user_version').get().user_version, 1);
   raw.close();

@@ -150,9 +150,21 @@ export function adherence({ workouts, plans, today }) {
 }
 
 /** Az összpontszám: a készenlét és a terv-követés átlaga (terv nélkül maga a
-    készenlét). A kártya szintje (arany/ezüst/bronz) ebből jön a felületen. */
-export const athleteRating = (readiness, adherenceValue) =>
-  adherenceValue === null ? Math.round(readiness) : Math.round((readiness + adherenceValue) / 2);
+    készenlét, készenlét nélkül maga a terv-követés). A kártya szintje
+    (arany/ezüst/bronz) ebből jön a felületen.
+
+    A készenlét lehet null (a motor nem tud mit mondani: nincs check-in, edzés
+    és mérhető táplálkozás). Ez NEM nulla — korábban a Math.round(null) 0-t
+    adott, és a kártya „0 pont, bronz" mellé „készenlét 0%" riasztást tett.
+    Ha egyik jel sincs, a pontszám is null. */
+export const athleteRating = (readiness, adherenceValue) => {
+  if (readiness === null || readiness === undefined) {
+    return adherenceValue === null ? null : Math.round(adherenceValue);
+  }
+  return adherenceValue === null
+    ? Math.round(readiness)
+    : Math.round((readiness + adherenceValue) / 2);
+};
 
 /**
  * A kártya állapot-sora. Legfeljebb KÉT ok kerül bele, súlyosság szerint:
@@ -180,7 +192,10 @@ export function athleteAlert({
   } else if (daysSinceWorkout >= INACTIVE_DAYS) {
     reasons.push(`${daysSinceWorkout} napja nem edzett`);
   }
-  if (readiness < LOW_READINESS) reasons.push(`készenlét ${Math.round(readiness)}%`);
+  // A hiányzó készenlét nem alacsony készenlét — arról a check-in sor szól
+  if (readiness !== null && readiness !== undefined && readiness < LOW_READINESS) {
+    reasons.push(`készenlét ${Math.round(readiness)}%`);
+  }
   if (daysSinceCheckin === null) {
     if (activeDays >= STALE_CHECKIN_DAYS) reasons.push('nincs kitöltött check-in');
   } else if (daysSinceCheckin >= STALE_CHECKIN_DAYS) {
@@ -296,10 +311,10 @@ export function buildAthleteCard({
     username: athlete.username,
     name: athlete.name,
     goal: athlete.goal ?? null,
-    readiness: Math.round(readiness),
-    /* Mennyire megbízható a fenti szám. Ez NEM dísz: napló nélküli fiókra a
-       motor 100%-ot ad (nincs mit levonni), és az edző ezt „arany szintnek"
-       olvasná. A modál kiírja, hogy min alapul. */
+    readiness: readiness === null || readiness === undefined ? null : Math.round(readiness),
+    /* Mennyire megbízható a fenti szám. Ez NEM dísz: kevés naplónál a motor
+       általános referenciával számol, és az edző a magas számot „arany
+       szintnek" olvasná. A modál kiírja, hogy min alapul. */
     confidence,
     adherence: adherenceValue,
     rating: athleteRating(readiness, adherenceValue),
