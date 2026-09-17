@@ -391,7 +391,7 @@ seed-görbét mutatja, és ki is írja, hogy az demo-adat.
 | Stressz-regeneráció | 0.10 | check-in, 1–5 (fordítva)                                            |
 | Közérzet            | 0.10 | check-in, 1–5 — csak a részletes űrlap kérdezi, a varázsló nem      |
 | Edzésterhelés       | 0.15 | exponenciálisan csillapított tonnatömeg (τ = 3 nap), kardióval      |
-| Táplálkozás         | 0.05 | a **tegnapi** kalória/fehérje a célhoz mérve + hidratáció           |
+| Táplálkozás         | 0.05 | a **tegnapi** kalória/fehérje a saját/edzői célhoz + hidratáció     |
 
 Ami nincs kitöltve, az nem nullaként számít bele: a súlya arányosan újraoszlik a
 többi komponens között. Ezért **hiányzó adattól a pontszám nem torzul**, csak a

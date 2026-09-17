@@ -8,7 +8,7 @@
 
 import { api } from '../core/api.js';
 import { $, $$, cloneTemplate } from '../core/dom.js';
-import { formatNumber } from '../core/format.js';
+import { formatInputNumber, formatNumber } from '../core/format.js';
 import { showToast } from '../core/toast.js';
 
 /* ---- Szett-sorok ----
@@ -329,7 +329,7 @@ function handleStepClick(event) {
   const current = Number(input.value);
   const next = (Number.isFinite(current) ? current : 0) + Number(stepBtn.dataset.dir) * step;
 
-  input.value = formatNumber(Math.min(Math.max(next, min), max));
+  input.value = formatInputNumber(Math.min(Math.max(next, min), max));
   input.dispatchEvent(new Event('input', { bubbles: true }));
   return true;
 }
@@ -346,7 +346,7 @@ function clampRpeInput(target) {
 
   const value = Number(input.value);
   const clamped = Number.isFinite(value)
-    ? formatNumber(Math.min(Math.max(Math.round(value * 2) / 2, 1), 10))
+    ? formatInputNumber(Math.min(Math.max(Math.round(value * 2) / 2, 1), 10))
     : '';
   if (clamped === input.value) return false;
 

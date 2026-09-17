@@ -1746,7 +1746,7 @@ test('a rossz check-in a bemondott gyakorlat ajánlását is lehúzza', async ()
 });
 
 test('a MÉRT csúcsot nem írja felül a bemondás, és a PR-nek meg kell haladnia', async () => {
-  // Naplózott edzés: 120 kg × 1 → Epley 124 kg, ez MÉRT csúcs.
+  // Naplózott edzés: 120 kg × 1 → a becslés maga a 120 kg, ez MÉRT csúcs.
   await request('POST', '/api/workouts', {
     cookie: assessCookie,
     body: {
@@ -1767,7 +1767,7 @@ test('a MÉRT csúcsot nem írja felül a bemondás, és a PR-nek meg kell halad
   });
   assert.equal(res.status, 201);
   assert.equal(res.json.entries[0].stored, false, 'a mérés erősebb bizonyíték');
-  assert.ok(res.json.entries[0].max1rm > 120, 'a mért csúcs marad érvényben');
+  assert.equal(res.json.entries[0].max1rm, 120, 'a mért csúcs marad érvényben');
 });
 
 test('a felmérés validál: ismeretlen gyakorlat, tartományon kívüli érték', async () => {

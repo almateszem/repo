@@ -48,10 +48,10 @@ const nyomas = (weight, reps = 5, done = true) => [
 
 test('az Epley-képlet a várt 1RM-et adja, érvénytelen bemenetre nullát', () => {
   assert.equal(db.calculateEpley1RM(100, 5), 100 * (1 + 5 / 30));
-  // A képlet egy ismétlésnél sincs kivételezve: 100 × (1 + 1/30) ≈ 103,3. A
-  // tankönyvi Epley itt magát a súlyt adná — a becslés tehát egyismétléses
-  // szettnél enyhén felfelé tér el. Nem hiba, csak tudni kell róla.
-  assert.equal(db.calculateEpley1RM(100, 1), 100 * (1 + 1 / 30));
+  // Egy ismétlésnél a becslés maga a súly: a nyers képlet 103,3-at adna egy
+  // 100 kg-os szinglire, ami nem valós csúcs (recovery.js → estimate1RM).
+  assert.equal(db.calculateEpley1RM(100, 1), 100);
+  assert.equal(db.calculateEpley1RM(100, 2), 100 * (1 + 2 / 30));
   assert.ok(
     db.calculateEpley1RM(100, 8) > db.calculateEpley1RM(100, 5),
     'több ismétlés = nagyobb becsült 1RM',

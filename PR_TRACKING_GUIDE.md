@@ -8,7 +8,7 @@ Records are **per account**: every user is measured against their own previous p
 
 ## The Epley Formula
 
-$$1\text{RM} = w \times \left( 1 + \frac{r}{30} \right)$$
+$$1\text{RM} = w \times \left( 1 + \frac{r}{30} \right) \quad (r \ge 2), \qquad 1\text{RM} = w \quad (r = 1)$$
 
 Where:
 
@@ -20,7 +20,12 @@ Where:
 
 - 5 reps @ 100 kg → 1RM = 100 × (1 + 5/30) = **116.7 kg**
 - 10 reps @ 80 kg → 1RM = 80 × (1 + 10/30) = **86.7 kg**
-- 1 rep @ 120 kg → 1RM = 120 × (1 + 1/30) = **124 kg**
+- 1 rep @ 120 kg → 1RM = **120 kg** (a single is its own weight — the raw formula would add 3.3%)
+
+The same formula is shared by the PR tracking (`server/db.js`), the strength
+assessment, the live PR indicator (`public/js/core/one-rm.js`, tied to the server by a
+test) and the Recovery Engine (`server/recovery.js` → `estimate1RM`, which adds the
+RIR estimated from RPE).
 
 ## Implementation Details
 
@@ -58,8 +63,9 @@ Tells which rule picked the record-setting set when the workout was saved:
 
 ```javascript
 export function calculateEpley1RM(weight, reps) {
-  // Returns 0 for non-numeric input, weight ≤ 0 or reps < 1
-  return weight * (1 + reps / 30);
+  // Returns 0 for non-numeric input, weight ≤ 0 or reps < 1;
+  // delegates to the shared estimate1RM (a single rep is the weight itself)
+  return estimate1RM(Number(weight), Number(reps)) ?? 0;
 }
 ```
 
@@ -182,7 +188,7 @@ Clicking a row opens the PR history modal (`setupPrModal`, `public/js/ui/modals.
    - System automatically calculates 1RM during save
 
 2. **System processes:**
-   - Calculates: 1RM = weight × (1 + reps/30)
+   - Calculates: 1RM = weight × (1 + reps/30), or the weight itself for a single
    - Compares with your previous max
    - **Automatically marks as PR if new record achieved**
 

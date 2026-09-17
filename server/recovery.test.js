@@ -14,6 +14,9 @@ import {
   sleepScore,
   nutritionScore,
   epley1RM,
+  estimate1RM,
+  reduceWeight,
+  formatDecimal,
   BASE_WEIGHTS,
 } from './recovery.js';
 import { resolveExerciseLoad, isAxialLift, MUSCLE_KEYS } from './muscles.js';
@@ -998,4 +1001,116 @@ test('testsúly-független: ugyanaz a futás ugyanakkora hányada a referencián
       }),
     );
   assert.equal(at(60), at(100));
+});
+
+/* ======================================================================
+   Számítás-átvizsgálás (2026-09-17) — a javított hibák őrzői
+   ====================================================================== */
+
+test('1RM: egy ismétlés a súly maga, a RIR a kapacitáshoz adódik', () => {
+  assert.equal(estimate1RM(100, 1), 100, 'a szingli nem +3,3%');
+  assert.equal(estimate1RM(100, 5), 100 * (1 + 5 / 30), 'kettőtől a tankönyvi Epley');
+  assert.equal(estimate1RM(0, 5), null);
+  assert.equal(estimate1RM(100, 0), null);
+  // A motor RPE 10-en ugyanazt adja, mint a PR-követés
+  assert.equal(epley1RM(1, 100, 10), 100);
+  assert.equal(epley1RM(5, 100, 10), estimate1RM(100, 5));
+  // RPE nélkül 2 ismétlés tartalék: 5 + 2 = 7
+  assert.equal(epley1RM(5, 100, null), 100 * (1 + 7 / 30));
+});
+
+/** Guggolás három alkalma, legrégebbi elöl; a súlyok adják az 1RM-trendet. */
+const squatSessions = (weights) =>
+  weights.map((weight, i) =>
+    workout(12 - i * 4, `Láb ${i}`, [exercise('Guggolás', [set(5, weight, 7)])]),
+  );
+
+test('PR-ablak csak FOLYAMATOSAN emelkedő 1RM-trendnél', () => {
+  const rising = run({ checkins: [fullCheckin()], workouts: squatSessions([100, 105, 110]) });
+  const risingSquat = rising.exercises.find((e) => e.name === 'Guggolás');
+  assert.ok(risingSquat.readiness >= 90, `friss guggolás (${risingSquat.readiness})`);
+  assert.equal(risingSquat.verdict, 'pr');
+
+  // 100 → 120 → 105: a legutóbbi több a legrégebbinél, de visszaesés volt
+  const dip = run({ checkins: [fullCheckin()], workouts: squatSessions([100, 120, 105]) });
+  const dipSquat = dip.exercises.find((e) => e.name === 'Guggolás');
+  assert.ok(dipSquat.readiness >= 90, `friss guggolás (${dipSquat.readiness})`);
+  assert.notEqual(dipSquat.verdict, 'pr', 'visszaesés után nincs PR-ablak');
+});
+
+test('a krónikus ablak pontosan 28 nap (0…27.), nem 29', () => {
+  const at = (ago) => run({ workouts: [workout(ago, 'Régi', HARD_LEG_DAY)] }).meta.historyDays;
+  assert.equal(at(27), 28, 'a 27. nap még benne van');
+  assert.equal(at(28), 0, 'a 28. nap már kívül esik');
+});
+
+test('alvás: a 7,5 órás célidő nem termel alvásadósságot', () => {
+  const nights = [0, 1, 2].map((daysAgo) => ({ daysAgo, sleepHours: 7.5 }));
+  assert.equal(sleepScore({ sleepHours: 7.5, sleepQuality: 5 }, nights), 1);
+  // A célidő alatt továbbra is van levonás
+  const short = [0, 1, 2].map((daysAgo) => ({ daysAgo, sleepHours: 6 }));
+  assert.ok(sleepScore({ sleepHours: 7.5, sleepQuality: 5 }, short) < 1);
+});
+
+test('táplálkozás: az ALAPÉRTELMEZETT cél nem mérce, csak a saját vagy az edzői', () => {
+  const eaten = { intake: 1800, protein: 90 };
+  const defaultGoal = { calories: 2900, protein: 170, source: 'default' };
+  assert.equal(
+    nutritionScore({ ...eaten, goal: defaultGoal }, null, 55),
+    null,
+    'nincs mihez mérni',
+  );
+  assert.equal(
+    nutritionScore({ ...eaten, goal: defaultGoal }, 1, 55),
+    1 / (0.033 * 55),
+    'csak a folyadék számít (1 liter a 55 kg-os cél 1,815 literéből)',
+  );
+  const ownGoal = { calories: 1800, protein: 90, source: 'own' };
+  assert.equal(nutritionScore({ ...eaten, goal: ownGoal }, null, 55), 1);
+});
+
+test('a PR-próbálkozás CNS-felára a testsúllyal skálázódik', () => {
+  // Elhanyagolható tonnatömeg (1 × 1 kg): a CNS-terhelést szinte csak a felár adja
+  const prSet = [workout(0, 'Próba', [exercise('Fekvenyomás', [set(1, 1, 7)], true)])];
+  const cnsAt = (kg) => run({ workouts: prSet, weightLog: [{ kg, date: TODAY }] }).cns.readiness;
+  assert.ok(cnsAt(60) < 100, 'a felár terhel');
+  assert.ok(Math.abs(cnsAt(60) - cnsAt(120)) <= 1, `${cnsAt(60)} vs ${cnsAt(120)}`);
+});
+
+test('súlycsökkentés: sosem nulla, és nem vesz le aránytalanul sokat', () => {
+  assert.equal(reduceWeight(100, 0.1), 90);
+  assert.equal(reduceWeight(22.5, 0.1), 20);
+  assert.equal(reduceWeight(10, 0.1), 9, '2,5-ös lépcsővel 25% lenne');
+  assert.equal(reduceWeight(4, 0.1), 3.5);
+  assert.equal(reduceWeight(2, 0.1), null, '2 kg-ról nincs értelmes 10%-os lépcső');
+  for (const kg of [1, 2, 3, 4, 6, 8, 10, 12, 15, 17.5, 20, 32.5, 60, 142.5]) {
+    for (const ratio of [0.1, 0.15]) {
+      const reduced = reduceWeight(kg, ratio);
+      if (reduced === null) continue;
+      assert.ok(reduced > 0 && reduced < kg, `${kg} kg → ${reduced} kg`);
+      assert.ok((kg - reduced) / kg <= ratio * 1.5 + 1e-9, `${kg} kg −${ratio}: ${reduced} kg`);
+    }
+  }
+});
+
+test('a felületi szám tizedesvesszővel íródik', () => {
+  assert.equal(formatDecimal(82.4), '82,4');
+  assert.equal(formatDecimal(82.44), '82,4');
+  assert.equal(formatDecimal('140'), '140');
+});
+
+test('kulcsszavas izom-becslés: a specifikus minta nyer az általános előtt', () => {
+  const primary = (name) => {
+    const load = resolveExerciseLoad(name, []);
+    return Object.entries(load).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+  };
+  assert.deepEqual(resolveExerciseLoad('Bolgár guggolás', []).glutes, 0.4, 'kitörés-eloszlás');
+  assert.equal(primary('Rear delt fly'), 'shoulders');
+  assert.equal(primary('Hátsó váll tárogatás'), 'shoulders');
+  assert.equal(primary('Fordított tárogatás'), 'shoulders');
+  assert.equal(primary('Upright row'), 'shoulders');
+  assert.equal(primary('Kábeles tárogatás'), 'chest');
+  assert.equal(primary('Medicine ball throw'), null, 'a „throw" nem evezés');
+  assert.equal(primary('Seated cable row'), 'back');
+  assert.equal(primary('Román felhúzás'), 'hamstrings');
 });
