@@ -303,10 +303,13 @@ function setupAthleteModal({ confirmAction, onUnlink, onRead, onAssign } = {}) {
 
       const tier = athleteTier(athlete.rating);
       badge.className = `co-modal-badge co-tier--${tier.key}`;
-      $('.co-modal-rating', badge).textContent = athlete.rating;
+      $('.co-modal-rating', badge).textContent = athlete.rating ?? '—';
       $('.co-modal-tag', badge).textContent = athlete.goal ?? '—';
       titleEl.textContent = athlete.name;
-      tierEl.textContent = `${tier.label} · ${athlete.rating} pont · @${athlete.username}`;
+      tierEl.textContent =
+        athlete.rating === null
+          ? `${tier.label} · @${athlete.username}`
+          : `${tier.label} · ${athlete.rating} pont · @${athlete.username}`;
 
       alertEl.hidden = !athlete.alert;
       if (athlete.alert) alertEl.textContent = `Figyelmet igényel: ${athlete.alert}`;

@@ -435,6 +435,7 @@ A KÉPLET súlyozott átlag, de CSAK a jelen lévő komponensekre:
   Edzésterhelés    0.15   exponenciálisan csillapított tonnatömeg (τ = 3 nap),
                           a kardió szesszió-RPE-ből átváltva (ld. lent)
   Táplálkozás      0.05   a TEGNAPI kalória/fehérje a célhoz mérve + hidratáció
+                          (az alapértelmezett, nem beállított cél nem mérce)
 
 Ami nincs kitöltve, az NEM nullaként számít bele: a súlya arányosan
 újraoszlik a többi komponens között. Hiányzó adattól a pontszám nem torzul,
@@ -495,7 +496,8 @@ ADATIGÉNY
 6. EGYÉNI CSÚCSOK (PR)
 ==========================================================================
 A rekordot a gyakorlat LEGJOBB TELJESÍTETT szettje hozza, Epley-becsléssel
-(1RM = súly × (1 + ism/30)) — nem az első teljesített, ami a szett-típusok
+(1RM = súly × (1 + ism/30), egy ismétlésnél maga a súly; az app egyetlen
+1RM-képlete, recovery.js → estimate1RM) — nem az első teljesített, ami a szett-típusok
 óta jellemzően a bemelegítés. A szabály egy helyen él (bestCompletedSet),
 és ugyanaz jelöli meg a PR-t mentéskor, mint ami a listát kiírja. A csúcsok
 fiókonként külön sorban állnak.
@@ -568,7 +570,9 @@ mai készenléte. Ez két rétegben jelenik meg.
    Levesz    a terhelt izom készenléte 70% alatt      a MÉG NEM teljesített
                                                      szettek súlya −10%
                                                      (55% alatt −15%),
-                                                     2,5 kg-ra lefelé kerekítve
+                                                     2,5 kg-ra lefelé kerekítve;
+                                                     kis súlynál 1 / 0,5 kg-os
+                                                     lépcső, sosem nullára
    Kihagy    7/10 fájdalom, nincs teljesített szett   a gyakorlat kimarad
                                                      a mai naplóból
    Leáll     7/10 fájdalom, DE van teljesített szett  csak a hátralévő

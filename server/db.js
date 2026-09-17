@@ -24,6 +24,7 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { data as seed } from './data.js';
 import { buildExerciseCatalog, buildFoodCatalog } from './data/catalog.js';
+import { estimate1RM } from './recovery.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Alapból server/fittrack.db; a FITTRACK_DB env-változóval felülírható (pl. teszthez).
@@ -356,6 +357,15 @@ ensureColumn('workout_draft', 'plan_id', 'plan_id INTEGER');
 // A naplózás korábban fix 100 g-os adaggal ment — a régi sorok makrói tehát
 // 100 g-ra vonatkoznak, ezért a default érték helyes a meglévő adatokra is.
 ensureColumn('nutrition_log', 'grams', 'grams REAL NOT NULL DEFAULT 100');
+/* Az étel 100 g-ra vonatkozó, KEREKÍTETLEN tápértéke a naplózás pillanatában
+   (másolat, mint a többi makró). Az adag-javítás ebből számol: a kerekített,
+   adagra vetített értékből arányosítva a hiba felnagyítódott (1 g nyers
+   csirkemell 0,2 g fehérjéjéből 200 g-ra 40 g lett a valós 46 helyett). A régi sorokon
+   NULL — ott marad az arányos átszámolás. */
+ensureColumn('nutrition_log', 'base_kcal', 'base_kcal REAL');
+ensureColumn('nutrition_log', 'base_protein', 'base_protein REAL');
+ensureColumn('nutrition_log', 'base_carbs', 'base_carbs REAL');
+ensureColumn('nutrition_log', 'base_fat', 'base_fat REAL');
 // Edzés-cél: a fiók sajátja, az edzői panel kártyáján címkeként látszik.
 // Üresen hagyható (NULL) — a felület ilyenkor „—"-t mutat.
 ensureColumn('users', 'goal', 'goal TEXT');
@@ -633,6 +643,21 @@ function backfillExerciseMaxes() {
   for (const userId of userIds) recomputeExerciseMaxes(userId);
 }
 backfillExerciseMaxes();
+
+/* Séma-verziók (PRAGMA user_version) az egyszer lefutó adat-migrációkhoz.
+     1 — az 1RM-képlet egységesítése (recovery.js → estimate1RM): az
+         egyismétléses szett becslése a súly maga, nem +3,3%. A tárolt
+         mért csúcsokat és a PR-jelzőket a naplóból újraépítjük. A BEMONDOTT
+         csúcsokhoz nem tároltuk az ismétlésszámot, azok változatlanok. */
+const schemaVersion = db.prepare('PRAGMA user_version').get().user_version;
+if (schemaVersion < 1) {
+  const userIds = db
+    .prepare('SELECT DISTINCT user_id AS id FROM workouts')
+    .all()
+    .map((row) => row.id);
+  for (const userId of userIds) recomputeExerciseMaxes(userId);
+  db.exec('PRAGMA user_version = 1');
+}
 
 /* ---- Indexek ----
    A táblák átépítése (workout_draft, checkins) eldobja a rajtuk lévő
@@ -1839,12 +1864,14 @@ export function saveCheckin(userId, date, fields) {
   return getCheckin(userId, date);
 }
 
-/** Az Epley-képlet a becsült 1RM kiszámítására: 1RM = weight × (1 + reps/30) */
+/** A becsült 1RM a PR-követéshez: az app közös Epley-képlete (recovery.js →
+    estimate1RM, egy ismétlésnél maga a súly). A szett mezői szövegként is
+    jöhetnek; nem számolható értékre 0. */
 export function calculateEpley1RM(weight, reps) {
   const w = Number(weight);
   const r = Number(reps);
-  if (!Number.isFinite(w) || !Number.isFinite(r) || w <= 0 || r < 1) return 0;
-  return w * (1 + r / 30);
+  if (!Number.isFinite(w) || !Number.isFinite(r)) return 0;
+  return estimate1RM(w, r) ?? 0;
 }
 
 /**
@@ -2033,13 +2060,36 @@ export function updateExerciseMax(userId, exerciseName, new1rm, currentDate) {
  *     amit a lista kiír, annak a naplóból következnie kell.
  */
 export function recomputeExerciseMaxes(userId) {
+  /* A BEMONDOTT csúcsok (erőfelmérés) nem a naplóból jönnek, tehát az
+     újraépítés nem tudná előállítani őket. Korábban a törlés mindet elvitte:
+     egy edzés törlése után eltűntek a felmérésre épülő ajánlások. Ezért ők a
+     kiindulópont — pont úgy, ahogy mentéskor is az addWorkout hozzájuk méri
+     a naplózott szettet (updateExerciseMax). */
+  const existing = new Map(
+    db
+      .prepare(
+        `SELECT exercise_name, max_1rm, date, source, updated_at FROM exercise_maxes
+          WHERE user_id = ?`,
+      )
+      .all(userId)
+      .map((row) => [row.exercise_name, row]),
+  );
   const rows = db
     .prepare(
-      'SELECT id, date, exercises, pr_rule FROM workouts WHERE user_id = ? ORDER BY date, id',
+      `SELECT id, date, exercises, pr_rule, created_at FROM workouts
+        WHERE user_id = ? ORDER BY date, id`,
     )
     .all(userId);
 
-  const best = new Map(); // gyakorlatnév → { max1rm, date }
+  // gyakorlatnév → { max1rm, date, source, bornAt }
+  const best = new Map(
+    [...existing.values()]
+      .filter((row) => row.source === 'declared')
+      .map((row) => [
+        row.exercise_name,
+        { max1rm: row.max_1rm, date: row.date, source: 'declared', bornAt: row.updated_at },
+      ]),
+  );
   const rewrites = []; // [{ id, exercises }] — csak a ténylegesen változó sorok
 
   for (const row of rows) {
@@ -2069,7 +2119,14 @@ export function recomputeExerciseMaxes(userId) {
 
       const current = best.get(name);
       const isPr = !current || oneRM > current.max1rm;
-      if (isPr) best.set(name, { max1rm: oneRM, date: row.date });
+      if (isPr) {
+        best.set(name, {
+          max1rm: oneRM,
+          date: row.date,
+          source: 'measured',
+          bornAt: row.created_at,
+        });
+      }
 
       // A hiányzó és a false jelző ugyanaz — a régi sorokon nincs is `pr` mező
       if (Boolean(exercise.pr) !== isPr) {
@@ -2081,12 +2138,26 @@ export function recomputeExerciseMaxes(userId) {
   }
 
   const clear = db.prepare('DELETE FROM exercise_maxes WHERE user_id = ?');
-  const insert = db.prepare(`INSERT INTO exercise_maxes (user_id, exercise_name, max_1rm, date)
-                             VALUES (?, ?, ?, ?)`);
+  const insert = db.prepare(`INSERT INTO exercise_maxes
+                               (user_id, exercise_name, max_1rm, date, source, updated_at)
+                             VALUES (?, ?, ?, ?, ?, COALESCE(?, datetime('now')))`);
   const rewrite = db.prepare('UPDATE workouts SET exercises = ? WHERE id = ?');
 
   clear.run(userId);
-  for (const [name, record] of best) insert.run(userId, name, record.max1rm, record.date);
+  for (const [name, record] of best) {
+    /* Az updated_at a rekord SZÜLETÉSE — az értesítés-panel ebből dönti el,
+       mi „új" (notifications.js → notifSeenAt). Az újraépítés nem születés:
+       ha ugyanaz az edzés-nap viszi a rekordot, marad a régi időbélyeg (a
+       képlet-migráció csak az értéket számolja át); ha egy MÁSIK edzésre száll
+       át (törlés után), annak a mentési ideje. Korábban minden sor „most"
+       született, és a friss PR-ek egy törlés után újra olvasatlanként jöttek. */
+    const previous = existing.get(name);
+    const bornAt =
+      previous && previous.date === record.date && previous.source === record.source
+        ? previous.updated_at
+        : record.bornAt;
+    insert.run(userId, name, record.max1rm, record.date, record.source, bornAt);
+  }
   for (const row of rewrites) rewrite.run(JSON.stringify(row.exercises), row.id);
 }
 
@@ -2318,8 +2389,9 @@ export function addNutritionEntry(userId, food, date, grams = 100) {
 
   const { lastInsertRowid } = db
     .prepare(
-      `INSERT INTO nutrition_log (user_id, name, grams, kcal, protein, carbs, fat, date)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO nutrition_log (user_id, name, grams, kcal, protein, carbs, fat, date,
+                                 base_kcal, base_protein, base_carbs, base_fat)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       userId,
@@ -2330,6 +2402,10 @@ export function addNutritionEntry(userId, food, date, grams = 100) {
       round1(food.carbs),
       round1(food.fat),
       date,
+      food.kcal,
+      food.protein,
+      food.carbs,
+      food.fat,
     );
   const entry = db
     .prepare(
@@ -2358,24 +2434,45 @@ export function addNutritionEntry(userId, food, date, grams = 100) {
 export function updateNutritionEntry(userId, id, grams) {
   const row = db
     .prepare(
-      `SELECT grams, kcal, protein, carbs, fat, date
+      `SELECT grams, kcal, protein, carbs, fat, date,
+              base_kcal, base_protein, base_carbs, base_fat
                           FROM nutrition_log WHERE id = ? AND user_id = ?`,
     )
     .get(id, userId);
   if (!row || !(row.grams > 0)) return null;
 
-  const ratio = grams / row.grams;
   const round1 = (value) => Math.round(value * 10) / 10;
+  /* Ha a sor tárolja a KEREKÍTETLEN 100 g-os alapértéket, abból számolunk —
+     ugyanúgy, mint a naplózáskor. A régi (alapérték nélküli) soroknál marad
+     az arányosítás a tárolt, adagra vetített értékből. */
+  const hasBase = [row.base_kcal, row.base_protein, row.base_carbs, row.base_fat].every(
+    (value) => value !== null,
+  );
+  const scaled = hasBase
+    ? {
+        factor: grams / 100,
+        kcal: row.base_kcal,
+        protein: row.base_protein,
+        carbs: row.base_carbs,
+        fat: row.base_fat,
+      }
+    : {
+        factor: grams / row.grams,
+        kcal: row.kcal,
+        protein: row.protein,
+        carbs: row.carbs,
+        fat: row.fat,
+      };
   db.prepare(
     `UPDATE nutrition_log
                  SET grams = ?, kcal = ?, protein = ?, carbs = ?, fat = ?
                WHERE id = ? AND user_id = ?`,
   ).run(
     grams,
-    Math.round(row.kcal * ratio),
-    round1(row.protein * ratio),
-    round1(row.carbs * ratio),
-    round1(row.fat * ratio),
+    Math.round(scaled.kcal * scaled.factor),
+    round1(scaled.protein * scaled.factor),
+    round1(scaled.carbs * scaled.factor),
+    round1(scaled.fat * scaled.factor),
     id,
     userId,
   );

@@ -22,11 +22,14 @@ function createCoachNote({ meta, text, me = false }) {
    A kártya azonosítója a KAPCSOLAT azonosítója: a sportoló belső id-jét a
    szerver nem is adja ki. */
 const athleteTier = (rating) =>
-  rating >= 85
-    ? { key: 'gold', label: 'Arany szint' }
-    : rating >= 70
-      ? { key: 'silver', label: 'Ezüst szint' }
-      : { key: 'bronze', label: 'Bronz szint' };
+  rating === null || rating === undefined
+    ? // Nincs mérhető jel (se készenlét, se terv-követés) — ez nem „bronz"
+      { key: 'none', label: 'Még nincs pontszám' }
+    : rating >= 85
+      ? { key: 'gold', label: 'Arany szint' }
+      : rating >= 70
+        ? { key: 'silver', label: 'Ezüst szint' }
+        : { key: 'bronze', label: 'Bronz szint' };
 
 /** Hiányzó érték helyén gondolatjel. A „még nincs adat" NEM nulla: terv
     nélkül nincs terv-követés, edzés nélkül nincs utolsó edzés. */
@@ -51,7 +54,9 @@ function renderAthleteCard(athlete, index) {
   card.setAttribute(
     'aria-label',
     [
-      `${athlete.name} — ${rating} pont, ${tier.label}`,
+      rating === null
+        ? `${athlete.name} — ${tier.label}`
+        : `${athlete.name} — ${rating} pont, ${tier.label}`,
       athlete.alert ? 'figyelmet igényel' : null,
       athlete.unread > 0 ? `${athlete.unread} olvasatlan üzenet` : null,
       'részletek megnyitása',
@@ -61,8 +66,8 @@ function renderAthleteCard(athlete, index) {
   );
 
   const ratingEl = $('.co-card-rating', card);
-  ratingEl.textContent = rating;
-  ratingEl.dataset.rating = rating;
+  ratingEl.textContent = orDash(rating);
+  ratingEl.dataset.rating = orDash(rating);
   $('.co-card-tag', card).textContent = athlete.goal ?? '—';
   $('.co-card-name', card).textContent = athlete.name;
   $('.co-card-alert', card).hidden = !athlete.alert;

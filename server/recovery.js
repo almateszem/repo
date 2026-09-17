@@ -71,12 +71,35 @@ export const dayKey = (str) => {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 };
 
+/** Egy nap-kulcs (helyi éjfél) eltolása `days` NAPTÁRI nappal.
+
+    Nem `key ± n × DAY_MS`: az óraátállítás napja 23 vagy 25 órás, és a
+    24 órás lépés ilyenkor az előző nap 23:00-jára vagy a nap 01:00-jára esik
+    — egy olyan kulcsra, ami egyetlen naplózott napéval sem egyezik. A
+    setDate a helyi naptárban lép, tehát az éjfél éjfél marad. */
+export const shiftDayKey = (key, days) => {
+  const date = new Date(key);
+  date.setDate(date.getDate() + days);
+  return date.getTime();
+};
+
+/** Két nap-kulcs különbsége egész napokban. A kerekítés az óraátállítás
+    ±1 óráját nyeli el (a 25 órás nap is egy nap). */
+export const daysBetween = (fromKey, toKey) => Math.round((toKey - fromKey) / DAY_MS);
+
 /** Hány nappal ezelőtt volt `date` a `todayKey` naphoz képest (negatív = jövő). */
-const daysAgo = (date, todayKey) => Math.round((todayKey - dayKey(date)) / DAY_MS);
+const daysAgo = (date, todayKey) => daysBetween(dayKey(date), todayKey);
 
 /* ======================================================================
    Általános segédek
    ====================================================================== */
+
+/** Szám a felületen megjelenő SZÖVEGBE: max 1 tizedes, magyar
+    tizedesvesszővel („82,5"). Ugyanaz a szabály, mint a kliens formatNumber-e
+    (public/js/core/format.js) — a szerver által összerakott mondatok (edzői
+    kártya, javaslatok) így nem írnak pontot a kliens vesszője mellé. */
+export const formatDecimal = (value) =>
+  String(Math.round(Number(value) * 10) / 10).replace('.', ',');
 
 const clamp01 = (value) => Math.min(1, Math.max(0, value));
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
@@ -141,7 +164,7 @@ const TAU_LOAD = 3.0; // nap — az általános edzésterhelés csillapítása
 const TAU_CNS = 3.5; // nap — az idegrendszer lassabban áll helyre
 
 const LOAD_WINDOW_DAYS = 14; // ennyi nap terhelését összegezzük
-const CHRONIC_WINDOW_DAYS = 28; // ennyiből képezzük a személyes referenciát
+const CHRONIC_WINDOW_DAYS = 28; // ennyiből képezzük a személyes referenciát (0…27. nap)
 const MUSCLE_WINDOW_DAYS = 7; // az izomkárosodás ennél régebbről már elhanyagolható
 
 /** Ennyi nap előzmény kell ahhoz, hogy a személyes referenciát használjuk az
@@ -153,6 +176,14 @@ const MUSCLE_REF_MULT = 1.5; // ennyiszer tipikus szesszió visz egy csoportot n
 
 /** Referencia-testsúly, amihez az abszolút terhelés-referenciák skálázódnak. */
 const REF_BODY_WEIGHT = 80;
+
+/** PR-próbálkozás CNS-felára szettenként, tonnában, 80 kg-os sportolóra. */
+const PR_CNS_SURCHARGE = 0.4;
+
+/** Az alvás célideje órában. EGY szám két helyen: az időtartam-görbe itt éri el
+    a teljes pontot, és az alvásadósság is ehhez mér. Korábban az adósság 8
+    órához mért, tehát egy „tökéletes" 7,5 órás éjszaka is adósságot termelt. */
+const SLEEP_TARGET_HOURS = 7.5;
 
 /* Napi folyadék-cél literben, ~33 ml/testsúlykg. Exportált, mert a Táplálkozás
    oldali vízmérőnek UGYANEZT a célt kell mutatnia, amit a motor számol —
@@ -299,15 +330,36 @@ function setStimulus(set) {
   return (rpe === null ? 1 : clamp(1 + (rpe - 8) * 0.3, 0.6, 1.7)) * typeFactor;
 }
 
-/** RIR-korrigált Epley-becslés az egyismétléses maximumra. Az RPE-ből
-    következtetünk a tartalékra (RIR = 10 − RPE); ha nincs RPE, RPE 8-at
-    feltételezünk (2 ismétlés tartalék), ami a naplózás tipikus esete. */
+/**
+ * Az app EGYETLEN 1RM-képlete (Epley). A PR-követés (db.js), az erőfelmérés,
+ * a naplóbeli PR-jelző (public/js/core/one-rm.js, teszttel összekötve) és a
+ * Recovery Engine is ezt használja.
+ *
+ *   1RM = súly × (1 + ismétlés / 30),   DE egy ismétlésnél maga a súly.
+ *
+ * A nyers Epley egyetlen ismétlésre is 3,3%-ot ad hozzá: egy 100 kg-os szingli
+ * „103,3 kg-os csúcs" lett, holott pontosan 100 kg-ot emeltél. Az egyismétléses
+ * kivétel a képlet szokásos alkalmazása. Korábban a motor a teljes görbét
+ * eltolta (ismétlés − 1), a PR-követés pedig a nyers képletet használta —
+ * ugyanarra a szettre két különböző szám jött ki.
+ *
+ * @param {number} weight súly (kg)
+ * @param {number} reps   ténylegesen elvégzett ismétlés
+ * @param {number} [rir]  tartalék ismétlés — a becsült KAPACITÁSHOZ hozzáadódik
+ * @returns {number|null} null, ha nem számolható
+ */
+export function estimate1RM(weight, reps, rir = 0) {
+  if (!(reps >= 1) || !(weight > 0)) return null;
+  const total = reps + rir;
+  return total <= 1 ? weight : weight * (1 + total / 30);
+}
+
+/** RIR-korrigált becslés a Recovery Engine-nek. Az RPE-ből következtetünk a
+    tartalékra (RIR = 10 − RPE); ha nincs RPE, RPE 8-at feltételezünk (2
+    ismétlés tartalék), ami a naplózás tipikus esete. RPE 10-en ugyanazt adja,
+    mint a PR-követés. */
 export function epley1RM(reps, weight, rpe) {
-  if (!(reps > 0) || !(weight > 0)) return null;
-  const rir = clamp(10 - (rpe ?? 8), 0, 5);
-  // A −1 azért kell, hogy egy RPE 10-es szingli épp a saját súlyát adja vissza
-  // (a nyers Epley 1 ismétlésnél is 3%-ot ad hozzá).
-  return weight * (1 + (reps + rir - 1) / 30);
+  return estimate1RM(weight, reps, clamp(10 - (rpe ?? 8), 0, 5));
 }
 
 /**
@@ -327,7 +379,10 @@ function summarizeWorkouts(workouts, todayKey, catalog, bodyWeight) {
   for (const workout of workouts) {
     const ago = daysAgo(workout.date, todayKey);
     // A jövőbeli (elrontott dátumú) és a nagyon régi edzések kimaradnak
-    if (!Number.isFinite(ago) || ago < 0 || ago > CHRONIC_WINDOW_DAYS) continue;
+    // A krónikus ablak a 0…27. nap: PONTOSAN 28 nap, mert a napi átlag 28-cal
+    // oszt. Korábban a 28. napot is beolvasta, tehát 29 nap terhelése ment 28
+    // nap átlagába.
+    if (!Number.isFinite(ago) || ago < 0 || ago >= CHRONIC_WINDOW_DAYS) continue;
     const bucket = dayBucket(ago);
 
     for (const exercise of workout.exercises ?? []) {
@@ -376,7 +431,9 @@ function summarizeWorkouts(workouts, todayKey, catalog, bodyWeight) {
         else if (rpe !== null && rpe >= 8.5) surcharge += 0.3;
 
         bucket.cns += load * (1 + surcharge);
-        if (exercise.pr) bucket.cns += 0.4; // PR-próbálkozás: fix ráfizetés szettenként
+        // PR-próbálkozás: fix ráfizetés szettenként. Tonnában mért, ezért a
+        // testsúllyal skálázódik — ahogy a CNS-referencia is (cnsReadiness).
+        if (exercise.pr) bucket.cns += PR_CNS_SURCHARGE * (bodyWeight / REF_BODY_WEIGHT);
       }
 
       bucket.load += exerciseLoad;
@@ -412,7 +469,7 @@ function decayedSum(byDay, tau, windowDays, pick) {
 function dailyAverage(byDay, windowDays, pick) {
   let total = 0;
   for (const [ago, bucket] of byDay) {
-    if (ago > windowDays) continue;
+    if (ago >= windowDays) continue; // 0…windowDays−1: pontosan windowDays nap
     total += pick(bucket);
   }
   return total / windowDays;
@@ -431,7 +488,7 @@ function dailyAverage(byDay, windowDays, pick) {
 export function sleepDurationScore(hours) {
   if (hours === null) return null;
   if (hours <= 4) return 0;
-  if (hours < 7.5) return (hours - 4) / 3.5;
+  if (hours < SLEEP_TARGET_HOURS) return (hours - 4) / (SLEEP_TARGET_HOURS - 4);
   if (hours <= 9) return 1;
   if (hours >= 10.5) return 0.85;
   return 1 - ((hours - 9) / 1.5) * 0.15;
@@ -450,14 +507,17 @@ export function sleepScore(checkin, recentCheckins) {
   const weightSum = parts.reduce((sum, [w]) => sum + w, 0);
   let score = parts.reduce((sum, [w, value]) => sum + w * value, 0) / weightSum;
 
-  // Alvásadósság: az elmúlt 3 nap 8 órához mért hiánya, legfeljebb −0.15.
+  // Alvásadósság: az elmúlt 3 nap célidőhöz mért hiánya, legfeljebb −0.15.
   // Egy jó éjszaka nem törli el három rossz éjszaka hatását.
   const recentHours = recentCheckins
     .filter((entry) => entry.daysAgo >= 0 && entry.daysAgo <= 2)
     .map((entry) => num(entry.sleepHours))
     .filter((value) => value !== null);
   if (recentHours.length >= 2) {
-    const debt = recentHours.reduce((sum, value) => sum + Math.max(0, 8 - value), 0);
+    const debt = recentHours.reduce(
+      (sum, value) => sum + Math.max(0, SLEEP_TARGET_HOURS - value),
+      0,
+    );
     score -= Math.min(0.15, (debt / recentHours.length) * 0.05);
   }
 
@@ -484,8 +544,13 @@ const hasNutritionEntries = (totals) =>
  */
 export function nutritionScore(nutrition, hydrationLiters, bodyWeight) {
   const parts = [];
-  const calorieGoal = num(nutrition?.goal?.calories);
-  const proteinGoal = num(nutrition?.goal?.protein);
+  /* Az ALAPÉRTELMEZETT cél (source: 'default') nem a felhasználóé: minden
+     fióknak ugyanaz a beégetett szám (2900 kcal / 170 g). Ehhez mérve egy
+     55 kg-os, 1800 kcal-t evő felhasználó „alultáplált" lenne. Ilyenkor nincs
+     mihez mérni — a kalória és a fehérje kimarad, a folyadék marad. */
+  const goal = nutrition?.goal?.source === 'default' ? null : nutrition?.goal;
+  const calorieGoal = num(goal?.calories);
+  const proteinGoal = num(goal?.protein);
 
   if (calorieGoal) parts.push([0.5, clamp01(num(nutrition.intake) / calorieGoal)]);
   if (proteinGoal) parts.push([0.3, clamp01(num(nutrition.protein) / proteinGoal)]);
@@ -513,7 +578,7 @@ function muscleReadiness({ byDay, checkin, hasHistory, hasAnyWorkout }) {
   for (const group of MUSCLE_KEYS) {
     const nonZero = [];
     for (const [ago, bucket] of byDay) {
-      if (ago <= CHRONIC_WINDOW_DAYS && bucket.muscles[group] > 0)
+      if (ago < CHRONIC_WINDOW_DAYS && bucket.muscles[group] > 0)
         nonZero.push(bucket.muscles[group]);
     }
     personalRef[group] = nonZero.length >= 2 ? mean(nonZero) : 0;
@@ -658,6 +723,29 @@ function recommend(readiness, { prWindow }) {
   };
 }
 
+/** A súlycsökkentés a konditerem valóságához igazodik: tárcsa-lépcsőre,
+    lefelé kerekítve. Egy „87,3 kg" javaslat használhatatlan volna. Elsőként a
+    2,5 kg-os lépcső; ha az a kis súlyon aránytalanul sokat venne le (10 kg-ról
+    7,5-re = 25% a kért 10% helyett), a finomabb lépcsők jönnek (kézisúlyzó,
+    mikrotárcsa). */
+const PLATE_STEPS_KG = [2.5, 1, 0.5];
+/** A tényleges levétel legfeljebb ennyiszerese lehet a javasoltnak. */
+const MAX_REDUCTION_OVERSHOOT = 1.5;
+/** A csökkentett súly, vagy null, ha nincs értelmes lépcső: a súly nem mehet
+    nullára (2 kg → 0 kg nem visszavétel, hanem a gyakorlat elhagyása), és a
+    levétel nem lehet a kért arány MAX_REDUCTION_OVERSHOOT-szorosánál több. */
+export const reduceWeight = (kg, ratio) => {
+  const target = kg * (1 - ratio);
+  for (const step of PLATE_STEPS_KG) {
+    // A lebegőpontos maradék (pl. 9.000000001 / 1) ne vigyen egy lépcsővel lejjebb
+    const reduced = Math.floor(target / step + 1e-9) * step;
+    if (reduced > 0 && reduced < kg && (kg - reduced) / kg <= ratio * MAX_REDUCTION_OVERSHOOT) {
+      return reduced;
+    }
+  }
+  return null;
+};
+
 /**
  * Gyakorlat-ajánlások.
  *
@@ -757,13 +845,16 @@ function exerciseReadiness({
     const hitsPainful = groups.some(([group]) => painfulGroups.has(group));
     if (hitsPainful) readiness = Math.min(readiness, 30);
 
-    // PR-ablak csak akkor, ha a becsült 1RM az utolsó három alkalommal is
-    // emelkedő trendet mutat — a jó közérzet önmagában nem elég indok.
+    // PR-ablak csak akkor, ha a becsült 1RM az utolsó három alkalommal
+    // FOLYAMATOSAN emelkedett — a jó közérzet önmagában nem elég indok.
+    // (Korábban csak a legutolsót vetette össze a harmadikkal, így egy
+    // 100 → 120 → 101 visszaesés is PR-ablakot adott.) Legfrissebb elöl.
     const estimates = sorted
       .slice(0, 3)
       .map((session) => session.best1RM)
       .filter((v) => v !== null);
-    const prWindow = estimates.length >= 3 && estimates[0] > estimates[estimates.length - 1];
+    const prWindow =
+      estimates.length >= 3 && estimates[0] > estimates[1] && estimates[1] > estimates[2];
 
     const rounded = Math.round(clamp(readiness, 0, 100));
     return {
@@ -1057,7 +1148,7 @@ export function computeReadiness({
     recovery: {
       sleep:
         checkin?.sleepHours !== null && checkin?.sleepHours !== undefined
-          ? `${checkin.sleepHours} óra`
+          ? `${formatDecimal(checkin.sleepHours)} óra`
           : '—',
       fatigue: describe(loadComponent, ['Nagyon magas', 'Magas', 'Közepes', 'Alacsony']),
       /* Az izom-komponens null, ha se edzés-előzmény, se jelzett izomláz nincs.
