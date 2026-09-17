@@ -320,6 +320,8 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
       subtitleNoun: 'edzéshez',
       toastTarget: 'az edzéshez',
       exerciseOptions,
+      // Ma edz: az ajánlásba a mai regeneráltság is beleszól.
+      suggestReadiness: true,
       onChange: () => {
         syncEmpty();
         refreshExerciseList(list);
