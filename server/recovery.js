@@ -48,6 +48,8 @@ import {
   emptyMuscleMap,
   normalizeName,
 } from './muscles.js';
+// A kardió fokozatainak CR-10 értéke: a szesszió-RPE terhelés bemenete.
+import { INTENSITY_LEVELS, DEFAULT_INTENSITY } from './logmode.js';
 
 /* ======================================================================
    Dátum-segédek — a mentett adatok „ÉÉÉÉ.HH.NN" formátumához.
@@ -190,6 +192,58 @@ const MAX_EXERCISE_RECS = 6;
    Terhelés-számítás a mentett edzésekből
    ====================================================================== */
 
+/* ----------------------------------------------------------------------
+   Kardió: szesszió-RPE (Foster) → tonna-egyenérték   (kalibrálva 2026-09-17)
+   ----------------------------------------------------------------------
+   Az időalapú sorban nincs ismétlés és súly, tehát a tonnatömeg nulla — a
+   motor korábban egy kemény futóhetet pihenőhétnek látott. A terhelés mértéke
+   itt a SZESSZIÓ-RPE: perc × a fokozat CR-10 értéke (logmode.js →
+   INTENSITY_LEVELS), egysége AU. A módszer súlyzós és állóképességi edzésre is
+   validált (Sweet és mtsai 2004: ugyanazok az alanyok kerékpáron és súlyzóval)
+   — ezért híd a kettő között. KORLÁT: súlyzós edzésnél a szesszió-RPE
+   gyengébben korrelál más terhelés-mérőszámokkal (Haddad és mtsai 2017
+   áttekintése: r = 0,52 vs. 0,82), tehát a két mód AU-ja nem tökéletesen
+   összemérhető. Az átváltás becslés, nem mérés.
+
+   Az AU → tonna átváltás EGY kalibrált szám, 2026-09-17-én ONLINE FORRÁSOKKAL
+   ellenőrizve és 0,025-ről 0,02-re csökkentve. Két levezetés közé esik:
+     · ELMÉLETI, edzett férfira: egy kemény súlyzós nap ≈ 60 perc × 7-es
+       szesszió-RPE = 420 AU (a Foster-skálán 7 = „nagyon nehéz"; Day és mtsai
+       2004-ben a 90%-os 1RM-es edzés szesszió-RPE-je 6,9 volt), és ≈ 22 szett ×
+       8 ism. × ~52 kg átlagsúly ≈ 9,2 t (az izolációs gyakorlatok lehúzzák az
+       átlagot) → 0,022 t/AU;
+     · MÉRT: junior női rögbisek (71 kg) súlyzós edzésein 5181 kg / 316 AU és
+       4516 kg / 332 AU, a relatív tonnatömeggel 80 kg-ra skálázva 0,019 és
+       0,015 t/AU. Edzett, erősebb versenyzőnél ez alsó becslés.
+   Tehát 1 AU = 0,02 t. Példák 80 kg-on: 45 perc „Magas" futás 4,5 t, 90 perc
+   „Magas" 9 t (kemény súlyzós nap). Az ABS_FATIGUE_REF (25 t) ezzel is
+   összhangban van: kétnaponta ismételt ~12 t-s napoknál telik be.
+
+   A TESTSÚLY-skálázás azért kell, mert a referencia is skálázódik vele
+   (absFatigueRef): a tonnatömeg a nehezebb sportolónál természetesen nagyobb,
+   a szesszió-RPE viszont nem. Így ugyanaz az edzés ugyanakkora hányadát adja a
+   referenciának 60 és 100 kg-on is.
+
+   Az IDEGRENDSZER csak a „Magas" és „Maximális" fokozaton kap a terhelés
+   feléből: az alacsony intenzitású aerob munka nem terheli a CNS-t, a kemény
+   intervall igen, de kevésbé, mint egy nehéz axiális emelés (annál a CNS a
+   tonna 1-2,1-szerese). IZOMCSOPORT-terhelés szándékosan NINCS: a mozgások
+   közt nagyon eltér (a futás eccentrikus lábizom-károsodást okoz, a kerékpár
+   alig), és ahhoz külön kalibráció kellene. */
+const SRPE_TONNES_PER_AU = 0.02;
+const CARDIO_CNS_SHARE = 0.5;
+const CARDIO_CNS_INTENSITIES = new Set(['high', 'max']);
+
+/** Egy teljesített időalapú sor terhelése tonna-egyenértékben. Az ismeretlen
+    fokozat a skála közepét kapja — ugyanúgy, ahogy a mentés normalizálja. */
+function cardioSetLoad(set, bodyWeight) {
+  if (!set?.done) return 0;
+  const seconds = num(set.duration);
+  if (seconds === null || seconds <= 0) return 0;
+  const level = INTENSITY_LEVELS[set.intensity] ?? INTENSITY_LEVELS[DEFAULT_INTENSITY];
+  return (seconds / 60) * level.cr10 * SRPE_TONNES_PER_AU * (bodyWeight / REF_BODY_WEIGHT);
+}
+
 /** Egy szett RPE-szorzója: ugyanaz a tonnatömeg RPE 9-en jóval többe kerül,
     mint RPE 6-on. RPE 8 a semleges pont. Hiányzó RPE-re 1.0 (nem büntetünk
     olyanért, amit nem írt be a felhasználó). */
@@ -261,7 +315,7 @@ export function epley1RM(reps, weight, rpe) {
  * Visszaadja: napi összterhelés, napi CNS-terhelés, napi izomcsoport-terhelés,
  * valamint gyakorlatonként az alkalmak listája (dátum + becsült 1RM).
  */
-function summarizeWorkouts(workouts, todayKey, catalog) {
+function summarizeWorkouts(workouts, todayKey, catalog, bodyWeight) {
   const byDay = new Map(); // daysAgo → { load, cns, muscles }
   const exercises = new Map(); // név → { name, sessions: [{ daysAgo, best1RM, sets }] }
 
@@ -277,6 +331,17 @@ function summarizeWorkouts(workouts, todayKey, catalog) {
     const bucket = dayBucket(ago);
 
     for (const exercise of workout.exercises ?? []) {
+      /* Időalapú (kardió) sor: szisztémás terhelés, kemény fokozaton CNS is —
+         izom és gyakorlat-ajánlás nincs (lásd cardioSetLoad fölött). */
+      if (exercise.logMode === 'duration') {
+        for (const set of exercise.sets ?? []) {
+          const load = cardioSetLoad(set, bodyWeight);
+          bucket.load += load;
+          if (CARDIO_CNS_INTENSITIES.has(set.intensity)) bucket.cns += load * CARDIO_CNS_SHARE;
+        }
+        continue;
+      }
+
       const muscleLoad = resolveExerciseLoad(exercise.name, catalog);
       const axial = isAxialLift(exercise.name);
       let exerciseLoad = 0;
@@ -818,7 +883,7 @@ export function computeReadiness({
   const bodyWeight = num(latestWeight?.kg) ?? REF_BODY_WEIGHT;
 
   // — Edzésadatok
-  const { byDay, exercises } = summarizeWorkouts(workouts, todayKey, catalog);
+  const { byDay, exercises } = summarizeWorkouts(workouts, todayKey, catalog, bodyWeight);
   const historyDays = byDay.size ? Math.max(...[...byDay.keys()]) + 1 : 0;
   const hasHistory = historyDays >= PERSONAL_REF_MIN_DAYS;
 

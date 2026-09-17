@@ -2279,3 +2279,54 @@ test('ajánlott gyakorlatok: a fájdalmas izomcsoport a címmel sem jön vissza'
     'sapkás napon nincs rábólintó indoklás',
   );
 });
+
+test('a kardió sor nem munkasorozat: a profil és a heti diagram sem számolja', async () => {
+  const reg = await request('POST', '/api/auth/register', {
+    body: { username: 'kardio2', displayName: 'Kardiós Kata', password: 'jelszo123' },
+  });
+  const cookie = cookieFrom(reg);
+
+  const mentes = await request('POST', '/api/workouts', {
+    cookie,
+    body: {
+      name: 'Láb + futás',
+      exercises: [
+        gyakorlat('Guggolás', 100),
+        {
+          name: 'Futópad',
+          logMode: 'duration',
+          sets: [{ duration: '2700', intensity: 'high', done: true }],
+        },
+      ],
+    },
+  });
+  assert.equal(mentes.status, 201);
+
+  const profil = (await request('GET', '/api/profile', { cookie })).json.stats;
+  assert.equal(profil.workSets, 1, 'a 45 perces futás nem egy munkasorozat');
+
+  const diagram = (await request('GET', '/api/charts', { cookie })).json;
+  assert.equal(diagram.volumeThisWeek.total, 1);
+
+  // A futás viszont a készenlétben MÁR látszik: a terhelés-komponens nem 100.
+  const csakFutas = await request('POST', '/api/auth/register', {
+    body: { username: 'kardio3', displayName: 'Futó Feri', password: 'jelszo123' },
+  });
+  const futoCookie = cookieFrom(csakFutas);
+  await request('POST', '/api/workouts', {
+    cookie: futoCookie,
+    body: {
+      name: 'Hosszú futás',
+      exercises: [
+        {
+          name: 'Futópad',
+          logMode: 'duration',
+          sets: [{ duration: '5400', intensity: 'high', done: true }],
+        },
+      ],
+    },
+  });
+  const riport = (await request('GET', '/api/readiness', { cookie: futoCookie })).json;
+  const terheles = riport.components.find((c) => c.key === 'load');
+  assert.ok(terheles.present && terheles.score < 100, `a futás terhel (${terheles.score})`);
+});
