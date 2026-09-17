@@ -146,6 +146,8 @@ import { buildAthleteCard } from './coaching.js';
 // Az értesítés-panel sorai. Szintén tiszta összeállítás: a végpont gyűjti az
 // eseményeket, a modul formázza őket (server/notifications.js).
 import { buildNotifications } from './notifications.js';
+// Ajánlott gyakorlatok a választóhoz: a címből és a regeneráltságból.
+import { suggestExercises } from './suggestions.js';
 import { MUSCLE_KEYS, MUSCLE_GROUPS, resolveExerciseLoad, normalizeName } from './muscles.js';
 // Kérés-korlátozás. Tiszta számláló, adatbázis és Express nélkül — a limitek
 // és a kulcsválasztás itt, a szerveren dőlnek el (server/ratelimit.js).
@@ -1332,6 +1334,25 @@ app.get('/api/dashboard', (req, res) => {
 // A teljes riport: összesített készenlét, komponens-bontás, izomcsoportok,
 // CNS, gyakorlat-ajánlások, megbízhatóság.
 app.get('/api/readiness', (req, res) => res.json(readinessReport(req.user.id, req.today)));
+
+/* Ajánlott gyakorlatok a gyakorlat-választó tetejére (server/suggestions.js).
+   ?title= az edzés vagy terv neve; ?readiness=1 kéri a mai készenlétet is
+   második jelnek. A terv-építő NEM kéri: egy jövőbeli tervről a mai
+   regeneráltság semmit nem mond, ott csak a cím számít. */
+app.get('/api/exercise-suggestions', (req, res) => {
+  const userId = req.user.id;
+  const title = typeof req.query.title === 'string' ? req.query.title : '';
+  const workouts = getWorkouts(userId);
+  const report = req.query.readiness === '1' ? readinessReport(userId, req.today, workouts) : null;
+  res.json(
+    suggestExercises({
+      title,
+      report,
+      catalog: getCollection('exerciseCatalog') || [],
+      workouts,
+    }),
+  );
+});
 
 /* ======================================================================
    Biztonsági átnézés — a készenlét felülírja a tervet

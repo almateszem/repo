@@ -5318,6 +5318,45 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   padding: var(--sp-9) 0;
 }
 
+/* „Javasolt" blokk a katalógus fölött (js/ui/exercise-picker.js ->
+   loadSuggestions). Ugyanazokból a sorokból áll, mint a lista, csak az
+   indoklás-sor az új; a blokk alsó margója választja el a „Találatok"-tól. */
+.ep-suggest {
+  margin: 0 0 var(--sp-6);
+}
+
+.ep-suggest-title {
+  margin: 0 0 var(--sp-3);
+}
+
+.ep-suggest-note {
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+}
+
+/* A katalógus content-visibility halasztása itt nem spórol semmit (legfeljebb
+   nyolc sor, mind a képernyő tetején), a becsült magasság viszont a két
+   soros meta miatt pontatlan volna. */
+.ep-item--suggested {
+  content-visibility: visible;
+}
+
+.ep-item-reasons {
+  margin: var(--sp-1) 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-4);
+  font-size: var(--fs-2xs);
+  color: var(--text-secondary);
+}
+
+/* Az ALACSONY regeneráltság a címből jött javaslat mellett: a sor nem tiltás,
+   de nem is rábólintás — az accent szín jelzi, hogy itt óvatosság kell. */
+.ep-reason--low {
+  color: var(--c-accent);
+}
+
 .co-modal-stat dt {
   font-size: var(--fs-2xs);
   letter-spacing: 0.02em;

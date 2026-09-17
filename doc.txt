@@ -60,6 +60,7 @@ Fájlok:
     server/coaching.js  a sportoló-összegző (tiszta függvények, DB nélkül)
     server/errors.js    hibakezelő védőháló (kezelő-becsomagolás, JSON-hiba, őrök)
     server/notifications.js  az értesítés-panel tartalma (szintén tiszta)
+    server/suggestions.js    ajánlott gyakorlatok a választóhoz (szintén tiszta)
     server/ratelimit.js      kérés-korlátozás
     server/openfoodfacts.js  vonalkód → termék (Open Food Facts proxy)
 
@@ -368,6 +369,22 @@ kezdhető második edzés is.
 célozza át (a "← Vissza" oda visz vissza, ahonnan jöttél). Kereső + szűrő
 chipek, gyakorlatonként illusztrációval, izomcsoport-szöveggel és
 Összetett/Izolációs/Nyújtás címkével.
+
+JAVASOLT BLOKK a lista fölött (server/suggestions.js, GET
+/api/exercise-suggestions). Két egyenrangú jelből ajánl, és minden sor
+kiírja, miért került oda:
+  · az edzés CÍMÉBŐL („Lábnap", „Push #3", „Hát + bicepsz" → „a címből: Láb"),
+  · a mai REGENERÁLTSÁGBÓL („Mell 92% regenerált") — csak az edzésnaplóból
+    nyitva; a terv-építő nem kéri, mert egy jövőbeli tervről a mai készenlét
+    nem mond semmit.
+Elöl az áll, amit mindkét jel támogat, utána a két jel váltakozva kap helyet
+(a pihent felsőtest nem szoríthatja ki a „Lábnap" fáradt lábát — az ilyen sor
+„Quadriceps csak 62% regenerált" figyelmeztetést kap). Fájdalommal (7/10
+felett) letiltott izomcsoportot terhelő gyakorlat SOSEM kerül be, akkor sem,
+ha a cím kéri; sapkás napon egy izom sem lehet „regeneráltabb" a napnál.
+Értelmezhetetlen címnél („Hétfő") a regeneráltság marad, és a blokk ezt ki is
+írja. Csoportonként 2, összesen 8 gyakorlat; elöl a már naplózottak, utána a
+kurált és az összetett sorok. A blokk keresés és chip-szűrés alatt rejtve van.
 
 
 ==========================================================================
@@ -734,6 +751,7 @@ az edzőhöz.
     GET    /api/charts
   EXERCISE-CATALOG
     GET    /api/exercise-catalog
+    GET    /api/exercise-suggestions
   DEFAULT-SET
     GET    /api/default-set
   GOALS

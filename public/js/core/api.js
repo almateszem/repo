@@ -294,6 +294,13 @@ const api = {
   // Recovery Engine — egyik sem cache-elt: naponta (és minden check-in,
   // ill. edzés-mentés után) változnak.
   getReadiness: () => getJson('/api/readiness'),
+  /* Ajánlott gyakorlatok a választó tetejére: az edzés címéből, és ha
+     `withReadiness`, a mai regeneráltságból is. Nem cache-elt — a cím és a
+     készenlét is változik. */
+  getExerciseSuggestions: (title, { withReadiness = false } = {}) =>
+    getJson(
+      `/api/exercise-suggestions?title=${encodeURIComponent(title)}${withReadiness ? '&readiness=1' : ''}`,
+    ),
   /* Készenlét-alapú javaslat a MAI naplóra. Az apply ÚJRASZÁMOLJA a
      javaslatot a szerveren — a kliens listáját nem fogadja el bemenetként,
      különben egy hamisított kérés tetszőleges gyakorlatot törölhetne. */
