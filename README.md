@@ -152,6 +152,8 @@ server/
   coach.test.js  az edző–sportoló kapcsolat végponti tesztjei (npm test)
   notifications.js  az értesítés-panel sorai valódi eseményekből — tiszta függvények
   notifications.test.js  az értesítés-összeállítás tesztjei (npm test)
+  suggestions.js  ajánlott gyakorlatok a választóhoz: az edzés címéből és a regeneráltságból — tiszta függvények
+  suggestions.test.js  az ajánlás unit-tesztjei (npm test)
   muscles.js     izomcsoport-taxonómia + gyakorlat → izom leképezés
   logmode.js     a gyakorlatok naplózási módja (ismétlés + súly vagy időtartam)
   test-harness.js  közös váz a végponti tesztekhez: izolált szerver saját ideiglenes adatbázissal

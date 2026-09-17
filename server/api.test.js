@@ -181,6 +181,7 @@ test('bejelentkezés nélkül MINDEN /api végpont 401-et ad', async () => {
     ['GET', '/api/water'],
     ['POST', '/api/water'],
     ['DELETE', '/api/water/1'],
+    ['GET', '/api/exercise-suggestions?title=X'],
   ];
 
   for (const [method, urlPath] of endpoints) {
@@ -2206,4 +2207,75 @@ test('ismeretlen naplózási módra a szett-alap érvényes, nem hiba', async ()
   assert.equal(res.status, 201);
   assert.equal(res.json.exercises[0].logMode, undefined);
   assert.equal(res.json.exercises[0].sets[0].reps, '5');
+});
+
+/* ======================================================================
+   Ajánlott gyakorlatok — a választó tetejének végpontja
+   A döntési logikát a suggestions.test.js méri; itt az összedrótozás: a
+   valódi katalógus, a riport és a fájdalom-tiltás a szerveren át.
+   ====================================================================== */
+
+test('ajánlott gyakorlatok: a címből, a valódi katalógusból, indoklással', async () => {
+  const reg = await request('POST', '/api/auth/register', {
+    body: { username: 'ajanlo', displayName: 'Ajánló Aladár', password: 'jelszo123' },
+  });
+  const cookie = cookieFrom(reg);
+
+  const res = await request(
+    'GET',
+    `/api/exercise-suggestions?title=${encodeURIComponent('Lábnap')}`,
+    {
+      cookie,
+    },
+  );
+  assert.equal(res.status, 200);
+  assert.equal(res.json.readiness, 'off', 'readiness=1 nélkül a mai készenlét nem jel');
+  assert.deepEqual(res.json.titleLabels, ['Láb']);
+  assert.ok(res.json.suggestions.length > 0);
+
+  const katalogus = (await request('GET', '/api/exercise-catalog', { cookie })).json;
+  const nevek = new Set(katalogus.map((e) => e.name));
+  for (const javaslat of res.json.suggestions) {
+    assert.ok(nevek.has(javaslat.name), `„${javaslat.name}" létező katalógus-sor`);
+    assert.deepEqual(javaslat.reasons, [{ kind: 'title', text: 'a címből: Láb' }]);
+  }
+
+  // Friss fiók: a készenlét kérve is ismeretlen, a „Hétfő" cím semmit nem mond.
+  const ures = await request('GET', '/api/exercise-suggestions?title=H%C3%A9tf%C5%91&readiness=1', {
+    cookie,
+  });
+  assert.equal(ures.json.readiness, 'unknown');
+  assert.deepEqual(ures.json.suggestions, []);
+});
+
+test('ajánlott gyakorlatok: a fájdalmas izomcsoport a címmel sem jön vissza', async () => {
+  const reg = await request('POST', '/api/auth/register', {
+    body: { username: 'ajanlo2', displayName: 'Ajánló Bea', password: 'jelszo123' },
+  });
+  const cookie = cookieFrom(reg);
+  await request('PUT', '/api/checkin', {
+    cookie,
+    body: { sleepHours: 8, sleepQuality: 5, energy: 5, stress: 1, pain: { chest: 8 } },
+  });
+
+  const res = await request(
+    'GET',
+    '/api/exercise-suggestions?title=Mell%20%2B%20h%C3%A1t&readiness=1',
+    {
+      cookie,
+    },
+  );
+  assert.equal(res.status, 200);
+  assert.equal(res.json.readiness, 'used');
+  assert.deepEqual(res.json.titleLabels, ['Hát'], 'a Mell címke a tiltással együtt eltűnik');
+  assert.ok(res.json.suggestions.length > 0, 'a hát a címből továbbra is jön');
+  assert.ok(
+    res.json.suggestions.every((s) => s.group === 'back'),
+    'a mellre egyetlen javaslat sem jön',
+  );
+  // A mellfájdalom a teljes napot sapkázza — a hát sem lehet „regenerált".
+  assert.ok(
+    res.json.suggestions.every((s) => s.reasons.every((r) => r.kind !== 'ready')),
+    'sapkás napon nincs rábólintó indoklás',
+  );
 });
