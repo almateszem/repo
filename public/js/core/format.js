@@ -2,8 +2,14 @@
 
 import { prefersReducedMotion } from './dom.js';
 
-/** Max 1 tizedesjegy, egész számnál tizedes nélkül. */
-const formatNumber = (value) => String(Math.round(value * 10) / 10);
+/** KIÍRÁSRA: max 1 tizedesjegy, egész számnál tizedes nélkül, magyar
+    tizedesvesszővel („82,5"). A szerver is így ír (pl. a volumen-diagram
+    „1,2 t" tengelye) — korábban a kettő keveredett egy képernyőn belül. */
+const formatNumber = (value) => formatInputNumber(value).replace('.', ',');
+
+/** BEVITELI MEZŐBE: ugyanaz a kerekítés, de ponttal. A type="number" mező és
+    a Number() csak a pontot érti — vesszővel a mező üresen maradna. */
+const formatInputNumber = (value) => String(Math.round(value * 10) / 10);
 
 /** Elemenként legfeljebb egy futó szám-animáció (az újabb megszakítja a régit). */
 const runningNumberAnimations = new WeakMap();
@@ -13,7 +19,8 @@ const runningNumberAnimations = new WeakMap();
 function animateNumber(el, to, { from = null, duration = 800, format = formatNumber } = {}) {
   cancelAnimationFrame(runningNumberAnimations.get(el));
 
-  const start = from !== null ? from : parseFloat(el.textContent) || 0;
+  // A kiírt szám tizedesvesszős (formatNumber) — a parseFloat csak a pontot érti
+  const start = from !== null ? from : parseFloat(el.textContent.replace(',', '.')) || 0;
   if (prefersReducedMotion || start === to) {
     el.textContent = format(to);
     return;
@@ -28,4 +35,4 @@ function animateNumber(el, to, { from = null, duration = 800, format = formatNum
   runningNumberAnimations.set(el, requestAnimationFrame(tick));
 }
 
-export { animateNumber, formatNumber };
+export { animateNumber, formatInputNumber, formatNumber };

@@ -10,6 +10,7 @@
 
 import { $, $$ } from '../../core/dom.js';
 import { readSetRow } from '../../render/sets.js';
+import { estimate1RM } from '../../core/one-rm.js';
 
 export function createPrIndicators({ page, getMaxes }) {
   /** Egy gyakorlat PR-jelzésének frissítése — kizárólag a teljesített
@@ -27,16 +28,12 @@ export function createPrIndicators({ page, getMaxes }) {
     const setRows = $$('.wk-set-list .wk-set-row', exerciseCard);
     let bestCompleted1rm = 0;
 
-    // Az Epley-képlet: 1RM = weight * (1 + reps / 30)
+    // A szerverrel közös képlet (core/one-rm.js): Epley, egy ismétlésnél a súly
     for (const row of setRows) {
       const set = readSetRow(row);
       if (!set.done) continue;
 
-      const reps = Number(set.reps);
-      const weight = Number(set.weight);
-      if (!Number.isFinite(reps) || !Number.isFinite(weight) || reps < 1 || weight <= 0) continue;
-
-      const oneRM = weight * (1 + reps / 30);
+      const oneRM = estimate1RM(Number(set.weight), Number(set.reps));
       if (oneRM > bestCompleted1rm) bestCompleted1rm = oneRM;
     }
 

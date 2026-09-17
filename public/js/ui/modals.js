@@ -2,6 +2,7 @@
 
 import { api } from '../core/api.js';
 import { $, $$, cloneTemplate, prefersReducedMotion } from '../core/dom.js';
+import { formatNumber } from '../core/format.js';
 import { showToast } from '../core/toast.js';
 
 /** Közös modal-vezérlő: backdrop/gomb zárás, Escape, fókusz-csapda,
@@ -251,7 +252,7 @@ function setupPrModal() {
           item.style.setProperty('--i', index);
           let detailText = entry.detail;
           if (entry.oneRM !== null && entry.oneRM > 0) {
-            detailText += ` • 1RM: ${entry.oneRM.toFixed(1)} kg`;
+            detailText += ` • 1RM: ${formatNumber(entry.oneRM)} kg`;
           }
           $('.wk-pr-detail', item).textContent = detailText;
           $('.wk-pr-date', item).textContent = entry.date;

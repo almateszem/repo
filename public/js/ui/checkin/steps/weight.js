@@ -1,7 +1,7 @@
 /** Testsúly-lépés: mai mérés, viszonyítási ponttal és „ma nem mértem" kiúttal. */
 
 import { $, $$, cloneTemplate } from '../../../core/dom.js';
-import { formatNumber } from '../../../core/format.js';
+import { formatInputNumber, formatNumber } from '../../../core/format.js';
 import { formatDelta, latestWeightEntry, todayWeightEntry } from '../../weight.js';
 import {
   CI_PRESET_ADVANCE_MS,
@@ -28,7 +28,7 @@ function renderWeight(nav) {
   // A mezőt SZÁNDÉKOSAN nem töltjük ki a legutóbbi méréssel: egy előre
   // beírt szám a „Tovább" gombbal olyan méréssé válna, ami meg sem történt.
   // A ma már rögzített érték viszont szerkeszthető — azt visszaadjuk.
-  input.value = ci.answers.weightKg === null ? '' : formatNumber(ci.answers.weightKg);
+  input.value = ci.answers.weightKg === null ? '' : formatInputNumber(ci.answers.weightKg);
 
   const syncStep = () => {
     const value = ci.answers.weightKg;
@@ -71,7 +71,7 @@ function renderWeight(nav) {
   // 30-ra), elhagyáskor viszont a látott és a tárolt érték egyezzen.
   input.addEventListener('input', commitWeight);
   input.addEventListener('blur', () => {
-    input.value = ci.answers.weightKg === null ? '' : formatNumber(ci.answers.weightKg);
+    input.value = ci.answers.weightKg === null ? '' : formatInputNumber(ci.answers.weightKg);
   });
 
   // A ± gombokat a megosztott handleStepClick lépteti; üres mezőnél viszont
@@ -82,7 +82,7 @@ function renderWeight(nav) {
     nav.cancelAdvance();
     if (input.value.trim() !== '') return;
     event.stopPropagation();
-    input.value = formatNumber(reference?.kg ?? CI_WEIGHT_FALLBACK);
+    input.value = formatInputNumber(reference?.kg ?? CI_WEIGHT_FALLBACK);
     commitWeight();
   });
 
@@ -98,7 +98,7 @@ function renderWeight(nav) {
       btn.setAttribute('aria-pressed', 'false');
       btn.setAttribute('aria-label', `${formatNumber(value)} kilogramm`);
       btn.addEventListener('click', (event) => {
-        input.value = formatNumber(value);
+        input.value = formatInputNumber(value);
         commitWeight();
         // Billentyűs aktiválás (detail === 0) nem léptet magától.
         if (event.detail !== 0) nav.advanceSoon(CI_PRESET_ADVANCE_MS);

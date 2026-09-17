@@ -139,10 +139,19 @@ import {
 } from './auth.js';
 // A készenlét-motor és a közös dátum-segédek. A dátumkezelés szándékosan egy
 // helyen (recovery.js) lakik, hogy a szerver és a motor sose csússzon el.
-import { computeReadiness, parseDate, dayKey, DAY_MS, hydrationTarget } from './recovery.js';
+import {
+  computeReadiness,
+  parseDate,
+  dayKey,
+  daysBetween,
+  formatDecimal,
+  shiftDayKey,
+  hydrationTarget,
+  reduceWeight,
+} from './recovery.js';
 // Az edzői panel sportoló-összegzője. Szintén tiszta számítás: a végpont
 // gyűjti az adatot, a modul számol belőle (server/coaching.js).
-import { buildAthleteCard } from './coaching.js';
+import { buildAthleteCard, streakFromDates } from './coaching.js';
 // Az értesítés-panel sorai. Szintén tiszta összeállítás: a végpont gyűjti az
 // eseményeket, a modul formázza őket (server/notifications.js).
 import { buildNotifications } from './notifications.js';
@@ -478,7 +487,9 @@ function requestDate(req) {
   if (Number.isNaN(parsed.getTime()) || formatDate(parsed) !== raw) return serverToday();
 
   const server = serverToday();
-  return Math.abs(dayKey(raw) - dayKey(server)) <= DAY_MS ? raw : server;
+  // Napban mérve, nem milliszekundumban: az óraátállítás napja 25 órás, és a
+  // szomszédos nap különben „túl messzinek" látszott.
+  return Math.abs(daysBetween(dayKey(server), dayKey(raw))) <= 1 ? raw : server;
 }
 
 /** Egy "ÉÉÉÉ.HH.NN" dátum eltolása napokkal (negatív = visszafelé). */
@@ -1193,7 +1204,7 @@ app.get('/api/notifications', (req, res) => {
     });
   }
 
-  const since = formatDate(new Date(dayKey(req.today) - PR_NOTICE_DAYS * DAY_MS));
+  const since = shiftDate(req.today, -PR_NOTICE_DAYS);
 
   res.json(
     buildNotifications({
@@ -1445,9 +1456,6 @@ function planSafetyChecker(userId, todayDate) {
      · a nem szám súlyokat (saját testsúlyos gyakorlat) — ott nincs mit levenni.
    ====================================================================== */
 
-/** A súlycsökkentés a konditerem valóságához igazodik: 2,5 kg-os lépcső,
-    lefelé kerekítve. Egy „87,3 kg" javaslat használhatatlan volna. */
-const PLATE_STEP_KG = 2.5;
 /** E alatti izom-készenlétnél nagyobb levételt javaslunk. Ide már csak
     tényleges terhelés-halmozódással lehet lejutni (az izomláz önmagában
     60-ig visz), ezért indokolt a nagyobb lépés. */
@@ -1455,9 +1463,8 @@ const VERY_LOW_MUSCLE = 55;
 const REDUCE_HARD = 0.15;
 const REDUCE_SOFT = 0.1;
 
-const reduceWeight = (kg, ratio) =>
-  Math.max(0, Math.floor((kg * (1 - ratio)) / PLATE_STEP_KG) * PLATE_STEP_KG);
-/** Szám → a naplóban használt szöveges alak (fölösleges tizedes nélkül). */
+/** Szám → a naplóban TÁROLT szöveges alak (fölösleges tizedes nélkül, ponttal —
+    a szett-mező számként olvasandó). A felületi mondatba a formatDecimal kerül. */
 const weightText = (value) => String(Math.round(value * 10) / 10);
 
 /** A mai edzésre vonatkozó javaslatok. A MAI NAPLÓ tartalmából dolgozik
@@ -1512,7 +1519,7 @@ function sessionAdvice(userId, todayDate) {
       .map((set) => Number(set.weight))
       .filter((kg) => Number.isFinite(kg) && kg > 0);
     const heaviest = Math.max(0, ...weights);
-    if (heaviest === 0 || reduceWeight(heaviest, ratio) >= heaviest) return;
+    if (heaviest === 0 || reduceWeight(heaviest, ratio) === null) return;
 
     items.push({
       index,
@@ -1520,7 +1527,7 @@ function sessionAdvice(userId, todayDate) {
       action: 'reduce',
       percent: Math.round(ratio * 100),
       reason: `${worst.label} még nem állt helyre (${worst.readiness}%)`,
-      detail: `a legnehezebb szett ${weightText(heaviest)} kg → ${weightText(reduceWeight(heaviest, ratio))} kg`,
+      detail: `a legnehezebb szett ${formatDecimal(heaviest)} kg → ${formatDecimal(reduceWeight(heaviest, ratio))} kg`,
     });
   });
 
@@ -1557,7 +1564,9 @@ function applySessionAdvice(userId, todayDate) {
       sets: exercise.sets.map((set) => {
         const kg = Number(set.weight);
         if (set.done || !Number.isFinite(kg) || kg <= 0) return set;
-        return { ...set, weight: weightText(reduceWeight(kg, ratio)) };
+        // A könnyebb szettnél nem biztos, hogy van értelmes lépcső — az marad
+        const reduced = reduceWeight(kg, ratio);
+        return reduced === null ? set : { ...set, weight: weightText(reduced) };
       }),
     });
   });
@@ -1662,8 +1671,18 @@ app.put('/api/checkin', (req, res) => {
      lecseréli a nap víznaplóját — a felhasználó ott az összegről nyilatkozik,
      nem egy kortyról. A mezőt üresen hagyva a napló érintetlen marad, hogy a
      gyors check-in ne törölje a napközben rögzített kortyokat. */
-  if (fields.hydration !== null)
+  if (fields.hydration !== null) {
     replaceWaterDay(userId, req.today, Math.round(fields.hydration * 1000));
+  } else {
+    /* Üres mező: a víznapló marad, és a check-in sor folyadék-mezője is a
+       naplót tükrözi. Korábban itt null íródott, tehát egy gyors check-in
+       a napközben rögzített kortyokat a motor elől eltüntette — a vízmérő
+       1,5 litert mutatott, a készenlét pedig semmit sem látott belőle. */
+    const water = getWaterDay(userId, req.today);
+    const previous = getCheckin(userId, req.today);
+    fields.hydration =
+      water.entries.length > 0 ? water.totalMl / 1000 : (previous?.hydration ?? null);
+  }
 
   const checkin = saveCheckin(userId, req.today, fields);
   // Rögtön a friss riportot is visszaadjuk, hogy a kliensnek ne kelljen
@@ -1896,23 +1915,6 @@ function trainingStreak(workouts, today) {
   );
 }
 
-/** Ugyanaz, edzés-objektumok helyett puszta NAPOKBÓL. Az edzői panel ezt
-    hívja: ott a napok listája a teljes előzményből jön (getWorkoutDates), az
-    edzések viszont ablakozva — a sorozat pedig tetszőlegesen régre nyúlhat,
-    tehát nem szorítható az ablakba. */
-function streakFromDates(dates, today) {
-  const trainedDays = new Set(dates.map(dayKey));
-  const todayKey = dayKey(today);
-
-  let streak = 0;
-  let cursor = trainedDays.has(todayKey) ? todayKey : todayKey - DAY_MS;
-  while (trainedDays.has(cursor)) {
-    streak += 1;
-    cursor -= DAY_MS;
-  }
-  return streak;
-}
-
 /** A teljes készenléti riport összeállítása. Az adatgyűjtés itt van, a
     SZÁMÍTÁS a recovery.js-ben — az a modul nem ismeri az adatbázist, ezért
     külön tesztelhető (server/recovery.test.js). */
@@ -1967,7 +1969,7 @@ function volumeTrend(userId, today) {
   for (const workout of getWorkouts(userId)) {
     const date = parseDate(workout.date);
     const at = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-    const index = DAYS - 1 - Math.round((end - at) / DAY_MS);
+    const index = DAYS - 1 - daysBetween(at, end);
     if (index < 0 || index >= DAYS) continue;
     for (const exercise of workout.exercises) {
       for (const set of exercise.sets) {
@@ -1988,7 +1990,7 @@ function volumeTrend(userId, today) {
       ? `${String(Math.round((peak / 1000) * 10) / 10).replace('.', ',')} t`
       : `${Math.round(peak)} kg`;
   const labels = tonnage.map((_, i) => {
-    const d = new Date(end - (DAYS - 1 - i) * DAY_MS);
+    const d = new Date(shiftDayKey(end, -(DAYS - 1 - i)));
     return dayNames[(d.getDay() + 6) % 7];
   });
 
@@ -2007,7 +2009,9 @@ function volumeTrend(userId, today) {
 
 function volumeCharts(userId, today) {
   const thisMonday = mondayOf(parseDate(today));
-  const lastMonday = thisMonday - 7 * 24 * 60 * 60 * 1000;
+  // Naptári hét, nem 168 óra: az óraátállítás hetében a 168 órás lépés nem
+  // hétfő éjfélre esett, és a múlt hét diagramja üres maradt.
+  const lastMonday = shiftDayKey(thisMonday, -7);
   const thisWeek = Array(7).fill(0);
   const lastWeek = Array(7).fill(0);
 
@@ -2848,7 +2852,10 @@ app.post('/api/athletes/:linkId/comments', (req, res) => {
    A bemondott érték külön forrásként él (exercise_maxes.source = 'declared'),
    és a riport `basis` mezője kimondja, min alapul az ajánlás. */
 const ASSESSMENT_MAX_ENTRIES = 12;
-const ASSESSMENT_RANGES = { weight: [1, 500], reps: [1, 30] };
+/* Az ismétlés felső határa 12: az Epley-becslés 10–12 ismétlés fölött már
+   erősen túlbecsül (30 ismétlésnél a súly kétszerese lenne az 1RM), és a
+   felmérés erre a számra épít ajánlást. */
+const ASSESSMENT_RANGES = { weight: [1, 500], reps: [1, 12] };
 
 /** Az erőfelmérés rögzítése. Törzs: { entries: [{ exercise, weight, reps }] }.
     A gyakorlatnak a KATALÓGUSBAN kell lennie — kitalált névre nem építünk

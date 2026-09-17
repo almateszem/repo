@@ -214,7 +214,7 @@ test('a legutóbbi aktivitás a naplókból fésülődik össze, legújabb elöl
     'a PR a legnehezebb szettel',
   );
   assert.ok(list.some((entry) => entry === 'Erőnap · 2 munkasorozat — tegnap'));
-  assert.ok(list.some((entry) => entry === 'Testsúly rögzítve: 82.4 kg — 3 napja'));
+  assert.ok(list.some((entry) => entry === 'Testsúly rögzítve: 82,4 kg — 3 napja'));
 });
 
 test('a bemelegítő szett nem munkasorozat', () => {

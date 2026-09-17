@@ -2,6 +2,7 @@
 
 import { api } from '../core/api.js';
 import { $, cloneTemplate } from '../core/dom.js';
+import { formatNumber } from '../core/format.js';
 
 /** Korábbi rekordok (PR) listája a workout oldalon — a mentett edzések
     PR-jelölt gyakorlataiból (a szerver állítja össze). Újrahívható:
@@ -19,7 +20,7 @@ async function renderPrs() {
     // Detail: szett információ + 1RM érték
     let detailText = pr.detail;
     if (pr.oneRM !== null && pr.oneRM > 0) {
-      detailText += ` • 1RM: ${pr.oneRM.toFixed(1)} kg`;
+      detailText += ` • 1RM: ${formatNumber(pr.oneRM)} kg`;
     }
     $('.wk-pr-detail', item).textContent = detailText;
     $('.wk-pr-date', item).textContent = pr.date;

@@ -56,15 +56,24 @@ export const TAU_BY_GROUP = {
     („nyomás"). A minták kisbetűsített, ékezet nélkülire normalizált néven
     futnak (lásd normalizeName), így „Felhúzás" és „felhuzas" is talál. */
 const KEYWORD_MAP = [
+  /* — Minták, amiket egy későbbi, általánosabb minta elnyelne —
+     A felhúzás állig (upright row) és a vállvonogatás a „felhuz", illetve a
+     „row" elé kell; a hátsó váll tárogatás a mell-tárogatás elé; a bolgár
+     guggolás a guggolás elé. A súlyok a katalógus kurált soraiéval egyeznek
+     („Felhúzás állig", „Vállvonogatás", „Bolgár kitörés"). */
+  [/felhuzas.?allig|upright.?row/, { shoulders: 0.6, back: 0.3, arms: 0.1 }],
+  [/shrug|vallvonogat/, { back: 0.6, shoulders: 0.4 }],
+  [
+    /hatso.?vall|rear.?delt|face.?pull|forditott.?tarogat|reverse.?fly/,
+    { shoulders: 0.7, back: 0.3 },
+  ],
+  [/kitores|lunge|bolgar|split.?squat/, { quads: 0.4, glutes: 0.4, hamstrings: 0.1, core: 0.1 }],
+
   // — Alsótest, összetett —
-  // A vállvonogatás („felhúzás állig") előbb áll, mint a felhúzás/deadlift,
-  // különben a rövidebb „felhuz" minta nyelné el.
-  [/felhuzas.?allig|shrug|vallvonogat/, { back: 0.6, shoulders: 0.4 }],
   [/roman|rdl|merev.?labu/, { hamstrings: 0.5, glutes: 0.3, back: 0.15, core: 0.05 }],
   [/felhuz|deadlift|huzas.?fold/, { hamstrings: 0.3, back: 0.35, glutes: 0.25, core: 0.1 }],
   [/hack.?guggol|elso.?guggol|front.?squat/, { quads: 0.6, glutes: 0.2, core: 0.2 }],
   [/guggol|squat/, { quads: 0.55, glutes: 0.25, core: 0.2 }],
-  [/kitores|lunge|bolgar|split.?squat/, { quads: 0.45, glutes: 0.35, hamstrings: 0.1, core: 0.1 }],
   [/labtolas|leg.?press|lab.?nyomas/, { quads: 0.7, glutes: 0.3 }],
   [
     /csipo.?tolas|hip.?thrust|far.?hid|glute.?bridge/,
@@ -78,13 +87,14 @@ const KEYWORD_MAP = [
   [/ferde.?fekvenyom|incline/, { chest: 0.65, shoulders: 0.2, arms: 0.15 }],
   [/fekvenyom|bench|mellnyomas|mell.?nyomas/, { chest: 0.6, shoulders: 0.15, arms: 0.25 }],
   [/tolodzk|dip/, { chest: 0.5, arms: 0.35, shoulders: 0.15 }],
-  [/tarazas|fly|keresztez|butterfly|pillango/, { chest: 0.9, shoulders: 0.1 }],
+  [/tarogat|tarazas|\bfly|keresztez|butterfly|pillango/, { chest: 0.9, shoulders: 0.1 }],
   [/fekvotamasz|push.?up/, { chest: 0.55, arms: 0.25, shoulders: 0.15, core: 0.05 }],
 
   // — Hát —
   [/huzodzk|pull.?up|chin.?up/, { back: 0.7, arms: 0.25, core: 0.05 }],
   [/lehuzas|lat.?pulldown/, { back: 0.75, arms: 0.25 }],
-  [/evezes|row|hajolt/, { back: 0.7, arms: 0.2, shoulders: 0.1 }],
+  // A „row" csak szó elején: különben a „throw" és a „narrow" is evezés lenne
+  [/evezes|\brow|hajolt/, { back: 0.7, arms: 0.2, shoulders: 0.1 }],
   [/pulover|pullover/, { back: 0.7, chest: 0.2, arms: 0.1 }],
   [/hiperextenzio|hyperextension|torok?emel/, { back: 0.4, hamstrings: 0.3, glutes: 0.3 }],
 
@@ -94,7 +104,6 @@ const KEYWORD_MAP = [
     { shoulders: 0.65, arms: 0.25, core: 0.1 },
   ],
   [/oldalemel|lateral.?raise/, { shoulders: 1 }],
-  [/hatso.?vall|rear.?delt|face.?pull/, { shoulders: 0.7, back: 0.3 }],
   [/elolemel|front.?raise/, { shoulders: 1 }],
 
   // — Kar —
