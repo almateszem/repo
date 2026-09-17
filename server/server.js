@@ -656,8 +656,12 @@ app.post('/api/auth/delete-account', async (req, res) => {
     profiloldal összesítője, a heti volumen-diagram és (a maga másolatában)
     az edzői panel összegzője (server/coaching.js). A drop set önálló
     sorozatnak számít itt; a Recovery Engine az izomkárosodásnál súlyozza le
-    (0.5), de darabszámra az is elvégzett munka. */
-const isWorkSet = (set) => Boolean(set?.done) && set?.type !== 'warmup';
+    (0.5), de darabszámra az is elvégzett munka.
+    Az IDŐALAPÚ (kardió) sor nem munkasorozat: szett-típusa nincs, és egy 45
+    perces futás egy bicepszsorozattal egyenlő volt a diagramon. Az ilyen sor
+    alakjáról ismerhető fel (`duration` mező) — a mentés csak ott írja ki. */
+const isWorkSet = (set) =>
+  Boolean(set?.done) && set?.type !== 'warmup' && set?.duration === undefined;
 
 /** A profiloldal adatai: a fiók alapadatai és az eddigi teljesítmény
     összesítése. Szándékosan NEM a /api/user bővítése: az a seed-fájl demo-

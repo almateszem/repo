@@ -11,9 +11,12 @@ A tematikus szakaszok (üzemeltetés, adatminőség, kódtérkép…) mindhárom
 részen belül alcímként élnek tovább, tehát egy témát a három rész
 ugyanazon alcíme alatt lehet végigolvasni.
 
-Állás (2026-09-17):   33 nyitott · 7 részben kész · 34 kész
+Állás (2026-09-17):   32 nyitott · 7 részben kész · 34 kész
 
-Utolsó frissítés: 2026-09-17 (4. funkció-ötlet kész: ajánlott gyakorlat a
+Utolsó frissítés: 2026-09-17, második kör (kardió terhelés: szesszió-RPE a
+                  Recovery Engine-ben, kalibrálva; a nyitott „nincs kardió
+                  naplózás" tétel a részben kész kardió-tételbe olvadt)
+Előző frissítés:  2026-09-17 (4. funkció-ötlet kész: ajánlott gyakorlat a
                   választóban — cím + regeneráltság, indoklással; ld. a 3.
                   részt)
 Előző frissítés:  2026-09-13, harmadik kör (biztonsági audit: IDOR nincs; a
@@ -122,14 +125,6 @@ hanem eddig fel nem tett kérdések.
 
 Ami a listát összeköti: majdnem mindegyik VISSZAFORDÍTHATATLAN adatot hagy
 maga után. Az appban ma bőven lehet írni, javítani viszont alig.
-
-[ ] Nincs kardió/állóképesség naplózás
-    A workouts.exercises szerkezete szett/ismétlés/kg — idő, táv és pulzus
-    mező sehol nincs a sémában. Az off-szezon kondimunka tehát nyomtalanul
-    elvész, pedig a terhelés-oldalon ott a helye.
-    FIGYELEM, ez nem felületi tétel: sémabővítés, és a Recovery Engine
-    terhelés-komponensét is érinti (ma a tonnatömegből számol, aminek egy
-    futásnál nincs értelme). Külön át kell beszélni, mielőtt bárki elkezdi.
 
 [ ] Nincs import — csak export
     A GET /api/export (getSnapshot) teljes pillanatképet ad, de nincs párja:
@@ -613,7 +608,7 @@ FELDERÍTETT HIÁNYOK — a végpontlistából, 2026-08-27
     katalógusból: a nutrition_log szándékosan másolatban tárolja őket.
     AMI NEM: recept és kedvenc. A törlés továbbra is csak az aznapi sorra megy.
 
-[~] Kardió naplózás — a MEGJELENÍTÉS kész, a TERHELÉS-SZÁMÍTÁS nem   (2026-09-10)
+[~] Kardió naplózás — megjelenítés (2026-09-10) és terhelés-számítás (2026-09-17) kész
     A gyakorlatok kaptak egy naplózási módot (server/logmode.js -> logMode):
       'reps'      ismétlés + súly + RPE — ez minden eddigi sor, változatlanul,
       'duration'  eltöltött idő + intenzitás, öt fokozattal.
@@ -643,23 +638,12 @@ FELDERÍTETT HIÁNYOK — a végpontlistából, 2026-08-27
     magától a magasabb fokozatot választja, tehát a felléptetés ugyanazt a
     mellényt könyvelné el kétszer.
 
-    AMI HÁTRAVAN, és amíg nincs meg, TUDNI KELL RÓLA:
-      · A Recovery Engine a kardióból NULLÁT lát. A setLoad ismétlést ÉS súlyt
-        követel, a setStimulus ismétlést — időalapú soron egyik sincs. Vagyis
-        egy kemény futóhét pihenőhétnek látszik, és a készenléti pontszám
-        feljebb áll a valósnál. Ez ugyanaz a csapda, amit a 2026-08-30-i
-        átvizsgálás egyszer már kijavított („nincs adat" != „tökéletes
-        állapot") — most tudatosan, átmenetileg áll így.
-        A képlet alakja megvan: perc × fokozat-szorzó, a szakirodalom
-        szesszió-RPE módszere szerint. Ami hiányzik, az EGY kalibrálás: mekkora
-        szorzók mellett esik egy kemény kardió edzés ugyanabba a sávba, mint egy
-        kemény súlyzós nap. Ezért nincs szám az INTENSITY_LEVELS mellett —
-        kalibrálatlan szorzót beírni rosszabb volna, mint megvárni.
-      · A heti volumen-diagram egy kardió sort EGY munkasorozatnak számol
-        (isWorkSet: teljesített és nem bemelegítő). Egy 45 perces futás így
-        egyenlő egy bicepszsorozattal egy olyan diagramon, ami kifejezetten
-        munkasorozatot jelent. A javítás egy sor a server.js isWorkSet-jében,
-        de az már a számítás kérdése, nem a megjelenítésé.
+    AMI HÁTRAVAN:
+      · IZOMCSOPORT-terhelés a kardióból. Szándékosan kimaradt (2026-09-17):
+        a futás eccentrikus lábizom-károsodást okoz, a kerékpár alig — ehhez
+        mozgásonként külön kalibráció kellene. Addig egy kemény futás a
+        quadricepset „pihentnek" mutatja, az összesített terhelés viszont már
+        helyes.
       · TÁV és PULZUS továbbra sincs. Ezek nélkül a napló arra a kérdésre nem
         tud válaszolni, hogy gyorsult-e a futó — csak arra, mennyi ideig és
         milyen nehezen ment. A pulzus opcionálisnak szánt (nem mindenki méri),
@@ -667,6 +651,33 @@ FELDERÍTETT HIÁNYOK — a végpontlistából, 2026-08-27
       · A generált katalógus SORAI nem viselnek kimondott logMode-ot, csak a
         névmintán keresztül kapják meg. Ha egyszer lefut az exdb:build, érdemes
         a mezőt a generátorba is bevezetni — addig a mintázat tartja.
+
+    KÉSZ 2026-09-17 — A TERHELÉS-SZÁMÍTÁS, a user döntései szerint:
+      · Szesszió-RPE (Foster): perc × CR-10. A fokozatok a skála szóbeli
+        horgonyai: 1 / 2 / 3 / 5, a Maximális 8 (egy teljes edzés átlaga nem
+        lehet végig maximális). logmode.js -> INTENSITY_LEVELS[].cr10.
+      · KALIBRÁCIÓ: 1 AU = 0,02 t, testsúllyal arányosan. Először 0,025 volt
+        (kemény nap = 60 perc × 8 = 480 AU ≈ 12 t); ugyanaznap ONLINE
+        FORRÁSOKKAL ellenőrizve lett 0,02:
+          - a kemény nap szesszió-RPE-je inkább 7 („nagyon nehéz"; Day és mtsai
+            2004: 90%-os 1RM-es edzés = 6,9), a 12 t pedig optimista (70 kg-os
+            átlagsúly az izolációs gyakorlatokkal együtt) → ~9,2 t / 420 AU =
+            0,022;
+          - az egyetlen talált MÉRT arány (junior női rögbisek, 80 kg-ra
+            skálázva) 0,015-0,019 — edzett versenyzőnél alsó becslés;
+          - a Haddad-féle 2017-es áttekintés szerint súlyzós edzésnél a
+            szesszió-RPE gyengébben korrelál (r = 0,52), a két mód AU-ja nem
+            tökéletesen összemérhető.
+        A helyi adatbázisban nem volt mentett edzés, saját adatból nem lehetett
+        kalibrálni. SAJÁT KALIBRÁCIÓHOZ az kellene, hogy a súlyzós edzéshez is
+        rögzítsük a hosszt és a szesszió-RPE-t — akkor sportolónként mérhető a
+        tonna/AU arány (ld. a KÉSZENLÉT-SZÁMÍTÁS „MI HIÁNYZIK" tételét is).
+      · CNS: csak Magas/Maximális fokozaton, a terhelés felével.
+      · A heti volumen-diagram, a profil és az edzői kártya munkasorozat-száma
+        nem számolja a kardió sort; az edzői aktivitás-lista percben írja ki
+        („Futás · 45 perc kardió").
+      Tesztek: recovery.test.js „Kardió" szakasz (8, ebből 4 a régi motoron
+      piros), coaching.test.js (1), api.test.js (1 végponti).
 
 --------------------------------------------------------------------------
 TELJESÍTMÉNY — mérve 2026-08-15, üres / 1 éves / 3 éves adatbázissal

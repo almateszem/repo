@@ -52,17 +52,22 @@ export const DEFAULT_LOG_MODE = 'reps';
  * a feliratot, a már naplózott sorok nem válnak értelmezhetetlenné — ugyanez
  * az elv él a mérési helyeknél (MEASUREMENT_SITES) és a szett-típusoknál.
  *
- * SZÁM SZÁNDÉKOSAN NINCS mellettük. A terhelés-számítás (perc × fokozat) még
- * nem készült el, és egy kalibrálatlan szorzót beírni rosszabb volna, mint
- * megvárni: a Recovery Engine ebből a mezőből fog dolgozni, ott pedig egy
- * kitalált arány csendben torzítaná a készenléti pontszámot.
+ * A `cr10` a fokozat értéke Foster módosított Borg CR-10 skáláján (2026-09-17,
+ * kalibrálva). Ebből számol a Recovery Engine szesszió-RPE terhelést: perc ×
+ * cr10 (lásd recovery.js → cardioSetLoad). Az értékek a skála SZÓBELI
+ * horgonyai (Foster 2001): 1 „nagyon-nagyon könnyű", 2 „könnyű", 3 „közepes",
+ * 5 „nehéz"; a 7 „nagyon nehéz", a 10 „maximális". A Maximális fokozat 8, nem
+ * 10 — ez DÖNTÉS, nem mért érték: a szesszió-RPE az EGÉSZ edzésre szól, és egy
+ * teljes edzés a bemelegítéssel, a pihenőkkel együtt nem lehet végig maximális.
+ * (A sprint-intervallokat sprintenként mérve is „nehéz"–„nagyon nehéz"-nek
+ * érzik: 16–18,5 a 6–20-as Borg-skálán.)
  */
 export const INTENSITY_LEVELS = {
-  veryLow: { label: 'Nagyon könnyű' },
-  low: { label: 'Könnyű' },
-  moderate: { label: 'Közepes' },
-  high: { label: 'Magas' },
-  max: { label: 'Maximális' },
+  veryLow: { label: 'Nagyon könnyű', cr10: 1 },
+  low: { label: 'Könnyű', cr10: 2 },
+  moderate: { label: 'Közepes', cr10: 3 },
+  high: { label: 'Magas', cr10: 5 },
+  max: { label: 'Maximális', cr10: 8 },
 };
 
 export const INTENSITY_KEYS = Object.keys(INTENSITY_LEVELS);

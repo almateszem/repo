@@ -432,7 +432,8 @@ A KÉPLET súlyozott átlag, de CSAK a jelen lévő komponensekre:
   Energiaszint     0.15   check-in, 1–5
   Stressz-reg.     0.10   check-in, 1–5 (fordítva)
   Közérzet         0.10   check-in, 1–5 (csak a részletes űrlap kérdezi)
-  Edzésterhelés    0.15   exponenciálisan csillapított tonnatömeg (τ = 3 nap)
+  Edzésterhelés    0.15   exponenciálisan csillapított tonnatömeg (τ = 3 nap),
+                          a kardió szesszió-RPE-ből átváltva (ld. lent)
   Táplálkozás      0.05   a TEGNAPI kalória/fehérje a célhoz mérve + hidratáció
 
 Ami nincs kitöltve, az NEM nullaként számít bele: a súlya arányosan
@@ -451,6 +452,13 @@ HRV/pulzus szándékosan nincs a képletben: nincs okosóra-integráció, kital�
   bármit.
 
 AMIT MÉG SZÁMOL
+  · Kardió terhelés (szesszió-RPE, Foster): perc × a fokozat CR-10 értéke
+    (1 / 2 / 3 / 5 / 8), 1 AU = 0,02 t átváltással, testsúllyal arányosan.
+    Horgony: kemény súlyzós nap ≈ 60 perc × 7 = 420 AU ≈ 9 t. A Magas és Maximális fokozat
+    a terhelés felével a CNS-be is számít; izomcsoportot a kardió nem terhel.
+    A heti volumen és a profil a kardió sort nem veszi munkasorozatnak, az
+    edzői aktivitás-lista percben írja ki. (server/recovery.js →
+    cardioSetLoad, server/logmode.js → INTENSITY_LEVELS)
   · Izomcsoportonkénti regeneráció kilenc csoportra. A károsodás mérőszáma
     NEM a tonnatömeg, hanem a bukáshoz közeli szettek száma — a tonnatömeg
     lokálisan félrevezet (egy nehéz 5×5 guggolás kevesebb tonnát ad, mint
@@ -792,9 +800,9 @@ Szándékos egyszerűsítések és nyitott tételek. A teljes lista a TEENDOK.tx
     LISTÁBAN látszanak (PR-modál, GET /api/prs/history, 1RM-értékkel), de
     görbe/diagram nincs. Az edző a sportoló-kártyán látja a készenléti
     százalékot, teljes kliensenkénti regeneráció-riportot azonban nem kap.
-  · KARDIÓ — az időalapú sor (idő + intenzitás, server/logmode.js) naplózható,
-    de a készenlét-motor terhelésként NULLÁT lát belőle, és a heti volumen
-    egy munkasorozatnak számolja. Táv és pulzus nincs. Ld. TEENDOK.txt.
+  · KARDIÓ — az időalapú sor (idő + intenzitás) a terhelésbe és kemény
+    fokozaton a CNS-be számít, az izomcsoportokba NEM. Táv és pulzus nincs.
+    Ld. TEENDOK.txt.
   · Az edző NEM látja, ha a kliens elfogadott egy készenlét-javaslatot: az
     applySessionAdvice CSAK a piszkozatot írja át, nyoma sehol nem marad —
     a napló némán tér el a kiosztott tervtől.

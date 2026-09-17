@@ -55,11 +55,21 @@ const trainingDayKeys = (workouts) => new Set(workouts.map((w) => dayKey(w.date)
     napra — egy nap akkor is EGY edzésnap, ezért halmaz. */
 const scheduledWeekdays = (plans) => new Set(plans.flatMap((plan) => plan.days ?? []));
 
-/** Teljesített munkasorozatok száma egy edzésben (a bemelegítő nem az). */
+/** Teljesített munkasorozatok száma egy edzésben. A bemelegítő nem az, és az
+    időalapú (kardió) sor sem — ugyanaz a szabály, mint a server.js isWorkSet-jében. */
 const workSetCount = (workout) =>
   workout.exercises
     .flatMap((exercise) => exercise.sets ?? [])
-    .filter((set) => set.done && set.type !== 'warmup').length;
+    .filter((set) => set.done && set.type !== 'warmup' && set.duration === undefined).length;
+
+/** Teljesített időalapú (kardió) sorok összideje egy edzésben, egész percre. */
+const cardioMinutes = (workout) =>
+  Math.round(
+    workout.exercises
+      .flatMap((exercise) => exercise.sets ?? [])
+      .filter((set) => set.done && set.duration !== undefined)
+      .reduce((total, set) => total + (Number(set.duration) || 0), 0) / 60,
+  );
 
 /**
  * A HETI állás: hány edzésnap valósult meg hétfőtől máig, mennyi volt kitűzve,
@@ -169,8 +179,15 @@ export function recentActivity({ workouts, checkins, weightLog, today }) {
   };
 
   for (const workout of workouts) {
+    /* A kardió nem munkasorozat, ezért külön, percben szerepel. Enélkül egy
+       futóedzés „0 munkasorozat"-ként jelenne meg az edzőnél, mintha semmit
+       nem csinált volna a sportoló. */
     const sets = workSetCount(workout);
-    add(workout.date, `${workout.name} · ${sets} munkasorozat`);
+    const minutes = cardioMinutes(workout);
+    const parts = [];
+    if (sets > 0 || minutes === 0) parts.push(`${sets} munkasorozat`);
+    if (minutes > 0) parts.push(`${minutes} perc kardió`);
+    add(workout.date, [workout.name, ...parts].join(' · '));
     for (const exercise of workout.exercises) {
       if (!exercise.pr) continue;
       const best = (exercise.sets ?? [])
