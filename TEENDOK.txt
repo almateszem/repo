@@ -11,9 +11,19 @@ A tematikus szakaszok (üzemeltetés, adatminőség, kódtérkép…) mindhárom
 részen belül alcímként élnek tovább, tehát egy témát a három rész
 ugyanazon alcíme alatt lehet végigolvasni.
 
-Állás (2026-09-17):   32 nyitott · 7 részben kész · 34 kész
+Állás (2026-09-18):   26 nyitott · 8 részben kész · 41 kész
+                      (a „7 részben kész" a korábbi fejlécekben elszámolás
+                      volt — a jelölések megszámolva 8-at adnak)
 
-Utolsó frissítés: 2026-09-17, második kör (kardió terhelés: szesszió-RPE a
+Utolsó frissítés: 2026-09-18 (biztonsági kör: a BIZTONSÁG szakasz egy KÖZEPES
+                  és öt ALACSONY lelete javítva — HTTP fejlécek, vonalkód-
+                  korlát + SSRF + méretkorlát + cache-takarítás, prototípus-
+                  kulcs, edzés-duplikáció, user-id szivárgás, volt edző
+                  tápcélja. Új őr: server/hardening.test.js, 12 teszt. A
+                  trust proxy tétel HSTS-fele kész, a hosting-beállítás
+                  marad. Ráadás: a Windowson el sem induló 1RM-migrációs
+                  teszt javítva — a csomag 427/427.)
+Előző frissítés:  2026-09-17, második kör (kardió terhelés: szesszió-RPE a
                   Recovery Engine-ben, kalibrálva; a nyitott „nincs kardió
                   naplózás" tétel a részben kész kardió-tételbe olvadt)
 Előző frissítés:  2026-09-17 (4. funkció-ötlet kész: ajánlott gyakorlat a
@@ -458,14 +468,21 @@ Hat tétel, mindegyik megfontolt döntés eredménye, nem feledékenységé.
     kellene mellé.
 
 --------------------------------------------------------------------------
-BIZTONSÁG — gyors átnézés (2026-09-12) + audit (2026-09-13)
+BIZTONSÁG — átnézés (2026-09-12) + audit (2026-09-13) + javítások (2026-09-18)
 --------------------------------------------------------------------------
 
 2026-09-12-én csak gyors átnézés volt (a tervezett két vizsgálat API-korlátba
 ütközött). 2026-09-13-án a kimaradt témák CSAK OLVASÓ auditja lefutott: minden
 id-alapú végpont, a rate limit, a kimenő hívás, a bemenet-validálás és az
-üzleti logika. A három MAGAS lelet ugyanaznap javítva (ld. a 3. részt), a
-többi lent, súlyosság szerint. Ami biztosan látszik:
+üzleti logika. A három MAGAS lelet ugyanaznap javítva.
+
+2026-09-18-án az audit maradéka is elfogyott egy körön: egy KÖZEPES és öt
+ALACSONY lelet javítva (ld. a 3. részt), mind őrrel. AMI ITT MARADT, az nem
+elfelejtett munka: a trust proxy tétel ÜZEMELTETÉSI (a hostingon kell
+beállítani), a másik kettő pedig DÖNTÉST kíván — a meghívó név-felderítése
+termék-kompromisszum, a víznapló-ütközés pedig a merge-elő PUT-tal együtt
+oldható meg (ld. a KÓDTÉRKÉP saveCheckin-tételét), nem külön.
+Ami biztosan látszik:
 
 RENDBEN VAN (ellenőrizve):
   · Jelszó: scrypt, bejegyzésenként külön sóval, N=16384; az ellenőrzés
@@ -485,7 +502,9 @@ RENDBEN VAN (ellenőrizve):
     vagy AKTÍV edzői kapcsolatra szűr (az üzenetek activeLinkFor, a
     megjegyzések athleteOfLink, a terv-kiosztás getPlan(user.id) mellett);
     a bontott kapcsolat sora törlődik, a hozzáférés vele megszűnik.
-  · SSRF: nincs — a normalizeBarcode csak 13-14 számjegyet enged át.
+  · SSRF: nincs — a normalizeBarcode csak 13-14 számjegyet enged át, és
+    2026-09-18 óta a kimenő fetch sem követi az átirányítást
+    (`redirect: 'manual'`), tehát a cél-URL sem terelhető el a válaszból.
   · CSRF: nincs állapotot módosító GET (a vonalkód-cache írása ártalmatlan),
     a JSON-törzs és a SameSite=Lax süti együtt kizárja.
   · Jelszócsere minden munkamenetet töröl; a fióktörlés jelszót kér és
@@ -493,48 +512,19 @@ RENDBEN VAN (ellenőrizve):
 
 --- KÖZEPES ---
 
-[ ] A vonalkód-keresés (GET /api/foods/barcode/:code) korlátlan
-    GET, tehát a writeLimiter nem fedi — pedig kimenő kérést indít és a
-    barcode_cache-be ír. Egy fiók végigsorolhatja a kódokat: korlátlan Open
-    Food Facts hívás a szerver User-Agentjével (OFF-oldali tiltás mindenkinek
-    elviheti a funkciót), és a negatív találatokkal a cache takarítás nélkül
-    nő. A kimenő fetch követi az átirányítást, a válasz mérete nincs
-    korlátozva. TEENDŐ: fiókonkénti limiter a végpontra, cache-takarítás,
-    `redirect: 'manual'` és méretkorlát.
-
 [ ] Élesítéskor: FITTRACK_TRUST_PROXY beállítása + HSTS
     2026-09-13 óta VAN kapcsoló (FITTRACK_TRUST_PROXY, proxy-lépések száma;
     a `true` tiltott, indításkor dob; beállítás nélküli proxy-fejlécre egyszeri
     figyelmeztetés a naplóban — README Élesítés 3.). A kódátnézés hozta elő:
     proxy mögött enélkül az új belépési korlát KÖZÖS keret lett volna
     mindenkinek, és a név+forrás zárolás visszaesett volna puszta névre.
-    AMI HÁTRAVAN: a választott hostingon ténylegesen beállítani (Fly.io: 1).
-    Olyan HTTPS-proxy mögött, ami nem küld x-forwarded-proto-t, a Secure
-    jelző elmarad; HSTS nincs.
+    2026-09-18: a HSTS MEGVAN (server/headers.js — csak HTTPS-en megy ki),
+    ezzel ez a tétel kódból elintézve.
+    AMI HÁTRAVAN, és NEM KÓDKÉRDÉS: a választott hostingon ténylegesen
+    beállítani a kapcsolót (Fly.io: 1). Olyan HTTPS-proxy mögött, ami nem küld
+    x-forwarded-proto-t, a Secure jelző és a HSTS is elmarad.
 
 --- ALACSONY ---
-
-[ ] Mérési helyek: `constructor` kulccsal megkerülhető a tartomány-ellenőrzés
-    server.js -> a MEASUREMENT_SITES[site] ellenőrzés prototípus-kulcsra is
-    igaz. `{"constructor":999999}` tárolódik (csak saját adat, a felület nem
-    mutatja). Javítás: Object.hasOwn(MEASUREMENT_SITES, site). Egysoros.
-
-[ ] Az edzés kétszer is menthető (POST /api/workouts)
-    Nincs idempotencia, a szerver nem törli a piszkozatot. Két fülön vagy
-    hálózati újrapróbálkozáskor duplikált edzés: torzul a PR, a volumen, a
-    sorozat és az edzői kártya. Javítás: a mentés tranzakcióban törölje a
-    piszkozatot, vagy kliens-generált idempotencia-kulcs.
-
-[ ] A sportoló belső user-id-je kiszivárog az edzőhöz
-    db.js -> toComment `authorId`-t ad, ami a GET /api/athletes/:linkId/
-    comments és az exerciseNotes válaszában kimegy. Ellentmond a kód saját
-    kommentjének („a belső user-id nem kerül ki"); a coach.test.js csak a
-    card.userId-t nézi. Javítás: authorId helyett „én vagyok-e a szerző".
-
-[ ] A volt edző táplálkozási célja a kapcsolat bontása után is él
-    A nutrition_goals 'coach' sorához a deleteCoachLink nem nyúl, a
-    getNutritionGoal nem nézi, él-e a kapcsolat, a sportoló pedig nem tudja
-    törölni (a clearOwnNutritionGoal csak az 'own' sort viszi).
 
 [ ] Meghívó: név-felderítés és újrameghívás tiltás nélkül
     A POST /api/athletes 404-gyel megmondja, létezik-e a név, és visszaadja
@@ -546,11 +536,6 @@ RENDBEN VAN (ellenőrizve):
     replaceWaterDay-t hív: a közben (másik fülön) naplózott kortyok
     törlődnek. Ugyanaz a gyökér, mint a KÓDTÉRKÉP saveCheckin-tételénél — a
     merge-elő PUT mindkettőt megoldja.
-
-[ ] Hiányzó HTTP biztonsági fejlécek
-    Nincs CSP, X-Frame-Options / frame-ancestors, nosniff; az X-Powered-By
-    kint van. A clickjacking a SameSite=Lax miatt gyakorlatilag nem működik
-    (böngészőfüggő). Olcsó: egy köztes réteg néhány fejléccel.
 
     Kisebbek, egy mondatban: a kliens-dátum ±1 napot enged, így a „csak a
     mai étel törölhető" szabály a szomszédos napra megkerülhető (saját adat);
@@ -1363,3 +1348,79 @@ fájl, mert a belépés forrásonkénti korlátja közös keret a 127.0.0.1-en).
     korlátja KIMONDVA 256 KB. MÉRVE: az alapértelmezett 100 KB már a
     megengedett legnagyobb edzést is 413-mal dobta volna — egy valószerű
     50×50-es törzs 173 KB.
+
+[x] Hiányzó HTTP biztonsági fejlécek   (2026-09-18)
+    JAVÍTVA: egy köztes réteg (server/headers.js), függőség nélkül, MINDEN
+    válaszra — a statikus fájlokra is, mert az útvonal-regisztrációk ELŐTT áll.
+    CSP (`default-src 'self'`, inline szkript nélkül, `frame-ancestors 'none'`),
+    X-Frame-Options: DENY, nosniff, Referrer-Policy, és HTTPS-en HSTS
+    (180 nap, includeSubDomains — preload SZÁNDÉKOSAN nem: visszafordíthatatlan).
+    Az X-Powered-By kikapcsolva.
+    A `style-src 'unsafe-inline'` KIMONDOTT engedmény: a lépcsőzetes beúszás
+    `style="--i: 0"`-t használ, a haladássávok pedig JS-ből írják a width-et
+    (hat hívóhely — ld. a MINŐSÉGI KÖR haladássáv-tételét). Amíg azok élnek, a
+    stílus-nonce csak látszatvédelem volna. A SZKRIPTEKRE nincs kivétel.
+    Őrzi: server/hardening.test.js (fejlécek, statikus fájl, HSTS csak HTTPS-en).
+
+[x] A vonalkód-keresés korlátlan volt   (2026-09-18)
+    Négy dolog javítva egyszerre:
+    · Fiókonkénti korlát (20/perc) — de CSAK a gyorsítótárat elvétő kérésre,
+      mert az a drága ág. A saját étel és a friss cache-sor nem számít bele,
+      tehát a valódi használat soha nem ütközik bele.
+    · `redirect: 'manual'` a kimenő fetch-en: egy eltérített válasz nem tud
+      minket belső címre küldeni (SSRF).
+    · 256 KB-os méretkorlát, DARABONKÉNT számolva (readJsonCapped) — a
+      Content-Length hazudhat vagy hiányozhat, a chunked végtelen folyam nem.
+    · purgeBarcodeCache: a lejárt sorok a napi takarításban mennek, a
+      munkamenet-söpréssel egy menetben.
+    Őrzi: server/hardening.test.js (átirányítás → 502, 8 MB → 502, a korlát
+    fiókonként számol).
+
+[x] Mérési helyek: a `constructor` megkerülte a tartomány-ellenőrzést   (2026-09-18)
+    JAVÍTVA: Object.hasOwn(MEASUREMENT_SITES, site). Az ellenőrzést végig
+    követve az INTENSITY_LEVELS és a MUSCLE_GROUPS is átnézve — azok
+    rendben vannak (normalizeIntensity `INTENSITY_KEYS.includes`-szel dolgozik,
+    nem indexeléssel).
+
+[x] Az edzés kétszer is menthető volt   (2026-09-18)
+    JAVÍTVA, két lépésben:
+    · IDEMPOTENCIA tartalmi ujjlenyomatból: ha ugyanattól a fiótól ugyanarra a
+      napra, ugyanazzal a névvel, tervvel és szettsorral 2 percen belül jön
+      még egy mentés, a MEGLÉVŐ sort adjuk vissza. A keresés a PR-feldolgozás
+      ELŐTT fut, mert annak már van mellékhatása (updateExerciseMax) — a
+      duplikátum nem csak a listát, a csúcsokat is torzította.
+      A `pr` jelző kimarad az ujjlenyomatból: a mentett soron a szerver írja rá,
+      a beérkezőn a kliens küldi.
+    · A beszúrás és a PISZKOZAT TÖRLÉSE egy tranzakcióban. Eddig a piszkozatot
+      csak a kliens takarította (külön DELETE kérés) — bezárt fülnél a félig
+      mentett edzés „folyamatban lévőként" maradt ott.
+    Őrzi: server/hardening.test.js (kétszeri mentés → egy sor, eltérő tartalom
+    → új sor, a piszkozat magától ürül).
+
+[x] A sportoló belső user-id-je kiszivárgott az edzőhöz   (2026-09-18)
+    JAVÍTVA: a toComment `authorId` helyett `mine`-t ad — a NÉZŐ szemszöge,
+    pont úgy, ahogy a toMessage csinálja. A viewerId a három lekérdezésen
+    (getComments, getCommentsByTarget, addComment) megy át; az exerciseNotes
+    az athleteCard viewerId-jét kapja.
+    A frontend az authorId-t SOHA nem használta, csak az authorName-et — a
+    mező tehát tisztán szivárgás volt. A coach.js most „Te"-t ír a saját
+    megjegyzésre, mint a chat.
+    Őrzi: server/hardening.test.js — KULCSRA ellenőrzi a megjegyzés-payloadot,
+    így egy új mező nem kerül vissza észrevétlenül.
+
+[x] A volt edző táplálkozási célja túlélte a kapcsolat bontását   (2026-09-18)
+    JAVÍTVA: a deleteCoachLink a 'coach' cél-sort is viszi, egy tranzakcióban.
+    CSAK ÉLŐ kapcsolatnál: egy visszautasított meghívó visszavonása nem
+    nyúlhat ahhoz a célhoz, amit egy MÁSIK, korábbi edző hagyott ott.
+    Enélkül egy idegen kalória/fehérje száma hajtotta a napi célt örökre — a
+    sportoló nem tudta törölni (a clearOwnNutritionGoal csak az 'own' sort
+    viszi), a getNutritionGoal pedig nem nézte, él-e a kapcsolat.
+    Őrzi: server/hardening.test.js (meghívó → elfogadás → cél → bontás).
+
+[x] A 1RM-migrációs teszt Windowson el sem indult   (2026-09-18)
+    Nem biztonsági lelet, de a fenti kör közben derült ki, és a teljes
+    tesztfutást pirosra festette: az onerm-migration.test.js abszolút
+    ÚTVONALAT adott egy gyerekfolyamat `import()`-jének, amit az ESM-betöltő
+    Windowson „c:" protokollnak lát. JAVÍTVA: pathToFileURL. A csomag ezzel
+    427/427.
+

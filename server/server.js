@@ -106,6 +106,7 @@ import {
   getCustomFoodByBarcode,
   readBarcodeCache,
   writeBarcodeCache,
+  purgeBarcodeCache,
 } from './db.js';
 /* A gyakorlatok naplózási módja és az időalapú sorok intenzitás-skálája.
    A katalógus minden sora konkrét `logMode`-ot visel (data/catalog.js), itt
@@ -164,6 +165,8 @@ import { createRateLimiter, parseTrustProxy } from './ratelimit.js';
 // Hibakezelő védőháló: a kezelők becsomagolása, a JSON-hibaválasz és a
 // folyamat-szintű őrök (server/errors.js).
 import { guardAsyncRoutes, apiErrorHandler, installProcessGuards } from './errors.js';
+// HTTP biztonsági fejlécek (CSP, nosniff, frame-ancestors, HSTS) — server/headers.js.
+import { securityHeaders } from './headers.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public'); // a statikus frontend mappája
@@ -177,6 +180,17 @@ const PORT = process.env.PORT || 3000;
    szemét-belépés mindenkit kizárna. Alapból kikapcsolva (ld. parseTrustProxy). */
 const TRUST_PROXY = parseTrustProxy(process.env.FITTRACK_TRUST_PROXY);
 app.set('trust proxy', TRUST_PROXY);
+
+/* Az Express alapból kiírja, hogy Express — ez csak a támadónak segít abban,
+   hogy a keretrendszerre szabott próbákkal kezdjen. */
+app.disable('x-powered-by');
+
+/* Biztonsági fejlécek MINDEN válaszra, a statikus fájlokra is — ezért áll itt,
+   minden útvonal-regisztráció előtt (ld. server/headers.js).
+   A HSTS-hez kellő `isSecureRequest` lejjebb, a süti-szakaszban él; nyíl-
+   függvénybe csomagolva adjuk át, hogy a hivatkozás csak KÉRÉSKOR oldódjon
+   fel — a const itt még a temporális holt zónájában van. */
+app.use(securityHeaders((req) => isSecureRequest(req)));
 
 /* A hibakezelés MINDEN útvonal-regisztráció ELŐTT áll be — ugyanaz a minta,
    mint a hozzáférés-védelemnél: egy később felvett végpont automatikusan
@@ -236,6 +250,19 @@ const writeLimiter = createRateLimiter({ limit: 240, windowMs: MINUTE });
 /** Üzenetküldés fiókonként — külön, szigorúbb korlát: itt a spam MÁSIK
     EMBER felületén jelenik meg, nem csak a szerveren okoz terhelést. */
 const messageLimiter = createRateLimiter({ limit: 20, windowMs: MINUTE });
+
+/** KIMENŐ vonalkód-lekérés fiókonként. A végpont GET, tehát az írás-korlát
+    nem fedi — pedig két olyasmit csinál, amit egy GET-től nem várnánk: hívást
+    indít az Open Food Facts felé A MI User-Agentünkkel (egy végigsorolt
+    kódtartomány ott minket tilt ki, mindenki más elől is), és sort hagy a
+    barcode_cache-ben.
+
+    A korlát SZÁNDÉKOSAN csak a cache-t elvétő kéréseket számolja (ld. a
+    végpontot): a saját ételre és a friss cache-sorra adott válasz olcsó, azt
+    nincs miért korlátozni. Így a valódi használat — beolvas, elgépel, újra
+    beolvas — soha nem ütközik bele, a végigsorolás viszont percenként 20-nál
+    nem jut tovább. */
+const barcodeLookupLimiter = createRateLimiter({ limit: 20, windowMs: MINUTE });
 
 /** A kérés forrása. Reverse proxy mögött ehhez FITTRACK_TRUST_PROXY kell
     (ld. fent), különben minden kérés a proxy címéről érkezőnek látszik — a
@@ -447,9 +474,17 @@ app.use('/api', (req, res, next) => {
   next();
 });
 
-/* A lejárt munkamenetek napi takarítása. Az unref() miatt ez az időzítő nem
-   tartja életben a folyamatot (pl. teszt után nem akad be a leállás). */
-setInterval(purgeExpiredSessions, 24 * 60 * 60 * 1000).unref();
+/* Napi takarítás: a lejárt munkamenetek és a lejárt vonalkód-cache sorok. Az
+   unref() miatt ez az időzítő nem tartja életben a folyamatot (pl. teszt után
+   nem akad be a leállás). Egy menetben megy a kettő, mert ugyanaz a dolguk:
+   olyan sorokat vinni, amiket az olvasó kód már úgysem vesz figyelembe. */
+setInterval(
+  () => {
+    purgeExpiredSessions();
+    purgeBarcodeCache();
+  },
+  24 * 60 * 60 * 1000,
+).unref();
 
 /** A mai dátum HELYI idő szerint, a frontend által várt formátumban
     (pl. "2026.07.26"). Nem toISOString: az UTC-t adna, és éjfél után
@@ -771,8 +806,8 @@ const CARD_WINDOW_DAYS = 35;
     A hiányzó célt kihagyjuk: ha az edzés kicsúszott az ablakból vagy törölték,
     a megjegyzésnek nincs mihez tartoznia — kitalált nevet nem teszünk alá. */
 const EXERCISE_NOTE_LIMIT = 6;
-function exerciseNotes(userId, workouts) {
-  const byTarget = getCommentsByTarget(userId, 'exercise');
+function exerciseNotes(userId, workouts, viewerId) {
+  const byTarget = getCommentsByTarget(userId, 'exercise', viewerId);
   const notes = [];
 
   for (const [target, list] of Object.entries(byTarget)) {
@@ -859,7 +894,7 @@ function athleteCard(athlete, today, viewerId, unread = 0) {
       lastFeedback,
       /* Gyakorlat-megjegyzések. Itt oldjuk fel a nevet, mert a sportoló
        edzésnaplója csak a szerveren van meg. */
-      exerciseNotes: exerciseNotes(athlete.userId, workouts),
+      exerciseNotes: exerciseNotes(athlete.userId, workouts, viewerId),
     },
   );
 }
@@ -2118,8 +2153,16 @@ app.put('/api/measurements', (req, res) => {
 
   const values = {};
   for (const [site, input] of Object.entries(raw)) {
+    /* Object.hasOwn, nem sima indexelés: a `constructor`, a `toString` és a
+       többi prototípus-kulcs a puszta `MEASUREMENT_SITES[site]`-ra IGAZ
+       értéket ad (egy függvényt), így átcsúszna a szűrőn — és mivel a
+       tartomány-ellenőrzés a spec.min/max-ból dolgozik, ami ilyenkor
+       undefined, a `{"constructor": 999999}` bármilyen számot eltárolna egy
+       sosem létező mérési helyre. */
+    if (!Object.hasOwn(MEASUREMENT_SITES, site)) {
+      return res.status(400).json({ error: `Ismeretlen mérési hely: ${site}` });
+    }
     const spec = MEASUREMENT_SITES[site];
-    if (!spec) return res.status(400).json({ error: `Ismeretlen mérési hely: ${site}` });
     // Az üres mező nem törlés — a felület azt hagyja ki, amit nem mértek.
     if (input === null || input === undefined || input === '') continue;
     const value = Number(input);
@@ -2538,6 +2581,17 @@ app.get('/api/foods/barcode/:code', async (req, res) => {
       : res.status(404).json(notFound);
   }
 
+  /* Innentől kimegyünk a hálózatra — EZ a drága ág, tehát a korlát is itt
+     ül, nem a végpont elején (ld. barcodeLookupLimiter). */
+  const quota = barcodeLookupLimiter.hit(req.user.id);
+  if (!quota.allowed) {
+    return tooManyRequests(
+      res,
+      quota.retryAfter,
+      'Túl sok vonalkód-keresés egymás után. Várj egy kicsit, vagy vidd fel kézzel.',
+    );
+  }
+
   const result = await fetchProduct(barcode);
   if (!result.ok) {
     // Hálózati hiba: NEM cache-eljük — holnap (vagy egy perc múlva) sikerülhet.
@@ -2798,11 +2852,11 @@ function athleteOfLink(user, rawLinkId) {
 
 app.get('/api/comments', (req, res) => {
   const target = String(req.query.target ?? '');
-  res.json(getComments(req.user.id, COMMENT_TYPE, target));
+  res.json(getComments(req.user.id, COMMENT_TYPE, target, req.user.id));
 });
 
 app.get('/api/comments/by-target', (req, res) => {
-  res.json(getCommentsByTarget(req.user.id, COMMENT_TYPE));
+  res.json(getCommentsByTarget(req.user.id, COMMENT_TYPE, req.user.id));
 });
 
 app.post('/api/comments', (req, res) => {
@@ -2828,7 +2882,7 @@ app.get('/api/athletes/:linkId/comments', (req, res) => {
   const athleteId = athleteOfLink(req.user, req.params.linkId);
   if (athleteId === null) return res.status(404).json({ error: 'Nincs ilyen kapcsolat.' });
   const target = String(req.query.target ?? '');
-  res.json(getComments(athleteId, COMMENT_TYPE, target));
+  res.json(getComments(athleteId, COMMENT_TYPE, target, req.user.id));
 });
 
 /** Az edzői megjegyzés UGYANABBA a szálba megy, csak más szerzővel — ettől

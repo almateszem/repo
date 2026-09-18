@@ -91,6 +91,29 @@ A `true` szándékosan tiltott (a szerver el sem indul vele): mellette a kliens
 maga írhatná meg a forrását az `X-Forwarded-For` fejlécben. Ha a beállítás
 hiányzik, de proxy-fejléc érkezik, a szerver egyszer figyelmeztet a naplóban.
 
+Ugyanez a beállítás dönti el, hogy a szerver **HTTPS-en** kiszolgáltnak
+látja-e a kérést (`x-forwarded-proto`) — ettől függ a munkamenet-süti `Secure`
+jelzője és a HSTS fejléc. Olyan proxy mögött, ami nem küldi ezt a fejlécet,
+mindkettő elmarad.
+
+### Biztonsági fejlécek
+
+Minden válasz — a statikus fájlok is — viszi a következőket
+(`server/headers.js`, egyetlen köztes réteg, függőség nélkül):
+
+| Fejléc                      | Érték                                                                 |
+| --------------------------- | --------------------------------------------------------------------- |
+| `Content-Security-Policy`   | `default-src 'self'`, inline szkript nélkül, `frame-ancestors 'none'` |
+| `X-Content-Type-Options`    | `nosniff`                                                             |
+| `X-Frame-Options`           | `DENY`                                                                |
+| `Referrer-Policy`           | `strict-origin-when-cross-origin`                                     |
+| `Strict-Transport-Security` | `max-age=15552000; includeSubDomains` — **csak HTTPS-en**             |
+
+Az `X-Powered-By` ki van kapcsolva. A CSP-ben a `style-src 'unsafe-inline'`
+tudatos engedmény: a lépcsőzetes beúszás és a haladássávok inline stílust
+írnak. A szkriptekre nincs ilyen kivétel — az `index.html` egyetlen modult
+tölt, inline szkript és `onclick=` attribútum nincs a projektben.
+
 ### Kérés-korlátok
 
 Alapból be vannak kapcsolva, memóriában (nem elosztott — újraindításkor
@@ -104,6 +127,12 @@ nullázódnak, több példánynál példányonként számolnak):
 | Regisztráció                           | kérés forrása                       | 30 / óra                  |
 | Írások (`POST`/`PUT`/`PATCH`/`DELETE`) | fiók                                | 240 / perc                |
 | Üzenetküldés                           | fiók                                | 20 / perc                 |
+| Vonalkód-keresés **kifelé**            | fiók                                | 20 / perc                 |
+
+A vonalkód-korlát csak a gyorsítótárat **elvétő** kérésre szól: a saját étel és
+a friss cache-sor nem számít bele. Így a beolvasás–elgépelés–újra ciklus soha
+nem ütközik bele, egy végigsorolt kódtartomány viszont nem tudja sem az Open
+Food Facts felé a szerver nevét elégetni, sem a `barcode_cache`-t hízlalni.
 
 Reverse proxy mögött a forrásra szóló korlátokhoz (belépés, regisztráció)
 `FITTRACK_TRUST_PROXY` kell (ld. fent), különben minden kérés a proxy címéről

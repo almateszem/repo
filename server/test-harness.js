@@ -119,6 +119,8 @@ function makeRequest(baseUrl) {
       text,
       setCookie,
       retryAfter: res.headers.get('retry-after'),
+      // A nyers válasz-fejlécek: a biztonsági fejlécek tesztje ezt olvassa.
+      headers: res.headers,
     };
   };
 }
