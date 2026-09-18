@@ -21,6 +21,13 @@ const BASE_URL = process.env.FITTRACK_OFF_URL || 'https://world.openfoodfacts.or
 const USER_AGENT = process.env.FITTRACK_OFF_UA || 'FitTrackPro/0.1 (hobbi projekt)';
 const TIMEOUT_MS = Number(process.env.FITTRACK_OFF_TIMEOUT_MS) || 6000;
 
+/* A válasz felső mérethatára. A `fields=` paraméterrel kért termék néhány
+   kilobájt; 256 KB fölött már biztosan nem az van a vonalon, amit kértünk.
+   MIÉRT KELL: az `await res.json()` addig olvas, ameddig adat jön — egy
+   megkergült vagy eltérített végpont ezzel a szerver memóriáját eszi meg,
+   és az időkorlát sem véd, mert a kapcsolat közben végig „aktív". */
+const MAX_BYTES = 256 * 1024;
+
 /** 1 kcal = 4,184 kJ — sok európai termék csak kilojoule-ban címkéz. */
 const KJ_PER_KCAL = 4.184;
 
@@ -152,6 +159,45 @@ const FIELDS = [
   'nutriments',
 ].join(',');
 
+/** A `readJsonCapped` jelzése: a válasz átlépte a MAX_BYTES határt. Külön
+    érték, nem kivétel — a hívó ezt NEM cache-eli, ugyanúgy, mint a hálózati
+    hibát (a következő próbálkozás lehet, hogy rendben lesz). */
+const TOO_LARGE = Symbol('too-large');
+
+/**
+ * A válasz törzsének beolvasása JSON-ná, MAX_BYTES-ra vágva.
+ *
+ * A `Content-Length` csak az első szűrő — hazudhat, vagy hiányozhat (chunked
+ * válasznál nincs is). A valódi védelem a darabonkénti számlálás: a határ
+ * átlépésekor elengedjük a kapcsolatot, tehát a memória akkor sem nő tovább,
+ * ha a túloldal végtelen adatfolyamot ad.
+ */
+async function readJsonCapped(res) {
+  const declared = Number(res.headers.get('content-length'));
+  if (Number.isFinite(declared) && declared > MAX_BYTES) {
+    await res.body?.cancel();
+    return TOO_LARGE;
+  }
+  if (!res.body) return null;
+
+  const reader = res.body.getReader();
+  const chunks = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > MAX_BYTES) {
+      await reader.cancel();
+      return TOO_LARGE;
+    }
+    chunks.push(value);
+  }
+  // A JSON.parse hibáját SZÁNDÉKOSAN nem kapjuk el itt: a fetchProduct
+  // try-ága „most nem elérhető"-nek veszi, és a hibás választ nem cache-eli.
+  return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+}
+
 /**
  * Egy termék lekérése az Open Food Facts-ből.
  *
@@ -167,13 +213,19 @@ export async function fetchProduct(barcode) {
     const res = await fetch(url, {
       headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
       signal: AbortSignal.timeout(TIMEOUT_MS),
+      /* Az átirányítást NEM követjük automatikusan: a fetch alapból oda megy,
+         ahova a válasz küldi — belső címre is. Egy eltérített vagy elrontott
+         OFF-válasz így a mi hálózatunkból kérdezhetne le valamit a mi
+         nevünkben (SSRF). A legitim OFF-végpont nem irányít át. */
+      redirect: 'manual',
     });
     // Az OFF ismeretlen kódra 404-et VAGY 200 + status:0-t ad — mindkettő
     // ugyanazt jelenti, és mindkettő cache-elhető.
     if (res.status === 404) return { ok: true, product: null };
     if (!res.ok) return { ok: false, reason: `HTTP ${res.status}` };
 
-    const body = await res.json();
+    const body = await readJsonCapped(res);
+    if (body === TOO_LARGE) return { ok: false, reason: 'túl nagy válasz' };
     if (body?.status === 0 || !body?.product) return { ok: true, product: null };
     return { ok: true, product: mapProduct(body.product, barcode) };
   } catch (err) {

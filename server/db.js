@@ -1063,9 +1063,38 @@ export function acceptCoachInvite(linkId) {
 }
 
 /** Kapcsolat bontása: visszautasított/visszavont meghívó és leválás is ez.
-    Az üzenetek a CASCADE miatt vele tűnnek el. */
+    Az üzenetek a CASCADE miatt vele tűnnek el.
+
+    AZ EDZŐI TÁPLÁLKOZÁSI CÉL IS VELE MEGY. Enélkül a volt edző utolsó
+    kalória/fehérje célja a bontás után is hajtotta a Táplálkozás oldalt: a
+    getNutritionGoal nem nézi, él-e még a kapcsolat, a sportoló pedig nem
+    tudta törölni (a clearOwnNutritionGoal csak az 'own' sort viszi). Egy
+    idegen száma maradt a napi célon, örökre.
+
+    CSAK az ÉLŐ kapcsolatnál töröljük: egy visszautasított meghívó
+    visszavonása nem nyúlhat ahhoz a célhoz, amit egy MÁSIK, korábbi edző
+    hagyott ott — azt a saját bontása viszi majd el.
+
+    A kettő egy tranzakcióban megy: félúton megszakadva vagy a kapcsolat
+    maradna a cél nélkül, vagy fordítva. */
 export function deleteCoachLink(linkId) {
-  return db.prepare('DELETE FROM coach_links WHERE id = ?').run(linkId).changes > 0;
+  const link = db.prepare('SELECT athlete_id, status FROM coach_links WHERE id = ?').get(linkId);
+  if (!link) return false;
+
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const { changes } = db.prepare('DELETE FROM coach_links WHERE id = ?').run(linkId);
+    if (changes > 0 && link.status === 'active') {
+      db.prepare("DELETE FROM nutrition_goals WHERE user_id = ? AND source = 'coach'").run(
+        link.athlete_id,
+      );
+    }
+    db.exec('COMMIT');
+    return changes > 0;
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
 }
 
 /** Egy üzenet-sor → a felület által látott alak. A `mine` a NÉZŐ szemszöge,
@@ -1358,10 +1387,16 @@ export function getNutritionLogForDate(userId, date) {
    olvasás és az írás van. */
 
 /** Egy DB-sor → a felület által várt alak. A szerző nevét is hozzuk, hogy a
-    lista egyetlen lekérésből kirajzolható legyen. */
-const toComment = (row) => ({
+    lista egyetlen lekérésből kirajzolható legyen.
+
+    A `mine` a NÉZŐ szemszöge — ugyanaz a minta, mint a toMessage-nél, és
+    ugyanezért: a felületnek azt kell tudnia, „én írtam-e", nem azt, hogy KI
+    írta. A korábbi `authorId` a sportoló BELSŐ user-id-jét adta ki az
+    edzőnek (a kód saját kommentje szerint pont ez nem kerülhet ki), miközben
+    a frontend soha nem használta — csak az authorName-et. */
+const toComment = (row, viewerId) => ({
   id: row.id,
-  authorId: row.author_id,
+  mine: row.author_id === viewerId,
   authorName: row.author_name,
   targetId: row.target_id,
   text: row.text,
@@ -1375,8 +1410,10 @@ const COMMENT_SELECT = `
          u.display_name AS author_name
   FROM comments c JOIN users u ON u.id = c.author_id`;
 
-/** Egy cél megjegyzései, időrendben (a legrégebbi elöl — így olvasható). */
-export function getComments(subjectId, targetType, targetId) {
+/** Egy cél megjegyzései, időrendben (a legrégebbi elöl — így olvasható).
+    A `viewerId` az, AKI olvassa (a `mine` jelzőhöz) — nem feltétlenül a
+    `subjectId`: az edző a sportolója megjegyzéseit kéri le. */
+export function getComments(subjectId, targetType, targetId, viewerId) {
   return db
     .prepare(
       `${COMMENT_SELECT}
@@ -1384,12 +1421,12 @@ export function getComments(subjectId, targetType, targetId) {
     ORDER BY c.id ASC`,
     )
     .all(subjectId, targetType, String(targetId))
-    .map(toComment);
+    .map((row) => toComment(row, viewerId));
 }
 
 /** Egy típus ÖSSZES megjegyzése célonként csoportosítva. Az összegző oldal így
     egyetlen kérésből tudja, melyik gyakorlathoz tartozik megjegyzés. */
-export function getCommentsByTarget(subjectId, targetType) {
+export function getCommentsByTarget(subjectId, targetType, viewerId) {
   const rows = db
     .prepare(
       `${COMMENT_SELECT}
@@ -1397,7 +1434,7 @@ export function getCommentsByTarget(subjectId, targetType) {
     ORDER BY c.id ASC`,
     )
     .all(subjectId, targetType)
-    .map(toComment);
+    .map((row) => toComment(row, viewerId));
   const grouped = {};
   for (const row of rows) (grouped[row.targetId] ??= []).push(row);
   return grouped;
@@ -1412,7 +1449,8 @@ export function addComment(authorId, subjectId, targetType, targetId, text) {
     VALUES (?, ?, ?, ?, ?)`,
     )
     .run(authorId, subjectId, targetType, String(targetId ?? ''), text);
-  return toComment(db.prepare(`${COMMENT_SELECT} WHERE c.id = ?`).get(lastInsertRowid));
+  // A friss megjegyzést mindig a SZERZŐJE kapja vissza — a `mine` tehát igaz.
+  return toComment(db.prepare(`${COMMENT_SELECT} WHERE c.id = ?`).get(lastInsertRowid), authorId);
 }
 
 /** Megjegyzés törlése. CSAK a szerző törölhet, ezért az author_id is feltétel —
@@ -1773,6 +1811,22 @@ export function writeBarcodeCache(barcode, product) {
                 found = excluded.found, payload = excluded.payload,
                 fetched_at = excluded.fetched_at`,
   ).run(barcode, product ? 1 : 0, JSON.stringify(product ?? {}));
+}
+
+/** A lejárt cache-sorok takarítása. A readBarcodeCache úgyis csak a friss
+    sort adja vissza, tehát a lejárt sorok nem rossz adatot okoznak — csak
+    korlátlanul gyűlnek, és a NEGATÍV találatok gyűlnek a leggyorsabban (egy
+    végigsorolt kódtartomány minden kérése hagy egyet, és egy nap után
+    mindegyik használhatatlan). A határok ugyanazok, mint az olvasásnál:
+    talált 30 nap, nem talált 1 nap.
+    @returns {number} a törölt sorok száma */
+export function purgeBarcodeCache() {
+  return db
+    .prepare(
+      `DELETE FROM barcode_cache
+       WHERE fetched_at <= datetime('now', CASE found WHEN 1 THEN '-30 days' ELSE '-1 day' END)`,
+    )
+    .run().changes;
 }
 
 /** Egy DB-sor → a Recovery Engine által várt check-in alak (JSON-mezők
@@ -2515,7 +2569,43 @@ export function clearWorkoutDraft(userId) {
 /** Edzés mentése; automatikusan kiszámítja a PR-eket az Epley-képlet alapján.
     A rekordok a MENTŐ FELHASZNÁLÓ saját csúcsaihoz mérődnek.
     Visszaadja a létrejött { id, name, date, exercises, planId } sort. */
+/* Ennyi másodpercen belül számít ugyanaz a mentés ISMÉTLÉSNEK (ld. lent). Két
+   percnél a hálózati újrapróbálás és a „mindkét fülön rányomtam" is bőven
+   belefér, egy szándékosan megismételt edzés viszont soha. */
+const DUPLICATE_WINDOW_SECONDS = 120;
+
+/** Az edzés TARTALMI ujjlenyomata a duplikátum-kereséshez. A `pr` jelzőt
+    kihagyjuk: a mentett soron a szerver írja rá, a beérkezőn a kliens küldi —
+    a kettő ugyanarra az edzésre is eltérhet. Minden más mező (a szettek
+    értékeivel együtt) a normalizálásból jön, tehát a kulcssorrend azonos. */
+const workoutFingerprint = (list) =>
+  JSON.stringify((list ?? []).map(({ pr: _pr, ...rest }) => rest));
+
 export function addWorkout(userId, name, date, exercises, planId = null) {
+  /* IDEMPOTENCIA. A mentésnek nincs kliens-oldali kulcsa, és a felület sem
+     tiltja le a gombot elég korán: két fülön (vagy egy hálózati
+     újrapróbáláskor) ugyanaz az edzés kétszer jött be. A duplikátum nem csak
+     a listában látszik — torzítja a volument, a sorozatot, az edzői kártyát,
+     és a PR-maximumot is, amit lentebb írunk.
+     Ezért a KERESÉS ELÖL ÁLL: a PR-feldolgozás előtt, mert annak már van
+     mellékhatása (updateExerciseMax). Találat esetén a MEGLÉVŐ sort adjuk
+     vissza — a kliens ugyanazt kapja, mintha most mentett volna. */
+  const wanted = workoutFingerprint(exercises);
+  const recent = db
+    .prepare(
+      `SELECT id, exercises, plan_id FROM workouts
+       WHERE user_id = ? AND date = ? AND name = ?
+         AND created_at > datetime('now', ?)`,
+    )
+    .all(userId, date, name, `-${DUPLICATE_WINDOW_SECONDS} seconds`);
+
+  for (const row of recent) {
+    const stored = JSON.parse(row.exercises);
+    if ((row.plan_id ?? null) !== planId) continue;
+    if (workoutFingerprint(stored) !== wanted) continue;
+    return { id: row.id, name, date, exercises: stored, planId, feedback: null };
+  }
+
   // PR-eket számítunk az Epley-képlettel: 1RM = weight × (1 + reps/30)
   // Ha egy gyakorlatban van teljesített szett, és az 1RM nagyobb mint az eddigi maximum,
   // akkor PR-ként jelöljük meg a gyakorlatot
@@ -2539,11 +2629,26 @@ export function addWorkout(userId, name, date, exercises, planId = null) {
     };
   });
 
-  const { lastInsertRowid } = db
-    .prepare(
-      'INSERT INTO workouts (user_id, name, date, exercises, plan_id, pr_rule) VALUES (?, ?, ?, ?, ?, 1)',
-    )
-    .run(userId, name, date, JSON.stringify(processedExercises), planId);
+  /* A beszúrás ÉS a piszkozat törlése egy tranzakcióban. Eddig a piszkozatot
+     csak a kliens takarította el (DELETE /api/workout-draft, külön kérés) —
+     ha az elmaradt (bezárt fül, megszakadt hálózat), a félig mentett edzés
+     ott maradt piszkozatként, és a felhasználó legközelebb ugyanazt a
+     szettsort látta újra „folyamatban lévő" edzésként. A szerver most maga
+     zárja a kört: ami edzés lett, az nem piszkozat többé. */
+  db.exec('BEGIN IMMEDIATE');
+  let lastInsertRowid;
+  try {
+    ({ lastInsertRowid } = db
+      .prepare(
+        'INSERT INTO workouts (user_id, name, date, exercises, plan_id, pr_rule) VALUES (?, ?, ?, ?, ?, 1)',
+      )
+      .run(userId, name, date, JSON.stringify(processedExercises), planId));
+    db.prepare('DELETE FROM workout_draft WHERE user_id = ?').run(userId);
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
   // A friss edzésen még nincs visszajelzés — a mező alakja mégis azonos a
   // getWorkouts sorával, hogy a felületnek ne kelljen két esetre készülnie.
   return {

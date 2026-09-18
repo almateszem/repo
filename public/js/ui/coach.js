@@ -173,7 +173,9 @@ function setupAthleteModal({ confirmAction, onUnlink, onRead, onAssign } = {}) {
 
     const head = document.createElement('p');
     head.className = 'co-note-head';
-    head.textContent = `${note.exercise} · „${note.workout}" ${note.date} · ${note.authorName} · ${relativeTime(note.at)}`;
+    // „Te", ha az edző maga írta — ugyanaz a szemszög-jelölés, mint a chatben.
+    const who = note.mine ? 'Te' : note.authorName;
+    head.textContent = `${note.exercise} · „${note.workout}" ${note.date} · ${who} · ${relativeTime(note.at)}`;
 
     const body = document.createElement('p');
     body.className = 'co-note-body';

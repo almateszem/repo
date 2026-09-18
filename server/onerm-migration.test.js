@@ -17,7 +17,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -33,7 +33,7 @@ execFileSync(
     '--input-type=module',
     '-e',
     `
-    const db = await import(${JSON.stringify(path.join(__dirname, 'db.js'))});
+    const db = await import(${JSON.stringify(pathToFileURL(path.join(__dirname, 'db.js')).href)});
     const { user } = db.createUser('regi', 'Régi Rita', 'x');
     db.addWorkout(user.id, 'Mellnap', '2026.09.01', [
       { name: 'Fekvenyomás', pr: false,
