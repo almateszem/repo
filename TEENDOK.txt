@@ -11,9 +11,16 @@ A tematikus szakaszok (üzemeltetés, adatminőség, kódtérkép…) mindhárom
 részen belül alcímként élnek tovább, tehát egy témát a három rész
 ugyanazon alcíme alatt lehet végigolvasni.
 
-Állás (2026-09-17):   32 nyitott · 7 részben kész · 34 kész
+Állás (2026-09-19):   44 nyitott · 8 részben kész · 34 kész
 
-Utolsó frissítés: 2026-09-17, második kör (kardió terhelés: szesszió-RPE a
+Utolsó frissítés: 2026-09-19 (átnézés a teendőkön KÍVÜLI javítási
+                  lehetőségekért: négy új szakasz a NYITOTT részben —
+                  SZÁLLÍTÁS, ÜZEMELTETÉS, MUNKAFOLYAMAT ÉS KÓDSZERKEZET,
+                  TERMÉK. 12 új tétel; egyik sem hiba, mind hiányzó réteg.
+                  A nyitottak száma ezért nőtt 32-ről 44-re. A részben kész
+                  tételek száma 7 helyett 8 — a korábbi szám elszámolás volt,
+                  a tételeken nem változott semmi.)
+Előző frissítés:  2026-09-17, második kör (kardió terhelés: szesszió-RPE a
                   Recovery Engine-ben, kalibrálva; a nyitott „nincs kardió
                   naplózás" tétel a részben kész kardió-tételbe olvadt)
 Előző frissítés:  2026-09-17 (4. funkció-ötlet kész: ajánlott gyakorlat a
@@ -161,6 +168,12 @@ SORRENDJAVASLAT az egész backlogra: a mentett edzés javíthatósága megvolt a
 első lépésnek (2026-08-27, ld. fent). A KÖVETKEZŐ a beégetett nutritionGoal
 kivezetése (ld. a NYITOTT szakaszt) — szintén dokumentált hazugságot javít, és
 szintén nem függ semmitől —, és csak ezután jöjjön a négy nagy funkció-ötlet.
+
+KIEGÉSZÍTÉS 2026-09-19: a fenti sorrend a TERMÉKRE szól, és érvényben marad.
+A négy új szakasz (SZÁLLÍTÁS, ÜZEMELTETÉS, MUNKAFOLYAMAT, TERMÉK) ettől
+FÜGGETLEN sáv — egyik tétele sem érinti a termék-munkát, tehát bármikor
+becsúsztatható. Ha egy dolog fér bele: a tömörítés. Ha három: tömörítés +
+CI + SIGTERM. Mindhárom fél nap, és mindhárom olyasmit véd, amit ma semmi.
 
 --------------------------------------------------------------------------
 NYITOTT — döntést vagy külső lépést igényel
@@ -556,6 +569,176 @@ RENDBEN VAN (ellenőrizve):
     mai étel törölhető" szabály a szomszédos napra megkerülhető (saját adat);
     és GYANÚ — az első regisztráló megörökli a fiókok előtti („legacy")
     adatokat, ami egy nyilvánosan induló régi adatbázisnál kockázat.
+
+--------------------------------------------------------------------------
+SZÁLLÍTÁS — az első betöltés költsége (2026-09-19)
+--------------------------------------------------------------------------
+
+Az eddigi TELJESÍTMÉNY-szakasz (ld. a 2. részt) a SZERVER idejét mérte, és le
+is vitte 250 ms-ról 23-ra. Amit soha senki nem mért: mennyi megy át a dróton,
+mielőtt az első képpont megjelenik. Mérve 2026-09-19-én, a repóban:
+
+    index.html      144 KB   1 kérés
+    style.css       239 KB   1 kérés
+    js/ (60 modul)  410 KB  60 kérés
+    ÖSSZESEN       ~790 KB  62 kérés
+
+Ez ugyanaz a kontextus, ami miatt a PWA kimaradt (konditerem-pince, lassú
+mobilháló) — csak a másik oldalról. A három tétel FÜGGETLEN egymástól.
+
+[ ] Nincs tömörítés (gzip/brotli)
+    Az Express alapból NEM tömörít, és a package.json-ban nincs compression.
+    A fenti 790 KB tehát nyersen megy át. Szöveges tartalomnál a gzip
+    tipikusan 5-8×: ~790 KB → ~120 KB. Egy `app.use(compression())` sor a
+    statikus kiszolgálás elé (server/server.js, az express.static hívások
+    fölé). Ez a repo legjobb hozam/ráfordítás arányú tétele — nagyobb ugrás,
+    mint amit a szerver-oldali optimalizálás egész köre hozott.
+    MEGJEGYZÉS: reverse proxy (Fly, nginx) képes maga is tömöríteni; ha a
+    választott hosting ezt bizonyítottan megteszi, a tétel ott tárgytalan —
+    de a `npm start`-tal futó telepítésnél nem az.
+
+[ ] A teljes modulgráf betöltődik belépés ELŐTT
+    Hely: public/js/main.js -> statikus `import { init } from './app/init.js'`,
+    az pedig az összes oldalvezérlőt behúzza. Dinamikus `import()` SEHOL nincs
+    a public/js-ben (a ZXing az egyetlen lusta függőség, és az nem modulból,
+    hanem a /vendor/zxing útvonalról jön, a szkennelés indításakor).
+    Következmény: egy kijelentkezett látogató, aki csak a belépő kaput látja,
+    letölti mind a 60 modult — 410 KB-ot azért, hogy egy jelszómezőt kapjon.
+    TEENDŐ, két lépcsőben és bundler nélkül is megcsinálható:
+      · az init() legyen `await import('./app/init.js')` a sikeres api.me()
+        UTÁN (main.js),
+      · az oldalvezérlők a router első odalépésekor töltsenek be. A
+        page-hooks.js késleltetett kötése már pontosan erre a mintára épül,
+        tehát nem új mechanizmus kell, hanem a meglévő kiterjesztése.
+
+[ ] Nincs Cache-Control a statikuson
+    Hely: server/server.js -> `app.use(express.static(PUBLIC_DIR))` — maxAge
+    nélkül. Az ETag/Last-Modified miatt a válasz 304 lesz, tehát a BÁJTOK nem
+    mennek ki újra, de a 62 kör-idő igen, minden egyes látogatásnál.
+    Amiért nem egysoros: build-lépés nincs, tehát a fájlnevekben nincs hash —
+    hosszú max-age-et adni így veszélyes (a felhasználó beragadna a régi
+    kódba). A rendes megoldás vagy egy `?v=` lekérdező paraméter a két belépési
+    ponton (style.css, js/main.js) a verzióval, vagy egy pici build. Utána:
+    `immutable, max-age=31536000` a js/ és a css/ alá, az index.html pedig
+    marad `no-cache`.
+
+--------------------------------------------------------------------------
+ÜZEMELTETÉS — deploy, mentés, láthatóság (2026-09-19)
+--------------------------------------------------------------------------
+
+(A szakasz másik fele a 2. részben van: a DB-kötet és a rate limit.) Ezek nem
+a telepítés környezetén múlnak, hanem kódból megoldhatók — ezért állnak itt.
+
+[ ] Nincs SIGTERM/SIGINT kezelés
+    Hely: server/errors.js -> installProcessGuards. A függvény gondosan kezeli
+    az uncaughtException-t (rendezett leállás, 5 mp-es felső korláttal) és az
+    unhandledRejection-t — a NORMÁL leállást viszont nem.
+    Márpedig ez az, ami MINDEN deploykor megtörténik: a Fly, a Docker és a
+    systemd is SIGTERM-et küld. Ilyenkor ma a futó kérések félbevágódnak
+    (a mentés közben lévő edzés is), és a DatabaseSync-en nem fut le a
+    close(), tehát a WAL nem checkpointol.
+    TEENDŐ: ugyanaz a server.close() + hardStop minta, ami az
+    uncaughtException ágában már ott van, plusz egy db.close(). ~15 sor, és a
+    meglévő teszthorgon (az `exit` befecskendezhető) tesztelhető is.
+
+[ ] Nincs online mentés
+    A README „Élesítés 1." a perzisztens kötetről szól, és a 2. rész azonos
+    tétele is arról. De a kötet CSAK a deploy ellen véd — a téves törlés, az
+    elrontott migráció és a fájlsérülés ellen nem. A README ma azt ajánlja,
+    hogy leállított szerverrel másolj (a -wal/-shm miatt), ami napi mentésnek
+    használhatatlan.
+    MEGOLDÁS: az SQLite `VACUUM INTO '/backup/fittrack-<dátum>.db'` FUTÓ
+    szerver mellett is konzisztens pillanatképet ír, egyetlen fájlba — a
+    -wal/-shm kérdés vele megszűnik. Egy `npm run backup` szkript
+    (scripts/backup.js) + napi cron, és néhány generáció megtartása.
+    PÁRBAN a NYITOTT rész „Nincs import — csak export" tételével: ketten
+    együtt adnak valódi helyreállítást, külön-külön egyik sem.
+
+[ ] Nincs healthcheck végpont
+    ~90 végpont van, /healthz nincs. A hosting health checkje ma a 144 KB-os
+    index.html-t kéri le — az azt mondja meg, hogy a statikus kiszolgálás él,
+    nem azt, hogy az adatbázis írható. Egy `SELECT 1` + a PRAGMA user_version
+    kiírása három sor, és a szerver ELŐTT kell állnia az auth-rétegnek (a
+    health check nem tud belépni).
+
+[ ] Nincs kérés-napló, és a hiba nem köthető a bejelentéshez
+    Az egész szerveren 7 console-hívás van, abból kettő az indulási banner
+    (db.js:723,733 + server.js:3061), egy a proxy-figyelmeztetés, a maradék
+    négy a hibaágakban (errors.js).
+    Ha valaki azt mondja, hogy „ma délután nem mentette el az edzést", ma
+    SEMMIBŐL nem lehet visszakeresni, mi történt.
+    TEENDŐ, minimum: kérésenként egy sor (metódus, útvonal, státusz, ms,
+    user-id — jelszót és törzset NEM), és egy kérés-azonosító, ami a
+    hibaválaszba is kimegy, hogy a felhasználó bediktálhassa. A hely megvan
+    hozzá: a guardHandler (errors.js) már MINDEN kezelőt becsomagol, tehát a
+    naplózás is automatikusan kiterjed a később felvett végpontokra — ugyanaz
+    a védőháló-minta, mint a hibakezelésnél és a rate limitnél.
+
+--------------------------------------------------------------------------
+MUNKAFOLYAMAT ÉS KÓDSZERKEZET (2026-09-19)
+--------------------------------------------------------------------------
+
+[ ] Nincs CI — a .github/ könyvtár nem létezik
+    A repo PR-alapon dolgozik (ld. PR_TRACKING_GUIDE.md, nyolc merge-elt PR),
+    de a 415 teszt, az ESLint és a Prettier CSAK akkor fut, ha valaki kézzel
+    elindítja. Egy ~20 soros workflow (`npm ci && npm test && npm run lint &&
+    npm run format:check`) minden PR-en ugyanazt adná, amit ma emlékezetből
+    csinálunk.
+    Ez az a tétel, ami az összes többit is olcsóbbá teszi: minden lenti
+    javítás egy zöld/piros jelzést kapna a beolvasztás előtt.
+    MÉRVE 2026-09-19: friss klónon, `npm ci` UTÁN mind a 415 teszt zöld, a
+    lint és a format:check is tiszta — tehát nincs mit előbb rendbe tenni,
+    a workflow az első futásra zöld lesz.
+
+[ ] Nincs LICENSE fájl
+    A package.json `private: true`, de a doksik nyilvános kiadásról beszélnek,
+    és a Gym visual licenc már így is nyitott kérdés (ld. a NYITOTT rész
+    „döntést igényel" szakaszát). Licenc nélkül a kódot senki nem használhatja
+    legálisan — ez egy fájl, de terméki döntés, hogy melyik.
+
+[ ] server/server.js 3067 sor, ~90 végponttal
+    Ma még olvasható, mert fegyelmezetten van írva és jól kommentezett — de ez
+    a fájl az, ahova MINDEN új funkció kerül, és a két hátralévő funkció-ötlet
+    (2. SOS gomb, 3. szezon-célsúly) is ide fog írni.
+    TEENDŐ, ha egyszer sorra kerül: Express Routerekre bontás témánként
+    (auth, coach, nutrition, workouts, readiness). A guardHandler védőháló
+    változatlanul működne, mert az `use`-t is lefedi (errors.js ->
+    ROUTE_METHODS), tehát a bontás NEM gyengíti a hibakezelést.
+    NEM SÜRGŐS: ez tiszta szerkezeti adósság, nulla felhasználói tünettel.
+
+[ ] A teszt-piramis féloldalas
+    415 teszt van, de a frontendből mindössze NÉGY fájl tesztelt
+    (core/one-rm, ui/icons, ui/shortcuts, ui/bodymap/paths) — és mind a négy
+    tiszta függvényt ellenőriz.
+    AMI NINCS LEFEDVE: a renderelők (render/sets.js egymaga 816 sor), a
+    check-in varázsló és a terv-építő. És nincs EGYETLEN végponttól-végpontig
+    futó teszt sem: hogy a belépés → check-in → edzés naplózása → mentés út
+    végigmegy-e, ma csak kézzel derül ki.
+    TEENDŐ, két lépcsőben:
+      · DOM-tesztek a render/*.js-re linkedom-mal, node:test alatt (megmarad
+        a nulla-build filozófia, egy devDependency),
+      · egy füst-teszt a 3-4 fő úton (Playwright).
+    A második fogná el pont azt a fajta hibát, amit a DIZÁJN-ÁTÜLTETÉS
+    szakasz tételei kézi képernyőképekkel találtak meg.
+
+--------------------------------------------------------------------------
+TERMÉK — a „javítani alig lehet" másik fele (2026-09-19)
+--------------------------------------------------------------------------
+
+[ ] Toast-alapú visszavonás a törléseknél
+    A FELDERÍTETT HIÁNYOK szakasz maga mondja ki a gyökeret: „az appban ma
+    bőven lehet írni, javítani viszont alig". A válasz eddig mindig a
+    SZERKESZTHETŐSÉG volt (PUT-végpontok a mentett edzésre, az adagra, a
+    testsúlyra) — a másik fele a VISSZAVONÁS.
+    Ma az undo egyetlen helyen létezik, a víznaplóban (public/js/ui/water.js
+    -> data-action="undo-water"); mindenhol máshol megerősítő modál áll
+    helyette. A modál lassabb ÉS kevésbé bocsátó: a hiba ELŐTT kérdez, az undo
+    a hiba UTÁN javít — és a téves koppintást nem a kérdés akadályozza meg.
+    A réteg készen áll: a toast-régió már aria-live-os és egyszerre egy
+    üzenetet mutat (core/toast.js), tehát egy gomb ráfér. Szerver-oldalon a
+    legtöbb törlés megoldható úgy, hogy a kliens csak a visszavonási ablak
+    lejárta után küldi el a DELETE-et — így séma-változás sem kell.
+    HOL ÉRNE A LEGTÖBBET: naplózott étel, szett, mérés, mentett edzés.
 
 
 ==========================================================================
