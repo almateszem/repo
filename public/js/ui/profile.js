@@ -2,16 +2,12 @@
 
 import { api } from '../core/api.js';
 import { $, $$ } from '../core/dom.js';
-import { animateNumber, formatNumber } from '../core/format.js';
+import { animateNumber, formatNumber, formatWhole } from '../core/format.js';
 import { hooks } from '../core/page-hooks.js';
 import { prefs } from '../core/prefs.js';
 import { showToast } from '../core/toast.js';
 import { currentPage } from '../nav/router.js';
 import { formatDelta } from './weight.js';
-
-/** Egész számokhoz — a formatNumber egy tizedesig kerekít, ami a felpörgetés
-    közben tört értékeket villantana fel a darabszámoknál. */
-const formatWhole = (value) => String(Math.round(value));
 
 async function setupProfile() {
   const page = $('[data-page="profile"]');

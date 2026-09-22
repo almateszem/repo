@@ -256,18 +256,24 @@
                A körkijelző a Regeneráció oldalon megmarad. A blokk egésze
                oda visz — mobilon ez a Regeneráció egyetlen belépője, mert a
                nav gyűrűnek csak négy iránya van. -->
-            <a
-              class="db-readiness"
-              href="#recovery"
-              aria-label="Készenléti állapot — részletek a Regeneráció oldalon"
-            >
-              <span class="db-percent"><span class="db-percent-num">0</span></span>
-              <span class="db-percent-side">
-                <span class="db-percent-sign" aria-hidden="true">%</span>
-                <span class="db-label">Készenlét</span>
-              </span>
-              <span class="db-readiness-note" data-readiness-note></span>
-            </a>
+            <div class="db-readiness-row">
+              <a
+                class="db-readiness"
+                href="#recovery"
+                aria-label="Készenléti állapot — részletek a Regeneráció oldalon"
+              >
+                <span class="db-percent"><span class="db-percent-num">0</span></span>
+                <span class="db-percent-side">
+                  <span class="db-percent-sign" aria-hidden="true">%</span>
+                  <span class="db-label">Készenlét</span>
+                </span>
+              </a>
+              <!-- A kontextusfüggő idézet a szám mellett áll, nem a linken
+                 belül: így a felolvasó is megkapja a szövegét (a linket a
+                 saját aria-label-je írja le), és nem lesz belőle kattintható
+                 felület. Mobilon a flex-wrap a szám alá teszi. -->
+              <p class="db-quote" data-db-quote>A folyamatosság veri<br />a tökéletességet.</p>
+            </div>
 
             <!-- Táplálkozás: a napi kalória a célhoz mérve, alatta a makrók.
                A sáv kitöltését a renderDailyStats számolja. -->
@@ -376,8 +382,6 @@
               </span>
               <span class="db-checkin-cta-arrow" aria-hidden="true">→</span>
             </a>
-
-            <p class="db-quote" data-db-quote>A folyamatosság veri<br />a tökéletességet.</p>
           </div>
 
           <!-- JOBB HASÁB: a mai edzés előnézete és a fő műveletek. Desktopon

@@ -9,7 +9,7 @@
 
 import { DIR_TO_PAGE, FLOW_PAGES, PAGES } from '../core/constants.js';
 import { $, $$, prefersReducedMotion } from '../core/dom.js';
-import { animateNumber } from '../core/format.js';
+import { animateNumber, formatWhole } from '../core/format.js';
 import { hooks, shared } from '../core/page-hooks.js';
 import { prefs } from '../core/prefs.js';
 import { dashboardData } from '../render/dashboard.js';
@@ -21,7 +21,13 @@ import { renderSummary } from '../render/summary.js';
 const pageEffects = {
   dashboard() {
     if (dashboardData && hasReadiness(dashboardData.readiness)) {
-      animateNumber($('.db-percent-num'), dashboardData.readiness, { from: 0, duration: 900 });
+      // formatWhole: a lap legnagyobb számánál egyetlen tizedesvessző is
+      // megtörné az elrendezést minden képkockán.
+      animateNumber($('.db-percent-num'), dashboardData.readiness, {
+        from: 0,
+        duration: 900,
+        format: formatWhole,
+      });
     }
   },
   coach() {
@@ -73,7 +79,12 @@ const pageEffects = {
 /** A sportoló-kártyák pontszámainak felpörgetése (oldal- és nézetváltáskor). */
 function animateCoachRatings() {
   $$('[data-page="coach"] .co-card-rating').forEach((el) => {
-    animateNumber(el, Number(el.dataset.rating) || 0, { from: 0, duration: 700 });
+    // Az értékelés egész pontszám — a tizedesek csak zajt vinnének a kártyákra.
+    animateNumber(el, Number(el.dataset.rating) || 0, {
+      from: 0,
+      duration: 700,
+      format: formatWhole,
+    });
   });
 }
 
