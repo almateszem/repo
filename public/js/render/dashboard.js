@@ -157,19 +157,6 @@ async function renderDashboard() {
     if (num) num.textContent = '—';
   }
 
-  // A kártya alsó sora megmondja, mire épül a szám — a Recovery Engine
-  // enélkül csak egy önmagát magyarázó szám lenne.
-  setText(
-    '[data-readiness-note]',
-    !readinessKnown
-      ? 'még nincs elég adat →'
-      : dashboardData.checkinPresent
-        ? dashboardData.readinessConfidence === 'high'
-          ? 'a saját előzményedhez mérve'
-          : 'részben általános referenciával'
-        : 'töltsd ki a napi check-int →',
-  );
-
   // A check-in emlékeztető gomb. A check-in mentése renderDashboard-ot hív,
   // így a gomb azonnal eltűnik — újratöltés nélkül.
   syncCheckinCta(dashboardData.checkinPresent);

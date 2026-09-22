@@ -11,6 +11,13 @@ const formatNumber = (value) => formatInputNumber(value).replace('.', ',');
     a Number() csak a pontot érti — vesszővel a mező üresen maradna. */
 const formatInputNumber = (value) => String(Math.round(value * 10) / 10);
 
+/** EGÉSZ SZÁMOKHOZ: a formatNumber egy tizedesig kerekít, ami felpörgetés
+    közben tört értékeket villantana fel. A tizedesvessző ráadásul szélesíti
+    a szöveget, így a nagy számoknál (készenléti százalék) minden képkockán
+    ugrálna az elrendezés. Darabszámnál, pontszámnál, százaléknál ezt add át
+    az animateNumber format opciójának. */
+const formatWhole = (value) => String(Math.round(value));
+
 /** Elemenként legfeljebb egy futó szám-animáció (az újabb megszakítja a régit). */
 const runningNumberAnimations = new WeakMap();
 
@@ -35,4 +42,4 @@ function animateNumber(el, to, { from = null, duration = 800, format = formatNum
   runningNumberAnimations.set(el, requestAnimationFrame(tick));
 }
 
-export { animateNumber, formatInputNumber, formatNumber };
+export { animateNumber, formatInputNumber, formatNumber, formatWhole };

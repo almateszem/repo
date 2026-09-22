@@ -1,7 +1,7 @@
 /** Összegzés és a mentés utáni készenléti kártya. */
 
 import { $, cloneTemplate } from '../../../core/dom.js';
-import { animateNumber, formatNumber } from '../../../core/format.js';
+import { animateNumber, formatNumber, formatWhole } from '../../../core/format.js';
 import { readinessTone } from '../../../render/recovery.js';
 import { CI_READINESS_VERDICTS } from '../constants.js';
 import { ciDateStr, ciMuscleLabel } from '../helpers.js';
@@ -92,7 +92,8 @@ function renderReadiness(step, overall, { animate }) {
   $('[data-ci-bar]', step).style.width = overall + '%';
 
   const num = $('[data-ci-score]', step);
-  if (animate) animateNumber(num, overall, { from: 0, duration: 900 });
+  // A pontszám egész — formatWhole nélkül a felpörgetés tizedeseket villantana.
+  if (animate) animateNumber(num, overall, { from: 0, duration: 900, format: formatWhole });
   else num.textContent = String(overall);
 }
 

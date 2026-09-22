@@ -1160,12 +1160,20 @@ input.wk-chip:focus-visible {
    mérőszámok. A méretek a tervből jönnek (clamp-ekkel, hogy mobiltól
    nagy képernyőig ugyanaz az arány maradjon). */
 
-.db-readiness {
+/* A készenléti szám és a mellé kerülő idézet egy sorban: a padding a soron
+   van, hogy a blokk magasságát a magasabbik elem szabja meg. */
+.db-readiness-row {
   display: flex;
   align-items: flex-start;
   flex-wrap: wrap;
   gap: clamp(20px, 4vw, 64px);
   padding: var(--sp-11) 0 var(--sp-13);
+}
+
+.db-readiness {
+  display: flex;
+  align-items: flex-start;
+  gap: clamp(20px, 4vw, 64px);
   color: inherit;
   text-decoration: none;
 }
@@ -1199,21 +1207,18 @@ input.wk-chip:focus-visible {
   color: var(--text-faint);
 }
 
-.db-readiness-note {
+/* A kontextusfüggő idézet a készenléti szám mellett, a sor maradék helyén. */
+.db-quote {
   flex: 1;
   min-width: 240px;
   max-width: 600px;
-  margin-top: var(--sp-9);
-  font-size: clamp(19px, 2.3vw, 34px);
-  font-weight: 400;
-  line-height: 1.34;
-  letter-spacing: -0.015em;
-  color: var(--text-secondary);
-  text-wrap: pretty;
-}
-
-.db-readiness:hover .db-readiness-note {
-  color: var(--text-primary);
+  /* A szám verzálmagasságához igazítva, hogy ne a tetejéhez tapadjon. */
+  margin: var(--sp-9) 0 0;
+  font-size: var(--fs-quote);
+  font-weight: 800;
+  line-height: 1.24;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
 }
 
 /* ---- Táplálkozás-blokk: kalória, sáv, makrók ---- */
@@ -1379,17 +1384,6 @@ input.wk-chip:focus-visible {
   font-size: var(--fs-3xl);
   color: var(--c-accent);
   flex-shrink: 0;
-}
-
-.db-quote {
-  margin: var(--sp-11) 0 0;
-  padding-top: var(--sp-11);
-  border-top: 1px solid var(--border-card);
-  font-size: var(--fs-quote);
-  font-weight: 800;
-  line-height: 1.24;
-  letter-spacing: -0.03em;
-  text-wrap: balance;
 }
 
 /* ---- Jobb hasáb: a mai edzés és a fő műveletek ---- */
@@ -4227,7 +4221,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 
   /* Az első blokknak nincs felső vonala: a lap tetején az elválasztó semmit
      nem választana el. */
-  .db-readiness {
+  .db-readiness-row {
     padding-top: var(--sp-13);
   }
 
