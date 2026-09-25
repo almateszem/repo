@@ -23,16 +23,16 @@ const row = (name, group, load, extra = {}) => ({
 });
 
 const CATALOG = [
-  row('Fekvenyomás', 'Mell', { chest: 0.6, shoulders: 0.15, arms: 0.25 }),
+  row('Fekvenyomás', 'Mell', { chest: 0.6, triceps: 0.25, shoulders: 0.15 }),
   row('Tárogatás', 'Mell', { chest: 0.9, shoulders: 0.1 }, { tag: 'Izolációs' }),
   row('Mellnyújtás', 'Mell', { chest: 1 }, { tag: 'Nyújtás' }),
-  row('Húzódzkodás', 'Hát', { back: 0.7, arms: 0.25, core: 0.05 }),
-  row('Evezés', 'Hát', { back: 0.7, arms: 0.2, shoulders: 0.1 }),
+  row('Húzódzkodás', 'Hát', { back: 0.7, biceps: 0.25, core: 0.05 }),
+  row('Evezés', 'Hát', { back: 0.7, biceps: 0.2, shoulders: 0.1 }),
   row('Guggolás', 'Láb', { quads: 0.55, glutes: 0.25, core: 0.2 }),
   row('Lábtolás', 'Láb', { quads: 0.7, glutes: 0.3 }),
   row('Combhajlítás', 'Láb', { hamstrings: 1 }, { tag: 'Izolációs' }),
   row('Vádliemelés', 'Láb', { calves: 1 }, { tag: 'Izolációs' }),
-  row('Bicepsz hajlítás', 'Kar', { arms: 1 }, { tag: 'Izolációs' }),
+  row('Bicepsz hajlítás', 'Kar', { biceps: 1 }, { tag: 'Izolációs' }),
   row('Plank', 'Törzs', { core: 1 }, { tag: 'Izolációs' }),
   row('Futópad', 'Kardió', { quads: 0.5, calves: 0.5 }, { logMode: 'duration' }),
   row('Generált mellnyomás', 'Mell', { chest: 1 }, { loadSource: 'derived' }),
@@ -61,8 +61,11 @@ test('a cím magyar összetett szavait és angol rövidítéseit felismeri', () 
     [...groupsFromTitle('Lábnap').keys()],
     ['quads', 'hamstrings', 'glutes', 'calves'],
   );
-  assert.deepEqual([...groupsFromTitle('Hát + bicepsz').keys()], ['back', 'arms']);
-  assert.deepEqual([...groupsFromTitle('Push #3').keys()], ['chest', 'shoulders', 'arms']);
+  assert.deepEqual(
+    [...groupsFromTitle('Hát + bicepsz').keys()],
+    ['back', 'traps', 'lowerBack', 'biceps'],
+  );
+  assert.deepEqual([...groupsFromTitle('Push #3').keys()], ['chest', 'shoulders', 'triceps']);
   assert.deepEqual([...groupsFromTitle('labnap').keys()], [...groupsFromTitle('Lábnap').keys()]);
   assert.equal(groupsFromTitle('Mellnap').get('chest'), 'Mell', 'a címke az indoklásba kerül');
 });
@@ -110,13 +113,13 @@ test('értelmezhetetlen címnél a lista a regeneráltságra esik vissza, nem ma
 test('a két jel egyenrangú: mindkettő együtt előre, utána cím és regeneráltság váltakozva', () => {
   const result = suggestExercises({
     title: 'Hát + mell',
-    report: report({ back: 90, chest: 60, arms: 99 }),
+    report: report({ back: 90, chest: 60, biceps: 99 }),
     catalog: CATALOG,
   });
   // Hát: cím + regenerált (mindkét jel) → Mell: csak cím → Kar: csak regenerált
   assert.deepEqual(
     result.suggestions.map((s) => s.group),
-    ['back', 'back', 'chest', 'chest', 'arms'],
+    ['back', 'back', 'chest', 'chest', 'biceps'],
   );
   const chest = result.suggestions.find((s) => s.group === 'chest');
   assert.deepEqual(chest.reasons, [
@@ -139,7 +142,10 @@ test('a pihent felsőtest nem szorítja ki a cím fáradt csoportjait (lábnap m
       chest: 100,
       back: 100,
       shoulders: 100,
-      arms: 100,
+      biceps: 100,
+      triceps: 100,
+      traps: 100,
+      lowerBack: 100,
       core: 100,
     }),
     catalog: CATALOG,
@@ -150,7 +156,7 @@ test('a pihent felsőtest nem szorítja ki a cím fáradt csoportjait (lábnap m
   assert.ok(names(result).includes('Fekvenyomás'), 'a regenerált mell is kap helyet');
   assert.deepEqual(result.suggestions.find((s) => s.name === 'Guggolás').reasons, [
     { kind: 'title', text: 'a címből: Láb' },
-    { kind: 'low', text: 'Quadriceps csak 40% regenerált' },
+    { kind: 'low', text: 'Quad csak 40% regenerált' },
   ]);
 });
 

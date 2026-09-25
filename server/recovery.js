@@ -201,11 +201,14 @@ const ABS_CNS_REF = 18;
 const ABS_GROUP_REF = {
   chest: 5.0,
   back: 5.0,
+  traps: 5.0,
+  lowerBack: 5.0,
   quads: 5.0,
   shoulders: 4.2,
   hamstrings: 4.2,
   glutes: 4.2,
-  arms: 3.5,
+  biceps: 3.5,
+  triceps: 3.5,
   calves: 3.5,
   core: 3.5,
 };
