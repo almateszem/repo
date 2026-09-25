@@ -42,8 +42,8 @@ const HALF_BODY = [TORSO_LEFT, LEGS_LEFT, ARM_LEFT];
 
 export const BODY_SILHOUETTE = { front: HALF_BODY, back: HALF_BODY };
 
-/* A két nézetben azonos régiók. A váll, a kar és a vádli elölről és
-   hátulról is ugyanott van — nincs okunk kétszer megrajzolni. */
+/* A két nézetben azonos régiók. A váll és a vádli elölről és hátulról is
+   ugyanott van — nincs okunk kétszer megrajzolni. */
 
 const SHOULDER = {
   key: 'shoulders',
@@ -53,17 +53,16 @@ const SHOULDER = {
   d: 'M 64 80 C 54 84 46 96 46 110 C 54 114 64 112 68 104 C 69 94 68 86 64 80 Z',
 };
 
-const ARM = {
-  key: 'arms',
-  mirrored: true,
-  labelX: 52,
-  labelY: 160,
-  d:
-    'M 43 114 C 39 126 39 138 43 150 C 37 162 35 176 39 190 ' +
-    'C 41 202 43 208 44 212 C 48 216 53 215 55 212 ' +
-    'C 58 200 63 184 62 168 C 62 162 60 156 60 150 ' +
-    'C 65 140 69 126 67 110 C 60 116 50 118 43 114 Z',
-};
+/* A kar mindkét nézetben ugyanaz a rajz: elölről a bicepsz, hátulról a
+   tricepsz látszik rajta. */
+const ARM_PATH =
+  'M 43 114 C 39 126 39 138 43 150 C 37 162 35 176 39 190 ' +
+  'C 41 202 43 208 44 212 C 48 216 53 215 55 212 ' +
+  'C 58 200 63 184 62 168 C 62 162 60 156 60 150 ' +
+  'C 65 140 69 126 67 110 C 60 116 50 118 43 114 Z';
+
+const BICEPS = { key: 'biceps', mirrored: true, labelX: 52, labelY: 160, d: ARM_PATH };
+const TRICEPS = { key: 'triceps', mirrored: true, labelX: 52, labelY: 160, d: ARM_PATH };
 
 const CALF = {
   key: 'calves',
@@ -87,7 +86,7 @@ export const BODY_REGIONS = {
         'M 74 84 C 90 76 130 76 146 84 C 150 100 144 114 136 120 ' +
         'C 120 126 100 126 84 120 C 76 114 70 100 74 84 Z',
     },
-    ARM,
+    BICEPS,
     {
       key: 'core',
       mirrored: false,
@@ -111,15 +110,33 @@ export const BODY_REGIONS = {
   back: [
     SHOULDER,
     {
+      key: 'traps',
+      mirrored: false,
+      labelX: 110,
+      labelY: 76,
+      d:
+        'M 96 58 C 104 56 116 56 124 58 C 132 66 142 74 148 82 ' +
+        'C 134 90 122 96 110 100 C 98 96 86 90 72 82 C 78 74 88 66 96 58 Z',
+    },
+    {
       key: 'back',
       mirrored: false,
       labelX: 110,
-      labelY: 114,
+      labelY: 116,
       d:
-        'M 76 82 C 92 76 128 76 144 82 C 150 104 144 130 134 150 ' +
-        'C 118 156 102 156 86 150 C 76 130 70 104 76 82 Z',
+        'M 78 90 C 92 98 128 98 142 90 C 148 108 144 124 138 134 ' +
+        'C 120 138 100 138 82 134 C 76 124 72 108 78 90 Z',
     },
-    ARM,
+    TRICEPS,
+    {
+      key: 'lowerBack',
+      mirrored: false,
+      labelX: 110,
+      labelY: 145,
+      d:
+        'M 84 136 C 100 140 120 140 136 136 C 136 142 135 148 133 152 ' +
+        'C 118 156 102 156 87 152 C 85 148 84 142 84 136 Z',
+    },
     {
       key: 'glutes',
       mirrored: false,

@@ -10,7 +10,7 @@ import { BODY_HEAD, BODY_REGIONS, BODY_SILHOUETTE, BODY_VIEW_BOX } from './paths
 
 const VIEWS = ['front', 'back'];
 
-test('a két nézet uniója pontosan a kilenc izomcsoport', () => {
+test('a két nézet uniója pontosan a tizenkét izomcsoport', () => {
   const seen = new Set(VIEWS.flatMap((v) => BODY_REGIONS[v].map((r) => r.key)));
   assert.deepEqual([...seen].sort(), [...MUSCLE_KEYS].sort());
 });
@@ -82,13 +82,16 @@ test('a tükrözött régiók RAJZA is a bal félen van, nem csak a feliratuk', 
     végtagja. Ezért itt ki van írva, nem a `paths.js`-ből olvassuk vissza. */
 const MIRRORING = {
   shoulders: true,
-  arms: true,
+  biceps: true,
+  triceps: true,
   quads: true,
   hamstrings: true,
   calves: true,
   chest: false,
   core: false,
+  traps: false,
   back: false,
+  lowerBack: false,
   glutes: false,
 };
 
