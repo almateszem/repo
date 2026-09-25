@@ -493,6 +493,33 @@ test('a check-in csak ismert izomkulcsot és érvényes értéket vesz át', asy
   assert.deepEqual(res.json.checkin.pain, { general: 4 });
 });
 
+test('a check-in a régi (9 csoportos) kliens "arms" értékét biceps/triceps közt osztja szét, a "back"-et nem bontja', async () => {
+  /* Egy még frissítetlen böngészőlap a 9 csoportos JS-sel posztol: "arms"
+     helyett most már biceps/triceps kell. A "back" viszont NEM bontható
+     szét, mert az új kliens "back"-je csak a széles hátat jelenti, a
+     régié pedig hát+trapéz+alsó hát keverékét — a kettő nem különböztethető
+     meg utólag, ezért "back" változatlanul "back" marad. */
+  const res = await request('PUT', '/api/checkin', {
+    cookie: belaCookie,
+    body: {
+      sleepHours: 7,
+      soreness: { arms: 3, biceps: 5 },
+      pain: { arms: 8, back: 7 },
+    },
+  });
+  assert.equal(res.status, 200);
+  assert.deepEqual(
+    res.json.checkin.soreness,
+    { biceps: 5, triceps: 3 },
+    'ütközésnél a nagyobb érték nyer (biceps: max(3,5)=5), triceps az arms értékét kapja',
+  );
+  assert.deepEqual(
+    res.json.checkin.pain,
+    { biceps: 8, triceps: 8, back: 7 },
+    'arms szétosztva biceps/triceps közt, back változatlan marad',
+  );
+});
+
 /* ---- Onboarding: a friss fiókot a felület a check-in varázslóra tereli ----
    A jelző azért „soha nem volt check-inje" és nem „most regisztrált", mert
    túl kell élnie az oldal-újratöltést: a /me-nek is ugyanazt kell mondania,
