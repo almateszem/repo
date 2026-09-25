@@ -55,6 +55,16 @@ async function setupRecovery() {
 
   if (!page) return;
 
+  /* „Miből jön a pontszám": mobilon összecsukható, csukva egysoros
+     összefoglaló. Tableten és asztalon a CSS mindig nyitva mutatja — ott a
+     gomb nem kattintható (pointer-events: none), az aria-expanded csak a
+     mobil állapotot hordozza. */
+  const compsToggle = $('[data-rc-comps-toggle]', page);
+  compsToggle.addEventListener('click', () => {
+    const open = compsToggle.getAttribute('aria-expanded') === 'true';
+    compsToggle.setAttribute('aria-expanded', String(!open));
+  });
+
   const form = $('[data-form="checkin"]', page);
   const stateEl = $('[data-checkin-state]', page);
   const scalesWrap = $('[data-list="checkin-scales"]', page);

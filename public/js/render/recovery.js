@@ -1,6 +1,7 @@
 /** A készenléti riport és a check-in skálák kirajzolása. */
 
 import { $, $$, cloneTemplate } from '../core/dom.js';
+import { RC_SPARE_BELOW, componentSummary, muscleNote, spareList } from './recovery-map.js';
 
 /** A tizenkét izomcsoport kulcsa és magyar címkéje — a szerver
     MUSCLE_GROUPS-ával azonos sorrendben (server/muscles.js). A check-in
@@ -107,22 +108,25 @@ const NO_READINESS_TEXT =
 
 const hasReadiness = (value) => value !== null && value !== undefined;
 
+/** Egy jelző-pötty (izomláz / fájdalom) a „Ma kíméld" sorhoz és a
+    gyűrűk alá. A felolvasó a címkét kapja, nem a színt. */
+function dot(kind, label) {
+  const el = document.createElement('span');
+  el.className = `rc-dot rc-dot--${kind}`;
+  el.setAttribute('role', 'img');
+  el.setAttribute('aria-label', label);
+  return el;
+}
+
 /** A készenléti riport kirajzolása. A `report` a GET /api/readiness válasza. */
 function renderRecovery(report) {
   const page = $('[data-page="recovery"]');
   if (!page || !report) return;
 
-  // — Összesített pontszám + gyűrű —
+  // — Összesített pontszám —
   const overall = report.overall;
   const known = hasReadiness(overall);
-  const ring = $('[data-rc-ring]');
-  ring.style.setProperty('--readiness', known ? overall : 0);
-  ring.dataset.tone = known ? readinessTone(overall) : 'none';
-  ring.setAttribute(
-    'aria-label',
-    known ? `${overall} pont készenlét` : 'Készenlét: nincs elég adat',
-  );
-  $('.rc-score-num').textContent = known ? String(overall) : '—';
+  $('[data-rc-score]').textContent = known ? String(overall) : '—';
 
   $('[data-rc-verdict]').textContent = !known
     ? NO_READINESS_TEXT
@@ -163,21 +167,61 @@ function renderRecovery(report) {
   });
   caps.hidden = report.caps.length === 0;
 
-  // — Komponens-bontás —
+  // — Miből jön a pontszám —
+  const { present, missing } = componentSummary(report.components);
   const components = $('[data-list="rc-components"]');
   components.replaceChildren();
-  report.components.forEach((component, index) => {
+  present.forEach((component, index) => {
     const row = cloneTemplate('tpl-rc-component');
     row.style.setProperty('--i', index);
-    row.classList.toggle('rc-component--absent', !component.present);
-    $('.rc-component-label', row).textContent = component.label;
-    $('.rc-component-weight', row).textContent = component.present
-      ? `${component.weight}%`
-      : 'nincs adat';
-    $('.rc-component-value', row).textContent = component.present ? `${component.score}` : '—';
-    fillBar($('.rc-bar', row), component.present ? component.score : 0, component.label);
+    row.style.setProperty('--value', component.score);
+    row.dataset.tone = component.score >= 80 ? 'ok' : 'rest';
+    $('.rc-comp-label', row).textContent = component.label;
+    $('.rc-comp-value', row).textContent = String(component.score);
+    $('.rc-comp-weight', row).textContent = `Súly ${component.weight}%`;
+    const note = component.key === 'muscle' ? muscleNote(report.muscles) : null;
+    const noteEl = $('.rc-comp-note', row);
+    noteEl.hidden = !note;
+    noteEl.textContent = note ?? '';
     components.appendChild(row);
   });
+  const missingEl = $('[data-rc-comps-missing]');
+  missingEl.hidden = missing.length === 0;
+  $('[data-rc-comps-missing-text]').textContent = missing.length
+    ? `Nincs adat: ${missing.map((label) => label.toLowerCase()).join(', ')}`
+    : '';
+  // Mobilon összecsukva ez az egy sor látszik a bontásból.
+  $('[data-rc-comps-summary]').textContent = present
+    .map((component) => `${component.label} ${component.score}`)
+    .join(' · ');
+
+  // — Ma kíméld —
+  const spare = spareList(report.muscles);
+  const spareEl = $('[data-list="rc-spare"]');
+  spareEl.replaceChildren();
+  spare.forEach((row) => {
+    const item = document.createElement('li');
+    item.className = 'rc-spare-row';
+    const name = document.createElement('span');
+    name.className = 'rc-spare-name';
+    name.textContent = row.label;
+    if (row.sore) name.append(dot('sore', 'izomláz'));
+    if (row.pain) name.append(dot('pain', 'fájdalom'));
+    const value = document.createElement('span');
+    value.className = 'rc-spare-value';
+    value.textContent = `${row.readiness}%`;
+    const bar = document.createElement('span');
+    bar.className = 'rc-spare-bar';
+    const fill = document.createElement('span');
+    fill.className = 'rc-spare-fill';
+    fill.style.width = `${row.readiness}%`;
+    bar.append(fill);
+    item.append(name, value, bar);
+    spareEl.appendChild(item);
+  });
+  $('[data-rc-spare]').hidden = spare.length === 0;
+  $('[data-rc-spare-note]').textContent =
+    `${RC_SPARE_BELOW}% alatt ezeket ma ne terheld intenzíven.`;
 
   // — CNS —
   /* Null, ha nincs edzés-előzmény: a nulla terhelés ott üres napló, nem
