@@ -96,7 +96,9 @@ const KEYWORD_MAP = [
     /csipo.?tolas|hip.?thrust|far.?hid|glute.?bridge/,
     { glutes: 0.7, hamstrings: 0.25, core: 0.05 },
   ],
-  [/comb.?hajlit|leg.?curl|labhajlit/, { hamstrings: 1 }],
+  // A hamstring/nordic/glute ham curl a lenti általános `\bcurl` bicepsz-minta
+  // elé kell, különben az nyerné el — ezek combhajlítás-változatok, nem kar.
+  [/comb.?hajlit|leg.?curl|labhajlit|ham.?curl|hamstring.?curl|nordic/, { hamstrings: 1 }],
   [/comb.?nyujt|leg.?extension|labnyujt/, { quads: 1 }],
   [/vadli|calf|labujjhegy/, { calves: 1 }],
 
