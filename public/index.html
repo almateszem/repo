@@ -1335,56 +1335,116 @@
             <p class="rc-subtitle">A mai készenléted és amit kezdeni érdemes vele</p>
           </header>
 
-          <!-- Összesített készenlét — a lap fókuszpontja, hero-számmal. A gyűrű
-             ITT marad (lásd a 22. szakasz CSS-fejlécét): a komponens-bontás
-             és az izomcsoport-lista mellett van értelme, nem ismétli önmagát. -->
-          <section class="rc-score ds-section" aria-labelledby="title-rc-score">
-            <div class="rc-score-text">
-              <h3 class="db-label" id="title-rc-score">Mai készenlét</h3>
-              <span
-                ><span class="rc-score-num ds-display">0</span
-                ><span class="db-percent-sign">/100</span></span
-              >
-              <span class="rc-verdict" data-rc-verdict></span>
-              <!-- A végszám mellé: melyik komponens húzza le (a riport `limiting`
-                 mezője). Két nagyon más nap adhatja ugyanazt a számot. -->
-              <span class="rc-limiter" data-rc-limiter hidden></span>
-            </div>
-            <div class="db-ring rc-ring" role="img" aria-label="Mai készenlét" data-rc-ring>
-              <svg viewBox="0 0 100 100">
-                <circle class="db-ring-bg" cx="50" cy="50" r="42"></circle>
-                <circle class="db-ring-fg" cx="50" cy="50" r="42"></circle>
-              </svg>
-            </div>
-          </section>
+          <!-- Felső rész (Claude Design terv). EGY DOM, három elrendezés: a
+             `.rc-top` grid-területeit a konténer szélessége váltja (asztali /
+             tablet / mobil — lásd a 22. CSS-szakasz @container szabályait).
+             Minden szám a GET /api/readiness riportból jön. -->
+          <div class="rc-top">
+            <section class="rc-hero" aria-labelledby="title-rc-score">
+              <h3 class="ds-eyebrow rc-eyebrow" id="title-rc-score">Mai készenlét</h3>
+              <p class="rc-hero-score">
+                <span class="rc-score-num" data-rc-score>—</span
+                ><span class="rc-score-max">/100</span>
+              </p>
+              <p class="rc-verdict" data-rc-verdict></p>
+              <!-- Mi húz vissza + a sapkák + a megbízhatóság: a szám mellé az
+                 indoklás (a riport `limiting`, `caps`, `confidence` mezői). -->
+              <p class="rc-limiter" data-rc-limiter hidden></p>
+              <ul class="rc-caps" data-list="rc-caps" hidden></ul>
+              <p class="rc-confidence" data-rc-confidence>
+                <span class="rc-confidence-badge" data-rc-confidence-badge></span>
+                <span data-rc-confidence-text></span>
+              </p>
+            </section>
 
-          <!-- Megbízhatóság + a sapkák indoklása. Ez a felület őszinteség-sávja:
-             kimondja, mire épül a szám és mi hiányzik hozzá. -->
-          <p class="rc-confidence" data-rc-confidence>
-            <span class="rc-confidence-badge" data-rc-confidence-badge></span>
-            <span data-rc-confidence-text></span>
-          </p>
-          <ul class="rc-caps" data-list="rc-caps" hidden></ul>
+            <a class="rc-cta" href="#checkin" data-rc-checkin-cta>
+              <span class="rc-cta-text">
+                <span class="rc-cta-title" data-rc-checkin-cta-title>Napi check-in kitöltése</span>
+                <span class="rc-cta-note">Pár gyors kérdés ebből számol a mai készenléted.</span>
+              </span>
+              <span class="rc-cta-arrow" aria-hidden="true">→</span>
+            </a>
 
-          <!-- Napi check-in. Két út vezet ugyanabba a sorba:
-             · az elsődleges a lépésenkénti varázsló (#checkin) — gyors, de
-               szándékosan nem kérdez közérzetet és folyadékot (a testsúlyt
-               igen: az a napi mérés helye);
-             · a lenti „Részletes szerkesztés" a teljes űrlap, ezekkel együtt.
-             Mindkettő a PUT /api/checkin-re megy; a varázsló a nem kérdezett
-             mezőket változatlanul visszaküldi (lásd a `carried` kommentjét a
-             a frontendben), hogy ne írja felül, amit itt adtál meg. -->
-          <a class="rc-checkin-cta ds-cta" href="#checkin" data-rc-checkin-cta>
-            <span class="ds-cta-text">
-              <span class="rc-checkin-cta-title" data-rc-checkin-cta-title
-                >Napi check-in kitöltése</span
+            <section class="rc-spare" aria-labelledby="title-rc-spare" data-rc-spare hidden>
+              <h3 class="ds-eyebrow rc-eyebrow" id="title-rc-spare">Ma kíméld</h3>
+              <ul class="rc-spare-list" data-list="rc-spare"></ul>
+              <p class="rc-spare-note" data-rc-spare-note></p>
+            </section>
+
+            <!-- Jelmagyarázat asztalin a bal hasábban; tableten és mobilon a
+               térkép fejlécében áll a párja (.rc-legend--map). -->
+            <div class="rc-legend rc-legend--side">
+              <ul class="rc-legend-list">
+                <li><span class="rc-dot rc-dot--sore"></span>Izomláz</li>
+                <li><span class="rc-dot rc-dot--pain"></span>Fájdalom</li>
+                <li><span class="rc-dot rc-dot--ready"></span>80%+ kész</li>
+              </ul>
+              <p class="rc-legend-note">
+                100% = teljesen regenerált. A terhelés, az izomláz és a fájdalom együtt adja a
+                számot.
+              </p>
+            </div>
+
+            <div class="rc-maphead">
+              <h3 class="ds-eyebrow rc-eyebrow" id="title-rc-map">Izomtérkép</h3>
+              <div class="rc-map-tabs" role="tablist" aria-label="Nézet">
+                <button
+                  class="rc-map-tab"
+                  type="button"
+                  role="tab"
+                  data-rc-view="front"
+                  aria-selected="true"
+                >
+                  Elöl
+                </button>
+                <button
+                  class="rc-map-tab"
+                  type="button"
+                  role="tab"
+                  data-rc-view="back"
+                  aria-selected="false"
+                >
+                  Hátul
+                </button>
+              </div>
+              <ul class="rc-legend rc-legend--map rc-legend-list">
+                <li><span class="rc-dot rc-dot--sore"></span>Izomláz</li>
+                <li><span class="rc-dot rc-dot--pain"></span>Fájdalom</li>
+                <li><span class="rc-dot rc-dot--ready"></span>80%+ kész</li>
+              </ul>
+            </div>
+
+            <!-- A térképet a Task 4 tölti ki (renderMuscleMap). -->
+            <div class="rc-map" data-rc-map aria-labelledby="title-rc-map"></div>
+
+            <section class="rc-comps" aria-labelledby="title-rc-components">
+              <button
+                class="rc-comps-toggle"
+                type="button"
+                aria-expanded="false"
+                aria-controls="rc-comps-body"
+                data-rc-comps-toggle
               >
-              <span class="rc-checkin-cta-note ds-cta-sub"
-                >Pár gyors kérdés, kevesebb mint egy perc — ebből számol a mai készenléted.</span
-              >
-            </span>
-            <span class="rc-checkin-cta-arrow" aria-hidden="true">→</span>
-          </a>
+                <span class="rc-comps-title" id="title-rc-components">Miből jön a pontszám</span>
+                <span class="rc-comps-summary" data-rc-comps-summary></span>
+                <span class="rc-comps-chev" aria-hidden="true"></span>
+              </button>
+              <div class="rc-comps-body" id="rc-comps-body">
+                <ul class="rc-comps-list" data-list="rc-components"></ul>
+                <div class="rc-comps-missing" data-rc-comps-missing hidden>
+                  <span class="rc-comps-missing-text" data-rc-comps-missing-text></span>
+                  <a class="rc-comps-fill" href="#checkin"
+                    >Kitöltöm <span aria-hidden="true">→</span></a
+                  >
+                </div>
+                <p class="rc-hint rc-comps-hrv">
+                  A HRV/pulzus komponens nincs a képletben: az alkalmazásnak nincs
+                  pulzusadat-forrása, kitalált értéket pedig nem teszünk bele. A súlya arányosan
+                  szétoszlik a többi komponens között — ahogy minden ki nem töltött mezőé is.
+                </p>
+              </div>
+            </section>
+          </div>
 
           <details class="rc-checkin-advanced ds-section">
             <summary class="rc-details-summary rc-checkin-summary">
@@ -1587,17 +1647,6 @@
               épült és mi fogyott.
             </p>
             <ul class="rc-body-list" data-body-list></ul>
-          </section>
-
-          <!-- Komponens-bontás: miből jött ki a pontszám ("Számítás") -->
-          <section class="rc-card ds-section" aria-labelledby="title-rc-components">
-            <h3 class="rc-section-title" id="title-rc-components">Miből jön a pontszám</h3>
-            <ul class="rc-components" data-list="rc-components"></ul>
-            <p class="rc-hint">
-              A HRV/pulzus komponens nincs a képletben: az alkalmazásnak nincs pulzusadat-forrása,
-              kitalált értéket pedig nem teszünk bele. A súlya arányosan szétoszlik a többi
-              komponens között — ahogy minden ki nem töltött mezőé is.
-            </p>
           </section>
 
           <!-- CNS -->
@@ -3030,19 +3079,20 @@
       </div>
     </template>
 
-    <!-- Komponens-sor: mennyit ad a pontszámhoz és milyen súllyal. A .ds-row
-       jelöli a sort, a .ds-row-main a bal oldalt (név + sáv + súly-meta),
-       a .ds-row-value a jobb szélen álló, kiemelt pontszámot. -->
+    <!-- Komponens-sor: mennyit ad a pontszámhoz, milyen súllyal — és mi az
+       az egy sornyi magyarázat, ami csak az izom-komponensnél jelenik meg
+       (muscleNote, lásd render/recovery.js). -->
     <template id="tpl-rc-component">
-      <li class="rc-component ds-row">
-        <div class="rc-component-main ds-row-main">
-          <span class="rc-component-label ds-row-name"></span>
-          <div class="pl-progress rc-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100">
-            <div class="pl-progress-fill"></div>
-          </div>
-          <span class="rc-component-weight ds-row-sub"></span>
+      <li class="rc-comp">
+        <div class="rc-comp-head">
+          <span class="rc-comp-label"></span>
+          <span class="rc-comp-value"></span>
         </div>
-        <span class="rc-component-value ds-row-value"></span>
+        <div class="rc-comp-bar"><span class="rc-comp-fill"></span></div>
+        <div class="rc-comp-meta">
+          <span class="rc-comp-weight"></span>
+          <span class="rc-comp-note" hidden></span>
+        </div>
       </li>
     </template>
 
