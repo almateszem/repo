@@ -25,6 +25,7 @@ import { fileURLToPath } from 'node:url';
 import { data as seed } from './data.js';
 import { buildExerciseCatalog, buildFoodCatalog } from './data/catalog.js';
 import { estimate1RM } from './recovery.js';
+import { splitLegacyMuscleMap } from './muscles.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Alapból server/fittrack.db; a FITTRACK_DB env-változóval felülírható (pl. teszthez).
@@ -648,7 +649,12 @@ backfillExerciseMaxes();
      1 — az 1RM-képlet egységesítése (recovery.js → estimate1RM): az
          egyismétléses szett becslése a súly maga, nem +3,3%. A tárolt
          mért csúcsokat és a PR-jelzőket a naplóból újraépítjük. A BEMONDOTT
-         csúcsokhoz nem tároltuk az ismétlésszámot, azok változatlanok. */
+         csúcsokhoz nem tároltuk az ismétlésszámot, azok változatlanok.
+     2 — 9 → 12 izomcsoport: a check-inek izomláz- és fájdalom-térképében a
+         régi `arms` a bicepszre és a tricepszre, a `back` a hátra, a
+         trapézra és az alsó hátra is átmásolódik (muscles.js
+         splitLegacyMuscleMap). Az edzésnaplót nem kell átírni: az
+         izomterhelést a motor a gyakorlatnévből mindig újraszámolja. */
 const schemaVersion = db.prepare('PRAGMA user_version').get().user_version;
 if (schemaVersion < 1) {
   const userIds = db
@@ -657,6 +663,35 @@ if (schemaVersion < 1) {
     .map((row) => row.id);
   for (const userId of userIds) recomputeExerciseMaxes(userId);
   db.exec('PRAGMA user_version = 1');
+}
+if (schemaVersion < 2) {
+  const parse = (text) => {
+    try {
+      return JSON.parse(text);
+    } catch {
+      return {};
+    }
+  };
+  const rows = db.prepare('SELECT user_id, date, soreness, pain FROM checkins').all();
+  const update = db.prepare(
+    'UPDATE checkins SET soreness = ?, pain = ? WHERE user_id = ? AND date = ?',
+  );
+  db.exec('BEGIN');
+  try {
+    for (const row of rows) {
+      update.run(
+        JSON.stringify(splitLegacyMuscleMap(parse(row.soreness))),
+        JSON.stringify(splitLegacyMuscleMap(parse(row.pain))),
+        row.user_id,
+        row.date,
+      );
+    }
+    db.exec('PRAGMA user_version = 2');
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
 }
 
 /* ---- Indexek ----
