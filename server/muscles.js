@@ -227,3 +227,26 @@ export function isAxialLift(name) {
 /** Egy üres, minden izomcsoportot tartalmazó számláló-objektum ({ chest: 0, … }).
     A terhelés-összegzők ebből indulnak, hogy sosem legyen hiányzó kulcs. */
 export const emptyMuscleMap = () => Object.fromEntries(MUSCLE_KEYS.map((key) => [key, 0]));
+
+/** A 9 → 12 csoportos váltásnál felbontott régi kulcsok és az utódaik. A
+    `back` a saját utódja is: a széles hát kulcsa megmaradt. */
+export const LEGACY_SPLIT = {
+  arms: ['biceps', 'triceps'],
+  back: ['back', 'traps', 'lowerBack'],
+};
+
+/** Egy régi (9 csoportos) izomláz- vagy fájdalom-térkép átírása: a felbontott
+    kulcs értéke MINDEN utódra átmásolódik. Ütközésnél a nagyobb érték nyer —
+    a fájdalom-tiltás így sosem vész el. A többi kulcs (a `general` is)
+    változatlan. A db.js 2-es séma-migrációja használja. */
+export function splitLegacyMuscleMap(map) {
+  if (!map || typeof map !== 'object') return {};
+  const out = {};
+  const put = (key, value) => {
+    out[key] = key in out ? Math.max(out[key], value) : value;
+  };
+  for (const [key, value] of Object.entries(map)) {
+    for (const heir of LEGACY_SPLIT[key] ?? [key]) put(heir, value);
+  }
+  return out;
+}
