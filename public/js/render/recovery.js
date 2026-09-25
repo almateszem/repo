@@ -2,19 +2,22 @@
 
 import { $, $$, cloneTemplate } from '../core/dom.js';
 
-/** A kilenc izomcsoport kulcsa és magyar címkéje — a szerver
+/** A tizenkét izomcsoport kulcsa és magyar címkéje — a szerver
     MUSCLE_GROUPS-ával azonos sorrendben (server/muscles.js). A check-in
     izomláz- és fájdalom-mezői ebből épülnek. */
 const MUSCLE_GROUPS = [
   ['chest', 'Mell'],
-  ['back', 'Hát'],
   ['shoulders', 'Váll'],
-  ['arms', 'Karok'],
-  ['quads', 'Quadriceps'],
+  ['biceps', 'Bicepsz'],
+  ['triceps', 'Tricepsz'],
+  ['traps', 'Trapéz'],
+  ['back', 'Hát'],
+  ['lowerBack', 'Alsó hát'],
+  ['core', 'Has / core'],
+  ['quads', 'Quad'],
   ['hamstrings', 'Hamstring'],
   ['glutes', 'Farizom'],
   ['calves', 'Vádli'],
-  ['core', 'Törzs'],
 ];
 
 /** A gyors check-in 1–5-ös skálái:
