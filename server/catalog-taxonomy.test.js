@@ -62,4 +62,11 @@ test('a kulcsszavas becslés is az új csoportokra képez', () => {
   assert.ok(resolveExerciseLoad('hyperextension padon', []).lowerBack > 0);
   assert.equal(resolveExerciseLoad('skull crusher', []).triceps, 1);
   assert.equal(resolveExerciseLoad('hammer curl', []).biceps, 1);
+  // A `\bcurl` bicepsz-minta önmagában elnyelné a "hamstring curl", "nordic
+  // curl", "glute ham curl" gyakorlatokat is — ezek a comb hajlítás (hamstring)
+  // sorhoz kell, hogy tartozzanak, ezért annak a mintája elé kerültek.
+  assert.equal(resolveExerciseLoad('nordic curl', []).hamstrings, 1);
+  assert.equal(resolveExerciseLoad('hamstring curl', []).hamstrings, 1);
+  assert.equal(resolveExerciseLoad('glute ham curl', []).hamstrings, 1);
+  assert.equal(resolveExerciseLoad('barbell curl', []).biceps, 1);
 });
