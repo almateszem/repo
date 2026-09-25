@@ -357,7 +357,8 @@ test('a lábnap a lábat terheli, a mellet nem', () => {
   assert.ok(byKey.quads < 70, `a quadriceps lemegy (kapott: ${byKey.quads}%)`);
   assert.ok(byKey.glutes < 90, 'a farizom is kap terhelést');
   assert.equal(byKey.chest, 100, 'a mell érintetlen marad');
-  assert.equal(byKey.arms, 100, 'a kar érintetlen marad');
+  assert.equal(byKey.biceps, 100, 'a bicepsz érintetlen marad');
+  assert.equal(byKey.triceps, 100, 'a tricepsz érintetlen marad');
 });
 
 test('a teljes lábnap sokkal jobban leviszi a csoportot, mint négy guggolás-szett', () => {
@@ -381,7 +382,7 @@ test('a saját testsúlyos munka is terhel izmot, pedig nincs tonnatömege', () 
   assert.ok(back.readiness < 80, `a húzódzkodás leviszi a hátat (kapott: ${back.readiness}%)`);
 });
 
-test('mind a kilenc izomcsoportra ad értéket', () => {
+test('mind a tizenkét izomcsoportra ad értéket', () => {
   const report = run({ checkins: [fullCheckin()] });
   assert.deepEqual(
     report.muscles.map((m) => m.key),
@@ -874,7 +875,7 @@ test('a riport minden felület által várt mezőt tartalmaz', () => {
     report.limiting && report.components.some((c) => c.key === report.limiting.key),
     'a „mi húz vissza" egy létező komponensre mutat',
   );
-  assert.equal(report.muscles.length, 9);
+  assert.equal(report.muscles.length, 12);
   assert.ok(typeof report.cns.readiness === 'number');
   assert.ok(Array.isArray(report.exercises));
   assert.deepEqual(Object.keys(report.recovery), ['sleep', 'fatigue', 'soreness']);

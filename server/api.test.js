@@ -2270,7 +2270,7 @@ test('ajánlott gyakorlatok: a fájdalmas izomcsoport a címmel sem jön vissza'
   assert.deepEqual(res.json.titleLabels, ['Hát'], 'a Mell címke a tiltással együtt eltűnik');
   assert.ok(res.json.suggestions.length > 0, 'a hát a címből továbbra is jön');
   assert.ok(
-    res.json.suggestions.every((s) => s.group === 'back'),
+    res.json.suggestions.every((s) => ['back', 'traps', 'lowerBack'].includes(s.group)),
     'a mellre egyetlen javaslat sem jön',
   );
   // A mellfájdalom a teljes napot sapkázza — a hát sem lehet „regenerált".

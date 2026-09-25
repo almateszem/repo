@@ -58,18 +58,25 @@ const LOWER_BODY = ['quads', 'hamstrings', 'glutes', 'calves'];
  */
 const TITLE_RULES = [
   { label: 'Mell', groups: ['chest'], prefix: ['mell'], exact: ['chest'] },
-  { label: 'Hát', groups: ['back'], prefix: ['hát'], exact: ['hatnap', 'back'] },
+  {
+    label: 'Hát',
+    groups: ['back', 'traps', 'lowerBack'],
+    prefix: ['hát'],
+    exact: ['hatnap', 'back'],
+  },
   {
     label: 'Váll',
     groups: ['shoulders'],
     prefix: ['váll'],
     exact: ['vall', 'vallnap', 'shoulder', 'shoulders', 'delts'],
   },
+  { label: 'Bicepsz', groups: ['biceps'], prefix: ['bicepsz'], exact: ['bicep', 'biceps'] },
+  { label: 'Tricepsz', groups: ['triceps'], prefix: ['tricepsz'], exact: ['tricep', 'triceps'] },
   {
     label: 'Kar',
-    groups: ['arms'],
-    prefix: ['karnap', 'karok', 'bicepsz', 'tricepsz', 'alkar'],
-    exact: ['kar', 'arm', 'arms', 'bicep', 'biceps', 'tricep', 'triceps'],
+    groups: ['biceps', 'triceps'],
+    prefix: ['karnap', 'karok', 'alkar'],
+    exact: ['kar', 'arm', 'arms'],
   },
   {
     label: 'Láb',
@@ -92,14 +99,19 @@ const TITLE_RULES = [
   },
   {
     label: 'Push',
-    groups: ['chest', 'shoulders', 'arms'],
+    groups: ['chest', 'shoulders', 'triceps'],
     prefix: ['push', 'nyomó'],
     exact: ['nyomo'],
   },
-  { label: 'Pull', groups: ['back', 'arms'], prefix: ['pull', 'húzó'], exact: ['huzo'] },
+  {
+    label: 'Pull',
+    groups: ['back', 'traps', 'lowerBack', 'biceps'],
+    prefix: ['pull', 'húzó'],
+    exact: ['huzo'],
+  },
   {
     label: 'Felsőtest',
-    groups: ['chest', 'back', 'shoulders', 'arms'],
+    groups: ['chest', 'shoulders', 'biceps', 'triceps', 'traps', 'back', 'lowerBack'],
     prefix: ['felsőtest', 'upper'],
     exact: ['felso', 'felsotest'],
   },

@@ -18,18 +18,21 @@
  * Nincs benne állapot és nem importál adatbázist — önmagában tesztelhető.
  */
 
-/** A kilenc izomcsoport kulcsa → magyar címke. A sorrend a felület sorrendje
-    (felsőtest fentről lefelé, majd alsótest, végül a törzs). */
+/** A tizenkét izomcsoport kulcsa → magyar címke. A sorrend a felület sorrendje
+    (felsőtest elöl, majd hátul fentről lefelé, végül az alsótest). */
 export const MUSCLE_GROUPS = {
   chest: 'Mell',
-  back: 'Hát',
   shoulders: 'Váll',
-  arms: 'Karok',
-  quads: 'Quadriceps',
+  biceps: 'Bicepsz',
+  triceps: 'Tricepsz',
+  traps: 'Trapéz',
+  back: 'Hát',
+  lowerBack: 'Alsó hát',
+  core: 'Has / core',
+  quads: 'Quad',
   hamstrings: 'Hamstring',
   glutes: 'Farizom',
   calves: 'Vádli',
-  core: 'Törzs',
 };
 
 export const MUSCLE_KEYS = Object.keys(MUSCLE_GROUPS);
@@ -43,14 +46,19 @@ export const PAIN_BLOCK = 7;
 /** Regenerációs időállandó (nap) izomcsoportonként — a csillapítási görbe
     „felezési tempója". A kis izmok gyorsabban állnak helyre; a hamstring, a
     farizom és a törzs lassabban, mert jellemzően nagy eccentricus terhelést
-    kapnak (nyújtott állapotban terhelődnek, ami több izomkárosodást okoz). */
+    kapnak (nyújtott állapotban terhelődnek, ami több izomkárosodást okoz).
+    Az alsó hát a széles hátnál lassabb: a gerincfeszítők a nehéz felhúzásban
+    és a hajolt munkában folyamatos, statikus terhelést kapnak. */
 export const TAU_BY_GROUP = {
-  arms: 1.5,
+  biceps: 1.5,
+  triceps: 1.5,
   calves: 1.5,
   shoulders: 1.5,
   chest: 2.2,
   back: 2.2,
+  traps: 2.2,
   quads: 2.2,
+  lowerBack: 2.6,
   hamstrings: 3.0,
   glutes: 3.0,
   core: 3.0,
@@ -67,8 +75,8 @@ const KEYWORD_MAP = [
      „row" elé kell; a hátsó váll tárogatás a mell-tárogatás elé; a bolgár
      guggolás a guggolás elé. A súlyok a katalógus kurált soraiéval egyeznek
      („Felhúzás állig", „Vállvonogatás", „Bolgár kitörés"). */
-  [/felhuzas.?allig|upright.?row/, { shoulders: 0.6, back: 0.3, arms: 0.1 }],
-  [/shrug|vallvonogat/, { back: 0.6, shoulders: 0.4 }],
+  [/felhuzas.?allig|upright.?row/, { shoulders: 0.6, traps: 0.3, biceps: 0.1 }],
+  [/shrug|vallvonogat/, { traps: 0.6, shoulders: 0.4 }],
   [
     /hatso.?vall|rear.?delt|face.?pull|forditott.?tarogat|reverse.?fly/,
     { shoulders: 0.7, back: 0.3 },
@@ -76,8 +84,11 @@ const KEYWORD_MAP = [
   [/kitores|lunge|bolgar|split.?squat/, { quads: 0.4, glutes: 0.4, hamstrings: 0.1, core: 0.1 }],
 
   // — Alsótest, összetett —
-  [/roman|rdl|merev.?labu/, { hamstrings: 0.5, glutes: 0.3, back: 0.15, core: 0.05 }],
-  [/felhuz|deadlift|huzas.?fold/, { hamstrings: 0.3, back: 0.35, glutes: 0.25, core: 0.1 }],
+  [/roman|rdl|merev.?labu/, { hamstrings: 0.5, glutes: 0.3, lowerBack: 0.15, core: 0.05 }],
+  [
+    /felhuz|deadlift|huzas.?fold/,
+    { hamstrings: 0.3, glutes: 0.25, lowerBack: 0.2, back: 0.15, core: 0.1 },
+  ],
   [/hack.?guggol|elso.?guggol|front.?squat/, { quads: 0.6, glutes: 0.2, core: 0.2 }],
   [/guggol|squat/, { quads: 0.55, glutes: 0.25, core: 0.2 }],
   [/labtolas|leg.?press|lab.?nyomas/, { quads: 0.7, glutes: 0.3 }],
@@ -90,39 +101,40 @@ const KEYWORD_MAP = [
   [/vadli|calf|labujjhegy/, { calves: 1 }],
 
   // — Mell —
-  [/ferde.?fekvenyom|incline/, { chest: 0.65, shoulders: 0.2, arms: 0.15 }],
-  [/fekvenyom|bench|mellnyomas|mell.?nyomas/, { chest: 0.6, shoulders: 0.15, arms: 0.25 }],
-  [/tolodzk|dip/, { chest: 0.5, arms: 0.35, shoulders: 0.15 }],
+  [/ferde.?fekvenyom|incline/, { chest: 0.65, shoulders: 0.2, triceps: 0.15 }],
+  [/fekvenyom|bench|mellnyomas|mell.?nyomas/, { chest: 0.6, triceps: 0.25, shoulders: 0.15 }],
+  [/tolodzk|dip/, { chest: 0.5, triceps: 0.35, shoulders: 0.15 }],
   [/tarogat|tarazas|\bfly|keresztez|butterfly|pillango/, { chest: 0.9, shoulders: 0.1 }],
-  [/fekvotamasz|push.?up/, { chest: 0.55, arms: 0.25, shoulders: 0.15, core: 0.05 }],
+  [/fekvotamasz|push.?up/, { chest: 0.55, triceps: 0.25, shoulders: 0.15, core: 0.05 }],
 
   // — Hát —
-  [/huzodzk|pull.?up|chin.?up/, { back: 0.7, arms: 0.25, core: 0.05 }],
-  [/lehuzas|lat.?pulldown/, { back: 0.75, arms: 0.25 }],
+  [/huzodzk|pull.?up|chin.?up/, { back: 0.7, biceps: 0.25, core: 0.05 }],
+  [/lehuzas|lat.?pulldown/, { back: 0.75, biceps: 0.25 }],
   // A „row" csak szó elején: különben a „throw" és a „narrow" is evezés lenne
-  [/evezes|\brow|hajolt/, { back: 0.7, arms: 0.2, shoulders: 0.1 }],
-  [/pulover|pullover/, { back: 0.7, chest: 0.2, arms: 0.1 }],
-  [/hiperextenzio|hyperextension|torok?emel/, { back: 0.4, hamstrings: 0.3, glutes: 0.3 }],
+  [/evezes|\brow|hajolt/, { back: 0.7, biceps: 0.2, shoulders: 0.1 }],
+  [/pulover|pullover/, { back: 0.7, chest: 0.2, triceps: 0.1 }],
+  [/hiperextenzio|hyperextension|torok?emel/, { lowerBack: 0.4, hamstrings: 0.3, glutes: 0.3 }],
 
   // — Váll —
   [
     /arnold|vallbol.?nyom|vall.?nyom|overhead.?press|katonai/,
-    { shoulders: 0.65, arms: 0.25, core: 0.1 },
+    { shoulders: 0.65, triceps: 0.25, core: 0.1 },
   ],
   [/oldalemel|lateral.?raise/, { shoulders: 1 }],
   [/elolemel|front.?raise/, { shoulders: 1 }],
 
   // — Kar —
-  [/bicepsz|bicep|hajlitas.?sulyzo|kalapacs|hammer/, { arms: 1 }],
-  [/tricepsz|tricep|nyujtas.?kabel|homlok.?nyomas|skull/, { arms: 1 }],
-  [/alkar|forearm|csuklo/, { arms: 1 }],
+  [/bicepsz|bicep|hajlitas.?sulyzo|kalapacs|hammer|\bcurl/, { biceps: 1 }],
+  [/tricepsz|tricep|nyujtas.?kabel|homlok.?nyomas|skull/, { triceps: 1 }],
+  [/alkar|forearm|csuklo/, { biceps: 1 }],
 
   // — Törzs —
   [/plank|deszka|holt.?bogar|dead.?bug/, { core: 1 }],
   // A minták ékezet nélküli, kisbetűs alakon futnak (lásd normalizeName) —
   // ezért itt sem szerepelhet ékezetes betű.
   [/felules|crunch|haspres|has.?gyakorlat|labemel|hasizom/, { core: 1 }],
-  [/oblique|ferde.?has|orosz.?csavar|russian.?twist|farmer/, { core: 0.85, arms: 0.15 }],
+  [/oblique|ferde.?has|orosz.?csavar|russian.?twist/, { core: 0.85, biceps: 0.08, triceps: 0.07 }],
+  [/farmer/, { core: 0.6, biceps: 0.25, traps: 0.15 }],
 ];
 
 /** Ékezet- és kisbetű-független alak a név-összevetéshez és a kulcsszó-

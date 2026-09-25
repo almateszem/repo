@@ -13,7 +13,7 @@
  * Miért kell leképezés egyáltalán
  * -------------------------------
  * A dataset izom-szótára jóval finomabb (19 target + 40 secondary érték),
- * mint a mi kilenc regenerációs csoportunk (server/muscles.js MUSCLE_GROUPS),
+ * mint a mi tizenkét regenerációs csoportunk (server/muscles.js MUSCLE_GROUPS),
  * és NINCS benne súlyozás — csak „elsődleges” és „másodlagos” izomlista.
  * A Recovery Engine viszont súlyokat vár, amiknek az összege 1. Ezért a
  * `load` itt SZÁRMAZTATOTT érték: az elsődleges izom kapja a súly 60%-át, a
@@ -43,16 +43,16 @@ export const MUSCLE_TO_GROUP = {
   core: 'core',
   'serratus anterior': 'core',
   // — Hát —
-  spine: 'back',
-  'lower back': 'back',
+  spine: 'lowerBack',
+  'lower back': 'lowerBack',
   'upper back': 'back',
   back: 'back',
   lats: 'back',
   'latissimus dorsi': 'back',
   rhomboids: 'back',
-  traps: 'back',
-  trapezius: 'back',
-  'levator scapulae': 'back',
+  traps: 'traps',
+  trapezius: 'traps',
+  'levator scapulae': 'traps',
   // — Mell —
   pectorals: 'chest',
   chest: 'chest',
@@ -64,15 +64,15 @@ export const MUSCLE_TO_GROUP = {
   'rear deltoids': 'shoulders',
   'rotator cuff': 'shoulders',
   // — Kar —
-  biceps: 'arms',
-  triceps: 'arms',
-  forearms: 'arms',
-  brachialis: 'arms',
-  wrists: 'arms',
-  'wrist flexors': 'arms',
-  'wrist extensors': 'arms',
-  hands: 'arms',
-  'grip muscles': 'arms',
+  biceps: 'biceps',
+  triceps: 'triceps',
+  forearms: 'biceps',
+  brachialis: 'biceps',
+  wrists: 'biceps',
+  'wrist flexors': 'biceps',
+  'wrist extensors': 'biceps',
+  hands: 'biceps',
+  'grip muscles': 'biceps',
   // — Comb —
   quads: 'quads',
   quadriceps: 'quads',
@@ -267,7 +267,7 @@ export const EQUIPMENT_LABEL_HU = {
  * Az elsődleges izom (`target`) kapja a súly 60%-át, a másodlagosak
  * (`secondary_muscles`) egyenlő arányban osztoznak a maradék 40%-on. Ha a
  * másodlagosak közt szerepel az elsődlegessel AZONOS csoport (pl. target
- * 'biceps' → arms, secondary 'forearms' → szintén arms), akkor a részük az
+ * 'biceps' → biceps, secondary 'forearms' → szintén biceps), akkor a részük az
  * elsődlegeshez adódik — így nem hígul fel a súly egy amúgy izolációs
  * gyakorlatnál.
  *
