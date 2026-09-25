@@ -42,6 +42,7 @@
 import {
   MUSCLE_GROUPS,
   MUSCLE_KEYS,
+  PAIN_BLOCK,
   TAU_BY_GROUP,
   resolveExerciseLoad,
   isAxialLift,
@@ -618,7 +619,8 @@ function muscleReadiness({ byDay, checkin, hasHistory, hasAnyWorkout }) {
     // Fájdalom-sapka: 7/10 felett a csoport nem edzhető normál intenzitással,
     // bármit is mond a terhelés-modell.
     const reportedPain = num(pain[group]);
-    const capped = reportedPain !== null && reportedPain >= 7 ? Math.min(readiness, 30) : readiness;
+    const capped =
+      reportedPain !== null && reportedPain >= PAIN_BLOCK ? Math.min(readiness, 30) : readiness;
 
     // Mikor terhelted utoljára ezt a csoportot? (a felület ezt is kiírja)
     let lastLoadedDaysAgo = null;
@@ -774,7 +776,7 @@ function exerciseReadiness({
 }) {
   const byKey = Object.fromEntries(muscles.map((m) => [m.key, m.readiness]));
   const painfulGroups = new Set(
-    muscles.filter((m) => m.pain !== null && m.pain >= 7).map((m) => m.key),
+    muscles.filter((m) => m.pain !== null && m.pain >= PAIN_BLOCK).map((m) => m.key),
   );
 
   const logged = [...exercises.values()]
@@ -1063,7 +1065,7 @@ export function computeReadiness({
       num(checkin?.pain?.general) ?? 0,
       ...MUSCLE_KEYS.map((key) => num(checkin?.pain?.[key]) ?? 0),
     );
-    if (generalPain >= 7 && overall > 45) {
+    if (generalPain >= PAIN_BLOCK && overall > 45) {
       overall = 45;
       caps.push('Erős fájdalmat jeleztél — a készenlét 45%-ra korlátozva.');
     }
