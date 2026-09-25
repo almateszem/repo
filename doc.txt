@@ -158,7 +158,7 @@ A Recovery Engine teljes riportja.
   · Komponens-bontás — a hat komponens pontszáma és tényleges súlya. A
     hiányzók "nincs adat"-tal jelölve.
   · Idegrendszer (CNS) — külön becslés, szöveges javaslattal.
-  · Izomcsoportok — mind a kilenc csoport regenerációja sávdiagramon, meta-
+  · Izomcsoportok — mind a tizenkét csoport regenerációja sávdiagramon, meta-
     sorral: mikor terhelted, mekkora izomlázat/fájdalmat jeleztél. Amiről
     nincs adat, ott "—" áll, nem 100%.
   · Mai ajánlások — gyakorlatonkénti konkrét javaslat (súly- és
@@ -379,7 +379,7 @@ kiírja, miért került oda:
     nem mond semmit.
 Elöl az áll, amit mindkét jel támogat, utána a két jel váltakozva kap helyet
 (a pihent felsőtest nem szoríthatja ki a „Lábnap" fáradt lábát — az ilyen sor
-„Quadriceps csak 62% regenerált" figyelmeztetést kap). Fájdalommal (7/10
+„Quad csak 62% regenerált" figyelmeztetést kap). Fájdalommal (7/10
 felett) letiltott izomcsoportot terhelő gyakorlat SOSEM kerül be, akkor sem,
 ha a cím kéri; sapkás napon egy izom sem lehet „regeneráltabb" a napnál.
 Értelmezhetetlen címnél („Hétfő") a regeneráltság marad, és a blokk ezt ki is
@@ -428,7 +428,7 @@ A KÉPLET súlyozott átlag, de CSAK a jelen lévő komponensekre:
   ---------------  -----  ------------------------------------------------
   Alvás            0.25   időtartam (trapéz-görbe) + minőség,
                           3 napos alvásadósság-levonással
-  Izom-regeneráció 0.15   a kilenc izomcsoport "soft-min" átlaga
+  Izom-regeneráció 0.15   a tizenkét izomcsoport "soft-min" átlaga
   Energiaszint     0.15   check-in, 1–5
   Stressz-reg.     0.10   check-in, 1–5 (fordítva)
   Közérzet         0.10   check-in, 1–5 (csak a részletes űrlap kérdezi)
@@ -460,7 +460,7 @@ AMIT MÉG SZÁMOL
     A heti volumen és a profil a kardió sort nem veszi munkasorozatnak, az
     edzői aktivitás-lista percben írja ki. (server/recovery.js →
     cardioSetLoad, server/logmode.js → INTENSITY_LEVELS)
-  · Izomcsoportonkénti regeneráció kilenc csoportra. A károsodás mérőszáma
+  · Izomcsoportonkénti regeneráció tizenkét csoportra. A károsodás mérőszáma
     NEM a tonnatömeg, hanem a bukáshoz közeli szettek száma — a tonnatömeg
     lokálisan félrevezet (egy nehéz 5×5 guggolás kevesebb tonnát ad, mint
     egy könnyű, sok ismétléses lábtolás, miközben sokkal jobban lever).

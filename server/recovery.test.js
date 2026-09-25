@@ -423,7 +423,7 @@ test('a soft-min átlag miatt egyetlen tönkrement csoport is látszik az össze
   const clean = restedLogger();
   const oneSore = restedLogger({ checkins: [fullCheckin({ soreness: { quads: 10 } })] });
   const muscleOf = (report) => report.components.find((c) => c.key === 'muscle').score;
-  assert.ok(muscleOf(oneSore) < muscleOf(clean) - 5, 'nem mosódik el kilenc csoport átlagában');
+  assert.ok(muscleOf(oneSore) < muscleOf(clean) - 5, 'nem mosódik el tizenkét csoport átlagában');
 });
 
 /* ======================================================================

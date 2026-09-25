@@ -415,7 +415,7 @@ seed-görbét mutatja, és ki is írja, hogy az demo-adat.
 | Komponens           | Súly | Miből                                                               |
 | ------------------- | ---- | ------------------------------------------------------------------- |
 | Alvás               | 0.25 | időtartam (trapéz-görbe) + minőség, 3 napos alvásadósság-levonással |
-| Izom-regeneráció    | 0.15 | a kilenc izomcsoport „soft-min" átlaga                              |
+| Izom-regeneráció    | 0.15 | a tizenkét izomcsoport „soft-min" átlaga                            |
 | Energiaszint        | 0.15 | check-in, 1–5                                                       |
 | Stressz-regeneráció | 0.10 | check-in, 1–5 (fordítva)                                            |
 | Közérzet            | 0.10 | check-in, 1–5 — csak a részletes űrlap kérdezi, a varázsló nem      |
@@ -433,7 +433,7 @@ szét, mint bármelyik ki nem töltött mezőé.
 
 **Amit még számol:**
 
-- **Izomcsoportonkénti regeneráció** kilenc csoportra. A károsodás mérőszáma nem
+- **Izomcsoportonkénti regeneráció** tizenkét csoportra. A károsodás mérőszáma nem
   a tonnatömeg, hanem a bukáshoz közeli szettek száma — a tonnatömeg lokálisan
   félrevezet (egy nehéz 5×5 guggolás kevesebb tonnát ad, mint egy könnyű,
   sok ismétléses lábtolás, miközben sokkal jobban lever). A szett-egység a

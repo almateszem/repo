@@ -96,7 +96,7 @@ export const MUSCLE_TO_GROUP = {
 };
 
 /** Dataset izomnév → a kártyán megjelenő magyar címke. Finomabb, mint a
-    MUSCLE_GROUPS kilenc neve: a felületen „Széles hát” informatívabb, mint a
+    MUSCLE_GROUPS tizenkét neve: a felületen „Széles hát” informatívabb, mint a
     csoportosított „Hát”. */
 export const MUSCLE_LABEL_HU = {
   abs: 'Hasizom',
