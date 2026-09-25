@@ -31,7 +31,7 @@ const ciEmptyState = () => ({
     energy: null,
     stress: null,
     weightKg: null, // null = ma nem mértél; ilyenkor nem születik bejegyzés
-    soreness: {}, // { chest: 3, … } 1..5, csak a megjelöltek
+    soreness: {}, // { chest: 3, … } 1..10, csak a megjelöltek
     pain: {}, // { back: 8, … }  1..10, 'general' NÉLKÜL
   },
   carried: { mood: null, hydration: null, painGeneral: null },

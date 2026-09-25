@@ -158,7 +158,13 @@ import { buildAthleteCard, streakFromDates } from './coaching.js';
 import { buildNotifications } from './notifications.js';
 // Ajánlott gyakorlatok a választóhoz: a címből és a regeneráltságból.
 import { suggestExercises } from './suggestions.js';
-import { MUSCLE_KEYS, MUSCLE_GROUPS, resolveExerciseLoad, normalizeName } from './muscles.js';
+import {
+  MUSCLE_KEYS,
+  MUSCLE_GROUPS,
+  PAIN_BLOCK,
+  resolveExerciseLoad,
+  normalizeName,
+} from './muscles.js';
 // Kérés-korlátozás. Tiszta számláló, adatbázis és Express nélkül — a limitek
 // és a kulcsválasztás itt, a szerveren dőlnek el (server/ratelimit.js).
 import { createRateLimiter, parseTrustProxy } from './ratelimit.js';
@@ -1415,10 +1421,6 @@ app.get('/api/exercise-suggestions', (req, res) => {
    a gyakorlat → izomcsoport leképezésből dolgozik, nem a naplóból.
    ====================================================================== */
 
-/** 7/10 vagy afölötti fájdalom = tiltás. Ugyanaz a küszöb, amivel a
-    Recovery Engine a gyakorlat-ajánlásokat is letiltja — egy helyen kell
-    igaznak lennie, nem kettőn. */
-const PAIN_BLOCK = 7;
 /** E alatti izom-készenlétnél óvatosságra intünk (de nem tiltunk).
 
     A szám a MOTOR SKÁLÁJÁHOZ igazodik, nem érzésre van megválasztva. Ahol a

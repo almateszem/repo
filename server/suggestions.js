@@ -21,7 +21,13 @@
  * Tiszta függvény: nem ismeri az adatbázist, a server.js gyűjti össze a
  * bemenetet (server/suggestions.test.js).
  */
-import { MUSCLE_GROUPS, MUSCLE_KEYS, normalizeName, resolveExerciseLoad } from './muscles.js';
+import {
+  MUSCLE_GROUPS,
+  MUSCLE_KEYS,
+  PAIN_BLOCK,
+  normalizeName,
+  resolveExerciseLoad,
+} from './muscles.js';
 
 /** Ettől a készenléttől számít egy izomcsoport „regeneráltnak". A recovery.js
     ajánlás-sávjaiban 80 a „normál intenzitás" alja — ami ez alatt van, arra a
@@ -167,7 +173,9 @@ export function suggestExercises({ title, report = null, catalog, workouts = [] 
      sapka egy alacsony számot ad, de a tiltás nem „alacsony készenlét",
      hanem kizárás — ezt a cím sem írhatja felül. */
   const muscles = report?.muscles ?? [];
-  const painful = new Set(muscles.filter((m) => m.pain !== null && m.pain >= 7).map((m) => m.key));
+  const painful = new Set(
+    muscles.filter((m) => m.pain !== null && m.pain >= PAIN_BLOCK).map((m) => m.key),
+  );
 
   /* A regeneráltság csak akkor jel, ha a motor tud róla valamit (known). A
      friss fiók 100-asa nem „teljesen pihent", hanem adathiány — ugyanaz a

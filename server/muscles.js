@@ -34,6 +34,12 @@ export const MUSCLE_GROUPS = {
 
 export const MUSCLE_KEYS = Object.keys(MUSCLE_GROUPS);
 
+/** 7/10 vagy afölötti fájdalom = tiltás: a csoport készenléte sapkát kap, az
+    ajánlások és a tervek kihagyják, az összesített készenlét is korlátozott.
+    Egy helyen kell igaznak lennie. A kliens párja: CI_PAIN_BLOCK
+    (public/js/ui/checkin/constants.js). */
+export const PAIN_BLOCK = 7;
+
 /** Regenerációs időállandó (nap) izomcsoportonként — a csillapítási görbe
     „felezési tempója". A kis izmok gyorsabban állnak helyre; a hamstring, a
     farizom és a törzs lassabban, mert jellemzően nagy eccentricus terhelést
