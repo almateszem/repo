@@ -68,14 +68,17 @@ export function componentSummary(components = []) {
   };
 }
 
-/** Az izom-komponens sora alatti magyarázat: hány csoportból jön az átlag, és
-    hány csoportról nincs adat. Ha egyikről sincs, nincs mit mondani. */
+/** Az izom-komponens sora alatti magyarázat: hány csoportból jön az érték, és
+    hány csoportról nincs adat. Ha egyikről sincs, nincs mit mondani.
+    NEM „átlag": a szerver soft-mint számol (átlag − 0,5·(átlag − minimum),
+    ld. server/recovery.js), hogy egy tönkrement csoport ne tűnjön el a
+    többi között — a felirat ezt mondja ki röviden. */
 export function muscleNote(muscles = []) {
   const list = muscles ?? [];
   const known = list.filter((muscle) => muscle.known !== false).length;
   if (known === 0) return null;
   const unknown = list.length - known;
-  const base = `${known} izomcsoport átlaga`;
+  const base = `${known} izomcsoportból, a leggyengébb felé súlyozva`;
   return unknown > 0 ? `${base} · ${unknown} csoport adat nélkül` : base;
 }
 

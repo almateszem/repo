@@ -100,10 +100,18 @@ test('componentSummary: a jelen lévők sorban, a hiányzók címkéi külön', 
   assert.deepEqual(summary.missing, ['Közérzet', 'Edzésterhelés']);
 });
 
-test('muscleNote: hány csoport átlaga és hány van adat nélkül', () => {
+test('muscleNote: hány csoportból számol (a leggyengébb felé súlyozva), és hány van adat nélkül', () => {
+  /* A szerver nem sima átlagot számol, hanem soft-mint (átlag − 0,5·(átlag −
+     minimum), ld. server/recovery.js) — a felirat ezt nem hallgathatja el. */
   const muscles = MUSCLE_KEYS.map((key, i) => m(key, 50, { known: i >= 2 }));
-  assert.equal(muscleNote(muscles), '10 izomcsoport átlaga · 2 csoport adat nélkül');
-  assert.equal(muscleNote(MUSCLE_KEYS.map((key) => m(key, 50))), '12 izomcsoport átlaga');
+  assert.equal(
+    muscleNote(muscles),
+    '10 izomcsoportból, a leggyengébb felé súlyozva · 2 csoport adat nélkül',
+  );
+  assert.equal(
+    muscleNote(MUSCLE_KEYS.map((key) => m(key, 50))),
+    '12 izomcsoportból, a leggyengébb felé súlyozva',
+  );
   assert.equal(muscleNote(MUSCLE_KEYS.map((key) => m(key, 50, { known: false }))), null);
 });
 
