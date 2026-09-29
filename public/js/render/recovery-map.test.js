@@ -107,6 +107,17 @@ test('muscleNote: hány csoport átlaga és hány van adat nélkül', () => {
   assert.equal(muscleNote(MUSCLE_KEYS.map((key) => m(key, 50, { known: false }))), null);
 });
 
+test('null bemenet: a tiszta függvények nem dobnak, üres / adathiány eredményt adnak', () => {
+  assert.deepEqual(spareList(null), []);
+  assert.deepEqual(componentSummary(null), { present: [], missing: [] });
+  assert.deepEqual(componentSummary(undefined), { present: [], missing: [] });
+  assert.equal(muscleNote(null), null);
+  assert.equal(muscleNote(undefined), null);
+  const none = { tone: 'none', value: null, sore: false, pain: false };
+  assert.deepEqual(ringState(null), none);
+  assert.deepEqual(ringState(undefined), none);
+});
+
 test('a térkép mind a 12 izomcsoportnak ad gyűrűt, a vásznon belül', () => {
   const keys = [...MAP_RINGS.front, ...MAP_RINGS.back].map((ring) => ring.key);
   assert.deepEqual([...keys].sort(), [...MUSCLE_KEYS].sort());

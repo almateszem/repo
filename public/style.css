@@ -5989,14 +5989,16 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 /* ==========================================================================
    22. Regeneráció — Recovery Engine oldal (rc-*)
    --------------------------------------------------------------------------
-   Az oldal kizárólag meglévő primitíveket használ újra: a készenlét-gyűrű a
-   .db-ring, a sávok a .pl-progress / .pl-progress-fill, a szám-mezők a .wk-num
-   stepper, a skálák pedig chip-csoportok (aria-pressed állapottal, ahogy a
-   terv-építő nap-chipjei). Itt csak az elrendezés és az állapot-színezés van.
+   Felül a design szerinti rész: készenlét-pontszám és ítélet (.rc-hero),
+   check-in CTA, „Ma kíméld" lista, izomtérkép gyűrűkkel (.rc-map — asztali
+   SVG, tablet-oszlopok, mobilon Elöl/Hátul kapcsoló) és a „Miből jön a
+   pontszám" bontás (.rc-comps). Alatta a részletes check-in űrlap és a
+   testösszetétel-mérés. Az elrendezést a `.rc-page` konténer szélessége
+   váltja (asztali ≥ 1040, tablet 600–1039, mobil < 600 px), nem a viewport.
 
-   Állapot-szín: a [data-tone] attribútum (ok / warn / bad) hordozza, amit a
-   script.js a readinessTone() küszöbeiből (80 / 60) állít be — egy helyen
-   dől el a küszöb, és nem szóródik szét CSS-osztályokba.
+   Csak a :root meglévő tokenjeit használja (+ --c-pain). A küszöbök
+   (80%+ kész, 40% alatt kíméld) a render/recovery-map.js-ben élnek, a
+   kirajzolás a render/recovery.js-ben, a vezérlés a ui/recovery.js-ben.
    ========================================================================== */
 
 /* ---- A lap szélessége: a felső rész kétsávos asztalon, ezért szélesebb,
@@ -6257,7 +6259,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   text-transform: uppercase;
   cursor: pointer;
 }
-.rc-map-tab[aria-selected='true'] {
+.rc-map-tab[aria-pressed='true'] {
   background: var(--text-primary);
   color: var(--c-bg);
 }
@@ -6393,6 +6395,9 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 .rc-comps-fill {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px; /* érintési cél: legalább 44 px */
   padding: var(--sp-5) var(--sp-7);
   box-shadow: inset 0 0 0 1px var(--fg-25);
   color: var(--text-primary);
@@ -6437,7 +6442,9 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   .rc-legend--map {
     flex-basis: auto;
   }
-  /* Tableten és asztalon a bontás mindig nyitva: nincs mit összecsukni. */
+  /* Tableten és asztalon a bontás mindig nyitva: nincs mit összecsukni. A
+     gomb itt csak cím — a setupRecovery kiveszi a tab-sorrendből
+     (tabindex=-1, aria-disabled, aria-expanded=true). */
   .rc-comps-toggle {
     display: block;
     pointer-events: none;
@@ -6810,6 +6817,10 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   flex-wrap: wrap;
   gap: var(--sp-3);
   padding: 0 var(--sp-2);
+}
+/* A felső részben a sor a pontszámmal és az ítélettel egy vonalban indul. */
+.rc-hero .rc-confidence {
+  padding: 0;
 }
 
 .rc-confidence-badge {

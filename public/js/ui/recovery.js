@@ -57,23 +57,47 @@ async function setupRecovery() {
   if (!page) return;
 
   /* „Miből jön a pontszám": mobilon összecsukható, csukva egysoros
-     összefoglaló. Tableten és asztalon a CSS mindig nyitva mutatja — ott a
-     gomb nem kattintható (pointer-events: none), az aria-expanded csak a
-     mobil állapotot hordozza. */
+     összefoglaló. Tableten és asztalon (≥ 600 px konténer, a CSS
+     @container rc töréspontja) a bontás mindig nyitva — ott a gomb nem
+     vezérlő: kikerül a tab-sorrendből, aria-expanded="true" és
+     aria-disabled. A mobil nyitott/csukott állapotát külön őrizzük, így
+     visszaszűkítéskor az marad, amit a felhasználó utoljára választott. */
   const compsToggle = $('[data-rc-comps-toggle]', page);
+  const RC_WIDE_FROM = 600;
+  let compsOpen = compsToggle.getAttribute('aria-expanded') === 'true';
+  let compsWide = false;
+  const syncComps = () => {
+    compsToggle.setAttribute('aria-expanded', String(compsWide || compsOpen));
+    if (compsWide) {
+      compsToggle.setAttribute('tabindex', '-1');
+      compsToggle.setAttribute('aria-disabled', 'true');
+    } else {
+      compsToggle.removeAttribute('tabindex');
+      compsToggle.removeAttribute('aria-disabled');
+    }
+  };
   compsToggle.addEventListener('click', () => {
-    const open = compsToggle.getAttribute('aria-expanded') === 'true';
-    compsToggle.setAttribute('aria-expanded', String(!open));
+    if (compsWide) return;
+    compsOpen = !compsOpen;
+    syncComps();
   });
+  // A contentRect a tartalom-doboz — ugyanaz, amihez az inline-size konténer igazodik.
+  new ResizeObserver(([entry]) => {
+    const wide = entry.contentRect.width >= RC_WIDE_FROM;
+    if (wide === compsWide) return;
+    compsWide = wide;
+    syncComps();
+  }).observe(page);
 
-  /* Mobilon Elöl/Hátul fül: egyszerre egy figura. A választás a lapon
-     marad (data-rc-view), így egy újrarenderelés sem ugrik vissza „Elöl"-re. */
+  /* Mobilon Elöl/Hátul kapcsoló: egyszerre egy figura. Két aria-pressed
+     gomb (nem tablist — nincs külön tabpanel), a választás a lapon marad
+     (data-rc-view), így egy újrarenderelés sem ugrik vissza „Elöl"-re. */
   $$('[data-rc-view]', page).forEach((tab) => {
     tab.addEventListener('click', () => {
       const view = tab.dataset.rcView;
       page.dataset.rcView = view;
       $$('[data-rc-view]', page).forEach((other) =>
-        other.setAttribute('aria-selected', String(other === tab)),
+        other.setAttribute('aria-pressed', String(other === tab)),
       );
       if (page.rcReport) renderMuscleMap(page.rcReport.muscles, view);
     });

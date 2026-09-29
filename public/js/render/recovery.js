@@ -6,6 +6,7 @@ import {
   MAP_FIGURES,
   MAP_RINGS,
   MOBILE_COLUMNS,
+  RC_READY_FROM,
   RC_SPARE_BELOW,
   componentSummary,
   muscleNote,
@@ -31,6 +32,7 @@ const MUSCLE_GROUPS = [
   ['glutes', 'Farizom'],
   ['calves', 'Vádli'],
 ];
+const MUSCLE_LABELS = new Map(MUSCLE_GROUPS);
 
 /** A gyors check-in 1–5-ös skálái:
     [mező-név, rövid címke, [1-es végpont, 5-ös végpont], varázsló-kérdés].
@@ -262,14 +264,21 @@ function figureImg(view) {
   const img = document.createElement('img');
   img.className = 'rc-figure';
   img.src = `img/body-${view}.svg`;
-  img.alt = view === 'front' ? 'Elülső izomcsoportok' : 'Hátsó izomcsoportok';
+  // Díszítő kép: az információt a gyűrűk hordozzák (az asztali figura is aria-hidden).
+  img.alt = '';
   return img;
+}
+
+/** A riport egy csoportja kulcs szerint. Ha a riportból hiányzik (régebbi
+    szerver, részleges válasz), adathiányos gyűrű lesz belőle — nem hiba. */
+function muscleByKey(byKey, key) {
+  return byKey.get(key) ?? { key, label: MUSCLE_LABELS.get(key) ?? key, known: false };
 }
 
 function ringColumn(keys, byKey, size) {
   const col = document.createElement('div');
   col.className = 'rc-map-col';
-  keys.forEach((key) => col.append(compactRing(byKey.get(key), size)));
+  keys.forEach((key) => col.append(compactRing(muscleByKey(byKey, key), size)));
   return col;
 }
 
@@ -277,7 +286,7 @@ function ringColumn(keys, byKey, size) {
 function renderMuscleMap(muscles, view = 'front') {
   const host = $('[data-rc-map]');
   if (!host) return;
-  const byKey = new Map(muscles.map((muscle) => [muscle.key, muscle]));
+  const byKey = new Map((muscles ?? []).map((muscle) => [muscle.key, muscle]));
 
   // — Asztali: egy skálázódó SVG —
   const wide = svgEl('svg', {
@@ -310,7 +319,7 @@ function renderMuscleMap(muscles, view = 'front') {
   }
   wide.append(lines);
   for (const ring of [...MAP_RINGS.front, ...MAP_RINGS.back]) {
-    wide.append(wideRing(byKey.get(ring.key), ring));
+    wide.append(wideRing(muscleByKey(byKey, ring.key), ring));
   }
 
   // — Tablet: elöl-oszlop | két figura | hátul-oszlop —
@@ -411,7 +420,7 @@ function renderRecovery(report) {
     const row = cloneTemplate('tpl-rc-component');
     row.style.setProperty('--i', index);
     row.style.setProperty('--value', component.score);
-    row.dataset.tone = component.score >= 80 ? 'ok' : 'rest';
+    row.dataset.tone = component.score >= RC_READY_FROM ? 'ok' : 'rest';
     $('.rc-comp-label', row).textContent = component.label;
     $('.rc-comp-value', row).textContent = String(component.score);
     $('.rc-comp-weight', row).textContent = `Súly ${component.weight}%`;
