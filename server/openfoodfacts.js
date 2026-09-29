@@ -198,6 +198,62 @@ async function readJsonCapped(res) {
   return JSON.parse(Buffer.concat(chunks).toString('utf8'));
 }
 
+/* Legfeljebb ennyi átirányítást követünk egy kérésen belül. A legitim eset
+   egy-két lépés (http → https, kanonikus útvonal); ami ennél hosszabb, az
+   hurok vagy valami egészen más. */
+const MAX_REDIRECTS = 3;
+
+/**
+ * Követhető-e az átirányítás `from` → `to`? Csak UGYANARRA a hostra (és
+ * portra), ugyanazon a protokollon vagy http → https emeléssel.
+ *
+ * MIÉRT NEM a fetch saját követése: az oda megy, ahova a válasz küldi — belső
+ * címre is. Egy eltérített vagy elrontott OFF-válasz így a mi hálózatunkból
+ * kérdezhetne le valamit a mi nevünkben (SSRF). Ugyanaz a host viszont
+ * ugyanaz a szolgáltatás, amit eleve kérdeztünk. A https → http visszalépést
+ * sem követjük: az a titkosítatlan vonalra terelne.
+ */
+export function isAllowedRedirect(from, to) {
+  let a, b;
+  try {
+    a = new URL(from);
+    b = new URL(to, from);
+  } catch {
+    return false;
+  }
+  const sameProtocol = a.protocol === b.protocol;
+  const upgrade = a.protocol === 'http:' && b.protocol === 'https:';
+  if (!(sameProtocol || upgrade) || !['http:', 'https:'].includes(b.protocol)) return false;
+  if (a.hostname !== b.hostname) return false;
+  // Emelésnél a port a protokoll alapértéke lesz (80 → 443); egyébként marad.
+  return upgrade ? a.port === '' && b.port === '' : a.port === b.port;
+}
+
+/**
+ * A kérés, az átirányításokat KÉZZEL követve (redirect: 'manual'): minden
+ * lépésnél az isAllowedRedirect dönt. A végső választ adja vissza, vagy egy
+ * szöveges okot, ha az átirányítást nem követtük.
+ */
+async function fetchFollowingSafeRedirects(url) {
+  let current = url;
+  for (let hop = 0; ; hop++) {
+    const res = await fetch(current, {
+      headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+      redirect: 'manual',
+    });
+    if (res.status < 300 || res.status >= 400) return res;
+
+    // A 3xx törzse nem kell — engedjük el, ne tartsa a kapcsolatot.
+    await res.body?.cancel();
+    const location = res.headers.get('location');
+    if (!location) return `HTTP ${res.status} (átirányítás cím nélkül)`;
+    if (hop >= MAX_REDIRECTS) return 'túl sok átirányítás';
+    if (!isAllowedRedirect(current, location)) return 'átirányítás idegen címre';
+    current = new URL(location, current).href;
+  }
+}
+
 /**
  * Egy termék lekérése az Open Food Facts-ből.
  *
@@ -210,15 +266,8 @@ async function readJsonCapped(res) {
 export async function fetchProduct(barcode) {
   const url = `${BASE_URL}/api/v2/product/${barcode}.json?fields=${FIELDS}`;
   try {
-    const res = await fetch(url, {
-      headers: { 'User-Agent': USER_AGENT, Accept: 'application/json' },
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-      /* Az átirányítást NEM követjük automatikusan: a fetch alapból oda megy,
-         ahova a válasz küldi — belső címre is. Egy eltérített vagy elrontott
-         OFF-válasz így a mi hálózatunkból kérdezhetne le valamit a mi
-         nevünkben (SSRF). A legitim OFF-végpont nem irányít át. */
-      redirect: 'manual',
-    });
+    const res = await fetchFollowingSafeRedirects(url);
+    if (typeof res === 'string') return { ok: false, reason: res };
     // Az OFF ismeretlen kódra 404-et VAGY 200 + status:0-t ad — mindkettő
     // ugyanazt jelenti, és mindkettő cache-elhető.
     if (res.status === 404) return { ok: true, product: null };

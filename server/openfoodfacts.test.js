@@ -1,14 +1,15 @@
 /**
  * Az Open Food Facts leképezés és a vonalkód-normalizálás tesztjei.
  *
- * Ez a fájl SEM hálózatot, SEM adatbázist nem használ: a modul két tiszta
- * függvényét vizsgálja. Ezért nem kell hozzá FITTRACK_DB, ideiglenes könyvtár
+ * Ez a fájl SEM hálózatot, SEM adatbázist nem használ: a modul tiszta
+ * függvényeit vizsgálja, a fetchProduct átirányítás-kezelését pedig egy
+ * helyettesített globális fetch-csel. Ezért nem kell hozzá FITTRACK_DB, ideiglenes könyvtár
  * vagy closeDatabase — ezredmásodpercek alatt fut. A hálózati kört és a
  * gyorsítótárat a végponti teszt (api.test.js) fedi le, egy helyi stubbal.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeBarcode, mapProduct } from './openfoodfacts.js';
+import { normalizeBarcode, mapProduct, fetchProduct, isAllowedRedirect } from './openfoodfacts.js';
 
 /* ======================================================================
    normalizeBarcode
@@ -220,4 +221,97 @@ test('mapProduct: az üres sztringes tápérték is null lesz', () => {
 test('mapProduct: tápérték nélküli termékre null (nincs mit előre kitölteni)', () => {
   assert.equal(mapProduct({ product_name: 'Semmi', nutriments: {} }, '5998200310010'), null);
   assert.equal(mapProduct({ product_name: 'Semmi' }, '5998200310010'), null);
+});
+
+/* ======================================================================
+   Átirányítás — csak ugyanarra a hostra, legfeljebb néhány lépésben
+   ====================================================================== */
+
+const OFF = 'https://world.openfoodfacts.org';
+
+test('isAllowedRedirect: ugyanaz a host és protokoll, más útvonal — mehet', () => {
+  assert.equal(
+    isAllowedRedirect(`${OFF}/api/v2/product/1.json`, `${OFF}/api/v3/product/1.json`),
+    true,
+  );
+});
+
+test('isAllowedRedirect: http → https ugyanazon a hoston — mehet', () => {
+  assert.equal(
+    isAllowedRedirect('http://world.openfoodfacts.org/a', 'https://world.openfoodfacts.org/a'),
+    true,
+  );
+});
+
+test('isAllowedRedirect: idegen host, belső cím, visszalépés http-re — nem', () => {
+  assert.equal(isAllowedRedirect(`${OFF}/a`, 'http://169.254.169.254/latest/meta-data/'), false);
+  assert.equal(isAllowedRedirect(`${OFF}/a`, 'https://fr.openfoodfacts.org/a'), false);
+  assert.equal(isAllowedRedirect(`${OFF}/a`, 'http://world.openfoodfacts.org/a'), false);
+  assert.equal(isAllowedRedirect(`${OFF}/a`, 'https://world.openfoodfacts.org:8443/a'), false);
+  assert.equal(isAllowedRedirect(`${OFF}/a`, 'file:///etc/passwd'), false);
+});
+
+/** A globális fetch helyettesítése egy menetrenddel: a hívások sorban a
+    `responses` elemeit kapják, a kért URL-ek a `calls` tömbbe gyűlnek. */
+async function withFetch(responses, fn) {
+  const original = globalThis.fetch;
+  const calls = [];
+  globalThis.fetch = async (url, options) => {
+    calls.push({ url: String(url), redirect: options?.redirect });
+    const next = responses[Math.min(calls.length - 1, responses.length - 1)];
+    return typeof next === 'function' ? next(String(url)) : next;
+  };
+  try {
+    return { result: await fn(), calls };
+  } finally {
+    globalThis.fetch = original;
+  }
+}
+
+const redirectTo = (location, status = 301) =>
+  new Response(null, { status, headers: { Location: location } });
+const productBody = () =>
+  new Response(
+    JSON.stringify({
+      status: 1,
+      product: { product_name: 'Teszt', nutriments: { proteins_100g: 10 } },
+    }),
+    {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    },
+  );
+
+test('fetchProduct: az azonos hostú átirányítást követi', async () => {
+  const { result, calls } = await withFetch(
+    [redirectTo(`${OFF}/api/v2/product/5901234123457.json?fields=x`), productBody()],
+    () => fetchProduct('5901234123457'),
+  );
+  assert.equal(result.ok, true, `követte (${result.reason ?? ''})`);
+  assert.equal(result.product.name, 'Teszt');
+  assert.equal(calls.length, 2);
+  assert.ok(
+    calls.every((c) => c.redirect === 'manual'),
+    'minden lépést MI döntünk el',
+  );
+});
+
+test('fetchProduct: idegen hostra NEM megy át, és a hiba oka világos', async () => {
+  const { result, calls } = await withFetch(
+    [redirectTo('http://169.254.169.254/latest/meta-data/', 302), productBody()],
+    () => fetchProduct('5901234123457'),
+  );
+  assert.equal(result.ok, false);
+  assert.match(result.reason, /átirányítás/);
+  assert.equal(calls.length, 1, 'a belső címre nem ment kérés');
+});
+
+test('fetchProduct: az átirányítás-lánc korlátos', async () => {
+  const { result, calls } = await withFetch(
+    [(url) => redirectTo(`${url.split('?')[0]}?x=${Math.random()}`)],
+    () => fetchProduct('5901234123457'),
+  );
+  assert.equal(result.ok, false);
+  assert.match(result.reason, /átirányítás/);
+  assert.ok(calls.length <= 4, `megállt (${calls.length} kérés)`);
 });
