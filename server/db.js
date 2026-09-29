@@ -911,6 +911,10 @@ export function deleteUser(userId) {
     // Öv és nadrágtartó: ha egy üzenet valahogy kapcsolat nélkül maradt volna
     db.prepare('DELETE FROM messages WHERE sender_id = ?').run(userId);
     db.prepare('DELETE FROM coach_links WHERE coach_id = ? OR athlete_id = ?').run(userId, userId);
+    // Az edzőként kitűzött célok a sportolóknál: a kapcsolattal együtt mennek,
+    // ahogy a bontásnál is (deleteCoachLink). A getNutritionGoal enélkül is
+    // figyelmen kívül hagyná őket — így viszont nem maradnak ott gazdátlanul.
+    db.prepare("DELETE FROM nutrition_goals WHERE source = 'coach' AND set_by = ?").run(userId);
 
     for (const table of USER_DATA_TABLES) {
       db.prepare(`DELETE FROM ${table} WHERE user_id = ?`).run(userId);
@@ -1102,27 +1106,35 @@ export function acceptCoachInvite(linkId) {
 
     AZ EDZŐI TÁPLÁLKOZÁSI CÉL IS VELE MEGY. Enélkül a volt edző utolsó
     kalória/fehérje célja a bontás után is hajtotta a Táplálkozás oldalt: a
-    getNutritionGoal nem nézi, él-e még a kapcsolat, a sportoló pedig nem
-    tudta törölni (a clearOwnNutritionGoal csak az 'own' sort viszi). Egy
-    idegen száma maradt a napi célon, örökre.
+    getNutritionGoal akkor még nem nézte, él-e a kapcsolat, a sportoló pedig
+    nem tudta törölni (a clearOwnNutritionGoal csak az 'own' sort viszi). Egy
+    idegen száma maradt a napi célon, örökre. (Ma már az olvasás is szűr — ld.
+    LIVE_COACH_GOAL —, a sort mégis eltakarítjuk, ne maradjon gazdátlanul.)
 
     CSAK az ÉLŐ kapcsolatnál töröljük: egy visszautasított meghívó
     visszavonása nem nyúlhat ahhoz a célhoz, amit egy MÁSIK, korábbi edző
     hagyott ott — azt a saját bontása viszi majd el.
 
+    És CSAK azt a célt, amit EZ az edző tűzött ki (set_by). A coach_links csak
+    a (coach_id, athlete_id) párra egyedi, tehát az adatbázisban egy
+    sportolónak két élő edzője is lehet — az egyik bontása nem viheti el a
+    másik számát.
+
     A kettő egy tranzakcióban megy: félúton megszakadva vagy a kapcsolat
     maradna a cél nélkül, vagy fordítva. */
 export function deleteCoachLink(linkId) {
-  const link = db.prepare('SELECT athlete_id, status FROM coach_links WHERE id = ?').get(linkId);
+  const link = db
+    .prepare('SELECT coach_id, athlete_id, status FROM coach_links WHERE id = ?')
+    .get(linkId);
   if (!link) return false;
 
   db.exec('BEGIN IMMEDIATE');
   try {
     const { changes } = db.prepare('DELETE FROM coach_links WHERE id = ?').run(linkId);
     if (changes > 0 && link.status === 'active') {
-      db.prepare("DELETE FROM nutrition_goals WHERE user_id = ? AND source = 'coach'").run(
-        link.athlete_id,
-      );
+      db.prepare(
+        "DELETE FROM nutrition_goals WHERE user_id = ? AND source = 'coach' AND set_by = ?",
+      ).run(link.athlete_id, link.coach_id);
     }
     db.exec('COMMIT');
     return changes > 0;
@@ -1593,11 +1605,23 @@ const GOAL_SELECT = `
   SELECT g.calories, g.protein, g.updated_at, u.display_name AS set_by_name
   FROM nutrition_goals g LEFT JOIN users u ON u.id = g.set_by`;
 
+/* Az edzői sor CSAK élő kapcsolat mellett érvényes: a beállító edzőnek most
+   is aktív edzőjének kell lennie. A bontás (deleteCoachLink) ugyan elviszi a
+   sort, de ha az edző a FIÓKJÁT törli, a kapcsolat vele megy, a set_by pedig
+   NULL lesz — a sor ott maradna, és egy gazdátlan szám hajtaná a napi célt
+   örökre. Ugyanígy a takarítás előtti fájlokon maradt sorok. Olvasáskor
+   szűrünk, nem írunk: a sor csak nem érvényes. */
+const LIVE_COACH_GOAL = `
+  AND EXISTS (SELECT 1 FROM coach_links l
+              WHERE l.coach_id = g.set_by AND l.athlete_id = g.user_id
+                AND l.status = 'active')`;
+
 /** Egy fiók cél-sora forrás szerint ('own' vagy 'coach'), vagy null. */
 /* Modulon belüli segéd — kifelé a getNutritionGoal ad teljes képet. */
 function getNutritionGoalRow(userId, source) {
+  const live = source === 'coach' ? LIVE_COACH_GOAL : '';
   return toGoalRow(
-    db.prepare(`${GOAL_SELECT} WHERE g.user_id = ? AND g.source = ?`).get(userId, source),
+    db.prepare(`${GOAL_SELECT} WHERE g.user_id = ? AND g.source = ?${live}`).get(userId, source),
   );
 }
 
