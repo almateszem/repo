@@ -520,6 +520,19 @@ test('a check-in a régi (9 csoportos) kliens "arms" értékét biceps/triceps k
   );
 });
 
+test('a tartományon kívüli "arms" nem írja felül az érvényes bicepsz-fájdalmat', async () => {
+  /* A tartomány-ellenőrzés a szétosztás ELŐTT fut: egy hibás arms=11 előbb
+     max-szal felülírta a biceps=8-at, aztán a 10 fölötti érték kiesett — és
+     vele egy valódi, tiltást okozó fájdalom is. */
+  const res = await request('PUT', '/api/checkin', {
+    cookie: belaCookie,
+    body: { sleepHours: 7, pain: { arms: 11, biceps: 8 }, soreness: { arms: -1, triceps: 4 } },
+  });
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.json.checkin.pain, { biceps: 8 }, 'a 8-as bicepsz-fájdalom megmaradt');
+  assert.deepEqual(res.json.checkin.soreness, { triceps: 4 });
+});
+
 /* ---- Onboarding: a friss fiókot a felület a check-in varázslóra tereli ----
    A jelző azért „soha nem volt check-inje" és nem „most regisztrált", mert
    túl kell élnie az oldal-újratöltést: a /me-nek is ugyanazt kell mondania,

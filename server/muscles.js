@@ -126,6 +126,12 @@ const KEYWORD_MAP = [
   [/elolemel|front.?raise/, { shoulders: 1 }],
 
   // — Kar —
+  /* A „curl" nem mindig karhajlítás: a curl-up és az ab curl hasizom-
+     gyakorlat, a Jefferson curl a gerinc szegmentális hajlítása (súllyal,
+     nyújtott lábbal). Az általános `\bcurl` bicepsz-minta elé kell őket
+     tenni, különben 100% bicepsznek számítanának. */
+  [/jefferson.?curl/, { lowerBack: 0.6, hamstrings: 0.3, core: 0.1 }],
+  [/curl.?up|\bab.?curl|abdominal.?curl/, { core: 1 }],
   [/bicepsz|bicep|hajlitas.?sulyzo|kalapacs|hammer|\bcurl/, { biceps: 1 }],
   [/tricepsz|tricep|nyujtas.?kabel|homlok.?nyomas|skull/, { triceps: 1 }],
   [/alkar|forearm|csuklo/, { biceps: 1 }],
@@ -252,15 +258,20 @@ export const LEGACY_SPLIT = {
 /** Egy régi (9 csoportos) izomláz- vagy fájdalom-térkép átírása: a felbontott
     kulcs értéke MINDEN utódra átmásolódik. Ütközésnél a nagyobb érték nyer —
     a fájdalom-tiltás így sosem vész el. A többi kulcs (a `general` is)
-    változatlan. A db.js 2-es séma-migrációja használja. */
-export function splitLegacyMuscleMap(map) {
+    változatlan. A db.js 2-es séma-migrációja használja.
+
+    A `keys` szűkíti, MELYIK régi kulcsot bontjuk: a check-in végpont csak az
+    `arms`-ot (ld. server.js → normalizeMuscleMap), a többi kulcs — a `back`
+    is — változatlanul megy át. */
+export function splitLegacyMuscleMap(map, keys = Object.keys(LEGACY_SPLIT)) {
   if (!map || typeof map !== 'object') return {};
   const out = {};
   const put = (key, value) => {
     out[key] = key in out ? Math.max(out[key], value) : value;
   };
   for (const [key, value] of Object.entries(map)) {
-    for (const heir of LEGACY_SPLIT[key] ?? [key]) put(heir, value);
+    const heirs = keys.includes(key) ? LEGACY_SPLIT[key] : [key];
+    for (const heir of heirs) put(heir, value);
   }
   return out;
 }
