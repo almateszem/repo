@@ -6246,7 +6246,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 .rc-map-tab {
   min-width: 64px;
-  height: 36px;
+  height: 44px; /* érintési cél: legalább 44 px */
   border: 0;
   background: transparent;
   color: var(--fg-60);
@@ -6266,13 +6266,20 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .rc-comps {
   box-shadow: inset 0 0 0 1px var(--hair);
 }
+/* Mobilon a cím fölül, az egysoros összefoglaló alatta, a +/− jobbra a kettő
+   mellett — különben a keskeny cím három sorba tört az összefoglaló mellett. */
 .rc-comps-toggle {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'title chev'
+    'summary chev';
   align-items: center;
-  gap: var(--sp-5);
+  column-gap: var(--sp-5);
+  row-gap: var(--sp-4);
   width: 100%;
   min-height: 56px;
-  padding: 0 var(--sp-7);
+  padding: var(--sp-7);
   border: 0;
   background: transparent;
   color: var(--text-primary);
@@ -6280,6 +6287,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   cursor: pointer;
 }
 .rc-comps-title {
+  grid-area: title;
   font-family: var(--font-mono);
   font-size: var(--fs-xs);
   font-weight: 700;
@@ -6287,13 +6295,16 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   text-transform: uppercase;
 }
 .rc-comps-summary {
-  flex: 1 1 auto;
+  grid-area: summary;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: var(--fs-md);
   color: var(--fg-60);
+}
+.rc-comps-chev {
+  grid-area: chev;
 }
 .rc-comps-chev::before {
   content: '+';
@@ -6305,7 +6316,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   content: '−';
 }
 .rc-comps-toggle[aria-expanded='true'] .rc-comps-summary {
-  visibility: hidden;
+  display: none;
 }
 .rc-comps-body {
   padding: 0 var(--sp-7) var(--sp-9);
@@ -6428,6 +6439,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   }
   /* Tableten és asztalon a bontás mindig nyitva: nincs mit összecsukni. */
   .rc-comps-toggle {
+    display: block;
     pointer-events: none;
     min-height: 0;
     padding: var(--sp-12) var(--sp-12) 0;
@@ -6673,6 +6685,10 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--fg-70);
+}
+.rc-cring-none {
+  display: block;
+  color: var(--fg-60);
 }
 .rc-cring-dots {
   display: flex;
