@@ -17,9 +17,11 @@ export const RC_SPARE_BELOW = 40;
 export const RC_READY_FROM = 80;
 
 /** Egy izomcsoport gyűrűjének állapota. A `known: false` csoport 100-asa nem
-    eredmény, hanem adathiány — ezért ott nincs szám, csak „—". */
+    eredmény, hanem adathiány — ezért ott nincs szám, csak „—". A riportból
+    hiányzó csoport (null / undefined) ugyanígy adathiány, nem hiba. */
 export function ringState(muscle) {
-  if (muscle.known === false) return { tone: 'none', value: null, sore: false, pain: false };
+  if (!muscle || muscle.known === false)
+    return { tone: 'none', value: null, sore: false, pain: false };
   return {
     tone: muscle.readiness >= RC_READY_FROM ? 'ok' : 'rest',
     value: muscle.readiness,
@@ -57,20 +59,22 @@ export function ringDashOffset(value, r) {
 /** A komponens-bontás két része: a jelen lévő sorok és a hiányzók címkéi
     („Nincs adat: közérzet, …"). */
 export function componentSummary(components = []) {
+  const list = components ?? [];
   return {
-    present: components
+    present: list
       .filter((component) => component.present)
       .map(({ key, label, score, weight }) => ({ key, label, score, weight })),
-    missing: components.filter((component) => !component.present).map((c) => c.label),
+    missing: list.filter((component) => !component.present).map((c) => c.label),
   };
 }
 
 /** Az izom-komponens sora alatti magyarázat: hány csoportból jön az átlag, és
     hány csoportról nincs adat. Ha egyikről sincs, nincs mit mondani. */
 export function muscleNote(muscles = []) {
-  const known = muscles.filter((muscle) => muscle.known !== false).length;
+  const list = muscles ?? [];
+  const known = list.filter((muscle) => muscle.known !== false).length;
   if (known === 0) return null;
-  const unknown = muscles.length - known;
+  const unknown = list.length - known;
   const base = `${known} izomcsoport átlaga`;
   return unknown > 0 ? `${base} · ${unknown} csoport adat nélkül` : base;
 }

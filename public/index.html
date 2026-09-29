@@ -1387,23 +1387,11 @@
 
             <div class="rc-maphead">
               <h3 class="ds-eyebrow rc-eyebrow" id="title-rc-map">Izomtérkép</h3>
-              <div class="rc-map-tabs" role="tablist" aria-label="Nézet">
-                <button
-                  class="rc-map-tab"
-                  type="button"
-                  role="tab"
-                  data-rc-view="front"
-                  aria-selected="true"
-                >
+              <div class="rc-map-tabs" role="group" aria-label="Nézet">
+                <button class="rc-map-tab" type="button" data-rc-view="front" aria-pressed="true">
                   Elöl
                 </button>
-                <button
-                  class="rc-map-tab"
-                  type="button"
-                  role="tab"
-                  data-rc-view="back"
-                  aria-selected="false"
-                >
+                <button class="rc-map-tab" type="button" data-rc-view="back" aria-pressed="false">
                   Hátul
                 </button>
               </div>
