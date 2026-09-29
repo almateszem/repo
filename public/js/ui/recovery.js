@@ -11,7 +11,7 @@ import {
   MOOD_SCALE,
   buildScale,
   readScale,
-  renderMuscleMap,
+  renderMuscleMapView,
   renderRecovery,
   writeScale,
 } from '../render/recovery.js';
@@ -99,7 +99,7 @@ async function setupRecovery() {
       $$('[data-rc-view]', page).forEach((other) =>
         other.setAttribute('aria-pressed', String(other === tab)),
       );
-      if (page.rcReport) renderMuscleMap(page.rcReport.muscles, view);
+      if (page.rcReport) renderMuscleMapView(page.rcReport.muscles, view);
     });
   });
 

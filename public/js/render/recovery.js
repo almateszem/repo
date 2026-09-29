@@ -282,11 +282,31 @@ function ringColumn(keys, byKey, size) {
   return col;
 }
 
+/** A riport csoportjai kulcs szerint (a muscleByKey ebből keres). */
+const indexMuscles = (muscles) => new Map((muscles ?? []).map((muscle) => [muscle.key, muscle]));
+
+/** Mobil: egy nézet (elöl vagy hátul), a figura két oldalán a gyűrűkkel.
+    Az izomtérkép egyetlen NÉZETFÜGGŐ része — az Elöl/Hátul kapcsoló csak
+    ezt cseréli (ld. renderMuscleMapView). */
+function tabbedMap(byKey, view) {
+  const tabbed = document.createElement('div');
+  tabbed.className = 'rc-map-tabbed';
+  const figure = document.createElement('div');
+  figure.className = 'rc-map-figure';
+  figure.append(figureImg(view));
+  tabbed.append(
+    ringColumn(MOBILE_COLUMNS[view].left, byKey, 60),
+    figure,
+    ringColumn(MOBILE_COLUMNS[view].right, byKey, 60),
+  );
+  return tabbed;
+}
+
 /** Az izomtérkép mindhárom változata (asztali / tablet / mobil). */
 function renderMuscleMap(muscles, view = 'front') {
   const host = $('[data-rc-map]');
   if (!host) return;
-  const byKey = new Map((muscles ?? []).map((muscle) => [muscle.key, muscle]));
+  const byKey = indexMuscles(muscles);
 
   // — Asztali: egy skálázódó SVG —
   const wide = svgEl('svg', {
@@ -348,18 +368,19 @@ function renderMuscleMap(muscles, view = 'front') {
   );
 
   // — Mobil: egy nézet, a figura két oldalán —
-  const tabbed = document.createElement('div');
-  tabbed.className = 'rc-map-tabbed';
-  const figure = document.createElement('div');
-  figure.className = 'rc-map-figure';
-  figure.append(figureImg(view));
-  tabbed.append(
-    ringColumn(MOBILE_COLUMNS[view].left, byKey, 60),
-    figure,
-    ringColumn(MOBILE_COLUMNS[view].right, byKey, 60),
-  );
+  host.replaceChildren(wide, split, tabbedMap(byKey, view));
+}
 
-  host.replaceChildren(wide, split, tabbed);
+/** Elöl/Hátul váltás: csak a mobil változatot építjük újra — az asztali SVG
+    és a tablet-elrendezés mindkét oldalt mutatja, a nézettől nem függ. Ha
+    még nincs kirajzolt térkép, a teljeset rajzoljuk. */
+function renderMuscleMapView(muscles, view) {
+  const current = $('[data-rc-map] .rc-map-tabbed');
+  if (!current) {
+    renderMuscleMap(muscles, view);
+    return;
+  }
+  current.replaceWith(tabbedMap(indexMuscles(muscles), view));
 }
 
 /** A készenléti riport kirajzolása. A `report` a GET /api/readiness válasza. */
@@ -526,6 +547,7 @@ export {
   readScale,
   readinessTone,
   renderMuscleMap,
+  renderMuscleMapView,
   renderRecovery,
   writeScale,
 };
