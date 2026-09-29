@@ -164,7 +164,7 @@ import {
   PAIN_BLOCK,
   resolveExerciseLoad,
   normalizeName,
-  LEGACY_SPLIT,
+  splitLegacyMuscleMap,
 } from './muscles.js';
 // Kérés-korlátozás. Tiszta számláló, adatbázis és Express nélkül — a limitek
 // és a kulcsválasztás itt, a szerveren dőlnek el (server/ratelimit.js).
@@ -1660,29 +1660,26 @@ const CHECKIN_FIELDS = [
     csak ismert izomkulcs és érvényes szám marad benne. A fájdalomnál a
     'general' kulcs is engedett (általános, nem csoporthoz kötött fájdalom). */
 function normalizeMuscleMap(raw, max, allowGeneral = false) {
-  const clean = {};
-  if (!raw || typeof raw !== 'object') return clean;
-  // Egy még frissítetlen (9 csoportos) böngészőlap "arms"-t küldhet — ezt a
-  // szűrés előtt biceps/triceps közt osztjuk, különben az ismeretlen kulcs
-  // némán kiesne, és egy fájdalom-bejegyzés veszne el. A "back"-et szándékosan
-  // NEM bontjuk itt szét (LEGACY_SPLIT.back-kel): az új kliens "back"-je csak
-  // a széles hátat jelenti, a régié pedig hát+trapéz+alsó hát keverékét — a
-  // kettő utólag nem különböztethető meg, ezért "back" változatlanul marad.
-  const merged = { ...raw };
-  if ('arms' in raw) {
-    for (const heir of LEGACY_SPLIT.arms) {
-      const jeloltek = [Number(raw.arms), Number(raw[heir])].filter(Number.isFinite);
-      if (jeloltek.length) merged[heir] = Math.max(...jeloltek);
-    }
-    delete merged.arms;
-  }
-  for (const [key, rawValue] of Object.entries(merged)) {
-    if (!MUSCLE_KEYS.includes(key) && !(allowGeneral && key === 'general')) continue;
+  const valid = {};
+  if (!raw || typeof raw !== 'object') return valid;
+  // Egy még frissítetlen (9 csoportos) böngészőlap "arms"-t küldhet — ezt
+  // biceps/triceps közt osztjuk, különben az ismeretlen kulcs némán kiesne, és
+  // egy fájdalom-bejegyzés veszne el. A "back"-et szándékosan NEM bontjuk itt
+  // szét (LEGACY_SPLIT.back-kel): az új kliens "back"-je csak a széles hátat
+  // jelenti, a régié pedig hát+trapéz+alsó hát keverékét — a kettő utólag nem
+  // különböztethető meg, ezért "back" változatlanul marad.
+  for (const [key, rawValue] of Object.entries(raw)) {
+    const known =
+      MUSCLE_KEYS.includes(key) || key === 'arms' || (allowGeneral && key === 'general');
+    if (!known) continue;
     const value = Number(rawValue);
     if (!Number.isFinite(value) || value < 0 || value > max) continue;
-    clean[key] = Math.round(value);
+    valid[key] = Math.round(value);
   }
-  return clean;
+  // A szétosztás a tartomány-ellenőrzés UTÁN jön: különben egy hibás arms=11
+  // max-szal felülírná az érvényes biceps=8-at, majd a szűrés kidobná — és
+  // vele egy valódi, tiltást okozó fájdalmat is.
+  return splitLegacyMuscleMap(valid, ['arms']);
 }
 
 /** A mai check-in mentése/felülírása. Minden mező opcionális — a felület a
