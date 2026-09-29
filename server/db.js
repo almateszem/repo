@@ -2641,6 +2641,35 @@ const workoutFingerprint = (list) =>
   JSON.stringify((list ?? []).map(({ pr: _pr, ...rest }) => rest));
 
 export function addWorkout(userId, name, date, exercises, planId = null) {
+  /* EGY TRANZAKCIÓ az egész: a duplikátum-keresés, a PR-feldolgozás, a
+     beszúrás és a piszkozat törlése. A PR-maximumot (updateExerciseMax) a
+     beszúrás ELŐTT írjuk — ha a beszúrás utána elbukna, tranzakció nélkül egy
+     fantom csúcs maradna, ami mögött nincs edzés, és ami elzárná a következő
+     valódi PR-t. */
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const saved = insertWorkoutOnce(userId, name, date, exercises, planId);
+    /* A piszkozat törlése. Eddig csak a kliens takarította el (DELETE
+       /api/workout-draft, külön kérés) — ha az elmaradt (bezárt fül,
+       megszakadt hálózat), a félig mentett edzés ott maradt piszkozatként, és
+       a felhasználó legközelebb ugyanazt a szettsort látta újra „folyamatban
+       lévő" edzésként. A szerver most maga zárja a kört: ami edzés lett, az
+       nem piszkozat többé.
+       A DUPLIKÁTUM-ágon is: két fülön az egyik befejezi az edzést, a másik
+       közben még piszkozatot ment, majd ugyanazt az edzést küldi — a lezárt
+       edzés különben „folyamatban lévőként" jönne vissza. */
+    db.prepare('DELETE FROM workout_draft WHERE user_id = ?').run(userId);
+    db.exec('COMMIT');
+    return saved;
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
+}
+
+/* Az addWorkout tranzakción belüli része: a meglévő sor (ismétlésnél) vagy a
+   frissen beszúrt edzés. Önmagában NEM hívható — a tranzakciót a hívó nyitja. */
+function insertWorkoutOnce(userId, name, date, exercises, planId) {
   /* IDEMPOTENCIA. A mentésnek nincs kliens-oldali kulcsa, és a felület sem
      tiltja le a gombot elég korán: két fülön (vagy egy hálózati
      újrapróbáláskor) ugyanaz az edzés kétszer jött be. A duplikátum nem csak
@@ -2688,26 +2717,11 @@ export function addWorkout(userId, name, date, exercises, planId = null) {
     };
   });
 
-  /* A beszúrás ÉS a piszkozat törlése egy tranzakcióban. Eddig a piszkozatot
-     csak a kliens takarította el (DELETE /api/workout-draft, külön kérés) —
-     ha az elmaradt (bezárt fül, megszakadt hálózat), a félig mentett edzés
-     ott maradt piszkozatként, és a felhasználó legközelebb ugyanazt a
-     szettsort látta újra „folyamatban lévő" edzésként. A szerver most maga
-     zárja a kört: ami edzés lett, az nem piszkozat többé. */
-  db.exec('BEGIN IMMEDIATE');
-  let lastInsertRowid;
-  try {
-    ({ lastInsertRowid } = db
-      .prepare(
-        'INSERT INTO workouts (user_id, name, date, exercises, plan_id, pr_rule) VALUES (?, ?, ?, ?, ?, 1)',
-      )
-      .run(userId, name, date, JSON.stringify(processedExercises), planId));
-    db.prepare('DELETE FROM workout_draft WHERE user_id = ?').run(userId);
-    db.exec('COMMIT');
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
+  const { lastInsertRowid } = db
+    .prepare(
+      'INSERT INTO workouts (user_id, name, date, exercises, plan_id, pr_rule) VALUES (?, ?, ?, ?, ?, 1)',
+    )
+    .run(userId, name, date, JSON.stringify(processedExercises), planId);
   // A friss edzésen még nincs visszajelzés — a mező alakja mégis azonos a
   // getWorkouts sorával, hogy a felületnek ne kelljen két esetre készülnie.
   return {
