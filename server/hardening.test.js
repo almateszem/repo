@@ -264,7 +264,7 @@ test('a kapcsolat bontásával a volt edző tápcélja is megszűnik', async () 
    6. A vonalkód-keresés kimenő hívása
    ====================================================================== */
 
-test('az átirányítást NEM követjük (SSRF)', async () => {
+test('az idegen címre mutató átirányítást NEM követjük (SSRF)', async () => {
   const cookie = await register('vonalkodos');
   const res = await request('GET', `/api/foods/barcode/${OFF_REDIRECT}`, { cookie });
   // 502: „most nem elérhető" — és ami fontos, a 169.254.169.254-re nem mentünk el.
