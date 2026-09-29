@@ -18,6 +18,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 
 const workDir = mkdtempSync(path.join(tmpdir(), 'fittrack-prs-'));
 process.env.FITTRACK_DB = path.join(workDir, 'test.db');
@@ -294,4 +295,39 @@ test('a csúcs a DÁTUM szerinti sorrendet követi, nem a beszúrásit', () => {
   const [friss, regiSor] = db.getWorkouts(user.id);
   assert.equal(friss.exercises[0].pr, true, 'a frissebb, nehezebb edzés rekord');
   assert.equal(regiSor.exercises[0].pr, true, 'a korábbi edzés a maga idejében is az volt');
+});
+
+test('ha az edzés beszúrása elbukik, csúcs sem marad utána', () => {
+  /* A PR-feldolgozás (updateExerciseMax) és a beszúrás EGY tranzakcióban
+     megy. Egy elbukó beszúrás mellett a csúcs ott maradna egy olyan
+     teljesítményen, ami mögött nincs edzés — ezt a csúcs-újraépítés is csak a
+     következő törlésnél vagy javításnál venné észre. A hibát egy trigger
+     kényszeríti ki, ugyanazon a fájlon. */
+  const user = db.createUser('bukott', 'Bukott Bence', 'scrypt$16384$8$1$mm$nn').user;
+  const raw = new DatabaseSync(process.env.FITTRACK_DB);
+  raw.exec(`CREATE TRIGGER bukott_mentes BEFORE INSERT ON workouts
+            WHEN NEW.name = 'Bukó' BEGIN SELECT RAISE(ABORT, 'teszt: elbukott beszúrás'); END`);
+  try {
+    assert.throws(() => db.addWorkout(user.id, 'Bukó', TODAY, nyomas(120)), /elbukott/);
+    assert.equal(db.getExerciseMax(user.id, 'Fekvenyomás'), null, 'fantom csúcs nem maradt');
+  } finally {
+    raw.exec('DROP TRIGGER bukott_mentes');
+    raw.close();
+  }
+});
+
+test('az ismételt mentés a piszkozatot is lezárja', () => {
+  /* Két fül: az egyik befejezi az edzést, a másik még autosave-el egy
+     piszkozatot, majd ugyanazt az edzést menti. A második mentés duplikátum —
+     a meglévő sort kapja vissza —, de a piszkozatnak akkor is mennie kell,
+     különben a lezárt edzés „folyamatban lévőként" jönne vissza. */
+  const user = db.createUser('ketful', 'Két Fül', 'scrypt$16384$8$1$oo$pp').user;
+  const elso = db.addWorkout(user.id, 'Mell', TODAY, nyomas(80));
+
+  db.saveWorkoutDraft(user.id, 'Mell', nyomas(80), TODAY);
+  const masodik = db.addWorkout(user.id, 'Mell', TODAY, nyomas(80));
+
+  assert.equal(masodik.id, elso.id, 'duplikátum: a meglévő sor jött vissza');
+  assert.equal(db.getWorkouts(user.id).length, 1);
+  assert.equal(db.getWorkoutDraft(user.id), null, 'a piszkozat sem maradt meg');
 });
