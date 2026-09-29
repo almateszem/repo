@@ -6524,6 +6524,193 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   }
 }
 
+/* ---- Izomtérkép: három változat, a konténer-szélesség választ ---- */
+.rc-map-wide,
+.rc-map-split {
+  display: none;
+}
+.rc-map-tabbed {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) 76px;
+  gap: var(--sp-1);
+  height: 420px;
+  margin-top: var(--sp-8);
+}
+.rc-map-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+}
+.rc-map-figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-5);
+  min-width: 0;
+  overflow: hidden;
+}
+.rc-figure {
+  width: 100%;
+  height: 360px;
+  object-fit: contain;
+}
+.rc-map-figure figcaption,
+.rc-map-caption {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  fill: var(--fg-60);
+  color: var(--fg-60);
+}
+.rc-map-caption {
+  text-anchor: middle;
+}
+
+/* Gyűrű — közös (SVG-ben és HTML-ben is) */
+.rc-ring-bg {
+  fill: var(--fg-06);
+  stroke: var(--fg-15);
+  stroke-width: 3;
+}
+.rc-ring-fg {
+  fill: none;
+  stroke: var(--text-primary);
+  stroke-width: 3;
+}
+.rc-ring--ok .rc-ring-fg {
+  stroke: var(--c-ok);
+}
+.rc-ring-empty {
+  fill: var(--fg-06);
+  stroke: var(--fg-40);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 6;
+}
+.rc-ring-num {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  text-anchor: middle;
+  fill: var(--text-primary);
+}
+.rc-ring-num--none {
+  fill: var(--fg-40);
+}
+.rc-ring-pct {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  fill: var(--fg-50);
+}
+.rc-ring-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  text-anchor: middle;
+  fill: var(--fg-70);
+}
+.rc-ring-label--none {
+  fill: var(--fg-60);
+}
+.rc-ring-dot--sore {
+  fill: var(--text-primary);
+}
+.rc-ring-dot--pain {
+  fill: var(--c-pain);
+}
+.rc-map-lines line {
+  stroke: var(--fg-30);
+  stroke-width: 1;
+}
+.rc-map-anchor {
+  fill: var(--fg-75);
+}
+
+/* Kompakt (HTML) gyűrű */
+.rc-cring {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.rc-cring-box {
+  position: relative;
+}
+.rc-cring-box svg {
+  display: block;
+}
+.rc-cring-num {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+.rc-ring--none .rc-cring-num {
+  color: var(--fg-40);
+}
+.rc-cring-pct {
+  margin-left: 1px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--fg-50);
+}
+.rc-cring-label {
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--fg-70);
+}
+.rc-cring-dots {
+  display: flex;
+  gap: var(--sp-1);
+  height: 8px;
+}
+
+@container rc (min-width: 600px) {
+  .rc-map-tabbed {
+    display: none;
+  }
+  .rc-map-split {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr) minmax(0, 1fr) 96px;
+    gap: var(--sp-3);
+    height: 680px;
+    margin-top: var(--sp-10);
+  }
+  .rc-map-split > .rc-map-col:last-child {
+    justify-content: space-between;
+  }
+  .rc-map-split .rc-figure {
+    height: 560px;
+  }
+}
+
+@container rc (min-width: 1040px) {
+  .rc-map-split {
+    display: none;
+  }
+  .rc-map-wide {
+    display: block;
+    width: 100%;
+    max-width: 848px;
+    height: auto;
+    margin-left: auto;
+  }
+}
+
 .rc-header {
   margin-bottom: var(--sp-7);
 }

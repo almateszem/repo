@@ -11,6 +11,7 @@ import {
   MOOD_SCALE,
   buildScale,
   readScale,
+  renderMuscleMap,
   renderRecovery,
   writeScale,
 } from '../render/recovery.js';
@@ -63,6 +64,19 @@ async function setupRecovery() {
   compsToggle.addEventListener('click', () => {
     const open = compsToggle.getAttribute('aria-expanded') === 'true';
     compsToggle.setAttribute('aria-expanded', String(!open));
+  });
+
+  /* Mobilon Elöl/Hátul fül: egyszerre egy figura. A választás a lapon
+     marad (data-rc-view), így egy újrarenderelés sem ugrik vissza „Elöl"-re. */
+  $$('[data-rc-view]', page).forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const view = tab.dataset.rcView;
+      page.dataset.rcView = view;
+      $$('[data-rc-view]', page).forEach((other) =>
+        other.setAttribute('aria-selected', String(other === tab)),
+      );
+      if (page.rcReport) renderMuscleMap(page.rcReport.muscles, view);
+    });
   });
 
   const form = $('[data-form="checkin"]', page);
