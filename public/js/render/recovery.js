@@ -102,14 +102,6 @@ const writeScale = (scaleEl, value) => {
   });
 };
 
-/** Egy 0–100 érték kiírása sávra: szélesség, ARIA és állapot-szín. */
-function fillBar(barEl, value, label) {
-  barEl.setAttribute('aria-valuenow', String(value));
-  barEl.setAttribute('aria-label', `${label} — ${value}%`);
-  barEl.dataset.tone = readinessTone(value);
-  $('.pl-progress-fill', barEl).style.width = `${value}%`;
-}
-
 /* A készenlét NULL, ha a motornak nincs mire alapoznia (vadonatúj fiók: se
    check-in, se naplózott edzés). Ezt sem 0-nak, sem 100-nak nem szabad
    mutatni — előbbi „pihenj ma"-t, utóbbi „tökéletes állapot"-ot állítana
@@ -296,6 +288,7 @@ function renderMuscleMap(muscles, view = 'front') {
         y: f.y,
         width: f.width,
         height: f.height,
+        'aria-hidden': 'true',
       }),
     );
     const caption = svgEl('text', { class: 'rc-map-caption', x: f.x + f.width / 2, y: f.labelY });
@@ -471,35 +464,6 @@ function renderRecovery(report) {
       : cns >= 60
         ? 'Enyhén terhelt — kerüld a maximum-közeli szetteket.'
         : 'Terhelt idegrendszer — nehéz guggolás, felhúzás és PR-próbálkozás ma nem javasolt.';
-
-  // — Izomcsoportok —
-  const muscles = $('[data-list="rc-muscles"]');
-  muscles.replaceChildren();
-  report.muscles.forEach((muscle, index) => {
-    const row = cloneTemplate('tpl-rc-muscle');
-    row.style.setProperty('--i', index);
-    $('.rc-muscle-label', row).textContent = muscle.label;
-    /* A known jelző a motorból jön: hamis, ha se naplózott edzés, se
-       bejelentett izomláz/fájdalom nincs mögötte. Ilyenkor a 100% nem
-       eredmény, hanem az adat hiánya — nem is mutatjuk százaléknak. */
-    $('.rc-muscle-value', row).textContent = muscle.known === false ? '—' : `${muscle.readiness}%`;
-    fillBar($('.rc-bar', row), muscle.known === false ? 0 : muscle.readiness, muscle.label);
-
-    // A meta-sor megmondja, mire épül a becslés — a szám így nem varázslat
-    const meta = [];
-    if (muscle.known === false) meta.push('még nincs adat');
-    if (muscle.lastLoadedDaysAgo !== null) {
-      meta.push(
-        muscle.lastLoadedDaysAgo === 0
-          ? 'ma terhelted'
-          : `${muscle.lastLoadedDaysAgo} napja terhelted`,
-      );
-    }
-    if (muscle.soreness !== null) meta.push(`izomláz ${muscle.soreness}/10`);
-    if (muscle.pain !== null && muscle.pain > 0) meta.push(`fájdalom ${muscle.pain}/10`);
-    $('.rc-muscle-meta', row).textContent = meta.join(' · ');
-    muscles.appendChild(row);
-  });
 
   // — Gyakorlat-ajánlások —
   const lifts = $('[data-list="rc-lifts"]');

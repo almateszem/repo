@@ -362,7 +362,6 @@ input.wk-chip:focus-visible {
 .nu-summary-unit,
 .nu-macro-unit,
 .rc-unit,
-.rc-muscle-label,
 .rc-body-row-label,
 .rc-scale-label,
 .rc-lift-delta-label,
@@ -414,8 +413,7 @@ input.wk-chip:focus-visible {
 .nu-macro-value,
 .su-stat-value,
 .pf-stat-value,
-.co-card-stat-value,
-.rc-score-num {
+.co-card-stat-value {
   letter-spacing: var(--ls-display);
   font-variant-numeric: tabular-nums;
 }
@@ -6093,6 +6091,9 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--fg-55);
 }
 .rc-caps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
   margin: var(--sp-3) 0 0;
   padding: 0;
   list-style: none;
@@ -6727,8 +6728,12 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .rc-section-title {
-  font-size: var(--fs-md);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
   font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-55);
 }
 
 .rc-hint {
@@ -6744,14 +6749,37 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 /* ---- Kártya helyett hajszálvonal ----
-   A blokkok a jelölésben a .ds-section osztályt kapják (felső vonal +
-   térköz a szomszédos .ds-section-ök közt, lásd a 2c. szakaszt) — itt már
-   csak a kártyák saját belső elrendezése marad. A check-in űrlapnál ez a
-   lenyitható BURKOLÓ (.rc-checkin-advanced), nem maga az űrlap. */
+   A felső rész alatti blokkok nem kártyák, hanem hajszálvonallal elválasztott
+   szakaszok: nincs háttér, nincs keret, csak egy felső vonal és a fölötte
+   nagyobb (sp-13) légtér. A .ds-section-t itt NEM használjuk — a szomszéd-
+   szelektoros (`.ds-section + .ds-section`) receptje nagyobb specificitású
+   lenne ennél a szabálynál, és a sp-11-es térközét erőltetné a sp-13 helyett.
+   A check-in űrlapnál a vonalat és a mono címet a lenyitható BURKOLÓ
+   (.rc-checkin-advanced) kapja, nem maga az űrlap. */
+.rc-card,
+.rc-checkin-advanced {
+  padding: var(--sp-13) 0 0;
+  margin-top: var(--sp-13);
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--hair);
+  box-shadow: none;
+}
+
 .rc-card {
   display: flex;
   flex-direction: column;
   gap: var(--sp-5);
+}
+
+/* Asztalon a felső rész 1312px-ig szélesedik, de az alatta lévő blokkok
+   tartalma szöveg-jellegű — a teljes szélesség csak nehezebben olvasható
+   sorokat adna. */
+@container rc (min-width: 1040px) {
+  .rc-page > .rc-card,
+  .rc-page > .rc-checkin-advanced {
+    max-width: 760px;
+  }
 }
 
 /* ---- Megbízhatóság-sáv ----
@@ -6789,14 +6817,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--c-alert);
 }
 
-/* Sapkák — a képletet felülíró állapotok indoklása (fájdalom, betegség) */
-.rc-caps {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-2);
-  margin-bottom: var(--sp-6);
-}
-
+/* Sapkák — a képletet felülíró állapotok indoklása (fájdalom, betegség).
+   Maga a .rc-caps szabály feljebb, a .rc-hero-score családjával van. */
 .rc-cap {
   font-size: var(--fs-xs);
   line-height: 1.5;
@@ -6988,62 +7010,6 @@ details[open] > .rc-details-summary::before {
 .rc-save:disabled {
   opacity: 0.55;
   cursor: default;
-}
-
-/* ---- Sávos listák (komponensek, izomcsoportok) ----
-   A listaelemek a megosztott .ds-row primitívre állnak: rács helyett a
-   .ds-row + .ds-row hajszálvonala tagol, a szám .ds-row-value-ként kerül a
-   jobb szélre. Emiatt a lista SZÁNDÉKOSAN marad egyoszlopos minden
-   szélességen — a korábbi kétoszlopos széles nézet a soronkénti felső
-   vonallal együtt törött volna (a rács nem a vizuális szomszédhoz, hanem a
-   DOM-szomszédhoz adta volna a vonalat). A sáv (rc-bar) marad: nem
-   kártya-dísz, hanem arányos összevetést mutató adat, ezért a
-   .ds-row-main-en BELÜL fut tovább, a név alatt. */
-
-.rc-bar {
-  /* A .pl-progress alapján — itt csak a szín tér el */
-  width: 100%;
-}
-
-.rc-bar[data-tone='ok'] .pl-progress-fill {
-  background: var(--c-ok);
-}
-.rc-bar[data-tone='warn'] .pl-progress-fill {
-  background: var(--fg-60);
-}
-.rc-bar[data-tone='bad'] .pl-progress-fill {
-  background: var(--c-alert);
-}
-
-.rc-muscles {
-  display: flex;
-  flex-direction: column;
-}
-
-/* Az izomcsoport-név a 2b. szakasz megosztott mono-nagybetűs címke-
-   családjában van (.rc-muscle-label ott sorolva), ezért a .ds-row-name
-   nyers rákerülése ütközne: a családtól örökölt 600-as súlyt és a
-   pozitív --ls-label ritkítást a .ds-row-name saját 700-as súlya és
-   -0.01em-es (összehúzó) ritkítása írná felül — összehúzott, nehezen
-   olvasható nagybetűs mono szöveg lenne belőle.
-   A .ds-row-name-t MEGKAPJA (a jelölésben), de a súlyt és a ritkítást egy
-   nagyobb specificitású, összetett szelektor visszaállítja a mono-családra;
-   a méretet viszont a .ds-row-name fs-xl-je helyett fs-lg adja — nem kell
-   pontosan egyeznie a Számítás-lista nevével, csak egyértelműen a sor
-   ALANYAként kell olvasódnia a saját meta-sora (.ds-row-sub, fs-2xs) fölött,
-   ahogy a komponens-listán is. */
-.rc-muscle-label {
-  color: var(--text-muted);
-}
-
-.rc-muscle-label.ds-row-name {
-  font-size: var(--fs-lg);
-  font-weight: 600;
-  letter-spacing: var(--ls-label);
-}
-
-.rc-muscle-meta:empty {
-  display: none;
 }
 
 /* ---- CNS ---- */
