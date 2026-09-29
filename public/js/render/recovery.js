@@ -243,6 +243,13 @@ function compactRing(muscle, size) {
   const label = document.createElement('span');
   label.className = 'rc-cring-label';
   label.textContent = muscle.label;
+  // Adat nélkül a felirat alá „Nincs adat" kerül, ahogy az asztali térképen.
+  if (state.tone === 'none') {
+    const none = document.createElement('span');
+    none.className = 'rc-cring-none';
+    none.textContent = 'Nincs adat';
+    label.append(none);
+  }
   const dots = document.createElement('span');
   dots.className = 'rc-cring-dots';
   if (state.sore) dots.append(dot('sore', 'izomláz'));
