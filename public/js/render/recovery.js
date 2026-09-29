@@ -1,7 +1,18 @@
 /** A készenléti riport és a check-in skálák kirajzolása. */
 
 import { $, $$, cloneTemplate } from '../core/dom.js';
-import { RC_SPARE_BELOW, componentSummary, muscleNote, spareList } from './recovery-map.js';
+import {
+  MAP_CANVAS,
+  MAP_FIGURES,
+  MAP_RINGS,
+  MOBILE_COLUMNS,
+  RC_SPARE_BELOW,
+  componentSummary,
+  muscleNote,
+  ringDashOffset,
+  ringState,
+  spareList,
+} from './recovery-map.js';
 
 /** A tizenkét izomcsoport kulcsa és magyar címkéje — a szerver
     MUSCLE_GROUPS-ával azonos sorrendben (server/muscles.js). A check-in
@@ -118,10 +129,235 @@ function dot(kind, label) {
   return el;
 }
 
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function svgEl(name, attrs = {}) {
+  const el = document.createElementNS(SVG_NS, name);
+  for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, String(value));
+  return el;
+}
+
+/** Egy gyűrű SVG-csoportként az asztali vászonra: háttérkör, érték-ív,
+    szám, címke, pöttyök. (cx, cy) a középpont a 848×700-as vásznon. */
+function wideRing(muscle, { x, y }) {
+  const state = ringState(muscle);
+  const r = 34;
+  const g = svgEl('g', { class: `rc-ring rc-ring--${state.tone}` });
+  if (state.tone === 'none') {
+    g.append(svgEl('circle', { class: 'rc-ring-empty', cx: x, cy: y, r }));
+    const dash = svgEl('text', { class: 'rc-ring-num rc-ring-num--none', x, y: y + 8 });
+    dash.textContent = '—';
+    g.append(dash);
+  } else {
+    const circumference = 2 * Math.PI * r;
+    g.append(svgEl('circle', { class: 'rc-ring-bg', cx: x, cy: y, r }));
+    g.append(
+      svgEl('circle', {
+        class: 'rc-ring-fg',
+        cx: x,
+        cy: y,
+        r,
+        'stroke-dasharray': circumference.toFixed(2),
+        'stroke-dashoffset': ringDashOffset(state.value, r).toFixed(2),
+        transform: `rotate(-90 ${x} ${y})`,
+      }),
+    );
+    const num = svgEl('text', { class: 'rc-ring-num', x, y: y + 8 });
+    num.textContent = String(state.value);
+    const pct = svgEl('tspan', { class: 'rc-ring-pct', dx: 2 });
+    pct.textContent = '%';
+    num.append(pct);
+    g.append(num);
+  }
+  const label = svgEl('text', { class: 'rc-ring-label', x, y: y + r + 20 });
+  label.textContent = muscle.label;
+  g.append(label);
+  if (state.tone === 'none') {
+    const none = svgEl('text', { class: 'rc-ring-label rc-ring-label--none', x, y: y + r + 34 });
+    none.textContent = 'Nincs adat';
+    g.append(none);
+  }
+  const dots = [state.sore && 'sore', state.pain && 'pain'].filter(Boolean);
+  dots.forEach((kind, i) => {
+    const offset = (i - (dots.length - 1) / 2) * 13;
+    g.append(
+      svgEl('circle', {
+        class: `rc-ring-dot rc-ring-dot--${kind}`,
+        cx: x + offset,
+        cy: y + r + 34,
+        r: 4,
+      }),
+    );
+  });
+  g.setAttribute('aria-label', ringAria(muscle, state));
+  g.setAttribute('role', 'img');
+  return g;
+}
+
+/** A felolvasó szövege: név, érték vagy „nincs adat", jelzések. */
+function ringAria(muscle, state) {
+  const parts = [muscle.label, state.tone === 'none' ? 'nincs adat' : `${state.value}%`];
+  if (state.sore) parts.push('izomláz');
+  if (state.pain) parts.push('fájdalom');
+  return parts.join(', ');
+}
+
+/** Egy gyűrű HTML-elemként (tablet / mobil oszlop). A `size` a pixelméret. */
+function compactRing(muscle, size) {
+  const state = ringState(muscle);
+  const r = size / 2 - 3;
+  const c = size / 2;
+  const item = document.createElement('div');
+  item.className = `rc-cring rc-ring--${state.tone}`;
+  item.setAttribute('role', 'img');
+  item.setAttribute('aria-label', ringAria(muscle, state));
+
+  const box = document.createElement('div');
+  box.className = 'rc-cring-box';
+  box.style.width = box.style.height = `${size}px`;
+  const svg = svgEl('svg', {
+    width: size,
+    height: size,
+    viewBox: `0 0 ${size} ${size}`,
+    'aria-hidden': 'true',
+  });
+  if (state.tone === 'none') {
+    svg.append(svgEl('circle', { class: 'rc-ring-empty', cx: c, cy: c, r }));
+  } else {
+    svg.append(svgEl('circle', { class: 'rc-ring-bg', cx: c, cy: c, r }));
+    svg.append(
+      svgEl('circle', {
+        class: 'rc-ring-fg',
+        cx: c,
+        cy: c,
+        r,
+        'stroke-dasharray': (2 * Math.PI * r).toFixed(2),
+        'stroke-dashoffset': ringDashOffset(state.value, r).toFixed(2),
+        transform: `rotate(-90 ${c} ${c})`,
+      }),
+    );
+  }
+  const num = document.createElement('span');
+  num.className = 'rc-cring-num';
+  num.textContent = state.tone === 'none' ? '—' : String(state.value);
+  if (state.tone !== 'none') {
+    const pct = document.createElement('span');
+    pct.className = 'rc-cring-pct';
+    pct.textContent = '%';
+    num.append(pct);
+  }
+  box.append(svg, num);
+
+  const label = document.createElement('span');
+  label.className = 'rc-cring-label';
+  label.textContent = muscle.label;
+  const dots = document.createElement('span');
+  dots.className = 'rc-cring-dots';
+  if (state.sore) dots.append(dot('sore', 'izomláz'));
+  if (state.pain) dots.append(dot('pain', 'fájdalom'));
+  item.append(box, label, dots);
+  return item;
+}
+
+function figureImg(view) {
+  const img = document.createElement('img');
+  img.className = 'rc-figure';
+  img.src = `img/body-${view}.svg`;
+  img.alt = view === 'front' ? 'Elülső izomcsoportok' : 'Hátsó izomcsoportok';
+  return img;
+}
+
+function ringColumn(keys, byKey, size) {
+  const col = document.createElement('div');
+  col.className = 'rc-map-col';
+  keys.forEach((key) => col.append(compactRing(byKey.get(key), size)));
+  return col;
+}
+
+/** Az izomtérkép mindhárom változata (asztali / tablet / mobil). */
+function renderMuscleMap(muscles, view = 'front') {
+  const host = $('[data-rc-map]');
+  if (!host) return;
+  const byKey = new Map(muscles.map((muscle) => [muscle.key, muscle]));
+
+  // — Asztali: egy skálázódó SVG —
+  const wide = svgEl('svg', {
+    class: 'rc-map-wide',
+    viewBox: `0 0 ${MAP_CANVAS.width} ${MAP_CANVAS.height}`,
+    role: 'group',
+    'aria-label': 'Izomcsoportok regenerációja — elöl és hátul',
+  });
+  for (const side of ['front', 'back']) {
+    const f = MAP_FIGURES[side];
+    wide.append(
+      svgEl('image', {
+        href: `img/body-${side}.svg`,
+        x: f.x,
+        y: f.y,
+        width: f.width,
+        height: f.height,
+      }),
+    );
+    const caption = svgEl('text', { class: 'rc-map-caption', x: f.x + f.width / 2, y: f.labelY });
+    caption.textContent = side === 'front' ? 'Elöl' : 'Hátul';
+    wide.append(caption);
+  }
+  const lines = svgEl('g', { class: 'rc-map-lines', 'aria-hidden': 'true' });
+  for (const ring of [...MAP_RINGS.front, ...MAP_RINGS.back]) {
+    const [x1, y1, x2, y2] = ring.line;
+    lines.append(svgEl('line', { x1, y1, x2, y2 }));
+    lines.append(svgEl('circle', { class: 'rc-map-anchor', cx: x2, cy: y2, r: 2.5 }));
+  }
+  wide.append(lines);
+  for (const ring of [...MAP_RINGS.front, ...MAP_RINGS.back]) {
+    wide.append(wideRing(byKey.get(ring.key), ring));
+  }
+
+  // — Tablet: elöl-oszlop | két figura | hátul-oszlop —
+  const split = document.createElement('div');
+  split.className = 'rc-map-split';
+  const figures = ['front', 'back'].map((side) => {
+    const fig = document.createElement('figure');
+    fig.className = 'rc-map-figure';
+    const caption = document.createElement('figcaption');
+    caption.textContent = side === 'front' ? 'Elöl' : 'Hátul';
+    fig.append(figureImg(side), caption);
+    return fig;
+  });
+  split.append(
+    ringColumn(
+      MAP_RINGS.front.map((r) => r.key),
+      byKey,
+      68,
+    ),
+    ...figures,
+    ringColumn(
+      MAP_RINGS.back.map((r) => r.key),
+      byKey,
+      56,
+    ),
+  );
+
+  // — Mobil: egy nézet, a figura két oldalán —
+  const tabbed = document.createElement('div');
+  tabbed.className = 'rc-map-tabbed';
+  const figure = document.createElement('div');
+  figure.className = 'rc-map-figure';
+  figure.append(figureImg(view));
+  tabbed.append(
+    ringColumn(MOBILE_COLUMNS[view].left, byKey, 60),
+    figure,
+    ringColumn(MOBILE_COLUMNS[view].right, byKey, 60),
+  );
+
+  host.replaceChildren(wide, split, tabbed);
+}
+
 /** A készenléti riport kirajzolása. A `report` a GET /api/readiness válasza. */
 function renderRecovery(report) {
   const page = $('[data-page="recovery"]');
   if (!page || !report) return;
+  page.rcReport = report;
 
   // — Összesített pontszám —
   const overall = report.overall;
@@ -291,6 +527,9 @@ function renderRecovery(report) {
     lifts.appendChild(item);
   });
   $('[data-rc-lifts-empty]').hidden = report.exercises.length > 0;
+
+  // — Izomtérkép —
+  renderMuscleMap(report.muscles, page.dataset.rcView ?? 'front');
 }
 
 /* ======================================================================
@@ -306,6 +545,7 @@ export {
   hasReadiness,
   readScale,
   readinessTone,
+  renderMuscleMap,
   renderRecovery,
   writeScale,
 };
