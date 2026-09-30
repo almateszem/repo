@@ -5694,8 +5694,10 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   overflow-wrap: anywhere;
 }
 
-/* A bontás a fejléc jobb szélén, keretezve — elkülönül a fülek tartalmától */
-.co-detail-unlink {
+/* A bontás a fejléc jobb szélén, keretezve — elkülönül a fülek tartalmától.
+   A fejléc-előtag kell: a később álló .co-action (flex: 1, háttér) különben
+   felülírná, és a gomb a teljes maradék szélességre nyúlna. */
+.co-detail-head .co-detail-unlink {
   flex: 0 0 auto;
   min-width: 0;
   border: 1px solid var(--fg-20);
@@ -11448,9 +11450,9 @@ a.co-ghost-btn {
 }
 
 /* Keskeny oszlopban a négy fül 2×2-es rácsba áll — görgetés nélkül is
-   mind látszik. */
+   mind látszik. Az edzői részletnézetben ugyanígy: ott is négy fül van. */
 @container co-detail (max-width: 479px) {
-  .co-client .co-detail-tabs {
+  .co-detail-tabs {
     display: grid;
     grid-template-columns: 1fr 1fr;
     overflow: visible;
