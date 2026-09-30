@@ -35,7 +35,13 @@ async function setupExercisePicker(confirmAction) {
       subtitleNoun, toastTarget, exerciseOptions, onChange, suggestReadiness }.
       A `suggestReadiness` az ajánlásba a mai regeneráltságot is bekéri — az
       edzésnapló igen, a terv-építő nem (egy jövőbeli tervről a mai készenlét
-      semmit nem mond). */
+      semmit nem mond).
+
+      Van egy MÁSIK cél-fajta is: az `onPick`-es. Az edzésnapló és a terv-építő
+      LISTÁT tölt (a választó kártyát ad hozzá és elvesz), a profil rekord-
+      csempéi viszont csak a KIVÁLASZTOTT NEVET kérik. Ha a cél `onPick`-et ad,
+      a választó azt hívja, és semmit nem ad hozzá semmihez; ilyenkor a
+      `targetList` és a `nameInput` el is hagyható. */
   let context = null;
 
   /* A kártyák egyszer épülnek fel; a szűrés csak elrejt/megmutat.
@@ -88,9 +94,14 @@ async function setupExercisePicker(confirmAction) {
     chipWrap.appendChild(chip);
   });
 
-  /** A cél-listában lévő gyakorlat-nevek — ehhez igazodik a ✓/→ állapot. */
+  /** A célban MÁR szereplő gyakorlat-nevek — ehhez igazodik a ✓/→ állapot.
+      Lista-célnál a cél-lista kártyáiból olvassuk ki, név-célnál (onPick) a
+      cél mondja meg (`pickedNames`). A kettő ugyanazt jelenti a felhasználó
+      felé: pipa = már nálam van, újabb kattintás leveszi. */
   const namesInTarget = () =>
-    new Set($$('.wk-exercise-name', context.targetList).map((el) => el.textContent.trim()));
+    context.pickedNames
+      ? new Set(context.pickedNames())
+      : new Set($$('.wk-exercise-name', context.targetList).map((el) => el.textContent.trim()));
 
   /** Egy kártya ✓/→ gombjának állapota: benne van-e már a cél-listában. */
   const syncToggle = (item, added) => {
@@ -110,8 +121,13 @@ async function setupExercisePicker(confirmAction) {
       A keresés/szűrés cél (context) nélkül is működik — csak a ✓/→
       gombállapot múlik a célon, mert csak annak van mihez igazodnia. */
   const refresh = () => {
+    /* Név-mező nélküli célnál (onPick) a felirat ÜRES, nem „Névtelen": ott
+       nincs edzés vagy terv, aminek neve lehetne — a „Névtelen" egy nem
+       létező célt nevezne meg. Ilyenkor a fejléc csak a főnevet mutatja. */
     if (context)
-      $('[data-picker-workout]').textContent = context.nameInput.value.trim() || 'Névtelen';
+      $('[data-picker-workout]').textContent = context.nameInput
+        ? context.nameInput.value.trim() || 'Névtelen'
+        : '';
     const query = searchInput.value.trim().toLowerCase();
     const added = context ? namesInTarget() : null;
     let visibleCount = 0;
@@ -143,7 +159,7 @@ async function setupExercisePicker(confirmAction) {
     const requestId = ++suggestRequest;
     suggestList.replaceChildren();
     refresh();
-    const title = context.nameInput.value.trim();
+    const title = context.nameInput?.value.trim() ?? '';
     let result;
     try {
       result = await api.getExerciseSuggestions(title, {
@@ -196,6 +212,17 @@ async function setupExercisePicker(confirmAction) {
 
     const item = toggle.closest('.ep-item');
     const name = item.dataset.name;
+
+    /* Név-cél (profil rekord-csempe): a választó csak továbbadja a nevet, a
+       fel/levétel a hívó dolga — kártyát nem rajzol ide, mert a névnek a
+       MÁSIK lapon van helye. A `refresh` viszont kell: attól vált a most
+       megnyomott gomb → és ✓ között. */
+    if (context.onPick) {
+      context.onPick(name);
+      refresh();
+      return;
+    }
+
     const existing = $$('.wk-exercise', context.targetList).find(
       (card) => $('.wk-exercise-name', card).textContent.trim() === name,
     );
@@ -252,6 +279,12 @@ async function setupExercisePicker(confirmAction) {
     nounEl.textContent = context.subtitleNoun;
     loadSuggestions();
   };
+
+  /* A profil a setupExercisePicker ELŐTT áll fel (lásd app/init.js), így a
+     választót nem kaphatja meg paraméterben, mint az edzésnapló és a
+     terv-építő. A hooks a ház bevált megoldása erre — az init sorrendjét nem
+     kell átrendezni miatta, és a hívás úgyis csak kattintáskor történik. */
+  hooks.useExercisePicker = use;
 
   return { use };
 }

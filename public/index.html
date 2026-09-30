@@ -47,6 +47,12 @@
         <path d="M6 19c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z" />
       </symbol>
 
+      <!-- A profil rekord-rácsának „+" csempéje. Körvonalas ikon (stroke), nem
+         kitöltött: a .pf-plus szabálya adja neki a vastagságot és a színt. -->
+      <symbol id="icon-plus" viewBox="0 0 24 24">
+        <path d="M12 5v14M5 12h14" />
+      </symbol>
+
       <!-- Oldal-ikonok a nav gyűrű gombjához (lásd js/nav/router.js → PAGE_ICONS).
          Az Edző oldal a fenti #icon-user-t használja, nincs külön szimbóluma. -->
       <symbol id="icon-page-dashboard" viewBox="0 0 24 24">
@@ -418,10 +424,15 @@
         </section>
 
         <!-- ================================================================
-           Profil (pf-*) — az áttekintő avatarja nyitja. A fiók adatai és az
-           eddigi teljesítmény összesítése; a tartalmát a frontend tölti fel
-           a GET /api/profile válaszából. A beállítások továbbra is a
-           fogaskerék-modalban laknak, ide csak egy gomb vezet.
+           Profil (pf-*) — az áttekintő avatarja nyitja. A fiók adatai, a
+           naplóból számolt összesítők (GET /api/profile), a rekordok
+           (GET /api/prs) és az erőfelmérés. A szekciók tartalmát a frontend
+           tölti fel. A beállítások továbbra is a fogaskerék-modalban laknak,
+           ide csak egy gomb vezet.
+
+           A szekciók felépítése egységes: a cím a hajszálvonal FÖLÖTT áll, a
+           tartalom a .pf-section-body burkolóban alatta — a vonalat az adja,
+           nem a szekciók közti .ds-section.
            ================================================================ -->
         <section
           class="app-page pf-page"
@@ -444,115 +455,192 @@
 
           <!-- A négy összesítő. A számokat a frontend írja be; a 0 nem
              placeholder, hanem érvényes érték (új fióknál ez a helyes). -->
-          <section class="pf-stats ds-section" aria-labelledby="pf-title-stats">
+          <section class="pf-section" aria-labelledby="pf-title-stats">
             <h3 class="pf-section-title" id="pf-title-stats">Összesítés</h3>
-            <ul class="pf-stat-grid">
-              <li class="pf-stat ds-row">
-                <span class="pf-stat-label ds-row-name">Naplózott edzés</span>
-                <span class="pf-stat-value ds-row-value" data-pf-stat="workouts">0</span>
-              </li>
-              <li class="pf-stat ds-row">
-                <span class="pf-stat-label ds-row-name">Napos sorozat</span>
-                <span class="pf-stat-value ds-row-value" data-pf-stat="streak">0</span>
-              </li>
-              <li class="pf-stat ds-row">
-                <span class="pf-stat-label ds-row-name">Gyakorlat rekorddal</span>
-                <span class="pf-stat-value ds-row-value" data-pf-stat="prs">0</span>
-              </li>
-              <li class="pf-stat ds-row">
-                <span class="pf-stat-label ds-row-name">Teljesített munkasorozat</span>
-                <span class="pf-stat-value ds-row-value" data-pf-stat="workSets">0</span>
-              </li>
-            </ul>
+            <div class="pf-section-body">
+              <ul class="pf-stat-grid">
+                <li class="pf-stat">
+                  <span class="pf-stat-label">Naplózott edzés</span>
+                  <span class="pf-stat-value ds-display" data-pf-stat="workouts">0</span>
+                </li>
+                <li class="pf-stat">
+                  <span class="pf-stat-label">Napos sorozat</span>
+                  <span class="pf-stat-value ds-display" data-pf-stat="streak">0</span>
+                </li>
+                <li class="pf-stat">
+                  <span class="pf-stat-label">Gyakorlat rekorddal</span>
+                  <span class="pf-stat-value ds-display" data-pf-stat="prs">0</span>
+                </li>
+                <li class="pf-stat">
+                  <span class="pf-stat-label">Teljesített munkasorozat</span>
+                  <span class="pf-stat-value ds-display" data-pf-stat="workSets">0</span>
+                </li>
+              </ul>
+            </div>
           </section>
 
-          <!-- Sorok, amiknek nincs mindig értelmes értékük (nulla edzés, egyetlen
-             testsúly-mérés) — a frontend egyenként rejti el őket. -->
-          <section class="pf-facts ds-section" aria-labelledby="pf-title-facts">
+          <!-- Cellák, amiknek nincs mindig értelmes értékük (nulla edzés,
+             egyetlen testsúly-mérés) — a frontend egyenként rejti el őket. A
+             rács a megmaradt cellákat magától zárja össze. -->
+          <section class="pf-section" aria-labelledby="pf-title-facts">
             <h3 class="pf-section-title" id="pf-title-facts">Részletek</h3>
-            <dl class="pf-fact-list">
-              <div class="pf-fact ds-row" data-pf-fact="firstWorkout" hidden>
-                <dt class="ds-row-name">Első edzés</dt>
-                <dd class="ds-row-value" data-pf-value="firstWorkout"></dd>
-              </div>
-              <div class="pf-fact ds-row" data-pf-fact="lastWorkout" hidden>
-                <dt class="ds-row-name">Legutóbbi edzés</dt>
-                <dd class="ds-row-value" data-pf-value="lastWorkout"></dd>
-              </div>
-              <div class="pf-fact ds-row" data-pf-fact="weight" hidden>
-                <dt class="ds-row-name">Testsúly</dt>
-                <dd class="ds-row-value" data-pf-value="weight"></dd>
-              </div>
-              <div class="pf-fact ds-row" data-pf-fact="weightDelta" hidden>
-                <dt class="ds-row-name">Változás az első mérés óta</dt>
-                <dd class="ds-row-value" data-pf-value="weightDelta"></dd>
-              </div>
-            </dl>
-            <p class="pf-empty" data-pf-empty hidden>
-              Még nincs naplózott edzésed. Az első mentés után itt jelennek meg az összesítők.
-            </p>
+            <div class="pf-section-body">
+              <dl class="pf-stat-grid pf-fact-list">
+                <div class="pf-stat pf-fact" data-pf-fact="firstWorkout" hidden>
+                  <dt class="pf-stat-label">Első edzés</dt>
+                  <dd
+                    class="pf-stat-value pf-stat-value--fact ds-display"
+                    data-pf-value="firstWorkout"
+                  ></dd>
+                </div>
+                <div class="pf-stat pf-fact" data-pf-fact="lastWorkout" hidden>
+                  <dt class="pf-stat-label">Legutóbbi edzés</dt>
+                  <dd
+                    class="pf-stat-value pf-stat-value--fact ds-display"
+                    data-pf-value="lastWorkout"
+                  ></dd>
+                </div>
+                <div class="pf-stat pf-fact" data-pf-fact="weight" hidden>
+                  <dt class="pf-stat-label">Testsúly</dt>
+                  <dd
+                    class="pf-stat-value pf-stat-value--fact ds-display"
+                    data-pf-value="weight"
+                  ></dd>
+                </div>
+                <div class="pf-stat pf-fact" data-pf-fact="weightDelta" hidden>
+                  <dt class="pf-stat-label">Változás az első mérés óta</dt>
+                  <dd
+                    class="pf-stat-value pf-stat-value--fact ds-display"
+                    data-pf-value="weightDelta"
+                  ></dd>
+                </div>
+              </dl>
+              <p class="pf-empty" data-pf-empty hidden>
+                Még nincs naplózott edzésed. Az első mentés után itt jelennek meg az összesítők.
+              </p>
+            </div>
+          </section>
+
+          <!-- Rekordok. A rácsot a felhasználó maga állítja össze: a „+" a közös
+             gyakorlat-választóra visz (ugyanarra, ahonnan az edzésnapló és a
+             terv-építő is válogat), és amit ott kipipál, az itt jelenik meg
+             kártyaként. A pipa két irányba működik — újabb kattintás leveszi.
+             A rács tartalmát a frontend építi (profile.js → renderRecords). -->
+          <section class="pf-section" aria-labelledby="pf-title-records">
+            <h3 class="pf-section-title" id="pf-title-records">Rekordok</h3>
+            <div class="pf-section-body">
+              <p class="pf-records-lead">
+                Az érem azt mutatja, hol tartasz az adott gyakorlatban a hozzád hasonló nemű,
+                testsúlyú és korú edzőkhöz képest. Ahol erre nincs mérce, ott a saját
+                kiindulópontodhoz mért fejlődésed dönt — a kártya mindig kiírja, melyik alapján.
+              </p>
+              <!-- Egy kitöltetlen beállítás (nem, testsúly) MINDEN érmet
+                 elnémít. Kártya-felirattal ezt nem lehet elég hangosan
+                 elmondani, mert ugyanaz a hiány áll mind a tizenketten —
+                 ezért itt is szólunk, és a gomb oda visz, ahol pótolható. -->
+              <p class="pf-records-notice" data-pf-records-notice hidden>
+                <span data-pf-notice-text></span>
+                <button
+                  class="pf-records-notice-action"
+                  type="button"
+                  data-action="settings"
+                  data-pf-notice-action
+                >
+                  Beállítások
+                </button>
+              </p>
+
+              <!-- A fokozatok sorrendje (server/data/strength-standards.js →
+                 TIERS). A kártyán nincs hely kiírni, hogy a cián az arany
+                 FÖLÖTT van — itt viszont egyszer elfér. -->
+              <ul class="pf-tier-legend">
+                <li>
+                  <span class="pf-tier-dot pf-medal--bronze" aria-hidden="true"></span>
+                  <span class="pf-tier-name">Kezdő · Újonc</span>
+                </li>
+                <li>
+                  <span class="pf-tier-dot pf-medal--silver" aria-hidden="true"></span>
+                  <span class="pf-tier-name">Középhaladó</span>
+                </li>
+                <li>
+                  <span class="pf-tier-dot pf-medal--gold" aria-hidden="true"></span>
+                  <span class="pf-tier-name">Haladó</span>
+                </li>
+                <li>
+                  <span class="pf-tier-dot pf-medal--diamond" aria-hidden="true"></span>
+                  <span class="pf-tier-name">Elit</span>
+                </li>
+              </ul>
+              <!-- A gépek áttétele gyártónként más: ott a szint tájékoztató.
+                 A kártyán a „≈" jelöli, és ez az egyetlen hely, ahol ki van
+                 mondva, mit jelent. -->
+              <p class="pf-tier-note">≈ gépi és kábeles gyakorlat — a szint tájékoztató</p>
+              <ul class="pf-record-grid" data-pf-record-grid></ul>
+            </div>
           </section>
 
           <!-- Erőfelmérés. A friss fiók enélkül hetekig nem kap
              gyakorlat-ajánlást: a naplózott út három alkalmat kér. A bemondott
              érték NEM mérés — a felület ezt ki is mondja, és a naplózott
              csúcsot nem írja felül. -->
-          <section class="pf-assess ds-section" aria-labelledby="pf-title-assess">
+          <section class="pf-section" aria-labelledby="pf-title-assess">
             <h3 class="pf-section-title" id="pf-title-assess">Erőfelmérés</h3>
-            <p class="pf-assess-lead">
-              Mondd meg, mit tudsz egy-két gyakorlatban — a rendszer ebből azonnal tud ajánlani, nem
-              kell megvárnod pár hét naplózást.
-            </p>
+            <div class="pf-section-body pf-assess-body">
+              <p class="pf-assess-lead">
+                Mondd meg, mit tudsz egy-két gyakorlatban — a rendszer ebből azonnal tud ajánlani,
+                nem kell megvárnod pár hét naplózást.
+              </p>
 
-            <ul class="pf-assess-list" data-pf-assess-list></ul>
-            <p class="pf-assess-empty" data-pf-assess-empty hidden>Még nincs felmérésed.</p>
+              <ul class="pf-assess-list" data-pf-assess-list></ul>
+              <p class="pf-assess-empty" data-pf-assess-empty hidden>Még nincs felmérésed.</p>
 
-            <form class="pf-assess-form" data-form="strength-assessment">
-              <div class="pf-assess-field pf-assess-field--wide">
-                <label for="pf-assess-exercise">Gyakorlat</label>
-                <input
-                  id="pf-assess-exercise"
-                  list="pf-assess-options"
-                  type="text"
-                  placeholder="pl. Fekvenyomás"
-                  autocomplete="off"
-                  required
-                />
-                <datalist id="pf-assess-options"></datalist>
-              </div>
-              <div class="pf-assess-field">
-                <label for="pf-assess-weight">Súly (kg)</label>
-                <input
-                  id="pf-assess-weight"
-                  type="number"
-                  inputmode="decimal"
-                  min="1"
-                  max="500"
-                  step="2.5"
-                  required
-                  autocomplete="off"
-                />
-              </div>
-              <div class="pf-assess-field">
-                <label for="pf-assess-reps">Ismétlés</label>
-                <input
-                  id="pf-assess-reps"
-                  type="number"
-                  inputmode="numeric"
-                  min="1"
-                  max="12"
-                  step="1"
-                  required
-                  autocomplete="off"
-                />
-              </div>
-              <button class="pf-assess-save" type="submit">Hozzáadom</button>
-            </form>
+              <form class="pf-assess-form" data-form="strength-assessment">
+                <div class="pf-assess-field pf-assess-field--wide">
+                  <label for="pf-assess-exercise">Gyakorlat</label>
+                  <input
+                    id="pf-assess-exercise"
+                    list="pf-assess-options"
+                    type="text"
+                    placeholder="pl. Fekvenyomás"
+                    autocomplete="off"
+                    required
+                  />
+                  <datalist id="pf-assess-options"></datalist>
+                </div>
+                <div class="pf-assess-field">
+                  <label for="pf-assess-weight">Súly (kg)</label>
+                  <input
+                    id="pf-assess-weight"
+                    type="number"
+                    inputmode="decimal"
+                    min="1"
+                    max="500"
+                    step="2.5"
+                    required
+                    autocomplete="off"
+                  />
+                </div>
+                <div class="pf-assess-field">
+                  <label for="pf-assess-reps">Ismétlés</label>
+                  <input
+                    id="pf-assess-reps"
+                    type="number"
+                    inputmode="numeric"
+                    min="1"
+                    max="12"
+                    step="1"
+                    required
+                    autocomplete="off"
+                  />
+                </div>
+                <button class="pf-assess-save" type="submit">Hozzáadom</button>
+              </form>
 
-            <p class="pf-assess-note">
-              A bemondott szám nem mérés: viszonyítási alapnak használjuk, és a naplózott edzésed
-              felülírja.
-            </p>
+              <p class="pf-assess-note">
+                A bemondott szám nem mérés: viszonyítási alapnak használjuk, és a naplózott edzésed
+                felülírja.
+              </p>
+            </div>
           </section>
 
           <div class="pf-actions">
@@ -2497,6 +2585,50 @@
           </p>
         </section>
 
+        <!-- A nem az erőszint-érméhez kell: a testsúly-szorzós küszöbök
+           nemenként lényegesen eltérnek (server/data/strength-standards.js).
+           Elhagyható — megadás nélkül a profil nem találgat, hanem a másik
+           mércére vált (saját fejlődés). -->
+        <section class="st-section" aria-labelledby="st-title-sex">
+          <h4 class="st-section-title" id="st-title-sex">Nem</h4>
+          <div class="st-field">
+            <label class="sr-only" for="st-sex">Nem</label>
+            <select class="st-input st-select" id="st-sex">
+              <option value="">Nincs megadva</option>
+              <option value="male">Férfi</option>
+              <option value="female">Nő</option>
+            </select>
+          </div>
+          <p class="st-section-hint">
+            Csak a profilod erőszint-érméhez használjuk: ugyanaz a testsúlyhoz mért teljesítmény
+            férfinál és nőnél más szintet jelent. Megadás nélkül az érem a saját fejlődésedet
+            mutatja helyette.
+          </p>
+        </section>
+
+        <!-- A születési év az erőszint életkori korrekciójához kell: 45 év
+           fölött ugyanaz a teljesítmény egyre magasabb szintet ér. Csak az
+           évet kérjük, a dátumot nem — a számításhoz ennyi elég. -->
+        <section class="st-section" aria-labelledby="st-title-birth">
+          <h4 class="st-section-title" id="st-title-birth">Születési év</h4>
+          <div class="st-field">
+            <label class="sr-only" for="st-birth-year">Születési év</label>
+            <input
+              class="st-input"
+              id="st-birth-year"
+              type="number"
+              inputmode="numeric"
+              min="1900"
+              step="1"
+              placeholder="pl. 1990"
+            />
+          </div>
+          <p class="st-section-hint">
+            Az erőszint-érmet pontosítja: 45 év fölött ugyanaz a teljesítmény magasabb szintet
+            ér. Megadás nélkül a 25–40 évesek mércéje érvényes.
+          </p>
+        </section>
+
         <section class="st-section" aria-labelledby="st-title-data">
           <h4 class="st-section-title" id="st-title-data">Adatok</h4>
           <button class="st-export" type="button" data-action="export-data">
@@ -3562,6 +3694,33 @@
           <span class="wk-pr-detail"></span>
         </div>
         <span class="wk-pr-date"></span>
+      </li>
+    </template>
+
+    <!-- A profil rekord-kártyája: egy kitűzött gyakorlat jelenlegi csúcsa.
+       Az érem EGYELŐRE semleges színű — hogy mit jelentsen az arany/ezüst/
+       bronz, még eldöntetlen, és egy kitalált szabály rosszabb, mint semmi.
+       A jelentést addig a szöveg viszi (érték + dátum + forrás). -->
+    <template id="tpl-pf-record">
+      <li class="pf-record">
+        <span class="pf-medal" aria-hidden="true"></span>
+        <span class="pf-record-text">
+          <span class="pf-record-label"></span>
+          <span class="pf-record-value"></span>
+          <span class="pf-record-meta"></span>
+        </span>
+      </li>
+    </template>
+
+    <!-- A profil rekord-rácsának üres csempéje. A kattintás a közös
+       gyakorlat-választóra visz (profile.js → openRecordPicker). -->
+    <template id="tpl-pf-record-slot">
+      <li class="pf-record-slot">
+        <button class="pf-record-add" type="button" aria-label="Gyakorlat választása a rekordhoz">
+          <span class="pf-plus" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><use href="#icon-plus" /></svg>
+          </span>
+        </button>
       </li>
     </template>
 

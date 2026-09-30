@@ -25,7 +25,7 @@ import { setupConnectivity } from '../ui/connectivity.js';
 import { setupCustomFood } from '../ui/custom-food.js';
 import { enhanceSelects } from '../ui/custom-select.js';
 import { setupDashboard } from '../ui/dashboard.js';
-import { loadIntensityLevels } from '../render/sets.js';
+import { loadIntensityLevels, primePerHandExercises } from '../render/sets.js';
 import { setupExercisePicker } from '../ui/exercise-picker.js';
 import { setupFoodDetail } from '../ui/food-detail.js';
 import {
@@ -116,6 +116,12 @@ async function init() {
     coachPage
       ?.refresh({ animate: true })
       .catch((err) => console.error('Edző oldal frissítési hiba:', err));
+
+  /* A kezenkénti-súly konvenció listája a katalógusból, MINDEN gyakorlat-
+     kártya kirajzolása ELŐTT: a renderExercise szinkron, menet közben nem
+     várhat rá, és félig feltöltött halmazzal két egyforma kártya más feliratot
+     kapna. A katalógus-válasz cache-elt, tehát ez nem plusz kérés. */
+  await safe(primePerHandExercises);
 
   setupRouter();
 

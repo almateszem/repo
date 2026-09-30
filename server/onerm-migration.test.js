@@ -83,11 +83,11 @@ test('a migráció a mért csúcsot az új képlettel építi újra', () => {
   assert.equal(bench.updated_at, '2026-09-01 10:00:00', 'az újraszámolás nem új rekord-születés');
 });
 
-test('a bemondott csúcs megmarad, és a séma-verzió a legfrissebb (2) lesz', () => {
+test('a bemondott csúcs megmarad, és a séma-verzió a legfrissebb (3) lesz', () => {
   const squat = maxOf('Guggolás');
   assert.equal(squat.max_1rm, 130);
   assert.equal(squat.source, 'declared');
   const raw = new DatabaseSync(DB_PATH);
-  assert.equal(raw.prepare('PRAGMA user_version').get().user_version, 2);
+  assert.equal(raw.prepare('PRAGMA user_version').get().user_version, 3);
   raw.close();
 });

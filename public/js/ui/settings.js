@@ -3,6 +3,7 @@
 import { api } from '../core/api.js';
 import { NOTIF_CATEGORIES } from '../core/constants.js';
 import { $, $$, cloneTemplate } from '../core/dom.js';
+import { hooks } from '../core/page-hooks.js';
 import { prefs } from '../core/prefs.js';
 import { showToast } from '../core/toast.js';
 import { createModalController } from './modals.js';
@@ -23,6 +24,8 @@ async function setupSettingsModal({ onNotifCatsChange, confirmAction } = {}) {
   const usernameEl = $('.db-username');
   const toggleList = $('[data-list="settings-toggles"]');
   const goalSelect = $('#st-goal');
+  const sexSelect = $('#st-sex');
+  const birthYearInput = $('#st-birth-year');
 
   // A fiók adatai (név-tartalék, aktuális edzés-cél) — egyszer lekérve
   const user = await api.getUser();
@@ -80,6 +83,41 @@ async function setupSettingsModal({ onNotifCatsChange, confirmAction } = {}) {
     } catch (err) {
       goalSelect.value = user.goal ?? '';
       showToast(err.message || 'Az edzés-célt nem sikerült menteni', 'error');
+    }
+  });
+
+  /* Nem: az edzés-cél mintáját követi (azonnal ment, hibánál visszaáll). A
+     profil erőszint-érme ettől függ, ezért mentés után frissítjük is. */
+  sexSelect.value = user.sex ?? '';
+  sexSelect.addEventListener('change', async () => {
+    try {
+      const updated = await api.saveSex(sexSelect.value);
+      user.sex = updated.sex;
+      await api.refreshUser();
+      hooks.refreshProfile?.().catch((err) => console.error('Profil frissítési hiba:', err));
+      showToast('Nem mentve');
+    } catch (err) {
+      sexSelect.value = user.sex ?? '';
+      showToast(err.message || 'A nemet nem sikerült menteni', 'error');
+    }
+  });
+
+  /* Születési év: a nem mintáját követi, de szövegmező, ezért nem minden
+     leütésre ment, hanem a `change`-re (elhagyáskor / Enterre). Az üres mező
+     a törlés. A tartományt a szerver ellenőrzi — a hibaüzenete megy ki. */
+  birthYearInput.max = String(new Date().getFullYear() - 13);
+  birthYearInput.value = user.birthYear ?? '';
+  birthYearInput.addEventListener('change', async () => {
+    const raw = birthYearInput.value.trim();
+    try {
+      const updated = await api.saveBirthYear(raw === '' ? null : Number(raw));
+      user.birthYear = updated.birthYear;
+      await api.refreshUser();
+      hooks.refreshProfile?.().catch((err) => console.error('Profil frissítési hiba:', err));
+      showToast(raw === '' ? 'Születési év törölve' : 'Születési év mentve');
+    } catch (err) {
+      birthYearInput.value = user.birthYear ?? '';
+      showToast(err.message || 'A születési évet nem sikerült menteni', 'error');
     }
   });
 
@@ -232,9 +270,12 @@ async function setupSettingsModal({ onNotifCatsChange, confirmAction } = {}) {
       $('[data-st-account]').textContent = `Bejelentkezve: ${user.username ?? user.name}`;
       closeAccountForms();
       syncToggles();
-      // Az edzés-cél a szerveren él: a modál megnyitásakor a legutóbb
-      // mentett értékre állunk vissza (a fiók adata a betöltéskor kelt).
+      // Az edzés-cél és a nem a szerveren él: a modál megnyitásakor a
+      // legutóbb mentett értékre állunk vissza (a fiók adata a betöltéskor
+      // kelt).
       goalSelect.value = user.goal ?? '';
+      sexSelect.value = user.sex ?? '';
+      birthYearInput.value = user.birthYear ?? '';
       controller.open();
     },
   };

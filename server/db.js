@@ -27,6 +27,7 @@ import { buildExerciseCatalog, buildFoodCatalog } from './data/catalog.js';
 import { estimate1RM } from './recovery.js';
 import { splitLegacyMuscleMap } from './muscles.js';
 import { dayEntry, dayWorkoutName, weekFromLegacy, workoutDays } from './plan-week.js';
+import { effectiveLoad } from './data/bodyweight-load.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Alapból server/fittrack.db; a FITTRACK_DB env-változóval felülírható (pl. teszthez).
@@ -391,6 +392,14 @@ const hasColumn = (table, column) => columnsOf(table).includes(column);
 function ensureColumn(table, column, ddl) {
   if (!hasColumn(table, column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
 }
+/* A fiók neme — 'male' | 'female' | NULL. Elhagyható, és az is marad: a
+   profil erőszint-érméhez kell (a küszöbök nemenként lényegesen eltérnek,
+   lásd data/strength-standards.js), minden más funkció működik nélküle. */
+ensureColumn('users', 'sex', 'sex TEXT');
+/* A születési ÉV (nem dátum) — az erőszint életkori korrekciójához elég, és
+   ennél többet nem kérünk el, mint amennyi a számításhoz kell. Elhagyható:
+   hiányában a küszöbök a 25-40 éves sávra szólnak. */
+ensureColumn('users', 'birth_year', 'birth_year INTEGER');
 ensureColumn('plans', 'days', "days TEXT NOT NULL DEFAULT '[]'");
 /* Melyik edzői kiosztás elfogadásából született a terv (NULL = saját terv).
    A terv-követés ebből tudja, hogy a terv az edzőé, és hogy az edző EREDETI
@@ -706,7 +715,9 @@ backfillExerciseMaxes();
          régi `arms` a bicepszre és a tricepszre, a `back` a hátra, a
          trapézra és az alsó hátra is átmásolódik (muscles.js
          splitLegacyMuscleMap). Az edzésnaplót nem kell átírni: az
-         izomterhelést a motor a gyakorlatnévből mindig újraszámolja. */
+         izomterhelést a motor a gyakorlatnévből mindig újraszámolja.
+     3 — a saját testsúlyos gyakorlatok maximumainak újraszámolása (lent, a
+         terv-migrációk után). */
 const schemaVersion = db.prepare('PRAGMA user_version').get().user_version;
 if (schemaVersion < 1) {
   const userIds = db
@@ -803,6 +814,24 @@ if (!plansHadActive) {
     const plan = pick.get(owner.id);
     if (plan) activate.run(plan.id);
   }
+}
+
+/*   3 — a saját testsúlyos gyakorlatok terhelése (data/bodyweight-load.js):
+         egy húzódzkodás terhelése a test maga, nem a beírt 0 kg. A korábbi
+         naplóból ezek a gyakorlatok vagy ki is maradtak az exercise_maxes-ből
+         (0 kg → nincs becslés), vagy egy értelmetlenül alacsony pluszsúly-
+         értékkel ültek benne — egy 66,5 kg-os embernél „10 kg-os tolódzkodás".
+         Az újraszámolás a napló alapján helyreteszi őket; a bemondott csúcsokat
+         nem érinti (azok a `declared` ágon kiindulópontok).
+         (A fejlesztő ágon ez még 2-es volt; a mainben a 2-es az izomcsoport-
+         bontásé, ezért kapott új számot.) */
+if (schemaVersion < 3) {
+  const userIds = db
+    .prepare('SELECT DISTINCT user_id AS id FROM workouts')
+    .all()
+    .map((row) => row.id);
+  for (const userId of userIds) recomputeExerciseMaxes(userId);
+  db.exec('PRAGMA user_version = 3');
 }
 
 /* ---- Indexek ----
@@ -928,6 +957,30 @@ export function getUserGoal(id) {
 export function setUserGoal(id, goal) {
   db.prepare('UPDATE users SET goal = ? WHERE id = ?').run(goal, id);
   return getUserGoal(id);
+}
+
+/** A fiók neme ('male' | 'female'), vagy null, ha nincs megadva. */
+export function getUserSex(id) {
+  return db.prepare('SELECT sex FROM users WHERE id = ?').get(id)?.sex ?? null;
+}
+
+/** A fiók nemének beállítása. A null a „nincs megadva" — a hívó (server.js)
+    ellenőrzi, hogy az érték a SEXES listában szerepel-e. */
+export function setUserSex(id, sex) {
+  db.prepare('UPDATE users SET sex = ? WHERE id = ?').run(sex, id);
+  return getUserSex(id);
+}
+
+/** A fiók születési éve, vagy null, ha nincs megadva. */
+export function getUserBirthYear(id) {
+  return db.prepare('SELECT birth_year FROM users WHERE id = ?').get(id)?.birth_year ?? null;
+}
+
+/** A születési év beállítása. A null a „nincs megadva" — a hívó (server.js)
+    ellenőrzi a tartományt. */
+export function setUserBirthYear(id, year) {
+  db.prepare('UPDATE users SET birth_year = ? WHERE id = ?').run(year, id);
+  return getUserBirthYear(id);
 }
 
 /** Felhasználó keresése a (már kisbetűsített) felhasználónév alapján — a
@@ -2319,6 +2372,18 @@ export function saveCheckin(userId, date, fields) {
   return getCheckin(userId, date);
 }
 
+/** A testsúly egy adott napon: az utolsó bejegyzés a napon vagy előtte. Ha a
+    napló csak később kezdődik, a legkorábbi bejegyzés — az a legjobb
+    közelítés. Bejegyzés híján 0, és a hívó onnan tudja, hogy nem tippelünk. */
+export function weightForDate(userId, date) {
+  const log = getWeightLog(userId);
+  let best = null;
+  for (const entry of log) {
+    if (entry.date <= date && (!best || entry.date >= best.date)) best = entry;
+  }
+  return (best ?? log[0])?.kg ?? 0;
+}
+
 /** A becsült 1RM a PR-követéshez: az app közös Epley-képlete (recovery.js →
     estimate1RM, egy ismétlésnél maga a súly). A szett mezői szövegként is
     jöhetnek; nem számolható értékre 0. */
@@ -2344,16 +2409,23 @@ export function calculateEpley1RM(weight, reps) {
  * könnyű bemelegítést hirdetett rekordnak (10 × 40 kg a 5 × 100 helyett),
  * miközben a mellette álló csúcs a valódi értéket mutatta.
  *
+ * A `baseLoad` a saját testsúlyos gyakorlatoké: ott a beírt kilogramm csak a
+ * RÁADÁS, a terhelés zöme a testsúly. Enélkül a rangsor is hibás volna — nulla
+ * súllyal minden szett 1RM-je 0, tehát a „legjobb" mindig az ELSŐ pipált sor
+ * lenne, nem a legtöbb ismétléses.
+ *
  * @param {Array<object>} sets egy gyakorlat szettjei
- * @param {{ fallbackToFirst?: boolean }} [options] pipa híján az első sor legyen-e a rekord
+ * @param {{ fallbackToFirst?: boolean, baseLoad?: number }} [options]
+ *        fallbackToFirst: pipa híján az első sor legyen-e a rekord;
+ *        baseLoad: minden szett súlyához hozzáadandó alapterhelés (kg)
  * @returns {object|null} a rekordot hozó szett, vagy null
  */
-export function bestCompletedSet(sets = [], { fallbackToFirst = false } = {}) {
+export function bestCompletedSet(sets = [], { fallbackToFirst = false, baseLoad = 0 } = {}) {
   let best = null;
   let best1rm = 0;
   for (const set of sets) {
     if (!set?.done) continue;
-    const oneRM = calculateEpley1RM(set.weight, set.reps);
+    const oneRM = calculateEpley1RM(Number(set.weight || 0) + baseLoad, set.reps);
     if (best === null || oneRM > best1rm) {
       best = set;
       best1rm = oneRM;
@@ -2378,7 +2450,10 @@ export function getExerciseMax(userId, exerciseName) {
 export function getAllExerciseMaxes(userId) {
   return db
     .prepare(
-      'SELECT exercise_name, max_1rm, date FROM exercise_maxes WHERE user_id = ? ORDER BY date DESC',
+      // A `source` is jön: a hívó tudni akarja, naplózott szett vagy bemondás
+      // áll a szám mögött. A két meglévő fogyasztó mezőnként képez át, nekik
+      // egy plusz oszlop nem számít.
+      'SELECT exercise_name, max_1rm, date, source FROM exercise_maxes WHERE user_id = ? ORDER BY date DESC',
     )
     .all(userId);
 }
@@ -2568,8 +2643,18 @@ export function recomputeExerciseMaxes(userId) {
          Az új szabállyal mentett sorokon (1) csak a pipált szett számít —
          különben egy törlés utáni újraszámolás visszahozná azt a hamis
          rekordot, amit az addWorkout mentéskor már nem adott ki. */
-      const record = bestCompletedSet(exercise?.sets ?? [], { fallbackToFirst: row.pr_rule === 0 });
-      const oneRM = record ? calculateEpley1RM(record.weight, record.reps) : 0;
+      /* Saját testsúlyos gyakorlatnál a terhelés zöme a test — ugyanazzal az
+         alapterheléssel kell számolni, mint mentéskor, különben az
+         újraszámolás visszaírná a régi, nulla körüli értéket. Az edzés NAPJÁHOZ
+         tartozó testsúllyal, nem a maival. */
+      const baseLoad = effectiveLoad(name, 0, weightForDate(userId, row.date));
+      const record = bestCompletedSet(exercise?.sets ?? [], {
+        fallbackToFirst: row.pr_rule === 0,
+        baseLoad,
+      });
+      const oneRM = record
+        ? calculateEpley1RM(Number(record.weight || 0) + baseLoad, record.reps)
+        : 0;
       if (oneRM <= 0) continue;
 
       const current = best.get(name);
@@ -3088,13 +3173,26 @@ function insertWorkoutOnce(userId, name, date, exercises, planId) {
   // PR-eket számítunk az Epley-képlettel: 1RM = weight × (1 + reps/30)
   // Ha egy gyakorlatban van teljesített szett, és az 1RM nagyobb mint az eddigi maximum,
   // akkor PR-ként jelöljük meg a gyakorlatot
+  /* A napi testsúly a saját testsúlyos gyakorlatokhoz kell: ott a terhelés
+     zöme maga a test, a beírt kilogramm csak a ráadás. Az edzés NAPJÁHOZ
+     tartozó súlyt keressük, nem a mait — egy tavalyi húzódzkodás a tavalyi
+     testsúlyoddal volt annyi, amennyi. */
+  const bodyweightOnDate = weightForDate(userId, date);
+
   const processedExercises = exercises.map((exercise) => {
     const sets = exercise.sets || [];
 
+    /* Saját testsúlyosnál a testsúly hányada MINDEN szett terheléséhez
+       hozzáadódik — a rangsoroláshoz is, különben nulla súlyon minden szett
+       egyformán 0 lenne, és a „legjobb" az első pipált sor lenne. */
+    const baseLoad = effectiveLoad(exercise.name, 0, bodyweightOnDate);
+
     // A rekordot hozó szett: az új edzésen CSAK a pipáltak közül a legjobb
     // (pr_rule = 1) — egy előre kitöltött, el nem végzett sor nem rekord.
-    const record = bestCompletedSet(sets);
-    const bestCompleted1rm = record ? calculateEpley1RM(record.weight, record.reps) : 0;
+    const record = bestCompletedSet(sets, { baseLoad });
+    const bestCompleted1rm = record
+      ? calculateEpley1RM(Number(record.weight || 0) + baseLoad, record.reps)
+      : 0;
 
     // PR-ellenőrzés és frissítés
     let isPr = false;

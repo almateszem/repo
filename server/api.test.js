@@ -126,6 +126,8 @@ test('bejelentkezés nélkül MINDEN /api végpont 401-et ad', async () => {
     ['GET', '/api/prs'],
     ['GET', '/api/prs/history?exercise=X'],
     ['GET', '/api/exercise-maxes'],
+    ['GET', '/api/exercise-records'],
+    ['GET', '/api/bodyweight-exercises'],
     ['GET', '/api/readiness'],
     ['GET', '/api/checkin'],
     ['GET', '/api/export'],
@@ -798,6 +800,393 @@ test('az export tartalmazza az egyéni csúcsokat, a dátumukkal együtt', async
   assert.notEqual(bencs.max1rm, 60 * (1 + 5 / 30), 'nem Anna 60 kg-ja');
 });
 
+test('a rekord-végpont soronként ad dátumot és forrást, a lapos térkép mellett', async () => {
+  /* A profil rekord-csempéi tetszőleges gyakorlatot tűzhetnek ki, és a
+     csempének a számon túl azt is ki kell írnia, MIKOR és MIRE épül: a
+     naplózott csúcs és a bemondott becslés nem ugyanaz az állítás. A lapos
+     /api/exercise-maxes térkép erre nem elég, viszont azon az edzésnapló
+     valós idejű PR-jelzése ül — ezért van a kettő külön. */
+  const records = (await request('GET', '/api/exercise-records', { cookie: belaCookie })).json;
+  assert.ok(Array.isArray(records));
+
+  const guggolas = records.find((record) => record.name === 'Guggolás');
+  assert.ok(guggolas, 'a guggolás rekordja benne van');
+  assert.equal(guggolas.max1rm, Math.round(120 * (1 + 3 / 30) * 10) / 10);
+  assert.equal(guggolas.date, today());
+  assert.equal(guggolas.source, 'measured', 'naplózott szettből');
+
+  /* A bemondott csúcs is rekord, csak más a forrása — a csempe ezt írja ki.
+     Olyan gyakorlatot választunk, amit Béla NEM naplózott: a naplózott szett
+     különben felülírná a bemondást (updateExerciseMax → source='measured'). */
+  await request('POST', '/api/strength-assessment', {
+    cookie: belaCookie,
+    body: { entries: [{ exercise: 'Tolódzkodás', weight: 40, reps: 5 }] },
+  });
+  const frissitett = (await request('GET', '/api/exercise-records', { cookie: belaCookie })).json;
+  const tolodzkodas = frissitett.find((record) => record.name === 'Tolódzkodás');
+  assert.ok(tolodzkodas, 'a bemondott csúcs is rekordként jön vissza');
+  assert.equal(tolodzkodas.source, 'declared', 'bemondásból');
+
+  // A szűrés itt is él: a lista a HÍVÓ csúcsaiból áll, nem a másik fiókéból.
+  assert.ok(
+    !frissitett.some((record) => record.max1rm === Math.round(60 * (1 + 5 / 30) * 10) / 10),
+    'Anna 60 kg-os fekvenyomása nem szivárog át',
+  );
+});
+
+test('az erőszint-érem a NEMHEZ tartozó küszöböt használja', async () => {
+  /* Ugyanaz a testsúlyhoz mért teljesítmény férfinál és nőnél más szintet
+     jelent — egyetlen közös küszöb a felhasználók egyik felének mindig hibás
+     visszajelzést adna. A teszt pont ezt az egy dolgot szögezi le: AZONOS
+     rekord + AZONOS testsúly, csak a nem más, és más lesz a fokozat.
+
+     Saját fiók, mert testsúlyt is naplóz: a többi teszt Béla súly-nélküli
+     állapotára épít, és az erőszinthez testsúly KELL. */
+  const reg = await request('POST', '/api/auth/register', {
+    body: { username: 'eromero', displayName: 'Erő Emese', password: 'jelszo123' },
+  });
+  const cookie = cookieFrom(reg);
+
+  await request('POST', '/api/workouts', {
+    cookie,
+    body: { name: 'Nyomónap', exercises: [gyakorlat('Fekvenyomás', 90, 5)] },
+  });
+  /* 1RM = 90 × (1 + 5/30) = 105 kg. 106 kg testsúlyon ez férfinál újonc
+     (küszöbök ~99 / 125 kg), nőnél haladó (~95 / 121 kg) — mindkét határtól
+     legalább 6%-ra. A testsúly SZÁNDÉKOSAN nem a küszöb környékére esik: egy
+     hajszálnyi eltérés a táblában nem billenthet át egy tesztet, különben nem
+     a szabályt méri, hanem a kerekítést. */
+  await request('POST', '/api/weight-log', { cookie, body: { kg: 106 } });
+
+  const szint = async () =>
+    (await request('GET', '/api/exercise-records', { cookie })).json.find(
+      (record) => record.name === 'Fekvenyomás',
+    ).standard;
+
+  assert.equal(await szint(), null, 'nem megadása nélkül nincs erőszint — nem találgatunk');
+
+  await request('PUT', '/api/user', { cookie, body: { sex: 'male' } });
+  const ferfi = await szint();
+  await request('PUT', '/api/user', { cookie, body: { sex: 'female' } });
+  const no = await szint();
+
+  assert.equal(no.ratio, ferfi.ratio, 'az arány ugyanaz — csak a küszöb más');
+  assert.equal(ferfi.level, 'novice');
+  assert.equal(ferfi.tier, 'bronze', 'a kezdő és az újonc is bronz');
+  assert.equal(no.level, 'advanced');
+  assert.equal(no.tier, 'gold');
+
+  // Ismeretlen érték nem megy át.
+  const rossz = await request('PUT', '/api/user', { cookie, body: { sex: 'egyéb' } });
+  assert.equal(rossz.status, 400);
+});
+
+test('a rekord megmondja, MI hiányzik az érméhez', async () => {
+  /* Enélkül a hiányzó beállítás néma szürke koronggá válik, ami
+     megkülönböztethetetlen attól, mintha a színkódolás romlott volna el — a
+     felhasználó pedig a saját teljesítményének hiszi, ami valójában egy
+     kitöltetlen mező. Ez a teszt azt őrzi, hogy a szerver mindig megmondja,
+     mi az akadály. */
+  const reg = await request('POST', '/api/auth/register', {
+    body: { username: 'hianyos', displayName: 'Hiányos Hanna', password: 'jelszo123' },
+  });
+  const cookie = cookieFrom(reg);
+
+  const rekord = async (nev) =>
+    (await request('GET', '/api/exercise-records', { cookie })).json.find((r) => r.name === nev);
+
+  // Egyetlen nap, se nem, se testsúly.
+  await request('POST', '/api/workouts', {
+    cookie,
+    body: {
+      name: 'Első nap',
+      exercises: [gyakorlat('Fekvenyomás', 70, 5), gyakorlat('Bicepsz hajlítás', 20, 10)],
+    },
+  });
+  assert.equal((await rekord('Fekvenyomás')).needs, 'bodyweight', 'testsúly nélkül nincs arány');
+
+  await request('POST', '/api/weight-log', { cookie, body: { kg: 70 } });
+  assert.equal(
+    (await rekord('Fekvenyomás')).needs,
+    'sex',
+    'van rá standard — már csak a nem hiányzik',
+  );
+  assert.equal(
+    (await rekord('Bicepsz hajlítás')).needs,
+    'second-session',
+    'nincs rá standard: ott a saját kiindulópont kell, ahhoz viszont két nap',
+  );
+
+  await request('PUT', '/api/user', { cookie, body: { sex: 'female' } });
+  const kesz = await rekord('Fekvenyomás');
+  assert.equal(kesz.needs, null, 'minden megvan — nincs mire várni');
+  assert.ok(kesz.standard, 'és meg is jött az erőszint');
+});
+
+test('kézisúlyzósnál a KEZENKÉNTI súly közvetlenül a küszöbhöz mérődik', async () => {
+  /* A ház szabálya: a beírt szám egy kézisúlyzóé — és a forrás küszöbei is
+     egy kézisúlyzóra szólnak. Ha valaki „kijavítaná" kétszeresre, a
+     kézisúlyzós rekord két-három szinttel feljebb csúszna.
+
+     A teszt a szorzó HIÁNYÁT rögzíti: 45 kg/kéz 80 kg-on középhaladó (~39 /
+     52 kg a határ); duplázva (90 kg) már elit volna. */
+  const reg = await request('POST', '/api/auth/register', {
+    body: { username: 'kezenkent', displayName: 'Kezenkénti Kázmér', password: 'jelszo123' },
+  });
+  const cookie = cookieFrom(reg);
+
+  await request('POST', '/api/weight-log', { cookie, body: { kg: 80 } });
+  await request('PUT', '/api/user', { cookie, body: { sex: 'male' } });
+  await request('POST', '/api/workouts', {
+    cookie,
+    body: { name: 'Nyomónap', exercises: [gyakorlat('Kézisúlyzós fekvenyomás', 45, 1)] },
+  });
+
+  const rekord = (await request('GET', '/api/exercise-records', { cookie })).json.find(
+    (r) => r.name === 'Kézisúlyzós fekvenyomás',
+  );
+
+  assert.equal(rekord.max1rm, 45, 'a TÁROLT érték kezenkénti marad — a naplót nem írjuk át');
+  assert.equal(rekord.perHand, true, 'a felület tudja, hogy ki kell írnia a „/ kéz"-t');
+  assert.equal(rekord.standard.level, 'intermediate');
+
+  /* Ugyanaz a 45 kg RÚDDAL kezdő szint (a határ ~53 kg): a rúdos és a
+     kézisúlyzós gyakorlatnak saját küszöbe van, nem egymás átszámításai. */
+  await request('POST', '/api/workouts', {
+    cookie,
+    body: { name: 'Rúdnap', exercises: [gyakorlat('Fekvenyomás', 45, 1)] },
+  });
+  const rudas = (await request('GET', '/api/exercise-records', { cookie })).json.find(
+    (r) => r.name === 'Fekvenyomás',
+  );
+  assert.equal(rudas.standard.level, 'beginner');
+  assert.equal(rudas.perHand, false);
+});
+
+test('a tapasztalt újonc az ELSŐ rekordjánál a valós szintjét kapja — gépen is', async () => {
+  /* Ez az egész erőszint-mérce értelme: aki évek óta edz, és most kezdi
+     használni az appot, annak a 100 kg körüli gépi mellnyomása nem „első
+     rekord, bronz". A fejlődés-mércének ehhez két edzés kellene — a
+     standardnak nem. A gép `approximate`: a felület „≈"-vel jelöli. */
+  const reg = await request('POST', '/api/auth/register', {
+    body: { username: 'tapasztalt', displayName: 'Tapasztalt Tamás', password: 'jelszo123' },
+  });
+  const cookie = cookieFrom(reg);
+
+  await request('POST', '/api/weight-log', { cookie, body: { kg: 85 } });
+  await request('PUT', '/api/user', { cookie, body: { sex: 'male' } });
+  // 1RM = 85 × (1 + 5/30) ≈ 99,2 kg; 85 kg-on a középhaladó sáv ~92 … 126 kg.
+  await request('POST', '/api/workouts', {
+    cookie,
+    body: { name: 'Első edzés', exercises: [gyakorlat('Gépi mellnyomás', 85, 5)] },
+  });
+
+  const rekord = (await request('GET', '/api/exercise-records', { cookie })).json.find(
+    (r) => r.name === 'Gépi mellnyomás',
+  );
+  assert.equal(rekord.standard.level, 'intermediate');
+  assert.equal(rekord.standard.tier, 'silver');
+  assert.equal(rekord.standard.approximate, true, 'gépi gyakorlat: tájékoztató szint');
+  assert.equal(rekord.progress, null, 'fejlődés még nincs — egyetlen edzés');
+  assert.equal(rekord.needs, null, 'mégsem hiányzik semmi: a standard szólt');
+});
+
+test('az életkor a KÜSZÖBÖT viszi lejjebb, a rekordot nem', async () => {
+  /* Ugyanaz a 90 kg-os fekvenyomás 80 kg-on: 25-40 évesen újonc (~73 / 95 kg
+     a határ), 65 évesen haladó (~83 / 101 kg). A kiírt rekord közben nem
+     változik — a 90 kg 90 kg marad, csak mást ér. */
+  const reg = await request('POST', '/api/auth/register', {
+    body: { username: 'korosabb', displayName: 'Korosabb Kornél', password: 'jelszo123' },
+  });
+  const cookie = cookieFrom(reg);
+
+  await request('POST', '/api/weight-log', { cookie, body: { kg: 80 } });
+  await request('PUT', '/api/user', { cookie, body: { sex: 'male' } });
+  await request('POST', '/api/workouts', {
+    cookie,
+    body: { name: 'Nyomónap', exercises: [gyakorlat('Fekvenyomás', 90, 1)] },
+  });
+
+  const rekord = async () =>
+    (await request('GET', '/api/exercise-records', { cookie })).json.find(
+      (r) => r.name === 'Fekvenyomás',
+    );
+
+  assert.equal((await rekord()).standard.level, 'novice', 'születési év nélkül a 25-40-es sáv');
+
+  const ev = new Date().getFullYear() - 65;
+  const mentes = await request('PUT', '/api/user', { cookie, body: { birthYear: ev } });
+  assert.equal(mentes.json.birthYear, ev);
+
+  const idosebb = await rekord();
+  assert.equal(idosebb.standard.level, 'advanced');
+  assert.equal(idosebb.max1rm, 90, 'a rekord ugyanaz');
+
+  // Életszerűtlen év nem megy át; az üres érték törlés.
+  for (const rossz of [new Date().getFullYear(), 1800, 'abc', 1990.5]) {
+    const valasz = await request('PUT', '/api/user', { cookie, body: { birthYear: rossz } });
+    assert.equal(valasz.status, 400, `elutasítva: ${rossz}`);
+  }
+  const torles = await request('PUT', '/api/user', { cookie, body: { birthYear: '' } });
+  assert.equal(torles.json.birthYear, null);
+  assert.equal((await rekord()).standard.level, 'novice');
+});
+
+test('saját testsúlyos gyakorlat a TESTSÚLLYAL kap rekordot, nem nullával', async () => {
+  /* Eddig a húzódzkodás 0 kg-mal naplózódott, az estimate1RM pedig
+     `weight <= 0`-ra nullát ad — így ezek a gyakorlatok SOHA nem kerültek be
+     az exercise_maxes-be: nem lett rekordjuk, nem lett PR-jük, és a profil
+     csempéin sem kaphattak érmet. A terhelés valójában a test maga. */
+  const reg = await request('POST', '/api/auth/register', {
+    body: { username: 'sajatsuly', displayName: 'Saját Sára', password: 'jelszo123' },
+  });
+  const cookie = cookieFrom(reg);
+  await request('POST', '/api/weight-log', { cookie, body: { kg: 70 } });
+
+  await request('POST', '/api/workouts', {
+    cookie,
+    body: { name: 'Húzós nap', exercises: [gyakorlat('Húzódzkodás', 0, 8)] },
+  });
+
+  const rekord = (await request('GET', '/api/exercise-records', { cookie })).json.find(
+    (r) => r.name === 'Húzódzkodás',
+  );
+  assert.ok(rekord, 'van rekordja — korábban egyáltalán nem volt');
+  // 70 kg testsúly, 8 ismétlés → 70 × (1 + 8/30) ≈ 88,7 kg
+  assert.equal(rekord.max1rm, 88.7);
+  assert.equal(rekord.bodyweightBased, true, 'a felület tudja, hogy ezt jelölnie kell');
+
+  /* A ráakasztott súly HOZZÁADÓDIK, nem helyettesít. 20 kg övvel 90 kg a
+     terhelés — ez egyben PR is, tehát a csúcs felülíródik. */
+  await request('POST', '/api/workouts', {
+    cookie,
+    body: { name: 'Súlyozott nap', exercises: [gyakorlat('Húzódzkodás', 20, 5)] },
+  });
+  const sulyozott = (await request('GET', '/api/exercise-records', { cookie })).json.find(
+    (r) => r.name === 'Húzódzkodás',
+  );
+  // (70 + 20) × (1 + 5/30) = 105
+  assert.equal(sulyozott.max1rm, 105, 'a pluszsúly a testsúlyhoz adódik');
+
+  /* A SEGÍTETT változat szándékosan kimarad: ott a gép CSÖKKENTI a terhelést,
+     tehát a beírt szám előjele fordított — hozzáadva kétszeresen tévednénk. */
+  await request('POST', '/api/workouts', {
+    cookie,
+    body: { name: 'Segített nap', exercises: [gyakorlat('Segített húzódzkodás', 0, 10)] },
+  });
+  const segitett = (await request('GET', '/api/exercise-records', { cookie })).json.find(
+    (r) => r.name === 'Segített húzódzkodás',
+  );
+  assert.equal(segitett, undefined, 'a segített változat nem kap testsúly-alapú rekordot');
+});
+
+test('testsúly nélkül a saját testsúlyos gyakorlat sem tippel', async () => {
+  /* Testsúly-bejegyzés híján NEM találgatunk egy átlagos testsúlyt: a rekord
+     elmarad, és a felület meg tudja mondani, hogy testsúlyt kell naplózni. */
+  const reg = await request('POST', '/api/auth/register', {
+    body: { username: 'sulytalan', displayName: 'Súlytalan Sanyi', password: 'jelszo123' },
+  });
+  const cookie = cookieFrom(reg);
+  await request('POST', '/api/workouts', {
+    cookie,
+    body: { name: 'Húzós nap', exercises: [gyakorlat('Húzódzkodás', 0, 8)] },
+  });
+
+  const rekordok = (await request('GET', '/api/exercise-records', { cookie })).json;
+  assert.equal(
+    rekordok.find((r) => r.name === 'Húzódzkodás'),
+    undefined,
+    'nincs testsúly → nincs terhelés → nincs rekord',
+  );
+});
+
+test('két edzés EGY napon is két adatpont — a fejlődés elindul', async () => {
+  /* A fejlődés korábban külön NAPOKAT számolt. Aki egy napon belül két
+     edzést naplózott — mert javított egyet, vagy mert tényleg kétszer
+     edzett —, annál a két bejegyzés egynek látszott, és a fejlődése sosem
+     indult el: a csempe örökre „első rekord" maradt, hiába vett fel új,
+     jobb eredményt. Két külön naplózott edzés két külön adatpont.
+     Erőstandard NÉLKÜLI gyakorlattal: ott a nem hiánya nem takarja el a
+     fejlődés-mércét (a „Gépi ferde nyomás” azóta standardot kapott). */
+  const reg = await request('POST', '/api/auth/register', {
+    body: { username: 'ketedzes', displayName: 'Két Edzés', password: 'jelszo123' },
+  });
+  const cookie = cookieFrom(reg);
+  await request('POST', '/api/weight-log', { cookie, body: { kg: 80 } });
+
+  const rekord = async () =>
+    (await request('GET', '/api/exercise-records', { cookie })).json.find(
+      (r) => r.name === 'Gépi hátsó vállemelés',
+    );
+
+  await request('POST', '/api/workouts', {
+    cookie,
+    body: { name: 'Első', exercises: [gyakorlat('Gépi hátsó vállemelés', 60, 5)] },
+  });
+  assert.equal((await rekord()).needs, 'second-session', 'egy edzésből még nincs mihez mérni');
+
+  // MÁSODIK edzés, UGYANAZON A NAPON — a szerver a kérés napjára könyvel.
+  await request('POST', '/api/workouts', {
+    cookie,
+    body: { name: 'Második', exercises: [gyakorlat('Gépi hátsó vállemelés', 75, 5)] },
+  });
+
+  const utana = await rekord();
+  assert.equal(utana.needs, null, 'a második edzés elindítja a fejlődést');
+  assert.ok(utana.progress, 'van fejlődés-adat');
+  // 60 → 75 kg ugyanannyi ismétléssel, változatlan testsúlyon = +25%
+  assert.equal(utana.progress.percent, 25);
+});
+
+test('a gyémánt fokozat a versenyzői sávban jár, és nemenként máshol kezdődik', async () => {
+  /* A gyémánt nem „nagyon jó", hanem az a tartomány, ahonnan a szám már
+     önmagában figyelemre méltó — a küszöbe ezért jóval az arany fölött van, és
+     a nemek között itt is eltér. Ugyanaz a rekord, ugyanaz a testsúly. */
+  const reg = await request('POST', '/api/auth/register', {
+    body: { username: 'gyemant', displayName: 'Gyémánt Gyula', password: 'jelszo123' },
+  });
+  const cookie = cookieFrom(reg);
+
+  // 1RM = 120 × (1 + 5/30) = 140 kg. 65 kg testsúlyon a férfi elit küszöbe
+  // ~127 kg — ez gyémánt, 10% ráhagyással.
+  await request('POST', '/api/workouts', {
+    cookie,
+    body: { name: 'Erős nap', exercises: [gyakorlat('Fekvenyomás', 120, 5)] },
+  });
+  await request('POST', '/api/weight-log', { cookie, body: { kg: 65 } });
+
+  const szint = async () =>
+    (await request('GET', '/api/exercise-records', { cookie })).json.find(
+      (record) => record.name === 'Fekvenyomás',
+    ).standard;
+
+  await request('PUT', '/api/user', { cookie, body: { sex: 'male' } });
+  assert.equal((await szint()).tier, 'diamond', 'elit szint');
+
+  /* 110 kg-os testsúlyon ugyanez a rekord középhaladó (~130 / 159 kg) →
+     ezüst. A fokozat tehát a TESTSÚLYTÓL függ, nem a nyers kilogrammtól. */
+  await request('POST', '/api/weight-log', { cookie, body: { kg: 110 } });
+  assert.equal((await szint()).tier, 'silver', 'nagyobb testsúlyon ugyanaz a súly kevesebbet ér');
+});
+
+test('a nem mentése nem törli az edzés-célt (részleges törzs)', async () => {
+  /* A két mező két külön legördülő, sosem mennek együtt. Ha a végpont a
+     hiányzó kulcsot „állítsd null-ra"-ként értené, a nem mentése némán
+     kitörölné a célt — és fordítva. */
+  await request('PUT', '/api/user', { cookie: belaCookie, body: { goal: 'strength' } });
+  await request('PUT', '/api/user', { cookie: belaCookie, body: { sex: 'male' } });
+
+  const user = (await request('GET', '/api/user', { cookie: belaCookie })).json;
+  assert.equal(user.goal, 'strength', 'a cél megmaradt');
+  assert.equal(user.sex, 'male', 'a nem is eltárolódott');
+
+  // Az ÜRES sztring viszont szándékos törlés, nem „ne nyúlj hozzá".
+  await request('PUT', '/api/user', { cookie: belaCookie, body: { sex: '' } });
+  const torolt = (await request('GET', '/api/user', { cookie: belaCookie })).json;
+  assert.equal(torolt.sex, null);
+  assert.equal(torolt.goal, 'strength', 'a cél ettől sem sérül');
+});
+
 test('a piszkozat visszatöltődik, és törlés után eltűnik', async () => {
   const mentes = await request('PUT', '/api/workout-draft', {
     cookie: belaCookie,
@@ -931,11 +1320,9 @@ test('egyszerre egy aktív terv van', async () => {
 });
 
 test('az AKTÍV terv törlésekor a legújabb megmaradt terv lesz az aktív', async () => {
-  const cookie = cookieFrom(
-    await request('POST', '/api/auth/register', {
-      body: { username: 'torlo', displayName: 'Törlő', password: 'jelszo123' },
-    }),
-  );
+  /* Béla fiókja: az előző teszt végén nincs aktív terve. Nem regisztrálunk
+     újat — a fájl a regisztrációs korlát (30/óra/IP) közelében jár. */
+  const cookie = belaCookie;
   const uj = async (name) =>
     (
       await request('POST', '/api/plans', {
