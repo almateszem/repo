@@ -311,6 +311,8 @@ function renderCoachKpis(athletes) {
   const unread = athletes.reduce((sum, a) => sum + a.unread, 0);
   const readiness = average(athletes.map((a) => (hasReadiness(a.readiness) ? a.readiness : null)));
   const adherence = average(athletes.map((a) => a.adherence));
+  // Van kiosztott terv, csak még nem volt esedékes edzésnap — ez nem „nincs terv”
+  const hasPlan = athletes.some((a) => a.plan);
   const flagged = athletes.filter((a) => a.alert).length;
 
   $('[data-kpis]').replaceChildren(
@@ -331,7 +333,11 @@ function renderCoachKpis(athletes) {
       'Átl. terv-követés',
       orDash(adherence),
       adherence === null ? '' : '%',
-      adherence === null ? 'még nincs kiosztott terv' : 'jó nap · szett · RPE a terv szerint',
+      adherence !== null
+        ? 'jó nap · szett · RPE a terv szerint'
+        : hasPlan
+          ? 'még nem volt ütemezett edzésnap'
+          : 'még nincs kiosztott terv',
       adherence === null ? 'is-empty' : '',
     ),
     kpi(
