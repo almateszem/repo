@@ -14,75 +14,11 @@
  * Az api.test.js-hez hasonlóan a VALÓDI szervert indítja el, saját ideiglenes
  * adatbázissal, és HTTP-n beszél vele.
  */
-import test, { after } from 'node:test';
+import test from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { startServer, cookieFrom, gyakorlat } from './test-harness.js';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const workDir = mkdtempSync(path.join(tmpdir(), 'fittrack-coach-'));
-
-const child = spawn(
-  process.execPath,
-  ['--disable-warning=ExperimentalWarning', path.join(__dirname, 'server.js')],
-  {
-    env: { ...process.env, FITTRACK_DB: path.join(workDir, 'coach.db'), PORT: '0' },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  },
-);
-
-const baseUrl = await new Promise((resolve, reject) => {
-  let output = '';
-  const timer = setTimeout(() => reject(new Error(`A szerver nem indult el időben:\n${output}`)), 20_000);
-
-  child.stdout.setEncoding('utf8');
-  child.stdout.on('data', (chunk) => {
-    output += chunk;
-    const match = output.match(/http:\/\/localhost:(\d+)/);
-    if (match) {
-      clearTimeout(timer);
-      resolve(`http://localhost:${match[1]}`);
-    }
-  });
-  child.stderr.setEncoding('utf8');
-  child.stderr.on('data', (chunk) => { output += chunk; });
-  child.on('exit', (code) => {
-    clearTimeout(timer);
-    reject(new Error(`A szerver kilépett (kód: ${code}):\n${output}`));
-  });
-});
-
-after(async () => {
-  await new Promise((resolve) => {
-    child.once('exit', resolve);
-    child.kill();
-  });
-  rmSync(workDir, { recursive: true, force: true });
-});
-
-async function request(method, urlPath, { body, cookie } = {}) {
-  const headers = {};
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
-  if (cookie) headers.Cookie = cookie;
-
-  const res = await fetch(`${baseUrl}${urlPath}`, {
-    method,
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
-    redirect: 'manual',
-  });
-
-  const setCookie = res.headers.getSetCookie();
-  const text = await res.text();
-  let json = null;
-  try { json = text ? JSON.parse(text) : null; } catch { /* nem JSON */ }
-  return { status: res.status, json, setCookie, retryAfter: res.headers.get('retry-after') };
-}
-
-const cookieFrom = (res) => (res.setCookie[0] ?? '').split(';')[0];
+const { request } = await startServer({ label: 'coach' });
 
 /** Új fiók + belépett munkamenet egy lépésben. */
 async function register(username, displayName) {
@@ -92,12 +28,6 @@ async function register(username, displayName) {
   assert.equal(res.status, 201, `${username} regisztrációja`);
   return cookieFrom(res);
 }
-
-/** Egy gyakorlat, egyetlen teljesített munkasorozattal. */
-const gyakorlat = (name, weight) => ({
-  name,
-  sets: [{ reps: '5', weight: String(weight), rpe: '8', type: 'work', done: true }],
-});
 
 /* A három szereplő: edző, sportoló, és egy kívülálló, akinek semmi köze
    hozzájuk — ő a teszt „támadója". */
@@ -113,25 +43,45 @@ let linkId = 0;
 
 test('bejelentkezés nélkül a kapcsolat- és üzenet-végpontok is 401-et adnak', async () => {
   const endpoints = [
-    ['GET', '/api/athletes'], ['POST', '/api/athletes'], ['DELETE', '/api/athletes/1'],
-    ['GET', '/api/coach'], ['DELETE', '/api/coach'],
-    ['POST', '/api/coach/invites/1/accept'], ['DELETE', '/api/coach/invites/1'],
-    ['GET', '/api/messages/1'], ['POST', '/api/messages/1'], ['POST', '/api/messages/1/read'],
-    ['GET', '/api/goals'], ['PUT', '/api/user'],
-    ['GET', '/api/comments'], ['GET', '/api/comments/by-target'],
-    ['POST', '/api/comments'], ['DELETE', '/api/comments/1'],
-    ['GET', '/api/athletes/1/comments'], ['POST', '/api/athletes/1/comments'],
+    ['GET', '/api/athletes'],
+    ['POST', '/api/athletes'],
+    ['DELETE', '/api/athletes/1'],
+    ['GET', '/api/coach'],
+    ['DELETE', '/api/coach'],
+    ['POST', '/api/coach/invites/1/accept'],
+    ['DELETE', '/api/coach/invites/1'],
+    ['GET', '/api/messages/1'],
+    ['POST', '/api/messages/1'],
+    ['POST', '/api/messages/1/read'],
+    ['GET', '/api/goals'],
+    ['PUT', '/api/user'],
+    ['GET', '/api/comments'],
+    ['GET', '/api/comments/by-target'],
+    ['POST', '/api/comments'],
+    ['DELETE', '/api/comments/1'],
+    ['GET', '/api/athletes/1/comments'],
+    ['POST', '/api/athletes/1/comments'],
     ['PUT', '/api/workouts/1/feedback'],
-    ['GET', '/api/nutrition/goal'], ['PUT', '/api/nutrition/goal'],
-    ['DELETE', '/api/nutrition/goal'], ['PUT', '/api/athletes/1/nutrition-goal'],
-    ['GET', '/api/readiness/advice'], ['POST', '/api/readiness/advice/apply'],
-    ['GET', '/api/strength-assessment'], ['POST', '/api/strength-assessment'],
-    ['DELETE', '/api/plans/1'], ['PUT', '/api/weight-log/1'],
-    ['DELETE', '/api/weight-log/1'], ['PUT', '/api/nutrition/log/1'],
-    ['GET', '/api/measurements'], ['GET', '/api/measurements/sites'],
-    ['PUT', '/api/measurements'], ['DELETE', '/api/measurements/1'],
-    ['POST', '/api/athletes/1/plan'], ['POST', '/api/plan-offers/1/accept'],
-    ['DELETE', '/api/plan-offers/1'], ['GET', '/api/foods/barcode/1'],
+    ['GET', '/api/nutrition/goal'],
+    ['PUT', '/api/nutrition/goal'],
+    ['DELETE', '/api/nutrition/goal'],
+    ['PUT', '/api/athletes/1/nutrition-goal'],
+    ['GET', '/api/readiness/advice'],
+    ['POST', '/api/readiness/advice/apply'],
+    ['GET', '/api/strength-assessment'],
+    ['POST', '/api/strength-assessment'],
+    ['DELETE', '/api/plans/1'],
+    ['PUT', '/api/weight-log/1'],
+    ['DELETE', '/api/weight-log/1'],
+    ['PUT', '/api/nutrition/log/1'],
+    ['GET', '/api/measurements'],
+    ['GET', '/api/measurements/sites'],
+    ['PUT', '/api/measurements'],
+    ['DELETE', '/api/measurements/1'],
+    ['POST', '/api/athletes/1/plan'],
+    ['POST', '/api/plan-offers/1/accept'],
+    ['DELETE', '/api/plan-offers/1'],
+    ['GET', '/api/foods/barcode/1'],
   ];
   for (const [method, urlPath] of endpoints) {
     const res = await request(method, urlPath, { body: method === 'GET' ? undefined : {} });
@@ -150,19 +100,28 @@ test('friss fióknak nincs edzője és nincs sportolója', async () => {
   const theirs = await request('GET', '/api/coach', { cookie: athlete.cookie });
   assert.deepEqual(theirs.json, { coach: null, invites: [], planOffers: [] });
 
+  /* A `sex` a fiók SAJÁT tulajdonsága (a profil erőszint-érméhez kell, ahol a
+     küszöbök nemenként eltérnek) — ettől a lista bővül, de a teszt szándéka
+     ugyanaz: szerepkör-jelző (hasCoach / coachesAthletes) NEM kerülhet bele,
+     mert az nem a fiók tulajdonsága, hanem a kapcsolatokból következik. */
   const user = await request('GET', '/api/user', { cookie: coach.cookie });
-  assert.deepEqual(Object.keys(user.json).sort(), ['goal', 'name', 'username'],
-    'a fiók alakjában nincs szerepkör-jelző: az a kapcsolatokból következik');
+  assert.deepEqual(
+    Object.keys(user.json).sort(),
+    ['birthYear', 'goal', 'name', 'sex', 'username'],
+    'a fiók alakjában nincs szerepkör-jelző: az a kapcsolatokból következik',
+  );
 });
 
 test('a meghívó visszautasítja az ismeretlen nevet és az önmeghívást', async () => {
   const unknown = await request('POST', '/api/athletes', {
-    cookie: coach.cookie, body: { username: 'nincs-ilyen' },
+    cookie: coach.cookie,
+    body: { username: 'nincs-ilyen' },
   });
   assert.equal(unknown.status, 404);
 
   const self = await request('POST', '/api/athletes', {
-    cookie: coach.cookie, body: { username: 'edzo' },
+    cookie: coach.cookie,
+    body: { username: 'edzo' },
   });
   assert.equal(self.status, 400);
 
@@ -172,7 +131,8 @@ test('a meghívó visszautasítja az ismeretlen nevet és az önmeghívást', as
 
 test('a meghívó függő marad, és addig NEM ad hozzáférést', async () => {
   const res = await request('POST', '/api/athletes', {
-    cookie: coach.cookie, body: { username: 'SportolO' }, // nagybetűkkel is megtalálja
+    cookie: coach.cookie,
+    body: { username: 'SportolO' }, // nagybetűkkel is megtalálja
   });
   assert.equal(res.status, 201);
   assert.equal(res.json.username, 'sportolo');
@@ -185,11 +145,26 @@ test('a meghívó függő marad, és addig NEM ad hozzáférést', async () => {
   assert.equal(mine.json.invites.length, 1);
   assert.equal(mine.json.invites[0].linkId, linkId);
 
+  /* A függő meghívó MEZŐI is számítanak, nem csak a sportoló-lista üressége:
+     a beleegyezés előtt a másik fél fiók-beállítása (edzés-cél) nem mehet ki.
+     Kulcsra ellenőrizzük, mert egy új mező hozzávétele némán szivárogtatna. */
+  assert.deepEqual(
+    Object.keys(mine.json.invites[0]).sort(),
+    ['at', 'linkId', 'name', 'username'],
+    'a függő meghívó csak az azonosításhoz szükséges mezőket adja ki',
+  );
+
   // A sportolónál a meghívó megjelenik, de edző még nincs
   const theirs = await request('GET', '/api/coach', { cookie: athlete.cookie });
   assert.equal(theirs.json.coach, null);
   assert.equal(theirs.json.invites.length, 1);
   assert.equal(theirs.json.invites[0].name, 'Kovács Bence');
+  // Ugyanez a szabály a MÁSIK irányban: az edző célja sem megy ki elfogadás előtt.
+  assert.deepEqual(
+    Object.keys(theirs.json.invites[0]).sort(),
+    ['at', 'linkId', 'name', 'username'],
+    'a beérkezett meghívó sem ad ki az edző fiók-beállításából',
+  );
 
   // Üzenetet küldeni még nem lehet: a szál csak élő kapcsolatban létezik
   const msg = await request('GET', `/api/messages/${linkId}`, { cookie: coach.cookie });
@@ -197,16 +172,21 @@ test('a meghívó függő marad, és addig NEM ad hozzáférést', async () => {
 
   // Ugyanaz a meghívó nem duplázható
   const again = await request('POST', '/api/athletes', {
-    cookie: coach.cookie, body: { username: 'sportolo' },
+    cookie: coach.cookie,
+    body: { username: 'sportolo' },
   });
   assert.equal(again.status, 409);
 });
 
 test('idegen nem fogadhatja el a más nevére szóló meghívót', async () => {
-  const res = await request('POST', `/api/coach/invites/${linkId}/accept`, { cookie: outsider.cookie });
+  const res = await request('POST', `/api/coach/invites/${linkId}/accept`, {
+    cookie: outsider.cookie,
+  });
   assert.equal(res.status, 404);
 
-  const remove = await request('DELETE', `/api/coach/invites/${linkId}`, { cookie: outsider.cookie });
+  const remove = await request('DELETE', `/api/coach/invites/${linkId}`, {
+    cookie: outsider.cookie,
+  });
   assert.equal(remove.status, 404);
 
   const drop = await request('DELETE', `/api/athletes/${linkId}`, { cookie: outsider.cookie });
@@ -218,7 +198,9 @@ test('idegen nem fogadhatja el a más nevére szóló meghívót', async () => {
    ====================================================================== */
 
 test('elfogadás után az edző látja a sportolót', async () => {
-  const accept = await request('POST', `/api/coach/invites/${linkId}/accept`, { cookie: athlete.cookie });
+  const accept = await request('POST', `/api/coach/invites/${linkId}/accept`, {
+    cookie: athlete.cookie,
+  });
   assert.equal(accept.status, 200);
   assert.equal(accept.json.coach.username, 'edzo');
 
@@ -259,7 +241,10 @@ test('a kártya a sportoló SAJÁT naplójából számol', async () => {
   assert.ok(card.readiness > 0 && card.readiness <= 100, 'a készenlét a Recovery Engine-ből');
   assert.match(card.weekly, /^\d+\/(\d+|–)$/, 'a heti állás "megvolt/kitűzött" alakú');
   assert.equal(card.weekly.split('/')[1], '2', 'a kitűzött a terv két napjából jön');
-  assert.ok(card.recent.some((entry) => entry.includes('Alsótest')), 'az aktivitás a valódi edzésekből épül');
+  assert.ok(
+    card.recent.some((entry) => entry.includes('Alsótest')),
+    'az aktivitás a valódi edzésekből épül',
+  );
   assert.ok(!('userId' in card), 'a sportoló belső azonosítója nem szivárog ki');
 });
 
@@ -271,7 +256,8 @@ test('a kívülálló továbbra sem lát semmit', async () => {
   assert.equal(thread.status, 404, 'idegen nem olvashatja a szálat');
 
   const send = await request('POST', `/api/messages/${linkId}`, {
-    cookie: outsider.cookie, body: { text: 'Beleszólok' },
+    cookie: outsider.cookie,
+    body: { text: 'Beleszólok' },
   });
   assert.equal(send.status, 404, 'idegen nem írhat a szálba');
 
@@ -289,25 +275,35 @@ test('a kívülálló továbbra sem lát semmit', async () => {
 
 test('az üzenet mindkét irányban megérkezik, és a "mine" a nézőtől függ', async () => {
   const sent = await request('POST', `/api/messages/${linkId}`, {
-    cookie: coach.cookie, body: { text: 'Szép munka a guggolásnál!' },
+    cookie: coach.cookie,
+    body: { text: 'Szép munka a guggolásnál!' },
   });
   assert.equal(sent.status, 201);
   assert.equal(sent.json.mine, true);
 
   const reply = await request('POST', `/api/messages/${linkId}`, {
-    cookie: athlete.cookie, body: { text: 'Köszönöm, jövő héten emelek!' },
+    cookie: athlete.cookie,
+    body: { text: 'Köszönöm, jövő héten emelek!' },
   });
   assert.equal(reply.status, 201);
 
   const asCoach = await request('GET', `/api/messages/${linkId}`, { cookie: coach.cookie });
   assert.equal(asCoach.json.partner.name, 'Nagy Petra');
   assert.equal(asCoach.json.partner.role, 'athlete');
-  assert.deepEqual(asCoach.json.messages.map((m) => m.mine), [true, false], 'időrendben, a saját elöl');
+  assert.deepEqual(
+    asCoach.json.messages.map((m) => m.mine),
+    [true, false],
+    'időrendben, a saját elöl',
+  );
 
   const asAthlete = await request('GET', `/api/messages/${linkId}`, { cookie: athlete.cookie });
   assert.equal(asAthlete.json.partner.name, 'Kovács Bence');
   assert.equal(asAthlete.json.partner.role, 'coach');
-  assert.deepEqual(asAthlete.json.messages.map((m) => m.mine), [false, true], 'ugyanaz a szál, fordított nézőpont');
+  assert.deepEqual(
+    asAthlete.json.messages.map((m) => m.mine),
+    [false, true],
+    'ugyanaz a szál, fordított nézőpont',
+  );
   assert.equal(asAthlete.json.messages[0].text, 'Szép munka a guggolásnál!');
 
   // A kártya az utolsó üzenetet idézi, az EDZŐ szemszögéből jelölve
@@ -322,7 +318,8 @@ test('az olvasatlan üzenet számít, a nyugtázás után nem', async () => {
   const coachThread = await request('GET', `/api/messages/${linkId}`, { cookie: coach.cookie });
   assert.equal(coachThread.json.unread, 1, 'az edzőnek a sportoló üzenete olvasatlan');
   assert.deepEqual(
-    coachThread.json.messages.map((m) => m.read), [false, false],
+    coachThread.json.messages.map((m) => m.read),
+    [false, false],
     'még egyik üzenetet sem olvasták el',
   );
 
@@ -341,7 +338,11 @@ test('az olvasatlan üzenet számít, a nyugtázás után nem', async () => {
   assert.equal(after.unread, 0, 'az edzőnek nincs több hátraléka');
 
   const stillUnread = await request('GET', '/api/coach', { cookie: athlete.cookie });
-  assert.equal(stillUnread.json.coach.unread, 1, 'a sportoló hátralékát az edző olvasása nem érinti');
+  assert.equal(
+    stillUnread.json.coach.unread,
+    1,
+    'a sportoló hátralékát az edző olvasása nem érinti',
+  );
 
   /* A küldő a saját üzenetén látja, hogy elolvasták — ez az "olvasva" jelölés.
      A sportoló szemszögéből: a SAJÁT üzenete (mine) most már read. */
@@ -357,7 +358,8 @@ test('a nyugtázás idempotens, és az új üzenet újra hátralékot csinál', 
   assert.equal(again.json.read, 0, 'hátralék nélkül nincs mit megjelölni');
 
   await request('POST', `/api/messages/${linkId}`, {
-    cookie: athlete.cookie, body: { text: 'Kihagytam a keddi edzést.' },
+    cookie: athlete.cookie,
+    body: { text: 'Kihagytam a keddi edzést.' },
   });
   const thread = await request('GET', `/api/messages/${linkId}`, { cookie: coach.cookie });
   assert.equal(thread.json.unread, 1, 'az új üzenet olvasatlanul érkezik');
@@ -372,12 +374,14 @@ test('a nyugtázás idempotens, és az új üzenet újra hátralékot csinál', 
 
 test('az üres üzenetet elutasítja, a hosszút levágja', async () => {
   const empty = await request('POST', `/api/messages/${linkId}`, {
-    cookie: coach.cookie, body: { text: '   ' },
+    cookie: coach.cookie,
+    body: { text: '   ' },
   });
   assert.equal(empty.status, 400);
 
   const long = await request('POST', `/api/messages/${linkId}`, {
-    cookie: coach.cookie, body: { text: 'a'.repeat(500) },
+    cookie: coach.cookie,
+    body: { text: 'a'.repeat(500) },
   });
   assert.equal(long.status, 201);
   assert.equal(long.json.text.length, 280);
@@ -398,7 +402,8 @@ test('az értesítés-panel a hívó valódi eseményeiből áll össze', async 
   assert.ok(accepted.at, 'valódi időbélyeggel — nem „5 órája"');
 
   assert.equal(
-    forCoach.some((n) => n.cat === 'message'), false,
+    forCoach.some((n) => n.cat === 'message'),
+    false,
     'elolvasott szálra nincs üzenet-értesítés',
   );
 
@@ -418,7 +423,8 @@ test('az értesítés-panel a hívó valódi eseményeiből áll össze', async 
   assert.match(pr.text, /^Új egyéni csúcs: Guggolás — \d+ kg \(becsült 1RM\)$/);
 
   assert.equal(
-    forAthlete.some((n) => n.text.includes('elfogadta a meghívódat')), false,
+    forAthlete.some((n) => n.text.includes('elfogadta a meghívódat')),
+    false,
     'nem a sportoló meghívóját fogadták el',
   );
 
@@ -429,7 +435,8 @@ test('az értesítés-panel a hívó valódi eseményeiből áll össze', async 
 
 test('az olvasatlan üzenet értesítése a nyugtázással eltűnik', async () => {
   await request('POST', `/api/messages/${linkId}`, {
-    cookie: athlete.cookie, body: { text: 'Holnap pótolom!' },
+    cookie: athlete.cookie,
+    body: { text: 'Holnap pótolom!' },
   });
 
   const before = (await request('GET', '/api/notifications', { cookie: coach.cookie })).json;
@@ -440,7 +447,8 @@ test('az olvasatlan üzenet értesítése a nyugtázással eltűnik', async () =
 
   const after = (await request('GET', '/api/notifications', { cookie: coach.cookie })).json;
   assert.equal(
-    after.some((n) => n.cat === 'message'), false,
+    after.some((n) => n.cat === 'message'),
+    false,
     'az elolvasott szál nem értesít tovább — a panel magától tisztul',
   );
 });
@@ -459,7 +467,8 @@ test('a panel SEM szivárogtat: a kívülálló csak a sajátját látja', async
 
 test('második edző csak leválás után fogadható el', async () => {
   const invite = await request('POST', '/api/athletes', {
-    cookie: outsider.cookie, body: { username: 'sportolo' },
+    cookie: outsider.cookie,
+    body: { username: 'sportolo' },
   });
   assert.equal(invite.status, 201);
 
@@ -496,13 +505,15 @@ test('a kapcsolat nem fordulhat meg: az edző és a sportoló szerepe nem cseré
      Ő most meghívja „edzo"-t SPORTOLÓNAK — ez még szabályos, hiszen nincs
      köztük élő kapcsolat. */
   const backwardsInvite = await request('POST', '/api/athletes', {
-    cookie: athlete.cookie, body: { username: 'edzo' },
+    cookie: athlete.cookie,
+    body: { username: 'edzo' },
   });
   assert.equal(backwardsInvite.status, 201);
 
   // Közben viszont „edzo" hívja meg őt, és el is fogadja: innentől edzi őt.
   const invite = await request('POST', '/api/athletes', {
-    cookie: coach.cookie, body: { username: 'sportolo' },
+    cookie: coach.cookie,
+    body: { username: 'sportolo' },
   });
   assert.equal(invite.status, 201);
   const accepted = await request('POST', `/api/coach/invites/${invite.json.linkId}/accept`, {
@@ -519,9 +530,12 @@ test('a kapcsolat nem fordulhat meg: az edző és a sportoló szerepe nem cseré
   assert.equal(accept.status, 409, 'a saját sportolód nem lehet az edződ');
 
   // Új meghívót sem lehet küldeni a saját edződnek
-  await request('DELETE', `/api/athletes/${backwardsInvite.json.linkId}`, { cookie: athlete.cookie });
+  await request('DELETE', `/api/athletes/${backwardsInvite.json.linkId}`, {
+    cookie: athlete.cookie,
+  });
   const again = await request('POST', '/api/athletes', {
-    cookie: athlete.cookie, body: { username: 'edzo' },
+    cookie: athlete.cookie,
+    body: { username: 'edzo' },
   });
   assert.equal(again.status, 409);
   assert.match(again.json.error, /edződ/, 'a hibaüzenet megmondja, mi az akadály');
@@ -540,23 +554,35 @@ test('az edzés-cél mentődik, és csak ismert kulcs fogadható el', async () =
   const strength = goals.json.find((goal) => goal.key === 'strength');
   assert.ok(strength?.tag, 'a célnak van rövid címkéje a kártyához');
 
-  const bad = await request('PUT', '/api/user', { cookie: athlete.cookie, body: { goal: 'nincs-ilyen' } });
+  const bad = await request('PUT', '/api/user', {
+    cookie: athlete.cookie,
+    body: { goal: 'nincs-ilyen' },
+  });
   assert.equal(bad.status, 400);
 
-  const ok = await request('PUT', '/api/user', { cookie: athlete.cookie, body: { goal: 'strength' } });
+  const ok = await request('PUT', '/api/user', {
+    cookie: athlete.cookie,
+    body: { goal: 'strength' },
+  });
   assert.equal(ok.status, 200);
   assert.equal(ok.json.goal, 'strength');
 
-  // Új kapcsolat: az edző a sportoló CÍMKÉJÉT látja, nem a nyers kulcsot
   const invite = await request('POST', '/api/athletes', {
-    cookie: coach.cookie, body: { username: 'sportolo' },
+    cookie: coach.cookie,
+    body: { username: 'sportolo' },
   });
   assert.equal(invite.status, 201);
-  assert.equal(invite.json.goal, strength.tag);
+  // A FÜGGŐ meghívó nem adja ki a célt: az a sportoló fiók-beállítása, és a
+  // beleegyezésig nincs mit keresnie az edző oldalán.
+  assert.equal(invite.json.goal, undefined, 'a meghívó válasza nem tartalmaz célt');
 
-  await request('POST', `/api/coach/invites/${invite.json.linkId}/accept`, { cookie: athlete.cookie });
+  // Elfogadás után az edző a sportoló CÍMKÉJÉT látja, nem a nyers kulcsot
+  await request('POST', `/api/coach/invites/${invite.json.linkId}/accept`, {
+    cookie: athlete.cookie,
+  });
   const card = (await request('GET', '/api/athletes', { cookie: coach.cookie })).json.athletes[0];
   assert.equal(card.goal, strength.tag);
+  assert.notEqual(card.goal, 'strength', 'a kártyán a címke áll, nem a kulcs');
 
   const cleared = await request('PUT', '/api/user', { cookie: athlete.cookie, body: { goal: '' } });
   assert.equal(cleared.json.goal, null, 'a cél törölhető');
@@ -575,7 +601,8 @@ test('az üzenet-özön 429-et kap, Retry-After fejléccel — fiókonként', as
   const target = { cookie: await register('cimzett', 'Címzett Cili') };
 
   const invite = await request('POST', '/api/athletes', {
-    cookie: spammer.cookie, body: { username: 'cimzett' },
+    cookie: spammer.cookie,
+    body: { username: 'cimzett' },
   });
   assert.equal(invite.status, 201);
   const spamLink = invite.json.linkId;
@@ -587,7 +614,8 @@ test('az üzenet-özön 429-et kap, Retry-After fejléccel — fiókonként', as
   let sent = 0;
   for (let i = 0; i < 30 && !limited; i += 1) {
     const res = await request('POST', `/api/messages/${spamLink}`, {
-      cookie: spammer.cookie, body: { text: `Sorozat ${i}` },
+      cookie: spammer.cookie,
+      body: { text: `Sorozat ${i}` },
     });
     if (res.status === 429) limited = res;
     else sent += 1;
@@ -600,7 +628,8 @@ test('az üzenet-özön 429-et kap, Retry-After fejléccel — fiókonként', as
 
   // A MÁSIK fél korlátja ettől érintetlen: a számláló fiókonként vezet
   const other = await request('POST', `/api/messages/${spamLink}`, {
-    cookie: target.cookie, body: { text: 'Én még írhatok.' },
+    cookie: target.cookie,
+    body: { text: 'Én még írhatok.' },
   });
   assert.equal(other.status, 201, 'a címzett nem issza meg a spammer levét');
 
@@ -624,7 +653,8 @@ test('a kiosztás mindkét irányban jogosultságot kér', async () => {
   const stranger = { cookie: await register('terv-idegen', 'Kotnyeles Kata') };
 
   const invite = await request('POST', '/api/athletes', {
-    cookie: trainer.cookie, body: { username: 'terv-sportolo' },
+    cookie: trainer.cookie,
+    body: { username: 'terv-sportolo' },
   });
   const link = invite.json.linkId;
 
@@ -636,7 +666,8 @@ test('a kiosztás mindkét irányban jogosultságot kér', async () => {
 
   // FÜGGŐ kapcsolatba még nem lehet kiosztani
   const early = await request('POST', `/api/athletes/${link}/plan`, {
-    cookie: trainer.cookie, body: { planId: own.json.id },
+    cookie: trainer.cookie,
+    body: { planId: own.json.id },
   });
   assert.equal(early.status, 404, 'elfogadás előtt nincs mibe kiosztani');
 
@@ -644,13 +675,15 @@ test('a kiosztás mindkét irányban jogosultságot kér', async () => {
 
   // Idegen nem oszthat ki ebbe a kapcsolatba
   const outsiderTry = await request('POST', `/api/athletes/${link}/plan`, {
-    cookie: stranger.cookie, body: { planId: own.json.id },
+    cookie: stranger.cookie,
+    body: { planId: own.json.id },
   });
   assert.equal(outsiderTry.status, 404);
 
   // A SPORTOLÓ sem oszthat ki az edzőjének: a kiosztás egyirányú
   const backwards = await request('POST', `/api/athletes/${link}/plan`, {
-    cookie: client.cookie, body: { planId: own.json.id },
+    cookie: client.cookie,
+    body: { planId: own.json.id },
   });
   assert.equal(backwards.status, 404, 'a kapcsolat sportoló-oldala nem oszthat ki');
 
@@ -660,26 +693,30 @@ test('a kiosztás mindkét irányban jogosultságot kér', async () => {
     body: { name: 'A sajátom', exercises: [gyakorlat('Fekvenyomás', 80)], days: [1] },
   });
   const foreign = await request('POST', `/api/athletes/${link}/plan`, {
-    cookie: trainer.cookie, body: { planId: clientPlan.json.id },
+    cookie: trainer.cookie,
+    body: { planId: clientPlan.json.id },
   });
   assert.equal(foreign.status, 404, 'csak a SAJÁT tervét oszthatja ki');
 
   const noPlan = await request('POST', `/api/athletes/${link}/plan`, {
-    cookie: trainer.cookie, body: {},
+    cookie: trainer.cookie,
+    body: {},
   });
   assert.equal(noPlan.status, 400);
 
   /* A tényleges kiosztás. A sportoló tervei EKKOR MÉG változatlanok — az
      ajánlat nem írás a fiókjába. */
   const assigned = await request('POST', `/api/athletes/${link}/plan`, {
-    cookie: trainer.cookie, body: { planId: own.json.id, note: 'Jövő héttől ezzel kezdjük.' },
+    cookie: trainer.cookie,
+    body: { planId: own.json.id, note: 'Jövő héttől ezzel kezdjük.' },
   });
   assert.equal(assigned.status, 201);
   assert.equal(assigned.json.name, 'Erő alapozó');
 
   const beforeAccept = await request('GET', '/api/plans', { cookie: client.cookie });
   assert.deepEqual(
-    beforeAccept.json.map((p) => p.name), ['A sajátom'],
+    beforeAccept.json.map((p) => p.name),
+    ['A sajátom'],
     'elfogadás előtt semmi nem került a terveihez',
   );
 
@@ -706,7 +743,8 @@ test('a kiosztás mindkét irányban jogosultságot kér', async () => {
 
   const afterAccept = await request('GET', '/api/plans', { cookie: client.cookie });
   assert.deepEqual(
-    afterAccept.json.map((p) => p.name).sort(), ['A sajátom', 'Erő alapozó'],
+    afterAccept.json.map((p) => p.name).sort(),
+    ['A sajátom', 'Erő alapozó'],
     'a saját terve megmaradt — ez hozzáadás, nem felülírás',
   );
 
@@ -721,7 +759,9 @@ test('a kiosztás mindkét irányban jogosultságot kér', async () => {
   // Az edző értesítést kap a válaszról
   const notifs = (await request('GET', '/api/notifications', { cookie: trainer.cookie })).json;
   assert.ok(
-    notifs.some((n) => n.cat === 'plan' && n.text === 'Terv Tímea elfogadta a „Erő alapozó” tervet'),
+    notifs.some(
+      (n) => n.cat === 'plan' && n.text === 'Terv Tímea elfogadta a „Erő alapozó” tervet',
+    ),
     `az elfogadás értesítés: ${JSON.stringify(notifs.map((n) => n.text))}`,
   );
 });
@@ -731,7 +771,8 @@ test('az elutasított terv nem kerül be, és nem lóg ott tovább', async () =>
   const client = { cookie: await register('terv-sportolo2', 'Nemet Nóra') };
 
   const invite = await request('POST', '/api/athletes', {
-    cookie: trainer.cookie, body: { username: 'terv-sportolo2' },
+    cookie: trainer.cookie,
+    body: { username: 'terv-sportolo2' },
   });
   const link = invite.json.linkId;
   await request('POST', `/api/coach/invites/${link}/accept`, { cookie: client.cookie });
@@ -741,7 +782,8 @@ test('az elutasított terv nem kerül be, és nem lóg ott tovább', async () =>
     body: { name: 'Nem kell', exercises: [gyakorlat('Felhúzás', 60)], days: [] },
   });
   await request('POST', `/api/athletes/${link}/plan`, {
-    cookie: trainer.cookie, body: { planId: own.json.id },
+    cookie: trainer.cookie,
+    body: { planId: own.json.id },
   });
 
   const offers = (await request('GET', '/api/coach', { cookie: client.cookie })).json.planOffers;
@@ -751,7 +793,9 @@ test('az elutasított terv nem kerül be, és nem lóg ott tovább', async () =>
   const pending = (await request('GET', '/api/notifications', { cookie: client.cookie })).json;
   assert.ok(pending.some((n) => n.text === 'Másik Márton kiosztotta a „Nem kell” tervet'));
 
-  const decline = await request('DELETE', `/api/plan-offers/${offers[0].id}`, { cookie: client.cookie });
+  const decline = await request('DELETE', `/api/plan-offers/${offers[0].id}`, {
+    cookie: client.cookie,
+  });
   assert.equal(decline.status, 204);
 
   const after = await request('GET', '/api/coach', { cookie: client.cookie });
@@ -773,7 +817,8 @@ test('a kapcsolat bontásával a függő terv-ajánlat is eltűnik', async () =>
   const client = { cookie: await register('terv-sportolo3', 'Váló Vera') };
 
   const invite = await request('POST', '/api/athletes', {
-    cookie: trainer.cookie, body: { username: 'terv-sportolo3' },
+    cookie: trainer.cookie,
+    body: { username: 'terv-sportolo3' },
   });
   const link = invite.json.linkId;
   await request('POST', `/api/coach/invites/${link}/accept`, { cookie: client.cookie });
@@ -783,7 +828,8 @@ test('a kapcsolat bontásával a függő terv-ajánlat is eltűnik', async () =>
     body: { name: 'Elmarad', exercises: [gyakorlat('Evezés', 50)], days: [] },
   });
   await request('POST', `/api/athletes/${link}/plan`, {
-    cookie: trainer.cookie, body: { planId: own.json.id },
+    cookie: trainer.cookie,
+    body: { planId: own.json.id },
   });
 
   await request('DELETE', '/api/coach', { cookie: client.cookie });
@@ -821,13 +867,17 @@ test('a saját cél felülírja az alapértéket — fiókonként külön', asyn
   const client = { cookie: await register('cel-sportolo', 'Cél Cecília') };
 
   const invite = await request('POST', '/api/athletes', {
-    cookie: trainer.cookie, body: { username: 'cel-sportolo' },
+    cookie: trainer.cookie,
+    body: { username: 'cel-sportolo' },
   });
   assert.equal(invite.status, 201);
-  await request('POST', `/api/coach/invites/${invite.json.linkId}/accept`, { cookie: client.cookie });
+  await request('POST', `/api/coach/invites/${invite.json.linkId}/accept`, {
+    cookie: client.cookie,
+  });
 
   const res = await request('PUT', '/api/nutrition/goal', {
-    cookie: client.cookie, body: { calories: 2400, protein: 150 },
+    cookie: client.cookie,
+    body: { calories: 2400, protein: 150 },
   });
   assert.equal(res.status, 200);
   assert.equal(res.json.calories, 2400);
@@ -848,7 +898,8 @@ test('a saját cél felülírja az alapértéket — fiókonként külön', asyn
 
 test('az edzői cél NEM írja felül némán a sportolóét — de látszik az eltérés', async () => {
   const kituzes = await request('PUT', `/api/athletes/${celLink}/nutrition-goal`, {
-    cookie: celTrainer.cookie, body: { calories: 2900, protein: 170 },
+    cookie: celTrainer.cookie,
+    body: { calories: 2900, protein: 170 },
   });
   assert.equal(kituzes.status, 200);
 
@@ -862,7 +913,11 @@ test('az edzői cél NEM írja felül némán a sportolóét — de látszik az 
   // Az edző a sportoló-kártyáján is látja az állapotot.
   const kartyak = await request('GET', '/api/athletes', { cookie: celTrainer.cookie });
   const kartya = kartyak.json.athletes.find((a) => a.name === 'Cél Cecília');
-  assert.equal(kartya.nutritionGoal.source, 'own', 'az edző látja, hogy a sportoló mást állított be');
+  assert.equal(
+    kartya.nutritionGoal.source,
+    'own',
+    'az edző látja, hogy a sportoló mást állított be',
+  );
 });
 
 test('a saját cél elvetésével visszaáll az edzőé', async () => {
@@ -876,7 +931,8 @@ test('a saját cél elvetésével visszaáll az edzőé', async () => {
 
 test('az AZONOS érték nem számít eltérésnek', async () => {
   await request('PUT', '/api/nutrition/goal', {
-    cookie: celClient.cookie, body: { calories: 2900, protein: 170 },
+    cookie: celClient.cookie,
+    body: { calories: 2900, protein: 170 },
   });
   const res = await request('GET', '/api/nutrition/goal', { cookie: celClient.cookie });
   assert.equal(res.json.source, 'own', 'saját sor jött létre');
@@ -886,12 +942,14 @@ test('az AZONOS érték nem számít eltérésnek', async () => {
 test('csak az EDZŐ oldala tűzhet ki célt, és csak élő kapcsolatba', async () => {
   // A sportoló a saját linkjén nem edző.
   const sajatMaga = await request('PUT', `/api/athletes/${celLink}/nutrition-goal`, {
-    cookie: celClient.cookie, body: { calories: 1000, protein: 50 },
+    cookie: celClient.cookie,
+    body: { calories: 1000, protein: 50 },
   });
   assert.equal(sajatMaga.status, 404, 'nem 403 — a kapcsolat létezése sem derülhet ki');
 
   const kivulallo = await request('PUT', `/api/athletes/${celLink}/nutrition-goal`, {
-    cookie: outsider.cookie, body: { calories: 1000, protein: 50 },
+    cookie: outsider.cookie,
+    body: { calories: 1000, protein: 50 },
   });
   assert.equal(kivulallo.status, 404);
 
@@ -931,7 +989,8 @@ test('a sportoló visszajelzést küld a saját edzéséről, és az edzője LÁ
   fbTrainer = { cookie: await register('vj-edzo', 'Vissza Viktor') };
   fbClient = { cookie: await register('vj-sportolo', 'Vissza Vera') };
   const invite = await request('POST', '/api/athletes', {
-    cookie: fbTrainer.cookie, body: { username: 'vj-sportolo' },
+    cookie: fbTrainer.cookie,
+    body: { username: 'vj-sportolo' },
   });
   fbLink = invite.json.linkId;
   await request('POST', `/api/coach/invites/${fbLink}/accept`, { cookie: fbClient.cookie });
@@ -973,19 +1032,22 @@ test('IDEGEN edzésre nem lehet visszajelzést küldeni', async () => {
   /* Az edző OLVASNI lát a sportolójánál — írni a naplójába nem. A user_id
      feltétel miatt nem talál sort: 404, nem 403. */
   const edzoe = await request('PUT', `/api/workouts/${fbWorkoutId}/feedback`, {
-    cookie: fbTrainer.cookie, body: { difficulty: 1, mood: 1, note: 'nem az enyém' },
+    cookie: fbTrainer.cookie,
+    body: { difficulty: 1, mood: 1, note: 'nem az enyém' },
   });
   assert.equal(edzoe.status, 404);
 
   const kivulallo = await request('PUT', `/api/workouts/${fbWorkoutId}/feedback`, {
-    cookie: outsider.cookie, body: { difficulty: 1, mood: 1 },
+    cookie: outsider.cookie,
+    body: { difficulty: 1, mood: 1 },
   });
   assert.equal(kivulallo.status, 404);
 });
 
 test('az újraküldés FELÜLÍR, és a HIÁNYZÓ mező null marad — nem nulla', async () => {
   const res = await request('PUT', `/api/workouts/${fbWorkoutId}/feedback`, {
-    cookie: fbClient.cookie, body: { mood: 5 },
+    cookie: fbClient.cookie,
+    body: { mood: 5 },
   });
   assert.equal(res.status, 200);
   assert.equal(res.json.feedback.mood, 5);
@@ -1001,7 +1063,8 @@ test('a visszajelzés validál: tartományon kívüli érték, túl hosszú megj
   ];
   for (const [body, eset] of rossz) {
     const res = await request('PUT', `/api/workouts/${fbWorkoutId}/feedback`, {
-      cookie: fbClient.cookie, body,
+      cookie: fbClient.cookie,
+      body,
     });
     assert.equal(res.status, 400, eset);
     assert.ok(res.json.error, `${eset}: beszédes hibaüzenet`);
@@ -1026,7 +1089,8 @@ test('a sportoló megjegyzést fűz a saját gyakorlatához, és az edzője LÁT
   mgTrainer = { cookie: await register('mg-edzo', 'Megj Miklós') };
   mgClient = { cookie: await register('mg-sportolo', 'Megj Mária') };
   const invite = await request('POST', '/api/athletes', {
-    cookie: mgTrainer.cookie, body: { username: 'mg-sportolo' },
+    cookie: mgTrainer.cookie,
+    body: { username: 'mg-sportolo' },
   });
   mgLink = invite.json.linkId;
   await request('POST', `/api/coach/invites/${mgLink}/accept`, { cookie: mgClient.cookie });
@@ -1045,9 +1109,13 @@ test('a sportoló megjegyzést fűz a saját gyakorlatához, és az edzője LÁT
   assert.equal(created.json.authorName, 'Megj Mária', 'a szerző a bejelentkezett fiók');
   assert.ok(created.json.at, 'ISO időbélyeggel — a relatív időt a kliens képzi');
 
-  const edzoiNezet = await request('GET', `/api/athletes/${mgLink}/comments?target=${mgWorkoutId}:0`, {
-    cookie: mgTrainer.cookie,
-  });
+  const edzoiNezet = await request(
+    'GET',
+    `/api/athletes/${mgLink}/comments?target=${mgWorkoutId}:0`,
+    {
+      cookie: mgTrainer.cookie,
+    },
+  );
   assert.equal(edzoiNezet.status, 200);
   assert.equal(edzoiNezet.json.length, 1);
   assert.equal(edzoiNezet.json[0].text, 'Fájt a vállam a 3. szettnél.');
@@ -1064,8 +1132,11 @@ test('az edzői megjegyzés UGYANABBA a szálba kerül, más szerzővel', async 
     cookie: mgClient.cookie,
   });
   assert.equal(szal.json.length, 2, 'egy szál, két szerző');
-  assert.deepEqual(szal.json.map((c) => c.authorName), ['Megj Mária', 'Megj Miklós'],
-    'időrendben, a legrégebbi elöl');
+  assert.deepEqual(
+    szal.json.map((c) => c.authorName),
+    ['Megj Mária', 'Megj Miklós'],
+    'időrendben, a legrégebbi elöl',
+  );
 });
 
 test('az edzői kártya FELOLDOTT gyakorlatnevet ad — és nem szivárogtat user-id-t', async () => {
@@ -1073,8 +1144,11 @@ test('az edzői kártya FELOLDOTT gyakorlatnevet ad — és nem szivárogtat use
   const kartya = kartyak.json.athletes.find((a) => a.name === 'Megj Mária');
   assert.equal(kartya.userId, undefined, 'a belső azonosító nem kerül ki');
   assert.equal(kartya.exerciseNotes.length, 2);
-  assert.equal(kartya.exerciseNotes[0].exercise, 'Fekvenyomás',
-    'a nyers "edzésId:index" célból az edző semmit nem tudna kiolvasni');
+  assert.equal(
+    kartya.exerciseNotes[0].exercise,
+    'Fekvenyomás',
+    'a nyers "edzésId:index" célból az edző semmit nem tudna kiolvasni',
+  );
   assert.equal(kartya.exerciseNotes[0].workout, 'Felsőtest');
 });
 
@@ -1087,39 +1161,58 @@ test('a csoportosított lekérés egy körből megadja, hol VAN megjegyzés', as
 test('a KÍVÜLÁLLÓ és a sportoló sem írhat a kapcsolat edzői oldalán', async () => {
   // A sportoló a SAJÁT linkjén nem edző.
   const sajat = await request('POST', `/api/athletes/${mgLink}/comments`, {
-    cookie: mgClient.cookie, body: { targetId: `${mgWorkoutId}:0`, text: 'x' },
+    cookie: mgClient.cookie,
+    body: { targetId: `${mgWorkoutId}:0`, text: 'x' },
   });
   assert.equal(sajat.status, 404, 'nem 403 — a kapcsolat létezése sem derülhet ki');
 
-  const kivulallo = await request('GET', `/api/athletes/${mgLink}/comments?target=${mgWorkoutId}:0`, {
-    cookie: outsider.cookie,
-  });
+  const kivulallo = await request(
+    'GET',
+    `/api/athletes/${mgLink}/comments?target=${mgWorkoutId}:0`,
+    {
+      cookie: outsider.cookie,
+    },
+  );
   assert.equal(kivulallo.status, 404);
 
-  const szal = await request('GET', `/api/comments?target=${mgWorkoutId}:0`, { cookie: mgClient.cookie });
+  const szal = await request('GET', `/api/comments?target=${mgWorkoutId}:0`, {
+    cookie: mgClient.cookie,
+  });
   assert.equal(szal.json.length, 2, 'nem került be semmi');
 });
 
 test('megjegyzést CSAK a szerzője törölhet', async () => {
-  const szal = await request('GET', `/api/comments?target=${mgWorkoutId}:0`, { cookie: mgClient.cookie });
+  const szal = await request('GET', `/api/comments?target=${mgWorkoutId}:0`, {
+    cookie: mgClient.cookie,
+  });
   const edzoie = szal.json.find((c) => c.authorName === 'Megj Miklós');
 
   // A sportoló a SAJÁT adatán van, mégsem törölheti az edző megjegyzését.
-  const sportoloTorol = await request('DELETE', `/api/comments/${edzoie.id}`, { cookie: mgClient.cookie });
+  const sportoloTorol = await request('DELETE', `/api/comments/${edzoie.id}`, {
+    cookie: mgClient.cookie,
+  });
   assert.equal(sportoloTorol.status, 404, 'nem a szerzője — nem talál sort');
 
   const sajatja = szal.json.find((c) => c.authorName === 'Megj Mária');
-  const torles = await request('DELETE', `/api/comments/${sajatja.id}`, { cookie: mgClient.cookie });
+  const torles = await request('DELETE', `/api/comments/${sajatja.id}`, {
+    cookie: mgClient.cookie,
+  });
   assert.equal(torles.status, 204);
 
-  const utana = await request('GET', `/api/comments?target=${mgWorkoutId}:0`, { cookie: mgClient.cookie });
+  const utana = await request('GET', `/api/comments?target=${mgWorkoutId}:0`, {
+    cookie: mgClient.cookie,
+  });
   assert.equal(utana.json.length, 1);
 });
 
 test('a megjegyzés validál: üres és túl hosszú szöveg', async () => {
-  for (const [body, eset] of [[{ text: '   ' }, 'csak szóköz'], [{ text: 'x'.repeat(1001) }, 'túl hosszú']]) {
+  for (const [body, eset] of [
+    [{ text: '   ' }, 'csak szóköz'],
+    [{ text: 'x'.repeat(1001) }, 'túl hosszú'],
+  ]) {
     const res = await request('POST', '/api/comments', {
-      cookie: mgClient.cookie, body: { targetId: `${mgWorkoutId}:0`, ...body },
+      cookie: mgClient.cookie,
+      body: { targetId: `${mgWorkoutId}:0`, ...body },
     });
     assert.equal(res.status, 400, eset);
     assert.ok(res.json.error, `${eset}: beszédes hibaüzenet`);
@@ -1134,6 +1227,8 @@ test('a kapcsolat bontása után a volt edző nem éri el a megjegyzéseket', as
   assert.equal(res.status, 404);
 
   // A sportoló viszont továbbra is látja a SAJÁT adatát.
-  const sajat = await request('GET', `/api/comments?target=${mgWorkoutId}:0`, { cookie: mgClient.cookie });
+  const sajat = await request('GET', `/api/comments?target=${mgWorkoutId}:0`, {
+    cookie: mgClient.cookie,
+  });
   assert.equal(sajat.status, 200);
 });

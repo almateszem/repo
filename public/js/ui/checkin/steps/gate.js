@@ -14,7 +14,10 @@ function renderGate(stepName, nav) {
   $('[data-ci-sub]', step).textContent = gate.sub;
 
   const wrap = $('[data-ci-gates]', step);
-  [['no', 'ok'], ['yes', 'accent']].forEach(([answer, tone]) => {
+  [
+    ['no', 'ok'],
+    ['yes', 'accent'],
+  ].forEach(([answer, tone]) => {
     const [label, sub] = gate[answer];
     const btn = document.createElement('button');
     btn.type = 'button';

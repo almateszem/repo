@@ -61,7 +61,10 @@ const num = (value) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
-const clean = (value) => String(value ?? '').replace(/\s+/g, ' ').trim();
+const clean = (value) =>
+  String(value ?? '')
+    .replace(/\s+/g, ' ')
+    .trim();
 
 /**
  * OFF v2 termék → a FitTrack étel-alakja, 100 g / 100 ml alapmennyiségre
@@ -90,8 +93,11 @@ export function mapProduct(raw, barcode) {
   if ([kcal, protein, carbs, fat].every((value) => value === null)) return null;
 
   const brand = clean(raw.brands).split(',')[0].trim();
-  const base = clean(raw.product_name_hu) || clean(raw.product_name)
-    || clean(raw.generic_name_hu) || clean(raw.generic_name);
+  const base =
+    clean(raw.product_name_hu) ||
+    clean(raw.product_name) ||
+    clean(raw.generic_name_hu) ||
+    clean(raw.generic_name);
 
   // A márka a névbe kerül: a boltban két „Natúr joghurt" is van, a felhasználó
   // a márkából ismeri fel a sajátját. Ha nincs név, a vonalkód az azonosító.
@@ -108,19 +114,42 @@ export function mapProduct(raw, barcode) {
   // Egy adag-gyorsgomb a címkéről (pl. „1 adag · 30 g") — a részlet-modál
   // chipjeként jelenik meg, mint a beépített ételek portions mezője.
   const serving = num(raw.serving_quantity);
-  const portions = serving !== null && serving >= 1 && serving <= 2000
-    ? [[`1 adag${clean(raw.serving_size) ? ` · ${clean(raw.serving_size)}` : ''}`.slice(0, 24),
-      Math.round(serving)]]
-    : [];
+  const portions =
+    serving !== null && serving >= 1 && serving <= 2000
+      ? [
+          [
+            `1 adag${clean(raw.serving_size) ? ` · ${clean(raw.serving_size)}` : ''}`.slice(0, 24),
+            Math.round(serving),
+          ],
+        ]
+      : [];
 
-  return { name, brand, unit, kcal, protein, carbs, fat, portions, barcode, source: 'openfoodfacts' };
+  return {
+    name,
+    brand,
+    unit,
+    kcal,
+    protein,
+    carbs,
+    fat,
+    portions,
+    barcode,
+    source: 'openfoodfacts',
+  };
 }
 
 // Csak amire szükségünk van: az OFF teljes terméke több száz mező, és a
 // `fields=` paraméterrel a válasz a töredékére zsugorodik.
 const FIELDS = [
-  'product_name', 'product_name_hu', 'generic_name', 'generic_name_hu',
-  'brands', 'quantity', 'serving_size', 'serving_quantity', 'nutriments',
+  'product_name',
+  'product_name_hu',
+  'generic_name',
+  'generic_name_hu',
+  'brands',
+  'quantity',
+  'serving_size',
+  'serving_quantity',
+  'nutriments',
 ].join(',');
 
 /**

@@ -30,7 +30,13 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { deriveLoad, deriveTag, musclesLabel, BODY_PART_TO_GROUP, EQUIPMENT_LABEL_HU } from '../server/data/exdb.map.js';
+import {
+  deriveLoad,
+  deriveTag,
+  musclesLabel,
+  BODY_PART_TO_GROUP,
+  EQUIPMENT_LABEL_HU,
+} from '../server/data/exdb.map.js';
 import { PHRASES, NAME_OVERRIDES, PARENTHETICAL_DROP } from '../server/data/exdb.names.hu.js';
 import { exercises as curatedExercises } from '../server/data/exercises.hu.js';
 
@@ -40,7 +46,8 @@ const WORK_DIR = path.join(ROOT, 'server', 'data', '.exdb');
 const SOURCE_JSON = path.join(WORK_DIR, 'exercises.json');
 const OUT_FILE = path.join(ROOT, 'server', 'data', 'exercises.exdb.js');
 const REPORT_FILE = path.join(WORK_DIR, 'report.txt');
-const SOURCE_URL = 'https://raw.githubusercontent.com/hasaneyldrm/exercises-dataset/main/data/exercises.json';
+const SOURCE_URL =
+  'https://raw.githubusercontent.com/hasaneyldrm/exercises-dataset/main/data/exercises.json';
 
 /* ======================================================================
    Névfordítás
@@ -68,7 +75,7 @@ function normalizeSourceName(raw) {
   return raw
     .replace(/в°/g, '°')
     .replace(/[‘’]/g, "'")
-    .replace(/_/g, ' ')            // `row_shoulder` — elgépelt aláhúzás a forrásban
+    .replace(/_/g, ' ') // `row_shoulder` — elgépelt aláhúzás a forrásban
     .replace(/\s+/g, ' ')
     .trim()
     .toLowerCase();
@@ -151,7 +158,9 @@ function translatePhrase(text, { map, maxWords }) {
     // Többes szám visszavezetése egyes számra: „dips” → „dip”,
     // „presses” → „press”. Csak akkor, ha az egyes szám ismert a szótárban.
     const token = tokens[i];
-    const singular = [/es$/, /s$/].map((re) => token.replace(re, '')).find((s) => s !== token && map.has(s));
+    const singular = [/es$/, /s$/]
+      .map((re) => token.replace(re, ''))
+      .find((s) => s !== token && map.has(s));
     if (PASSTHROUGH.test(token)) {
       parts.push(token);
     } else if (token === '-' || token === '—') {
@@ -204,23 +213,34 @@ async function main() {
   const curatedNames = new Set(curatedExercises.map((e) => e.name.toLowerCase()));
 
   const entries = [];
-  const mediaForCurated = [];             // kurált gyakorlatokhoz átvehető média
+  const mediaForCurated = []; // kurált gyakorlatokhoz átvehető média
   const mediaSeen = new Set();
-  const seen = new Map();                 // magyar név → már bevett extId
-  const stats = { total: source.length, skippedGroup: 0, untranslated: 0, duplicate: 0, curatedWins: 0, noLoad: 0 };
+  const seen = new Map(); // magyar név → már bevett extId
+  const stats = {
+    total: source.length,
+    skippedGroup: 0,
+    untranslated: 0,
+    duplicate: 0,
+    curatedWins: 0,
+    noLoad: 0,
+  };
   const failures = [];
   const unknownTally = new Map();
 
   for (const record of source) {
     const group = BODY_PART_TO_GROUP[record.body_part];
     if (group === undefined) throw new Error(`Ismeretlen body_part: "${record.body_part}"`);
-    if (group === null) { stats.skippedGroup += 1; continue; }
+    if (group === null) {
+      stats.skippedGroup += 1;
+      continue;
+    }
 
     const translated = translateName(record.name, phrases);
     if (translated.unknown) {
       stats.untranslated += 1;
       failures.push({ id: record.id, name: record.name, unknown: translated.unknown });
-      for (const word of translated.unknown) unknownTally.set(word, (unknownTally.get(word) || 0) + 1);
+      for (const word of translated.unknown)
+        unknownTally.set(word, (unknownTally.get(word) || 0) + 1);
       continue;
     }
     const name = translated.hu;
@@ -242,10 +262,16 @@ async function main() {
       }
       continue;
     }
-    if (seen.has(name.toLowerCase())) { stats.duplicate += 1; continue; }
+    if (seen.has(name.toLowerCase())) {
+      stats.duplicate += 1;
+      continue;
+    }
 
     const load = deriveLoad(record);
-    if (!load) { stats.noLoad += 1; continue; }
+    if (!load) {
+      stats.noLoad += 1;
+      continue;
+    }
 
     seen.set(name.toLowerCase(), record.id);
     entries.push({
@@ -263,7 +289,9 @@ async function main() {
   }
 
   stats.variantsDropped = collapseVariants(entries, curatedNames);
-  entries.sort((a, b) => a.group.localeCompare(b.group, 'hu') || a.name.localeCompare(b.name, 'hu'));
+  entries.sort(
+    (a, b) => a.group.localeCompare(b.group, 'hu') || a.name.localeCompare(b.name, 'hu'),
+  );
   matchCuratedBySuffix(curatedExercises, entries, mediaForCurated, mediaSeen);
   stats.mediaForCurated = mediaForCurated.length;
   mediaForCurated.sort((a, b) => a.name.localeCompare(b.name, 'hu'));
@@ -272,10 +300,16 @@ async function main() {
 
   const byGroup = entries.reduce((acc, e) => ({ ...acc, [e.group]: (acc[e.group] || 0) + 1 }), {});
   console.log(`\n✓ ${entries.length} gyakorlat → ${path.relative(ROOT, OUT_FILE)}`);
-  console.log(`  csoportonként: ${Object.entries(byGroup).map(([g, n]) => `${g} ${n}`).join(' · ')}`);
+  console.log(
+    `  csoportonként: ${Object.entries(byGroup)
+      .map(([g, n]) => `${g} ${n}`)
+      .join(' · ')}`,
+  );
   console.log(`\n  forrás összesen        ${stats.total}`);
   console.log(`  kihagyva (nyak)        ${stats.skippedGroup}`);
-  console.log(`  nem fordult le         ${stats.untranslated}   → ${path.relative(ROOT, REPORT_FILE)}`);
+  console.log(
+    `  nem fordult le         ${stats.untranslated}   → ${path.relative(ROOT, REPORT_FILE)}`,
+  );
   console.log(`  kurált nyert           ${stats.curatedWins}`);
   console.log(`  kurálthoz párosított média ${stats.mediaForCurated} / ${curatedExercises.length}`);
   console.log(`  magyar név ütközés     ${stats.duplicate}`);
@@ -338,8 +372,16 @@ function collapseVariants(entries, curatedNames) {
  * fogású kézisúlyzós fekvenyomás”.
  */
 const EQUIPMENT_RANK = [
-  'Rúd', 'Saját testsúly', 'Kézisúlyzó', 'Gép', 'Smith-gép', 'Kábelgép',
-  'EZ-rúd', 'Kettlebell', 'Fitneszlabda', 'Gumiszalag',
+  'Rúd',
+  'Saját testsúly',
+  'Kézisúlyzó',
+  'Gép',
+  'Smith-gép',
+  'Kábelgép',
+  'EZ-rúd',
+  'Kettlebell',
+  'Fitneszlabda',
+  'Gumiszalag',
 ];
 const equipmentRank = (equipment) => {
   const index = EQUIPMENT_RANK.indexOf(equipment);
@@ -348,7 +390,7 @@ const equipmentRank = (equipment) => {
 function matchCuratedBySuffix(curated, generated, mediaForCurated, mediaSeen) {
   for (const exercise of curated) {
     const key = exercise.name.toLowerCase();
-    if (mediaSeen.has(key)) continue;         // pontos névegyezés már volt
+    if (mediaSeen.has(key)) continue; // pontos névegyezés már volt
 
     const candidates = generated.filter((entry) => {
       const name = entry.name.toLowerCase();
@@ -404,12 +446,18 @@ function renderModule(entries, mediaForCurated) {
 
 export const exdbExercises = [
 `;
-  const body = entries.map((e) => {
-    const load = Object.entries(e.load).map(([k, v]) => `${k}: ${v}`).join(', ');
-    return `  { name: ${q(e.name)}, tag: ${q(e.tag)}, muscles: ${q(e.muscles)}, group: ${q(e.group)},\n`
-      + `    load: { ${load} }, loadSource: 'derived', equipment: ${q(e.equipment)},\n`
-      + `    extId: ${q(e.extId)}, image: ${q(e.image)}, gif: ${q(e.gif)} },`;
-  }).join('\n');
+  const body = entries
+    .map((e) => {
+      const load = Object.entries(e.load)
+        .map(([k, v]) => `${k}: ${v}`)
+        .join(', ');
+      return (
+        `  { name: ${q(e.name)}, tag: ${q(e.tag)}, muscles: ${q(e.muscles)}, group: ${q(e.group)},\n` +
+        `    load: { ${load} }, loadSource: 'derived', equipment: ${q(e.equipment)},\n` +
+        `    extId: ${q(e.extId)}, image: ${q(e.image)}, gif: ${q(e.gif)} },`
+      );
+    })
+    .join('\n');
 
   const mediaHeader = `
 
@@ -426,10 +474,13 @@ export const exdbExercises = [
 
 export const exdbMediaForCurated = [
 `;
-  const mediaBody = mediaForCurated.map((e) => (
-    `  { name: ${q(e.name)}, equipment: ${q(e.equipment)},\n`
-    + `    extId: ${q(e.extId)}, image: ${q(e.image)}, gif: ${q(e.gif)} },`
-  )).join('\n');
+  const mediaBody = mediaForCurated
+    .map(
+      (e) =>
+        `  { name: ${q(e.name)}, equipment: ${q(e.equipment)},\n` +
+        `    extId: ${q(e.extId)}, image: ${q(e.image)}, gif: ${q(e.gif)} },`,
+    )
+    .join('\n');
 
   return `${header}${body}\n];\n${mediaHeader}${mediaBody}\n];\n`;
 }

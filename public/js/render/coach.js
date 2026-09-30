@@ -21,11 +21,15 @@ function createCoachNote({ meta, text, me = false }) {
    ≥ 85, ezüst ≥ 70, alatta bronz) ebből jön — FIFA-kártya ihletésű megjelenés.
    A kártya azonosítója a KAPCSOLAT azonosítója: a sportoló belső id-jét a
    szerver nem is adja ki. */
-const athleteTier = (rating) => (rating >= 85
-  ? { key: 'gold', label: 'Arany szint' }
-  : rating >= 70
-    ? { key: 'silver', label: 'Ezüst szint' }
-    : { key: 'bronze', label: 'Bronz szint' });
+const athleteTier = (rating) =>
+  rating === null || rating === undefined
+    ? // Nincs mérhető jel (se készenlét, se terv-követés) — ez nem „bronz"
+      { key: 'none', label: 'Még nincs pontszám' }
+    : rating >= 85
+      ? { key: 'gold', label: 'Arany szint' }
+      : rating >= 70
+        ? { key: 'silver', label: 'Ezüst szint' }
+        : { key: 'bronze', label: 'Bronz szint' };
 
 /** Hiányzó érték helyén gondolatjel. A „még nincs adat" NEM nulla: terv
     nélkül nincs terv-követés, edzés nélkül nincs utolsó edzés. */
@@ -47,16 +51,23 @@ function renderAthleteCard(athlete, index) {
   card.classList.add(`co-tier--${tier.key}`);
   card.dataset.athlete = athlete.linkId;
   card.style.setProperty('--i', index);
-  card.setAttribute('aria-label', [
-    `${athlete.name} — ${rating} pont, ${tier.label}`,
-    athlete.alert ? 'figyelmet igényel' : null,
-    athlete.unread > 0 ? `${athlete.unread} olvasatlan üzenet` : null,
-    'részletek megnyitása',
-  ].filter(Boolean).join(' — '));
+  card.setAttribute(
+    'aria-label',
+    [
+      rating === null
+        ? `${athlete.name} — ${tier.label}`
+        : `${athlete.name} — ${rating} pont, ${tier.label}`,
+      athlete.alert ? 'figyelmet igényel' : null,
+      athlete.unread > 0 ? `${athlete.unread} olvasatlan üzenet` : null,
+      'részletek megnyitása',
+    ]
+      .filter(Boolean)
+      .join(' — '),
+  );
 
   const ratingEl = $('.co-card-rating', card);
-  ratingEl.textContent = rating;
-  ratingEl.dataset.rating = rating;
+  ratingEl.textContent = orDash(rating);
+  ratingEl.dataset.rating = orDash(rating);
   $('.co-card-tag', card).textContent = athlete.goal ?? '—';
   $('.co-card-name', card).textContent = athlete.name;
   $('.co-card-alert', card).hidden = !athlete.alert;
@@ -73,7 +84,9 @@ function renderAthleteCard(athlete, index) {
   const msgEl = $('.co-card-msg', card);
   msgEl.hidden = !athlete.lastMessage;
   if (athlete.lastMessage) {
-    const who = athlete.lastMessage.mine ? 'Te' : athlete.name.split(' ')[0];
+    /* A teljes megjelenített név: az első szó magyar névsorrendnél a
+       VEZETÉKNÉV („Kiss: …"), és a név amúgy is szabad szöveg, nem bontható. */
+    const who = athlete.lastMessage.mine ? 'Te' : athlete.name;
     msgEl.textContent = `${who}: ${athlete.lastMessage.text}`;
     msgEl.classList.toggle('co-card-msg--unread', athlete.unread > 0);
   }
@@ -98,7 +111,7 @@ function renderAthleteCard(athlete, index) {
 /** Egy meghívó-sor. A gombokat a hívó adja meg ({ label, action, variant }),
     mert a két irány mást kínál: a beérkezőt elfogadni/elutasítani lehet, a
     kiküldöttet visszavonni. A kattintást az Edző oldal delegálása kezeli. */
-function renderInviteRow({ linkId, name, username, goal }, actions) {
+function renderInviteRow({ linkId, name, username }, actions) {
   const li = document.createElement('li');
   li.className = 'co-invite';
 
@@ -109,7 +122,7 @@ function renderInviteRow({ linkId, name, username, goal }, actions) {
   nameEl.textContent = name;
   const metaEl = document.createElement('span');
   metaEl.className = 'co-invite-meta';
-  metaEl.textContent = goal ? `@${username} · ${goal}` : `@${username}`;
+  metaEl.textContent = `@${username}`;
   info.append(nameEl, metaEl);
 
   const buttons = document.createElement('div');
@@ -151,7 +164,9 @@ function renderPlanOffer(offer) {
     offer.from,
     `${offer.exercises.length} gyakorlat`,
     days.length ? days.join(', ') : null,
-  ].filter(Boolean).join(' · ');
+  ]
+    .filter(Boolean)
+    .join(' · ');
   info.append(nameEl, metaEl);
 
   // Az edző kísérő sora, ha írt ilyet — külön sorban, idézve
@@ -237,9 +252,17 @@ function renderCoachPanel({ athletes, invites }) {
 
   const sent = $('[data-list="sent-invites"]');
   sent.replaceChildren();
-  invites.forEach((invite) => sent.appendChild(renderInviteRow(invite, [
-    { label: 'Visszavonás', action: 'cancel-invite' },
-  ])));
+  invites.forEach((invite) =>
+    sent.appendChild(renderInviteRow(invite, [{ label: 'Visszavonás', action: 'cancel-invite' }])),
+  );
 }
 
-export { ATHLETE_CARD_STATS, athleteTier, createCoachNote, orDash, renderCoachPanel, renderInviteRow, renderPlanOffer };
+export {
+  ATHLETE_CARD_STATS,
+  athleteTier,
+  createCoachNote,
+  orDash,
+  renderCoachPanel,
+  renderInviteRow,
+  renderPlanOffer,
+};

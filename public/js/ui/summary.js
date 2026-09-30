@@ -30,7 +30,9 @@ function setupSummary() {
   const submit = $('.su-feedback-send', section);
 
   FEEDBACK_SCALES.forEach(([name, label, [low, high]]) => {
-    scalesWrap.appendChild(buildScale({ name, label, min: 1, max: 5, hint: `1 = ${low} · 5 = ${high}` }));
+    scalesWrap.appendChild(
+      buildScale({ name, label, min: 1, max: 5, hint: `1 = ${low} · 5 = ${high}` }),
+    );
   });
 
   // A buildScale a `data-field` attribútumba teszi a mező nevét.
@@ -57,14 +59,16 @@ function setupSummary() {
       const name = lastSummary.exercises?.[Number(index)] ?? 'Gyakorlat';
       for (const comment of list) rows.push({ name, comment });
     }
-    noteList.replaceChildren(...rows.map(({ name, comment }) => {
-      const li = document.createElement('li');
-      li.className = 'su-note-item';
-      const who = document.createElement('b');
-      who.textContent = name;
-      li.append(who, document.createTextNode(` — ${comment.text}`));
-      return li;
-    }));
+    noteList.replaceChildren(
+      ...rows.map(({ name, comment }) => {
+        const li = document.createElement('li');
+        li.className = 'su-note-item';
+        const who = document.createElement('b');
+        who.textContent = name;
+        li.append(who, document.createTextNode(` — ${comment.text}`));
+        return li;
+      }),
+    );
   };
 
   const loadNotes = async () => {
@@ -103,12 +107,14 @@ function setupSummary() {
     const names = lastSummary?.exercises ?? [];
     noteSection.hidden = !lastSummary?.workoutId || names.length === 0;
     if (!noteSection.hidden) {
-      noteSelect.replaceChildren(...names.map((name, index) => {
-        const option = document.createElement('option');
-        option.value = String(index);
-        option.textContent = name;
-        return option;
-      }));
+      noteSelect.replaceChildren(
+        ...names.map((name, index) => {
+          const option = document.createElement('option');
+          option.value = String(index);
+          option.textContent = name;
+          return option;
+        }),
+      );
       noteText.value = '';
       loadNotes();
     }
@@ -183,8 +189,8 @@ async function setupWeeklyCompare() {
 
   /** Az éppen kiválasztott időszak kulcsa (a váltógombokból). */
   const activePeriod = () =>
-    $$('.wk-toggle-btn', section).find((b) => b.getAttribute('aria-pressed') === 'true')
-      ?.dataset.period || 'volumeThisWeek';
+    $$('.wk-toggle-btn', section).find((b) => b.getAttribute('aria-pressed') === 'true')?.dataset
+      .period || 'volumeThisWeek';
 
   const applyPeriod = (period, { animate = false } = {}) => {
     const data = charts[period];

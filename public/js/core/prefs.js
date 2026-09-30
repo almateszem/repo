@@ -5,8 +5,11 @@ const PREFS_KEY = 'fittrackpro:prefs';
 
 const prefs = {
   read() {
-    try { return JSON.parse(localStorage.getItem(PREFS_KEY)) || {}; }
-    catch { return {}; }
+    try {
+      return JSON.parse(localStorage.getItem(PREFS_KEY)) || {};
+    } catch {
+      return {};
+    }
   },
   get(key, fallback) {
     const value = this.read()[key];
@@ -17,7 +20,9 @@ const prefs = {
       const all = this.read();
       all[key] = value;
       localStorage.setItem(PREFS_KEY, JSON.stringify(all));
-    } catch { /* privát mód — a demo prefek nélkül is működik */ }
+    } catch {
+      /* privát mód — a demo prefek nélkül is működik */
+    }
   },
 };
 

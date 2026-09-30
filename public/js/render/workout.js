@@ -22,17 +22,15 @@ function historyEntryEl(entry) {
   return li;
 }
 
-/** Egy mentett edzés → „Korábbi edzések" sor (név + teljesített/összes szett).
-    Ha volt benne kardió, a becsült égetés is odakerül: az a sor egyetlen
-    olyan száma, ami egy futásról bármit is mond. */
+/** Egy mentett edzés → „Korábbi edzések" sor (név + teljesített/összes szett). */
 function workoutHistoryEntry(workout) {
   const sets = workout.exercises.flatMap((exercise) => exercise.sets || []);
   const done = sets.filter((set) => set.done).length;
-  const parts = [`${done}/${sets.length} szett`];
-  if (Number.isFinite(workout.calories)) parts.push(`${workout.calories} kcal`);
   return {
-    id: workout.id, date: workout.date, detail: workout.name,
-    rpe: parts.join(' · '),
+    id: workout.id,
+    date: workout.date,
+    detail: workout.name,
+    rpe: `${done}/${sets.length} szett`,
   };
 }
 
@@ -48,7 +46,9 @@ async function renderWorkout() {
   const savedWorkouts = await api.getWorkouts();
   const history = $('[data-list="history"]');
   history.replaceChildren();
-  savedWorkouts.forEach((workout) => history.appendChild(historyEntryEl(workoutHistoryEntry(workout))));
+  savedWorkouts.forEach((workout) =>
+    history.appendChild(historyEntryEl(workoutHistoryEntry(workout))),
+  );
   syncHistoryEmpty();
 }
 

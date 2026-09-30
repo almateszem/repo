@@ -13,6 +13,11 @@ const TOAST_ERROR_VISIBLE_MS = 5200;
 
 function showToast(message, variant = 'default') {
   const region = $('.toast-region');
+  /* Egyszerre egy toast: az új üzenet a régit elavulttá teszi („Adj legalább
+     egy gyakorlatot…" után a „Befejezve"). Korábban egymásra rakódtak, és a
+     régi hiba a sikeres mentés után is kint maradt. A régi toast időzítője
+     ettől még lefut — egy már leválasztott elemen a remove() ártalmatlan. */
+  region.replaceChildren();
   const toast = document.createElement('div');
   toast.className = variant === 'error' ? 'toast toast--error' : 'toast';
   toast.textContent = message;
@@ -27,16 +32,21 @@ function showToast(message, variant = 'default') {
       // Az azonos szöveg ismételt beírását a felolvasók elnyelik: előbb
       // ürítjük, hogy két egyforma hiba is elhangozzon.
       announcer.textContent = '';
-      setTimeout(() => { announcer.textContent = message; }, 60);
+      setTimeout(() => {
+        announcer.textContent = message;
+      }, 60);
     }
   }
 
-  setTimeout(() => {
-    toast.classList.add('is-leaving');
-    toast.addEventListener('animationend', () => toast.remove(), { once: true });
-    // Tartalék, ha az animációk le vannak tiltva (prefers-reduced-motion):
-    setTimeout(() => toast.remove(), 400);
-  }, variant === 'error' ? TOAST_ERROR_VISIBLE_MS : TOAST_VISIBLE_MS);
+  setTimeout(
+    () => {
+      toast.classList.add('is-leaving');
+      toast.addEventListener('animationend', () => toast.remove(), { once: true });
+      // Tartalék, ha az animációk le vannak tiltva (prefers-reduced-motion):
+      setTimeout(() => toast.remove(), 400);
+    },
+    variant === 'error' ? TOAST_ERROR_VISIBLE_MS : TOAST_VISIBLE_MS,
+  );
 }
 
 /* ======================================================================

@@ -6,7 +6,17 @@ import { $, $$ } from '../core/dom.js';
 import { showToast } from '../core/toast.js';
 import { navigate } from '../nav/router.js';
 import { renderPlans } from '../render/plans.js';
-import { clampRpeInput, enableExtraMenu, enableIntensitySelect, enableSetTypeSelect, handleAddSetClick, handleRemoveSetClick, handleStepClick, readSetRow, renderExercise } from '../render/sets.js';
+import {
+  clampRpeInput,
+  enableExtraMenu,
+  enableIntensitySelect,
+  enableSetTypeSelect,
+  handleAddSetClick,
+  handleRemoveSetClick,
+  handleStepClick,
+  readSetRow,
+  renderExercise,
+} from '../render/sets.js';
 
 /** A terv-építő flow-oldal (a Tervek „+ Új terv" és szerkesztés gombja hozza
     be): terv neve + élő összegző, hétnap-ütemezés chipek, gyakorlatkártyák
@@ -40,32 +50,38 @@ async function setupPlanBuilder(picker) {
     });
     daysWrap.appendChild(chip);
   });
-  const readDays = () => $$('.pb-day', daysWrap)
-    .filter((chip) => chip.getAttribute('aria-pressed') === 'true')
-    .map((chip) => Number(chip.dataset.day));
-  const setDays = (days) => $$('.pb-day', daysWrap).forEach((chip) => {
-    chip.setAttribute('aria-pressed', String(days.includes(Number(chip.dataset.day))));
-  });
+  const readDays = () =>
+    $$('.pb-day', daysWrap)
+      .filter((chip) => chip.getAttribute('aria-pressed') === 'true')
+      .map((chip) => Number(chip.dataset.day));
+  const setDays = (days) =>
+    $$('.pb-day', daysWrap).forEach((chip) => {
+      chip.setAttribute('aria-pressed', String(days.includes(Number(chip.dataset.day))));
+    });
 
   /** A készülő terv a DOM-ból (a napló-olvasóval azonos alak). A tervben a
       szettek mindig teljesítetlenek — a „kész" jelölés az edzésnaplóé. */
-  const readPlan = () => $$('.wk-exercise', page).map((card) => ({
-    name: $('.wk-exercise-name', card).textContent.trim(),
-    pr: false,
-    // A naplózási mód a tervben is a gyakorlaté marad (ld. readCurrentWorkout).
-    ...(card.dataset.logMode === 'duration' && { logMode: 'duration' }),
-    sets: $$('.wk-set-list .wk-set-row', card)
-      .map((row) => ({ ...readSetRow(row), done: false })),
-  }));
+  const readPlan = () =>
+    $$('.wk-exercise', page).map((card) => ({
+      name: $('.wk-exercise-name', card).textContent.trim(),
+      pr: false,
+      // A naplózási mód a tervben is a gyakorlaté marad (ld. readCurrentWorkout).
+      ...(card.dataset.logMode === 'duration' && { logMode: 'duration' }),
+      sets: $$('.wk-set-list .wk-set-row', card).map((row) => ({
+        ...readSetRow(row),
+        done: false,
+      })),
+    }));
 
   /** Élő összegző: „3 gyakorlat · 8 szett · ~64 perc" (szettenként ~8 perc). */
   const updateSummary = () => {
     const exercises = readPlan();
     const totalSets = exercises.reduce((sum, exercise) => sum + exercise.sets.length, 0);
     const minutes = Math.max(10, totalSets * 8);
-    summaryLine.textContent = exercises.length === 0
-      ? 'Még nincs gyakorlat — adj hozzá a lenti gombbal.'
-      : `${exercises.length} gyakorlat · ${totalSets} szett · ~${minutes} perc`;
+    summaryLine.textContent =
+      exercises.length === 0
+        ? 'Még nincs gyakorlat — adj hozzá a lenti gombbal.'
+        : `${exercises.length} gyakorlat · ${totalSets} szett · ~${minutes} perc`;
   };
   updateSummary();
 
@@ -77,7 +93,9 @@ async function setupPlanBuilder(picker) {
   });
 
   // A tervbe írt RPE ugyanarra az 1–10 skálára szorul, mint a naplóban
-  list.addEventListener('change', (event) => { clampRpeInput(event.target); });
+  list.addEventListener('change', (event) => {
+    clampRpeInput(event.target);
+  });
 
   // Szett-típus a tervben is: így a terv már megmondja, melyik sor
   // bemelegítés és melyik munkasorozat.

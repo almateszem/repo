@@ -98,10 +98,17 @@ function pageFromHash() {
 
 /** Az oldalak emberi neve — a mobil nav-hint és a fókusz-bejelentés használja. */
 const PAGE_TITLES = {
-  dashboard: 'Áttekintés', recovery: 'Regeneráció', workout: 'Edzés',
-  nutrition: 'Táplálkozás', plans: 'Tervek', coach: 'Edző', profile: 'Profil',
-  summary: 'Edzés-összegző', 'plan-builder': 'Terv-építő',
-  'exercise-picker': 'Gyakorlat hozzáadása', checkin: 'Napi check-in',
+  dashboard: 'Áttekintés',
+  recovery: 'Regeneráció',
+  workout: 'Edzés',
+  nutrition: 'Táplálkozás',
+  plans: 'Tervek',
+  coach: 'Edző',
+  profile: 'Profil',
+  summary: 'Edzés-összegző',
+  'plan-builder': 'Terv-építő',
+  'exercise-picker': 'Gyakorlat hozzáadása',
+  checkin: 'Napi check-in',
 };
 
 /** Az oldalak ikonjai a nav gyűrű gombjához — az index.html tetején lévő közös
@@ -110,11 +117,17 @@ const PAGE_TITLES = {
     #icon-user-t használja — hogy melyiken állsz, a gomb neve és a hint-sor
     mondja meg (mindkettő a PAGE_TITLES-ből). */
 const PAGE_ICONS = {
-  dashboard: 'icon-page-dashboard', recovery: 'icon-page-recovery',
-  workout: 'icon-page-workout', nutrition: 'icon-page-nutrition',
-  plans: 'icon-page-plans', coach: 'icon-user', profile: 'icon-user',
-  summary: 'icon-page-summary', 'plan-builder': 'icon-page-plan-builder',
-  'exercise-picker': 'icon-page-exercise-picker', checkin: 'icon-page-checkin',
+  dashboard: 'icon-page-dashboard',
+  recovery: 'icon-page-recovery',
+  workout: 'icon-page-workout',
+  nutrition: 'icon-page-nutrition',
+  plans: 'icon-page-plans',
+  coach: 'icon-user',
+  profile: 'icon-user',
+  summary: 'icon-page-summary',
+  'plan-builder': 'icon-page-plan-builder',
+  'exercise-picker': 'icon-page-exercise-picker',
+  checkin: 'icon-page-checkin',
 };
 
 /** Az éppen látható oldal (a DOM az igazságforrás — a hash lehet horgony is). */
@@ -150,9 +163,11 @@ function syncNavRingState(name) {
   }
   // Az ikon aria-hidden, így a gomb neve mondja meg a képernyőolvasónak, hol vagy.
   if (knob) {
-    knob.setAttribute('aria-label',
-      `Navigáció — jelenlegi oldal: ${PAGE_TITLES[name] ?? 'ismeretlen'}. `
-      + 'Húzd a kívánt irányba, vagy koppints az áttekintéshez.');
+    knob.setAttribute(
+      'aria-label',
+      `Navigáció — jelenlegi oldal: ${PAGE_TITLES[name] ?? 'ismeretlen'}. ` +
+        'Húzd a kívánt irányba, vagy koppints az áttekintéshez.',
+    );
   }
 }
 
@@ -190,7 +205,8 @@ function showPage(name) {
 function navigate(name) {
   // Onboarding alatt a check-in az egyetlen úti cél (nav gyűrű, gyorsbillentyűk).
   if (shared.onboardingLock && name !== 'checkin') return;
-  if (pageFromHash() === name) showPage(name); // azonos hash-nél nem jön hashchange event
+  if (pageFromHash() === name)
+    showPage(name); // azonos hash-nél nem jön hashchange event
   else location.hash = name;
 }
 

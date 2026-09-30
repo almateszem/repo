@@ -20,10 +20,10 @@ export const data = {
      beállítások legördülőjéé. A lista itt egy helyen él: a szerver ebből
      validál, a felület ebből építi a választót (GET /api/goals). */
   goals: [
-    { key: 'strength',  tag: 'ERŐ', label: 'Erő' },
-    { key: 'mass',      tag: 'TÖM', label: 'Tömegnövelés' },
-    { key: 'fitness',   tag: 'FIT', label: 'Fittség' },
-    { key: 'cut',       tag: 'FGY', label: 'Fogyás' },
+    { key: 'strength', tag: 'ERŐ', label: 'Erő' },
+    { key: 'mass', tag: 'TÖM', label: 'Tömegnövelés' },
+    { key: 'fitness', tag: 'FIT', label: 'Fittség' },
+    { key: 'cut', tag: 'FGY', label: 'Fogyás' },
     { key: 'endurance', tag: 'ÁLL', label: 'Állóképesség' },
   ],
   charts: {

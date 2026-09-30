@@ -36,7 +36,9 @@ const anna = db.createUser('anna', 'Kovács Anna', 'scrypt$16384$8$1$aa$bb').use
 const bela = db.createUser('bela', 'Nagy Béla', 'scrypt$16384$8$1$cc$dd').user;
 
 const TODAY = '2026.08.15';
-const exercises = [{ name: 'Guggolás', pr: false, sets: [{ reps: '5', weight: '100', rpe: '8', done: true }] }];
+const exercises = [
+  { name: 'Guggolás', pr: false, sets: [{ reps: '5', weight: '100', rpe: '8', done: true }] },
+];
 
 db.addWeightEntry(anna.id, 62.5, TODAY);
 db.addWeightEntry(bela.id, 95, TODAY);
@@ -55,8 +57,14 @@ const belaEntry = db.addNutritionEntry(bela.id, food, TODAY, 200).entry;
 
 // A saját ételek is felhasználói adat — ugyanaz az izolációs elvárás áll rájuk.
 const annaFood = db.addCustomFood(anna.id, {
-  name: 'Anna müzlije', unit: 'g', kcal: 380, protein: 9, carbs: 62, fat: 10,
-  kcalAuto: true, barcode: '5998200310010',
+  name: 'Anna müzlije',
+  unit: 'g',
+  kcal: 380,
+  protein: 9,
+  carbs: 62,
+  fat: 10,
+  kcalAuto: true,
+  barcode: '5998200310010',
 });
 
 test('a fiók létrehozása nem adja vissza a jelszót, és a név foglalt lesz', () => {
@@ -66,20 +74,44 @@ test('a fiók létrehozása nem adja vissza a jelszót, és a név foglalt lesz'
 });
 
 test('minden lista CSAK a saját sorokat adja vissza', () => {
-  assert.deepEqual(db.getWeightLog(anna.id).map((w) => w.kg), [62.5]);
-  assert.deepEqual(db.getWeightLog(bela.id).map((w) => w.kg), [95]);
+  assert.deepEqual(
+    db.getWeightLog(anna.id).map((w) => w.kg),
+    [62.5],
+  );
+  assert.deepEqual(
+    db.getWeightLog(bela.id).map((w) => w.kg),
+    [95],
+  );
 
-  assert.deepEqual(db.getWorkouts(anna.id).map((w) => w.name), ['Anna edzése']);
-  assert.deepEqual(db.getWorkouts(bela.id).map((w) => w.name), ['Béla edzése']);
+  assert.deepEqual(
+    db.getWorkouts(anna.id).map((w) => w.name),
+    ['Anna edzése'],
+  );
+  assert.deepEqual(
+    db.getWorkouts(bela.id).map((w) => w.name),
+    ['Béla edzése'],
+  );
 
-  assert.deepEqual(db.getUserPlans(anna.id).map((p) => p.name), ['Anna terve']);
-  assert.deepEqual(db.getUserPlans(bela.id).map((p) => p.name), ['Béla terve']);
+  assert.deepEqual(
+    db.getUserPlans(anna.id).map((p) => p.name),
+    ['Anna terve'],
+  );
+  assert.deepEqual(
+    db.getUserPlans(bela.id).map((p) => p.name),
+    ['Béla terve'],
+  );
 
   assert.equal(db.getWorkoutDraft(anna.id).name, 'Anna piszkozata');
   assert.equal(db.getWorkoutDraft(bela.id).name, 'Béla piszkozata');
 
-  assert.deepEqual(db.getNutritionLog(anna.id).map((n) => n.grams), [100]);
-  assert.deepEqual(db.getNutritionLog(bela.id).map((n) => n.grams), [200]);
+  assert.deepEqual(
+    db.getNutritionLog(anna.id).map((n) => n.grams),
+    [100],
+  );
+  assert.deepEqual(
+    db.getNutritionLog(bela.id).map((n) => n.grams),
+    [200],
+  );
 
   assert.equal(db.getCheckin(anna.id, TODAY).sleepHours, 9);
   assert.equal(db.getCheckin(bela.id, TODAY).sleepHours, 4);
@@ -107,26 +139,26 @@ test('MÁS fiók sorát id-re hivatkozva sem lehet módosítani vagy törölni',
   // A kliens bármilyen id-t küldhet; a szűrés a lekérdezésben van, nem a
   // felületen. Az „idegen" id-re null jön, amiből a végpont 404-et képez.
   assert.equal(
-    db.updatePlan(bela.id, annaPlan.id, 'ELTÉRÍTVE', exercises, []), null,
+    db.updatePlan(bela.id, annaPlan.id, 'ELTÉRÍTVE', exercises, []),
+    null,
     'Béla nem írhatja át Anna tervét',
   );
   assert.equal(db.getUserPlans(anna.id)[0].name, 'Anna terve', 'Anna terve változatlan');
 
   assert.equal(
-    db.deleteNutritionEntry(bela.id, annaEntry.id, TODAY), null,
+    db.deleteNutritionEntry(bela.id, annaEntry.id, TODAY),
+    null,
     'Béla nem törölheti Anna naplótételét',
   );
   assert.equal(db.getNutritionLog(anna.id).length, 1, 'Anna tétele megvan');
 
   // Ugyanez a mentett EDZÉSRE: a javítás és a törlés is a saját sorokra szűr.
   assert.equal(
-    db.updateWorkout(bela.id, annaWorkout.id, 'ELTÉRÍTVE', exercises), null,
+    db.updateWorkout(bela.id, annaWorkout.id, 'ELTÉRÍTVE', exercises),
+    null,
     'Béla nem írhatja át Anna edzését',
   );
-  assert.equal(
-    db.deleteWorkout(bela.id, annaWorkout.id), false,
-    'és nem is törölheti',
-  );
+  assert.equal(db.deleteWorkout(bela.id, annaWorkout.id), false, 'és nem is törölheti');
   assert.equal(db.getWorkouts(anna.id)[0].name, 'Anna edzése', 'Anna edzése változatlan');
 
   // A sajátjával viszont mindkettő működik — a szűrés nem tör el mindent
@@ -141,19 +173,29 @@ test('a napra ütemezett terv is fiókonként külön', () => {
 
 test('az export CSAK a hívó adatát tartalmazza', () => {
   const snapshot = db.getSnapshot(anna.id);
-  assert.deepEqual(snapshot.weightLog.map((w) => w.kg), [62.5]);
-  assert.deepEqual(snapshot.workouts.map((w) => w.name), ['Anna edzése']);
+  assert.deepEqual(
+    snapshot.weightLog.map((w) => w.kg),
+    [62.5],
+  );
+  assert.deepEqual(
+    snapshot.workouts.map((w) => w.name),
+    ['Anna edzése'],
+  );
   assert.equal(snapshot.workoutDraft.name, 'Anna piszkozata');
   assert.equal(snapshot.checkins.length, 1);
   // Az egyéni csúcsok is a felhasználó adata — a pillanatképnek része.
-  assert.deepEqual(snapshot.exerciseMaxes,
-    [{ exercise: 'Guggolás', max1rm: db.calculateEpley1RM(100, 5), date: TODAY }]);
+  assert.deepEqual(snapshot.exerciseMaxes, [
+    { exercise: 'Guggolás', max1rm: db.calculateEpley1RM(100, 5), date: TODAY },
+  ]);
 
   // A referencia-adat (közös) viszont benne van — abból mindenki ugyanazt kapja
   assert.ok(Array.isArray(snapshot.foods) && snapshot.foods.length > 0);
 
   // A saját ételek is a felhasználó adata (a naplóból nem rekonstruálhatók).
-  assert.deepEqual(snapshot.customFoods.map((f) => f.name), ['Anna müzlije']);
+  assert.deepEqual(
+    snapshot.customFoods.map((f) => f.name),
+    ['Anna müzlije'],
+  );
   assert.deepEqual(db.getSnapshot(bela.id).customFoods, []);
 
   const dump = JSON.stringify(snapshot);
@@ -163,7 +205,10 @@ test('az export CSAK a hívó adatát tartalmazza', () => {
 /* ---- Saját ételek ---- */
 
 test('a saját ételeket csak a tulajdonosuk éri el', () => {
-  assert.deepEqual(db.listCustomFoods(anna.id).map((f) => f.name), ['Anna müzlije']);
+  assert.deepEqual(
+    db.listCustomFoods(anna.id).map((f) => f.name),
+    ['Anna müzlije'],
+  );
   assert.deepEqual(db.listCustomFoods(bela.id), [], 'Bélának nincs saját étele');
 
   assert.equal(db.getCustomFoodByName(bela.id, 'Anna müzlije'), null);
@@ -199,8 +244,11 @@ test('getFoodsForUser: a saját ételek elöl, és a MEGOSZTOTT cache érintetle
   assert.equal(belaFoods.length, kiindulas, 'Bélának csak a seed-katalógus');
   assert.ok(!belaFoods.some((f) => f.custom));
 
-  assert.equal(db.getCollection('foods').length, kiindulas,
-    'a megosztott katalógus-tömb NEM módosult');
+  assert.equal(
+    db.getCollection('foods').length,
+    kiindulas,
+    'a megosztott katalógus-tömb NEM módosult',
+  );
 });
 
 test('munkamenet: érvényes, lejárt és ismeretlen token', () => {
