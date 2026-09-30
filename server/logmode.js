@@ -52,31 +52,22 @@ export const DEFAULT_LOG_MODE = 'reps';
  * a feliratot, a már naplózott sorok nem válnak értelmezhetetlenné — ugyanez
  * az elv él a mérési helyeknél (MEASUREMENT_SITES) és a szett-típusoknál.
  *
- * KÉT SZÁM tartozik minden fokozathoz, és ez nem redundancia.
- *
- *   met     A kalóriához. Külső terhelés: az energiaköltség, ami nagyjából
- *           arányos az intenzitással.
- *   strain  A fáradtsághoz. Belső terhelés, MEREDEKEBB skálán: a maximális
- *           intervallum nem másfélszer, hanem sokszorosan drágább a
- *           közepesnél, és sokkal lassabban áll helyre.
- *
- * Ugyanez a kettősség már él a súlyzós oldalon: a tonnatömeg lineárisan
- * skálázódik az RPE-vel (0.2 meredekség), az izomkárosodás meredekebben (0.3),
- * az idegrendszer pedig külön felárat kap a legmagasabb sávban. Három csatorna,
- * három görbe — itt is.
- *
- * Miért nem a MET hajtja a fáradtságot is: a MET azt méri, amit CSINÁLTÁL, nem
- * azt, hogy NEKED mennyibe került. Ugyanaz a tempó az edzett futónál a
- * kapacitása felét viszi el, a kezdőnél a kilencven százalékát, a MET-jük mégis
- * közel azonos. Az érzet alapú fokozat viszont eleve egyénre vetített — ezért
- * az a fáradtság helyes bemenete.
+ * A `cr10` a fokozat értéke Foster módosított Borg CR-10 skáláján (2026-09-17,
+ * kalibrálva). Ebből számol a Recovery Engine szesszió-RPE terhelést: perc ×
+ * cr10 (lásd recovery.js → cardioSetLoad). Az értékek a skála SZÓBELI
+ * horgonyai (Foster 2001): 1 „nagyon-nagyon könnyű", 2 „könnyű", 3 „közepes",
+ * 5 „nehéz"; a 7 „nagyon nehéz", a 10 „maximális". A Maximális fokozat 8, nem
+ * 10 — ez DÖNTÉS, nem mért érték: a szesszió-RPE az EGÉSZ edzésre szól, és egy
+ * teljes edzés a bemelegítéssel, a pihenőkkel együtt nem lehet végig maximális.
+ * (A sprint-intervallokat sprintenként mérve is „nehéz"–„nagyon nehéz"-nek
+ * érzik: 16–18,5 a 6–20-as Borg-skálán.)
  */
 export const INTENSITY_LEVELS = {
-  veryLow: { label: 'Nagyon könnyű', met: 3, strain: 1 },
-  low: { label: 'Könnyű', met: 5, strain: 2 },
-  moderate: { label: 'Közepes', met: 7, strain: 4 },
-  high: { label: 'Magas', met: 9, strain: 7 },
-  max: { label: 'Maximális', met: 12, strain: 11 },
+  veryLow: { label: 'Nagyon könnyű', cr10: 1 },
+  low: { label: 'Könnyű', cr10: 2 },
+  moderate: { label: 'Közepes', cr10: 3 },
+  high: { label: 'Magas', cr10: 5 },
+  max: { label: 'Maximális', cr10: 8 },
 };
 
 export const INTENSITY_KEYS = Object.keys(INTENSITY_LEVELS);
@@ -105,54 +96,8 @@ const DURATION_NAME_PATTERNS = [
   /medvejaras/,
 ];
 
-/* ---- Gyakorlat-profil: becsapódás-jelleg és testsúly-viselés ----
-
-   BECSAPÓDÁS. Egy óra futás és egy óra szobabicikli lehet azonos MET-en, a
-   lábnak mégsem ugyanaz: a futás excentrikus és ütközéses, a bicikli
-   koncentrikus és ütközésmentes. A KALÓRIA tényleg ugyanannyi, az
-   IZOMKÁROSODÁS nem — ezért a szorzó csak az izom-csatornán hat, a szisztémás
-   terhelésen és a kalórián nem.
-
-   TESTSÚLY-VISELÉS. Ülve a gép tartja a sportolót, tehát egy súlymellény
-   tömege ott nem kerül semmibe. A mező a felületen ilyenkor is ott marad (a
-   mellényt fel lehessen jegyezni), de a képletből kimarad.
-
-   Három sáv elég, folytonos skála nem kell. Az ismeretlen sor a KÖZÉPSŐ sávot
-   kapja: a nulla azt állítaná, hogy nincs izomkárosodás, az egy pedig
-   futás-szintűt — egyik sem tudás, és a ház szabálya szerint a „nincs adat"
-   nem lehet a legkedvezőbb feltételezés. */
-
-/** Ülve végzett, gép által megtámasztott mozgás. */
-const SEATED_PATTERNS = [/szobabicikli|spinning|kerekpar|evezogep|assault/];
-
-/** Ütközéses, excentrikusan terhelő mozgás. */
-const HIGH_IMPACT_PATTERNS = [/futas|futopad|sprint|ugralokotel|kotelugras|lepcso/];
-
-const IMPACT_HIGH = 1;
-const IMPACT_STANDING = 0.5;
-const IMPACT_SEATED = 0.3;
-
 /** Igaz, ha a megadott érték a két ismert mód egyike. */
 export const isLogMode = (value) => LOG_MODES.includes(value);
-
-/**
- * Egy KATALÓGUS-SOR kardió-profilja. A logMode-hoz hasonlóan a katalógus
- * összeállításakor fut le, soronként egyszer, és onnantól a kiírt mezők az
- * egyetlen forrás. Szett-alapú soron nincs értelme, ezért ott semleges.
- *
- * @param {object} entry katalógus-bejegyzés
- * @returns {{ impact: number, carriesBodyWeight: boolean }}
- */
-export function resolveCardioProfile(entry) {
-  const name = normalizeName(entry?.name);
-  if (SEATED_PATTERNS.some((pattern) => pattern.test(name))) {
-    return { impact: IMPACT_SEATED, carriesBodyWeight: false };
-  }
-  if (HIGH_IMPACT_PATTERNS.some((pattern) => pattern.test(name))) {
-    return { impact: IMPACT_HIGH, carriesBodyWeight: true };
-  }
-  return { impact: IMPACT_STANDING, carriesBodyWeight: true };
-}
 
 /**
  * Egy KATALÓGUS-SOR naplózási módja. A katalógus összeállításakor fut le,
@@ -171,49 +116,10 @@ export function resolveLogMode(entry) {
     : DEFAULT_LOG_MODE;
 }
 
-/* A katalógus kardió-profil INDEXE. Ugyanaz a minta, mint a muscles.js
-   név-indexénél, és ugyanazért: a készenlét-számítás 28 napnyi edzés MINDEN
-   gyakorlatára lekérdezi, egy katalógus-bejárás fejenként itt is érezhető
-   volna. Katalógus-tömbönként egyszer épül, WeakMap tartja, tehát a modul
-   kívülről állapotmentes marad. */
-const profileIndexCache = new WeakMap();
-
-function cardioProfileIndex(catalog) {
-  if (profileIndexCache.has(catalog)) return profileIndexCache.get(catalog);
-  const index = new Map();
-  for (const entry of catalog) {
-    const key = normalizeName(entry?.name);
-    if (!key || entry?.logMode !== 'duration' || index.has(key)) continue;
-    index.set(key, {
-      impact: Number(entry.impact) || IMPACT_STANDING,
-      carriesBodyWeight: entry.carriesBodyWeight !== false,
-    });
-  }
-  profileIndexCache.set(catalog, index);
-  return index;
-}
-
-/** Egy NAPLÓZOTT gyakorlatnév kardió-profilja a katalógusból. Ismeretlen névre
-    a semleges középső sáv jár, ugyanazzal az indoklással, mint a
-    resolveCardioProfile alapértelmezésénél: a nulla azt állítaná, hogy nincs
-    izomkárosodás, az egy pedig futás-szintűt. */
-export function cardioProfileFor(name, catalog = []) {
-  return cardioProfileIndex(catalog).get(normalizeName(name))
-    ?? { impact: IMPACT_STANDING, carriesBodyWeight: true };
-}
-
 /** Egy naplózott sor intenzitása. Ismeretlen vagy hiányzó értékre a skála
     közepe jár — üresen hagyni nem lehet, mert a fokozat maga a mérés. */
 export const normalizeIntensity = (value) =>
-  (INTENSITY_KEYS.includes(value) ? value : DEFAULT_INTENSITY);
-
-/** Egy fokozat MET-értéke (kalória) és strain-értéke (fáradtság). Ismeretlen
-    kulcsra a skála közepe jár, ugyanúgy, mint a normalizeIntensity-nél. */
-export const intensityMet = (key) =>
-  (INTENSITY_LEVELS[key] ?? INTENSITY_LEVELS[DEFAULT_INTENSITY]).met;
-
-export const intensityStrain = (key) =>
-  (INTENSITY_LEVELS[key] ?? INTENSITY_LEVELS[DEFAULT_INTENSITY]).strain;
+  INTENSITY_KEYS.includes(value) ? value : DEFAULT_INTENSITY;
 
 /**
  * Egy naplózott sor időtartama MÁSODPERCBEN, szövegként tárolva (a szett többi

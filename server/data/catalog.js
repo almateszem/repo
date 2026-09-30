@@ -34,7 +34,7 @@ import { exercises as curatedExercises, GROUPS } from './exercises.hu.js';
 import { exdbExercises, exdbMediaForCurated } from './exercises.exdb.js';
 import { foods as curatedFoods } from './foods.hu.js';
 import { MUSCLE_KEYS } from '../muscles.js';
-import { isLogMode, resolveCardioProfile, resolveLogMode } from '../logmode.js';
+import { isLogMode, resolveLogMode } from '../logmode.js';
 
 /**
  * A gyakorlat-lista ellenőrzése. A Recovery Engine a `load` súlyokra épít, és
@@ -54,14 +54,18 @@ export function validateExercises(list, source) {
     seen.add(entry.name);
 
     if (!GROUPS.includes(entry.group)) {
-      throw new Error(`${where}: ismeretlen csoport („${entry.group}”). Engedett: ${GROUPS.join(', ')}`);
+      throw new Error(
+        `${where}: ismeretlen csoport („${entry.group}”). Engedett: ${GROUPS.join(', ')}`,
+      );
     }
     if (!entry.load || !Object.keys(entry.load).length) {
       throw new Error(`${where}: hiányzó load — a Recovery Engine nem tud vele mit kezdeni`);
     }
     for (const key of Object.keys(entry.load)) {
       if (!MUSCLE_KEYS.includes(key)) {
-        throw new Error(`${where}: ismeretlen izomkulcs („${key}”). Engedett: ${MUSCLE_KEYS.join(', ')}`);
+        throw new Error(
+          `${where}: ismeretlen izomkulcs („${key}”). Engedett: ${MUSCLE_KEYS.join(', ')}`,
+        );
       }
     }
     /* A naplózási mód elgépelése ugyanolyan csendes hiba volna, mint egy rossz
@@ -106,7 +110,10 @@ export function buildExerciseCatalog() {
       ...entry,
       loadSource: 'curated',
       ...(media && {
-        equipment: media.equipment, extId: media.extId, image: media.image, gif: media.gif,
+        equipment: media.equipment,
+        extId: media.extId,
+        image: media.image,
+        gif: media.gif,
       }),
     };
   });
@@ -117,20 +124,8 @@ export function buildExerciseCatalog() {
   /* A naplózási mód RÁÉGETÉSE: innentől minden sor konkrét `logMode`-ot visel,
      és sem a felület, sem a szerver nem old fel többé nevet. A kurált sorok a
      saját kimondott értéküket tartják meg, a generált kardió a mintázatból
-     kapja meg — lásd logmode.js → resolveLogMode.
-
-     Az IDŐALAPÚ sorok a kardió-profilt is megkapják (becsapódás-jelleg és
-     testsúly-viselés), mert a Recovery Engine ezekkel súlyoz. A szett-alapú
-     sorokra nem tesszük rá: ott nincs mit jelentenie, és a katalógus fele
-     fölöslegesen hízna tőle. */
-  return merged.map((entry) => {
-    const logMode = resolveLogMode(entry);
-    return {
-      ...entry,
-      logMode,
-      ...(logMode === 'duration' && resolveCardioProfile(entry)),
-    };
-  });
+     kapja meg — lásd logmode.js → resolveLogMode. */
+  return merged.map((entry) => ({ ...entry, logMode: resolveLogMode(entry) }));
 }
 
 /**

@@ -1,9 +1,15 @@
 /** Testsúly-lépés: mai mérés, viszonyítási ponttal és „ma nem mértem" kiúttal. */
 
 import { $, $$, cloneTemplate } from '../../../core/dom.js';
-import { formatNumber } from '../../../core/format.js';
+import { formatInputNumber, formatNumber } from '../../../core/format.js';
 import { formatDelta, latestWeightEntry, todayWeightEntry } from '../../weight.js';
-import { CI_PRESET_ADVANCE_MS, CI_WEIGHT_FALLBACK, CI_WEIGHT_MAX, CI_WEIGHT_MIN, CI_WEIGHT_PRESET_OFFSETS } from '../constants.js';
+import {
+  CI_PRESET_ADVANCE_MS,
+  CI_WEIGHT_FALLBACK,
+  CI_WEIGHT_MAX,
+  CI_WEIGHT_MIN,
+  CI_WEIGHT_PRESET_OFFSETS,
+} from '../constants.js';
 import { ciClamp } from '../helpers.js';
 import { ci } from '../session.js';
 
@@ -22,7 +28,7 @@ function renderWeight(nav) {
   // A mezőt SZÁNDÉKOSAN nem töltjük ki a legutóbbi méréssel: egy előre
   // beírt szám a „Tovább" gombbal olyan méréssé válna, ami meg sem történt.
   // A ma már rögzített érték viszont szerkeszthető — azt visszaadjuk.
-  input.value = ci.answers.weightKg === null ? '' : formatNumber(ci.answers.weightKg);
+  input.value = ci.answers.weightKg === null ? '' : formatInputNumber(ci.answers.weightKg);
 
   const syncStep = () => {
     const value = ci.answers.weightKg;
@@ -53,9 +59,10 @@ function renderWeight(nav) {
   function commitWeight() {
     const raw = input.value.trim();
     const value = Number(raw);
-    ci.answers.weightKg = raw === '' || !Number.isFinite(value)
-      ? null
-      : ciClamp(Math.round(value * 10) / 10, CI_WEIGHT_MIN, CI_WEIGHT_MAX);
+    ci.answers.weightKg =
+      raw === '' || !Number.isFinite(value)
+        ? null
+        : ciClamp(Math.round(value * 10) / 10, CI_WEIGHT_MIN, CI_WEIGHT_MAX);
     ci.dirty = true;
     syncStep();
   }
@@ -64,7 +71,7 @@ function renderWeight(nav) {
   // 30-ra), elhagyáskor viszont a látott és a tárolt érték egyezzen.
   input.addEventListener('input', commitWeight);
   input.addEventListener('blur', () => {
-    input.value = ci.answers.weightKg === null ? '' : formatNumber(ci.answers.weightKg);
+    input.value = ci.answers.weightKg === null ? '' : formatInputNumber(ci.answers.weightKg);
   });
 
   // A ± gombokat a megosztott handleStepClick lépteti; üres mezőnél viszont
@@ -75,7 +82,7 @@ function renderWeight(nav) {
     nav.cancelAdvance();
     if (input.value.trim() !== '') return;
     event.stopPropagation();
-    input.value = formatNumber(reference?.kg ?? CI_WEIGHT_FALLBACK);
+    input.value = formatInputNumber(reference?.kg ?? CI_WEIGHT_FALLBACK);
     commitWeight();
   });
 
@@ -91,7 +98,7 @@ function renderWeight(nav) {
       btn.setAttribute('aria-pressed', 'false');
       btn.setAttribute('aria-label', `${formatNumber(value)} kilogramm`);
       btn.addEventListener('click', (event) => {
-        input.value = formatNumber(value);
+        input.value = formatInputNumber(value);
         commitWeight();
         // Billentyűs aktiválás (detail === 0) nem léptet magától.
         if (event.detail !== 0) nav.advanceSoon(CI_PRESET_ADVANCE_MS);

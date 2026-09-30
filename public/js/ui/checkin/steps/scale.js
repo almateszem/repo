@@ -41,7 +41,10 @@ function renderScale(stepName, nav) {
     btn.dataset.value = String(value);
     btn.textContent = String(value);
     btn.setAttribute('aria-pressed', 'false');
-    btn.setAttribute('aria-label', `${value} — ${value === 1 ? low : value === 5 ? high : 'közepes'}`);
+    btn.setAttribute(
+      'aria-label',
+      `${value} — ${value === 1 ? low : value === 5 ? high : 'közepes'}`,
+    );
     btn.addEventListener('click', (event) => choose(value, { auto: event.detail !== 0 }));
     group.appendChild(btn);
   }

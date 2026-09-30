@@ -20,7 +20,7 @@ Ez a dokumentum két kérdésre válaszol:
    adható, aki nem tőlünk kap magyarázatot hozzá.
 2. **Mit érdemes átszabni a tervezeten** UI/UX szempontból.
 
-A hangsúly a *hiányon* van, nem a meglévő értékelésén. Röviden azért a
+A hangsúly a _hiányon_ van, nem a meglévő értékelésén. Röviden azért a
 kiindulás: a mag kész és jó. A Recovery Engine tiszta függvényekkel,
 unit-tesztelve; a fiókkezelés (scrypt, HttpOnly munkamenet, fiókonkénti
 adatizoláció) rendben; az edzésnapló autosave-je hibatűrő; a design-tokenek
@@ -39,15 +39,15 @@ Ezek nélkül nem adnám ki senkinek. Sorrendben, ahogy nekiállnék.
 **Ez a legnagyobb tétel, és ma nincs a TEENDOK-ban.** Az app több helyen mutat
 kitalált adatot úgy, mintha a felhasználóé lenne. Egy új fiók ma ezt látja:
 
-| Hol | Mi a demo | Forrás | Állapot (08-27) |
-| --- | --- | --- | --- |
-| Edzői panel | 5 kitalált sportoló, fix `readiness` értékkel | `server/data.js:57` | ✅ kikerült — valódi `coach_links`, a statokat a `coaching.js` számolja |
-| Edző-chat (kliens nézet) | „Kovács Bence", körbeforgó előre írt válaszok | `data.js:120,143` · `index.html:440` | ✅ kikerült — `messages` tábla, `GET/POST /api/messages/:linkId` |
-| Értesítések | 6 db seed-értesítés, a badge `6`-ra **beégetve** a HTML-ben | `data.js:148` · `index.html:108` | 🟡 a lista valós eseményekből épül (`notifications.js`), de a badge `6`-os kezdőértéke **még beégetve** (`index.html:121`) |
-| Technika-videó modál | minden gyakorlatnál ugyanaz: „Fekvenyomás" + kitalált edzői megjegyzés | `index.html:747-767` | 🟡 a gyakorlat neve már dinamikus; a videó-előnézet és az „Edző megjegyzése" **még mindig fix demo-szöveg** (`index.html:895-901`) |
-| Testsúly-kártya | saját mérés nélkül seed-görbét rajzol | `js/ui/weight.js` | ⬜ változatlan — `data.js` → `charts.bodyWeight` még mindig seed-görbe |
-| Szerepkörök | `hasCoach` / `coachesAthletes` a seedből jön, nem a fiókból | `server/server.js:242` | ✅ kikerült — a szerepkör valódi edző–sportoló kapcsolatból következik |
-| Táplálkozási cél | **mindenkinek** 2900 kcal / 170 g | `data.js:157` | ⬜ változatlan — `data.js:79`, a `getNutritionTotals` a globális `nutritionGoal`-t adja vissza |
+| Hol                      | Mi a demo                                                              | Forrás                               | Állapot (08-27)                                                                                                                    |
+| ------------------------ | ---------------------------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Edzői panel              | 5 kitalált sportoló, fix `readiness` értékkel                          | `server/data.js:57`                  | ✅ kikerült — valódi `coach_links`, a statokat a `coaching.js` számolja                                                            |
+| Edző-chat (kliens nézet) | „Kovács Bence", körbeforgó előre írt válaszok                          | `data.js:120,143` · `index.html:440` | ✅ kikerült — `messages` tábla, `GET/POST /api/messages/:linkId`                                                                   |
+| Értesítések              | 6 db seed-értesítés, a badge `6`-ra **beégetve** a HTML-ben            | `data.js:148` · `index.html:108`     | 🟡 a lista valós eseményekből épül (`notifications.js`), de a badge `6`-os kezdőértéke **még beégetve** (`index.html:121`)         |
+| Technika-videó modál     | minden gyakorlatnál ugyanaz: „Fekvenyomás" + kitalált edzői megjegyzés | `index.html:747-767`                 | 🟡 a gyakorlat neve már dinamikus; a videó-előnézet és az „Edző megjegyzése" **még mindig fix demo-szöveg** (`index.html:895-901`) |
+| Testsúly-kártya          | saját mérés nélkül seed-görbét rajzol                                  | `js/ui/weight.js`                    | ⬜ változatlan — `data.js` → `charts.bodyWeight` még mindig seed-görbe                                                             |
+| Szerepkörök              | `hasCoach` / `coachesAthletes` a seedből jön, nem a fiókból            | `server/server.js:242`               | ✅ kikerült — a szerepkör valódi edző–sportoló kapcsolatból következik                                                             |
+| Táplálkozási cél         | **mindenkinek** 2900 kcal / 170 g                                      | `data.js:157`                        | ⬜ változatlan — `data.js:79`, a `getNutritionTotals` a globális `nutritionGoal`-t adja vissza                                     |
 
 Döntés kell mindegyikről: **vagy valós lesz, vagy kikerül, vagy láthatóan
 „Demo" címkét kap.** MVP-re a legolcsóbb és legőszintébb út: az edzői panelt,
@@ -128,7 +128,7 @@ perzisztens volume, és mellé egy egyszerű, ütemezett mentés (SQLite
 > adatbázis-útvonalat, és azt is, hogy **meglévő fájlt nyitott-e meg vagy újat
 > hozott létre** — a néma újralétrehozás eddig pont az a hiba volt, ami akkor
 > derült ki, amikor a naplók már eltűntek. Az útvonal a `FITTRACK_DB`
-> env-változóval állítható, és a README kapott egy *Élesítés* szakaszt.
+> env-változóval állítható, és a README kapott egy _Élesítés_ szakaszt.
 > **Ütemezett mentés (`VACUUM INTO`) továbbra sincs**, és a volume maga
 > ugyanúgy telepítési kérdés maradt.
 
@@ -195,6 +195,7 @@ elrontott terv örökre ott marad.
 
   > **⬜ Nincs meg.** A kódban semmilyen pihenő-mérő nincs; a szett bepipálása
   > ma is csak az autosave-et indítja.
+
 - **„Legutóbb ennyit nyomtál" a szett-sorban.** A `tpl-set-row`
   (`index.html:1072`) ma üres mezőkkel indul. Egy halvány referencia
   (`8 × 60 kg` az előző alkalomról) a legolcsóbb módja annak, hogy a napló
@@ -205,6 +206,7 @@ elrontott terv örökre ott marad.
   > bekerült az `exercise_maxes` tábla és a `GET /api/exercise-maxes` — a
   > gyakorlatonkénti csúcsok tehát már számolva vannak, csak nem a szett-sorban
   > jelennek meg.)
+
 - **Az edzés hossza mentődjön.** A `workoutMinutes()` (`js/render/summary.js`)
   `localStorage`-ból számol, és **nem kerül bele a mentett edzésbe** — tehát a
   Korábbi edzésekben nincs időtartam, másik eszközön pedig 0 percet mutat.
@@ -216,6 +218,7 @@ elrontott terv örökre ott marad.
   > változatlanul `localStorage`: a `workout_draft` táblában nincs kezdés-oszlop
   > és a `workouts` táblában nincs `minutes` — másik eszközön tehát ma is 0 perc,
   > és a Korábbi edzésekben továbbra sincs időtartam.
+
 - **Onboarding.** Az első belépés ma egy üres app 0%-os készenléttel. Három
   képernyő elég: cél + testadatok (→ ebből a kalória-cél), első testsúly, első
   terv választása sablonból (a 200 kurált gyakorlatból összeállítható 3-4
@@ -223,7 +226,8 @@ elrontott terv örökre ott marad.
 
   > **⬜ Nincs meg.** Onboarding-folyam nincs. Egy darab lépés azért bekerült
   > felé: az áttekintőn ott a „Töltsd ki a napi check-int" CTA, ami pont az a
-  > *egyetlen első dolog*, amit a 3.3 is javasol.
+  > _egyetlen első dolog_, amit a 3.3 is javasol.
+
 - **Kezdő terv-sablonok.** Új fiók ma nulla tervvel indul, és a terv-építő
   üres lappal fogadja. 3-4 beépített sablon (Full body 3×, Push/Pull/Legs,
   Felső/alsó) egy koppintással másolható legyen.
@@ -252,13 +256,13 @@ Ebből három konkrét baj következik:
    készenlét-kártyáján keresztül, ami egy megtanulandó, nem látható útvonal —
    miközben ez az app legértékesebb, legegyedibb oldala.
 2. **A napi check-in sem érhető el navigációból**, csak a dashboard CTA-jából,
-   ami *eltűnik*, amint kitöltötted. Utólag szerkeszteni akaró felhasználónak
+   ami _eltűnik_, amint kitöltötted. Utólag szerkeszteni akaró felhasználónak
    nincs útja vissza (a részletes űrlap a Regeneráció oldalon van — ott
    viszont van).
 3. **Tablet-lyuk:** 768–1024px között nincs oldalsó nav, de már egérrel
    használják — a húzós gyűrű ott a legrosszabb megoldás.
 
-**Javaslat:** a gyűrű maradjon meg *gyorsítóként* (jó ötlet, egykezes
+**Javaslat:** a gyűrű maradjon meg _gyorsítóként_ (jó ötlet, egykezes
 használatra kifejezetten kellemes), de **ne az legyen az egyetlen navigáció
 mobilon**. Alá kerüljön egy klasszikus alsó tab-sáv 5 ponttal: Áttekintés ·
 Regeneráció · Edzés · Táplálkozás · Tervek (az Edző a beállítások/profil alá
@@ -303,8 +307,8 @@ percben, és mi az egyetlen dolog, amit ilyenkor csinálnia kell. (Javaslat:
 
 > **🟡 A javaslat megvalósult, az összkép nem.** Az áttekintőn ott a „Töltsd ki
 > a napi check-int" CTA (`data-checkin-cta`), ami kitöltés után eltűnik, és a
-> ≥1280px-es rács külön elrendezést vált rá — tehát pontosan az az *egyetlen
-> első dolog* megvan, amit a szakasz javasol. Az Edzőn már nem öt kitalált
+> ≥1280px-es rács külön elrendezést vált rá — tehát pontosan az az _egyetlen
+> első dolog_ megvan, amit a szakasz javasol. Az Edzőn már nem öt kitalált
 > sportoló fogad. Nyitott maradt: a Regeneráción **még mindig demo-testsúlygörbe
 > van**, és a 0. perc egésze továbbra sincs egyben megtervezve.
 
@@ -497,19 +501,19 @@ változatlan.
 
 ### Ami elkészült (✅)
 
-| Tétel | Hol |
-| --- | --- |
-| 1.4 Időzóna | `X-Client-Date` + validáció, `server/timezone.test.js` |
+| Tétel                                                | Hol                                                    |
+| ---------------------------------------------------- | ------------------------------------------------------ |
+| 1.4 Időzóna                                          | `X-Client-Date` + validáció, `server/timezone.test.js` |
 | 1.1 Edzői panel, edző-chat, szerepkörök, értesítések | valódi `coach_links` / `messages` / `notifications.js` |
-| 1.3 Fióktörlés | `POST /api/auth/delete-account` |
-| 1.7 Mentett edzés javítása és törlése | `PUT` + `DELETE /api/workouts/:id` |
-| 1.8 Rate limit kiterjesztése | `server/ratelimit.js` — belépés, regisztráció, írások |
-| 3.6 Szett-mezők `aria-label`-je | pozíció szerinti címkék |
-| 3.6 Egységes lenyíló minta | szuperszett + szett-típus |
-| 3.7 Saját étel (+ vonalkód-olvasó) | `custom_foods`, `barcode_cache`, `openfoodfacts.js` |
-| 3.8 Alvás-tartomány egységesítése | 0–24 mindkét felületen |
-| 3.4 Dashboard-rács ≥1280px | állapotfüggő `grid-template-areas` |
-| 3.3 „Első dolog" CTA | `data-checkin-cta` az áttekintőn |
+| 1.3 Fióktörlés                                       | `POST /api/auth/delete-account`                        |
+| 1.7 Mentett edzés javítása és törlése                | `PUT` + `DELETE /api/workouts/:id`                     |
+| 1.8 Rate limit kiterjesztése                         | `server/ratelimit.js` — belépés, regisztráció, írások  |
+| 3.6 Szett-mezők `aria-label`-je                      | pozíció szerinti címkék                                |
+| 3.6 Egységes lenyíló minta                           | szuperszett + szett-típus                              |
+| 3.7 Saját étel (+ vonalkód-olvasó)                   | `custom_foods`, `barcode_cache`, `openfoodfacts.js`    |
+| 3.8 Alvás-tartomány egységesítése                    | 0–24 mindkét felületen                                 |
+| 3.4 Dashboard-rács ≥1280px                           | állapotfüggő `grid-template-areas`                     |
+| 3.3 „Első dolog" CTA                                 | `data-checkin-cta` az áttekintőn                       |
 
 ### A hat legfontosabb, ami maradt
 

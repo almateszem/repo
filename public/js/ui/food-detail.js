@@ -14,13 +14,13 @@ const PORTION_MIN = 5;
 
 const PORTION_MAX = 1000;
 
-const PORTION_STEP = 5;     // 5 g-os rács — ennél finomabb bontás konyhamérleg nélkül nem valós
+const PORTION_STEP = 5; // 5 g-os rács — ennél finomabb bontás konyhamérleg nélkül nem valós
 
 const PORTION_DEFAULT = 100;
 
 const PORTION_QUICK = [30, 50, 100, 150, 200, 300];
 
-const PICKER_ITEM_H = 24;   // px — a .fd-picker-option magassága (style.css: --fd-item-h)
+const PICKER_ITEM_H = 24; // px — a .fd-picker-option magassága (style.css: --fd-item-h)
 
 /** A gramm-választó lehetséges értékei (a rácson). */
 const PORTION_VALUES = (() => {
@@ -67,13 +67,15 @@ function setupFoodDetail({ onAdd }) {
   /* A választó elemei egyszer épülnek fel — az értékkészlet ételtől független.
      A képernyőolvasó a spinbutton aria-valuenow/valuetext-jéből olvassa az
      adagot, a számoszlop maga csak vizuális. */
-  picker.append(...PORTION_VALUES.map((value) => {
-    const option = document.createElement('div');
-    option.className = 'fd-picker-option';
-    option.textContent = value;
-    option.setAttribute('aria-hidden', 'true');
-    return option;
-  }));
+  picker.append(
+    ...PORTION_VALUES.map((value) => {
+      const option = document.createElement('div');
+      option.className = 'fd-picker-option';
+      option.textContent = value;
+      option.setAttribute('aria-hidden', 'true');
+      return option;
+    }),
+  );
   picker.setAttribute('aria-valuemin', PORTION_MIN);
   picker.setAttribute('aria-valuemax', PORTION_MAX);
 
@@ -88,15 +90,17 @@ function setupFoodDetail({ onAdd }) {
       ? current.portions.map(([label, value]) => [`${label} · ${value} ${unit}`, value])
       : PORTION_QUICK.map((value) => [`${value} ${unit}`, value]);
 
-    chipBox.replaceChildren(...presets.map(([label, value]) => {
-      const chip = document.createElement('button');
-      chip.className = 'fd-chip';
-      chip.type = 'button';
-      chip.textContent = label;
-      chip.dataset.grams = value;
-      chip.setAttribute('aria-pressed', 'false');
-      return chip;
-    }));
+    chipBox.replaceChildren(
+      ...presets.map(([label, value]) => {
+        const chip = document.createElement('button');
+        chip.className = 'fd-chip';
+        chip.type = 'button';
+        chip.textContent = label;
+        chip.dataset.grams = value;
+        chip.setAttribute('aria-pressed', 'false');
+        return chip;
+      }),
+    );
   };
   renderChips(null);
 
@@ -116,8 +120,18 @@ function setupFoodDetail({ onAdd }) {
     // Napi cél: a sáv azt mutatja, hol tartana a bevitel EZZEL az adaggal
     const totals = context.totals;
     const goals = [
-      { key: 'kcal', now: totals ? totals.intake + addKcal : 0, max: totals?.goal?.calories ?? 0, unit: 'kcal' },
-      { key: 'protein', now: totals ? totals.protein + addProtein : 0, max: totals?.goal?.protein ?? 0, unit: 'g' },
+      {
+        key: 'kcal',
+        now: totals ? totals.intake + addKcal : 0,
+        max: totals?.goal?.calories ?? 0,
+        unit: 'kcal',
+      },
+      {
+        key: 'protein',
+        now: totals ? totals.protein + addProtein : 0,
+        max: totals?.goal?.protein ?? 0,
+        unit: 'g',
+      },
     ];
     goals.forEach(({ key, now, max, unit }) => {
       const bar = $(`[data-fd-${key}-bar]`, modal);
@@ -181,9 +195,12 @@ function setupFoodDetail({ onAdd }) {
   // Billentyűzet: a spinbutton-tól elvárt lépések (a görgetés egérrel/ujjal megy)
   picker.addEventListener('keydown', (event) => {
     const steps = {
-      ArrowUp: PORTION_STEP, ArrowRight: PORTION_STEP,
-      ArrowDown: -PORTION_STEP, ArrowLeft: -PORTION_STEP,
-      PageUp: PORTION_STEP * 10, PageDown: -PORTION_STEP * 10,
+      ArrowUp: PORTION_STEP,
+      ArrowRight: PORTION_STEP,
+      ArrowDown: -PORTION_STEP,
+      ArrowLeft: -PORTION_STEP,
+      PageUp: PORTION_STEP * 10,
+      PageDown: -PORTION_STEP * 10,
     };
     if (event.key in steps) {
       event.preventDefault();
@@ -205,7 +222,9 @@ function setupFoodDetail({ onAdd }) {
   const submit = async () => {
     if (busy || !food) return;
     busy = true;
-    addButtons.forEach((button) => { button.disabled = true; });
+    addButtons.forEach((button) => {
+      button.disabled = true;
+    });
     try {
       await onAdd(food, grams);
       controller.close();
@@ -214,7 +233,9 @@ function setupFoodDetail({ onAdd }) {
       showToast(err.message || 'Nem sikerült hozzáadni az ételt', 'error');
     } finally {
       busy = false;
-      addButtons.forEach((button) => { button.disabled = false; });
+      addButtons.forEach((button) => {
+        button.disabled = false;
+      });
     }
   };
   addButtons.forEach((button) => button.addEventListener('click', submit));

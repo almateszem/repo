@@ -17,45 +17,33 @@ async function setupNutrition(foodDetail) {
   const logEmpty = $('[data-nu-log-empty]');
   const logCount = $('[data-nu-log-count]');
   const STAT_KEYS = ['intake', 'protein', 'carbs', 'fat'];
-  const intakeLabelEl = $('[data-nu-intake-label]');
-  const netNoteEl = $('[data-nu-net-note]');
-
-  /* NETTÓ bevitel: a bevitt kalória mínusz a kardióval elmozgatott. Nullánál
-     nem megyünk lejjebb — negatív bevitelt kiírni hibának látszana —, a valós
-     két számot viszont a magyarázó sor mindig kimondja.
-     A MAKRÓKAT ez nem érinti: a mozgás nem vesz el fehérjét, csak energiát. */
-  const netIntake = (t) => Math.max(0, Math.round(t.intake) - (t.burned || 0));
 
   // A napi összesítő a szerverről (alap + naplózott ételek) — újratöltés után
   // is a valós állapotot mutatja. A lokális másolat a POST-válaszokkal frissül.
   let totals = null;
   const applyTotals = (next, { animateFrom = null } = {}) => {
-    /* A mozgással elégetett kalória csak a napi összesítő végpontjában van
-       benne; az étel-naplózás POST-válasza a nyers összeget adja vissza. Ha
-       onnan jön a friss érték, a korábbi napi égetést visszük tovább —
-       különben egy bejegyzés után a nettó szám visszaugrana a bruttóra. */
-    totals = { burned: totals?.burned ?? 0, ...next };
+    totals = next;
     STAT_KEYS.forEach((key) => {
       const el = $(`[data-stat="${key}"]`);
-      const value = key === 'intake' ? netIntake(totals) : totals[key];
-      const from = animateFrom
-        && (key === 'intake' ? netIntake({ ...animateFrom, burned: totals.burned }) : animateFrom[key]);
-      if (animateFrom) animateNumber(el, value, { from, duration: 600 });
-      else el.textContent = formatNumber(value);
+      if (animateFrom) animateNumber(el, totals[key], { from: animateFrom[key], duration: 600 });
+      else el.textContent = formatNumber(totals[key]);
     });
-
-    const burned = totals.burned || 0;
-    intakeLabelEl.textContent = burned > 0 ? 'Nettó bevitel' : 'Bevitel';
-    netNoteEl.hidden = burned === 0;
-    if (burned > 0) {
-      netNoteEl.textContent =
-        `${formatNumber(Math.round(totals.intake))} kcal elfogyasztva, `
-        + `${formatNumber(burned)} kcal elmozgatva kardióval.`;
-    }
     /* A fejléc „Cél" száma is innen jön: a cél mostantól szerkeszthető,
        tehát nem elég egyszer, betöltéskor kiírni. */
     const goalCalEl = $('[data-goal="calories"]');
     if (goalCalEl) goalCalEl.textContent = formatNumber(totals.goal.calories);
+
+    /* A hős alatti sáv a cél felé vezető utat mutatja — ugyanaz a minta, mint
+       a vízmérőé (ui/water.js). 100%-nál megáll: a túlevés nem „több mint
+       teli" sáv, azt a szám mondja meg, nem a rajz. A nulla cél ellen a
+       védelem nem elméleti — a cél szerkeszthető, és a hányados NaN-ként
+       érvénytelen CSS-szélességet adna. */
+    const intakeFill = $('[data-intake-fill]');
+    if (intakeFill) {
+      const goal = totals.goal.calories;
+      const ratio = goal > 0 ? Math.min(totals.intake / goal, 1) : 0;
+      intakeFill.style.width = `${Math.round(ratio * 100)}%`;
+    }
   };
   applyTotals(await api.getNutrition());
 
@@ -84,15 +72,18 @@ async function setupNutrition(foodDetail) {
       const removeBtn = $('.nu-log-remove', item);
       removeBtn.dataset.entryId = entry.id;
       removeBtn.title = 'Bejegyzés törlése';
-      removeBtn.setAttribute('aria-label',
-        `${entry.name} (${formatNumber(entry.grams)} g) törlése a mai naplóból`);
+      removeBtn.setAttribute(
+        'aria-label',
+        `${entry.name} (${formatNumber(entry.grams)} g) törlése a mai naplóból`,
+      );
       logList.appendChild(item);
     });
 
     logEmpty.hidden = logEntries.length > 0;
-    logCount.textContent = logEntries.length > 0
-      ? `${logEntries.length} tétel · ${formatNumber(logEntries.reduce((sum, e) => sum + e.kcal, 0))} kcal`
-      : '';
+    logCount.textContent =
+      logEntries.length > 0
+        ? `${logEntries.length} tétel · ${formatNumber(logEntries.reduce((sum, e) => sum + e.kcal, 0))} kcal`
+        : '';
   };
 
   const reloadLog = async () => {
@@ -148,8 +139,14 @@ async function setupNutrition(foodDetail) {
     };
 
     input.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') { event.preventDefault(); save(); }
-      if (event.key === 'Escape') { event.preventDefault(); cancel(); }
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        save();
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        cancel();
+      }
     });
     input.addEventListener('blur', cancel);
 
@@ -235,8 +232,8 @@ async function setupNutrition(foodDetail) {
     goalDiffEl.hidden = !goal.differs;
     if (goal.differs) {
       goalDiffTextEl.textContent =
-        `${goal.coach.setBy ?? 'Az edződ'} célja: ${formatNumber(goal.coach.calories)} kcal · `
-        + `${formatNumber(goal.coach.protein)} g fehérje — eltértél tőle.`;
+        `${goal.coach.setBy ?? 'Az edződ'} célja: ${formatNumber(goal.coach.calories)} kcal · ` +
+        `${formatNumber(goal.coach.protein)} g fehérje — eltértél tőle.`;
     }
 
     // A szerkesztő mezői mindig az ÉRVÉNYES célról indulnak.
@@ -257,9 +254,12 @@ async function setupNutrition(foodDetail) {
     event.preventDefault();
     goalSaveBtn.disabled = true;
     try {
-      renderGoal(await api.saveNutritionGoal(
-        Number(goalCaloriesInput.value), Number(goalProteinInput.value),
-      ));
+      renderGoal(
+        await api.saveNutritionGoal(
+          Number(goalCaloriesInput.value),
+          Number(goalProteinInput.value),
+        ),
+      );
       setGoalFormOpen(false);
       // A napi összesítő ugyanezt a célt méri — újra le kell kérni.
       applyTotals(await api.getNutrition());
@@ -346,7 +346,9 @@ async function setupNutrition(foodDetail) {
     renderLog();
     // Az áttekintő kalória-statja is kövesse a naplózást (közös forrás a szerveren)
     refreshDailyStats().catch(console.error);
-    showToast(`${food.name} · ${formatNumber(grams)} ${food.unit || 'g'} hozzáadva · +${formatNumber(entry.kcal)} kcal`);
+    showToast(
+      `${food.name} · ${formatNumber(grams)} ${food.unit || 'g'} hozzáadva · +${formatNumber(entry.kcal)} kcal`,
+    );
   };
 
   // A kártya nyila az adagválasztó modált nyitja. Ha az (betöltési hiba

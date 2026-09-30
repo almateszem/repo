@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning server/server.js",
     "dev": "node --watch --disable-warning=ExperimentalWarning server/server.js",
-    "test": "node --test \"server/**/*.test.js\"",
+    "test": "node --test \"server/**/*.test.js\" \"public/**/*.test.js\"",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",

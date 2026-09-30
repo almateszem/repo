@@ -2,6 +2,7 @@
 
 import { api } from '../core/api.js';
 import { $, $$, cloneTemplate, prefersReducedMotion } from '../core/dom.js';
+import { formatNumber } from '../core/format.js';
 import { showToast } from '../core/toast.js';
 
 /** Közös modal-vezérlő: backdrop/gomb zárás, Escape, fókusz-csapda,
@@ -60,8 +61,10 @@ function createModalController(modal) {
     // A [tabindex="0"] is kell: az étel-modál gramm-választója nem gomb, de
     // billentyűzettel kezelhető — enélkül a csapda átugraná.
     if (event.key === 'Tab') {
-      const focusables = $$('button, [href], input, select, textarea, [tabindex="0"]', modal)
-        .filter((el) => !el.disabled && !el.closest('[hidden]'));
+      const focusables = $$(
+        'button, [href], input, select, textarea, [tabindex="0"]',
+        modal,
+      ).filter((el) => !el.disabled && !el.closest('[hidden]'));
       if (focusables.length === 0) return;
 
       const first = focusables[0];
@@ -116,9 +119,8 @@ function setupAdviceModal() {
       const el = cloneTemplate('tpl-advice-item');
       if (item.action !== 'reduce') el.classList.add('ad-item--drop');
       $('.ad-item-action', el).textContent = ACTION_LABELS[item.action] ?? item.action;
-      $('.ad-item-name', el).textContent = item.action === 'reduce'
-        ? `${item.name} — −${item.percent}%`
-        : item.name;
+      $('.ad-item-name', el).textContent =
+        item.action === 'reduce' ? `${item.name} — −${item.percent}%` : item.name;
       $('.ad-item-detail', el).textContent = `${item.detail} · ${item.reason}`;
       list.appendChild(el);
     });
@@ -133,9 +135,11 @@ function setupAdviceModal() {
       const { applied } = await api.applySessionAdvice();
       // A szerver a piszkozatot írta át — a képernyőn lévő napló elavult.
       await workout?.reloadFromServer();
-      showToast(applied === 1
-        ? 'A mai naplód egy gyakorlaton módosult'
-        : `A mai naplód ${applied} gyakorlaton módosult`);
+      showToast(
+        applied === 1
+          ? 'A mai naplód egy gyakorlaton módosult'
+          : `A mai naplód ${applied} gyakorlaton módosult`,
+      );
       controller.close();
     } catch (err) {
       console.error('A javaslat alkalmazása nem sikerült:', err);
@@ -188,7 +192,9 @@ function setupConfirmDialog() {
   cancelBtn.addEventListener('click', () => settle(false));
   // Bezárás (✕, backdrop) és Escape = elutasítás. A createModalController
   // ezekre már zárja az ablakot; itt csak az ígéretet kell lezárni.
-  $$('[data-close-modal]', modal).forEach((el) => el.addEventListener('click', () => settle(false)));
+  $$('[data-close-modal]', modal).forEach((el) =>
+    el.addEventListener('click', () => settle(false)),
+  );
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && modal.classList.contains('is-open')) settle(false);
   });
@@ -223,8 +229,9 @@ function setupVideoModal() {
 }
 
 /** Gyakorlat rekord-előzmény modál — a "Korábbi rekordok" listaelemre
-    kattintva nyílik, és időrendben (régitől az újig) mutatja az adott
-    gyakorlat összes korábbi rekordját, hogy a fejlődés követhető legyen. */
+    kattintva nyílik, és legújabb elöl mutatja az adott gyakorlat összes
+    korábbi rekordját (ahogy a /api/prs/history adja), hogy a fejlődés a
+    legfrissebb eredménytől visszafelé követhető legyen. */
 function setupPrModal() {
   const modal = $('#prModal');
   const exerciseLabel = $('.pr-modal-exercise', modal);
@@ -245,7 +252,7 @@ function setupPrModal() {
           item.style.setProperty('--i', index);
           let detailText = entry.detail;
           if (entry.oneRM !== null && entry.oneRM > 0) {
-            detailText += ` • 1RM: ${entry.oneRM.toFixed(1)} kg`;
+            detailText += ` • 1RM: ${formatNumber(entry.oneRM)} kg`;
           }
           $('.wk-pr-detail', item).textContent = detailText;
           $('.wk-pr-date', item).textContent = entry.date;
@@ -258,4 +265,10 @@ function setupPrModal() {
   };
 }
 
-export { createModalController, setupAdviceModal, setupConfirmDialog, setupPrModal, setupVideoModal };
+export {
+  createModalController,
+  setupAdviceModal,
+  setupConfirmDialog,
+  setupPrModal,
+  setupVideoModal,
+};

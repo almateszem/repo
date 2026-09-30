@@ -20,13 +20,23 @@ import { refreshExerciseList, renderExercise } from '../../render/sets.js';
 import { WORKOUT_START_KEY } from '../../render/summary.js';
 
 export function createContentLoader({
-  page, list, titleInput, titleError, exerciseOptions, editing,
-  syncEmpty, syncEditingState, refreshPrIndicators, autosave, confirmAction,
+  page,
+  list,
+  titleInput,
+  titleError,
+  exerciseOptions,
+  editing,
+  syncEmpty,
+  syncEditingState,
+  refreshPrIndicators,
+  autosave,
+  confirmAction,
 }) {
   /** Hány teljesített szett van most a naplóban — a felülíró műveletek
       (terv betöltése, edzés visszanyitása) ez alapján kérdeznek rá. */
-  const doneSetCount = () => $$('.wk-set-check', page)
-    .filter((check) => check.getAttribute('aria-pressed') === 'true').length;
+  const doneSetCount = () =>
+    $$('.wk-set-check', page).filter((check) => check.getAttribute('aria-pressed') === 'true')
+      .length;
 
   /** A napló tartalmának cseréje. Pontosan ezt csinálja mind a három betöltő —
       csak az előtte/utána következő lépésekben különböznek. */
