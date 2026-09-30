@@ -5,9 +5,9 @@
  * Enélkül a mérő dísz volna — a Recovery Engine a folyadékbevitelt a
  * táplálkozás-komponensben súlyozza.
  *
- * A napi cél a szervertől jön (~33 ml testsúly-kilónként), nem beégetett
- * három liter: a motor ugyanezzel a képlettel számol, és két külön cél két
- * külön „teljesítettem" érzést adna.
+ * A napi cél a szervertől jön: az edző által kitűzött érték, ha van, különben
+ * ~33 ml testsúly-kilónként — nem beégetett három liter. A motor ugyanezt a
+ * célt használja, mert két külön cél két külön „teljesítettem" érzést adna.
  */
 
 import { api } from '../core/api.js';
@@ -37,13 +37,20 @@ async function setupWaterMeter() {
     const liters = Math.round((day.totalMl / 1000) * 100) / 100;
     const target = Math.round((day.targetMl / 1000) * 10) / 10;
     litersEl.textContent = formatNumber(liters);
-    goalEl.textContent = `cél ${formatNumber(target)} liter`;
+    // Az edző által kitűzött célt megjelöljük: azt a sportoló nem módosíthatja
+    const fromCoach = day.targetSource === 'coach';
+    goalEl.textContent = `cél ${formatNumber(target)} liter${fromCoach ? ' · edződtől' : ''}`;
+    goalEl.title = fromCoach
+      ? 'Az edződ tűzte ki — csak ő módosíthatja.'
+      : 'A testsúlyodból számolt cél (~33 ml/kg).';
 
     const pct = day.targetMl > 0 ? Math.min(100, (day.totalMl / day.targetMl) * 100) : 0;
     fillEl.style.width = `${pct}%`;
     trackEl.classList.toggle('is-full', day.totalMl >= day.targetMl);
-    trackEl.setAttribute('aria-label',
-      `Napi folyadékbevitel: ${formatNumber(liters)} liter a ${formatNumber(target)} literes célból`);
+    trackEl.setAttribute(
+      'aria-label',
+      `Napi folyadékbevitel: ${formatNumber(liters)} liter a ${formatNumber(target)} literes célból`,
+    );
 
     // Visszavonni csak akkor van mit, ha van bejegyzés. A gomb azért kell,
     // mert a hozzáadás egyetlen koppintás: téves érintés után különben csak
@@ -51,7 +58,10 @@ async function setupWaterMeter() {
     undoBtn.hidden = day.entries.length === 0;
   };
 
-  const apply = (next) => { day = next; render(); };
+  const apply = (next) => {
+    day = next;
+    render();
+  };
 
   /* A hálózati hiba nem hagyhatja a gombot letiltva: a felhasználó különben
      úgy érezné, hogy elakadt, pedig csak nem ment át a kérés. */
@@ -68,9 +78,13 @@ async function setupWaterMeter() {
   };
 
   addBtn.addEventListener('click', () => guard(addBtn, () => api.addWater(SIP_ML)));
-  undoBtn.addEventListener('click', () => guard(undoBtn, () => api.deleteWaterEntry(day.entries[0].id)));
+  undoBtn.addEventListener('click', () =>
+    guard(undoBtn, () => api.deleteWaterEntry(day.entries[0].id)),
+  );
 
-  hooks.refreshWater = async () => { apply(await api.getWater()); };
+  hooks.refreshWater = async () => {
+    apply(await api.getWater());
+  };
   await hooks.refreshWater();
 }
 

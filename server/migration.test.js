@@ -21,17 +21,18 @@ const workDir = mkdtempSync(path.join(tmpdir(), 'fittrack-migr-'));
 const DB_PATH = path.join(workDir, 'legacy.db');
 
 /* ---- A RÉGI séma felépítése (szó szerint a fiókok előtti alak) ---- */
-const legacyExercises = JSON.stringify(
-  [{ name: 'Guggolás', pr: true, sets: [{ reps: '5', weight: '120', rpe: '8', done: true }] }],
-);
+const legacyExercises = JSON.stringify([
+  { name: 'Guggolás', pr: true, sets: [{ reps: '5', weight: '120', rpe: '8', done: true }] },
+]);
 
 /* Egy edzés, amiben EGYETLEN szett sincs bepipálva. Ez nem elméleti eset: aki
    a naplót előre kitölti és menet közben nem pipálgat, ilyen sorokat hagy maga
-   után. Az addWorkout az ilyen gyakorlatnál az ELSŐ szettre esik vissza, tehát
-   csúcsot rögzít — a visszatöltésnek ugyanígy kell viselkednie. */
-const legacyPipalatlan = JSON.stringify(
-  [{ name: 'Vállnyomás', pr: false, sets: [{ reps: '8', weight: '40', rpe: '7', done: false }] }],
-);
+   után. A pipák előtti naplóban (workouts.pr_rule = 0) az ilyen gyakorlatnál az
+   ELSŐ szett számított, tehát a visszatöltésnek ebből is csúcsot kell rögzítenie.
+   Az új edzéseknél ez már nem így van: ott csak a pipált szett számít. */
+const legacyPipalatlan = JSON.stringify([
+  { name: 'Vállnyomás', pr: false, sets: [{ reps: '8', weight: '40', rpe: '7', done: false }] },
+]);
 
 {
   const old = new DatabaseSync(DB_PATH);
@@ -67,17 +68,25 @@ const legacyPipalatlan = JSON.stringify(
 
   old.prepare('INSERT INTO weight_log (kg, date) VALUES (?, ?)').run(84.2, '2026.08.14');
   old.prepare('INSERT INTO weight_log (kg, date) VALUES (?, ?)').run(83.9, '2026.08.15');
-  old.prepare('INSERT INTO nutrition_log (name, grams, kcal, protein, carbs, fat, date) VALUES (?,?,?,?,?,?,?)')
+  old
+    .prepare(
+      'INSERT INTO nutrition_log (name, grams, kcal, protein, carbs, fat, date) VALUES (?,?,?,?,?,?,?)',
+    )
     .run('Csirkemell', 150, 165, 31, 0, 3.6, '2026.08.15');
-  old.prepare('INSERT INTO workouts (name, date, exercises) VALUES (?, ?, ?)')
+  old
+    .prepare('INSERT INTO workouts (name, date, exercises) VALUES (?, ?, ?)')
     .run('Régi edzés', '2026.08.14', legacyExercises);
-  old.prepare('INSERT INTO workouts (name, date, exercises) VALUES (?, ?, ?)')
+  old
+    .prepare('INSERT INTO workouts (name, date, exercises) VALUES (?, ?, ?)')
     .run('Előre kitöltött edzés', '2026.08.13', legacyPipalatlan);
-  old.prepare('INSERT INTO plans (name, date, exercises, days) VALUES (?, ?, ?, ?)')
+  old
+    .prepare('INSERT INTO plans (name, date, exercises, days) VALUES (?, ?, ?, ?)')
     .run('Régi terv', '2026.08.10', legacyExercises, '[0,3]');
-  old.prepare('INSERT INTO workout_draft (id, name, exercises, date) VALUES (1, ?, ?, ?)')
+  old
+    .prepare('INSERT INTO workout_draft (id, name, exercises, date) VALUES (1, ?, ?, ?)')
     .run('Régi piszkozat', legacyExercises, '2026.08.15');
-  old.prepare('INSERT INTO checkins (date, sleep_hours, energy) VALUES (?, ?, ?)')
+  old
+    .prepare('INSERT INTO checkins (date, sleep_hours, energy) VALUES (?, ?, ?)')
     .run('2026.08.15', 7.5, 4);
   old.close();
 }
@@ -105,11 +114,22 @@ test('a migráció egyetlen sort sem veszít el', () => {
   assert.equal(count('checkins'), 1);
 
   // A séma viszont már az új: minden sor gazdához van kötve
-  for (const table of ['weight_log', 'nutrition_log', 'workouts', 'plans', 'workout_draft', 'checkins']) {
-    const columns = raw.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
+  for (const table of [
+    'weight_log',
+    'nutrition_log',
+    'workouts',
+    'plans',
+    'workout_draft',
+    'checkins',
+  ]) {
+    const columns = raw
+      .prepare(`PRAGMA table_info(${table})`)
+      .all()
+      .map((c) => c.name);
     assert.ok(columns.includes('user_id'), `${table}: van user_id oszlopa`);
     assert.equal(
-      raw.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE user_id IS NULL`).get().n, 0,
+      raw.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE user_id IS NULL`).get().n,
+      0,
       `${table}: nem maradt gazdátlan sor`,
     );
   }
@@ -133,20 +153,41 @@ test('az ELSŐ regisztráció megörökli a régi adatot', () => {
   const { user, adoptedLegacy } = db.createUser('david', 'Németh Dávid', 'scrypt$16384$8$1$aa$bb');
   assert.equal(adoptedLegacy, true, 'a válasz jelzi az örökölést');
 
-  assert.deepEqual(db.getWeightLog(user.id).map((w) => w.kg), [84.2, 83.9]);
-  assert.deepEqual(db.getWorkouts(user.id).map((w) => w.name),
-    ['Előre kitöltött edzés', 'Régi edzés']);
-  assert.deepEqual(db.getUserPlans(user.id).map((p) => p.name), ['Régi terv']);
+  assert.deepEqual(
+    db.getWeightLog(user.id).map((w) => w.kg),
+    [84.2, 83.9],
+  );
+  assert.deepEqual(
+    db.getWorkouts(user.id).map((w) => w.name),
+    ['Előre kitöltött edzés', 'Régi edzés'],
+  );
+  assert.deepEqual(
+    db.getUserPlans(user.id).map((p) => p.name),
+    ['Régi terv'],
+  );
   assert.equal(db.getWorkoutDraft(user.id).name, 'Régi piszkozat');
   assert.equal(db.getCheckin(user.id, '2026.08.15').sleepHours, 7.5);
   assert.equal(db.getNutritionTotals(user.id, '2026.08.15').intake, 165);
 
-  // A régi terv hétnap-ütemezése is megmaradt
-  assert.equal(db.getPlanForDay(user.id, 3)?.name, 'Régi terv');
+  /* A régi terv hétnap-ütemezése is megmaradt — heti alakban: az első
+     kijelölt nap (hétfő) az edzés, a csütörtök „ugyanaz, mint hétfő", és az
+     egyetlen terv lett az aktív. */
+  const [regi] = db.getUserPlans(user.id);
+  assert.equal(regi.active, true);
+  assert.deepEqual(regi.days, [0, 3]);
+  assert.deepEqual(regi.week[3], { type: 'same', of: 0 });
+  assert.equal(db.getPlanForDay(user.id, 3)?.name, 'Régi terv – Csütörtök');
+  assert.equal(db.getPlanForDay(user.id, 1), null, 'a kedd pihenőnap');
 
   // Az archív fiók eltűnt, helyette a valódi fiók van
   const raw = new DatabaseSync(DB_PATH);
-  assert.deepEqual(raw.prepare('SELECT username FROM users').all().map((u) => u.username), ['david']);
+  assert.deepEqual(
+    raw
+      .prepare('SELECT username FROM users')
+      .all()
+      .map((u) => u.username),
+    ['david'],
+  );
   raw.close();
   assert.ok(db.hasAnyUser());
 });
@@ -169,18 +210,22 @@ test('a PR-követés előtti edzésekből visszatöltődnek az egyéni csúcsok'
   assert.equal(gyengebb.exercises[0].pr, false, 'a régi 120 kg-hoz mérődik, nem a semmihez');
 });
 
-test('a visszatöltés a bepipálatlan edzést is figyelembe veszi — mint az addWorkout', () => {
-  /* A visszatöltésnek és az addWorkout-nak UGYANAZT a szabályt kell követnie
-     (server/db.js → bestCompletedSet). A két ág egyszer már elcsúszott: a
-     visszatöltés csak a bepipált szetteket nézte, az addWorkout viszont
-     teljesített szett híján az első sorra esik vissza. Következmény: akinek a
-     régi edzéseiben nem volt pipa, annál a visszatöltés üresen maradt — és a
-     következő edzés hamis PR-t ütött, vagyis pont az történt, aminek a
-     megelőzésére a visszatöltés való. */
+test('a visszatöltés a pipák előtti, bepipálatlan edzést is figyelembe veszi', () => {
+  /* A pipák előtti sorokon (workouts.pr_rule = 0) a visszatöltés a régi
+     szabályt követi: teljesített szett híján az első sor számít (server/db.js
+     → bestCompletedSet, fallbackToFirst). Egyszer már elcsúszott: a
+     visszatöltés csak a bepipált szetteket nézte, a mentés viszont az első
+     sorra esett vissza. Következmény: akinek a régi edzéseiben nem volt pipa,
+     annál a visszatöltés üresen maradt — és a következő edzés hamis PR-t
+     ütött, vagyis pont az történt, aminek a megelőzésére a visszatöltés való. */
   const user = db.getUserWithHash('david');
   const max = db.getExerciseMax(user.id, 'Vállnyomás');
   assert.ok(max, 'a bepipálatlan edzés gyakorlatához is van csúcs');
-  assert.equal(max.max1rm, db.calculateEpley1RM(40, 8), 'az első szettből, ahogy az addWorkout tenné');
+  assert.equal(
+    max.max1rm,
+    db.calculateEpley1RM(40, 8),
+    'az első szettből, ahogy az addWorkout tenné',
+  );
   assert.equal(max.date, '2026.08.13');
 
   // És működik is: egy gyengébb vállnyomás már nem rekord.
@@ -205,7 +250,9 @@ test('a migráció idempotens — újraindításkor nem fut le megint', () => {
   // A db.js egy folyamatban egyszer töltődik be, ezért itt a séma-jeleket
   // nézzük: nem maradt átmeneti tábla, és nem jött létre új archív fiók.
   const raw = new DatabaseSync(DB_PATH);
-  const tables = raw.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all()
+  const tables = raw
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
+    .all()
     .map((t) => t.name);
   raw.close();
 

@@ -19,15 +19,8 @@
  */
 import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const workDir = mkdtempSync(path.join(tmpdir(), 'fittrack-api-'));
+import { startServer, cookieFrom, today, gyakorlat } from './test-harness.js';
 
 /* ---- Az Open Food Facts helyi utánzata ----
    A /api/foods/barcode végpont kifelé hívna. A tesztcsomag viszont nem
@@ -39,9 +32,9 @@ const workDir = mkdtempSync(path.join(tmpdir(), 'fittrack-api-'));
    Az /__hits számláló azért kell, hogy a gyorsítótár BIZONYÍTHATÓ legyen: a
    „cache-ből jött" állítás csak akkor ér valamit, ha közben tényleg nem ment
    ki hálózati kérés. */
-const OFF_KNOWN = '5998200310010';    // ismert termék
-const OFF_UNKNOWN = '5901234123457';  // az OFF status:0-t ad rá
-const OFF_BROKEN = '4006381333931';   // a stub 500-zal esik el
+const OFF_KNOWN = '5998200310010'; // ismert termék
+const OFF_UNKNOWN = '5901234123457'; // az OFF status:0-t ad rá
+const OFF_BROKEN = '4006381333931'; // a stub 500-zal esik el
 
 let offHits = 0;
 const offStub = createServer((req, res) => {
@@ -53,19 +46,24 @@ const offStub = createServer((req, res) => {
   offHits += 1;
   const code = req.url.match(/\/api\/v2\/product\/(\d+)\.json/)?.[1];
   if (code === OFF_KNOWN) {
-    res.end(JSON.stringify({
-      status: 1,
-      product: {
-        product_name: 'Teszt joghurt',
-        brands: 'Tesztmárka',
-        quantity: '150 g',
-        serving_quantity: 30,
-        serving_size: '30 g',
-        nutriments: {
-          'energy-kcal_100g': 61, proteins_100g: 10, carbohydrates_100g: 4, fat_100g: 0.5,
+    res.end(
+      JSON.stringify({
+        status: 1,
+        product: {
+          product_name: 'Teszt joghurt',
+          brands: 'Tesztmárka',
+          quantity: '150 g',
+          serving_quantity: 30,
+          serving_size: '30 g',
+          nutriments: {
+            'energy-kcal_100g': 61,
+            proteins_100g: 10,
+            carbohydrates_100g: 4,
+            fat_100g: 0.5,
+          },
         },
-      },
-    }));
+      }),
+    );
     return;
   }
   if (code === OFF_UNKNOWN) {
@@ -81,105 +79,25 @@ const OFF_URL = `http://127.0.0.1:${offStub.address().port}`;
 /** A stub eddigi hívásszáma — a cache-tesztek ezt hasonlítják össze. */
 const offHitCount = async () => (await (await fetch(`${OFF_URL}/__hits`)).json()).hits;
 
-/* ---- A szerver elindítása és a port kiolvasása ---- */
+/* ---- A szerver elindítása ----
+   A közös harness kezeli a spawn-t, a port kiolvasását és a takarítást; az
+   OFF-stub leállítását külön after() hookkal fűzzük hozzá, mert az kizárólag
+   ebben a tesztfájlban él. */
 
-const child = spawn(
-  process.execPath,
-  ['--disable-warning=ExperimentalWarning', path.join(__dirname, 'server.js')],
-  {
-    env: {
-      ...process.env,
-      FITTRACK_DB: path.join(workDir, 'api.db'),
-      PORT: '0',
-      FITTRACK_OFF_URL: OFF_URL,
-    },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  },
-);
-
-/** A szerver indulási sorából kiolvasott alap-URL. Ha 20 mp alatt nem indul
-    el, inkább elbukunk egy beszédes üzenettel, mint hogy a futtató ölje meg. */
-const baseUrl = await new Promise((resolve, reject) => {
-  let output = '';
-  const timer = setTimeout(() => reject(new Error(`A szerver nem indult el időben:\n${output}`)), 20_000);
-
-  child.stdout.setEncoding('utf8');
-  child.stdout.on('data', (chunk) => {
-    output += chunk;
-    const match = output.match(/http:\/\/localhost:(\d+)/);
-    if (match) {
-      clearTimeout(timer);
-      resolve(`http://localhost:${match[1]}`);
-    }
-  });
-  child.stderr.setEncoding('utf8');
-  child.stderr.on('data', (chunk) => { output += chunk; });
-  child.on('exit', (code) => {
-    clearTimeout(timer);
-    reject(new Error(`A szerver kilépett (kód: ${code}):\n${output}`));
-  });
+const { baseUrl, request } = await startServer({
+  label: 'api',
+  extraEnv: { FITTRACK_OFF_URL: OFF_URL },
 });
 
-/* A szervert az UTOLSÓ teszt után állítjuk le, és megvárjuk, amíg tényleg
-   kilép. Ez nem elhagyható: amíg a gyerekfolyamat és a csővezetékei élnek, a
-   teszt-futtató eseményhurka sem ürül ki, tehát a `node --test` a legutolsó
-   pipa után is ott állna örökre. (A process.on('exit') ehhez késő: az csak
-   akkor sülne el, ha a folyamat már amúgy is kilépne.) */
+// Az OFF-stub is a teszt eseményhurkát tartaná életben.
 after(async () => {
-  await new Promise((resolve) => {
-    child.once('exit', resolve);
-    child.kill();
-  });
-  // Az OFF-stub is a teszt eseményhurkát tartaná életben.
   await new Promise((resolve) => offStub.close(resolve));
-  // A DB-fájlt a gyerek tartotta nyitva — a törlés csak a kilépése után megy.
-  rmSync(workDir, { recursive: true, force: true });
 });
-
-/* ---- Kérés-segéd ----
-   A munkamenetet süti hordozza, ezért a hívó átadhatja a sajátját; a válaszból
-   kiolvasott új sütit visszaadjuk, hogy a belépés után tovább lehessen adni. */
-
-async function request(method, urlPath, { body, cookie } = {}) {
-  const headers = {};
-  if (body !== undefined) headers['Content-Type'] = 'application/json';
-  if (cookie) headers.Cookie = cookie;
-
-  const res = await fetch(`${baseUrl}${urlPath}`, {
-    method,
-    headers,
-    body: body === undefined ? undefined : JSON.stringify(body),
-    redirect: 'manual',
-  });
-
-  const setCookie = res.headers.getSetCookie();
-  const text = await res.text();
-  let json = null;
-  try { json = text ? JSON.parse(text) : null; } catch { /* nem JSON — a json null marad */ }
-
-  return { status: res.status, json, text, setCookie };
-}
-
-/** A Set-Cookie fejlécből a `név=érték` rész (ezt küldjük vissza Cookie-ként). */
-const cookieFrom = (res) => (res.setCookie[0] ?? '').split(';')[0];
-
-/** A szerver által használt mai dátum — a végpontok ezt írják a sorokba. */
-const today = () => {
-  const d = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`;
-};
 
 /** Az első BEÉPÍTETT étel a listából. A /api/foods mostantól a hívó saját
     ételeit teszi előre, ezért a json[0] nem feltétlenül seed-elem — ez a segéd
     teszi a régi eseteket függetlenné attól, hogy előtte felvittek-e sajátot. */
 const seedFood = (foods) => foods.find((food) => !food.custom);
-
-/** Egy gyakorlat, egyetlen teljesített munkasorozattal. */
-const gyakorlat = (name, weight, reps = 5) => ({
-  name,
-  sets: [{ reps: String(reps), weight: String(weight), rpe: '8', type: 'work', done: true }],
-});
 
 // A belépett fiókok sütijei — az első két teszt tölti fel őket.
 let annaCookie = '';
@@ -194,35 +112,83 @@ test('bejelentkezés nélkül MINDEN /api végpont 401-et ad', async () => {
      összes útvonal ELŐTT áll, tehát egy később felvett végpont automatikusan
      védett. Ha valaki a middleware ELÉ szúr be egy új route-ot, itt bukik. */
   const endpoints = [
-    ['GET', '/api/user'], ['GET', '/api/profile'], ['GET', '/api/dashboard'], ['GET', '/api/charts'],
-    ['GET', '/api/weight-log'], ['GET', '/api/nutrition'], ['GET', '/api/nutrition/log'],
-    ['GET', '/api/workouts'], ['GET', '/api/workout-draft'], ['GET', '/api/workout-template'],
-    ['GET', '/api/plans'], ['GET', '/api/prs'], ['GET', '/api/prs/history?exercise=X'],
-    ['GET', '/api/exercise-maxes'], ['GET', '/api/readiness'], ['GET', '/api/checkin'],
-    ['GET', '/api/export'], ['GET', '/api/foods'], ['GET', '/api/exercise-catalog'],
-    ['GET', '/api/athletes'], ['GET', '/api/notifications'], ['GET', '/api/default-set'],
-    ['GET', '/api/goals'], ['GET', '/api/coach'], ['GET', '/api/messages/1'],
-    ['POST', '/api/weight-log'], ['POST', '/api/nutrition/log'], ['POST', '/api/workouts'],
-    ['POST', '/api/plans'], ['PUT', '/api/plans/1'], ['PUT', '/api/workout-draft'],
-    ['PUT', '/api/checkin'], ['DELETE', '/api/workout-draft'], ['DELETE', '/api/nutrition/log/1'],
-    ['PUT', '/api/workouts/1'], ['DELETE', '/api/workouts/1'],
-    ['GET', `/api/foods/barcode/${OFF_KNOWN}`], ['POST', '/api/foods/custom'],
+    ['GET', '/api/user'],
+    ['GET', '/api/profile'],
+    ['GET', '/api/dashboard'],
+    ['GET', '/api/charts'],
+    ['GET', '/api/weight-log'],
+    ['GET', '/api/nutrition'],
+    ['GET', '/api/nutrition/log'],
+    ['GET', '/api/workouts'],
+    ['GET', '/api/workout-draft'],
+    ['GET', '/api/workout-template'],
+    ['GET', '/api/plans'],
+    ['GET', '/api/prs'],
+    ['GET', '/api/prs/history?exercise=X'],
+    ['GET', '/api/exercise-maxes'],
+    ['GET', '/api/readiness'],
+    ['GET', '/api/checkin'],
+    ['GET', '/api/export'],
+    ['GET', '/api/foods'],
+    ['GET', '/api/exercise-catalog'],
+    ['GET', '/api/athletes'],
+    ['GET', '/api/notifications'],
+    ['GET', '/api/default-set'],
+    ['GET', '/api/goals'],
+    ['GET', '/api/coach'],
+    ['GET', '/api/messages/1'],
+    ['POST', '/api/weight-log'],
+    ['POST', '/api/nutrition/log'],
+    ['POST', '/api/workouts'],
+    ['POST', '/api/plans'],
+    ['PUT', '/api/plans/1'],
+    ['PUT', '/api/workout-draft'],
+    ['PUT', '/api/checkin'],
+    ['DELETE', '/api/workout-draft'],
+    ['DELETE', '/api/nutrition/log/1'],
+    ['PUT', '/api/workouts/1'],
+    ['DELETE', '/api/workouts/1'],
+    ['GET', `/api/foods/barcode/${OFF_KNOWN}`],
+    ['POST', '/api/foods/custom'],
     ['DELETE', '/api/foods/custom/1'],
-    ['GET', '/api/comments'], ['GET', '/api/comments/by-target'],
-    ['POST', '/api/comments'], ['DELETE', '/api/comments/1'],
-    ['GET', '/api/athletes/1/comments'], ['POST', '/api/athletes/1/comments'],
+    ['GET', '/api/comments'],
+    ['GET', '/api/comments/by-target'],
+    ['POST', '/api/comments'],
+    ['DELETE', '/api/comments/1'],
+    ['GET', '/api/athletes/1/comments'],
+    ['POST', '/api/athletes/1/comments'],
     ['PUT', '/api/workouts/1/feedback'],
-    ['GET', '/api/nutrition/goal'], ['PUT', '/api/nutrition/goal'],
-    ['DELETE', '/api/nutrition/goal'], ['PUT', '/api/athletes/1/nutrition-goal'],
-    ['GET', '/api/readiness/advice'], ['POST', '/api/readiness/advice/apply'],
-    ['GET', '/api/strength-assessment'], ['POST', '/api/strength-assessment'],
-    ['DELETE', '/api/plans/1'], ['PUT', '/api/weight-log/1'],
-    ['DELETE', '/api/weight-log/1'], ['PUT', '/api/nutrition/log/1'],
-    ['GET', '/api/measurements'], ['GET', '/api/measurements/sites'],
-    ['PUT', '/api/measurements'], ['DELETE', '/api/measurements/1'],
-    ['POST', '/api/athletes/1/plan'], ['POST', '/api/plan-offers/1/accept'],
-    ['DELETE', '/api/plan-offers/1'], ['GET', '/api/foods/barcode/1'],
-    ['GET', '/api/water'], ['POST', '/api/water'], ['DELETE', '/api/water/1'],
+    ['GET', '/api/nutrition/goal'],
+    ['PUT', '/api/nutrition/goal'],
+    ['DELETE', '/api/nutrition/goal'],
+    ['PUT', '/api/athletes/1/nutrition-goal'],
+    ['PUT', '/api/athletes/1/water-goal'],
+    ['DELETE', '/api/athletes/1/water-goal'],
+    ['POST', '/api/athletes/1/meals'],
+    ['PUT', '/api/athletes/1/meals/1'],
+    ['DELETE', '/api/athletes/1/meals/1'],
+    ['GET', '/api/nutrition/meals'],
+    ['POST', '/api/nutrition/meals/1/log'],
+    ['GET', '/api/readiness/advice'],
+    ['POST', '/api/readiness/advice/apply'],
+    ['GET', '/api/strength-assessment'],
+    ['POST', '/api/strength-assessment'],
+    ['DELETE', '/api/plans/1'],
+    ['PUT', '/api/weight-log/1'],
+    ['DELETE', '/api/weight-log/1'],
+    ['PUT', '/api/nutrition/log/1'],
+    ['GET', '/api/measurements'],
+    ['GET', '/api/measurements/sites'],
+    ['PUT', '/api/measurements'],
+    ['DELETE', '/api/measurements/1'],
+    ['POST', '/api/athletes/1/plan'],
+    ['POST', '/api/plan-offers/1/accept'],
+    ['DELETE', '/api/plan-offers/1'],
+    ['GET', '/api/foods/barcode/1'],
+    ['GET', '/api/water'],
+    ['POST', '/api/water'],
+    ['DELETE', '/api/water/1'],
+    ['GET', '/api/exercise-suggestions?title=X'],
   ];
 
   for (const [method, urlPath] of endpoints) {
@@ -262,7 +228,10 @@ test('sikeres regisztráció után áll a munkamenet, és a süti védett', asyn
   assert.equal(res.status, 201);
   assert.equal(res.json.username, 'anna');
   assert.equal(res.json.displayName, 'Kovács Anna');
-  assert.ok(!('password' in res.json) && !('password_hash' in res.json), 'a jelszó nem szivárog ki');
+  assert.ok(
+    !('password' in res.json) && !('password_hash' in res.json),
+    'a jelszó nem szivárog ki',
+  );
 
   const raw = res.setCookie[0];
   assert.ok(raw.includes('HttpOnly'), 'HttpOnly — JS-ből nem olvasható');
@@ -300,8 +269,11 @@ test('a belépés nem árulja el, a név vagy a jelszó volt-e rossz', async () 
   });
   assert.equal(rosszJelszo.status, 401);
   assert.equal(nincsIlyenFiok.status, 401);
-  assert.equal(rosszJelszo.json.error, nincsIlyenFiok.json.error,
-    'azonos üzenet — különben fel lehetne térképezni a létező fiókokat');
+  assert.equal(
+    rosszJelszo.json.error,
+    nincsIlyenFiok.json.error,
+    'azonos üzenet — különben fel lehetne térképezni a létező fiókokat',
+  );
 });
 
 test('a belépés kisbetű-érzéketlen a névre, és új munkamenetet ad', async () => {
@@ -324,8 +296,11 @@ test('kijelentkezés után a régi süti már nem nyit ajtót', async () => {
 
   const kilepes = await request('POST', '/api/auth/logout', { body: {}, cookie });
   assert.equal(kilepes.status, 204);
-  assert.equal((await request('GET', '/api/user', { cookie })).status, 401,
-    'a munkamenet a szerveren is megszűnt, nem csak a böngészőben');
+  assert.equal(
+    (await request('GET', '/api/user', { cookie })).status,
+    401,
+    'a munkamenet a szerveren is megszűnt, nem csak a böngészőben',
+  );
 });
 
 test('a kitalált munkamenet-token nem ad hozzáférést', async () => {
@@ -385,7 +360,10 @@ test('MÁS fiók tervét nem lehet átírni — 404, nem csendes felülírás', 
 test('MÁS fiók naplóbejegyzését nem lehet törölni', async () => {
   const naplozas = await request('POST', '/api/nutrition/log', {
     cookie: annaCookie,
-    body: { name: seedFood((await request('GET', '/api/foods', { cookie: annaCookie })).json).name, grams: 100 },
+    body: {
+      name: seedFood((await request('GET', '/api/foods', { cookie: annaCookie })).json).name,
+      grams: 100,
+    },
   });
   assert.equal(naplozas.status, 201);
 
@@ -424,13 +402,17 @@ test('a testsúly csak 30 és 300 kg között fogadható el', async () => {
 
 test('csak a katalógusban szereplő étel naplózható, érvényes adaggal', async () => {
   const ismeretlen = await request('POST', '/api/nutrition/log', {
-    cookie: annaCookie, body: { name: 'Sárkánytojás', grams: 100 },
+    cookie: annaCookie,
+    body: { name: 'Sárkánytojás', grams: 100 },
   });
   assert.equal(ismeretlen.status, 400);
 
   const etel = seedFood((await request('GET', '/api/foods', { cookie: annaCookie })).json).name;
   for (const grams of [0, -1, 2001, 'sok']) {
-    const res = await request('POST', '/api/nutrition/log', { cookie: annaCookie, body: { name: etel, grams } });
+    const res = await request('POST', '/api/nutrition/log', {
+      cookie: annaCookie,
+      body: { name: etel, grams },
+    });
     assert.equal(res.status, 400, `${grams} g-ot vissza kell utasítani`);
   }
 });
@@ -446,7 +428,11 @@ test('a makrókat a SZERVER számolja — a kliens hamis tápértéke nem jut be
     body: { name: etel.name, grams: 100, kcal: 99999, protein: 99999, carbs: 0, fat: 0 },
   });
   assert.equal(res.status, 201);
-  assert.equal(res.json.entry.kcal, Math.round(etel.kcal), 'a katalógus értéke ment be, nem a küldött');
+  assert.equal(
+    res.json.entry.kcal,
+    Math.round(etel.kcal),
+    'a katalógus értéke ment be, nem a küldött',
+  );
   assert.notEqual(res.json.entry.kcal, 99999);
 });
 
@@ -486,7 +472,8 @@ test('a check-in a NEM MEGADOTT mezőt null-ként őrzi, nem nullaként', async 
      újraoszlik a képletben. Ha nullává csúszna, minden kihagyott kérdés
      „a lehető legrosszabb" értékként verné le a készenlétet. */
   const res = await request('PUT', '/api/checkin', {
-    cookie: belaCookie, body: { sleepHours: 7, energy: 4 },
+    cookie: belaCookie,
+    body: { sleepHours: 7, energy: 4 },
   });
   assert.equal(res.status, 200);
   assert.equal(res.json.checkin.sleepHours, 7);
@@ -505,7 +492,11 @@ test('a check-in csak ismert izomkulcsot és érvényes értéket vesz át', asy
     },
   });
   assert.equal(res.status, 200);
-  assert.deepEqual(res.json.checkin.soreness, { chest: 3 }, 'ismeretlen kulcs és tartományon kívüli érték kiesik');
+  assert.deepEqual(
+    res.json.checkin.soreness,
+    { chest: 3 },
+    'ismeretlen kulcs és tartományon kívüli érték kiesik',
+  );
   assert.deepEqual(res.json.checkin.pain, { general: 4 });
 });
 
@@ -562,22 +553,27 @@ test('az RPE 1 és 10 közé szorul, fél fokozatra kerekítve', async () => {
     cookie: annaCookie,
     body: {
       name: 'RPE-teszt',
-      exercises: [{
-        name: 'Guggolás',
-        sets: [
-          { reps: '5', weight: '100', rpe: '99', type: 'work' },
-          { reps: '5', weight: '100', rpe: '0', type: 'work' },
-          { reps: '5', weight: '100', rpe: 'RPE 8', type: 'work' },
-          { reps: '5', weight: '100', rpe: '7,3', type: 'work' },
-          { reps: '5', weight: '100', rpe: 'semmi', type: 'work' },
-        ],
-      }],
+      exercises: [
+        {
+          name: 'Guggolás',
+          sets: [
+            { reps: '5', weight: '100', rpe: '99', type: 'work' },
+            { reps: '5', weight: '100', rpe: '0', type: 'work' },
+            { reps: '5', weight: '100', rpe: 'RPE 8', type: 'work' },
+            { reps: '5', weight: '100', rpe: '7,3', type: 'work' },
+            { reps: '5', weight: '100', rpe: 'semmi', type: 'work' },
+          ],
+        },
+      ],
     },
   });
   assert.equal(res.status, 200);
   const rpek = res.json.exercises[0].sets.map((s) => s.rpe);
-  assert.deepEqual(rpek, ['10', '1', '8', '7.5', ''],
-    'felső/alsó határ, szövegből kinyert szám, tizedesvessző, üres');
+  assert.deepEqual(
+    rpek,
+    ['10', '1', '8', '7.5', ''],
+    'felső/alsó határ, szövegből kinyert szám, tizedesvessző, üres',
+  );
 });
 
 test('a drop set nem állhat a lista élén és nem követhet bemelegítőt', async () => {
@@ -585,15 +581,17 @@ test('a drop set nem állhat a lista élén és nem követhet bemelegítőt', as
     cookie: annaCookie,
     body: {
       name: 'Szett-típus teszt',
-      exercises: [{
-        name: 'Bicepsz',
-        sets: [
-          { reps: '10', weight: '20', type: 'drop' },   // a lista élén — nincs mihez csökkennie
-          { reps: '10', weight: '20', type: 'drop' },   // bemelegítőt követ
-          { reps: '10', weight: '20', type: 'drop' },   // ez már valódi drop
-          { reps: '10', weight: '20', type: 'kitalalt' }, // ismeretlen → pozíció szerinti alap
-        ],
-      }],
+      exercises: [
+        {
+          name: 'Bicepsz',
+          sets: [
+            { reps: '10', weight: '20', type: 'drop' }, // a lista élén — nincs mihez csökkennie
+            { reps: '10', weight: '20', type: 'drop' }, // bemelegítőt követ
+            { reps: '10', weight: '20', type: 'drop' }, // ez már valódi drop
+            { reps: '10', weight: '20', type: 'kitalalt' }, // ismeretlen → pozíció szerinti alap
+          ],
+        },
+      ],
     },
   });
   const tipusok = res.json.exercises[0].sets.map((s) => s.type);
@@ -606,8 +604,8 @@ test('a szuperszett-jelölés a lista első gyakorlatán nem érvényesül', asy
     body: {
       name: 'Szuperszett teszt',
       exercises: [
-        { ...gyakorlat('Fekvenyomás', 60), superset: true },  // nincs előtte semmi
-        { ...gyakorlat('Evezés', 50), superset: true },       // ez valódi párosítás
+        { ...gyakorlat('Fekvenyomás', 60), superset: true }, // nincs előtte semmi
+        { ...gyakorlat('Evezés', 50), superset: true }, // ez valódi párosítás
       ],
     },
   });
@@ -624,7 +622,8 @@ test('étel naplózása növeli a napi összesítőt, a törlés visszaállítja
   const etel = seedFood((await request('GET', '/api/foods', { cookie: belaCookie })).json);
 
   const felvitel = await request('POST', '/api/nutrition/log', {
-    cookie: belaCookie, body: { name: etel.name, grams: 200 },
+    cookie: belaCookie,
+    body: { name: etel.name, grams: 200 },
   });
   assert.equal(felvitel.status, 201);
   assert.ok(felvitel.json.totals.intake > kiindulas, 'a bevitel nőtt');
@@ -650,8 +649,11 @@ test('edzés mentése PR-t jelöl, és a rekord a saját csúcshoz mérődik', a
 
   // Anna 60 kg-os fekvenyomása is PR — a SAJÁT előzményéhez mérve.
   const annaEdzes = (await request('GET', '/api/workouts', { cookie: annaCookie })).json;
-  assert.equal(annaEdzes[annaEdzes.length - 1].exercises[0].pr, true,
-    'a kezdő nem a legerősebb felhasználó csúcsához mérődik');
+  assert.equal(
+    annaEdzes[annaEdzes.length - 1].exercises[0].pr,
+    true,
+    'a kezdő nem a legerősebb felhasználó csúcsához mérődik',
+  );
 
   // Gyengébb második edzés — nem rekord.
   const gyengebb = await request('POST', '/api/workouts', {
@@ -674,33 +676,43 @@ test('a PR-lista a rekordot hozó szettet írja ki, nem a bemelegítőt', async 
     cookie: belaCookie,
     body: {
       name: 'Guggolás nap',
-      exercises: [{
-        name: 'Guggolás',
-        sets: [
-          { reps: '10', weight: '40', rpe: '5', type: 'warmup', done: true },
-          { reps: '3', weight: '120', rpe: '9', type: 'work', done: true },
-        ],
-      }],
+      exercises: [
+        {
+          name: 'Guggolás',
+          sets: [
+            { reps: '10', weight: '40', rpe: '5', type: 'warmup', done: true },
+            { reps: '3', weight: '120', rpe: '9', type: 'work', done: true },
+          ],
+        },
+      ],
     },
   });
 
   const prs = (await request('GET', '/api/prs', { cookie: belaCookie })).json;
   const guggolas = prs.find((p) => p.exercise === 'Guggolás');
   assert.ok(guggolas, 'a guggolás szerepel a rekordok között');
-  assert.equal(guggolas.detail, '3 ism. @ 120 kg', 'a nehéz munkasorozat a rekord, nem a bemelegítés');
+  assert.equal(
+    guggolas.detail,
+    '3 ism. @ 120 kg',
+    'a nehéz munkasorozat a rekord, nem a bemelegítés',
+  );
   assert.equal(guggolas.oneRM, Math.round(120 * (1 + 3 / 30) * 10) / 10);
 });
 
 test('a PR-előzmény a kért gyakorlatra szűr', async () => {
-  const elozmeny = (await request('GET', '/api/prs/history?exercise=Guggol%C3%A1s', {
-    cookie: belaCookie,
-  })).json;
+  const elozmeny = (
+    await request('GET', '/api/prs/history?exercise=Guggol%C3%A1s', {
+      cookie: belaCookie,
+    })
+  ).json;
   assert.ok(elozmeny.length >= 1);
   assert.ok(elozmeny.every((e) => e.exercise === 'Guggolás'));
 
-  const ures = (await request('GET', '/api/prs/history?exercise=Nincs%20ilyen', {
-    cookie: belaCookie,
-  })).json;
+  const ures = (
+    await request('GET', '/api/prs/history?exercise=Nincs%20ilyen', {
+      cookie: belaCookie,
+    })
+  ).json;
   assert.deepEqual(ures, [], 'ismeretlen NÉV nem hiba — csak még nincs rekordja');
 });
 
@@ -711,7 +723,10 @@ test('a PR-előzmény hangosan hibázik hiányzó vagy kétértelmű paraméterr
     ['/api/prs/history', 'hiányzó paraméter'],
     ['/api/prs/history?exercise=', 'üres paraméter'],
     ['/api/prs/history?exercise=%20%20', 'csak szóköz'],
-    ['/api/prs/history?exercise=Guggol%C3%A1s&exercise=Fekvenyom%C3%A1s', 'kétértelmű (ismétlődő) paraméter'],
+    [
+      '/api/prs/history?exercise=Guggol%C3%A1s&exercise=Fekvenyom%C3%A1s',
+      'kétértelmű (ismétlődő) paraméter',
+    ],
   ];
   for (const [urlPath, eset] of rossz) {
     const res = await request('GET', urlPath, { cookie: belaCookie });
@@ -760,30 +775,119 @@ test('a piszkozat visszatöltődik, és törlés után eltűnik', async () => {
 
 test('az üres gyakorlatlistájú piszkozat érvényes, a hibás szerkezet nem', async () => {
   const ures = await request('PUT', '/api/workout-draft', {
-    cookie: belaCookie, body: { name: '', exercises: [] },
+    cookie: belaCookie,
+    body: { name: '', exercises: [] },
   });
   assert.equal(ures.status, 200, 'a még üres edzésnapló is menthető');
 
   const hibas = await request('PUT', '/api/workout-draft', {
-    cookie: belaCookie, body: { name: 'x', exercises: 'nem tömb' },
+    cookie: belaCookie,
+    body: { name: 'x', exercises: 'nem tömb' },
   });
   assert.equal(hibas.status, 400);
 });
+
+const NAPNEVEK = ['Hétfő', 'Kedd', 'Szerda', 'Csütörtök', 'Péntek', 'Szombat', 'Vasárnap'];
 
 test('a mai napra ütemezett terv töltődik az Edzés oldalra', async () => {
   await request('DELETE', '/api/workout-draft', { cookie: belaCookie });
   const maiNap = (new Date().getDay() + 6) % 7;
 
+  // Régi alakú törzs ({ exercises, days }) — továbbra is elfogadott
   const terv = await request('POST', '/api/plans', {
     cookie: belaCookie,
     body: { name: 'Mai terv', exercises: [gyakorlat('Vállnyomás', 40)], days: [maiNap] },
   });
   assert.equal(terv.status, 201);
+  // Csak az AKTÍV terv hete töltődik be
+  const aktiv = await request('POST', `/api/plans/${terv.json.id}/active`, {
+    cookie: belaCookie,
+    body: { active: true },
+  });
+  assert.equal(aktiv.status, 200);
+  assert.equal(aktiv.json.active, true);
 
   const sablon = (await request('GET', '/api/workout-template', { cookie: belaCookie })).json;
   assert.equal(sablon.source, 'plan');
-  assert.equal(sablon.name, 'Mai terv');
+  assert.equal(sablon.name, `Mai terv – ${NAPNEVEK[maiNap]}`, 'név nélküli nap: terv – nap');
   assert.equal(sablon.planId, terv.json.id);
+});
+
+test('heti terv: minden nap a saját edzése, a „same" a hivatkozotté, pihenőnapon nincs sablon', async () => {
+  const cookie = belaCookie;
+  await request('DELETE', '/api/workout-draft', { cookie });
+  const maiNap = (new Date().getDay() + 6) % 7;
+  const holnap = (maiNap + 1) % 7;
+  const tegnap = (maiNap + 6) % 7;
+
+  // Holnap saját edzés, ma „ugyanaz, mint holnap", tegnap pihenő
+  const week = Array.from({ length: 7 }, () => ({ type: 'rest' }));
+  week[holnap] = { type: 'workout', name: 'Láb nap', exercises: [gyakorlat('Guggolás', 100)] };
+  week[maiNap] = { type: 'same', of: holnap };
+  const terv = await request('POST', '/api/plans', { cookie, body: { name: 'Hét', week } });
+  assert.equal(terv.status, 201);
+  assert.deepEqual(
+    terv.json.days,
+    [maiNap, holnap].sort((a, b) => a - b),
+  );
+  await request('POST', `/api/plans/${terv.json.id}/active`, { cookie, body: { active: true } });
+
+  const sablon = (await request('GET', '/api/workout-template', { cookie })).json;
+  assert.equal(sablon.name, 'Láb nap', 'a „same" nap a hivatkozott edzést tölti be');
+  assert.equal(sablon.exercises[0].name, 'Guggolás');
+
+  // Ha ma pihenőnap: nincs terv-sablon, és a dashboard kimondja
+  week[maiNap] = { type: 'rest' };
+  const put = await request('PUT', `/api/plans/${terv.json.id}`, {
+    cookie,
+    body: { name: 'Hét', week },
+  });
+  assert.equal(put.status, 200);
+  assert.equal(put.json.active, true, 'a szerkesztés nem kapcsolja ki');
+  assert.equal((await request('GET', '/api/workout-template', { cookie })).json, null);
+  const dash = (await request('GET', '/api/dashboard', { cookie })).json;
+  assert.equal(dash.restDay, true);
+
+  // Hibás hét: a „same" pihenőre mutat; üres edzésnap; csak pihenő
+  const rossz = [...week];
+  rossz[tegnap] = { type: 'same', of: maiNap };
+  const hibak = [
+    rossz,
+    week.map((nap, i) => (i === holnap ? { type: 'workout', exercises: [] } : nap)),
+    Array.from({ length: 7 }, () => ({ type: 'rest' })),
+  ];
+  for (const hibas of hibak) {
+    const res = await request('POST', '/api/plans', {
+      cookie,
+      body: { name: 'Rossz', week: hibas },
+    });
+    assert.equal(res.status, 400, JSON.stringify(res.json));
+  }
+});
+
+test('egyszerre egy aktív terv van', async () => {
+  const cookie = belaCookie;
+  const tervek = (await request('GET', '/api/plans', { cookie })).json;
+  assert.equal(tervek.filter((p) => p.active).length, 1);
+
+  const masik = tervek.find((p) => !p.active);
+  await request('POST', `/api/plans/${masik.id}/active`, { cookie, body: { active: true } });
+  const utana = (await request('GET', '/api/plans', { cookie })).json;
+  assert.deepEqual(
+    utana.filter((p) => p.active).map((p) => p.id),
+    [masik.id],
+  );
+
+  const ki = await request('POST', `/api/plans/${masik.id}/active`, {
+    cookie,
+    body: { active: false },
+  });
+  assert.equal(ki.json.active, false);
+  const idegen = await request('POST', `/api/plans/${masik.id}/active`, {
+    cookie: annaCookie,
+    body: { active: true },
+  });
+  assert.equal(idegen.status, 404, 'más tervét nem lehet aktiválni');
 });
 
 test('a hétnap-lista egyedi, rendezett 0–6 indexekké normalizálódik', async () => {
@@ -796,14 +900,16 @@ test('a hétnap-lista egyedi, rendezett 0–6 indexekké normalizálódik', asyn
     },
   });
   assert.equal(terv.status, 201);
-  const mentett = (await request('GET', '/api/plans', { cookie: annaCookie })).json
-    .find((p) => p.name === 'Napok teszt');
+  const mentett = (await request('GET', '/api/plans', { cookie: annaCookie })).json.find(
+    (p) => p.name === 'Napok teszt',
+  );
   assert.deepEqual(mentett.days, [0, 3, 6]);
 });
 
 test('a check-in mentése a testsúlyt a testsúly-naplóba írja, naponta egy sorba', async () => {
   const elso = await request('PUT', '/api/checkin', {
-    cookie: annaCookie, body: { sleepHours: 7.5, energy: 4, weightKg: 70 },
+    cookie: annaCookie,
+    body: { sleepHours: 7.5, energy: 4, weightKg: 70 },
   });
   assert.equal(elso.status, 200);
   assert.equal(elso.json.weightEntry.kg, 70);
@@ -811,7 +917,8 @@ test('a check-in mentése a testsúlyt a testsúly-naplóba írja, naponta egy s
 
   // Ugyanaznap újramentve: felülír, nem duplikál.
   const masodik = await request('PUT', '/api/checkin', {
-    cookie: annaCookie, body: { sleepHours: 8, energy: 5, weightKg: 71 },
+    cookie: annaCookie,
+    body: { sleepHours: 8, energy: 5, weightKg: 71 },
   });
   assert.equal(masodik.json.weightEntry.kg, 71);
 
@@ -821,7 +928,8 @@ test('a check-in mentése a testsúlyt a testsúly-naplóba írja, naponta egy s
   assert.equal(maiSorok[0].kg, 71);
 
   const rosszSuly = await request('PUT', '/api/checkin', {
-    cookie: annaCookie, body: { sleepHours: 8, weightKg: 500 },
+    cookie: annaCookie,
+    body: { sleepHours: 8, weightKg: 500 },
   });
   assert.equal(rosszSuly.status, 400);
 });
@@ -862,7 +970,8 @@ test('a check-in űrlapján megadott folyadék LECSERÉLI a nap víznaplóját',
   /* A felhasználó ott a napi ÖSSZEGRŐL nyilatkozik, nem egy kortyról —
      különben a beírt 2 liter hozzáadódna a korábbi 0,75-höz. */
   const mentes = await request('PUT', '/api/checkin', {
-    cookie: vizCookie, body: { sleepHours: 7, hydration: 2 },
+    cookie: vizCookie,
+    body: { sleepHours: 7, hydration: 2 },
   });
   assert.equal(mentes.status, 200);
 
@@ -918,10 +1027,19 @@ test('a profil összesítői a SAJÁT naplózott adatból épülnek', async () =
   assert.equal(ures.username, 'cili');
   assert.equal(ures.name, 'Szabó Cili');
   assert.equal(ures.joinedAt, today(), 'a regisztráció napja a felület dátumformátumában');
-  assert.deepEqual(ures.stats, {
-    workouts: 0, streak: 0, prs: 0, workSets: 0,
-    lastWorkoutDate: null, firstWorkoutDate: null, weight: null,
-  }, 'új fióknál minden összesítő nulla, a dátumok és a testsúly null');
+  assert.deepEqual(
+    ures.stats,
+    {
+      workouts: 0,
+      streak: 0,
+      prs: 0,
+      workSets: 0,
+      lastWorkoutDate: null,
+      firstWorkoutDate: null,
+      weight: null,
+    },
+    'új fióknál minden összesítő nulla, a dátumok és a testsúly null',
+  );
 
   /* Egy edzés: bemelegítő + két munkasorozat, amelyek közül az egyik NINCS
      bepipálva. A workSets tehát 1 — sem a bemelegítés, sem a nem teljesített
@@ -930,14 +1048,16 @@ test('a profil összesítői a SAJÁT naplózott adatból épülnek', async () =
     cookie: ciliCookie,
     body: {
       name: 'Cili első edzése',
-      exercises: [{
-        name: 'Guggolás',
-        sets: [
-          { reps: '10', weight: '40', rpe: '5', type: 'warmup', done: true },
-          { reps: '5', weight: '80', rpe: '8', type: 'work', done: true },
-          { reps: '5', weight: '85', rpe: '9', type: 'work', done: false },
-        ],
-      }],
+      exercises: [
+        {
+          name: 'Guggolás',
+          sets: [
+            { reps: '10', weight: '40', rpe: '5', type: 'warmup', done: true },
+            { reps: '5', weight: '80', rpe: '8', type: 'work', done: true },
+            { reps: '5', weight: '85', rpe: '9', type: 'work', done: false },
+          ],
+        },
+      ],
     },
   });
 
@@ -953,7 +1073,8 @@ test('a profil összesítői a SAJÁT naplózott adatból épülnek', async () =
   // Testsúly a napi check-inből. Egyetlen bejegyzésnél nincs mihez mérni,
   // ezért a delta null — nem 0, ami „nem változott"-at állítana.
   await request('PUT', '/api/checkin', {
-    cookie: ciliCookie, body: { sleepHours: 7, energy: 4, weightKg: 62.5 },
+    cookie: ciliCookie,
+    body: { sleepHours: 7, energy: 4, weightKg: 62.5 },
   });
   const sullyal = (await request('GET', '/api/profile', { cookie: ciliCookie })).json.stats;
   assert.deepEqual(sullyal.weight, { current: 62.5, delta: null, entries: 1 });
@@ -1007,33 +1128,43 @@ test('a heti volumen-diagram a saját MUNKASOROZATAIBÓL épül (bemelegítő n�
   const charts = (await request('GET', '/api/charts', { cookie: belaCookie })).json;
   assert.equal(charts.volumeThisWeek.heights.length, 7);
   assert.equal(charts.volumeLastWeek.heights.length, 7);
-  assert.deepEqual(charts.volumeThisWeek.axis, charts.volumeLastWeek.axis,
-    'a két hét közös skálán van, hogy a váltógombbal összevethető legyen');
+  assert.deepEqual(
+    charts.volumeThisWeek.axis,
+    charts.volumeLastWeek.axis,
+    'a két hét közös skálán van, hogy a váltógombbal összevethető legyen',
+  );
   assert.ok(charts.volumeThisWeek.total > 0, 'Béla ezen a héten mentett edzést');
 
   const annaCharts = (await request('GET', '/api/charts', { cookie: annaCookie })).json;
-  assert.notEqual(annaCharts.volumeThisWeek.total, charts.volumeThisWeek.total,
-    'a két fiók volumene külön számolódik');
+  assert.notEqual(
+    annaCharts.volumeThisWeek.total,
+    charts.volumeThisWeek.total,
+    'a két fiók volumene külön számolódik',
+  );
 
   /* A bemelegítő szett NEM volumen: a Recovery Engine és a profiloldal is így
      számol, a diagram korábban viszont minden bepipált sort beleszámolt. Egy
      csak bemelegítőből álló edzés tehát nem mozdíthatja a számot. */
-  const elotte = (await request('GET', '/api/charts', { cookie: annaCookie })).json.volumeThisWeek.total;
+  const elotte = (await request('GET', '/api/charts', { cookie: annaCookie })).json.volumeThisWeek
+    .total;
   const bemelegites = await request('POST', '/api/workouts', {
     cookie: annaCookie,
     body: {
       name: 'Csak bemelegítés',
-      exercises: [{
-        name: 'Guggolás',
-        sets: [
-          { reps: '10', weight: '40', rpe: '5', type: 'warmup', done: true },
-          { reps: '10', weight: '40', rpe: '5', type: 'warmup', done: true },
-        ],
-      }],
+      exercises: [
+        {
+          name: 'Guggolás',
+          sets: [
+            { reps: '10', weight: '40', rpe: '5', type: 'warmup', done: true },
+            { reps: '10', weight: '40', rpe: '5', type: 'warmup', done: true },
+          ],
+        },
+      ],
     },
   });
   assert.equal(bemelegites.status, 201);
-  const utana = (await request('GET', '/api/charts', { cookie: annaCookie })).json.volumeThisWeek.total;
+  const utana = (await request('GET', '/api/charts', { cookie: annaCookie })).json.volumeThisWeek
+    .total;
   assert.equal(utana, elotte, 'a két bemelegítő szett nem növelte a volument');
 });
 
@@ -1078,10 +1209,14 @@ test('a frontend bejelentkezés nélkül is kiszolgálódik (a belépő képerny
 
 test('a szerver-belső fájlok nem érhetők el HTTP-n', async () => {
   for (const utvonal of [
-    '/server/db.js', '/server/fittrack.db', '/package.json', '/../server/db.js',
+    '/server/db.js',
+    '/server/fittrack.db',
+    '/package.json',
+    '/../server/db.js',
     // A /vendor/zxing mount a node_modules EGY mappáját teszi ki — a többinek
     // továbbra sem szabad kiszivárognia rajta keresztül.
-    '/vendor/zxing/../../express/package.json', '/vendor/zxing/../../../package.json',
+    '/vendor/zxing/../../express/package.json',
+    '/vendor/zxing/../../../package.json',
   ]) {
     const res = await fetch(`${baseUrl}${utvonal}`, { redirect: 'manual' });
     assert.notEqual(res.status, 200, `${utvonal} nem lehet elérhető`);
@@ -1122,8 +1257,11 @@ test('a javítás a meglévő sort írja felül, az EREDETI dátumán', async ()
 
   // Az elgépelt 180 kg-os csúcs sem maradhat bent.
   const maxes = (await request('GET', '/api/exercise-maxes', { cookie: annaCookie })).json;
-  assert.equal(maxes['Bicepsz curl'], Math.round(18 * (1 + 5 / 30) * 10) / 10,
-    'a javítás után a csúcs a javított értékből jön');
+  assert.equal(
+    maxes['Bicepsz curl'],
+    Math.round(18 * (1 + 5 / 30) * 10) / 10,
+    'a javítás után a csúcs a javított értékből jön',
+  );
 });
 
 test('a törlés kiveszi az edzést, és 404-et ad másodszor', async () => {
@@ -1138,7 +1276,11 @@ test('a törlés kiveszi az edzést, és 404-et ad másodszor', async () => {
   assert.equal(torles.text, '', 'a törlés üres választ ad');
 
   const lista = (await request('GET', '/api/workouts', { cookie: annaCookie })).json;
-  assert.equal(lista.some((w) => w.id === id), false, 'a törölt edzés eltűnt a naplóból');
+  assert.equal(
+    lista.some((w) => w.id === id),
+    false,
+    'a törölt edzés eltűnt a naplóból',
+  );
 
   const ujra = await request('DELETE', `/api/workouts/${id}`, { cookie: annaCookie });
   assert.equal(ujra.status, 404);
@@ -1182,7 +1324,10 @@ test('a javítás ugyanazt a validálást kéri, mint a mentés', async () => {
     [{ name: '', exercises: [gyakorlat('Vádliemelés', 50)] }, 'üres név'],
     [{ name: 'x'.repeat(61), exercises: [gyakorlat('Vádliemelés', 50)] }, 'túl hosszú név'],
     [{ name: 'Jó név', exercises: [] }, 'gyakorlat nélkül'],
-    [{ name: 'Jó név', exercises: [{ name: 'Nincs szettje', sets: [] }] }, 'szett nélküli gyakorlat'],
+    [
+      { name: 'Jó név', exercises: [{ name: 'Nincs szettje', sets: [] }] },
+      'szett nélküli gyakorlat',
+    ],
   ];
   for (const [body, eset] of rosszTorzsek) {
     const res = await request('PUT', `/api/workouts/${id}`, { cookie: annaCookie, body });
@@ -1195,7 +1340,10 @@ test('a javítás ugyanazt a validálást kéri, mint a mentés', async () => {
       body: { name: 'Jó név', exercises: [gyakorlat('Vádliemelés', 50)] },
     });
     assert.equal(res.status, 400, `${rosszId}: érvénytelen azonosító`);
-    assert.equal((await request('DELETE', `/api/workouts/${rosszId}`, { cookie: annaCookie })).status, 400);
+    assert.equal(
+      (await request('DELETE', `/api/workouts/${rosszId}`, { cookie: annaCookie })).status,
+      400,
+    );
   }
 });
 
@@ -1219,7 +1367,10 @@ test('a piszkozat megjegyzi a visszanyitott edzést, a törlés pedig elengedi',
 
   /* Ha az edzést közben törlik, a piszkozat egy megszűnt sorra hivatkozna, és
      a befejezés 404-be futna. A tartalma marad, a hivatkozás nem. */
-  assert.equal((await request('DELETE', `/api/workouts/${id}`, { cookie: belaCookie })).status, 204);
+  assert.equal(
+    (await request('DELETE', `/api/workouts/${id}`, { cookie: belaCookie })).status,
+    204,
+  );
   const utana = (await request('GET', '/api/workout-draft', { cookie: belaCookie })).json;
   assert.equal(utana.workoutId, null, 'a törlés elengedte a hivatkozást');
   assert.equal(utana.exercises.length, 1, 'a piszkozat tartalma viszont megmaradt');
@@ -1286,9 +1437,15 @@ test('a saját étel mezői validáltak', async () => {
     [{ name: 'Szöveg', protein: 'sok', carbs: 1, fat: 1 }, 'nem szám'],
     [{ name: 'Hiányzó', carbs: 1, fat: 1 }, 'hiányzó fehérje'],
     [{ name: 'Összeg', protein: 60, carbs: 60, fat: 10 }, 'a makrók összege > 100 g'],
-    [{ name: 'Kategória', group: 'Nincs ilyen', protein: 1, carbs: 1, fat: 1 }, 'ismeretlen kategória'],
+    [
+      { name: 'Kategória', group: 'Nincs ilyen', protein: 1, carbs: 1, fat: 1 },
+      'ismeretlen kategória',
+    ],
     [{ name: 'Kód', protein: 1, carbs: 1, fat: 1, barcode: '123' }, 'túl rövid vonalkód'],
-    [{ name: 'Kód2', protein: 1, carbs: 1, fat: 1, barcode: '5998200310011' }, 'rossz ellenőrzőszám'],
+    [
+      { name: 'Kód2', protein: 1, carbs: 1, fat: 1, barcode: '5998200310011' },
+      'rossz ellenőrzőszám',
+    ],
   ];
   for (const [body, eset] of rosszak) {
     const res = await request('POST', '/api/foods/custom', { cookie: annaCookie, body });
@@ -1331,7 +1488,10 @@ test('a saját ételek fiókonként elkülönülnek', async () => {
   const annaFoods = (await request('GET', '/api/foods', { cookie: annaCookie })).json;
   const belaFoods = (await request('GET', '/api/foods', { cookie: belaCookie })).json;
 
-  assert.ok(annaFoods.some((f) => f.name === 'Anna csirkéje'), 'Anna látja a sajátját');
+  assert.ok(
+    annaFoods.some((f) => f.name === 'Anna csirkéje'),
+    'Anna látja a sajátját',
+  );
   assert.ok(!belaFoods.some((f) => f.custom), 'Béla egyetlen saját ételt sem lát');
   // A beépített katalógus viszont mindkettejüknél megvan.
   assert.ok(seedFood(annaFoods) && seedFood(belaFoods), 'a seed-katalógus közös');
@@ -1348,8 +1508,9 @@ test('ugyanaz a név két fióknak felvihető', async () => {
 });
 
 test('MÁS fiók saját ételét nem lehet naplózni és törölni', async () => {
-  const annaEtel = (await request('GET', '/api/foods', { cookie: annaCookie })).json
-    .find((f) => f.name === 'Anna narancsleve');
+  const annaEtel = (await request('GET', '/api/foods', { cookie: annaCookie })).json.find(
+    (f) => f.name === 'Anna narancsleve',
+  );
   assert.ok(annaEtel, 'előfeltétel: Annának van narancsleve');
 
   const naplozas = await request('POST', '/api/nutrition/log', {
@@ -1358,11 +1519,16 @@ test('MÁS fiók saját ételét nem lehet naplózni és törölni', async () =>
   });
   assert.equal(naplozas.status, 400, 'Bélának ez ismeretlen étel');
 
-  const torles = await request('DELETE', `/api/foods/custom/${annaEtel.id}`, { cookie: belaCookie });
+  const torles = await request('DELETE', `/api/foods/custom/${annaEtel.id}`, {
+    cookie: belaCookie,
+  });
   assert.equal(torles.status, 404);
 
   const meg = (await request('GET', '/api/foods', { cookie: annaCookie })).json;
-  assert.ok(meg.some((f) => f.name === 'Anna narancsleve'), 'Anna étele érintetlen');
+  assert.ok(
+    meg.some((f) => f.name === 'Anna narancsleve'),
+    'Anna étele érintetlen',
+  );
 });
 
 test('saját étel naplózása az adagra átszámolva megy be', async () => {
@@ -1381,8 +1547,9 @@ test('a saját étel törlése NEM írja át a már lenaplózott bejegyzéseket'
   /* A nutrition_log a nevet és a kiszámolt makrókat MÁSOLATBAN tárolja, ezért
      a korábbi napok összesítői (és a rájuk épülő készenlét-számítás) nem
      változnak meg visszamenőleg. A törlés megerősítő szövege ezt ígéri. */
-  const etel = (await request('GET', '/api/foods', { cookie: annaCookie })).json
-    .find((f) => f.name === 'Anna csirkéje');
+  const etel = (await request('GET', '/api/foods', { cookie: annaCookie })).json.find(
+    (f) => f.name === 'Anna csirkéje',
+  );
   const elotte = (await request('GET', '/api/nutrition', { cookie: annaCookie })).json;
   const naploElotte = (await request('GET', '/api/nutrition/log', { cookie: annaCookie })).json;
 
@@ -1395,8 +1562,10 @@ test('a saját étel törlése NEM írja át a már lenaplózott bejegyzéseket'
   assert.equal(naploUtana.length, naploElotte.length, 'a mai napló tételei megmaradtak');
 
   const listaUtana = (await request('GET', '/api/foods', { cookie: annaCookie })).json;
-  assert.ok(!listaUtana.some((f) => f.name === 'Anna csirkéje' && f.custom),
-    'a lista viszont már nem kínálja fel');
+  assert.ok(
+    !listaUtana.some((f) => f.name === 'Anna csirkéje' && f.custom),
+    'a lista viszont már nem kínálja fel',
+  );
 });
 
 test('a saját étel-azonosító validált', async () => {
@@ -1449,7 +1618,11 @@ test('az ismeretlen vonalkód 404, és a negatív találat is cache-elődik', as
   const hitsElotte = await offHitCount();
   const masodik = await request('GET', `/api/foods/barcode/${OFF_UNKNOWN}`, { cookie: annaCookie });
   assert.equal(masodik.status, 404);
-  assert.equal(await offHitCount(), hitsElotte, 'nem kérdezzük meg újra ugyanazt a nem létező kódot');
+  assert.equal(
+    await offHitCount(),
+    hitsElotte,
+    'nem kérdezzük meg újra ugyanazt a nem létező kódot',
+  );
 });
 
 test('az OFF hibája 502, és NEM cache-elődik', async () => {
@@ -1460,7 +1633,7 @@ test('az OFF hibája 502, és NEM cache-elődik', async () => {
      kérésnek újra meg KELL próbálnia. */
   const hitsElotte = await offHitCount();
   await request('GET', `/api/foods/barcode/${OFF_BROKEN}`, { cookie: annaCookie });
-  assert.ok(await offHitCount() > hitsElotte, 'a hiba után újrapróbálkozunk');
+  assert.ok((await offHitCount()) > hitsElotte, 'a hiba után újrapróbálkozunk');
 });
 
 test('az érvénytelen vonalkód 400 — hálózati kör nélkül', async () => {
@@ -1539,10 +1712,12 @@ test('a javaslat a fájdalmas izomcsoport gyakorlatát jelöli meg', async () =>
     cookie: advCookie,
     body: {
       name: 'Mellnap',
-      exercises: [{
-        name: 'Fekvenyomás',
-        sets: [{ reps: '8', weight: '60', rpe: '8', type: 'work', done: false }],
-      }],
+      exercises: [
+        {
+          name: 'Fekvenyomás',
+          sets: [{ reps: '8', weight: '60', rpe: '8', type: 'work', done: false }],
+        },
+      ],
     },
   });
 
@@ -1560,10 +1735,12 @@ test('az ELFOGADÁS a mai naplót írja át — a tervet nem', async () => {
     body: {
       name: 'Mellnap',
       days: [],
-      exercises: [{
-        name: 'Fekvenyomás',
-        sets: [{ reps: '8', weight: '60', rpe: '8', type: 'work', done: false }],
-      }],
+      exercises: [
+        {
+          name: 'Fekvenyomás',
+          sets: [{ reps: '8', weight: '60', rpe: '8', type: 'work', done: false }],
+        },
+      ],
     },
   });
   assert.equal(terv.status, 201);
@@ -1575,7 +1752,7 @@ test('az ELFOGADÁS a mai naplót írja át — a tervet nem', async () => {
 
   const tervek = await request('GET', '/api/plans', { cookie: advCookie });
   const mellnap = tervek.json.find((p) => p.name === 'Mellnap');
-  assert.equal(mellnap.exercises.length, 1, 'a TERV érintetlen — csak a napló változott');
+  assert.equal(mellnap.week[0].exercises.length, 1, 'a TERV érintetlen — csak a napló változott');
 });
 
 test('a terv-kártya passzívan is jelzi, mi kockázatos ma', async () => {
@@ -1588,8 +1765,11 @@ test('a terv-kártya passzívan is jelzi, mi kockázatos ma', async () => {
 
 test('a javaslat nem ismétli magát: amit elfogadtál, arra nem szól újra', async () => {
   const res = await request('GET', '/api/readiness/advice', { cookie: advCookie });
-  assert.equal(res.json.items.length, 0,
-    'a kihagyott gyakorlat már nincs a naplóban, tehát nincs is mit javasolni rá');
+  assert.equal(
+    res.json.items.length,
+    0,
+    'a kihagyott gyakorlat már nincs a naplóban, tehát nincs is mit javasolni rá',
+  );
 });
 
 /* ======================================================================
@@ -1624,8 +1804,11 @@ test('a felmérés Epley-vel számol, és nem szül hamis PR-t', async () => {
 test('bemondás önmagában NEM ad ajánlást: check-in nélkül semmit nem tudunk', async () => {
   const res = await request('GET', '/api/readiness', { cookie: assessCookie });
   assert.equal(res.json.overall, null, 'nincs mire alapozni');
-  assert.deepEqual(res.json.exercises, [],
-    'a „nincs adat" nem lehet „tökéletes állapot" — inkább nem mondunk semmit');
+  assert.deepEqual(
+    res.json.exercises,
+    [],
+    'a „nincs adat" nem lehet „tökéletes állapot" — inkább nem mondunk semmit',
+  );
 });
 
 test('check-in után a bemondott gyakorlat ajánlást kap, megjelölt alappal', async () => {
@@ -1638,8 +1821,11 @@ test('check-in után a bemondott gyakorlat ajánlást kap, megjelölt alappal', 
   assert.ok(bench, 'a bemondott gyakorlat bekerül az ajánlások közé');
   assert.equal(bench.basis, 'declared', 'és kimondja, hogy bemondáson alapul');
   assert.equal(bench.sessions, 0, 'naplózott alkalom nélkül');
-  assert.equal(bench.readiness, res.json.overall,
-    'az összesített készenlétre épül — izomcsoport-szintű adat nincs mögötte');
+  assert.equal(
+    bench.readiness,
+    res.json.overall,
+    'az összesített készenlétre épül — izomcsoport-szintű adat nincs mögötte',
+  );
 });
 
 test('a rossz check-in a bemondott gyakorlat ajánlását is lehúzza', async () => {
@@ -1654,15 +1840,17 @@ test('a rossz check-in a bemondott gyakorlat ajánlását is lehúzza', async ()
 });
 
 test('a MÉRT csúcsot nem írja felül a bemondás, és a PR-nek meg kell haladnia', async () => {
-  // Naplózott edzés: 120 kg × 1 → Epley 124 kg, ez MÉRT csúcs.
+  // Naplózott edzés: 120 kg × 1 → a becslés maga a 120 kg, ez MÉRT csúcs.
   await request('POST', '/api/workouts', {
     cookie: assessCookie,
     body: {
       name: 'Mellnap',
-      exercises: [{
-        name: 'Fekvenyomás',
-        sets: [{ reps: '1', weight: '120', rpe: '10', type: 'work', done: true }],
-      }],
+      exercises: [
+        {
+          name: 'Fekvenyomás',
+          sets: [{ reps: '1', weight: '120', rpe: '10', type: 'work', done: true }],
+        },
+      ],
     },
   });
 
@@ -1673,13 +1861,16 @@ test('a MÉRT csúcsot nem írja felül a bemondás, és a PR-nek meg kell halad
   });
   assert.equal(res.status, 201);
   assert.equal(res.json.entries[0].stored, false, 'a mérés erősebb bizonyíték');
-  assert.ok(res.json.entries[0].max1rm > 120, 'a mért csúcs marad érvényben');
+  assert.equal(res.json.entries[0].max1rm, 120, 'a mért csúcs marad érvényben');
 });
 
 test('a felmérés validál: ismeretlen gyakorlat, tartományon kívüli érték', async () => {
   const rossz = [
     [{ entries: [] }, 'üres lista'],
-    [{ entries: [{ exercise: 'Kitalált Gyakorlat', weight: 100, reps: 3 }] }, 'ismeretlen gyakorlat'],
+    [
+      { entries: [{ exercise: 'Kitalált Gyakorlat', weight: 100, reps: 3 }] },
+      'ismeretlen gyakorlat',
+    ],
     [{ entries: [{ exercise: 'Fekvenyomás', weight: 0, reps: 3 }] }, 'nulla súly'],
     [{ entries: [{ exercise: 'Fekvenyomás', weight: 100, reps: 99 }] }, 'irreális ismétlésszám'],
   ];
@@ -1715,7 +1906,10 @@ test('a tervet ki lehet törölni — a lista eddig csak nőni tudott', async ()
   assert.equal(torles.status, 204);
 
   const tervek = await request('GET', '/api/plans', { cookie: fixCookie });
-  assert.equal(tervek.json.find((p) => p.name === 'Törlendő'), undefined);
+  assert.equal(
+    tervek.json.find((p) => p.name === 'Törlendő'),
+    undefined,
+  );
 
   // Másodszorra már nincs mit törölni.
   const ujra = await request('DELETE', `/api/plans/${terv.json.id}`, { cookie: fixCookie });
@@ -1723,22 +1917,34 @@ test('a tervet ki lehet törölni — a lista eddig csak nőni tudott', async ()
 });
 
 test('a testsúly-bejegyzés javítható és törölhető — a dátuma nem mozdul', async () => {
-  const felvitel = await request('POST', '/api/weight-log', { cookie: fixCookie, body: { kg: 188 } });
+  const felvitel = await request('POST', '/api/weight-log', {
+    cookie: fixCookie,
+    body: { kg: 188 },
+  });
   assert.equal(felvitel.status, 200);
   const { id, date } = felvitel.json;
 
-  const javitas = await request('PUT', `/api/weight-log/${id}`, { cookie: fixCookie, body: { kg: 88 } });
+  const javitas = await request('PUT', `/api/weight-log/${id}`, {
+    cookie: fixCookie,
+    body: { kg: 88 },
+  });
   assert.equal(javitas.status, 200);
   assert.equal(javitas.json.kg, 88, 'az elgépelt 188 javítható');
   assert.equal(javitas.json.date, date, 'a javítás NEM áthelyezés — a dátum marad');
 
-  const rossz = await request('PUT', `/api/weight-log/${id}`, { cookie: fixCookie, body: { kg: 5 } });
+  const rossz = await request('PUT', `/api/weight-log/${id}`, {
+    cookie: fixCookie,
+    body: { kg: 5 },
+  });
   assert.equal(rossz.status, 400, 'a tartomány a javításnál is érvényes');
 
   const torles = await request('DELETE', `/api/weight-log/${id}`, { cookie: fixCookie });
   assert.equal(torles.status, 204);
   const naplo = await request('GET', '/api/weight-log', { cookie: fixCookie });
-  assert.equal(naplo.json.find((e) => e.id === id), undefined);
+  assert.equal(
+    naplo.json.find((e) => e.id === id),
+    undefined,
+  );
 });
 
 test('a naplóbejegyzés adagja javítható, a makrók arányosan követik', async () => {
@@ -1746,13 +1952,15 @@ test('a naplóbejegyzés adagja javítható, a makrók arányosan követik', asy
   const etel = foods.json[0];
 
   const felvitel = await request('POST', '/api/nutrition/log', {
-    cookie: fixCookie, body: { name: etel.name, grams: 100 },
+    cookie: fixCookie,
+    body: { name: etel.name, grams: 100 },
   });
   assert.equal(felvitel.status, 201);
   const eredeti = felvitel.json.entry;
 
   const javitas = await request('PUT', `/api/nutrition/log/${eredeti.id}`, {
-    cookie: fixCookie, body: { grams: 200 },
+    cookie: fixCookie,
+    body: { grams: 200 },
   });
   assert.equal(javitas.status, 200);
 
@@ -1771,7 +1979,8 @@ test('a javító végpontok idegen sorra 404-et adnak', async () => {
   const masikCookie = cookieFrom(masik);
 
   const terv = await request('POST', '/api/plans', {
-    cookie: fixCookie, body: { name: 'Enyém', days: [], exercises: [gyakorlat('Guggolás', 100)] },
+    cookie: fixCookie,
+    body: { name: 'Enyém', days: [], exercises: [gyakorlat('Guggolás', 100)] },
   });
   const suly = await request('POST', '/api/weight-log', { cookie: fixCookie, body: { kg: 80 } });
 
@@ -1813,23 +2022,31 @@ test('a mérési helyek listája a szerverről jön, címkével és tartománnya
   assert.ok(waist, 'a derék mérési hely');
   assert.equal(waist.unit, 'cm');
   assert.ok(waist.min > 0 && waist.max > waist.min, 'van tartomány, amihez validálni lehet');
-  assert.ok(res.json.some((s) => s.key === 'bodyfat' && s.unit === '%'), 'a testzsír százalék');
+  assert.ok(
+    res.json.some((s) => s.key === 'bodyfat' && s.unit === '%'),
+    'a testzsír százalék',
+  );
 });
 
 test('az aznapi újramérés FELÜLÍR, nem duplikál', async () => {
   const elso = await request('PUT', '/api/measurements', {
-    cookie: mesCookie, body: { values: { waist: 84, arm: 38.5, bodyfat: 12.5 } },
+    cookie: mesCookie,
+    body: { values: { waist: 84, arm: 38.5, bodyfat: 12.5 } },
   });
   assert.equal(elso.status, 200);
   assert.equal(elso.json.length, 3);
 
   const masodik = await request('PUT', '/api/measurements', {
-    cookie: mesCookie, body: { values: { waist: 83 } },
+    cookie: mesCookie,
+    body: { values: { waist: 83 } },
   });
   assert.equal(masodik.json.length, 3, 'ugyanaz a három sor — nem lett negyedik');
   assert.equal(masodik.json.find((m) => m.site === 'waist').value, 83);
-  assert.equal(masodik.json.find((m) => m.site === 'arm').value, 38.5,
-    'amit nem adtunk meg, azt nem bántjuk — az üres mező nem törlés');
+  assert.equal(
+    masodik.json.find((m) => m.site === 'arm').value,
+    38.5,
+    'amit nem adtunk meg, azt nem bántjuk — az üres mező nem törlés',
+  );
 });
 
 test('a mérés validál: ismeretlen hely, tartományon kívüli érték, üres törzs', async () => {
@@ -1862,5 +2079,348 @@ test('a mérés törölhető, és idegen sorra 404 jön', async () => {
   assert.equal(torles.status, 204);
 
   const utana = await request('GET', '/api/measurements', { cookie: mesCookie });
-  assert.equal(utana.json.find((m) => m.id === sajat.id), undefined);
+  assert.equal(
+    utana.json.find((m) => m.id === sajat.id),
+    undefined,
+  );
+});
+
+/* ======================================================================
+   11. Időalapú (kardió) naplózás
+   ----------------------------------------------------------------------
+   Amit nem ismétlésben mérnek, az más alakban tárolódik: idő + intenzitás,
+   ismétlés, RPE és szett-típus nélkül. A mód a gyakorlaté (`logMode`), és a
+   MENTÉSKOR ÉG RÁ a sorra — nem a mai katalógus-besorolásból oldódik fel
+   minden olvasáskor. Ez a szakasz azt őrzi, hogy a két alak ne keveredjen, és
+   hogy egy régi, ismétlésben naplózott sor javításkor ne alakuljon át.
+   ====================================================================== */
+
+let kardioCookie = '';
+
+test('a katalógus minden sora visel naplózási módot, és a futópad időalapú', async () => {
+  const reg = await request('POST', '/api/auth/register', {
+    body: { username: 'kardio', displayName: 'Kardiós Karcsi', password: 'jelszo123' },
+  });
+  kardioCookie = cookieFrom(reg);
+
+  const katalogus = (await request('GET', '/api/exercise-catalog', { cookie: kardioCookie })).json;
+  assert.ok(
+    katalogus.every((e) => e.logMode === 'reps' || e.logMode === 'duration'),
+    'nincs mód nélküli sor — a felület nem találgat',
+  );
+
+  const modja = (name) => katalogus.find((e) => e.name === name)?.logMode;
+  assert.equal(modja('Futópad'), 'duration');
+  assert.equal(modja('Fekvenyomás'), 'reps');
+
+  /* A generált katalógus ugyanazt a mozgást más néven is hozza. Ha csak a
+     kurált sorok kapnának módot, két majdnem azonos nevű gyakorlat két
+     különböző felületet adna — ezt a névmintás réteg zárja ki. */
+  assert.equal(modja('Futás'), 'duration', 'a generált párnak is időalapúnak kell lennie');
+  assert.equal(modja('Futás (gépes)'), 'duration');
+
+  /* A súllyal végzett kondimunka SZETT-alapú marad: azt ismétlésben és kilóban
+     naplózzák, és a PR-je is valódi. */
+  assert.equal(modja('Kettlebell swing'), 'reps');
+  assert.equal(modja('Burpee'), 'reps');
+});
+
+test('az intenzitás-fokozatok kulccsal és felirattal érkeznek', async () => {
+  const res = await request('GET', '/api/cardio-intensities', { cookie: kardioCookie });
+  assert.equal(res.status, 200);
+  assert.equal(res.json.length, 5, 'öt fokozat');
+  assert.ok(
+    res.json.every((level) => level.key && level.label),
+    'mindegyiknek van kulcsa ÉS felirata — a mentett érték a kulcs',
+  );
+});
+
+test('időalapú gyakorlat mentése: idő + intenzitás, ismétlés és RPE nélkül', async () => {
+  const res = await request('POST', '/api/workouts', {
+    cookie: kardioCookie,
+    body: {
+      name: 'Reggeli futás',
+      exercises: [
+        {
+          name: 'Futópad',
+          logMode: 'duration',
+          sets: [{ duration: '1800', intensity: 'high', weight: '', done: true }],
+        },
+      ],
+    },
+  });
+  assert.equal(res.status, 201);
+
+  const [gyak] = res.json.exercises;
+  assert.equal(gyak.logMode, 'duration', 'a mód ráégett a mentett sorra');
+  assert.deepEqual(Object.keys(gyak.sets[0]).sort(), ['done', 'duration', 'intensity', 'weight']);
+  assert.equal(gyak.sets[0].duration, '1800');
+  assert.equal(gyak.sets[0].intensity, 'high');
+  assert.equal(gyak.sets[0].reps, undefined, 'ismétlés nincs');
+  assert.equal(gyak.sets[0].rpe, undefined, 'RPE nincs');
+  assert.equal(
+    gyak.sets[0].type,
+    undefined,
+    'szett-típus nincs — a bemelegítő/drop itt értelmetlen',
+  );
+});
+
+test('időalapú sorra NEM keletkezik PR, akkor sem, ha a kliens azt küldi', async () => {
+  const res = await request('POST', '/api/workouts', {
+    cookie: kardioCookie,
+    body: {
+      name: 'Este futás',
+      exercises: [
+        {
+          name: 'Szabadtéri futás',
+          logMode: 'duration',
+          pr: true, // hamisított vagy beragadt jelző
+          sets: [{ duration: '2400', intensity: 'max', weight: '10', done: true }],
+        },
+      ],
+    },
+  });
+  assert.equal(res.json.exercises[0].pr, false, 'nincs mihez mérni, tehát nincs jelvény');
+
+  const prs = (await request('GET', '/api/prs', { cookie: kardioCookie })).json;
+  assert.ok(
+    !prs.some((entry) => entry.exercise === 'Szabadtéri futás'),
+    'a PR-listába sem kerül be',
+  );
+
+  const maxes = (await request('GET', '/api/exercise-maxes', { cookie: kardioCookie })).json;
+  assert.equal(maxes['Szabadtéri futás'], undefined, 'csúcsot sem rögzít');
+});
+
+test('a plusz súly megmarad a soron, de nem szül tonnatömeget', async () => {
+  const mentett = (await request('GET', '/api/workouts', { cookie: kardioCookie })).json;
+  const futas = mentett.flatMap((w) => w.exercises).find((e) => e.name === 'Szabadtéri futás');
+  assert.equal(futas.sets[0].weight, '10', 'a súlymellény feljegyzése megmarad');
+
+  /* A napi tonnatömeg ismétlés × súly — ismétlés híján nulla. Ez most SZÁNDÉKOS:
+     a terhelés-számítás külön lépés, és kitalált szorzót nem teszünk bele. */
+  const charts = (await request('GET', '/api/charts', { cookie: kardioCookie })).json;
+  assert.equal(charts.volumeTrend.total, 0, 'a súly nem számít bele a mozgatott súlyba');
+});
+
+test('a régi, ismétlésben naplózott futópad-sor NEM alakul át javításkor', async () => {
+  /* A legfontosabb eset: aki a funkció előtt ismétlésben naplózta a futópadot,
+     annak a sorát egy mentés nem írhatja át időalapúvá — az ismétlései némán
+     elvesznének. A mód a beküldött soré, nem a mai katalógusé. */
+  const mentes = await request('POST', '/api/workouts', {
+    cookie: kardioCookie,
+    body: {
+      name: 'Régi szokás',
+      exercises: [
+        {
+          name: 'Futópad',
+          sets: [{ reps: '10', weight: '0', rpe: '7', type: 'work', done: true }],
+        },
+      ],
+    },
+  });
+  assert.equal(mentes.status, 201);
+
+  const [gyak] = mentes.json.exercises;
+  assert.equal(gyak.logMode, undefined, 'mód nélkül maradt, tehát ismétlés-alapú');
+  assert.equal(gyak.sets[0].reps, '10', 'az ismétlés megmaradt');
+  assert.equal(gyak.sets[0].duration, undefined);
+
+  const javitas = await request('PUT', `/api/workouts/${mentes.json.id}`, {
+    cookie: kardioCookie,
+    body: {
+      name: 'Régi szokás',
+      exercises: [
+        {
+          name: 'Futópad',
+          sets: [{ reps: '12', weight: '0', rpe: '7', type: 'work', done: true }],
+        },
+      ],
+    },
+  });
+  assert.equal(
+    javitas.json.exercises[0].sets[0].reps,
+    '12',
+    'a javítás sem konvertálja át — az ismétlés marad ismétlés',
+  );
+});
+
+test('az időalapú sor mezői normalizálódnak: ismeretlen fokozat, negatív és túlcsorduló idő', async () => {
+  const res = await request('POST', '/api/workouts', {
+    cookie: kardioCookie,
+    body: {
+      name: 'Szemetes bevitel',
+      exercises: [
+        {
+          name: 'Evezőgép',
+          logMode: 'duration',
+          sets: [{ duration: '-60', intensity: 'kitalalt', weight: '-5', done: true }],
+        },
+      ],
+    },
+  });
+  const set = res.json.exercises[0].sets[0];
+  assert.equal(set.duration, '', 'a negatív idő nem idő');
+  assert.equal(set.intensity, 'moderate', 'ismeretlen fokozatra a skála közepe jár');
+  assert.equal(set.weight, '0', 'negatív súly nullára szorul');
+
+  const hosszu = await request('POST', '/api/workouts', {
+    cookie: kardioCookie,
+    body: {
+      name: 'Ultra',
+      exercises: [
+        {
+          name: 'Evezőgép',
+          logMode: 'duration',
+          sets: [{ duration: '999999999', intensity: 'low', done: true }],
+        },
+      ],
+    },
+  });
+  assert.equal(
+    hosszu.json.exercises[0].sets[0].duration,
+    String(24 * 60 * 60),
+    'az idő 24 óránál elvágódik — elgépelés-korlát',
+  );
+});
+
+test('ismeretlen naplózási módra a szett-alap érvényes, nem hiba', async () => {
+  const res = await request('POST', '/api/workouts', {
+    cookie: kardioCookie,
+    body: {
+      name: 'Hibás mód',
+      exercises: [
+        {
+          name: 'Fekvenyomás',
+          logMode: 'kitalalt',
+          sets: [{ reps: '5', weight: '100', rpe: '8', type: 'work', done: true }],
+        },
+      ],
+    },
+  });
+  assert.equal(res.status, 201);
+  assert.equal(res.json.exercises[0].logMode, undefined);
+  assert.equal(res.json.exercises[0].sets[0].reps, '5');
+});
+
+/* ======================================================================
+   Ajánlott gyakorlatok — a választó tetejének végpontja
+   A döntési logikát a suggestions.test.js méri; itt az összedrótozás: a
+   valódi katalógus, a riport és a fájdalom-tiltás a szerveren át.
+   ====================================================================== */
+
+test('ajánlott gyakorlatok: a címből, a valódi katalógusból, indoklással', async () => {
+  const reg = await request('POST', '/api/auth/register', {
+    body: { username: 'ajanlo', displayName: 'Ajánló Aladár', password: 'jelszo123' },
+  });
+  const cookie = cookieFrom(reg);
+
+  const res = await request(
+    'GET',
+    `/api/exercise-suggestions?title=${encodeURIComponent('Lábnap')}`,
+    {
+      cookie,
+    },
+  );
+  assert.equal(res.status, 200);
+  assert.equal(res.json.readiness, 'off', 'readiness=1 nélkül a mai készenlét nem jel');
+  assert.deepEqual(res.json.titleLabels, ['Láb']);
+  assert.ok(res.json.suggestions.length > 0);
+
+  const katalogus = (await request('GET', '/api/exercise-catalog', { cookie })).json;
+  const nevek = new Set(katalogus.map((e) => e.name));
+  for (const javaslat of res.json.suggestions) {
+    assert.ok(nevek.has(javaslat.name), `„${javaslat.name}" létező katalógus-sor`);
+    assert.deepEqual(javaslat.reasons, [{ kind: 'title', text: 'a címből: Láb' }]);
+  }
+
+  // Friss fiók: a készenlét kérve is ismeretlen, a „Hétfő" cím semmit nem mond.
+  const ures = await request('GET', '/api/exercise-suggestions?title=H%C3%A9tf%C5%91&readiness=1', {
+    cookie,
+  });
+  assert.equal(ures.json.readiness, 'unknown');
+  assert.deepEqual(ures.json.suggestions, []);
+});
+
+test('ajánlott gyakorlatok: a fájdalmas izomcsoport a címmel sem jön vissza', async () => {
+  const reg = await request('POST', '/api/auth/register', {
+    body: { username: 'ajanlo2', displayName: 'Ajánló Bea', password: 'jelszo123' },
+  });
+  const cookie = cookieFrom(reg);
+  await request('PUT', '/api/checkin', {
+    cookie,
+    body: { sleepHours: 8, sleepQuality: 5, energy: 5, stress: 1, pain: { chest: 8 } },
+  });
+
+  const res = await request(
+    'GET',
+    '/api/exercise-suggestions?title=Mell%20%2B%20h%C3%A1t&readiness=1',
+    {
+      cookie,
+    },
+  );
+  assert.equal(res.status, 200);
+  assert.equal(res.json.readiness, 'used');
+  assert.deepEqual(res.json.titleLabels, ['Hát'], 'a Mell címke a tiltással együtt eltűnik');
+  assert.ok(res.json.suggestions.length > 0, 'a hát a címből továbbra is jön');
+  assert.ok(
+    res.json.suggestions.every((s) => s.group === 'back'),
+    'a mellre egyetlen javaslat sem jön',
+  );
+  // A mellfájdalom a teljes napot sapkázza — a hát sem lehet „regenerált".
+  assert.ok(
+    res.json.suggestions.every((s) => s.reasons.every((r) => r.kind !== 'ready')),
+    'sapkás napon nincs rábólintó indoklás',
+  );
+});
+
+test('a kardió sor nem munkasorozat: a profil és a heti diagram sem számolja', async () => {
+  const reg = await request('POST', '/api/auth/register', {
+    body: { username: 'kardio2', displayName: 'Kardiós Kata', password: 'jelszo123' },
+  });
+  const cookie = cookieFrom(reg);
+
+  const mentes = await request('POST', '/api/workouts', {
+    cookie,
+    body: {
+      name: 'Láb + futás',
+      exercises: [
+        gyakorlat('Guggolás', 100),
+        {
+          name: 'Futópad',
+          logMode: 'duration',
+          sets: [{ duration: '2700', intensity: 'high', done: true }],
+        },
+      ],
+    },
+  });
+  assert.equal(mentes.status, 201);
+
+  const profil = (await request('GET', '/api/profile', { cookie })).json.stats;
+  assert.equal(profil.workSets, 1, 'a 45 perces futás nem egy munkasorozat');
+
+  const diagram = (await request('GET', '/api/charts', { cookie })).json;
+  assert.equal(diagram.volumeThisWeek.total, 1);
+
+  // A futás viszont a készenlétben MÁR látszik: a terhelés-komponens nem 100.
+  const csakFutas = await request('POST', '/api/auth/register', {
+    body: { username: 'kardio3', displayName: 'Futó Feri', password: 'jelszo123' },
+  });
+  const futoCookie = cookieFrom(csakFutas);
+  await request('POST', '/api/workouts', {
+    cookie: futoCookie,
+    body: {
+      name: 'Hosszú futás',
+      exercises: [
+        {
+          name: 'Futópad',
+          logMode: 'duration',
+          sets: [{ duration: '5400', intensity: 'high', done: true }],
+        },
+      ],
+    },
+  });
+  const riport = (await request('GET', '/api/readiness', { cookie: futoCookie })).json;
+  const terheles = riport.components.find((c) => c.key === 'load');
+  assert.ok(terheles.present && terheles.score < 100, `a futás terhel (${terheles.score})`);
 });

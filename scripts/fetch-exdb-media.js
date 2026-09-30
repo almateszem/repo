@@ -101,7 +101,8 @@ async function runPool(items, worker) {
 async function main() {
   const limitArg = process.argv.indexOf('--limit');
   const limit = limitArg !== -1 ? Number(process.argv[limitArg + 1]) : Infinity;
-  if (Number.isNaN(limit) || limit <= 0) throw new Error('A --limit pozitív egész szám kell legyen.');
+  if (Number.isNaN(limit) || limit <= 0)
+    throw new Error('A --limit pozitív egész szám kell legyen.');
 
   // A kurált gyakorlatokhoz párosított média is kell: azok a sorok nincsenek
   // benne az exdbExercises listában (a kurált változat nyert), a felület
@@ -112,8 +113,11 @@ async function main() {
   await fs.mkdir(TARGET_DIR, { recursive: true });
   await fs.writeFile(path.join(TARGET_DIR, 'ATTRIBUTION.txt'), ATTRIBUTION, 'utf8');
 
-  console.log(`${exercises.length} gyakorlat · ${paths.length} médiafájl → ${path.relative(ROOT, TARGET_DIR)}`);
-  if (limit === Infinity) console.log('(a teljes készlet ~115 MB; a futás bármikor megszakítható és folytatható)\n');
+  console.log(
+    `${exercises.length} gyakorlat · ${paths.length} médiafájl → ${path.relative(ROOT, TARGET_DIR)}`,
+  );
+  if (limit === Infinity)
+    console.log('(a teljes készlet ~115 MB; a futás bármikor megszakítható és folytatható)\n');
 
   const counts = { downloaded: 0, skipped: 0, failed: 0 };
   const errors = [];
@@ -121,11 +125,16 @@ async function main() {
     const result = await fetchOne(relPath);
     if (result === 'downloaded') counts.downloaded += 1;
     else if (result === 'skipped') counts.skipped += 1;
-    else { counts.failed += 1; errors.push(`${relPath}: ${result}`); }
+    else {
+      counts.failed += 1;
+      errors.push(`${relPath}: ${result}`);
+    }
 
     const done = counts.downloaded + counts.skipped + counts.failed;
     if (done % 100 === 0 || done === paths.length) {
-      process.stdout.write(`\r  ${done}/${paths.length} — letöltve ${counts.downloaded}, meglévő ${counts.skipped}, hiba ${counts.failed}`);
+      process.stdout.write(
+        `\r  ${done}/${paths.length} — letöltve ${counts.downloaded}, meglévő ${counts.skipped}, hiba ${counts.failed}`,
+      );
     }
   });
 

@@ -2,6 +2,7 @@
 
 import { api } from '../core/api.js';
 import { $ } from '../core/dom.js';
+import { dayEntry, dayWorkoutName, todayWeekday } from '../core/plan-week.js';
 import { showToast } from '../core/toast.js';
 import { navigate } from '../nav/router.js';
 import { plansData, renderPlans } from '../render/plans.js';
@@ -50,19 +51,66 @@ function setupPlans(planBuilder, workout, confirmAction) {
       return;
     }
 
-    // Nyíl — a terv (név + gyakorlatok) betöltődik az edzésnaplóba.
-    // A loadPlan megkérdezi a felhasználót, ha ezzel megkezdett edzést írna
-    // felül; hamis válasz esetén itt sem navigálunk és nem toastolunk.
-    const openBtn = event.target.closest('.pl-card-open');
-    if (!openBtn) return;
-    const plan = plansData[Number(openBtn.closest('.pl-card').dataset.planIndex)];
-    if (!plan?.exercises || !workout) return;
-    workout.loadPlan(plan).then((loaded) => {
-      if (!loaded) return;
-      showToast(`„${plan.name}” betöltve az edzésnaplóba`);
-      navigate('workout');
-    }).catch((err) => console.error('Terv betöltési hiba:', err));
+    // Aktiválás — ennek a tervnek a hete töltődik ezentúl az Edzés oldalra
+    const activateBtn = event.target.closest('.pl-card-activate');
+    if (activateBtn) {
+      const plan = plansData[Number(activateBtn.closest('.pl-card').dataset.planIndex)];
+      if (plan) activatePlan(plan, activateBtn);
+      return;
+    }
+
+    const card = event.target.closest('.pl-card');
+    const plan = card && plansData[Number(card.dataset.planIndex)];
+    if (!plan?.week) return;
+
+    // A heti sáv egy napja — AZ a nap töltődik be (pl. a keddi csütörtökön)
+    const dayBtn = event.target.closest('.pl-week-day');
+    if (dayBtn) {
+      loadDay(plan, Number(dayBtn.dataset.day));
+      return;
+    }
+
+    // Nyíl — a MAI nap edzése. Pihenőnapon a heti sávra irányítunk: onnan
+    // bármelyik edzésnap elindítható.
+    if (!event.target.closest('.pl-card-open')) return;
+    const today = todayWeekday();
+    if (dayEntry(plan.week, today)) {
+      loadDay(plan, today);
+      return;
+    }
+    showToast('Ma pihenőnap van ebben a tervben — válaszd ki, melyik nap edzését indítod');
+    $('.pl-week-day:not(:disabled)', card)?.focus();
   });
+
+  /** Egy nap edzése az edzésnaplóba. A loadPlan megkérdezi a felhasználót, ha
+      ezzel megkezdett edzést írna felül; hamis válasz esetén itt sem
+      navigálunk és nem toastolunk. */
+  function loadDay(plan, day) {
+    const entry = dayEntry(plan.week, day);
+    if (!entry || !workout) return;
+    const name = dayWorkoutName(plan, day);
+    workout
+      .loadPlan({ id: plan.id, name, exercises: entry.exercises })
+      .then((loaded) => {
+        if (!loaded) return;
+        showToast(`„${name}” betöltve az edzésnaplóba`);
+        navigate('workout');
+      })
+      .catch((err) => console.error('Terv betöltési hiba:', err));
+  }
+
+  async function activatePlan(plan, button) {
+    button.disabled = true;
+    try {
+      await api.setPlanActive(plan.id, true);
+      await renderPlans();
+      showToast(`„${plan.name}” az aktív terv — ennek a hete töltődik az Edzés oldalra`);
+    } catch (err) {
+      console.error(err);
+      button.disabled = false;
+      showToast(err.message || 'Nem sikerült aktiválni a tervet', 'error');
+    }
+  }
 
   // Új terv készítése — üres terv-építővel
   $('[data-action="new-plan"]').addEventListener('click', () => {

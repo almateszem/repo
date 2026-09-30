@@ -33,7 +33,7 @@ Node 22.5+ kell (a beépített node:sqlite modul miatt).
     npm install
     npm start          → http://localhost:3000
     npm run dev        → ugyanaz, fájlfigyeléssel
-    npm test           → 317 teszt (node --test, nulla függőség)
+    npm test           → 357 teszt (node --test, nulla függőség)
     npm run lint       → ESLint (nincs build-lépés, ez az egyetlen védőháló)
     npm run format     → Prettier
 
@@ -60,6 +60,7 @@ Fájlok:
     server/coaching.js  a sportoló-összegző (tiszta függvények, DB nélkül)
     server/errors.js    hibakezelő védőháló (kezelő-becsomagolás, JSON-hiba, őrök)
     server/notifications.js  az értesítés-panel tartalma (szintén tiszta)
+    server/suggestions.js    ajánlott gyakorlatok a választóhoz (szintén tiszta)
     server/ratelimit.js      kérés-korlátozás
     server/openfoodfacts.js  vonalkód → termék (Open Food Facts proxy)
 
@@ -79,7 +80,12 @@ tölt be (<script type="module" src="js/main.js">).
 - Munkamenet: HttpOnly, SameSite=Lax süti, 30 nap. Az adatbázisba CSAK a
   token SHA-256 lenyomata kerül. HTTPS mögött a süti Secure jelzőt is kap.
 - Belépési kísérlet-korlát: 15 percen belül 10 sikertelen próbálkozás után a
-  felhasználónév átmenetileg zárolódik (memóriában él, újraindításkor nullázódik).
+  felhasználónév átmenetileg zárolódik — ARRÓL a forrásról (név + IP), tehát
+  idegen nem zárhatja ki a tulajdonost. Forrásonként 15 percenként 60 belépési
+  kísérlet. A jelszócsere és a fióktörlés saját, fiókra szóló számlálót kap.
+  Mind memóriában él, újraindításkor nullázódik.
+- Méretkorlátok: JSON-törzs max 256 KB; edzés/terv/piszkozat max 50 gyakorlat,
+  gyakorlatonként max 50 szett (túllépésnél 400-as hiba, nem levágás).
 - MINDEN /api/* végpont bejelentkezést követel az /api/auth/* kivételével. A
   védelem szándékosan az összes útvonal ELŐTT áll, tehát egy később felvett
   végpont automatikusan védett.
@@ -217,10 +223,16 @@ Az edzésnapló. Ez az app legsűrűbb felülete.
   · Mai napló: a bevitt tételek listája, bármelyik egy koppintással
     törölhető. CSAK az aznapi bejegyzés módosítható — a korábbi napok
     összesítői már beépültek a készenlét-számításba.
-  · A napi cél fiókonként állítható (GET/PUT/DELETE /api/nutrition/goal);
-    a 2900 kcal / 170 g már csak az ALAPÉRTELMEZÉS, amíg nincs saját cél.
-    Az edző is kitűzhet célt (PUT /api/athletes/:linkId/nutrition-goal) —
-    a forrás- és felülírás-szabályokat ld. a 3.6a pontban.
+  · Vízmérő: kortyonkénti folyadék-napló (GET/POST/DELETE /api/water; egy
+    korty 1–3000 ml, a nap összege legfeljebb 15 liter). A nap összege
+    LITERBEN a checkins.hydration mezőbe íródik (syncHydration) — tehát a
+    készenlét táplálkozás-komponense ezt látja, ld. 5. pont. A napi cél
+    ugyanabból a képletből jön, amit a motor használ (~33 ml/testsúlykg):
+    ha a felület saját célt mondana, a „teljesítettem" érzés és a pontszám
+    szétcsúszna.
+  · A napi cél FIÓKONKÉNT él, két forrásból ('own' és 'coach') — a
+    részleteket ld. 3.6a. (Korábban itt egyetlen fix 2900 kcal / 170 g
+    érték szolgálta ki az összes fiókot; 2026-09-02 óta nem.)
 
 
 --- 3.6 EDZŐ (#coach) ----------------------------------------------------
@@ -228,12 +240,15 @@ Két nézet, a tényleges szerepkör szerint. Ha mindkettő áll, van váltógom
 
 KLIENS NÉZET ("Edződ")
   · Beérkezett edzői meghívás elfogadása / elutasítása. Amíg nem fogadtad
-    el, az edző SEMMIT nem lát az adataidból — a felület ezt ki is írja.
+    el, az edző a naplóidból, készenlétedből és fiók-beállításaidból
+    SEMMIT nem lát — a meghívó soron csak a felhasználónév és a
+    megjelenítendő név utazik (invitePayload, server.js). A felület ezt
+    ki is írja.
   · Az edződ neve és felhasználóneve, "Kapcsolat bontása" gombbal
     (megerősítést kér).
-  · Üzenetváltás — EGYELŐRE SZIMULÁLT, és a felület ezt kiírja: az üzenet
-    nem jut el az edződhöz, a válaszok előre megírt sorok, a szál a lap
-    újratöltésével elvész.
+  · Üzenetváltás — VALÓDI és perzisztens (2026-09-02 óta; korábban
+    szimulált volt, körbeforgó válasz-sorokkal). A szál a kapcsolathoz
+    tartozik, olvasottság-jelöléssel; ld. 3.6b.
 
 EDZŐI NÉZET ("Edzetteim")
   · Kliens meghívása felhasználónévvel.
@@ -355,6 +370,22 @@ célozza át (a "← Vissza" oda visz vissza, ahonnan jöttél). Kereső + szűr
 chipek, gyakorlatonként illusztrációval, izomcsoport-szöveggel és
 Összetett/Izolációs/Nyújtás címkével.
 
+JAVASOLT BLOKK a lista fölött (server/suggestions.js, GET
+/api/exercise-suggestions). Két egyenrangú jelből ajánl, és minden sor
+kiírja, miért került oda:
+  · az edzés CÍMÉBŐL („Lábnap", „Push #3", „Hát + bicepsz" → „a címből: Láb"),
+  · a mai REGENERÁLTSÁGBÓL („Mell 92% regenerált") — csak az edzésnaplóból
+    nyitva; a terv-építő nem kéri, mert egy jövőbeli tervről a mai készenlét
+    nem mond semmit.
+Elöl az áll, amit mindkét jel támogat, utána a két jel váltakozva kap helyet
+(a pihent felsőtest nem szoríthatja ki a „Lábnap" fáradt lábát — az ilyen sor
+„Quadriceps csak 62% regenerált" figyelmeztetést kap). Fájdalommal (7/10
+felett) letiltott izomcsoportot terhelő gyakorlat SOSEM kerül be, akkor sem,
+ha a cím kéri; sapkás napon egy izom sem lehet „regeneráltabb" a napnál.
+Értelmezhetetlen címnél („Hétfő") a regeneráltság marad, és a blokk ezt ki is
+írja. Csoportonként 2, összesen 8 gyakorlat; elöl a már naplózottak, utána a
+kurált és az összetett sorok. A blokk keresés és chip-szűrés alatt rejtve van.
+
 
 ==========================================================================
 4. ABLAKOK (modálok)
@@ -400,8 +431,11 @@ A KÉPLET súlyozott átlag, de CSAK a jelen lévő komponensekre:
   Izom-regeneráció 0.15   a kilenc izomcsoport "soft-min" átlaga
   Energiaszint     0.15   check-in, 1–5
   Stressz-reg.     0.10   check-in, 1–5 (fordítva)
-  Edzésterhelés    0.15   exponenciálisan csillapított tonnatömeg (τ = 3 nap)
+  Közérzet         0.10   check-in, 1–5 (csak a részletes űrlap kérdezi)
+  Edzésterhelés    0.15   exponenciálisan csillapított tonnatömeg (τ = 3 nap),
+                          a kardió szesszió-RPE-ből átváltva (ld. lent)
   Táplálkozás      0.05   a TEGNAPI kalória/fehérje a célhoz mérve + hidratáció
+                          (az alapértelmezett, nem beállított cél nem mérce)
 
 Ami nincs kitöltve, az NEM nullaként számít bele: a súlya arányosan
 újraoszlik a többi komponens között. Hiányzó adattól a pontszám nem torzul,
@@ -419,6 +453,13 @@ HRV/pulzus szándékosan nincs a képletben: nincs okosóra-integráció, kital�
   bármit.
 
 AMIT MÉG SZÁMOL
+  · Kardió terhelés (szesszió-RPE, Foster): perc × a fokozat CR-10 értéke
+    (1 / 2 / 3 / 5 / 8), 1 AU = 0,02 t átváltással, testsúllyal arányosan.
+    Horgony: kemény súlyzós nap ≈ 60 perc × 7 = 420 AU ≈ 9 t. A Magas és Maximális fokozat
+    a terhelés felével a CNS-be is számít; izomcsoportot a kardió nem terhel.
+    A heti volumen és a profil a kardió sort nem veszi munkasorozatnak, az
+    edzői aktivitás-lista percben írja ki. (server/recovery.js →
+    cardioSetLoad, server/logmode.js → INTENSITY_LEVELS)
   · Izomcsoportonkénti regeneráció kilenc csoportra. A károsodás mérőszáma
     NEM a tonnatömeg, hanem a bukáshoz közeli szettek száma — a tonnatömeg
     lokálisan félrevezet (egy nehéz 5×5 guggolás kevesebb tonnát ad, mint
@@ -436,7 +477,13 @@ AMIT MÉG SZÁMOL
     alkalom is elég, a többihez három kell).
   · Sapkák: 7/10 feletti fájdalom letiltja az érintett izmot terhelő
     gyakorlatokat, és a teljes pontszámot 45%-ra korlátozza; a nagyon rossz
-    közérzet 40%-ra. Ezeket egy súlyozott átlag elmosná.
+    közérzet (1-es) 40%-ra, és ugyancsak 40%-ra az alacsony energia (≤ 2)
+    ÉS magas stressz (≥ 4) együttese — bármennyire pihent az izom. Ezeket
+    egy súlyozott átlag elmosná. Sapkás napon a gyakorlat-ajánlás sem lehet
+    jobb a korlátozott napnál (nincs PR- vagy „nehezebb sorozat"-javaslat).
+  · „Mi húz vissza": a riport megnevezi a leggyengébb jelen lévő komponenst
+    (limiting), a Regeneráció oldal 85 alatt ki is írja a végszöveg alatt —
+    sapkás napon nem, mert ott a számot a sapka állította.
 
 ADATIGÉNY
   A személyre szabott (saját előzményhez mért) referenciához 14 nap
@@ -449,7 +496,8 @@ ADATIGÉNY
 6. EGYÉNI CSÚCSOK (PR)
 ==========================================================================
 A rekordot a gyakorlat LEGJOBB TELJESÍTETT szettje hozza, Epley-becsléssel
-(1RM = súly × (1 + ism/30)) — nem az első teljesített, ami a szett-típusok
+(1RM = súly × (1 + ism/30), egy ismétlésnél maga a súly; az app egyetlen
+1RM-képlete, recovery.js → estimate1RM) — nem az első teljesített, ami a szett-típusok
 óta jellemzően a bemelegítés. A szabály egy helyen él (bestCompletedSet),
 és ugyanaz jelöli meg a PR-t mentéskor, mint ami a listát kiírja. A csúcsok
 fiókonként külön sorban állnak.
@@ -522,7 +570,9 @@ mai készenléte. Ez két rétegben jelenik meg.
    Levesz    a terhelt izom készenléte 70% alatt      a MÉG NEM teljesített
                                                      szettek súlya −10%
                                                      (55% alatt −15%),
-                                                     2,5 kg-ra lefelé kerekítve
+                                                     2,5 kg-ra lefelé kerekítve;
+                                                     kis súlynál 1 / 0,5 kg-os
+                                                     lépcső, sosem nullára
    Kihagy    7/10 fájdalom, nincs teljesített szett   a gyakorlat kimarad
                                                      a mai naplóból
    Leáll     7/10 fájdalom, DE van teljesített szett  csak a hátralévő
@@ -713,6 +763,7 @@ az edzőhöz.
     GET    /api/charts
   EXERCISE-CATALOG
     GET    /api/exercise-catalog
+    GET    /api/exercise-suggestions
   DEFAULT-SET
     GET    /api/default-set
   GOALS
@@ -753,6 +804,9 @@ Szándékos egyszerűsítések és nyitott tételek. A teljes lista a TEENDOK.tx
     LISTÁBAN látszanak (PR-modál, GET /api/prs/history, 1RM-értékkel), de
     görbe/diagram nincs. Az edző a sportoló-kártyán látja a készenléti
     százalékot, teljes kliensenkénti regeneráció-riportot azonban nem kap.
+  · KARDIÓ — az időalapú sor (idő + intenzitás) a terhelésbe és kemény
+    fokozaton a CNS-be számít, az izomcsoportokba NEM. Táv és pulzus nincs.
+    Ld. TEENDOK.txt.
   · Az edző NEM látja, ha a kliens elfogadott egy készenlét-javaslatot: az
     applySessionAdvice CSAK a piszkozatot írja át, nyoma sehol nem marad —
     a napló némán tér el a kiosztott tervtől.
@@ -768,7 +822,7 @@ Szándékos egyszerűsítések és nyitott tételek. A teljes lista a TEENDOK.tx
 ==========================================================================
 16. TESZTEK
 ==========================================================================
-`npm test` — 317 teszt, nulla külső függőség (node --test).
+`npm test` — 357 teszt, nulla külső függőség (node --test).
 
     recovery.test.js        a készenlét-motor matematikája (tiszta függvények)
     auth.test.js            jelszó-hash, munkamenet, süti
@@ -781,6 +835,8 @@ Szándékos egyszerűsítések és nyitott tételek. A teljes lista a TEENDOK.tx
     messages.test.js        az edző–sportoló üzenetváltás és olvasottság
     notifications.test.js   a származtatott értesítések felépítése
     api.test.js             végponti tesztek (validálás, hozzáférés-védelem)
+    security.test.js        a biztonsági átnézés őrei (belépési név, fiók-
+                            kizárás, mentési méretkorlát)
     errors.test.js          a hibakezelő védőháló (dobó végpont, folyamat-őr)
     ratelimit.test.js       a kérés-korlátozó
     timezone.test.js        a kliens-dátum (x-client-date) és a napváltás
@@ -788,3 +844,5 @@ Szándékos egyszerűsítések és nyitott tételek. A teljes lista a TEENDOK.tx
     openfoodfacts.test.js   a vonalkód-lekérdezés és a válasz leképezése
     cache.test.js           az adatréteg gyorsítótára
     migration.test.js       a fiókok előtti adatbázis migrációja
+    public/js/ui/shortcuts.test.js
+                            a gyorsbillentyűk modál-őre (DOM nélkül)

@@ -5,11 +5,11 @@ import { prefersReducedMotion } from '../core/dom.js';
 /* ======================================================================
    5. Nav ring — húzható navigációs gomb (pointer + billentyűzet)
    ====================================================================== */
-const RING_RADIUS = 44;      // px, a gomb maximális kitérése
+const RING_RADIUS = 44; // px, a gomb maximális kitérése
 
-const DIR_THRESHOLD = 26;    // px, ekkora elmozdulástól számít iránynak
+const DIR_THRESHOLD = 26; // px, ekkora elmozdulástól számít iránynak
 
-const TAP_THRESHOLD = 9;     // px, ez alatt koppintásnak (home) számít
+const TAP_THRESHOLD = 9; // px, ez alatt koppintásnak (home) számít
 
 function setupNavRing(knob, onNavigate) {
   let pointerId = null;
@@ -37,7 +37,11 @@ function setupNavRing(knob, onNavigate) {
     startY = event.clientY;
     knob.style.cursor = 'grabbing';
     knob.style.transition = '';
-    try { knob.setPointerCapture(pointerId); } catch (_) { /* nem kritikus */ }
+    try {
+      knob.setPointerCapture(pointerId);
+    } catch (_) {
+      /* nem kritikus */
+    }
     event.preventDefault();
   };
 
@@ -50,12 +54,18 @@ function setupNavRing(knob, onNavigate) {
 
     const clamped = Math.min(distance, RING_RADIUS);
     const angle = Math.atan2(dy, dx);
-    knob.style.transform =
-      `translate(calc(-50% + ${Math.cos(angle) * clamped}px), calc(-50% + ${Math.sin(angle) * clamped}px))`;
+    knob.style.transform = `translate(calc(-50% + ${Math.cos(angle) * clamped}px), calc(-50% + ${Math.sin(angle) * clamped}px))`;
 
-    direction = distance < DIR_THRESHOLD ? null
-      : Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left')
-      : (dy > 0 ? 'down' : 'up');
+    direction =
+      distance < DIR_THRESHOLD
+        ? null
+        : Math.abs(dx) > Math.abs(dy)
+          ? dx > 0
+            ? 'right'
+            : 'left'
+          : dy > 0
+            ? 'down'
+            : 'up';
     event.preventDefault();
   };
 
@@ -72,8 +82,12 @@ function setupNavRing(knob, onNavigate) {
 
   // Billentyűzetes navigáció ugyanazokkal az irányokkal
   const KEY_TO_DIR = {
-    ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
-    Enter: 'home', ' ': 'home',
+    ArrowUp: 'up',
+    ArrowDown: 'down',
+    ArrowLeft: 'left',
+    ArrowRight: 'right',
+    Enter: 'home',
+    ' ': 'home',
   };
   const onKeyDown = (event) => {
     const dir = KEY_TO_DIR[event.key];

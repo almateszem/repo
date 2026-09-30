@@ -1,4 +1,4 @@
-/** Edző oldal: sportoló-kártyák, sportoló-ablak, meghívók. */
+/** Edző oldal: edzői panel (KPI-k, sportoló-lista), sportoló-részletnézet, meghívók. */
 
 import { api } from '../core/api.js';
 import { $, $$ } from '../core/dom.js';
@@ -7,85 +7,87 @@ import { shared } from '../core/page-hooks.js';
 import { prefs } from '../core/prefs.js';
 import { showToast } from '../core/toast.js';
 import { animateCoachRatings } from '../nav/router.js';
-import { ATHLETE_CARD_STATS, athleteTier, orDash, renderCoachPanel, renderInviteRow, renderPlanOffer } from '../render/coach.js';
+import {
+  athleteTier,
+  renderAthleteList,
+  renderCoachPanel,
+  renderStatList,
+} from '../render/coach.js';
 import { renderPlans } from '../render/plans.js';
-import { CONFIDENCE_LABELS } from '../render/recovery.js';
 import { createChatController, relativeTime } from './chat.js';
-import { createModalController } from './modals.js';
+import { setupClientView } from './coach-client.js';
+import { setupCoachMeals } from './coach-meals.js';
 
-/** A modálban megjelenő részletes statok (a kártya statjai + extra mezők).
-    A megbízhatóság szándékosan itt van: napló nélküli fiókra a motor 100%
-    készenlétet ad (nincs mit levonni), és enélkül az edző „arany szintnek"
-    olvasná azt, ami valójában adathiány. */
-const ATHLETE_MODAL_STATS = [
-  ...ATHLETE_CARD_STATS,
-  ['Heti edzések', (a) => a.weekly],
-  ['Aktív terv', (a) => orDash(a.plan)],
-  ['Készenlét alapja', (a) => CONFIDENCE_LABELS[a.confidence] ?? '—'],
-];
+const DETAIL_TABS = ['overview', 'nutrition', 'plan', 'messages'];
 
-/** Sportoló részletmodál: a saját naplójából számolt összegzés, valódi
-    üzenetváltás, és a kapcsolat bontása. Az `onUnlink` az Edző oldalt
-    frissíti, miután a sportoló lekerült a panelről. */
-function setupAthleteModal({ confirmAction, onUnlink, onRead, onAssign } = {}) {
-  const modal = $('#athleteModal');
-  const controller = createModalController(modal);
-  const badge = $('.co-modal-badge', modal);
-  const titleEl = $('#athleteModalTitle');
-  const tierEl = $('.co-modal-tier', modal);
-  const alertEl = $('[data-modal-alert]', modal);
-  const statsEl = $('[data-modal-stats]', modal);
-  const notesEl = $('[data-modal-notes]', modal);
-  const noteListEl = $('[data-modal-note-list]', modal);
-  const feedbackEl = $('[data-modal-feedback]', modal);
-  const feedbackMetaEl = $('[data-feedback-meta]', modal);
-  const feedbackNoteEl = $('[data-feedback-note]', modal);
-  const goalStateEl = $('[data-modal-goal-state]', modal);
-  const goalForm = $('[data-form="athlete-nutrition-goal"]', modal);
+/** Sportoló részletnézet az Edzői panelen, a sportoló-lista HELYÉN: a saját
+    naplójából számolt összegzés, napi cél, terv-kiosztás, valódi
+    üzenetváltás és a kapcsolat bontása — belső fülekre bontva. Az `onUnlink`
+    az Edző oldalt frissíti, miután a sportoló lekerült a panelről. */
+function setupAthleteDetail({ confirmAction, onUnlink, onRead, onAssign } = {}) {
+  const page = $('[data-page="coach"]');
+  const managerView = $('[data-view="manager"]', page);
+  const root = $('[data-athlete-detail]', page);
+  const listEl = $('.co-list', managerView);
+  const badge = $('.co-modal-badge', root);
+  const titleEl = $('#co-detail-title');
+  const tierEl = $('.co-modal-tier', root);
+  const alertEl = $('[data-modal-alert]', root);
+  const statsEl = $('[data-modal-stats]', root);
+  const notesEl = $('[data-modal-notes]', root);
+  const noteListEl = $('[data-modal-note-list]', root);
+  const feedbackEl = $('[data-modal-feedback]', root);
+  const feedbackMetaEl = $('[data-feedback-meta]', root);
+  const feedbackNoteEl = $('[data-feedback-note]', root);
+  const goalStateEl = $('[data-modal-goal-state]', root);
+  const goalForm = $('[data-form="athlete-nutrition-goal"]', root);
   const goalCaloriesInput = $('#co-goal-calories');
   const goalProteinInput = $('#co-goal-protein');
-  const activityEl = $('[data-modal-activity]', modal);
-  const msgButton = $('[data-action="message"]', modal);
-  const msgSection = $('[data-msg-section]', modal);
-  const feed = $('[data-msg-feed]', modal);
-  const form = $('[data-form="athlete-message"]', modal);
+  const waterStateEl = $('[data-water-goal-state]', root);
+  const waterForm = $('[data-form="athlete-water-goal"]', root);
+  const waterInput = $('#co-water-liters');
+  const waterResetBtn = $('[data-action="reset-water-goal"]', root);
+  const activityEl = $('[data-modal-activity]', root);
+  const tabList = $('[role="tablist"]', root);
+  const tabs = $$('[role="tab"]', root);
+  const panels = $$('[data-tab-panel]', root);
+  const unreadEl = $('[data-tab-unread]', root);
+  const feed = $('[data-msg-feed]', root);
+  const form = $('[data-form="athlete-message"]', root);
   const input = $('#athlete-message');
 
   let current = null;
+  let activeTab = 'overview';
+  // A sor, amelyikről a nézet nyílt — bezáráskor ide tér vissza a fókusz
+  let returnFocus = null;
+
+  const isShown = () => !root.hidden && !managerView.hidden && !page.hidden;
+
+  // Étrend: étkezések a napi cél mellé. Ha az edző az étrend összegét
+  // átveszi célnak, a cél-blokk is újrarajzolódik.
+  const meals = setupCoachMeals(root, {
+    getCurrent: () => current,
+    onGoalChange: () => renderAthleteGoal(current),
+    confirmAction,
+  });
 
   const chat = createChatController({
     feed,
     form,
     input,
     getLinkId: () => current?.linkId ?? null,
-    /* A modál chatje eddig egyszer töltött be, és utána megállt: a sportoló
-       válasza csak a modál újranyitásakor jelent meg. A látható szál most itt
-       is frissül magától — a feltétel a nyitott modál ÉS a kinyitott
-       üzenet-blokk (a csukott blokk tartalmát senki nem olvassa el). */
-    isVisible: () => modal.classList.contains('is-open') && !msgSection.hidden,
+    /* Csak a LÁTHATÓ szál frissül magától és nyugtázódik olvasottként: nyitott
+       részletnézet ÉS aktív Üzenetek fül (más fülön a szálat senki nem olvassa). */
+    isVisible: () => isShown() && activeTab === 'messages',
     onRead,
   });
 
-  const setMessageOpen = (open, { focus = false } = {}) => {
-    msgSection.hidden = !open;
-    msgButton.setAttribute('aria-expanded', String(open));
-    if (!open) return;
-    setPlanOpen(false); // a két blokk kizárja egymást — a modál különben nagyon hosszú lenne
-    chat.reset(); // másik sportoló szála jöhet — a régi nem maradhat kint
-    chat.load();
-    if (focus) input.focus();
-  };
-
-  msgButton.addEventListener('click', () => setMessageOpen(msgSection.hidden, { focus: true }));
-
   /* ---- Terv kiosztása ----
-     Az edző a SAJÁT tervei közül választ. A lista a blokk kinyitásakor
+     Az edző a SAJÁT tervei közül választ. A lista a fül megnyitásakor
      frissül: időközben készülhetett új terv a Tervek oldalon. */
-  const planButton = $('[data-action="assign-plan"]', modal);
-  const planSection = $('[data-plan-section]', modal);
-  const planSelect = $('[data-plan-select]', modal);
-  const planEmpty = $('[data-plan-empty]', modal);
-  const planForm = $('[data-form="assign-plan"]', modal);
+  const planSelect = $('[data-plan-select]', root);
+  const planEmpty = $('[data-plan-empty]', root);
+  const planForm = $('[data-form="assign-plan"]', root);
   const planNote = $('#assign-plan-note');
 
   async function loadOwnPlans() {
@@ -103,20 +105,42 @@ function setupAthleteModal({ confirmAction, onUnlink, onRead, onAssign } = {}) {
     planForm.hidden = plans.length === 0;
   }
 
-  function setPlanOpen(open, { focus = false } = {}) {
-    planSection.hidden = !open;
-    planButton.setAttribute('aria-expanded', String(open));
-    if (!open) return;
-    planNote.value = '';
-    loadOwnPlans().then(() => {
-      if (focus && !planSelect.disabled) planSelect.focus();
+  /** Fülváltás. A Terv fül a tervlistát, az Üzenetek fül a szálat tölti be
+      belépéskor — a többi fül tartalma az `open`-kor már kirajzolódott. */
+  function setTab(name, { focus = false } = {}) {
+    activeTab = name;
+    tabs.forEach((tab) => {
+      const selected = tab.dataset.tab === name;
+      tab.setAttribute('aria-selected', String(selected));
+      tab.tabIndex = selected ? 0 : -1;
+      if (selected && focus) tab.focus();
     });
+    panels.forEach((panel) => {
+      panel.hidden = panel.dataset.tabPanel !== name;
+    });
+
+    if (name === 'plan') {
+      planNote.value = '';
+      loadOwnPlans();
+    } else if (name === 'messages') {
+      chat.reset(); // másik sportoló szála jöhet — a régi nem maradhat kint
+      chat.load();
+    }
   }
 
-  planButton.addEventListener('click', () => {
-    const opening = planSection.hidden;
-    if (opening) setMessageOpen(false);
-    setPlanOpen(opening, { focus: true });
+  tabList.addEventListener('click', (event) => {
+    const tab = event.target.closest('[role="tab"]');
+    if (tab && tab.dataset.tab !== activeTab) setTab(tab.dataset.tab);
+  });
+
+  // Nyilakkal lépkedés a fülek között (WAI-ARIA tabs minta)
+  tabList.addEventListener('keydown', (event) => {
+    const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
+    if (!step) return;
+    event.preventDefault();
+    const index = DETAIL_TABS.indexOf(activeTab);
+    const next = DETAIL_TABS[(index + step + DETAIL_TABS.length) % DETAIL_TABS.length];
+    setTab(next, { focus: true });
   });
 
   planForm.addEventListener('submit', async (event) => {
@@ -129,7 +153,7 @@ function setupAthleteModal({ confirmAction, onUnlink, onRead, onAssign } = {}) {
     submit.disabled = true;
     try {
       const offer = await api.assignPlan(athlete.linkId, planId, planNote.value.trim());
-      setPlanOpen(false);
+      planNote.value = '';
       showToast(`„${offer.name}” kiosztva — ${athlete.name} elfogadására vár`);
       await onAssign?.();
     } catch (err) {
@@ -138,10 +162,27 @@ function setupAthleteModal({ confirmAction, onUnlink, onRead, onAssign } = {}) {
     submit.disabled = false;
   });
 
+  function close({ restoreFocus = true } = {}) {
+    if (root.hidden) return;
+    root.hidden = true;
+    listEl.hidden = false;
+    current = null;
+    chat.reset();
+    if (restoreFocus && returnFocus?.isConnected) returnFocus.focus();
+    returnFocus = null;
+  }
+
+  // Escape: vissza a listára. A nyitott modál (pl. a bontás megerősítése) a
+  // saját Escape-jét kezeli — ilyenkor a fókusz nincs a nézeten belül.
+  root.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !event.defaultPrevented) close();
+  });
+
   // A kapcsolat bontása: a sportoló lekerül a panelről, és az üzenetváltás
   // is törlődik — ezért kérdezünk rá.
-  $('[data-action="remove-athlete"]', modal).addEventListener('click', async () => {
+  $('[data-action="remove-athlete"]', root).addEventListener('click', async () => {
     const athlete = current;
+    if (!athlete) return;
     const confirmed = await confirmAction(
       `${athlete.name} lekerül az edzői panelről, és az üzenetváltásotok is törlődik.`,
       { title: 'Kapcsolat bontása', confirmLabel: 'Bontás' },
@@ -149,7 +190,7 @@ function setupAthleteModal({ confirmAction, onUnlink, onRead, onAssign } = {}) {
     if (!confirmed) return;
     try {
       await api.removeAthlete(athlete.linkId);
-      controller.close();
+      close({ restoreFocus: false });
       showToast(`${athlete.name} kapcsolata bontva`);
       await onUnlink?.();
     } catch (err) {
@@ -157,16 +198,16 @@ function setupAthleteModal({ confirmAction, onUnlink, onRead, onAssign } = {}) {
     }
   });
 
-  /** Egy megjegyzés-sor a modálban, saját válasz-mezővel. A válasz UGYANABBA
-      a szálba megy (azonos cél), csak más szerzővel — ettől lesz egy
-      beszélgetés a gyakorlatról, nem két külön lista. */
+  /** Egy megjegyzés-sor, saját válasz-mezővel. A válasz UGYANABBA a szálba
+      megy (azonos cél), csak más szerzővel — ettől lesz egy beszélgetés a
+      gyakorlatról, nem két külön lista. */
   function noteRow(note, athlete) {
     const item = document.createElement('li');
     item.className = 'co-note-item';
 
     const head = document.createElement('p');
     head.className = 'co-note-head';
-    head.textContent = `${note.exercise} · „${note.workout}" ${note.date} · ${note.authorName} · ${relativeTime(note.at)}`;
+    head.textContent = `${note.exercise} · „${note.workout}" ${note.date} · ${note.mine ? 'Te' : note.authorName} · ${relativeTime(note.at)}`;
 
     const body = document.createElement('p');
     body.className = 'co-note-body';
@@ -235,31 +276,77 @@ function setupAthleteModal({ confirmAction, onUnlink, onRead, onAssign } = {}) {
     feedbackNoteEl.textContent = feedback.note ?? '';
   }
 
-  /** A sportoló napi célja az edző szemszögéből. Három eset van, és mind a
-      hármat ki kell mondani: még nincs kitűzött cél; a kitűzött cél él; vagy
-      a sportoló mást állított be — ez utóbbi a legfontosabb, mert némán
-      egyikük sem írhatja felül a másikat. */
-  function renderAthleteGoal(athlete) {
+  /** A sportoló napi célja az edző szemszögéből. Az edzői cél zárol: amit
+      kitűzöl, az érvényes, és a sportoló nem módosíthatja. */
+  function renderAthleteGoal(athlete, { keepInputs = false } = {}) {
     const goal = athlete.nutritionGoal;
-    if (!goal) { goalStateEl.textContent = ''; return; }
-
-    if (goal.source === 'own') {
-      goalStateEl.textContent = goal.coach
-        ? `A kitűzött célod ${formatNumber(goal.coach.calories)} kcal · `
-          + `${formatNumber(goal.coach.protein)} g, de ${athlete.name} `
-          + `${formatNumber(goal.calories)} kcal · ${formatNumber(goal.protein)} g-ot állított be magának.`
-        : `${athlete.name} saját célja: ${formatNumber(goal.calories)} kcal · `
-          + `${formatNumber(goal.protein)} g fehérje. Amit kitűzöl, azt ő látni fogja.`;
-    } else if (goal.source === 'coach') {
-      goalStateEl.textContent = `Érvényben: ${formatNumber(goal.calories)} kcal · `
-        + `${formatNumber(goal.protein)} g fehérje — ezt te tűzted ki.`;
-    } else {
-      goalStateEl.textContent = 'Még nincs kitűzött cél — az alapértelmezett szám szól.';
+    if (!goal) {
+      goalStateEl.textContent = '';
+      return;
     }
 
+    if (goal.source === 'coach') {
+      goalStateEl.textContent =
+        `Érvényben: ${formatNumber(goal.calories)} kcal · ` +
+        `${formatNumber(goal.protein)} g fehérje — ezt te tűzted ki, ${athlete.name} nem módosíthatja.`;
+    } else if (goal.source === 'own') {
+      goalStateEl.textContent =
+        `${athlete.name} saját célja: ${formatNumber(goal.calories)} kcal · ` +
+        `${formatNumber(goal.protein)} g fehérje. Amit kitűzöl, az felülírja, és ő nem módosíthatja.`;
+    } else {
+      goalStateEl.textContent =
+        'Még nincs kitűzött cél — az alapértelmezett szám szól. Amit kitűzöl, azt ő nem módosíthatja.';
+    }
+
+    // Háttér-frissítéskor a félig begépelt értéket nem írjuk felül
+    if (keepInputs) return;
     goalCaloriesInput.value = Math.round(goal.calories);
     goalProteinInput.value = Math.round(goal.protein);
   }
+
+  /** A víz-cél állapota. Edzői cél nélkül a sportoló testsúlyából számolt
+      érték szól — ezt is kimondjuk, hogy az üres mező ne tűnjön hibának. */
+  function renderAthleteWater(athlete, { keepInputs = false } = {}) {
+    const waterMl = athlete.nutritionGoal?.waterMl ?? null;
+    waterStateEl.textContent = waterMl
+      ? `Érvényben: ${formatNumber(waterMl / 1000)} liter — ezt te tűzted ki, ${athlete.name} nem módosíthatja.`
+      : `Nincs kitűzött víz-cél — ${athlete.name} célja a testsúlyából számolódik (~33 ml/kg).`;
+    waterResetBtn.hidden = !waterMl;
+    if (keepInputs) return;
+    waterInput.value = waterMl ? String(waterMl / 1000) : '';
+  }
+
+  /** A víz-cél mentése vagy elvetése — a válasz a sportoló friss célja. */
+  async function updateWater(work, message) {
+    if (!current) return;
+    const submit = $('button[type="submit"]', waterForm);
+    submit.disabled = true;
+    waterResetBtn.disabled = true;
+    try {
+      current.nutritionGoal = await work(current.linkId);
+      renderAthleteWater(current);
+      showToast(message);
+    } catch (err) {
+      console.error(err);
+      showToast(err.message || 'A víz-célt nem sikerült menteni', 'error');
+    } finally {
+      submit.disabled = false;
+      waterResetBtn.disabled = false;
+    }
+  }
+
+  waterForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const liters = Number(waterInput.value);
+    updateWater((linkId) => api.setAthleteWaterGoal(linkId, liters), 'Víz-cél kitűzve');
+  });
+
+  waterResetBtn.addEventListener('click', () =>
+    updateWater(
+      (linkId) => api.clearAthleteWaterGoal(linkId),
+      'A víz-cél újra a testsúlyból számolódik',
+    ),
+  );
 
   goalForm.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -268,9 +355,12 @@ function setupAthleteModal({ confirmAction, onUnlink, onRead, onAssign } = {}) {
     submit.disabled = true;
     try {
       current.nutritionGoal = await api.setAthleteNutritionGoal(
-        current.linkId, Number(goalCaloriesInput.value), Number(goalProteinInput.value),
+        current.linkId,
+        Number(goalCaloriesInput.value),
+        Number(goalProteinInput.value),
       );
       renderAthleteGoal(current);
+      meals.renderTotal();
       showToast('Napi cél kitűzve');
     } catch (err) {
       console.error(err);
@@ -280,58 +370,79 @@ function setupAthleteModal({ confirmAction, onUnlink, onRead, onAssign } = {}) {
     }
   });
 
+  /** A fejléc, a statok és az Áttekintés fül kirajzolása. Az `open` és a
+      háttér-frissítés (`sync`) is ezt hívja. */
+  function render(athlete, { keepInputs = false } = {}) {
+    renderAthleteGoal(athlete, { keepInputs });
+    renderAthleteWater(athlete, { keepInputs });
+    meals.render(athlete, { keepInputs });
+    renderAthleteFeedback(athlete);
+    renderExerciseNotes(athlete);
+
+    const tier = athleteTier(athlete.rating);
+    badge.className = `co-modal-badge co-tier--${tier.key}`;
+    $('.co-modal-rating', badge).textContent = athlete.rating ?? '—';
+    $('.co-modal-tag', badge).textContent = athlete.goal ?? '—';
+    titleEl.textContent = athlete.name;
+    tierEl.textContent =
+      athlete.rating === null
+        ? `${tier.label} · @${athlete.username}`
+        : `${tier.label} · ${athlete.rating} pont · @${athlete.username}`;
+
+    alertEl.hidden = !athlete.alert;
+    if (athlete.alert) alertEl.textContent = `Figyelmet igényel: ${athlete.alert}`;
+
+    renderStatList(statsEl, athlete);
+
+    activityEl.replaceChildren();
+    const entries = athlete.recent.length > 0 ? athlete.recent : ['Még nincs naplózott aktivitás.'];
+    entries.forEach((entry, index) => {
+      const li = document.createElement('li');
+      li.style.setProperty('--i', index);
+      li.textContent = entry;
+      activityEl.appendChild(li);
+    });
+
+    // Az Üzenetek fül csukott állapotban is kiírja a hátralékot
+    unreadEl.hidden = athlete.unread === 0;
+    unreadEl.textContent = athlete.unread > 0 ? ` · ${athlete.unread} új` : '';
+  }
+
   return {
-    open(athlete) {
+    open(athlete, { trigger = null } = {}) {
+      const switching = current?.linkId !== athlete.linkId;
       current = athlete;
+      if (trigger) returnFocus = trigger;
 
-      renderAthleteGoal(athlete);
-      renderAthleteFeedback(athlete);
-      renderExerciseNotes(athlete);
+      render(athlete);
 
-      const tier = athleteTier(athlete.rating);
-      badge.className = `co-modal-badge co-tier--${tier.key}`;
-      $('.co-modal-rating', badge).textContent = athlete.rating;
-      $('.co-modal-tag', badge).textContent = athlete.goal ?? '—';
-      titleEl.textContent = athlete.name;
-      tierEl.textContent = `${tier.label} · ${athlete.rating} pont · @${athlete.username}`;
-
-      alertEl.hidden = !athlete.alert;
-      if (athlete.alert) alertEl.textContent = `Figyelmet igényel: ${athlete.alert}`;
-
-      statsEl.replaceChildren();
-      ATHLETE_MODAL_STATS.forEach(([label, getValue]) => {
-        const stat = document.createElement('div');
-        stat.className = 'co-modal-stat';
-        const dt = document.createElement('dt');
-        dt.textContent = label;
-        const dd = document.createElement('dd');
-        dd.textContent = getValue(athlete);
-        stat.append(dt, dd);
-        statsEl.appendChild(stat);
-      });
-
-      activityEl.replaceChildren();
-      const entries = athlete.recent.length > 0
-        ? athlete.recent
-        : ['Még nincs naplózott aktivitás.'];
-      entries.forEach((entry, index) => {
-        const li = document.createElement('li');
-        li.style.setProperty('--i', index);
-        li.textContent = entry;
-        activityEl.appendChild(li);
-      });
-
-      /* Olvasatlan üzenettel a szál nyitva indul: azért kattintott a
-         kártyára, mert a jelvény hívta oda. A gomb felirata is kiírja a
-         hátralékot, hogy csukott állapotban is látszódjon. */
-      msgButton.textContent = athlete.unread > 0 ? `Üzenet · ${athlete.unread} új` : 'Üzenet';
-      /* A modál nyitása MEGELŐZI a szálét: a chat láthatóság-feltétele a
-         nyitott modált nézi, és csak látható szálat nyugtázunk olvasottként
+      /* A nézet megjelenése MEGELŐZI a fülét: a chat láthatóság-feltétele a
+         látható nézetet nézi, és csak látható szálat nyugtázunk olvasottként
          (fordított sorrendben a betöltés nem jelölné meg az üzeneteket). */
-      controller.open();
-      setPlanOpen(false); // másik sportolóhoz nyílt: a félbehagyott kiosztás ne maradjon kint
-      setMessageOpen(athlete.unread > 0);
+      listEl.hidden = true;
+      root.hidden = false;
+      // Olvasatlan üzenettel a szál nyílik: azért kattintott, mert a jelvény hívta
+      if (switching || athlete.unread > 0) {
+        setTab(athlete.unread > 0 ? 'messages' : 'overview');
+      }
+      root.focus({ preventScroll: true });
+      root.scrollIntoView({ block: 'start', behavior: 'smooth' });
     },
+
+    /** Háttér-frissítés után a nyitott sportoló friss adatai. Ha már nincs a
+        panelen (pl. közben ő vált le), a nézet bezárul. */
+    sync(athletes) {
+      if (!current) return;
+      const fresh = athletes.find((item) => item.linkId === current.linkId);
+      if (!fresh) {
+        close({ restoreFocus: false });
+        return;
+      }
+      current = fresh;
+      render(fresh, { keepInputs: true });
+    },
+
+    close,
   };
 }
 
@@ -343,71 +454,35 @@ function setupAthleteModal({ confirmAction, onUnlink, onRead, onAssign } = {}) {
    Az alapértelmezett nézet ahhoz igazodik, amiben a fióknak épp van adata;
    a felhasználó választását a prefs megjegyzi. */
 
-async function setupCoachPage(athleteModal, confirmAction) {
+async function setupCoachPage(athleteDetail, confirmAction) {
   const page = $('[data-page="coach"]');
   const toggle = $('[data-coach-toggle]', page);
   const views = {
     client: $('[data-view="client"]', page),
     manager: $('[data-view="manager"]', page),
   };
-  const clientThread = $('[data-coach-thread]', page);
-  const noCoachText = $('[data-coach-none]', page);
-  const inviteLead = $('[data-invite-lead]', page);
   const inviteBadge = $('[data-invite-badge]', page);
   const athleteBadge = $('[data-athlete-badge]', page);
-  const inviteList = $('[data-list="coach-invites"]', page);
-  const offerLead = $('[data-offer-lead]', page);
-  const offerList = $('[data-list="plan-offers"]', page);
   const sentLead = $('[data-sent-lead]', page);
   const inviteForm = $('[data-form="invite-athlete"]', page);
   const inviteInput = $('#co-invite-username');
 
-  // A saját edződ szála — a kapcsolat azonosítója a /api/coach válaszából jön
-  let coachData = { coach: null, invites: [], planOffers: [] };
+  // A saját edződ és a róla szóló adatok — a GET /api/coach válasza
+  let coachData = { coach: null, me: null, invites: [], planOffers: [], planHistory: [] };
   let panel = { athletes: [], invites: [] };
+  // Az edzői lista kliens-oldali szűrése — újrarajzoláshoz nem kell hálózat
+  const listView = { filter: 'all', query: '' };
+  const searchInput = $('[data-athlete-search]', page);
+  const headingEl = $('[data-coach-heading]', page);
+  const eyebrowEl = $('[data-coach-eyebrow]', page);
 
-  /** Látszik-e ÉPP az edződdel folytatott beszélgetés. Enélkül a halk
-      frissítés a rejtett oldalon is kérdezne, az olvasás-nyugtázás pedig
-      olyan üzeneteket jelölne olvasottnak, amiket a felhasználó nem is
-      látott — az edző oldalán hamis „olvasva" jelenne meg. */
-  const clientThreadVisible = () => !page.hidden && !views.client.hidden && !clientThread.hidden;
-
-  const chat = createChatController({
-    feed: $('[data-client-feed]', page),
-    form: $('[data-form="coach-message"]', page),
-    input: $('#coach-message'),
-    getLinkId: () => coachData.coach?.linkId ?? null,
-    isVisible: clientThreadVisible,
-    // Az olvasás után a jelvény már nem stimmel — friss számokat kérünk
-    onRead: () => refresh(),
-  });
+  /* A sportolói nézet (az edzői panel tükörképe). Olvasás-nyugtázás vagy
+     étkezés-naplózás után a jelvények és a számok elavultak — újratöltünk. */
+  const client = setupClientView({ page, view: views.client, onChange: () => refresh() });
 
   // A saját felhasználónév: ezzel tud meghívni az edző, ezért ki van írva
   const user = await api.getUser();
   $('[data-my-username]', page).textContent = `@${user.username}`;
-
-  function renderClient() {
-    const { coach, invites, planOffers = [] } = coachData;
-    clientThread.hidden = !coach;
-    // A hosszú magyarázat csak akkor kell, ha nincs se edző, se meghívó
-    noCoachText.hidden = Boolean(coach) || invites.length > 0;
-    inviteLead.hidden = invites.length === 0;
-
-    if (coach) {
-      $('[data-coach-name]', page).textContent = coach.name;
-      $('[data-coach-role]', page).textContent = `Edződ · @${coach.username}`;
-    }
-
-    inviteList.replaceChildren();
-    invites.forEach((invite) => inviteList.appendChild(renderInviteRow(invite, [
-      { label: 'Elfogadás', action: 'accept-invite', variant: 'primary' },
-      { label: 'Elutasítás', action: 'decline-invite' },
-    ])));
-
-    offerLead.hidden = planOffers.length === 0;
-    offerList.replaceChildren();
-    planOffers.forEach((offer) => offerList.appendChild(renderPlanOffer(offer)));
-  }
 
   /**
    * Jelvények a nézetváltón. MINDKÉT nézet kap egyet, mert a megjegyzett
@@ -428,12 +503,16 @@ async function setupCoachPage(athleteModal, confirmAction) {
     const invites = coachData.invites.length;
     const offers = (coachData.planOffers ?? []).length;
     const coachUnread = coachData.coach?.unread ?? 0;
-    setBadge(inviteBadge, invites + offers + coachUnread, () => [
-      'Edződ',
-      invites > 0 ? `${invites} új meghívó` : null,
-      offers > 0 ? `${offers} felajánlott terv` : null,
-      coachUnread > 0 ? `${coachUnread} olvasatlan üzenet` : null,
-    ].filter(Boolean).join(' — '));
+    setBadge(inviteBadge, invites + offers + coachUnread, () =>
+      [
+        'Edződ',
+        invites > 0 ? `${invites} új meghívó` : null,
+        offers > 0 ? `${offers} felajánlott terv` : null,
+        coachUnread > 0 ? `${coachUnread} olvasatlan üzenet` : null,
+      ]
+        .filter(Boolean)
+        .join(' — '),
+    );
 
     const athleteUnread = panel.athletes.reduce((sum, athlete) => sum + athlete.unread, 0);
     setBadge(athleteBadge, athleteUnread, () => `Edzetteim — ${athleteUnread} olvasatlan üzenet`);
@@ -450,6 +529,9 @@ async function setupCoachPage(athleteModal, confirmAction) {
     const view = prefs.get('coachView', null) ?? defaultView();
     views.client.hidden = view !== 'client';
     views.manager.hidden = view !== 'manager';
+    // A fejléc a nézetet nevezi meg: az edzői nézet egy irányítópult
+    headingEl.textContent = view === 'manager' ? 'Edzői panel' : 'Edződ';
+    eyebrowEl.textContent = view === 'manager' ? 'Edző · Heti áttekintés' : 'Edző';
     $$('.co-toggle-btn', toggle).forEach((btn) => {
       btn.setAttribute('aria-pressed', String(btn.dataset.coachView === view));
     });
@@ -463,25 +545,33 @@ async function setupCoachPage(athleteModal, confirmAction) {
     /* Az összegző visszajelzés-blokkja ebből tudja, van-e edző, akinek a
        visszajelzés szólna. */
     shared.hasCoachLink = Boolean(coachData.coach);
-    renderClient();
-    renderCoachPanel(panel);
+    client.render(coachData);
+    renderCoachPanel(panel, listView);
+    // A nyitott részletnézet is a friss számokat mutassa (vagy záruljon be)
+    athleteDetail?.sync(panel.athletes);
     sentLead.hidden = panel.invites.length === 0;
     apply({ animate });
     renderToggleBadges(); // az apply UTÁN: a nézetváltó ekkor áll a helyére
-    /* A szálat csak akkor töltjük, ha látszik is. Az edzői nézetben állva
-       nincs értelme lekérni — és ami fontosabb: a nem látott üzenetet nem
-       nyugtázhatjuk olvasottként. */
-    if (clientThreadVisible()) chat.load();
+    /* A szálat csak akkor töltjük, ha látszik is (sportolói nézet, Üzenetek
+       fül) — a nem látott üzenetet nem nyugtázhatjuk olvasottként. */
+    client.shown();
   }
 
   toggle.addEventListener('click', (event) => {
     const btn = event.target.closest('.co-toggle-btn');
     if (!btn || btn.getAttribute('aria-pressed') === 'true') return;
     prefs.set('coachView', btn.dataset.coachView);
+    // Visszatérve az edzői nézetre a lista fogadjon, ne egy régi sportoló
+    athleteDetail?.close({ restoreFocus: false });
     apply({ animate: true });
     // A kliens nézetre váltva a szál most lett látható: itt kérjük le (és
     // nyugtázzuk), nem várva a következő halk frissítésre.
-    if (clientThreadVisible()) chat.load();
+    client.shown();
+  });
+
+  searchInput.addEventListener('input', () => {
+    listView.query = searchInput.value;
+    renderAthleteList(panel.athletes, listView);
   });
 
   // Meghívás felhasználónévvel — a hibát (nincs ilyen fiók, már kapcsolatban
@@ -520,8 +610,15 @@ async function setupCoachPage(athleteModal, confirmAction) {
 
   /* Egyetlen delegált kattintás-kezelő: a meghívó-gombok és a sportoló-
      kártyák is dinamikusan születnek, tehát nem lehet rájuk közvetlenül
-     kötni. A kártya/riasztás-sor a részletmodált nyitja. */
+     kötni. A kártya/üzenet-sor a részletnézetet nyitja a lista helyén. */
   page.addEventListener('click', async (event) => {
+    const filterBtn = event.target.closest('[data-filter]');
+    if (filterBtn) {
+      listView.filter = filterBtn.dataset.filter;
+      renderAthleteList(panel.athletes, listView);
+      return;
+    }
+
     const inviteBtn = event.target.closest('[data-invite-action]');
     if (inviteBtn) {
       const linkId = Number(inviteBtn.dataset.linkId);
@@ -560,14 +657,19 @@ async function setupCoachPage(athleteModal, confirmAction) {
       return;
     }
 
+    if (event.target.closest('[data-action="close-athlete"]')) {
+      athleteDetail?.close();
+      return;
+    }
+
     const trigger = event.target.closest('[data-athlete]');
     if (!trigger) return;
     const athlete = panel.athletes.find((item) => String(item.linkId) === trigger.dataset.athlete);
-    if (athlete) athleteModal?.open(athlete);
+    if (athlete) athleteDetail?.open(athlete, { trigger });
   });
 
   await refresh();
   return { refresh };
 }
 
-export { setupAthleteModal, setupCoachPage };
+export { setupAthleteDetail, setupCoachPage };

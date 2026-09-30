@@ -21,17 +21,20 @@ const loadedScripts = new Map();
 
 function loadScript(src) {
   if (!loadedScripts.has(src)) {
-    loadedScripts.set(src, new Promise((resolve, reject) => {
-      const element = document.createElement('script');
-      element.src = src;
-      element.async = true;
-      element.onload = resolve;
-      element.onerror = () => {
-        loadedScripts.delete(src);
-        reject(new Error(`Nem sikerült betölteni: ${src}`));
-      };
-      document.head.appendChild(element);
-    }));
+    loadedScripts.set(
+      src,
+      new Promise((resolve, reject) => {
+        const element = document.createElement('script');
+        element.src = src;
+        element.async = true;
+        element.onload = resolve;
+        element.onerror = () => {
+          loadedScripts.delete(src);
+          reject(new Error(`Nem sikerült betölteni: ${src}`));
+        };
+        document.head.appendChild(element);
+      }),
+    );
   }
   return loadedScripts.get(src);
 }

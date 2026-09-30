@@ -54,7 +54,8 @@ async function setupCustomFood({ scanner, confirmAction, onSaved, onLog } = {}) 
      csoportja kimarad — az nem valódi kategória, csak megjelenítési alap. */
   const foods = await api.getFoods();
   const groups = [...new Set(foods.filter((f) => !f.custom).map((f) => f.group))]
-    .filter(Boolean).sort((a, b) => a.localeCompare(b, 'hu'));
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b, 'hu'));
   groups.forEach((group) => {
     const option = document.createElement('option');
     option.value = group;
@@ -72,11 +73,12 @@ async function setupCustomFood({ scanner, confirmAction, onSaved, onLog } = {}) 
     return Number.isFinite(value) ? value : 0;
   };
 
-  const computeKcal = () => Math.round(
-    numberOf(proteinInput) * ATWATER.protein
-    + numberOf(carbsInput) * ATWATER.carbs
-    + numberOf(fatInput) * ATWATER.fat,
-  );
+  const computeKcal = () =>
+    Math.round(
+      numberOf(proteinInput) * ATWATER.protein +
+        numberOf(carbsInput) * ATWATER.carbs +
+        numberOf(fatInput) * ATWATER.fat,
+    );
 
   /** A kalória-mező és az állapotszöveg összehangolása a jelenlegi móddal. */
   const syncKcal = () => {
@@ -84,9 +86,10 @@ async function setupCustomFood({ scanner, confirmAction, onSaved, onLog } = {}) 
     // A programozott értékadás NEM vált ki `input` eseményt, tehát ez nem
     // billenti át kézi módba — nincs visszacsatolási hurok.
     if (kcalMode === 'auto') kcalInput.value = String(computed);
-    kcalState.textContent = kcalMode === 'auto'
-      ? 'a makrókból számolva'
-      : `kézi érték · a képlet szerint ${computed} kcal`;
+    kcalState.textContent =
+      kcalMode === 'auto'
+        ? 'a makrókból számolva'
+        : `kézi érték · a képlet szerint ${computed} kcal`;
     kcalReset.hidden = kcalMode === 'auto';
     kcalInput.classList.toggle('is-manual', kcalMode === 'manual');
   };
@@ -94,7 +97,10 @@ async function setupCustomFood({ scanner, confirmAction, onSaved, onLog } = {}) 
   [proteinInput, carbsInput, fatInput].forEach((input) => {
     input.addEventListener('input', syncKcal);
   });
-  kcalInput.addEventListener('input', () => { kcalMode = 'manual'; syncKcal(); });
+  kcalInput.addEventListener('input', () => {
+    kcalMode = 'manual';
+    syncKcal();
+  });
   kcalReset.addEventListener('click', () => {
     kcalMode = 'auto';
     syncKcal();
@@ -103,7 +109,9 @@ async function setupCustomFood({ scanner, confirmAction, onSaved, onLog } = {}) 
 
   // Az egység a mezők jelentését változtatja meg (100 g vagy 100 ml) —
   // a legend ezt mondja ki, hogy ne legyen kétértelmű.
-  const syncUnit = () => { basisEl.textContent = `100 ${unitSelect.value}`; };
+  const syncUnit = () => {
+    basisEl.textContent = `100 ${unitSelect.value}`;
+  };
   unitSelect.addEventListener('change', syncUnit);
 
   /** A modál megnyitása, opcionálisan előre kitöltve (vonalkódról). */
@@ -130,16 +138,21 @@ async function setupCustomFood({ scanner, confirmAction, onSaved, onLog } = {}) 
          poliolok). Ilyenkor a címke értékét vesszük át KÉZI módban — az a
          termékre vonatkozó tény —, de a ↻ egy koppintással visszaszámoltat. */
       const labelKcal = prefill.kcal;
-      if (labelKcal !== null && labelKcal !== undefined && Math.round(labelKcal) !== computeKcal()) {
+      if (
+        labelKcal !== null &&
+        labelKcal !== undefined &&
+        Math.round(labelKcal) !== computeKcal()
+      ) {
         kcalMode = 'manual';
         kcalInput.value = String(Math.round(labelKcal));
       }
     }
 
     sourceEl.hidden = prefillSource !== 'openfoodfacts';
-    sourceEl.textContent = prefillSource === 'openfoodfacts'
-      ? 'Open Food Facts adat — vesd össze a csomagolással, mielőtt mentesz.'
-      : '';
+    sourceEl.textContent =
+      prefillSource === 'openfoodfacts'
+        ? 'Open Food Facts adat — vesd össze a csomagolással, mielőtt mentesz.'
+        : '';
 
     syncUnit();
     syncKcal();
@@ -177,7 +190,9 @@ async function setupCustomFood({ scanner, confirmAction, onSaved, onLog } = {}) 
 
   const submit = async ({ thenLog = false } = {}) => {
     setError('');
-    saveButtons.forEach((button) => { button.disabled = true; });
+    saveButtons.forEach((button) => {
+      button.disabled = true;
+    });
     try {
       const saved = await api.addCustomFood({
         name: nameInput.value,
@@ -202,7 +217,9 @@ async function setupCustomFood({ scanner, confirmAction, onSaved, onLog } = {}) 
       // űrlapon marad — a bevitt adat NEM vész el.
       if (err.code !== SESSION_LOST) setError(err.message || 'Nem sikerült menteni az ételt');
     } finally {
-      saveButtons.forEach((button) => { button.disabled = false; });
+      saveButtons.forEach((button) => {
+        button.disabled = false;
+      });
     }
   };
 
