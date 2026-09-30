@@ -164,7 +164,11 @@ async function renderDashboard() {
   // Aktuális edzés neve (aznapi piszkozat vagy a mára ütemezett terv a
   // szerverről; null, ha nincs egyik sem): áttekintő CTA + az edzésnapló
   // címének alapértéke
-  setText('[data-workout-name]', workoutName || 'Kezdj új edzést');
+  // Az aktív terv szerinti pihenőnapon ezt mondjuk ki — az edzés persze így is indítható
+  setText(
+    '[data-workout-name]',
+    workoutName || (dashboardData.restDay ? 'Pihenőnap' : 'Kezdj új edzést'),
+  );
   const titleInput = $('#workout-name');
   if (titleInput) titleInput.value = workoutName || '';
 

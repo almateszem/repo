@@ -715,6 +715,14 @@ test('nutritionScore — hidratáció testsúlyra skálázva, hiányában újrao
   assert.equal(nutritionScore(null, null, 80), null, 'adat híján null, nem 0');
 });
 
+test('nutritionScore — az edző által kitűzött víz-cél felülírja a testsúlyos képletet', () => {
+  const goal = { calories: 3000, protein: 150 };
+  // 2,64 l a képlet szerint teli lenne, de az edző 4 litert kért
+  const partial = nutritionScore({ intake: 3000, protein: 150, goal }, 2.64, 80, 4);
+  assert.ok(partial < 1, 'a 4 literes célhoz képest a 2,64 l kevés');
+  assert.equal(nutritionScore({ intake: 3000, protein: 150, goal }, 4, 80, 4), 1);
+});
+
 /* ======================================================================
    e1RM és izom-leképezés
    ====================================================================== */

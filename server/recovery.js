@@ -545,8 +545,10 @@ const hasNutritionEntries = (totals) =>
  * a regeneráció szempontjából az számít, hogy megvan-e a szükséges bevitel.
  * A `nutrition` lehet null (nincs naplózás) — ilyenkor csak a hidratáció
  * számít, és ha az sincs, a komponens egésze kimarad a képletből.
+ * A `hydrationGoal` (liter) az edző által kitűzött víz-cél; null esetén a
+ * testsúlyból számolt cél szól.
  */
-export function nutritionScore(nutrition, hydrationLiters, bodyWeight) {
+export function nutritionScore(nutrition, hydrationLiters, bodyWeight, hydrationGoal = null) {
   const parts = [];
   /* Az ALAPÉRTELMEZETT cél (source: 'default') nem a felhasználóé: minden
      fióknak ugyanaz a beégetett szám (2900 kcal / 170 g). Ehhez mérve egy
@@ -559,7 +561,8 @@ export function nutritionScore(nutrition, hydrationLiters, bodyWeight) {
   if (calorieGoal) parts.push([0.5, clamp01(num(nutrition.intake) / calorieGoal)]);
   if (proteinGoal) parts.push([0.3, clamp01(num(nutrition.protein) / proteinGoal)]);
   if (hydrationLiters !== null) {
-    const target = hydrationTarget(bodyWeight);
+    // Az edző által kitűzött víz-cél, ha van — különben a testsúlyos képlet
+    const target = hydrationGoal ?? hydrationTarget(bodyWeight);
     parts.push([0.2, clamp01(hydrationLiters / target)]);
   }
 
@@ -1038,7 +1041,13 @@ export function computeReadiness({
     // A regeneráció szempontjából a TEGNAPI bevitel a mérvadó: a check-in
     // reggel készül, amikor a mai étkezések még előtted vannak. Ha tegnapról
     // nincs naplózás, a mai napra esünk vissza.
-    nutrition: nutritionScore(nutritionSource, nutritionHydration, bodyWeight),
+    nutrition: nutritionScore(
+      nutritionSource,
+      nutritionHydration,
+      bodyWeight,
+      // A víz-cél a MAI összesítőből: az a napló nélküli napon is hozza a célt
+      nutrition?.today?.goal?.waterMl ? nutrition.today.goal.waterMl / 1000 : null,
+    ),
   };
 
   // — A súlyozott átlag CSAK a jelen lévő komponensekre. A hiányzók súlya

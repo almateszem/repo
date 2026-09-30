@@ -63,7 +63,7 @@ test('a SAJÁT kapcsolat bontása továbbra is viszi a célt', () => {
   db.saveNutritionGoal(sportolo.id, 'coach', { calories: 2600, protein: 170 }, edzo.id);
 
   db.deleteCoachLink(kapcsolat.id);
-  assert.equal(db.getNutritionGoal(sportolo.id).coach, null);
+  assert.equal(db.getNutritionGoal(sportolo.id).locked, false);
 });
 
 test('a törölt fiókú edző célja nem hajtja tovább a napi célt', () => {
@@ -78,7 +78,7 @@ test('a törölt fiókú edző célja nem hajtja tovább a napi célt', () => {
 
   const goal = db.getNutritionGoal(sportolo.id);
   assert.notEqual(goal.source, 'coach');
-  assert.equal(goal.coach, null);
+  assert.equal(goal.locked, false);
   assert.notEqual(goal.calories, 3100);
 });
 
@@ -95,7 +95,7 @@ test('élő kapcsolat nélkül ottmaradt edzői sort sem veszünk figyelembe', (
   for (const user of [sportolo, arva]) {
     const goal = db.getNutritionGoal(user.id);
     assert.equal(goal.source, 'default');
-    assert.equal(goal.coach, null);
+    assert.equal(goal.locked, false);
   }
 
   // A tárolt sorhoz nem nyúltunk — csak nem érvényes.

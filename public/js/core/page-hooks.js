@@ -55,6 +55,11 @@ export const hooks = {
       tehát a lokális másolat elavulhat, amíg máshol jársz. */
   refreshWater: null,
 
+  /** Az edződ étrendjének frissítője — a setupNutrition állítja be. A
+      Táplálkozás oldal megnyitása hívja: az étrendet az EDZŐ írja, tehát
+      bármikor változhat, amíg máshol jársz. */
+  refreshCoachMeals: null,
+
   /** A készenlét-javaslat ablaka — az init állítja be. A check-in mentése után
       ugrik fel, ha van mit javasolni. Azért késleltetett, mert a setupRecovery-
       nél KÉSŐBB épül fel (az edzésnapló vezérlője kell hozzá), a check-in

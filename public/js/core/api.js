@@ -234,13 +234,25 @@ const api = {
   deleteWaterEntry: (id) => sendJson('DELETE', `/api/water/${id}`),
 
   /* ---- Napi cél ----
-     Két forrás lehet (edzői / saját); a válasz mindkettőt hozza, hogy a
-     felület ki tudja írni, honnan jön a szám és eltértél-e az edzőitől. */
+     Két forrás lehet (edzői / saját); a válasz megmondja, honnan jön a szám,
+     és hogy zárolt-e (`locked`: az edzőé, a sportoló nem módosíthatja). */
   saveNutritionGoal: (calories, protein) => putJson('/api/nutrition/goal', { calories, protein }),
-  // A válasz a FRISS cél (a visszaállás utáni állapot), ezért sendJson.
-  clearNutritionGoal: () => sendJson('DELETE', '/api/nutrition/goal'),
   setAthleteNutritionGoal: (linkId, calories, protein) =>
     putJson(`/api/athletes/${linkId}/nutrition-goal`, { calories, protein }),
+  // Az edző víz-célja literben; a DELETE visszaáll a testsúlyból számoltra.
+  // A válasz mindkettőnél a sportoló friss célja (waterMl-lel).
+  setAthleteWaterGoal: (linkId, liters) =>
+    putJson(`/api/athletes/${linkId}/water-goal`, { liters }),
+  clearAthleteWaterGoal: (linkId) => sendJson('DELETE', `/api/athletes/${linkId}/water-goal`),
+  /* ---- Edzői étrend ----
+     Az étkezés { name, items: [{ name, grams }] } — a makrókat a szerver
+     számolja. Az edzői műveletek válasza a sportoló FRISS étrendje. */
+  addAthleteMeal: (linkId, meal) => postJson(`/api/athletes/${linkId}/meals`, meal),
+  updateAthleteMeal: (linkId, id, meal) => putJson(`/api/athletes/${linkId}/meals/${id}`, meal),
+  removeAthleteMeal: (linkId, id) => sendJson('DELETE', `/api/athletes/${linkId}/meals/${id}`),
+  getMeals: () => getJson('/api/nutrition/meals'),
+  // Egy étkezés MINDEN tételének naplózása ma — a válasz { entries, totals }
+  logMeal: (id) => postJson(`/api/nutrition/meals/${id}/log`),
   // A mai naplózott tételek — a Táplálkozás oldal „Mai napló" listájához
   getNutritionLog: () => getJson('/api/nutrition/log'),
   // Étel naplózása név + adag (gramm) alapján — a válasz { entry, totals }.
@@ -284,9 +296,12 @@ const api = {
     putJson('/api/workout-draft', { name, exercises, planId, workoutId }),
   // Az edzés lezárása után a piszkozat törlődik — új edzés kezdhető ugyanaznap
   clearWorkoutDraft: () => del('/api/workout-draft'),
-  // Edzésterv mentése/szerkesztése (terv-építő) — a szerver a mentett tervet adja vissza
-  savePlan: (name, exercises, days) => postJson('/api/plans', { name, exercises, days }),
-  updatePlan: (id, name, exercises, days) => putJson(`/api/plans/${id}`, { name, exercises, days }),
+  // Edzésterv mentése/szerkesztése (terv-építő) — a hét hét napja (plan-week.js);
+  // a szerver a mentett tervet adja vissza
+  savePlan: (name, week) => postJson('/api/plans', { name, week }),
+  updatePlan: (id, name, week) => putJson(`/api/plans/${id}`, { name, week }),
+  // Egyszerre egy aktív terv: csak annak a hete töltődik az Edzés oldalra
+  setPlanActive: (id, active) => postJson(`/api/plans/${id}/active`, { active }),
   // Az Edzés oldal induló tartalma: aznapi piszkozat / napra ütemezett terv / null
   getWorkoutTemplate: () => getJson('/api/workout-template'),
   // Teljes adat-pillanatkép a beállítások exportjához

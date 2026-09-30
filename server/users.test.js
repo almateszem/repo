@@ -21,6 +21,7 @@ const workDir = mkdtempSync(path.join(tmpdir(), 'fittrack-users-'));
 process.env.FITTRACK_DB = path.join(workDir, 'test.db');
 
 const db = await import('./db.js');
+const { weekFromLegacy } = await import('./plan-week.js');
 
 /* A takarítás előtt ZÁRJUK az adatbázist: Windowson egy nyitott fájlt nem
    lehet törölni, és az EPERM megbuktatta a tesztfájlt úgy, hogy közben minden
@@ -44,8 +45,8 @@ db.addWeightEntry(anna.id, 62.5, TODAY);
 db.addWeightEntry(bela.id, 95, TODAY);
 const annaWorkout = db.addWorkout(anna.id, 'Anna edzése', TODAY, exercises);
 db.addWorkout(bela.id, 'Béla edzése', TODAY, exercises);
-const annaPlan = db.addPlan(anna.id, 'Anna terve', TODAY, exercises, [0]);
-const belaPlan = db.addPlan(bela.id, 'Béla terve', TODAY, exercises, [1]);
+const annaPlan = db.addPlan(anna.id, 'Anna terve', TODAY, weekFromLegacy(exercises, [0]));
+const belaPlan = db.addPlan(bela.id, 'Béla terve', TODAY, weekFromLegacy(exercises, [1]));
 db.saveWorkoutDraft(anna.id, 'Anna piszkozata', exercises, TODAY);
 db.saveWorkoutDraft(bela.id, 'Béla piszkozata', exercises, TODAY);
 db.saveCheckin(anna.id, TODAY, { sleepHours: 9, energy: 5 });
@@ -139,7 +140,7 @@ test('MÁS fiók sorát id-re hivatkozva sem lehet módosítani vagy törölni',
   // A kliens bármilyen id-t küldhet; a szűrés a lekérdezésben van, nem a
   // felületen. Az „idegen" id-re null jön, amiből a végpont 404-et képez.
   assert.equal(
-    db.updatePlan(bela.id, annaPlan.id, 'ELTÉRÍTVE', exercises, []),
+    db.updatePlan(bela.id, annaPlan.id, 'ELTÉRÍTVE', weekFromLegacy(exercises, [])),
     null,
     'Béla nem írhatja át Anna tervét',
   );
@@ -162,12 +163,12 @@ test('MÁS fiók sorát id-re hivatkozva sem lehet módosítani vagy törölni',
   assert.equal(db.getWorkouts(anna.id)[0].name, 'Anna edzése', 'Anna edzése változatlan');
 
   // A sajátjával viszont mindkettő működik — a szűrés nem tör el mindent
-  assert.ok(db.updatePlan(bela.id, belaPlan.id, 'Béla átnevezte', exercises, []));
+  assert.ok(db.updatePlan(bela.id, belaPlan.id, 'Béla átnevezte', weekFromLegacy(exercises, [1])));
   assert.ok(db.deleteNutritionEntry(bela.id, belaEntry.id, TODAY));
 });
 
 test('a napra ütemezett terv is fiókonként külön', () => {
-  assert.equal(db.getPlanForDay(anna.id, 0)?.name, 'Anna terve');
+  assert.equal(db.getPlanForDay(anna.id, 0)?.name, 'Anna terve – Hétfő');
   assert.equal(db.getPlanForDay(bela.id, 0), null, 'Anna hétfői terve nem jön át Bélának');
 });
 

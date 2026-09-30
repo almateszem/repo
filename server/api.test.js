@@ -162,6 +162,13 @@ test('bejelentkezés nélkül MINDEN /api végpont 401-et ad', async () => {
     ['PUT', '/api/nutrition/goal'],
     ['DELETE', '/api/nutrition/goal'],
     ['PUT', '/api/athletes/1/nutrition-goal'],
+    ['PUT', '/api/athletes/1/water-goal'],
+    ['DELETE', '/api/athletes/1/water-goal'],
+    ['POST', '/api/athletes/1/meals'],
+    ['PUT', '/api/athletes/1/meals/1'],
+    ['DELETE', '/api/athletes/1/meals/1'],
+    ['GET', '/api/nutrition/meals'],
+    ['POST', '/api/nutrition/meals/1/log'],
     ['GET', '/api/readiness/advice'],
     ['POST', '/api/readiness/advice/apply'],
     ['GET', '/api/strength-assessment'],
@@ -820,20 +827,107 @@ test('az üres gyakorlatlistájú piszkozat érvényes, a hibás szerkezet nem',
   assert.equal(hibas.status, 400);
 });
 
+const NAPNEVEK = ['Hétfő', 'Kedd', 'Szerda', 'Csütörtök', 'Péntek', 'Szombat', 'Vasárnap'];
+
 test('a mai napra ütemezett terv töltődik az Edzés oldalra', async () => {
   await request('DELETE', '/api/workout-draft', { cookie: belaCookie });
   const maiNap = (new Date().getDay() + 6) % 7;
 
+  // Régi alakú törzs ({ exercises, days }) — továbbra is elfogadott
   const terv = await request('POST', '/api/plans', {
     cookie: belaCookie,
     body: { name: 'Mai terv', exercises: [gyakorlat('Vállnyomás', 40)], days: [maiNap] },
   });
   assert.equal(terv.status, 201);
+  // Csak az AKTÍV terv hete töltődik be
+  const aktiv = await request('POST', `/api/plans/${terv.json.id}/active`, {
+    cookie: belaCookie,
+    body: { active: true },
+  });
+  assert.equal(aktiv.status, 200);
+  assert.equal(aktiv.json.active, true);
 
   const sablon = (await request('GET', '/api/workout-template', { cookie: belaCookie })).json;
   assert.equal(sablon.source, 'plan');
-  assert.equal(sablon.name, 'Mai terv');
+  assert.equal(sablon.name, `Mai terv – ${NAPNEVEK[maiNap]}`, 'név nélküli nap: terv – nap');
   assert.equal(sablon.planId, terv.json.id);
+});
+
+test('heti terv: minden nap a saját edzése, a „same" a hivatkozotté, pihenőnapon nincs sablon', async () => {
+  const cookie = belaCookie;
+  await request('DELETE', '/api/workout-draft', { cookie });
+  const maiNap = (new Date().getDay() + 6) % 7;
+  const holnap = (maiNap + 1) % 7;
+  const tegnap = (maiNap + 6) % 7;
+
+  // Holnap saját edzés, ma „ugyanaz, mint holnap", tegnap pihenő
+  const week = Array.from({ length: 7 }, () => ({ type: 'rest' }));
+  week[holnap] = { type: 'workout', name: 'Láb nap', exercises: [gyakorlat('Guggolás', 100)] };
+  week[maiNap] = { type: 'same', of: holnap };
+  const terv = await request('POST', '/api/plans', { cookie, body: { name: 'Hét', week } });
+  assert.equal(terv.status, 201);
+  assert.deepEqual(
+    terv.json.days,
+    [maiNap, holnap].sort((a, b) => a - b),
+  );
+  await request('POST', `/api/plans/${terv.json.id}/active`, { cookie, body: { active: true } });
+
+  const sablon = (await request('GET', '/api/workout-template', { cookie })).json;
+  assert.equal(sablon.name, 'Láb nap', 'a „same" nap a hivatkozott edzést tölti be');
+  assert.equal(sablon.exercises[0].name, 'Guggolás');
+
+  // Ha ma pihenőnap: nincs terv-sablon, és a dashboard kimondja
+  week[maiNap] = { type: 'rest' };
+  const put = await request('PUT', `/api/plans/${terv.json.id}`, {
+    cookie,
+    body: { name: 'Hét', week },
+  });
+  assert.equal(put.status, 200);
+  assert.equal(put.json.active, true, 'a szerkesztés nem kapcsolja ki');
+  assert.equal((await request('GET', '/api/workout-template', { cookie })).json, null);
+  const dash = (await request('GET', '/api/dashboard', { cookie })).json;
+  assert.equal(dash.restDay, true);
+
+  // Hibás hét: a „same" pihenőre mutat; üres edzésnap; csak pihenő
+  const rossz = [...week];
+  rossz[tegnap] = { type: 'same', of: maiNap };
+  const hibak = [
+    rossz,
+    week.map((nap, i) => (i === holnap ? { type: 'workout', exercises: [] } : nap)),
+    Array.from({ length: 7 }, () => ({ type: 'rest' })),
+  ];
+  for (const hibas of hibak) {
+    const res = await request('POST', '/api/plans', {
+      cookie,
+      body: { name: 'Rossz', week: hibas },
+    });
+    assert.equal(res.status, 400, JSON.stringify(res.json));
+  }
+});
+
+test('egyszerre egy aktív terv van', async () => {
+  const cookie = belaCookie;
+  const tervek = (await request('GET', '/api/plans', { cookie })).json;
+  assert.equal(tervek.filter((p) => p.active).length, 1);
+
+  const masik = tervek.find((p) => !p.active);
+  await request('POST', `/api/plans/${masik.id}/active`, { cookie, body: { active: true } });
+  const utana = (await request('GET', '/api/plans', { cookie })).json;
+  assert.deepEqual(
+    utana.filter((p) => p.active).map((p) => p.id),
+    [masik.id],
+  );
+
+  const ki = await request('POST', `/api/plans/${masik.id}/active`, {
+    cookie,
+    body: { active: false },
+  });
+  assert.equal(ki.json.active, false);
+  const idegen = await request('POST', `/api/plans/${masik.id}/active`, {
+    cookie: annaCookie,
+    body: { active: true },
+  });
+  assert.equal(idegen.status, 404, 'más tervét nem lehet aktiválni');
 });
 
 test('a hétnap-lista egyedi, rendezett 0–6 indexekké normalizálódik', async () => {
@@ -1698,7 +1792,7 @@ test('az ELFOGADÁS a mai naplót írja át — a tervet nem', async () => {
 
   const tervek = await request('GET', '/api/plans', { cookie: advCookie });
   const mellnap = tervek.json.find((p) => p.name === 'Mellnap');
-  assert.equal(mellnap.exercises.length, 1, 'a TERV érintetlen — csak a napló változott');
+  assert.equal(mellnap.week[0].exercises.length, 1, 'a TERV érintetlen — csak a napló változott');
 });
 
 test('a terv-kártya passzívan is jelzi, mi kockázatos ma', async () => {

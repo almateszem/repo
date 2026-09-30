@@ -34,7 +34,7 @@ const pageEffects = {
     /* Az Edző oldal MÁSIK EMBER adatát mutatja (a sportolóid állapotát, az
        edződ üzeneteit), ami a saját gépeléseinktől függetlenül változik —
        ezért minden megnyitáskor friss adatot kérünk. A frissítő rajzolja ki
-       a kártyákat is, és az ő végén pörögnek fel a pontszámok. */
+       a sportoló-sorokat is, és az ő végén pörögnek fel a pontszámok. */
     if (hooks.refreshCoachPage) hooks.refreshCoachPage();
     else {
       const manager = $('[data-page="coach"] [data-view="manager"]');
@@ -73,12 +73,14 @@ const pageEffects = {
     // A folyadék a check-in űrlapjáról is átírható, ezért megnyitáskor a
     // szervertől kérjük — különben a mérő a saját, elavult másolatát mutatná.
     hooks.refreshWater?.().catch((err) => console.error('Vízmérő frissítési hiba:', err));
+    // Az étrendet az edző írja — a mi másolatunk bármikor elavulhat.
+    hooks.refreshCoachMeals?.().catch((err) => console.error('Étrend frissítési hiba:', err));
   },
 };
 
-/** A sportoló-kártyák pontszámainak felpörgetése (oldal- és nézetváltáskor). */
+/** A sportoló-sorok pontszámainak felpörgetése (oldal- és nézetváltáskor). */
 function animateCoachRatings() {
-  $$('[data-page="coach"] .co-card-rating').forEach((el) => {
+  $$('[data-page="coach"] .co-score-num').forEach((el) => {
     // Az értékelés egész pontszám — a tizedesek csak zajt vinnének a kártyákra.
     animateNumber(el, Number(el.dataset.rating) || 0, {
       from: 0,

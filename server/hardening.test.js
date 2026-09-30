@@ -255,8 +255,8 @@ test('a kapcsolat bontásával a volt edző tápcélja is megszűnik', async () 
   assert.equal((await request('DELETE', `/api/athletes/${linkId}`, { cookie: edzo })).status, 204);
 
   const utana = await request('GET', '/api/nutrition/goal', { cookie: sportolo });
-  assert.notEqual(utana.source, 'coach');
-  assert.equal(utana.json.coach, null, 'nem maradt edzői sor');
+  assert.notEqual(utana.json.source, 'coach');
+  assert.equal(utana.json.locked, false, 'nem maradt élő edzői cél');
   assert.notEqual(utana.json.calories, 3000, 'a volt edző száma nem hajtja tovább a napi célt');
 });
 

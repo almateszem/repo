@@ -4,6 +4,7 @@ import { SESSION_LOST, api } from '../core/api.js';
 import { onDayChange } from '../core/day.js';
 import { $, $$, cloneTemplate } from '../core/dom.js';
 import { animateNumber, formatNumber } from '../core/format.js';
+import { hooks } from '../core/page-hooks.js';
 import { showToast } from '../core/toast.js';
 import { refreshDailyStats } from '../render/dashboard.js';
 import { renderFoods } from '../render/foods.js';
@@ -200,16 +201,13 @@ async function setupNutrition(foodDetail) {
 
   /* ---- Napi cél ----
      Két forrásból jöhet: amit az EDZŐ tűzött ki, és amit a felhasználó maga
-     állított be. A sajátja az erősebb, de az edzőé megmarad — ha eltér tőle,
-     azt ki is írjuk, és egy kattintással visszaállhat rá. */
+     állított be. Az edzőé az erősebb, és zárol (`locked`): amíg él, a
+     szerkesztő el van rejtve — csak az edző módosíthatja. */
   const goalSection = $('.nu-goal');
   const goalValueEl = $('[data-nu-goal-value]', goalSection);
   const goalSourceEl = $('[data-nu-goal-source]', goalSection);
-  const goalDiffEl = $('[data-nu-goal-diff]', goalSection);
-  const goalDiffTextEl = $('[data-nu-goal-diff-text]', goalSection);
   const goalForm = $('[data-form="nutrition-goal"]', goalSection);
   const goalEditBtn = $('[data-action="edit-goal"]', goalSection);
-  const goalRevertBtn = $('[data-action="revert-goal"]', goalSection);
   const goalCaloriesInput = $('#nu-goal-calories');
   const goalProteinInput = $('#nu-goal-protein');
   const goalSaveBtn = $('.nu-goal-save', goalSection);
@@ -218,7 +216,7 @@ async function setupNutrition(foodDetail) {
       mondaná meg, hogy az edződ tűzte-e ki vagy te magad. */
   const GOAL_SOURCE_TEXT = {
     own: () => 'A saját célod.',
-    coach: (goal) => `${goal.setBy ?? 'Az edződ'} tűzte ki.`,
+    coach: (goal) => `${goal.setBy ?? 'Az edződ'} tűzte ki — csak ő módosíthatja.`,
     default: () => 'Alapértelmezett cél — állítsd be a sajátodat.',
   };
 
@@ -227,14 +225,9 @@ async function setupNutrition(foodDetail) {
     goalValueEl.textContent = `${formatNumber(goal.calories)} kcal · ${formatNumber(goal.protein)} g fehérje`;
     goalSourceEl.textContent = (GOAL_SOURCE_TEXT[goal.source] ?? GOAL_SOURCE_TEXT.default)(goal);
 
-    /* Az eltérés csak akkor jelenik meg, ha tényleg van edzői cél ÉS más a
-       szám. Az azonos érték nem eltérés — arról hallgatunk. */
-    goalDiffEl.hidden = !goal.differs;
-    if (goal.differs) {
-      goalDiffTextEl.textContent =
-        `${goal.coach.setBy ?? 'Az edződ'} célja: ${formatNumber(goal.coach.calories)} kcal · ` +
-        `${formatNumber(goal.coach.protein)} g fehérje — eltértél tőle.`;
-    }
+    // Az edzői cél zárolt: nincs mit szerkeszteni, a nyitott űrlap is bezárul
+    goalEditBtn.hidden = Boolean(goal.locked);
+    if (goal.locked) setGoalFormOpen(false);
 
     // A szerkesztő mezői mindig az ÉRVÉNYES célról indulnak.
     goalCaloriesInput.value = Math.round(goal.calories);
@@ -269,31 +262,110 @@ async function setupNutrition(foodDetail) {
       if (err.code !== SESSION_LOST) {
         console.error(err);
         showToast(err.message || 'A célt nem sikerült menteni', 'error');
+        // Pl. közben az edző kitűzte (403) — a zárolt állapotot mutassuk
+        renderGoal((await api.getNutrition()).goal);
       }
     } finally {
       goalSaveBtn.disabled = false;
     }
   });
 
-  goalRevertBtn.addEventListener('click', async () => {
-    goalRevertBtn.disabled = true;
+  renderGoal(totals.goal);
+
+  /* ---- Az edződ étrendje ----
+     Az edző által összeállított étkezések. A „Megettem" az étkezés MINDEN
+     tételét a mai naplóba írja — a szerver a tárolt adagokból és makrókból
+     dolgozik, a kliens csak az étkezés id-jét küldi. */
+  const mealsSection = $('[data-nu-meals]');
+  const mealList = $('[data-list="coach-meals"]', mealsSection);
+  const mealsTotalEl = $('[data-nu-meals-total]', mealsSection);
+  const mealsDoneEl = $('[data-nu-meals-done]', mealsSection);
+  let meals = [];
+
+  /* A MA már megevett étkezés eltűnik a listából — másodszor nem
+     naplózható (a szerver is 409-cel utasítaná el). Másnap újra ott van. */
+  const renderMeals = () => {
+    const left = meals.filter((meal) => !meal.eatenToday);
+    mealsSection.hidden = meals.length === 0;
+    mealsDoneEl.hidden = meals.length === 0 || left.length > 0;
+    mealList.replaceChildren(
+      ...left.map((meal) => {
+        const item = cloneTemplate('tpl-nutrition-meal');
+        $('.nu-meal-name', item).textContent = meal.name;
+        $('.nu-meal-macros', item).textContent =
+          `${formatNumber(meal.protein)} g F · ${formatNumber(meal.carbs)} g Cs · ${formatNumber(meal.fat)} g Zs`;
+        $('.nu-meal-kcal', item).textContent = `${formatNumber(meal.kcal)} kcal`;
+        const logBtn = $('.nu-meal-log', item);
+        logBtn.dataset.mealId = meal.id;
+        logBtn.setAttribute('aria-label', `${meal.name} naplózása a mai napra`);
+        $('.nu-meal-items', item).replaceChildren(
+          ...meal.items.map((line) => {
+            const li = document.createElement('li');
+            li.textContent = `${line.name} · ${formatNumber(line.grams)} g · ${formatNumber(line.kcal)} kcal`;
+            return li;
+          }),
+        );
+        return item;
+      }),
+    );
+    const eaten = meals.length - left.length;
+    const sum = meals.reduce((acc, meal) => acc + meal.kcal, 0);
+    mealsTotalEl.textContent =
+      meals.length > 0
+        ? `${eaten}/${meals.length} megvan · ${formatNumber(sum)} kcal összesen`
+        : '';
+  };
+
+  const reloadMeals = async () => {
     try {
-      renderGoal(await api.clearNutritionGoal());
-      setGoalFormOpen(false);
-      applyTotals(await api.getNutrition());
-      refreshDailyStats().catch(console.error);
-      showToast('Visszaálltál az edződ céljára');
+      meals = await api.getMeals();
     } catch (err) {
+      // Az étrend kiegészítő blokk — a hibája ne vigye el az oldalt
+      if (err.code !== SESSION_LOST) console.error('Az étrend nem tölthető be:', err);
+      meals = [];
+    }
+    renderMeals();
+  };
+  await reloadMeals();
+  /* Az oldal megnyitásakor: az étrendet ÉS a célt is az edző írja, tehát
+     bármelyik elavulhatott, amíg máshol jártunk (pl. közben kitűzött cél →
+     a szerkesztőnek el kell tűnnie). */
+  hooks.refreshCoachMeals = async () => {
+    const next = await api.getNutrition();
+    applyTotals(next);
+    renderGoal(next.goal);
+    await reloadMeals();
+  };
+  // Éjfél után a tegnap megevett étkezések újra naplózhatók
+  onDayChange(reloadMeals);
+
+  mealList.addEventListener('click', async (event) => {
+    const logBtn = event.target.closest('.nu-meal-log');
+    if (!logBtn) return;
+    const meal = meals.find((m) => m.id === Number(logBtn.dataset.mealId));
+    if (!meal) return;
+
+    logBtn.disabled = true;
+    try {
+      const previous = totals;
+      const res = await api.logMeal(meal.id);
+      applyTotals(res.totals, { animateFrom: previous });
+      logEntries = [...logEntries, ...res.entries];
+      renderLog();
+      meals = res.meals;
+      renderMeals();
+      refreshDailyStats().catch(console.error);
+      showToast(`${meal.name} naplózva · +${formatNumber(meal.kcal)} kcal`);
+    } catch (err) {
+      logBtn.disabled = false;
       if (err.code !== SESSION_LOST) {
         console.error(err);
-        showToast(err.message || 'A visszaállítás nem sikerült', 'error');
+        showToast(err.message || 'Az étkezést nem sikerült naplózni', 'error');
+        // Pl. egy másik fülön már naplózta (409) — a lista hozza be a valóságot
+        await reloadMeals();
       }
-    } finally {
-      goalRevertBtn.disabled = false;
     }
   });
-
-  renderGoal(totals.goal);
 
   /* Az élő szűrés önálló függvényben: a lista újraépítése után (saját étel
      felvitele/törlése) újra érvényre kell juttatni, különben a beírt keresés
