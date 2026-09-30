@@ -11,6 +11,40 @@ import { $, $$, cloneTemplate } from '../core/dom.js';
 import { formatInputNumber, formatNumber } from '../core/format.js';
 import { showToast } from '../core/toast.js';
 
+/* ---- Kezenkénti súly ----
+   A ház szabálya: kézisúlyzós gyakorlatnál a beírt szám EGY kézisúlyzóé, nem a
+   kettő összege. Ez a naplóban dől el, ezért ott is kell kiírni — egy ki nem
+   mondott konvenciót senki nem tud követni, és a kétszeres eltérés az
+   erőszint-érmen két elhibázott fokozatot jelent.
+
+   A halmaz a katalógus `felszerelés` mezőjéből épül, és INDULÁSKOR töltjük
+   fel: a renderExercise szinkron, menet közben nem várhat egy kérésre. A
+   katalógus-válasz kliens-oldalon cache-elt (api.getExerciseCatalog), tehát ez
+   nem jelent plusz hálózati kérést. Ha a töltés elhasal, a felirat marad a
+   semleges „Súly·kg" — rosszabb konvenciót nem írunk ki, mint amit tudunk. */
+const perHandExercises = new Set();
+
+/* Saját testsúlyos gyakorlatok: ott a beírt kilogramm a RÁADÁS (öv, mellény),
+   nem a terhelés — a terhelés a test maga. A szerver mondja meg, melyek ezek
+   (data/bodyweight-load.js): a katalógus `felszerelés` mezője erre nem
+   megbízható, és egy téves besorolás a terhelést a testsúlyoddal tolná el. */
+const addedWeightExercises = new Set();
+
+async function primePerHandExercises() {
+  try {
+    const [catalog, bodyweight] = await Promise.all([
+      api.getExerciseCatalog(),
+      api.getBodyweightExercises(),
+    ]);
+    for (const entry of catalog) {
+      if (entry.equipment === 'Kézisúlyzó') perHandExercises.add(entry.name);
+    }
+    for (const name of bodyweight) addedWeightExercises.add(name);
+  } catch (err) {
+    console.error('A súly-konvenciók listája nem töltődött be:', err);
+  }
+}
+
 /* ---- Szett-sorok ----
    Az ism./súly/RPE szám-mező: az ismétlés és a súly léptetőgombokkal, az
    RPE sima mezőként. A mértékegység a fejlécben van, nem az értékben —
@@ -460,6 +494,20 @@ function renderExercise(
   removeBtn.setAttribute('aria-label', `${exercise.name} eltávolítása az edzésből`);
 
   const setList = $('.wk-set-list', card);
+  /* Kézisúlyzósnál a súly-oszlop felirata kimondja a konvenciót. A kardió-ág
+     lejjebb amúgy is lecseréli az egész fejlécet, ezért ez csak a szett-alapú
+     kártyákra vonatkozik. */
+  if (!cardio) {
+    const weightCell = $$('.wk-set-row--head > span', card)[2];
+    if (weightCell && perHandExercises.has(exercise.name)) {
+      weightCell.textContent = 'Súly·kg/kéz';
+    } else if (weightCell && addedWeightExercises.has(exercise.name)) {
+      // A „+" jelzi, hogy ide a testsúlyon FELÜLI súly megy — üresen hagyva a
+      // sor tiszta saját testsúlyos, nem „nulla terhelésű".
+      weightCell.textContent = 'Plusz·kg';
+    }
+  }
+
   if (cardio) {
     /* A fejléc feliratai a módhoz igazodnak: „Ism./Súly·kg/RPE" helyett
        „Idő/Intenzitás". A két üres cella a pötty-gombé és a pipáé. */
@@ -810,6 +858,7 @@ export {
   handleRemoveSetClick,
   handleStepClick,
   loadIntensityLevels,
+  primePerHandExercises,
   readSetRow,
   refreshExerciseList,
   renderExercise,

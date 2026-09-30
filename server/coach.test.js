@@ -113,10 +113,14 @@ test('friss fióknak nincs edzője és nincs sportolója', async () => {
     planOffers: [],
   });
 
+  /* A `sex` a fiók SAJÁT tulajdonsága (a profil erőszint-érméhez kell, ahol a
+     küszöbök nemenként eltérnek) — ettől a lista bővül, de a teszt szándéka
+     ugyanaz: szerepkör-jelző (hasCoach / coachesAthletes) NEM kerülhet bele,
+     mert az nem a fiók tulajdonsága, hanem a kapcsolatokból következik. */
   const user = await request('GET', '/api/user', { cookie: coach.cookie });
   assert.deepEqual(
     Object.keys(user.json).sort(),
-    ['goal', 'name', 'username'],
+    ['birthYear', 'goal', 'name', 'sex', 'username'],
     'a fiók alakjában nincs szerepkör-jelző: az a kapcsolatokból következik',
   );
 });

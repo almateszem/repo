@@ -80,10 +80,19 @@
   /* A lapnál sötétebb felület: oldalsáv, CTA-sáv, modál-lap. */
   --surface-panel: #0a0a0b;
 
-  /* Szín — edzői panel tier-ek (arany / ezüst / bronz sportoló-kártyák) */
+  /* Szín — minősítési fokozatok. Az edzői panel sportoló-kártyái az alsó
+     hármat viszik, a profil rekord-érmei mind a négyet.
+
+     A gyémánt SZÁNDÉKOSAN nem fém: a másik három egy skála (bronz → ezüst →
+     arany), a negyedik pedig kilép belőle. Hidegebb és világosabb is az
+     aranynál, tehát a sorrend fényességben is olvasható. Az ezüsttől azért
+     nem téveszthető össze, mert az tompa kékesszürke, ez pedig telített
+     cián — és a gyémánt-érem ezen felül csillanást is kap (lásd
+     .pf-medal--diamond), vagyis nem csak a színárnyalat különbözteti meg. */
   --c-tier-gold: #e8c15a;
   --c-tier-silver: #b9c4d4;
   --c-tier-bronze: #cd9569;
+  --c-tier-diamond: #67e8f0;
 
   /* Szín — fehér alfa-skála (a sötét téma teljes felület-/szövegrendszere) */
   --fg-100: #ffffff;
@@ -379,6 +388,13 @@ input.wk-chip:focus-visible {
    hosszabbak — a „TESTÖSSZETÉTEL" .16em-mel már kifutna a keskeny kártyából. */
 .rc-section-title,
 .pf-section-title,
+/* A profil rács-címkéi és a rekord-kártyák gyakorlatnevei ugyanezt a receptet
+   kérik, nem a fenti .db-label-csoportét: rövid, erősen ritkított feliratok
+   helyett itt több szóból álló, tördelhető címkék állnak — azoknak a szűkebb
+   .16em helyett a .12em ritkítás olvashatóbb. */
+.pf-stat-label,
+.pf-record-label,
+.pf-tier-name,
 .st-section-title,
 .co-modal-section-title,
 .fd-section-label,
@@ -409,8 +425,9 @@ input.wk-chip:focus-visible {
 .db-stat-value,
 .nu-summary-value,
 .nu-macro-value,
-.su-stat-value,
-.pf-stat-value {
+/* A .pf-stat-value szándékosan hiányzik: a profil összesítői a .ds-display
+   primitívet viselik, az ezt a két tulajdonságot már megadja. */
+.su-stat-value {
   letter-spacing: var(--ls-display);
   font-variant-numeric: tabular-nums;
 }
@@ -8946,11 +8963,12 @@ details[open] > .rc-details-summary::before {
 
 /* ---- Erőfelmérés a profilon (pf-assess-*) ----
    A mezők a .nu-goal-field receptjét követik — egy űrlap-alak, több helyen. */
-.pf-assess {
+/* A szekció külső térközét a .pf-section adja (27. szakasz); itt már csak a
+   szekció TÖRZSÉN belüli elemek elrendezése marad. */
+.pf-assess-body {
   display: flex;
   flex-direction: column;
   gap: var(--sp-4);
-  margin-bottom: var(--sp-9);
 }
 
 .pf-assess-lead,
@@ -8966,6 +8984,10 @@ details[open] > .rc-details-summary::before {
   flex-direction: column;
   gap: var(--sp-3);
   list-style: none;
+  /* A böngésző alap <ul>-margója és 40px-es behúzása — a többi lista (pl.
+     .db-side-list) is maga nullázza, globális lista-reset nincs. */
+  margin: 0;
+  padding: 0;
 }
 
 .pf-assess-item {
@@ -9013,7 +9035,10 @@ details[open] > .rc-details-summary::before {
   background: none;
   color: var(--fg-100);
   font: inherit;
-  font-size: var(--fs-sm);
+  /* NEM --fs-sm (12px): 16px alatt az iOS Safari fókuszkor ráközelít a lapra,
+     és nem nagyít vissza — ugyanaz a csapda, amiért az edzésnapló szám-mezői
+     is ezt a tokent viszik. */
+  font-size: var(--fs-input);
 }
 
 .pf-assess-field input:focus-visible {
@@ -9024,6 +9049,7 @@ details[open] > .rc-details-summary::before {
 .pf-assess-save {
   border: 0;
   padding: var(--sp-3) var(--sp-7);
+  min-height: var(--tap-min);
   background: var(--c-accent);
   color: var(--on-accent);
   font: inherit;
@@ -10520,10 +10546,45 @@ body[data-onboarding] .app-page.ci-page {
 /* ==========================================================================
    27. Profiloldal (pf-*)
    --------------------------------------------------------------------------
-   Az áttekintő avatarja nyitja. Csak megjelenít: a fiók adatai és a naplózott
-   edzésekből számolt összesítők (GET /api/profile). A szerkeszthető
-   beállítások a fogaskerék-modalban maradtak, ide csak egy gomb vezet.
+   Az áttekintő avatarja nyitja. A fiók adatai, a naplóból számolt összesítők
+   (GET /api/profile), a rekordok (GET /api/prs) és az erőfelmérés. A
+   szerkeszthető beállítások a fogaskerék-modalban maradtak, ide csak egy
+   gomb vezet.
+
+   A lap SAJÁT méret-skálát visz (--pf-*). Két oka van: a mobil és az asztali
+   lépcső így ugyanannak a tokennek a két értéke — a szabályoknak nem kell
+   tudniuk, melyik nézetben állnak, a töréspont a blokk alján egyszer írja
+   felül mindet. A globális --fs-* skála 28px-nél megáll, a lap hőse (a négy
+   összesítő szám) pedig ennél nagyobb; azt a két méretet nyers px adja.
    ========================================================================== */
+.pf-page {
+  --pf-fs-heading: var(--fs-base);
+  --pf-fs-label: var(--fs-2xs);
+  --pf-fs-stat: 40px;
+  --pf-fs-fact: 26px;
+  --pf-fs-record: var(--fs-4xl);
+  --pf-fs-name: var(--fs-4xl);
+  --pf-fs-username: var(--fs-base);
+  --pf-fs-joined: var(--fs-xs);
+  --pf-cols: 2;
+  --pf-grid-gap: var(--sp-14) var(--sp-13);
+  --pf-record-gap: var(--sp-5);
+  --pf-card-h: 168px;
+  --pf-medal: 56px;
+  --pf-plus: 48px;
+}
+
+/* Kis telefonon a tízjegyű dátum ("2026.09.11") a két oszlop egyikébe is
+   befér, de csak szűkebb réssel — a rács gap-je itt az első, amit elveszünk,
+   és csak utána a számok mérete. */
+@media (max-width: 380px) {
+  .pf-page {
+    --pf-grid-gap: var(--sp-12) var(--sp-9);
+    --pf-fs-stat: 36px;
+    --pf-fs-fact: var(--fs-4xl);
+  }
+}
+
 .pf-head {
   display: flex;
   align-items: center;
@@ -10556,70 +10617,339 @@ body[data-onboarding] .app-page.ci-page {
 }
 
 .pf-name {
-  font-size: var(--fs-4xl);
+  font-size: var(--pf-fs-name);
   font-weight: 800;
   overflow-wrap: break-word;
 }
 
 .pf-username {
-  font-size: var(--fs-base);
+  font-size: var(--pf-fs-username);
   color: var(--text-muted);
 }
 
 .pf-joined {
-  font-size: var(--fs-sm);
+  font-size: var(--pf-fs-joined);
   color: var(--text-muted);
+}
+
+/* ---- Szekció-fej ----
+   A lap többi részétől eltérően itt a felirat a vonal FELETT áll, a tartalom
+   alatta: a hajszálvonal a szekció CÍME és a TARTALMA közé kerül, nem két
+   szekció közé. Ezért nem a .ds-section primitívet viszi (az a szekciók KÖZÉ
+   húz vonalat) — a két recept szándékosan különbözik, és a profil az egyetlen
+   lap, ahol minden blokk saját aláhúzott fejlécet kap. */
+.pf-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+.pf-section + .pf-section {
+  margin-top: var(--sp-15);
 }
 
 .pf-section-title {
-  margin: 0 0 var(--sp-6);
-  font-size: var(--fs-xs);
-  font-weight: 700;
+  margin: 0;
+  font-size: var(--pf-fs-heading);
   color: var(--text-muted);
 }
 
-/* A négy összesítő kártya-rácsból sorlista lett. Két 100%-os oszlopban a
-   hosszabb címkék („teljesített munkasorozat") két-három sorba törtek; a
-   soron a címke balra, a szám jobbra fér el egy sorban. */
+.pf-section-body {
+  padding-top: var(--sp-9);
+  border-top: 1px solid var(--hair);
+}
+
+/* ---- Összesítés + Részletek ----
+   Rács, nem sorlista. A korábbi sorokban a hosszabb címke („Teljesített
+   munkasorozat") balra, a szám jobbra állt — ott a címke tördelése a sor
+   magasságát nyújtotta, és ezért lett a rácsból annak idején lista. Rácsban a
+   címke a szám FÖLÖTT van, a cellát pedig a `space-between` zárja: a címke
+   akárhány sorba törhet, az értékek egy rács-soron belül akkor is egy
+   vonalon állnak, mert a grid a cellákat a legmagasabbhoz nyújtja. Így a
+   rács visszakapható anélkül, hogy a régi hiba visszajönne. */
 .pf-stat-grid {
-  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(var(--pf-cols), minmax(0, 1fr));
+  gap: var(--pf-grid-gap);
+  /* A felső térközt és a hajszálvonalat a .pf-section-body burkoló adja;
+     itt csak a lista alap-margója és behúzása tűnik el. */
   margin: 0;
   padding: 0;
+  list-style: none;
+}
+
+.pf-stat {
   display: flex;
   flex-direction: column;
-}
-
-.pf-fact-list {
+  justify-content: space-between;
+  gap: var(--sp-5);
   margin: 0;
 }
 
-/* A formát a .ds-row adja. A korábbi `border-bottom` + `:last-child` páros
-   nem csak stílusban tért el a recepttől — HIBÁS is volt: a sorokat a
-   js/ui/profile.js egyenként rejti el `hidden`-nel, a látható utolsó sor
-   tehát általában NEM `:last-child`, így a lista alján ott maradt egy
-   lelógó vonal. A `.ds-row + .ds-row { border-top }` ezt megoldja: a rejtett
-   szomszéd `display: none`, nem rajzol semmit. */
-.pf-fact {
-  --ds-row-gap: var(--sp-6);
+.pf-stat-label {
+  font-size: var(--pf-fs-label);
+  line-height: 1.3;
+  color: var(--text-muted);
 }
 
-/* A dt/dd megkapta a .ds-row-name / .ds-row-value osztályt; itt csak az marad,
-   amit azok nem adnak: a böngésző alapértelmezett dd-margója (40px!) és a
-   szám-oszlop viselkedése. */
-.pf-fact dd {
-  margin: 0;
-  font-variant-numeric: tabular-nums;
+/* A méret az egyetlen, ami a .ds-display primitíven felül kell: a súlyt, a
+   sorközt, a ritkítást és a táblázatos számokat az adja. A `nowrap` a
+   dátumoknak szól — azoknak nincs hol törniük, tördelve csak kilógnának. */
+.pf-stat-value {
+  --ds-display-size: var(--pf-fs-stat);
   white-space: nowrap;
 }
 
-.pf-empty {
+.pf-stat-value--fact {
+  --ds-display-size: var(--pf-fs-fact);
+}
+
+/* A <dd> böngésző-alapértelmezett 40px-es margója. */
+.pf-fact dd {
   margin: 0;
-  font-size: var(--fs-md);
-  color: var(--text-muted);
+}
+
+/* Figyelmeztetés a hiányzó beállításról. Accent-keret, mert nem hiba, hanem
+   TENNIVALÓ: amíg nincs pótolva, a szekció fele némán szürke marad. */
+.pf-records-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3) var(--sp-5);
+  margin: var(--sp-5) 0 0;
+  padding: var(--sp-5) var(--sp-6);
+  border: 1px solid var(--c-accent-line);
+  background: var(--c-accent-dim);
+  font-size: var(--fs-xs);
   line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.pf-records-notice-action {
+  flex-shrink: 0;
+  padding: var(--sp-2) var(--sp-5);
+  min-height: var(--tap-min);
+  border: 1px solid var(--hair);
+  background: none;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  transition: background var(--t-fast);
+}
+
+.pf-records-notice-action:hover {
+  background: var(--surface-hover);
+}
+
+/* Jelmagyarázat. A négy korong sorrendje magától nem derül ki (hogy a cián az
+   arany FÖLÖTT van, végképp nem), és a kártyán nincs hely kiírni — itt viszont
+   egyszer, mindenre érvényesen elfér. */
+.pf-tier-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3) var(--sp-7);
+  /* Alul is kell térköz: enélkül a jelmagyarázat rátapad az első kártyasorra,
+     és a rács részének látszik, nem a fölötte álló magyarázatnak. */
+  margin: var(--sp-5) 0 var(--sp-3);
+  padding: 0;
+  list-style: none;
+}
+
+/* A „≈" jel magyarázata. A jelmagyarázat alá tartozik, ezért ez hordozza a
+   rács előtti nagyobb térközt. */
+.pf-tier-note {
+  margin: 0 0 var(--sp-7);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.pf-tier-legend li {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.pf-tier-name {
+  font-size: var(--fs-2xs);
+  line-height: 1;
+  color: var(--text-muted);
+}
+
+.pf-tier-dot {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  border-radius: var(--r-full);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+
+.pf-empty,
+.pf-records-lead {
+  margin: 0;
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* ---- Rekordok ----
+   A rács a felhasználó által kitűzött gyakorlatok kártyáiból és a maradék
+   üres „+" csempékből áll.
+
+   A magasság mindkettőn `min-height`, nem `height`: a hosszú gyakorlatnevek
+   („Kézisúlyzós ferdepados fekvenyomás") két-három sorba törnek, fix
+   magasságnál kilógnának a kártyából. A rács a sor minden celláját a
+   legmagasabbhoz nyújtja, tehát a sorok így is egyenesek maradnak. */
+.pf-record-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--pf-cols), minmax(0, 1fr));
+  gap: var(--pf-record-gap);
+  /* A felső térközt és a hajszálvonalat a .pf-section-body burkoló adja;
+     itt csak a lista alap-margója és behúzása tűnik el. */
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pf-record-slot {
+  /* A rács a <li>-t nyújtja a sor magasságára, a flex pedig a gombot a
+     <li>-ére — enélkül a csempe a saját min-height-jénél maradna, és a sorban
+     egy alacsonyabb doboz lógna a magasabb szomszédai mellett. */
+  display: flex;
+}
+
+/* A „+" csempe a közös gyakorlat-választóra visz (profile.js →
+   openRecordPicker): a rekord ahhoz tapad, hogy melyik gyakorlatról van szó. */
+.pf-record,
+.pf-record-add {
+  width: 100%;
+  min-height: var(--pf-card-h);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-lg);
+}
+
+/* A `space-between` ugyanazt a bajt oldja meg, mint az összesítő-rácsban: az
+   érem a kártya tetejére, a szövegblokk az aljára feszül, így a rács egy
+   során belül az ÉRMEK is és az ÉRTÉKEK is egy vonalon állnak — akkor is, ha
+   az egyik gyakorlatnév egy sor, a másik három. Középre zárva a hosszabb név
+   lejjebb tolta volna a súlyt, és a sor ránézésre rendetlen lett. */
+.pf-record {
+  padding: var(--sp-7) var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-5);
+  background: var(--surface-panel);
+  text-align: center;
+}
+
+/* Az érem alapállapota SEMLEGES, és az is marad, ha nincs mihez mérni (nincs
+   nem megadva és nincs saját kiindulópont sem). A „nem tudjuk" és a „gyenge"
+   két külön állítás — egy szürke korong az előbbit mondja, egy bronz a
+   másodikat mondaná, tévesen. */
+.pf-medal {
+  width: var(--pf-medal);
+  height: var(--pf-medal);
+  flex-shrink: 0;
+  border-radius: var(--r-full);
+  background: var(--c-neutral);
+  /* Befelé rajzolt sötét gyűrű: ettől lesz érem a korongból anélkül, hogy a
+     kártya kerete mellé egy második keret kerülne. */
+  box-shadow: inset 0 0 0 4px rgba(0, 0, 0, 0.18);
+}
+
+/* A három fokozat. Ugyanazt a tier-palettát viszi, mint az edzői panel
+   sportoló-kártyái. Hogy melyik mérce adta (nemhez tartozó erőstandard vagy
+   saját fejlődés), azt a kártya felirata mondja meg — a szín önmagában sosem
+   hordozza a jelentést. */
+.pf-medal--gold {
+  background: var(--c-tier-gold);
+}
+
+.pf-medal--silver {
+  background: var(--c-tier-silver);
+}
+
+.pf-medal--bronze {
+  background: var(--c-tier-bronze);
+}
+
+/* A gyémánt a skála teteje, és nem csak színben tér el: a csillanás (világos
+   sáv a korong bal felső részén) tapintható különbség a három tömör fém
+   mellett. Ez nem dísz — színtévesztéssel az ezüst és a cián a legkönnyebben
+   összemosható pár, a csillanás pedig akkor is megmarad. */
+.pf-medal--diamond {
+  background:
+    radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.85), transparent 45%),
+    var(--c-tier-diamond);
+}
+
+.pf-record-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.pf-record-label {
+  font-size: var(--pf-fs-label);
+  line-height: 1.3;
+  color: var(--text-muted);
+  overflow-wrap: anywhere; /* egyetlen hosszú gyakorlatnév se lógjon ki */
+}
+
+.pf-record-value {
+  font-size: var(--pf-fs-record);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.045em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Dátum + forrás. Nem dísz: a „bemondott" és a „naplózott" csúcs nem ugyanaz
+   az állítás, és a csempén ez az egyetlen hely, ahol ez kiderül. */
+.pf-record-meta {
+  font-size: var(--fs-2xs);
+  line-height: 1.3;
+  color: var(--text-muted);
+}
+
+.pf-record-add {
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--fg-10);
+  transition: background var(--t-fast);
+}
+
+.pf-record-add:hover {
+  background: var(--fg-15);
+}
+
+.pf-plus {
+  width: var(--pf-plus);
+  height: var(--pf-plus);
+  border: 2px solid var(--fg-100);
+  border-radius: var(--r-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pf-plus svg {
+  width: 45%;
+  height: 45%;
+  fill: none;
+  stroke: var(--fg-100);
+  stroke-width: 2.5;
+  stroke-linecap: round;
 }
 
 .pf-actions {
+  margin-top: var(--sp-9);
   display: flex;
   flex-direction: column;
   gap: var(--sp-5);
@@ -10628,7 +10958,7 @@ body[data-onboarding] .app-page.ci-page {
 .pf-action {
   width: 100%;
   background: var(--surface-card);
-  border: 1px solid var(--border-card);
+  border: 1px solid var(--hair);
   border-radius: var(--r-md);
   padding: var(--sp-6) var(--sp-9);
   color: var(--text-primary);
@@ -10650,7 +10980,41 @@ body[data-onboarding] .app-page.ci-page {
 }
 
 .pf-action--danger:hover {
-  background: rgba(224, 67, 90, 0.12);
+  background: var(--c-alert-dim);
+}
+
+/* ---- ≥1025px: az asztali lépcső ----
+   A lap itt kapja meg a széles sávot (a globális .app-page 640px-et ad, ami a
+   négyoszlopos rácsnak kevés), és itt vált a --pf-* skála a nagyobb
+   fokozatra. Egyetlen media query, mert minden méret tokenen keresztül megy. */
+@media (min-width: 1025px) {
+  .pf-page {
+    --pf-fs-heading: var(--fs-xl);
+    --pf-fs-label: var(--fs-md);
+    --pf-fs-stat: 48px;
+    --pf-fs-fact: var(--fs-4xl);
+    --pf-fs-record: var(--fs-5xl);
+    --pf-fs-name: var(--fs-5xl);
+    --pf-fs-username: var(--fs-xl);
+    --pf-fs-joined: var(--fs-lg);
+    --pf-cols: 4;
+    --pf-grid-gap: var(--sp-15);
+    --pf-record-gap: var(--sp-7);
+    --pf-card-h: 184px;
+    --pf-medal: 64px;
+    --pf-plus: 56px;
+
+    max-width: var(--page-max-wide);
+  }
+
+  .pf-head {
+    margin: 0 0 var(--sp-16);
+  }
+
+  .pf-record {
+    padding: var(--sp-9) var(--sp-5);
+    gap: var(--sp-6);
+  }
 }
 
 /* ==========================================================================

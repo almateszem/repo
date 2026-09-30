@@ -19,6 +19,11 @@ export const hooks = {
       Megjelenéskor frissíti a cél nevét és a hozzáadás-gombok állapotát. */
   refreshExercisePicker: null,
 
+  /** A gyakorlat-választó CÉLJÁNAK átállítása — a setupExercisePicker állítja
+      be. Az edzésnapló és a terv-építő paraméterben kapja a választót, de a
+      profiloldal ELŐBB áll fel nála (app/init.js), ezért az innen éri el. */
+  useExercisePicker: null,
+
   /** A Regeneráció oldal frissítője — a setupRecovery állítja be. Az oldal
       megnyitása és az edzés lezárása is hívja. */
   refreshRecovery: null,

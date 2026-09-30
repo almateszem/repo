@@ -144,6 +144,12 @@ const api = {
   },
   // Az edzés-cél mentése — a válasz a fiók frissített felületi alakja
   saveGoal: (goal) => putJson('/api/user', { goal }),
+  /* A nem SAJÁT kéréssel megy, nem a céllal együtt: a végpont törzse
+     részleges, és a két mező két külön legördülő — együtt küldve az egyik
+     mindig felülírná a másik épp mentett értékét. */
+  saveSex: (sex) => putJson('/api/user', { sex }),
+  // Ugyanezért külön: a születési év (null = törlés).
+  saveBirthYear: (birthYear) => putJson('/api/user', { birthYear }),
   // Nem cache-elt: a profiloldal összesítői minden edzés-mentés után változnak
   getMeasurementSites: () => getJsonCached('/api/measurements/sites'),
   getMeasurements: () => getJson('/api/measurements'),
@@ -183,6 +189,12 @@ const api = {
   getPrHistory: (exercise) => getJson(`/api/prs/history?exercise=${encodeURIComponent(exercise)}`),
   // Nem cache-elt: az exercise maxes-ek az edzés közben változhatnak
   getExerciseMaxes: () => getJson('/api/exercise-maxes'),
+  /* Ugyanaz soronként, dátummal és forrással — a profil rekord-csempéihez.
+     Szintén nem cache-elt: egy most lezárt edzés azonnal átírhatja. */
+  getExerciseRecords: () => getJson('/api/exercise-records'),
+  /* Cache-elt: a lista a szerver kurált táblája, egy munkameneten belül nem
+     változik — a napló súly-oszlopának feliratához kell. */
+  getBodyweightExercises: () => getJsonCached('/api/bodyweight-exercises'),
   /* Nem cache-elt: a lista a hívó VALÓDI eseményeiből áll össze (olvasatlan
      üzenet, meghívó, friss PR), tehát a panel minden megnyitásakor frisset
      kérünk — a munkamenetre eltett válasz órákig hazudna. */
