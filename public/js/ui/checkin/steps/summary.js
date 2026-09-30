@@ -16,8 +16,9 @@ function renderSummary(nav) {
   const { answers, carried } = ci;
   const named = (map) => Object.keys(map).map((key) => ciMuscleLabel(key));
 
-  const painParts = Object.entries(answers.pain)
-    .map(([key, value]) => `${ciMuscleLabel(key)} ${value}`);
+  const painParts = Object.entries(answers.pain).map(
+    ([key, value]) => `${ciMuscleLabel(key)} ${value}`,
+  );
   // Az általános fájdalmat a varázsló nem kérdezi, de ha a részletes űrlap
   // megadta, kiírjuk — különben néma ellentmondás lenne a „nincs
   // fájdalmam" válasszal.
@@ -29,24 +30,28 @@ function renderSummary(nav) {
     ['Energiaszint', `${answers.energy ?? '–'} / 5`],
     ['Stresszszint', `${answers.stress ?? '–'} / 5`],
     // A kihagyott testsúly nem hiányzó adat, hanem válasz: ma nem mértél.
-    ['Testsúly', answers.weightKg === null
-      ? 'Ma nem mértem'
-      : `${formatNumber(answers.weightKg)} kg`],
+    [
+      'Testsúly',
+      answers.weightKg === null ? 'Ma nem mértem' : `${formatNumber(answers.weightKg)} kg`,
+    ],
     ['Izomláz', named(answers.soreness).join(', ') || 'Nincs'],
     ['Fájdalom', painParts.join(', ') || 'Nincs'],
   ];
   // A varázslóból kimaradó, de eltárolt mezők — hogy látszódjon, mi megy
   // vissza változatlanul.
   if (carried.mood !== null) rows.push(['Közérzet', `${carried.mood} / 5`]);
-  if (carried.hydration !== null) rows.push(['Folyadék', `${formatNumber(carried.hydration)} liter`]);
+  if (carried.hydration !== null)
+    rows.push(['Folyadék', `${formatNumber(carried.hydration)} liter`]);
 
   const list = $('[data-ci-summary]', step);
-  list.replaceChildren(...rows.map(([label, value]) => {
-    const row = cloneTemplate('tpl-ci-summary-row');
-    $('.ci-summary-label', row).textContent = label;
-    $('.ci-summary-value', row).textContent = value;
-    return row;
-  }));
+  list.replaceChildren(
+    ...rows.map(([label, value]) => {
+      const row = cloneTemplate('tpl-ci-summary-row');
+      $('.ci-summary-label', row).textContent = label;
+      $('.ci-summary-value', row).textContent = value;
+      return row;
+    }),
+  );
 
   // A készenlét CSAK a szervertől jöhet. Amíg a friss válaszokat nem
   // mentettük, nincs mit kiírni — kitalált számot nem teszünk a lapra.

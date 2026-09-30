@@ -25,9 +25,10 @@ function setMeasurements(list) {
 }
 
 /** Egy mérési hely legutóbbi és legelső értéke — a delta ebből jön. */
-const measurementHistory = (site) => measurements
-  .filter((entry) => entry.site === site)
-  .sort((a, b) => dayKeyOf(b.date) - dayKeyOf(a.date));
+const measurementHistory = (site) =>
+  measurements
+    .filter((entry) => entry.site === site)
+    .sort((a, b) => dayKeyOf(b.date) - dayKeyOf(a.date));
 
 function renderMeasurements() {
   const fields = $('[data-body-fields]');
@@ -36,28 +37,30 @@ function renderMeasurements() {
   if (!fields || !list) return;
 
   // Mezők — a legutóbbi mérésből előtöltve.
-  fields.replaceChildren(...measurementSites.map((site) => {
-    const wrap = document.createElement('div');
-    wrap.className = 'rc-body-field';
+  fields.replaceChildren(
+    ...measurementSites.map((site) => {
+      const wrap = document.createElement('div');
+      wrap.className = 'rc-body-field';
 
-    const label = document.createElement('label');
-    label.setAttribute('for', `rc-body-${site.key}`);
-    label.textContent = `${site.label} (${site.unit})`;
+      const label = document.createElement('label');
+      label.setAttribute('for', `rc-body-${site.key}`);
+      label.textContent = `${site.label} (${site.unit})`;
 
-    const input = document.createElement('input');
-    input.id = `rc-body-${site.key}`;
-    input.type = 'number';
-    input.inputMode = 'decimal';
-    input.step = '0.1';
-    input.min = String(site.min);
-    input.max = String(site.max);
-    input.dataset.site = site.key;
-    const latest = measurementHistory(site.key)[0];
-    input.value = latest ? String(latest.value) : '';
+      const input = document.createElement('input');
+      input.id = `rc-body-${site.key}`;
+      input.type = 'number';
+      input.inputMode = 'decimal';
+      input.step = '0.1';
+      input.min = String(site.min);
+      input.max = String(site.max);
+      input.dataset.site = site.key;
+      const latest = measurementHistory(site.key)[0];
+      input.value = latest ? String(latest.value) : '';
 
-    wrap.append(label, input);
-    return wrap;
-  }));
+      wrap.append(label, input);
+      return wrap;
+    }),
+  );
 
   // Aktuális értékek + változás az első mérés óta.
   const rows = measurementSites
@@ -65,53 +68,54 @@ function renderMeasurements() {
     .filter(({ history }) => history.length > 0);
 
   empty.hidden = rows.length > 0;
-  list.replaceChildren(...rows.map(({ site, history }) => {
-    const latest = history[0];
-    const first = history[history.length - 1];
+  list.replaceChildren(
+    ...rows.map(({ site, history }) => {
+      const latest = history[0];
+      const first = history[history.length - 1];
 
-    const li = document.createElement('li');
-    li.className = 'rc-body-row';
+      const li = document.createElement('li');
+      li.className = 'rc-body-row';
 
-    const label = document.createElement('span');
-    label.className = 'rc-body-row-label';
-    label.textContent = `${site.label} · ${latest.date}`;
+      const label = document.createElement('span');
+      label.className = 'rc-body-row-label';
+      label.textContent = `${site.label} · ${latest.date}`;
 
-    const value = document.createElement('span');
-    value.className = 'rc-body-row-value';
-    value.textContent = `${formatNumber(latest.value)} ${site.unit}`;
+      const value = document.createElement('span');
+      value.className = 'rc-body-row-value';
+      value.textContent = `${formatNumber(latest.value)} ${site.unit}`;
 
-    const delta = document.createElement('span');
-    delta.className = 'rc-body-row-delta';
-    /* A változás CSAK akkor jelenik meg, ha van mihez mérni: egyetlen
+      const delta = document.createElement('span');
+      delta.className = 'rc-body-row-delta';
+      /* A változás CSAK akkor jelenik meg, ha van mihez mérni: egyetlen
        mérésből nem képezünk 0-t — az azt állítaná, hogy nem változott. */
-    const diff = history.length > 1 ? latest.value - first.value : null;
-    delta.textContent = diff === null
-      ? ''
-      : `${diff > 0 ? '+' : ''}${formatNumber(diff)} ${site.unit}`;
+      const diff = history.length > 1 ? latest.value - first.value : null;
+      delta.textContent =
+        diff === null ? '' : `${diff > 0 ? '+' : ''}${formatNumber(diff)} ${site.unit}`;
 
-    const del = document.createElement('button');
-    del.className = 'rc-body-del';
-    del.type = 'button';
-    del.textContent = '✕';
-    del.title = 'A legutóbbi mérés törlése';
-    del.setAttribute('aria-label', `${site.label} legutóbbi mérésének törlése`);
-    del.addEventListener('click', async () => {
-      del.disabled = true;
-      try {
-        await api.deleteMeasurement(latest.id);
-        measurements = measurements.filter((entry) => entry.id !== latest.id);
-        renderMeasurements();
-        showToast('Mérés törölve');
-      } catch (err) {
-        console.error(err);
-        del.disabled = false;
-        showToast(err.message || 'Nem sikerült törölni a mérést', 'error');
-      }
-    });
+      const del = document.createElement('button');
+      del.className = 'rc-body-del';
+      del.type = 'button';
+      del.textContent = '✕';
+      del.title = 'A legutóbbi mérés törlése';
+      del.setAttribute('aria-label', `${site.label} legutóbbi mérésének törlése`);
+      del.addEventListener('click', async () => {
+        del.disabled = true;
+        try {
+          await api.deleteMeasurement(latest.id);
+          measurements = measurements.filter((entry) => entry.id !== latest.id);
+          renderMeasurements();
+          showToast('Mérés törölve');
+        } catch (err) {
+          console.error(err);
+          del.disabled = false;
+          showToast(err.message || 'Nem sikerült törölni a mérést', 'error');
+        }
+      });
 
-    li.append(label, value, delta, del);
-    return li;
-  }));
+      li.append(label, value, delta, del);
+      return li;
+    }),
+  );
 }
 
 /** A mérések betöltése. A Regeneráció oldal megnyitása hívja — a helyek

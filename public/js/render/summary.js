@@ -55,12 +55,15 @@ function summarizeWorkout() {
     done,
     total: checks.length,
     minutes: done === 0 ? 0 : workoutMinutes(),
-    hasPr: $$('.wk-exercise-head .wk-pr', workoutPage)
-      .some((el) => el.getAttribute('aria-pressed') === 'true'),
+    hasPr: $$('.wk-exercise-head .wk-pr', workoutPage).some(
+      (el) => el.getAttribute('aria-pressed') === 'true',
+    ),
   };
 }
 
-const setLastSummary = (summary) => { lastSummary = summary; };
+const setLastSummary = (summary) => {
+  lastSummary = summary;
+};
 
 function renderSummary() {
   // Lezárás után a rögzített pillanatkép, egyébként az élő naplóállapot
@@ -82,4 +85,11 @@ function renderSummary() {
 
 /* ---- Regeneráció (Recovery Engine) ---- */
 
-export { WORKOUT_START_KEY, lastSummary, markWorkoutStarted, renderSummary, setLastSummary, summarizeWorkout };
+export {
+  WORKOUT_START_KEY,
+  lastSummary,
+  markWorkoutStarted,
+  renderSummary,
+  setLastSummary,
+  summarizeWorkout,
+};

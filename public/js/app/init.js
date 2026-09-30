@@ -9,20 +9,31 @@ import { showToast } from '../core/toast.js';
 import { setupNavRing } from '../nav/navring.js';
 import { navigate, setOnboardingLock, setupRouter } from '../nav/router.js';
 import {
-  refreshDailyStats, renderCharts, renderChromeDate, renderDashboard, renderUserName,
+  refreshDailyStats,
+  renderCharts,
+  renderChromeDate,
+  renderDashboard,
+  renderUserName,
 } from '../render/dashboard.js';
 import { renderFoods } from '../render/foods.js';
 import { renderPlans } from '../render/plans.js';
 import { renderPrs } from '../render/prs.js';
 import { renderWorkout } from '../render/workout.js';
 import { setupCheckinWizard } from '../ui/checkin/wizard.js';
-import { setupAthleteModal, setupCoachPage } from '../ui/coach.js';
+import { setupAthleteDetail, setupCoachPage } from '../ui/coach.js';
 import { setupConnectivity } from '../ui/connectivity.js';
 import { setupCustomFood } from '../ui/custom-food.js';
+import { enhanceSelects } from '../ui/custom-select.js';
 import { setupDashboard } from '../ui/dashboard.js';
+import { loadIntensityLevels } from '../render/sets.js';
 import { setupExercisePicker } from '../ui/exercise-picker.js';
 import { setupFoodDetail } from '../ui/food-detail.js';
-import { setupAdviceModal, setupConfirmDialog, setupPrModal, setupVideoModal } from '../ui/modals.js';
+import {
+  setupAdviceModal,
+  setupConfirmDialog,
+  setupPrModal,
+  setupVideoModal,
+} from '../ui/modals.js';
 import { setupNotifications } from '../ui/notifications.js';
 import { setupNutrition } from '../ui/nutrition.js';
 import { setupWaterMeter } from '../ui/water.js';
@@ -44,13 +55,19 @@ async function init() {
   // Egy init-lépés hibája (pl. egy végpont nem válaszol) ne vigye el a
   // többit: naplózzuk, a hibás szekció üresen marad, a többi működik.
   let hadError = false;
-  const safe = (task) => Promise.resolve()
-    .then(task)
-    .catch((err) => {
-      hadError = true;
-      console.error('Betöltési hiba:', err);
-      return null;
-    });
+  const safe = (task) =>
+    Promise.resolve()
+      .then(task)
+      .catch((err) => {
+        hadError = true;
+        console.error('Betöltési hiba:', err);
+        return null;
+      });
+
+  // A natív <select>-ek saját lenyílót kapnak (a natív opciólista a sötét
+  // témában olvashatatlan). A select a helyén marad, így a setupok változatlanul
+  // az id-jével érik el, és a gomb a későbbi opció-cseréket is követi.
+  enhanceSelects();
 
   // Kezdeti tartalom betöltése — a renderelők az api-n keresztül kérnek
   // adatot a backendtől. Párhuzamosan, mert függetlenek.
@@ -63,6 +80,10 @@ async function init() {
     safe(renderPrs),
     safe(renderFoods),
     safe(renderPlans),
+    /* Az intenzitás-fokozatok felirata a szervertől. A gyakorlat-kártyák
+       rajzolása szinkron, ezért a listának a setup-ok ELŐTT kell megérkeznie —
+       innentől minden időalapú sor készen találja. */
+    safe(loadIntensityLevels),
   ]);
 
   // Megerősítő ablak — szinkron felépítésű, mert több setup is erre épül
@@ -73,34 +94,40 @@ async function init() {
 
   /* Az Edző oldal a router ELŐTT épül fel, hogy az induló oldal effektjei
      (pl. a kártya-pontszámok animációja) már a jó nézetet lássák. A
-     részletmodál előbb kell nála: a kártyák azt nyitják, a modálból indított
-     kapcsolat-bontás pedig visszafelé frissíti az oldalt. */
+     sportoló-részletnézet előbb kell nála: a sorok azt nyitják, a belőle
+     indított kapcsolat-bontás pedig visszafelé frissíti az oldalt. */
   let coachPage = null;
-  const athleteModal = await safe(() => setupAthleteModal({
-    confirmAction,
-    onUnlink: () => coachPage?.refresh(),
-    // A modálban elolvasott üzenetek után a kártya és a nézetváltó jelvénye
-    // is elavult — a panel újratöltése hozza helyre.
-    onRead: () => coachPage?.refresh(),
-    // Kiosztás után szintén: az értesítés-panel és a kártyák is változhatnak
-    onAssign: () => coachPage?.refresh(),
-  }));
-  coachPage = await safe(() => setupCoachPage(athleteModal, confirmAction));
+  const athleteDetail = await safe(() =>
+    setupAthleteDetail({
+      confirmAction,
+      onUnlink: () => coachPage?.refresh(),
+      // Az elolvasott üzenetek után a sor és a nézetváltó jelvénye is
+      // elavult — a panel újratöltése hozza helyre.
+      onRead: () => coachPage?.refresh(),
+      // Kiosztás után szintén: az értesítés-panel és a sorok is változhatnak
+      onAssign: () => coachPage?.refresh(),
+    }),
+  );
+  coachPage = await safe(() => setupCoachPage(athleteDetail, confirmAction));
   /* Az oldalra lépéskor futó frissítés hibáját itt nyeljük el: a korábbi
      tartalom marad a képernyőn, és a következő megnyitás újrapróbálja —
      egy pillanatnyi hálózati hiba miatt nem üresedhet ki az oldal. */
-  hooks.refreshCoachPage = () => coachPage?.refresh({ animate: true })
-    .catch((err) => console.error('Edző oldal frissítési hiba:', err));
+  hooks.refreshCoachPage = () =>
+    coachPage
+      ?.refresh({ animate: true })
+      .catch((err) => console.error('Edző oldal frissítési hiba:', err));
 
   setupRouter();
 
   const videoModal = setupVideoModal();
   const prModal = setupPrModal();
   const notifPanel = await safe(setupNotifications);
-  const settingsModal = await safe(() => setupSettingsModal({
-    onNotifCatsChange: () => notifPanel?.updateBadge(),
-    confirmAction,
-  }));
+  const settingsModal = await safe(() =>
+    setupSettingsModal({
+      onNotifCatsChange: () => notifPanel?.updateBadge(),
+      confirmAction,
+    }),
+  );
   setupDashboard(settingsModal);
   // A setupDashboard UTÁN: a profiloldal „Beállítások" gombját is az köti be
   // (minden [data-action="settings"] elemre), a tartalmat pedig a
@@ -143,12 +170,14 @@ async function init() {
      Ha a setupNutrition elbukott (safe → null), a gombok nem szállnak el —
      az opcionális láncolás miatt csendben nem csinálnak semmit. */
   const scanner = setupScanner();
-  await safe(() => setupCustomFood({
-    scanner,
-    confirmAction,
-    onSaved: () => nutrition?.refreshFoods(),
-    onLog: (food) => nutrition?.openFoodDetail(food),
-  }));
+  await safe(() =>
+    setupCustomFood({
+      scanner,
+      confirmAction,
+      onSaved: () => nutrition?.refreshFoods(),
+      onLog: (food) => nutrition?.openFoodDetail(food),
+    }),
+  );
 
   const planBuilder = await safe(() => setupPlanBuilder(picker));
   setupPlans(planBuilder, workout, confirmAction);
@@ -186,7 +215,7 @@ function setupAuthGate() {
   const switchTextEl = $('[data-au-switch-text]');
   const passwordInput = $('#au-password');
 
-  let mode = 'login';   // 'login' | 'register'
+  let mode = 'login'; // 'login' | 'register'
   let onSuccess = null; // a sikeres belépés után futtatandó lépés
 
   const MODES = {
@@ -221,7 +250,9 @@ function setupAuthGate() {
     switchTextEl.textContent = config.switchText;
     switchBtn.textContent = config.switchLabel;
     passwordInput.autocomplete = config.autocomplete;
-    $$('[data-au-only="register"]').forEach((el) => { el.hidden = mode !== 'register'; });
+    $$('[data-au-only="register"]').forEach((el) => {
+      el.hidden = mode !== 'register';
+    });
     showError('');
   };
 
@@ -242,9 +273,10 @@ function setupAuthGate() {
       /* A válasz `onboarding` mezője dönti el, kell-e első check-in. A
          belépés is hozza — így az a fiók is a varázslóra kerül, amelyik
          regisztrált, de a check-int félbehagyta és később lépett vissza. */
-      const account = mode === 'register'
-        ? await api.register(username, displayName, password)
-        : await api.login(username, password);
+      const account =
+        mode === 'register'
+          ? await api.register(username, displayName, password)
+          : await api.login(username, password);
       setOnboardingLock(Boolean(account?.onboarding));
 
       form.reset();

@@ -93,7 +93,9 @@ async function setupSettingsModal({ onNotifCatsChange, confirmAction } = {}) {
       link.download = 'fittrack-pro-demo.json';
       link.click();
       setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-    } catch { /* ha a letöltés nem elérhető, a toast akkor is jelez */ }
+    } catch {
+      /* ha a letöltés nem elérhető, a toast akkor is jelez */
+    }
     showToast('Adatok exportálva · demo');
   });
 
@@ -130,8 +132,14 @@ async function setupSettingsModal({ onNotifCatsChange, confirmAction } = {}) {
      írjuk ki az űrlap alá — nem toastban, mert ott a mező mellett kell
      látszania, amihez tartozik. */
   const accountForms = {
-    password: { form: $('[data-form="change-password"]', modal), error: $('[data-password-error]', modal) },
-    delete: { form: $('[data-form="delete-account"]', modal), error: $('[data-delete-error]', modal) },
+    password: {
+      form: $('[data-form="change-password"]', modal),
+      error: $('[data-password-error]', modal),
+    },
+    delete: {
+      form: $('[data-form="delete-account"]', modal),
+      error: $('[data-delete-error]', modal),
+    },
   };
 
   /** Egy fiók-űrlap nyitása/zárása. Nyitáskor a másik bezárul: a kettő
@@ -177,7 +185,10 @@ async function setupSettingsModal({ onNotifCatsChange, confirmAction } = {}) {
       closeAccountForms();
       showToast('Jelszó megváltoztatva');
     } catch (err) {
-      showFormError(accountForms.password.error, err.message || 'A jelszót nem sikerült megváltoztatni');
+      showFormError(
+        accountForms.password.error,
+        err.message || 'A jelszót nem sikerült megváltoztatni',
+      );
     }
   });
 
