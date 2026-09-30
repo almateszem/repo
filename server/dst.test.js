@@ -16,6 +16,7 @@ import assert from 'node:assert/strict';
 process.env.TZ = 'Europe/Budapest';
 const { dayKey, daysBetween, shiftDayKey } = await import('./recovery.js');
 const { adherence, streakFromDates, weekProgress, relativeDay } = await import('./coaching.js');
+const { weekFromLegacy } = await import('./plan-week.js');
 
 const pad = (n) => String(n).padStart(2, '0');
 /** Az `end` napig visszafelé `count` egymást követő nap, "ÉÉÉÉ.HH.NN" alakban. */
@@ -55,16 +56,25 @@ test('az edzés-sorozat nem szakad meg az óraátállításnál', () => {
 });
 
 test('a terv-követés az átállításon túli napokat is látja', () => {
-  const plans = [{ days: [0, 1, 2, 3, 4, 5, 6] }];
+  // Kiosztott terv gyakorlat nélkül: itt csak a NAP egyezése a kérdés
+  const plans = [{ id: 1, week: weekFromLegacy([], [0, 1, 2, 3, 4, 5, 6]) }];
+  const fromPlan = (date) => ({ date, planId: 1, exercises: [] });
   for (const today of ['2026.11.05', '2026.04.10']) {
-    const workouts = daysUntil(today, 40).map((date) => ({ date, exercises: [] }));
+    const workouts = daysUntil(today, 40).map(fromPlan);
     assert.equal(adherence({ workouts, plans, today }), 100, today);
   }
   // Csak hétfőre ütemezett terv: a hétfők száma az ablakban helyesen jön ki
   const mondays = daysUntil('2026.11.05', 40)
     .filter((date) => new Date(dayKey(date)).getDay() === 1)
-    .map((date) => ({ date, exercises: [] }));
-  assert.equal(adherence({ workouts: mondays, plans: [{ days: [0] }], today: '2026.11.05' }), 100);
+    .map(fromPlan);
+  assert.equal(
+    adherence({
+      workouts: mondays,
+      plans: [{ id: 1, week: weekFromLegacy([], [0]) }],
+      today: '2026.11.05',
+    }),
+    100,
+  );
 });
 
 test('a heti állás és a relatív nap az átállítás hetében is pontos', () => {

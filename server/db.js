@@ -26,6 +26,7 @@ import { data as seed } from './data.js';
 import { buildExerciseCatalog, buildFoodCatalog } from './data/catalog.js';
 import { estimate1RM } from './recovery.js';
 import { splitLegacyMuscleMap } from './muscles.js';
+import { dayEntry, dayWorkoutName, weekFromLegacy, workoutDays } from './plan-week.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Alapból server/fittrack.db; a FITTRACK_DB env-változóval felülírható (pl. teszthez).
@@ -215,6 +216,45 @@ db.exec(`
     PRIMARY KEY (user_id, source)
   );
 
+  -- Az edző által összeállított étrend: étkezések („Reggeli"), bennük ételek
+  -- grammal. A user_id a SPORTOLÓ, a set_by az edző.
+  --
+  -- A tételek a 100 g-os makrókat MÁSOLATBAN tárolják (mint a nutrition_log
+  -- base_* oszlopai): az edző saját ételei a sportoló fiókjából nem
+  -- láthatók, és egy később törölt étel sem ronthatja el az étrendet.
+  CREATE TABLE IF NOT EXISTS coach_meals (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    set_by     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    name       TEXT NOT NULL,
+    position   INTEGER NOT NULL DEFAULT 0,
+    -- JSON: [{ name, grams, base_kcal, base_protein, base_carbs, base_fat }]
+    items      TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_coach_meals_user
+    ON coach_meals(user_id, position, id);
+  -- Melyik étkezést melyik NAPON ette meg a sportoló. Naponta egyszer
+  -- naplózható (PRIMARY KEY): a „Megettem" után az étkezés aznapra eltűnik
+  -- a listájából, másnap újra ott van — az étrend napi terv.
+  CREATE TABLE IF NOT EXISTS coach_meal_logs (
+    meal_id   INTEGER NOT NULL REFERENCES coach_meals(id) ON DELETE CASCADE,
+    date      TEXT NOT NULL,        -- "ÉÉÉÉ.HH.NN"
+    logged_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (meal_id, date)
+  );
+
+  -- Az edző által kitűzött napi víz-cél (ml). Nélküle a cél a testsúlyból
+  -- számolódik (~33 ml/kg, recovery.js → hydrationTarget). Ugyanaz a szabály,
+  -- mint a nutrition_goals edzői soránál: csak a MOSTANI edzőé számít, és
+  -- a sportoló nem módosíthatja.
+  CREATE TABLE IF NOT EXISTS water_goals (
+    user_id    INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    ml         INTEGER NOT NULL,
+    set_by     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS barcode_cache (
     barcode    TEXT PRIMARY KEY,               -- normalizált (EAN-13-ra egészített) kód
     found      INTEGER NOT NULL,               -- 1 = van termék, 0 = az OFF nem ismeri
@@ -352,6 +392,18 @@ function ensureColumn(table, column, ddl) {
   if (!hasColumn(table, column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
 }
 ensureColumn('plans', 'days', "days TEXT NOT NULL DEFAULT '[]'");
+/* Melyik edzői kiosztás elfogadásából született a terv (NULL = saját terv).
+   A terv-követés ebből tudja, hogy a terv az edzőé, és hogy az edző EREDETI
+   példányához mérjen — a sportoló által később átírt tervhez nem. A meglévő
+   tervek visszakötése lentebb, a user_id-migráció UTÁN fut. */
+const plansHadAssignment = hasColumn('plans', 'assignment_id');
+ensureColumn('plans', 'assignment_id', 'assignment_id INTEGER');
+/* A heti bontás (plan-week.js): a terv és a kiosztás hete JSON-ban, és
+   felhasználónként egy AKTÍV terv. A kitöltés lentebb, a migrációk végén. */
+const plansHadActive = hasColumn('plans', 'active');
+ensureColumn('plans', 'week', 'week TEXT');
+ensureColumn('plans', 'active', 'active INTEGER NOT NULL DEFAULT 0');
+ensureColumn('plan_assignments', 'week', 'week TEXT');
 ensureColumn('workout_draft', 'date', "date TEXT NOT NULL DEFAULT ''");
 ensureColumn('workouts', 'plan_id', 'plan_id INTEGER');
 ensureColumn('workout_draft', 'plan_id', 'plan_id INTEGER');
@@ -694,6 +746,63 @@ if (schemaVersion < 2) {
   }
 }
 
+/* A plans.assignment_id bevezetésekor (ld. fent) a már elfogadott tervek
+   közül azt kötjük vissza, ami név, napok és gyakorlat-lista szerint PONTOSAN
+   egyezik a kiosztással — az elfogadás így másolta át. Az azóta átírt tervet
+   nem találgatjuk: az a sportolóé, nem az edző mércéje. */
+if (!plansHadAssignment) {
+  const accepted = db
+    .prepare(
+      `
+    SELECT a.id, l.athlete_id, a.name, a.days, a.exercises
+    FROM plan_assignments a JOIN coach_links l ON l.id = a.link_id
+    WHERE a.status = 'accepted' ORDER BY a.id
+  `,
+    )
+    .all();
+  const findPlan = db.prepare(`
+    SELECT id FROM plans
+    WHERE user_id = ? AND assignment_id IS NULL AND name = ? AND days = ? AND exercises = ?
+    ORDER BY id LIMIT 1
+  `);
+  const link = db.prepare('UPDATE plans SET assignment_id = ? WHERE id = ?');
+  for (const offer of accepted) {
+    const plan = findPlan.get(offer.athlete_id, offer.name, offer.days, offer.exercises);
+    if (plan) link.run(offer.id, plan.id);
+  }
+}
+
+/* A heti bontás bevezetése (plan-week.js): a régi, egy gyakorlatlista +
+   kijelölt napok alakú tervek és kiosztások hetet kapnak — az első kijelölt
+   nap az edzés, a többi kijelölt nap „ugyanaz, mint az első", a többi
+   pihenő. A régi oszlopok maradnak (a fenti visszakötés pontos egyezéssel
+   olvassa őket). A `week IS NULL` feltétel miatt idempotens. */
+for (const table of ['plans', 'plan_assignments']) {
+  const legacy = db.prepare(`SELECT id, exercises, days FROM ${table} WHERE week IS NULL`).all();
+  const fill = db.prepare(`UPDATE ${table} SET week = ? WHERE id = ?`);
+  for (const row of legacy) {
+    const exercises = JSON.parse(row.exercises);
+    const week = weekFromLegacy(Array.isArray(exercises) ? exercises : [], JSON.parse(row.days));
+    fill.run(JSON.stringify(week), row.id);
+  }
+}
+
+/* Az aktív terv bevezetésekor felhasználónként egy terv lesz aktív: a
+   legújabb, amelyiknek volt kijelölt napja (eddig ez töltődött be az Edzés
+   oldalra), ennek híján a legújabb. */
+if (!plansHadActive) {
+  const owners = db.prepare('SELECT DISTINCT user_id AS id FROM plans').all();
+  const pick = db.prepare(`
+    SELECT id FROM plans WHERE user_id = ?
+    ORDER BY (days != '[]') DESC, id DESC LIMIT 1
+  `);
+  const activate = db.prepare('UPDATE plans SET active = 1 WHERE id = ?');
+  for (const owner of owners) {
+    const plan = pick.get(owner.id);
+    if (plan) activate.run(plan.id);
+  }
+}
+
 /* ---- Indexek ----
    A táblák átépítése (workout_draft, checkins) eldobja a rajtuk lévő
    indexeket, ezért az index-létrehozás a migrációk UTÁN áll.
@@ -1032,14 +1141,16 @@ export function getActiveCoach(athleteId) {
   const row = db
     .prepare(
       `
-    SELECT l.id AS link_id, u.username, u.display_name, u.goal
+    SELECT l.id AS link_id, l.responded_at, u.username, u.display_name, u.goal
     FROM coach_links l JOIN users u ON u.id = l.coach_id
     WHERE l.athlete_id = ? AND l.status = 'active'
     ORDER BY l.id LIMIT 1
   `,
     )
     .get(athleteId);
-  return row ? { linkId: row.link_id, ...toPublicUser(row) } : null;
+  // A `since` az elfogadás pillanata: a sportolói panel „X napja dolgoztok
+  // együtt" sora ebből számol.
+  return row ? { linkId: row.link_id, since: toIso(row.responded_at), ...toPublicUser(row) } : null;
 }
 
 /** A sportolóhoz érkezett, még el nem fogadott meghívók (legújabb elöl). */
@@ -1243,18 +1354,24 @@ export function getUnreadCounts(userId) {
 
 /* ---- Terv-kiosztás ---- */
 
-/** Egy kiosztás-sor → a felület által látott alak. */
-const toAssignment = (row) => ({
-  id: row.id,
-  linkId: row.link_id,
-  name: row.name,
-  exercises: JSON.parse(row.exercises),
-  days: JSON.parse(row.days),
-  note: row.note,
-  status: row.status,
-  at: toIso(row.created_at),
-  respondedAt: toIso(row.responded_at),
-});
+/** Egy kiosztás-sor → a felület által látott alak. A hét a terv-építőé
+    (plan-week.js); a `days` belőle számolt. */
+const toAssignment = (row) => {
+  const week = row.week
+    ? JSON.parse(row.week)
+    : weekFromLegacy(JSON.parse(row.exercises), JSON.parse(row.days));
+  return {
+    id: row.id,
+    linkId: row.link_id,
+    name: row.name,
+    week,
+    days: workoutDays(week),
+    note: row.note,
+    status: row.status,
+    at: toIso(row.created_at),
+    respondedAt: toIso(row.responded_at),
+  };
+};
 
 /* A kiosztás mezői. Kétszer kell: egyszer önmagában, egyszer `a.` előtaggal a
    kapcsolat- és felhasználó-JOIN-os lekérdezésekhez (ott a display_name miatt
@@ -1263,6 +1380,7 @@ const ASSIGNMENT_FIELDS = [
   'id',
   'link_id',
   'name',
+  'week',
   'exercises',
   'days',
   'note',
@@ -1275,15 +1393,15 @@ const ASSIGNMENT_COLUMNS_A = ASSIGNMENT_FIELDS.map((field) => `a.${field}`).join
 
 /** Terv felajánlása a kapcsolat sportolójának. A hívó (server.js) ellenőrzi,
     hogy a kapcsolat él-e, és hogy tényleg az EDZŐ oldala kéri. */
-export function assignPlan(linkId, { name, exercises, days, note = null }) {
+export function assignPlan(linkId, { name, week, note = null }) {
   const { lastInsertRowid } = db
     .prepare(
       `
-    INSERT INTO plan_assignments (link_id, name, exercises, days, note)
-    VALUES (?, ?, ?, ?, ?)
+    INSERT INTO plan_assignments (link_id, name, week, exercises, days, note)
+    VALUES (?, ?, ?, '[]', ?, ?)
   `,
     )
-    .run(linkId, name, JSON.stringify(exercises), JSON.stringify(days), note);
+    .run(linkId, name, JSON.stringify(week), JSON.stringify(workoutDays(week)), note);
   return getPlanAssignment(Number(lastInsertRowid));
 }
 
@@ -1340,6 +1458,23 @@ export function getAnsweredPlanOffers(coachId, limit = 10) {
       ...toAssignment(row),
       athlete: { username: row.username, name: row.display_name },
     }));
+}
+
+/**
+ * Egy kapcsolat MEGVÁLASZOLT terv-ajánlatai a sportoló szemszögéből — a
+ * sportolói panel Terv fülének előzménye. A legutóbb megválaszolt elöl.
+ */
+export function getAthletePlanHistory(linkId, limit = 10) {
+  return db
+    .prepare(
+      `
+    SELECT ${ASSIGNMENT_COLUMNS} FROM plan_assignments
+    WHERE link_id = ? AND status != 'pending'
+    ORDER BY responded_at DESC, id DESC LIMIT ?
+  `,
+    )
+    .all(linkId, limit)
+    .map(toAssignment);
 }
 
 /** A kiosztás lezárása ('accepted' vagy 'declined'). Csak FÜGGŐ sort mozdít
@@ -1587,8 +1722,11 @@ export function deleteMeasurement(userId, id) {
 }
 
 /* ---- Napi táplálkozási cél ----
-   Az érvényes cél: 'own' → 'coach' → seed alapérték. A két sor egymás mellett
-   marad, hogy az eltérés LÁTSZÓDJON. */
+   Az érvényes cél: 'coach' → 'own' → seed alapérték. Az edzői cél ZÁROL: amíg
+   él, a sportoló nem írhatja felül (a PUT /api/nutrition/goal 403-at ad).
+   Edzői cél csak az AKTUÁLIS, élő kapcsolatban álló edzőtől számít — a
+   leválás vagy edzőváltás után a régi edző sora nem zárhatja a fiókot, és
+   a sportoló saját célja újra érvénybe lép. */
 
 /** Egy cél-sor a felület alakjában (a szerző nevével együtt). */
 const toGoalRow = (row) =>
@@ -1602,7 +1740,7 @@ const toGoalRow = (row) =>
     : null;
 
 const GOAL_SELECT = `
-  SELECT g.calories, g.protein, g.updated_at, u.display_name AS set_by_name
+  SELECT g.calories, g.protein, g.updated_at, g.set_by, u.display_name AS set_by_name
   FROM nutrition_goals g LEFT JOIN users u ON u.id = g.set_by`;
 
 /* Az edzői sor CSAK élő kapcsolat mellett érvényes: a beállító edzőnek most
@@ -1620,20 +1758,33 @@ const LIVE_COACH_GOAL = `
 /* Modulon belüli segéd — kifelé a getNutritionGoal ad teljes képet. */
 function getNutritionGoalRow(userId, source) {
   const live = source === 'coach' ? LIVE_COACH_GOAL : '';
-  return toGoalRow(
-    db.prepare(`${GOAL_SELECT} WHERE g.user_id = ? AND g.source = ?${live}`).get(userId, source),
-  );
+  return db
+    .prepare(`${GOAL_SELECT} WHERE g.user_id = ? AND g.source = ?${live}`)
+    .get(userId, source);
 }
 
-/** A felhasználóra ÉRVÉNYES cél, a származásával együtt. A felület ebből
-    tudja kiírni, honnan jön a szám, és hogy eltért-e az edzőitől. */
+/** A felhasználóra ÉRVÉNYES cél, a származásával együtt. A `locked` azt
+    mondja meg, hogy a szám az edzőé-e — ilyenkor a sportoló nem módosíthatja. */
 export function getNutritionGoal(userId) {
-  const own = getNutritionGoalRow(userId, 'own');
-  const coach = getNutritionGoalRow(userId, 'coach');
+  const link = db
+    .prepare("SELECT coach_id FROM coach_links WHERE athlete_id = ? AND status = 'active'")
+    .get(userId);
+  const coachRow = getNutritionGoalRow(userId, 'coach');
+  // Csak a MOSTANI edző célja számít — a korábbié nem zárhatja a fiókot
+  const coach = link && coachRow?.set_by === link.coach_id ? toGoalRow(coachRow) : null;
+  const own = toGoalRow(getNutritionGoalRow(userId, 'own'));
   const fallback = getCollection('nutritionGoal') || { calories: 0, protein: 0 };
 
-  const active = own ?? coach ?? { ...fallback, setBy: null, setAt: null };
-  const source = own ? 'own' : coach ? 'coach' : 'default';
+  const active = coach ?? own ?? { ...fallback, setBy: null, setAt: null };
+  const source = coach ? 'coach' : own ? 'own' : 'default';
+
+  /* A víz-cél külön sor, de ugyanaz a kapu: csak a mostani edzőé él. Ha
+     nincs, null — a hívó a testsúlyos képletre esik vissza. */
+  const water = link
+    ? db
+        .prepare('SELECT ml FROM water_goals WHERE user_id = ? AND set_by = ?')
+        .get(userId, link.coach_id)
+    : null;
 
   return {
     calories: active.calories,
@@ -1641,14 +1792,26 @@ export function getNutritionGoal(userId) {
     source,
     setBy: active.setBy,
     setAt: active.setAt,
-    coach,
-    /* Eltérés CSAK akkor, ha mindkettő létezik és tényleg más. Enélkül a
-       felület akkor is „eltértél"-t írna, ha a saját célod történetesen
-       megegyezik az edzőével. */
-    differs: Boolean(
-      own && coach && (own.calories !== coach.calories || own.protein !== coach.protein),
-    ),
+    locked: source === 'coach',
+    waterMl: water?.ml ?? null,
   };
+}
+
+/** Az edzői víz-cél mentése (ml). */
+export function saveWaterGoal(userId, ml, setBy) {
+  db.prepare(
+    `INSERT INTO water_goals (user_id, ml, set_by, updated_at)
+     VALUES (?, ?, ?, datetime('now'))
+     ON CONFLICT(user_id) DO UPDATE SET
+       ml = excluded.ml, set_by = excluded.set_by, updated_at = excluded.updated_at`,
+  ).run(userId, ml, setBy);
+  return getNutritionGoal(userId);
+}
+
+/** Az edzői víz-cél elvetése — a cél visszaáll a testsúlyos képletre. */
+export function clearWaterGoal(userId) {
+  db.prepare('DELETE FROM water_goals WHERE user_id = ?').run(userId);
+  return getNutritionGoal(userId);
 }
 
 /** Cél mentése/felülírása egy forrásra. A `setBy` az, AKI beállította — az
@@ -1666,11 +1829,168 @@ export function saveNutritionGoal(userId, source, { calories, protein }, setBy) 
   return getNutritionGoal(userId);
 }
 
-/** A SAJÁT cél törlése — ezzel a felhasználó visszaáll az edzői célra (vagy
-    az alapértékre). Az edzői sort ez nem bántja. */
+/** A SAJÁT cél törlése — ezzel a felhasználó visszaáll az alapértékre (ha
+    közben edzői cél él, az marad érvényben). Az edzői sort ez nem bántja. */
 export function clearOwnNutritionGoal(userId) {
   db.prepare("DELETE FROM nutrition_goals WHERE user_id = ? AND source = 'own'").run(userId);
   return getNutritionGoal(userId);
+}
+
+/* ---- Edzői étrend: étkezések ----
+   Az edző állítja össze, a sportoló látja és egy gombbal naplózza. A napi
+   céltól FÜGGETLEN: az étrend összege csak viszonyítás, a cél külön szám. */
+
+/** Egy tétel makrói az adagra — ugyanaz a kerekítés, mint az
+    addNutritionEntry-ben (kcal egész, makrók egy tizedes), hogy a naplózott
+    bejegyzés pontosan azt adja, amit az étrend ígért. */
+function scaleMealItem(item) {
+  const factor = item.grams / 100;
+  const round1 = (value) => Math.round(value * factor * 10) / 10;
+  return {
+    name: item.name,
+    grams: item.grams,
+    kcal: Math.round(item.base_kcal * factor),
+    protein: round1(item.base_protein),
+    carbs: round1(item.base_carbs),
+    fat: round1(item.base_fat),
+  };
+}
+
+/** Egy coach_meals sor → a felület alakja, tételenként és összesítve. Az
+    `eatenToday` a lekérdezés napjára szól (a sor `eaten` oszlopa). */
+function toMeal(row) {
+  const items = JSON.parse(row.items).map(scaleMealItem);
+  const sum = (key) => Math.round(items.reduce((acc, item) => acc + item[key], 0) * 10) / 10;
+  return {
+    id: row.id,
+    name: row.name,
+    items,
+    kcal: sum('kcal'),
+    protein: sum('protein'),
+    carbs: sum('carbs'),
+    fat: sum('fat'),
+    setBy: row.set_by_name ?? null,
+    updatedAt: row.updated_at,
+    eatenToday: Boolean(row.eaten),
+  };
+}
+
+/** A sportoló étrendje, az edző által megadott sorrendben, azzal együtt,
+    hogy a megadott NAPON melyik étkezést ette már meg. */
+export function getCoachMeals(userId, date) {
+  return db
+    .prepare(
+      `SELECT m.id, m.name, m.items, m.updated_at, u.display_name AS set_by_name,
+              (l.meal_id IS NOT NULL) AS eaten
+       FROM coach_meals m
+       LEFT JOIN users u ON u.id = m.set_by
+       LEFT JOIN coach_meal_logs l ON l.meal_id = m.id AND l.date = ?
+       WHERE m.user_id = ?
+       ORDER BY m.position, m.id`,
+    )
+    .all(date, userId)
+    .map(toMeal);
+}
+
+/** Hány étkezés van már — a felső korlát ellenőrzéséhez. */
+export function countCoachMeals(userId) {
+  return db.prepare('SELECT COUNT(*) AS n FROM coach_meals WHERE user_id = ?').get(userId).n;
+}
+
+/** A tételek tárolt alakja: a név, az adag és a 100 g-os makrók másolata. */
+const storedMealItems = (items) =>
+  JSON.stringify(
+    items.map(({ food, grams }) => ({
+      name: food.name,
+      grams,
+      base_kcal: food.kcal,
+      base_protein: food.protein,
+      base_carbs: food.carbs,
+      base_fat: food.fat,
+    })),
+  );
+
+/** Új étkezés a sportoló étrendjének végére. Az `items` már feloldott
+    ételeket tartalmaz: [{ food, grams }]. A friss étrendet adja vissza (a
+    `date` napjára szóló „megette" jelzéssel). */
+export function createCoachMeal(userId, setBy, { name, items }, date) {
+  const { next } = db
+    .prepare('SELECT COALESCE(MAX(position), -1) + 1 AS next FROM coach_meals WHERE user_id = ?')
+    .get(userId);
+  db.prepare(
+    `INSERT INTO coach_meals (user_id, set_by, name, position, items)
+     VALUES (?, ?, ?, ?, ?)`,
+  ).run(userId, setBy, name, next, storedMealItems(items));
+  return getCoachMeals(userId, date);
+}
+
+/** Étkezés felülírása. Idegen vagy ismeretlen id-re null (→ 404). */
+export function updateCoachMeal(userId, mealId, setBy, { name, items }, date) {
+  const { changes } = db
+    .prepare(
+      `UPDATE coach_meals SET name = ?, items = ?, set_by = ?, updated_at = datetime('now')
+       WHERE id = ? AND user_id = ?`,
+    )
+    .run(name, storedMealItems(items), setBy, mealId, userId);
+  return changes > 0 ? getCoachMeals(userId, date) : null;
+}
+
+/** Étkezés törlése. Idegen vagy ismeretlen id-re null (→ 404). */
+export function deleteCoachMeal(userId, mealId, date) {
+  const { changes } = db
+    .prepare('DELETE FROM coach_meals WHERE id = ? AND user_id = ?')
+    .run(mealId, userId);
+  return changes > 0 ? getCoachMeals(userId, date) : null;
+}
+
+/** Egy étkezés MINDEN tételének naplózása a megadott napra, egy
+    tranzakcióban — félúton megszakadva fél étkezés kerülne a naplóba.
+    A makrók a tárolt másolatból jönnek, nem a katalógusból.
+    Naponta EGYSZER: a második próbálkozás { alreadyEaten: true }-t ad, és
+    semmit nem ír. Idegen vagy ismeretlen étkezésre null. */
+export function logCoachMeal(userId, mealId, date) {
+  const row = db
+    .prepare('SELECT items FROM coach_meals WHERE id = ? AND user_id = ?')
+    .get(mealId, userId);
+  if (!row) return null;
+
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    /* A jelölés MEGELŐZI a naplózást, ugyanabban a tranzakcióban: a
+       PRIMARY KEY dönti el, ki volt az első — két gyors koppintás sem
+       írhat kétszer a naplóba. */
+    const { changes } = db
+      .prepare('INSERT OR IGNORE INTO coach_meal_logs (meal_id, date) VALUES (?, ?)')
+      .run(mealId, date);
+    if (changes === 0) {
+      db.exec('ROLLBACK');
+      return { alreadyEaten: true };
+    }
+    const entries = JSON.parse(row.items).map(
+      (item) =>
+        addNutritionEntry(
+          userId,
+          {
+            name: item.name,
+            kcal: item.base_kcal,
+            protein: item.base_protein,
+            carbs: item.base_carbs,
+            fat: item.base_fat,
+          },
+          date,
+          item.grams,
+        ).entry,
+    );
+    db.exec('COMMIT');
+    return {
+      entries,
+      totals: getNutritionTotals(userId, date),
+      meals: getCoachMeals(userId, date),
+    };
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
 }
 
 /** A napi táplálkozási összesítő egy adott napra: az AZNAP naplózott ételek
@@ -2274,52 +2594,95 @@ export function recomputeExerciseMaxes(userId) {
   for (const row of rewrites) rewrite.run(JSON.stringify(row.exercises), row.id);
 }
 
-/** A tervek ÜTEMEZÉSE, legújabb elöl — gyakorlat-lista nélkül.
-    Az edzői kártyának pontosan ennyi kell (a terv-követés a hétnapokból
-    számol, a kártyán a terv NEVE látszik), a gyakorlatok JSON-ja viszont a
-    terv legnagyobb része. Sportolónként, minden panel-frissítésnél. */
+/* ---- Tervek (heti bontás: plan-week.js) ---- */
+
+const PLAN_COLUMNS = 'id, name, date, week, exercises, days, active, assignment_id';
+
+/** Egy terv-sor → a hívók által látott alak. A `days` SZÁMOLT érték (a nem
+    pihenő napok); a régi `exercises`/`days` oszlop csak a migráció forrása. */
+const toPlan = (row) => {
+  const week = row.week
+    ? JSON.parse(row.week)
+    : weekFromLegacy(JSON.parse(row.exercises), JSON.parse(row.days));
+  return {
+    id: row.id,
+    name: row.name,
+    date: row.date,
+    week,
+    days: workoutDays(week),
+    active: row.active === 1,
+    assignmentId: row.assignment_id ?? null,
+  };
+};
+
+/** A felhasználó AKTÍV terve, vagy null. Egyszerre legfeljebb egy aktív:
+    csak ennek a hete töltődik az Edzés oldalra. */
+export function getActivePlan(userId) {
+  const row = db
+    .prepare(`SELECT ${PLAN_COLUMNS} FROM plans WHERE user_id = ? AND active = 1 LIMIT 1`)
+    .get(userId);
+  return row ? toPlan(row) : null;
+}
+
+/** Az aktív terv ÜTEMEZÉSE (0 vagy 1 elem) — gyakorlat-lista nélkül. Az
+    edzői kártya heti állása a hétnapokból és a terv kezdőnapjából számol, a
+    kártyán pedig a terv NEVE látszik. */
 export function getUserPlanSchedules(userId) {
+  const plan = getActivePlan(userId);
+  return plan ? [{ id: plan.id, name: plan.name, date: plan.date, days: plan.days }] : [];
+}
+
+/** A terv-követés mércéje: amit EZ a kapcsolat (edző) LEGUTÓBB kiosztott és a
+    sportoló elfogadott — az edző aktuális előírása; a korábbi, lecserélt
+    kiosztás nem büntet. A hét a kiosztásé (az edző eredeti példánya), a
+    kezdőnap a sportoló tervéé (az elfogadás napja): ha a sportoló azóta
+    átírta a tervet, az nem számít. Az `id` a sportoló tervéé — a tervből
+    indított edzések `planId`-je erre mutat. */
+export function getAssignedPlanTargets(userId, linkId) {
   return db
-    .prepare('SELECT id, name, days FROM plans WHERE user_id = ? ORDER BY id DESC')
-    .all(userId)
-    .map((row) => ({ id: row.id, name: row.name, days: JSON.parse(row.days) }));
+    .prepare(
+      `
+    SELECT p.id, p.date, a.week, a.exercises, a.days
+    FROM plans p JOIN plan_assignments a ON a.id = p.assignment_id
+    WHERE p.user_id = ? AND a.link_id = ?
+    ORDER BY p.id DESC LIMIT 1
+  `,
+    )
+    .all(userId, linkId)
+    .map((row) => ({
+      id: row.id,
+      date: row.date,
+      week: row.week
+        ? JSON.parse(row.week)
+        : weekFromLegacy(JSON.parse(row.exercises), JSON.parse(row.days)),
+    }));
 }
 
 /** EGY terv a felhasználó sajátjai közül, vagy null. A userId nem díszítés:
     ez akadályozza meg, hogy más tervére lehessen hivatkozni az azonosítóval. */
 export function getPlan(userId, id) {
   const row = db
-    .prepare('SELECT id, name, date, exercises, days FROM plans WHERE user_id = ? AND id = ?')
+    .prepare(`SELECT ${PLAN_COLUMNS} FROM plans WHERE user_id = ? AND id = ?`)
     .get(userId, id);
-  return row
-    ? {
-        id: row.id,
-        name: row.name,
-        date: row.date,
-        exercises: JSON.parse(row.exercises),
-        days: JSON.parse(row.days),
-      }
-    : null;
+  return row ? toPlan(row) : null;
 }
 
 /** A felhasználó által készített edzéstervek, legújabb elöl. */
 export function getUserPlans(userId) {
   return db
-    .prepare('SELECT id, name, date, exercises, days FROM plans WHERE user_id = ? ORDER BY id DESC')
+    .prepare(`SELECT ${PLAN_COLUMNS} FROM plans WHERE user_id = ? ORDER BY id DESC`)
     .all(userId)
-    .map((row) => ({
-      id: row.id,
-      name: row.name,
-      date: row.date,
-      exercises: JSON.parse(row.exercises),
-      days: JSON.parse(row.days),
-    }));
+    .map(toPlan);
 }
 
-/** A megadott hétnapra (0 = hétfő) ütemezett terv, vagy null. Ha több terv is
-    ugyanarra a napra szól, a legutóbb létrehozott nyer. */
+/** Az aktív terv edzése a megadott hétnapon (0 = hétfő):
+    `{ id, name, exercises }`, vagy null — pihenőnapon és terv nélkül is. */
 export function getPlanForDay(userId, dayIndex) {
-  return getUserPlans(userId).find((plan) => plan.days.includes(dayIndex)) || null;
+  const plan = getActivePlan(userId);
+  const entry = plan && dayEntry(plan.week, dayIndex);
+  return entry
+    ? { id: plan.id, name: dayWorkoutName(plan, dayIndex), exercises: entry.exercises }
+    : null;
 }
 
 /** Az épp szerkesztett edzés piszkozata ({ name, exercises, date, planId })
@@ -2864,24 +3227,52 @@ export function deletePlan(userId, id) {
   return db.prepare('DELETE FROM plans WHERE id = ? AND user_id = ?').run(id, userId).changes > 0;
 }
 
-/** Edzésterv mentése; visszaadja a létrejött { id, name, date, exercises, days } sort. */
-export function addPlan(userId, name, date, exercises, days) {
+/** Edzésterv mentése (a hét: plan-week.js alak); visszaadja a létrejött tervet.
+    Az `assignmentId` az edzői kiosztás elfogadásáé (saját tervnél null). Ha a
+    felhasználónak még nincs aktív terve, ez lesz az — különben a meglévő
+    aktív marad, és az újat a Tervek oldalon lehet átkapcsolni. A régi
+    `exercises` oszlop üres marad, a `days` a számolt edzésnapok. */
+export function addPlan(userId, name, date, week, assignmentId = null) {
+  const active = getActivePlan(userId) ? 0 : 1;
   const { lastInsertRowid } = db
-    .prepare('INSERT INTO plans (user_id, name, date, exercises, days) VALUES (?, ?, ?, ?, ?)')
-    .run(userId, name, date, JSON.stringify(exercises), JSON.stringify(days));
-  return { id: Number(lastInsertRowid), name, date, exercises, days };
+    .prepare(
+      `INSERT INTO plans (user_id, name, date, week, exercises, days, active, assignment_id)
+       VALUES (?, ?, ?, ?, '[]', ?, ?, ?)`,
+    )
+    .run(
+      userId,
+      name,
+      date,
+      JSON.stringify(week),
+      JSON.stringify(workoutDays(week)),
+      active,
+      assignmentId,
+    );
+  return getPlan(userId, Number(lastInsertRowid));
 }
 
-/** Meglévő terv felülírása (név, gyakorlatok, napok — a létrehozás dátuma marad).
-    A frissített sort adja vissza, vagy null-t, ha nincs ilyen id — MÁS
-    felhasználó tervére is null jön, azt nem lehet átírni. */
-export function updatePlan(userId, id, name, exercises, days) {
+/** Meglévő terv felülírása (név és hét — a létrehozás dátuma és az aktív
+    állapot marad). A frissített tervet adja vissza, vagy null-t, ha nincs
+    ilyen id — MÁS felhasználó tervére is null jön, azt nem lehet átírni. */
+export function updatePlan(userId, id, name, week) {
   const { changes } = db
-    .prepare('UPDATE plans SET name = ?, exercises = ?, days = ? WHERE id = ? AND user_id = ?')
-    .run(name, JSON.stringify(exercises), JSON.stringify(days), id, userId);
-  if (changes === 0) return null;
-  const row = db.prepare('SELECT id, name, date, exercises, days FROM plans WHERE id = ?').get(id);
-  return { ...row, exercises: JSON.parse(row.exercises), days: JSON.parse(row.days) };
+    .prepare('UPDATE plans SET name = ?, week = ?, days = ? WHERE id = ? AND user_id = ?')
+    .run(name, JSON.stringify(week), JSON.stringify(workoutDays(week)), id, userId);
+  return changes === 0 ? null : getPlan(userId, id);
+}
+
+/** A terv aktívvá tétele (a felhasználó többi terve ettől kikapcsol) vagy
+    kikapcsolása. A frissített tervet adja vissza, idegen/ismeretlen id-re null. */
+export function setActivePlan(userId, id, active) {
+  if (!getPlan(userId, id)) return null;
+  if (active) {
+    db.prepare(
+      'UPDATE plans SET active = CASE WHEN id = ? THEN 1 ELSE 0 END WHERE user_id = ?',
+    ).run(id, userId);
+  } else {
+    db.prepare('UPDATE plans SET active = 0 WHERE id = ? AND user_id = ?').run(id, userId);
+  }
+  return getPlan(userId, id);
 }
 
 /** Az adatbázis-kapcsolat lezárása.

@@ -12,14 +12,21 @@
  * végpont dolga marad eldönteni, KI kérdez és KIRŐL (server.js).
  *
  * Két fogalom, amit érdemes egy helyen kimondani:
- *   - TERV-KÖVETÉS (adherence): a tervekben hétnapokra ütemezett edzésekhez
- *     képest hány edzésnap valósult meg az elmúlt 4 hétben. Terv nélkül nincs
- *     mihez mérni — ilyenkor null, és a felület „—"-t ír ki (nem 0%-ot: az
- *     azt hazudná, hogy elmaradt valami).
+ *   - TERV-KÖVETÉS (adherence): azt csinálta-e a sportoló, amit az EDZŐ
+ *     kiosztott — a kijelölt napon, annyi munkasorozattal és olyan RPE-vel.
+ *     Az elmúlt 4 hét minden ütemezett napja egy pont: 0, ha aznap nem
+ *     indított edzést abból a tervből (más napon pótolva sem számít), különben
+ *     a szett- és az RPE-egyezés átlaga. Csak a terv elfogadása óta mér, és
+ *     csak az edző által kiosztott tervre (a sportoló saját terve nem mérce).
+ *     Kiosztott terv nélkül null, és a felület „—"-t ír ki (nem 0%-ot: az azt
+ *     hazudná, hogy elmaradt valami). Mellette a trend (utolsó 2 hét az
+ *     előző 2-höz), a bontás (jó nap / szett / RPE) és a tervből indított
+ *     edzések aránya.
  *   - ÖSSZPONTSZÁM (rating): a készenlét és a terv-követés átlaga; terv nélkül
  *     maga a készenlét. Ebből jön a kártya szintje (arany/ezüst/bronz).
  */
 import { parseDate, dayKey, daysBetween, formatDecimal, shiftDayKey } from './recovery.js';
+import { dayEntry } from './plan-week.js';
 
 /** A terv-követés ablaka: 4 teljes hét, a MAI napot nem beleszámítva — a ma
     még hátralévő edzés nem számítható elmaradásnak. */
@@ -33,6 +40,7 @@ const LOW_READINESS = 65; // ez alatt a készenlét már riasztás
 const MISSED_LIMIT = 2; // ennyi kihagyott edzéstől jelzünk a héten
 const STALE_CHECKIN_DAYS = 4; // ennyi napja nincs check-in → jelzés
 const INACTIVE_DAYS = 7; // ennyi napja nem edzett → jelzés
+const TREND_DROP_LIMIT = -25; // ennyi pontos esés két hét alatt → jelzés
 
 /** "ma" / "tegnap" / "N napja" — a jövőbeli dátum is „ma"-ként jelenik meg
     (elgépelt dátumnál ez kevésbé zavaró, mint egy negatív szám). */
@@ -78,12 +86,28 @@ const trainingDayKeys = (workouts) => new Set(workouts.map((w) => dayKey(w.date)
     napra — egy nap akkor is EGY edzésnap, ezért halmaz. */
 const scheduledWeekdays = (plans) => new Set(plans.flatMap((plan) => plan.days ?? []));
 
-/** Teljesített munkasorozatok száma egy edzésben. A bemelegítő nem az, és az
-    időalapú (kardió) sor sem — ugyanaz a szabály, mint a server.js isWorkSet-jében. */
-const workSetCount = (workout) =>
-  workout.exercises
+/** A terv kezdőnapja (timestamp), vagy -Infinity, ha nincs dátuma — a dátum
+    nélküli terv „mindig is élt" (régi hívók, tesztek). */
+const planStart = (plan) => {
+  const key = plan.date ? dayKey(plan.date) : NaN;
+  return Number.isFinite(key) ? key : -Infinity;
+};
+
+/** Az adott NAPON már élő tervek ütemezett hétnapjai. A terv létrehozása
+    (kiosztott tervnél az elfogadása) előtti napokon nem volt mit követni —
+    enélkül a friss tervet kapott sportoló igazságtalanul alacsony %-ot kapna. */
+const scheduledOn = (plans, key) =>
+  scheduledWeekdays(plans.filter((plan) => planStart(plan) <= key));
+
+/** Munkasorozatok egy gyakorlat-listában. A bemelegítő nem az, és az időalapú
+    (kardió) sor sem — ugyanaz a szabály, mint a server.js isWorkSet-jében. */
+const workSets = (exercises) =>
+  (exercises ?? [])
     .flatMap((exercise) => exercise.sets ?? [])
-    .filter((set) => set.done && set.type !== 'warmup' && set.duration === undefined).length;
+    .filter((set) => set.type !== 'warmup' && set.duration === undefined);
+
+/** Teljesített munkasorozatok száma egy edzésben. */
+const workSetCount = (workout) => workSets(workout.exercises).filter((set) => set.done).length;
 
 /** Teljesített időalapú (kardió) sorok összideje egy edzésben, egész percre. */
 const cardioMinutes = (workout) =>
@@ -110,43 +134,197 @@ export function weekProgress({ workouts, plans, today }) {
     if (trained.has(shiftDayKey(monday, i))) done += 1;
   }
 
+  // A terv kezdete előtti nap nem elmaradás — a héten később kapott terv sem
   let missed = 0;
-  for (const day of scheduled) {
-    if (day < weekday && !trained.has(shiftDayKey(monday, day))) missed += 1;
+  for (let day = 0; day < weekday; day += 1) {
+    const key = shiftDayKey(monday, day);
+    if (scheduledOn(plans, key).has(day) && !trained.has(key)) missed += 1;
   }
 
   return { done, target: scheduled.size, missed };
 }
 
+/* ---- Terv-követés: nap, szett, RPE ---- */
+
+/** Munkaegységek egy gyakorlatban: a munkasorozatok (bemelegítő nélkül) és a
+    kardió-sorok. A kardió-sornak nincs típusa, tehát a szűrőn átmegy — egy
+    tervezett futás elmaradása ugyanúgy hiány, mint egy elmaradt szetté. */
+const workUnits = (exercise) => (exercise?.sets ?? []).filter((set) => set.type !== 'warmup');
+
+/** Az RPE-vel mérhető munkasorozatok (a kardió-sornak nincs RPE-je). */
+const rpeSets = (exercise) => workUnits(exercise).filter((set) => set.duration === undefined);
+
+/** Szám az RPE-mezőből, vagy null (üres / nem szám). */
+const rpeOf = (set) => {
+  const value = Number.parseFloat(String(set?.rpe ?? '').replace(',', '.'));
+  return Number.isFinite(value) ? value : null;
+};
+
+/** Mennyire egyezik a naplózott RPE a tervezettel (0–1): ±0,5 még pontos
+    (a skála fél fokozatú), ±2-től már semmi, köztük egyenletesen csökken. */
+export const rpeMatch = (target, actual) => {
+  const diff = Math.abs(target - actual);
+  if (diff <= 0.5) return 1;
+  if (diff >= 2) return 0;
+  return (2 - diff) / 1.5;
+};
+
 /**
- * Terv-követés az elmúlt 4 hétre: a lezárt napok közül hány ütemezett nap volt,
- * és azokhoz képest hány edzésnap valósult meg. Terv (ütemezett hétnap) nélkül
- * null — nincs mihez mérni.
+ * Egy tervből indított edzés a tervhez mérve: `sets` — a tervezett
+ * munkaegységekből mennyi készült el (gyakorlatonként legfeljebb a tervezett,
+ * tehát a plusz szett nem pótolja a kihagyott gyakorlatot); `rpe` — az
+ * elvégzett munkasorozatok RPE-egyezésének átlaga, vagy null, ha nincs mit
+ * összevetni (a tervben vagy a naplóban nincs RPE).
  *
- * Az edzésnapokat NEM párosítjuk a konkrét ütemezett naphoz: aki kedd helyett
- * szerdán edz, ugyanúgy megcsinálta a heti adagját. Ezért a hányados a
- * megvalósult edzésnapok / ütemezett napok, 100%-on tetőzve.
+ * A gyakorlatokat NÉV szerint párosítjuk (azonos névből az első még szabad),
+ * a szetteket gyakorlaton belül SORREND szerint.
  */
-export function adherence({ workouts, plans, today }) {
-  const scheduled = scheduledWeekdays(plans);
-  if (scheduled.size === 0) return null;
-
-  const todayKey = dayKey(today);
-  const trained = trainingDayKeys(workouts);
-  let planned = 0;
+export function planDayScore(planExercises, workout) {
+  const pool = [...(workout.exercises ?? [])];
+  let target = 0;
   let done = 0;
+  let rpeSum = 0;
+  let rpeCount = 0;
 
-  // Tegnaptól visszafelé 28 nap — a mai nap szándékosan kimarad. Naptári
-  // lépéssel (shiftDayKey), nem 24 órással: az óraátállításon túli napok
-  // különben egyetlen edzésnappal sem egyeztek, és a követés 36%-ra esett.
-  for (let back = 1; back <= WINDOW_DAYS; back += 1) {
-    const key = shiftDayKey(todayKey, -back);
-    if (scheduled.has((new Date(key).getDay() + 6) % 7)) planned += 1;
-    if (trained.has(key)) done += 1;
+  for (const planned of planExercises ?? []) {
+    const units = workUnits(planned).length;
+    target += units;
+    const index = pool.findIndex((exercise) => exercise?.name === planned.name);
+    if (index === -1) continue;
+    const [actual] = pool.splice(index, 1);
+
+    done += Math.min(workUnits(actual).filter((set) => set.done).length, units);
+
+    const actualSets = rpeSets(actual);
+    rpeSets(planned).forEach((plannedSet, i) => {
+      const goal = rpeOf(plannedSet);
+      const logged = actualSets[i]?.done ? rpeOf(actualSets[i]) : null;
+      if (goal === null || logged === null) return;
+      rpeSum += rpeMatch(goal, logged);
+      rpeCount += 1;
+    });
   }
 
+  return {
+    // Munkaegység nélküli terv: nincs mit kihagyni
+    sets: target === 0 ? 1 : done / target,
+    rpe: rpeCount === 0 ? null : rpeSum / rpeCount,
+  };
+}
+
+/** Egy nap pontja a két összetevőből; RPE nélkül maga a szett-arány. */
+const dayScore = ({ sets, rpe }) => (rpe === null ? sets : (sets + rpe) / 2);
+
+/**
+ * A terv-követés nyers összesítése egy ablakra. Minden (kiosztott terv,
+ * ütemezett nap) pár egy tervezett nap — két terv ugyanarra a napra két
+ * feladat. A `from`/`to` az ablak (hány nappal ezelőtt kezdődik és végződik,
+ * a mai nap = 0) — a trend két félablakot kér.
+ */
+function evaluatePlans({ workouts, plans, today, from = 1, to = WINDOW_DAYS }) {
+  const todayKey = dayKey(today);
+  // Tervből indított edzések napok szerint
+  const byDay = new Map();
+  for (const workout of workouts) {
+    if (workout.planId == null) continue;
+    const key = dayKey(workout.date);
+    if (!byDay.has(key)) byDay.set(key, []);
+    byDay.get(key).push(workout);
+  }
+
+  const result = { planned: 0, onDay: 0, score: 0, sets: 0, rpeSum: 0, rpeCount: 0 };
+
+  // Tegnaptól visszafelé — a mai nap szándékosan kimarad (a mai edzés még
+  // hátravan). Naptári lépéssel (shiftDayKey), nem 24 órással: az
+  // óraátállításon túli napok különben egyetlen edzésnappal sem egyeztek.
+  for (let back = from; back <= to; back += 1) {
+    const key = shiftDayKey(todayKey, -back);
+    const weekday = (new Date(key).getDay() + 6) % 7;
+    for (const plan of plans) {
+      // A terv elfogadása előtti napokon nem volt mit követni, pihenőnapon sem
+      if (planStart(plan) > key) continue;
+      const entry = dayEntry(plan.week, weekday);
+      if (!entry) continue;
+      result.planned += 1;
+
+      // Csak a kijelölt napon, ebből a tervből indított edzés számít — és
+      // AZNAPI edzéshez mérve (a hétfő a hétfői, a szerda a szerdai listához)
+      const best = (byDay.get(key) ?? [])
+        .filter((workout) => workout.planId === plan.id)
+        .map((workout) => planDayScore(entry.exercises, workout))
+        .reduce((a, b) => (a && dayScore(a) >= dayScore(b) ? a : b), null);
+      if (!best) continue;
+
+      result.onDay += 1;
+      result.score += dayScore(best);
+      result.sets += best.sets;
+      if (best.rpe !== null) {
+        result.rpeSum += best.rpe;
+        result.rpeCount += 1;
+      }
+    }
+  }
+  return result;
+}
+
+/**
+ * Terv-követés az elmúlt 4 hétre (%, 0–100): az ütemezett napok pontjainak
+ * átlaga. Egy nap 0, ha aznap nem indított edzést a tervből, különben a
+ * szett- és az RPE-egyezés átlaga. A `plans` az EDZŐ által kiosztott tervek
+ * ({ id, date, week } — ld. db.js → getAssignedPlanTargets).
+ * Kiosztott terv vagy az ablakba eső ütemezett nap nélkül null.
+ */
+export function adherence({ workouts, plans, today, from = 1, to = WINDOW_DAYS }) {
+  const { planned, score } = evaluatePlans({ workouts, plans, today, from, to });
   if (planned === 0) return null;
-  return Math.min(100, Math.round((done / planned) * 100));
+  return Math.round((score / planned) * 100);
+}
+
+/** A terv-követés bontása a részletnézetnek: hány ütemezett napon edzett a
+    kijelölt napon ("9/12"), és azokon átlagosan mennyi szettet csinált meg,
+    mennyire talált az RPE (%, vagy null, ha nincs mit mérni). */
+export function adherenceBreakdown({ workouts, plans, today }) {
+  const r = evaluatePlans({ workouts, plans, today });
+  if (r.planned === 0) return null;
+  return {
+    onDay: `${r.onDay}/${r.planned}`,
+    sets: r.onDay === 0 ? null : Math.round((r.sets / r.onDay) * 100),
+    rpe: r.rpeCount === 0 ? null : Math.round((r.rpeSum / r.rpeCount) * 100),
+  };
+}
+
+/** A trend fele: ennyi napos félablakokat hasonlítunk össze. */
+const TREND_DAYS = WINDOW_DAYS / 2;
+
+/** A terv-követés iránya pontban: az utolsó 2 hét mínusz az előző 2 hét.
+    Negatív = romlik. Ha valamelyik félben nincs mihez mérni (pl. a terv csak
+    egy hete él), null — egy félből nincs irány. */
+export function adherenceTrend({ workouts, plans, today }) {
+  const recent = adherence({ workouts, plans, today, from: 1, to: TREND_DAYS });
+  const previous = adherence({
+    workouts,
+    plans,
+    today,
+    from: TREND_DAYS + 1,
+    to: WINDOW_DAYS,
+  });
+  return recent === null || previous === null ? null : recent - previous;
+}
+
+/** Az ablakba eső (a mai nappal együtt) edzések. */
+const workoutsInWindow = (workouts, today) => {
+  const oldest = shiftDayKey(dayKey(today), -WINDOW_DAYS);
+  return workouts.filter((workout) => dayKey(workout.date) >= oldest);
+};
+
+/** Hány edzés indult TERVBŐL az elmúlt 4 hétben, az összes közül. A terv-
+    követés napokat számol, és bármilyen naplózott edzést elfogad — ez mutatja
+    meg, mennyi volt ebből ténylegesen a terv szerinti munka. Edzés nélkül null. */
+export function planWorkouts({ workouts, today }) {
+  const inWindow = workoutsInWindow(workouts, today);
+  if (inWindow.length === 0) return null;
+  const fromPlan = inWindow.filter((workout) => workout.planId != null).length;
+  return { fromPlan, total: inWindow.length };
 }
 
 /** Az összpontszám: a készenlét és a terv-követés átlaga (terv nélkül maga a
@@ -168,8 +346,8 @@ export const athleteRating = (readiness, adherenceValue) => {
 
 /**
  * A kártya állapot-sora. Legfeljebb KÉT ok kerül bele, súlyosság szerint:
- * a kihagyott edzés a legbeszédesebb, utána a teljes leállás, a gyenge
- * készenlét, végül a hiányzó check-in. Ha nincs ok, null — ilyenkor a
+ * a kihagyott edzés a legbeszédesebb, utána az eső terv-követés, a teljes
+ * leállás, a gyenge készenlét, végül a hiányzó check-in. Ha nincs ok, null — ilyenkor a
  * felület „minden rendben"-t mutat.
  *
  * A HIÁNYZÓ adat csak akkor riasztás, ha már lett volna ideje meglenni: az
@@ -183,9 +361,14 @@ export function athleteAlert({
   readiness,
   daysSinceCheckin,
   activeDays = 0,
+  adherenceTrend = null,
 }) {
   const reasons = [];
   if (missed >= MISSED_LIMIT) reasons.push(`${missed} kihagyott edzés`);
+  // A lemorzsolódás korai jele: a heti kihagyás még nem, a két hét már látszik
+  if (adherenceTrend !== null && adherenceTrend <= TREND_DROP_LIMIT) {
+    reasons.push(`terv-követés esik (${adherenceTrend})`);
+  }
   if (daysSinceWorkout === null) {
     // Használja az appot (van check-inje), de edzést még egyet sem naplózott
     if (activeDays >= 1) reasons.push('még nincs naplózott edzés');
@@ -258,6 +441,8 @@ export function recentActivity({ workouts, checkins, weightLog, today }) {
  * @param {string[]} [input.workoutDates] MINDEN edzésnap, legújabb elöl. Akkor
  *                                 kell, ha a `workouts` ablakozott — enélkül az
  *                                 abból képződik (ld. lentebb)
+ * @param {object[]} [input.assignedPlans] az EDZŐ kiosztott tervei az ő példányában
+ *                                 ({ id, date, week }) — a terv-követés mércéje
  * @param {number} input.readiness a készenléti riport `overall` értéke (0–100)
  * @param {string} input.confidence a riport `confidence` mezője ('low'|'medium'|'high')
  * @param {number} input.streak    az edzés-sorozat hossza napokban
@@ -271,6 +456,7 @@ export function buildAthleteCard({
   workouts,
   workoutDates = null,
   plans,
+  assignedPlans = [],
   checkins,
   weightLog,
   readiness,
@@ -282,7 +468,10 @@ export function buildAthleteCard({
 }) {
   const todayKey = dayKey(today);
   const week = weekProgress({ workouts, plans, today });
-  const adherenceValue = adherence({ workouts, plans, today });
+  // A terv-követés mércéje az edző kiosztott terve, nem a sportoló összes terve
+  const adherenceValue = adherence({ workouts, plans: assignedPlans, today });
+  const trend = adherenceTrend({ workouts, plans: assignedPlans, today });
+  const fromPlan = planWorkouts({ workouts, today });
 
   /* A `workouts` a hívónál ABLAKOZOTT lehet (a panel csak az utolsó néhány
      hét edzéseit olvassa be, mert a többit se a készenlét-motor, se a
@@ -317,6 +506,12 @@ export function buildAthleteCard({
        szintnek" olvasná. A modál kiírja, hogy min alapul. */
     confidence,
     adherence: adherenceValue,
+    // Pontban: az utolsó 2 hét mínusz az előző 2 hét (null, ha nincs mihez mérni)
+    adherenceTrend: trend,
+    // "6/9" — az elmúlt 4 hét edzéseiből hány indult tervből
+    planWorkouts: fromPlan ? `${fromPlan.fromPlan}/${fromPlan.total}` : null,
+    // A terv-követés bontása: { onDay: "9/12", sets: %, rpe: % } vagy null
+    adherenceDetail: adherenceBreakdown({ workouts, plans: assignedPlans, today }),
     rating: athleteRating(readiness, adherenceValue),
     streak,
     lastWorkout: lastWorkoutDate ? relativeDay(lastWorkoutDate, todayKey) : null,
@@ -333,6 +528,7 @@ export function buildAthleteCard({
       readiness,
       daysSinceCheckin: daysSince(lastCheckin?.date),
       activeDays,
+      adherenceTrend: trend,
     }),
     recent: recentActivity({ workouts, checkins, weightLog, today }),
     /* A szál utolsó üzenete a kártyán idézve. A `mine` a NÉZŐ (az edző)

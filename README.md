@@ -341,9 +341,12 @@ tartja ki a gráfból magát a vendorolt skillt (különben a saját dokumentác
   jelzők is újraépülnek — a PR-lista azokból dolgozik, nem a táblából —, így a
   törölt rekord helyére a következő legjobb edzés lép be. A művelet
   tranzakcióban fut: a napló és a rekordok csak együtt igazak.
-- **Napra ütemezett tervek.** A tervkészítőben kijelölt hétnapokon az adott terv
-  automatikusan betöltődik az Edzés oldalra — de egy már megkezdett edzést soha
-  nem ír felül.
+- **Heti bontású tervek.** Egy terv egy hét, és hetente ismétlődik: minden nap
+  saját edzés (opcionális névvel, pl. „Láb nap”), pihenőnap, vagy „ugyanaz, mint”
+  egy másik edzésnap (`server/plan-week.js`). Egyszerre egy terv aktív; annak a
+  mai napja automatikusan betöltődik az Edzés oldalra — de egy már megkezdett
+  edzést soha nem ír felül. A terv-kártya heti sávjából bármelyik nap edzése
+  elindítható.
 - **Szett-értékek.** Az ismétlés, a súly (kg) és az RPE szám; a mértékegység a
   táblázat fejlécében van. A régebbi, mértékegységgel együtt tárolt értékeket
   (`"12 rep"`, `"60% TM"`) a szerver induláskor egyszer átalakítja számokká.
@@ -475,9 +478,28 @@ Az Edző oldal (`#coach`) **valódi fiókok kapcsolatából** él, nem demo-adat
 Mindkét nézete mindig elérhető, mert ugyanaz a fiók lehet valakinek az edzője és
 valaki másnak a sportolója:
 
-- **Edződ** — a saját edződdel folytatott üzenetváltás, és a hozzád érkezett,
-  még el nem fogadott meghívók.
+- **Edződ** — a sportolói panel, az edzői panel tükörképe (lásd lent), és a
+  hozzád érkezett, még el nem fogadott meghívók.
 - **Edzetteim** — a sportolóid kártyái és a kiküldött meghívóid.
+
+**A sportolói panel** ugyanarra a vázra épül, mint az edzői: KPI-sor
+(készenlét, terv-követés, heti edzések, sorozat), fő oszlop fülekkel és
+oldalsáv. A számok **ugyanabból a kártyából** jönnek, amit az edző lát: a
+`GET /api/coach` `me` mezőjét ugyanaz az `athleteCard` számolja, mint a
+`GET /api/athletes` kártyáit, így a két oldal sosem mond mást.
+
+- **Állapot-sáv** — amit az edző jelzésként lát rólad, vagy „Minden rendben”.
+- **Áttekintés** — „Vár rád” (felajánlott terv, olvasatlan üzenet, a mai
+  étrendből hátralévő étkezés), a legutóbbi visszajelzésed, a
+  gyakorlat-megjegyzések az edző válaszaival (válaszolni is lehet), és a
+  legutóbbi aktivitás.
+- **Étrend** — az edző által kitűzött kalória-, fehérje- és víz-cél (csak
+  olvasható), valamint az étkezései „Megettem” gombbal.
+- **Terv** — a függő ajánlatok, az aktív (legutóbb elfogadott) edzői terv, és a
+  korábbi ajánlatok előzménye.
+- **Üzenetek** — a közös szál.
+- **Oldalsáv** — a pontszámod és a statjaid úgy, ahogy az edződ látja, és egy
+  lista arról, mit lát (és mit nem lát) rólad.
 
 **A kapcsolat beleegyezéssel jön létre.** Az edző a sportoló _felhasználónevével_
 küld meghívót; az `pending` állapotban áll, amíg a másik fél el nem fogadja.
@@ -495,16 +517,21 @@ CASCADE`), tehát a levált sportoló előzménye nem marad az edzőnél.
 **A sportoló-kártya minden száma számolt érték** (`server/coaching.js`), a
 sportoló saját naplójából:
 
-| Mező                                | Miből                                                                                |
-| ----------------------------------- | ------------------------------------------------------------------------------------ |
-| Készenlét                           | a sportolóra lefuttatott Recovery Engine (`overall`)                                 |
-| Terv-követés                        | az elmúlt 4 hét ütemezett napjaihoz mért edzésnapok, 100%-on tetőzve                 |
-| Összpontszám                        | a kettő átlaga (terv híján maga a készenlét) → ebből jön az arany/ezüst/bronz szint  |
-| Sorozat / utolsó edzés / heti állás | a mentett edzésekből és a tervek hétnapjaiból                                        |
-| Állapot-sáv                         | kihagyott edzés, leállás, gyenge készenlét, hiányzó check-in — a két legsúlyosabb ok |
-| Legutóbbi aktivitás                 | edzések, PR-ek, check-inek és testsúly-bejegyzések összefésülve                      |
+| Mező                                | Miből                                                                                                                                      |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Készenlét                           | a sportolóra lefuttatott Recovery Engine (`overall`)                                                                                       |
+| Terv-követés                        | az edző kiosztott tervének ütemezett napjai az elmúlt 4 hétben: 0, ha nem a kijelölt napon edzett, különben a szett- és RPE-egyezés átlaga |
+| Terv-követés trendje                | az utolsó 2 hét mínusz az előző 2 hét (pont); −25-től az állapot-sávba kerül                                                               |
+| Terv szerinti edzés                 | az elmúlt 4 hét edzéseiből hány indult tervből (pl. 6/9)                                                                                   |
+| Jó napon / Szett / RPE              | a terv-követés bontása: kijelölt napon végzett edzések (9/12), elvégzett ÷ előírt munkaegység, RPE-egyezés (±0,5 teljes, ±2 már 0)         |
+| Összpontszám                        | a készenlét és a terv-követés átlaga (terv híján a készenlét) → arany/ezüst/bronz szint                                                    |
+| Sorozat / utolsó edzés / heti állás | a mentett edzésekből és a tervek hétnapjaiból                                                                                              |
+| Állapot-sáv                         | kihagyott edzés, eső terv-követés, leállás, gyenge készenlét, hiányzó check-in — a két legsúlyosabb ok                                     |
+| Legutóbbi aktivitás                 | edzések, PR-ek, check-inek és testsúly-bejegyzések összefésülve                                                                            |
 
-Terv nélkül nincs terv-követés: ilyenkor a mező `null`, és a felület `—`-t ír ki,
+A terv-követés az edző EREDETI (kiosztott) példányához mér: ha a sportoló
+átírja az elfogadott tervet, az nem számít, és a saját terve sem mérce.
+Kiosztott terv nélkül nincs terv-követés: ilyenkor a mező `null`, és a felület `—`-t ír ki,
 nem 0%-ot — az azt hazudná, hogy elmaradt valami. Ugyanez a szabály a
 riasztásoknál: a HIÁNYZÓ adat (nincs check-in, nincs naplózott edzés) csak akkor
 kerül az állapot-sávba, ha már lett volna ideje meglenni — a ma csatlakozott
@@ -538,23 +565,23 @@ sportolónál lévő példányt.
 
 **Végpontok**
 
-| Végpont                                       | Mit csinál                                                         |
-| --------------------------------------------- | ------------------------------------------------------------------ |
-| `GET /api/athletes`                           | a sportolóim kártyái + a kiküldött meghívóim                       |
-| `POST /api/athletes`                          | meghívó felhasználónévre                                           |
-| `DELETE /api/athletes/:linkId`                | meghívó visszavonása vagy a kapcsolat bontása (edzőként)           |
-| `POST /api/athletes/:linkId/plan`             | terv felajánlása a sportolónak (`{ planId, note }`)                |
-| `PUT /api/athletes/:linkId/nutrition-goal`    | táplálkozási cél kitűzése a sportolónak (a saját célját nem törli) |
-| `GET` / `POST /api/athletes/:linkId/comments` | a sportoló gyakorlataihoz fűzött megjegyzés-szál (edzőként)        |
-| `GET /api/coach`                              | a saját edzőm, a hozzám érkezett meghívók és a felajánlott tervek  |
-| `POST /api/coach/invites/:linkId/accept`      | meghívó elfogadása                                                 |
-| `DELETE /api/coach/invites/:linkId`           | meghívó elutasítása                                                |
-| `DELETE /api/coach`                           | leválás az edzőről                                                 |
-| `POST /api/plan-offers/:id/accept`            | felajánlott terv elfogadása (másolatként bekerül)                  |
-| `DELETE /api/plan-offers/:id`                 | felajánlott terv elutasítása                                       |
-| `GET` / `POST /api/messages/:linkId`          | a kapcsolat üzenet-szála                                           |
-| `POST /api/messages/:linkId/read`             | a szál nyugtázása (a másik fél üzenetei olvasottá válnak)          |
-| `GET /api/notifications`                      | az értesítés-panel sorai a hívó valódi eseményeiből                |
+| Végpont                                       | Mit csinál                                                                                                                  |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/athletes`                           | a sportolóim kártyái + a kiküldött meghívóim                                                                                |
+| `POST /api/athletes`                          | meghívó felhasználónévre                                                                                                    |
+| `DELETE /api/athletes/:linkId`                | meghívó visszavonása vagy a kapcsolat bontása (edzőként)                                                                    |
+| `POST /api/athletes/:linkId/plan`             | terv felajánlása a sportolónak (`{ planId, note }`)                                                                         |
+| `PUT /api/athletes/:linkId/nutrition-goal`    | táplálkozási cél kitűzése a sportolónak (a saját célját nem törli)                                                          |
+| `GET` / `POST /api/athletes/:linkId/comments` | a sportoló gyakorlataihoz fűzött megjegyzés-szál (edzőként)                                                                 |
+| `GET /api/coach`                              | a saját edzőm, a meghívók, a felajánlott tervek; élő kapcsolatban a saját kártyám (`me`) és a terv-előzmény (`planHistory`) |
+| `POST /api/coach/invites/:linkId/accept`      | meghívó elfogadása                                                                                                          |
+| `DELETE /api/coach/invites/:linkId`           | meghívó elutasítása                                                                                                         |
+| `DELETE /api/coach`                           | leválás az edzőről                                                                                                          |
+| `POST /api/plan-offers/:id/accept`            | felajánlott terv elfogadása (másolatként bekerül)                                                                           |
+| `DELETE /api/plan-offers/:id`                 | felajánlott terv elutasítása                                                                                                |
+| `GET` / `POST /api/messages/:linkId`          | a kapcsolat üzenet-szála                                                                                                    |
+| `POST /api/messages/:linkId/read`             | a szál nyugtázása (a másik fél üzenetei olvasottá válnak)                                                                   |
+| `GET /api/notifications`                      | az értesítés-panel sorai a hívó valódi eseményeiből                                                                         |
 
 Minden végpont ellenőrzi, hogy a hívó a kapcsolat melyik oldala: a `linkId`
 önmagában semmire nem jogosít (`server/coach.test.js`).

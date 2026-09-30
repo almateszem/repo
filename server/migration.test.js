@@ -169,8 +169,15 @@ test('az ELSŐ regisztráció megörökli a régi adatot', () => {
   assert.equal(db.getCheckin(user.id, '2026.08.15').sleepHours, 7.5);
   assert.equal(db.getNutritionTotals(user.id, '2026.08.15').intake, 165);
 
-  // A régi terv hétnap-ütemezése is megmaradt
-  assert.equal(db.getPlanForDay(user.id, 3)?.name, 'Régi terv');
+  /* A régi terv hétnap-ütemezése is megmaradt — heti alakban: az első
+     kijelölt nap (hétfő) az edzés, a csütörtök „ugyanaz, mint hétfő", és az
+     egyetlen terv lett az aktív. */
+  const [regi] = db.getUserPlans(user.id);
+  assert.equal(regi.active, true);
+  assert.deepEqual(regi.days, [0, 3]);
+  assert.deepEqual(regi.week[3], { type: 'same', of: 0 });
+  assert.equal(db.getPlanForDay(user.id, 3)?.name, 'Régi terv – Csütörtök');
+  assert.equal(db.getPlanForDay(user.id, 1), null, 'a kedd pihenőnap');
 
   // Az archív fiók eltűnt, helyette a valódi fiók van
   const raw = new DatabaseSync(DB_PATH);

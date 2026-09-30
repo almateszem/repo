@@ -166,7 +166,39 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
     autosave,
     confirmAction,
   });
-  const { applyTemplate, reopenWorkout, loadPlan } = loader;
+  const { applyTemplate, reopenWorkout, doneSetCount } = loader;
+
+  /* ---- A terv-betöltés visszavonása ----
+     A Tervek oldalon egy koppintás azonnal a naplóba tölti a tervet (és a
+     piszkozat mentődik). Véletlen koppintásnál a „← Vissza" a betöltés ELŐTTI
+     állapotot állítja vissza — az üres naplót, vagy a korábbi, megkezdett
+     edzést a pipáival együtt —, és visszavisz a Tervek oldalra. A pillanatkép
+     csak memóriában él: amint a visszavonás értelmét veszti (befejezés,
+     javításra nyitás, napváltás), eldobjuk. */
+  const undoBar = $('[data-plan-undo]');
+  let undoSnapshot = null;
+
+  const setUndo = (snapshot) => {
+    undoSnapshot = snapshot;
+    undoBar.hidden = snapshot === null;
+  };
+
+  const snapshotEditor = () => ({
+    name: titleInput.value,
+    exercises: readCurrentWorkout(),
+    planId: editing.planId,
+    workoutId: editing.workoutId,
+    date: editing.date,
+    start: prefs.get(WORKOUT_START_KEY),
+  });
+
+  /** A Tervek oldal ezt hívja: a betöltés előtt rögzíti a napló állapotát. */
+  const loadPlan = async (plan) => {
+    const before = snapshotEditor();
+    const loaded = await loader.loadPlan(plan);
+    if (loaded) setUndo(before);
+    return loaded;
+  };
 
   // Az induló tartalom a szervertől: aznapi piszkozat, vagy — új napon —
   // a mai hétnapra ütemezett terv. Ha nincs egyik sem, a napló üres, és az
@@ -189,6 +221,7 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
       showToast('Új nap kezdődött — zárd le az edzést, hogy a mai terv betölthesse magát');
       return;
     }
+    setUndo(null); // a tegnapi állapot visszaállítása már nem értelmes
     applyTemplate(await api.getWorkoutTemplate());
   });
 
@@ -367,6 +400,7 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
     prefs.set(WORKOUT_START_KEY, null); // az edzés-óra a következő első pipával indul
     syncEmpty();
     syncEditingState();
+    setUndo(null);
   };
 
   /** Amit egy napló-változás (törlés vagy javítás) után frissíteni kell.
@@ -414,6 +448,17 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
       return;
     }
     if (!validateWorkoutName()) return;
+
+    /* Kipipált szett nélkül a naplóba egy „0/9 szett" edzés kerülne — ez
+       szinte mindig véletlen koppintás. Csak új edzésnél kérdezünk: egy régi
+       edzés javítását nem akasztjuk meg. */
+    if (editing.workoutId === null && doneSetCount() === 0) {
+      const ok = await confirmAction(
+        'Egyetlen szett sincs kipipálva — a naplóba egy üres edzés kerülne. Biztosan befejezed?',
+        { title: 'Befejezed kipipált szett nélkül?', confirmLabel: 'Naplózom' },
+      );
+      if (!ok) return;
+    }
 
     finishBtn.disabled = true;
     try {
@@ -489,6 +534,9 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
 
     if (btn.dataset.action === 'reopen-workout') {
       await reopenWorkout(workout);
+      // A javítás új szál: a terv-betöltés előtti állapot visszaállítása
+      // innentől egy RÉGI edzést írna felül
+      setUndo(null);
       return;
     }
 
@@ -525,6 +573,42 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
   $('[data-action="cancel-workout-edit"]').addEventListener('click', async () => {
     await clearEditor();
     showToast('Szerkesztés megszakítva — az edzés változatlan');
+  });
+
+  /* „← Vissza": a terv-betöltés visszavonása. Ha a betöltött edzésben már
+     van kipipált szett, rákérdezünk — az a munka elvész. */
+  $('[data-action="undo-plan-load"]').addEventListener('click', async () => {
+    const snapshot = undoSnapshot;
+    if (!snapshot) return;
+    const doneSets = doneSetCount();
+    if (doneSets > 0) {
+      const ok = await confirmAction(
+        `A betöltött edzésben ${doneSets} kipipált szett van — ezek elvesznek.`,
+        { title: 'Visszavonod a betöltést?', confirmLabel: 'Visszavonom' },
+      );
+      if (!ok) return;
+    }
+
+    if (snapshot.exercises.length === 0 && !snapshot.name.trim()) {
+      // Üres volt a napló: a terv piszkozatát is töröljük — nem marad semmi
+      await clearEditor();
+    } else {
+      // A korábbi edzés vissza, a pipáival és az edzés-órájával együtt
+      applyTemplate({
+        name: snapshot.name,
+        exercises: snapshot.exercises,
+        planId: snapshot.planId,
+        workoutId: snapshot.workoutId,
+      });
+      editing.date = snapshot.date;
+      syncEditingState();
+      syncEmpty();
+      prefs.set(WORKOUT_START_KEY, snapshot.start ?? null);
+      autosave();
+      setUndo(null);
+    }
+    navigate('plans');
+    showToast('Betöltés visszavonva — semmi nem került a naplóba');
   });
 
   return { loadPlan };

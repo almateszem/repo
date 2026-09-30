@@ -20,9 +20,10 @@ import { renderPlans } from '../render/plans.js';
 import { renderPrs } from '../render/prs.js';
 import { renderWorkout } from '../render/workout.js';
 import { setupCheckinWizard } from '../ui/checkin/wizard.js';
-import { setupAthleteModal, setupCoachPage } from '../ui/coach.js';
+import { setupAthleteDetail, setupCoachPage } from '../ui/coach.js';
 import { setupConnectivity } from '../ui/connectivity.js';
 import { setupCustomFood } from '../ui/custom-food.js';
+import { enhanceSelects } from '../ui/custom-select.js';
 import { setupDashboard } from '../ui/dashboard.js';
 import { loadIntensityLevels } from '../render/sets.js';
 import { setupExercisePicker } from '../ui/exercise-picker.js';
@@ -63,6 +64,11 @@ async function init() {
         return null;
       });
 
+  // A natív <select>-ek saját lenyílót kapnak (a natív opciólista a sötét
+  // témában olvashatatlan). A select a helyén marad, így a setupok változatlanul
+  // az id-jével érik el, és a gomb a későbbi opció-cseréket is követi.
+  enhanceSelects();
+
   // Kezdeti tartalom betöltése — a renderelők az api-n keresztül kérnek
   // adatot a backendtől. Párhuzamosan, mert függetlenek.
   await Promise.all([
@@ -88,21 +94,21 @@ async function init() {
 
   /* Az Edző oldal a router ELŐTT épül fel, hogy az induló oldal effektjei
      (pl. a kártya-pontszámok animációja) már a jó nézetet lássák. A
-     részletmodál előbb kell nála: a kártyák azt nyitják, a modálból indított
-     kapcsolat-bontás pedig visszafelé frissíti az oldalt. */
+     sportoló-részletnézet előbb kell nála: a sorok azt nyitják, a belőle
+     indított kapcsolat-bontás pedig visszafelé frissíti az oldalt. */
   let coachPage = null;
-  const athleteModal = await safe(() =>
-    setupAthleteModal({
+  const athleteDetail = await safe(() =>
+    setupAthleteDetail({
       confirmAction,
       onUnlink: () => coachPage?.refresh(),
-      // A modálban elolvasott üzenetek után a kártya és a nézetváltó jelvénye
-      // is elavult — a panel újratöltése hozza helyre.
+      // Az elolvasott üzenetek után a sor és a nézetváltó jelvénye is
+      // elavult — a panel újratöltése hozza helyre.
       onRead: () => coachPage?.refresh(),
-      // Kiosztás után szintén: az értesítés-panel és a kártyák is változhatnak
+      // Kiosztás után szintén: az értesítés-panel és a sorok is változhatnak
       onAssign: () => coachPage?.refresh(),
     }),
   );
-  coachPage = await safe(() => setupCoachPage(athleteModal, confirmAction));
+  coachPage = await safe(() => setupCoachPage(athleteDetail, confirmAction));
   /* Az oldalra lépéskor futó frissítés hibáját itt nyeljük el: a korábbi
      tartalom marad a képernyőn, és a következő megnyitás újrapróbálja —
      egy pillanatnyi hálózati hiba miatt nem üresedhet ki az oldal. */

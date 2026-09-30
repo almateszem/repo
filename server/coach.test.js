@@ -66,6 +66,13 @@ test('bejelentkezés nélkül a kapcsolat- és üzenet-végpontok is 401-et adna
     ['PUT', '/api/nutrition/goal'],
     ['DELETE', '/api/nutrition/goal'],
     ['PUT', '/api/athletes/1/nutrition-goal'],
+    ['PUT', '/api/athletes/1/water-goal'],
+    ['DELETE', '/api/athletes/1/water-goal'],
+    ['POST', '/api/athletes/1/meals'],
+    ['PUT', '/api/athletes/1/meals/1'],
+    ['DELETE', '/api/athletes/1/meals/1'],
+    ['GET', '/api/nutrition/meals'],
+    ['POST', '/api/nutrition/meals/1/log'],
     ['GET', '/api/readiness/advice'],
     ['POST', '/api/readiness/advice/apply'],
     ['GET', '/api/strength-assessment'],
@@ -98,7 +105,13 @@ test('friss fióknak nincs edzője és nincs sportolója', async () => {
   assert.deepEqual(mine.json, { athletes: [], invites: [] });
 
   const theirs = await request('GET', '/api/coach', { cookie: athlete.cookie });
-  assert.deepEqual(theirs.json, { coach: null, invites: [], planOffers: [] });
+  assert.deepEqual(theirs.json, {
+    coach: null,
+    me: null,
+    planHistory: [],
+    invites: [],
+    planOffers: [],
+  });
 
   const user = await request('GET', '/api/user', { cookie: coach.cookie });
   assert.deepEqual(
@@ -242,6 +255,24 @@ test('a kártya a sportoló SAJÁT naplójából számol', async () => {
     'az aktivitás a valódi edzésekből épül',
   );
   assert.ok(!('userId' in card), 'a sportoló belső azonosítója nem szivárog ki');
+});
+
+test('a sportoló UGYANAZT a kártyát látja magáról, amit az edzője', async () => {
+  const coachSide = (await request('GET', '/api/athletes', { cookie: coach.cookie })).json
+    .athletes[0];
+  const res = await request('GET', '/api/coach', { cookie: athlete.cookie });
+  assert.equal(res.status, 200);
+  const { me, coach: myCoach } = res.json;
+
+  assert.ok(me, 'élő kapcsolatban a sportolói panel megkapja a saját kártyáját');
+  for (const key of ['linkId', 'readiness', 'adherence', 'rating', 'alert', 'weekly', 'plan']) {
+    assert.deepEqual(me[key], coachSide[key], `a(z) ${key} mindkét oldalon ugyanaz`);
+  }
+  assert.deepEqual(me.recent, coachSide.recent, 'az aktivitás-lista is ugyanaz');
+  assert.equal(me.name, 'Nagy Petra');
+  assert.ok(!('userId' in me), 'a saját kártyán sincs belső azonosító');
+  assert.match(myCoach.since, /^\d{4}-\d{2}-\d{2}T/, 'az elfogadás időpontja ISO alakban');
+  assert.deepEqual(res.json.planHistory, [], 'még nincs megválaszolt ajánlat');
 });
 
 test('a kívülálló továbbra sem lát semmit', async () => {
@@ -494,6 +525,8 @@ test('leválás után az edző nem lát semmit, és a szál is megszűnik', asyn
 
   const theirs = await request('GET', '/api/coach', { cookie: athlete.cookie });
   assert.equal(theirs.json.coach, null, 'a sportolónak nincs többé edzője');
+  assert.equal(theirs.json.me, null, 'leválás után a saját kártya sem jön');
+  assert.deepEqual(theirs.json.planHistory, []);
 });
 
 test('a kapcsolat nem fordulhat meg: az edző és a sportoló szerepe nem cserélhető', async () => {
@@ -722,7 +755,9 @@ test('a kiosztás mindkét irányban jogosultságot kér', async () => {
   assert.equal(offers[0].from, 'Terv Tibor');
   assert.equal(offers[0].note, 'Jövő héttől ezzel kezdjük.');
   assert.deepEqual(offers[0].days, [0, 3]);
-  assert.equal(offers[0].exercises.length, 1, 'látja, MIT fogad el');
+  assert.equal(offers[0].week.length, 7, 'látja, MIT fogad el — a teljes hetet');
+  assert.equal(offers[0].week[0].exercises.length, 1);
+  assert.deepEqual(offers[0].week[3], { type: 'same', of: 0 });
 
   // Idegen nem fogadhatja el a más nevére szóló ajánlatot
   const steal = await request('POST', `/api/plan-offers/${offers[0].id}/accept`, {
@@ -751,6 +786,13 @@ test('a kiosztás mindkét irányban jogosultságot kér', async () => {
   assert.equal(again.status, 404, 'a lezárt ajánlat nem fogadható el újra');
   const stable = await request('GET', '/api/plans', { cookie: client.cookie });
   assert.equal(stable.json.length, 2);
+
+  // A sportolói panel előzménye: az elfogadott ajánlat, lezárt állapotban
+  const history = (await request('GET', '/api/coach', { cookie: client.cookie })).json.planHistory;
+  assert.deepEqual(
+    history.map((offer) => [offer.name, offer.status]),
+    [['Erő alapozó', 'accepted']],
+  );
 
   // Az edző értesítést kap a válaszról
   const notifs = (await request('GET', '/api/notifications', { cookie: trainer.cookie })).json;
@@ -796,6 +838,11 @@ test('az elutasított terv nem kerül be, és nem lóg ott tovább', async () =>
 
   const after = await request('GET', '/api/coach', { cookie: client.cookie });
   assert.deepEqual(after.json.planOffers, [], 'az elutasított ajánlat lekerül');
+  // …de az előzményben ott marad, a válasszal együtt
+  assert.equal(after.json.planHistory.length, 1);
+  assert.equal(after.json.planHistory[0].name, 'Nem kell');
+  assert.equal(after.json.planHistory[0].status, 'declined');
+  assert.ok(after.json.planHistory[0].respondedAt, 'a válasz időpontja is látszik');
 
   const plans = await request('GET', '/api/plans', { cookie: client.cookie });
   assert.deepEqual(plans.json, [], 'és semmi nem került a tervei közé');
@@ -835,12 +882,12 @@ test('a kapcsolat bontásával a függő terv-ajánlat is eltűnik', async () =>
 });
 
 /* ======================================================================
-   Napi táplálkozási cél — az edző kitűz, a sportoló felülírhatja
+   Napi táplálkozási cél — az edző kitűz, és az ZÁROL
    ----------------------------------------------------------------------
    Korábban EGY fix érték szolgálta ki az összes fiókot. Most kettő lehet: az
-   edző kitűzött célja és a sportoló sajátja. A blokk legfontosabb állítása,
-   hogy a kettő EGYÜTT él tovább — sem az edző nem írja felül némán a
-   sportolóét, sem fordítva. Aki eltér, arról látszik, hogy eltért.
+   edző kitűzött célja és a sportoló sajátja. Az edzőé az erősebb: amíg a
+   MOSTANI edző célja él, a sportoló nem módosíthatja. Leválás után a saját
+   cél lép újra érvénybe.
    ====================================================================== */
 
 /* A cél-tesztek szereplői: külön edző–sportoló pár, hogy a fenti blokkok
@@ -853,8 +900,7 @@ test('cél nélkül a közös alapérték szól, és látszik, hogy alapérték'
   const res = await request('GET', '/api/nutrition/goal', { cookie: outsider.cookie });
   assert.equal(res.status, 200);
   assert.equal(res.json.source, 'default', 'még senki nem állított be semmit');
-  assert.equal(res.json.coach, null);
-  assert.equal(res.json.differs, false);
+  assert.equal(res.json.locked, false, 'alapértéket bárki módosíthat');
   assert.ok(res.json.calories > 0, 'a seed alapérték jön');
 });
 
@@ -892,7 +938,7 @@ test('a saját cél felülírja az alapértéket — fiókonként külön', asyn
   celClient = client;
 });
 
-test('az edzői cél NEM írja felül némán a sportolóét — de látszik az eltérés', async () => {
+test('az edzői cél felülírja a sportoló sajátját, és látszik, KI tűzte ki', async () => {
   const kituzes = await request('PUT', `/api/athletes/${celLink}/nutrition-goal`, {
     cookie: celTrainer.cookie,
     body: { calories: 2900, protein: 170 },
@@ -900,39 +946,27 @@ test('az edzői cél NEM írja felül némán a sportolóét — de látszik az 
   assert.equal(kituzes.status, 200);
 
   const celja = await request('GET', '/api/nutrition/goal', { cookie: celClient.cookie });
-  assert.equal(celja.json.calories, 2400, 'a SAJÁT cél marad érvényben');
-  assert.equal(celja.json.source, 'own');
-  assert.equal(celja.json.coach.calories, 2900, 'de az edzőé is látszik');
-  assert.equal(celja.json.coach.setBy, 'Cél Csaba', 'és az is, KI tűzte ki');
-  assert.equal(celja.json.differs, true, 'az eltérés jelezve van');
+  assert.equal(celja.json.calories, 2900, 'az EDZŐ célja az érvényes');
+  assert.equal(celja.json.source, 'coach');
+  assert.equal(celja.json.setBy, 'Cél Csaba', 'és látszik, KI tűzte ki');
+  assert.equal(celja.json.locked, true, 'zárolva a sportoló elől');
 
-  // Az edző a sportoló-kártyáján is látja az állapotot.
+  // Az edző a sportoló-kártyáján is látja, hogy az ő célja él.
   const kartyak = await request('GET', '/api/athletes', { cookie: celTrainer.cookie });
   const kartya = kartyak.json.athletes.find((a) => a.name === 'Cél Cecília');
-  assert.equal(
-    kartya.nutritionGoal.source,
-    'own',
-    'az edző látja, hogy a sportoló mást állított be',
-  );
+  assert.equal(kartya.nutritionGoal.source, 'coach');
 });
 
-test('a saját cél elvetésével visszaáll az edzőé', async () => {
-  const res = await request('DELETE', '/api/nutrition/goal', { cookie: celClient.cookie });
-  assert.equal(res.status, 200);
-  assert.equal(res.json.calories, 2900, 'innentől az edzői cél az érvényes');
-  assert.equal(res.json.source, 'coach');
-  assert.equal(res.json.differs, false, 'nincs mitől eltérni');
-  assert.equal(res.json.setBy, 'Cél Csaba');
-});
-
-test('az AZONOS érték nem számít eltérésnek', async () => {
-  await request('PUT', '/api/nutrition/goal', {
+test('az edzői célt a sportoló nem módosíthatja', async () => {
+  const res = await request('PUT', '/api/nutrition/goal', {
     cookie: celClient.cookie,
-    body: { calories: 2900, protein: 170 },
+    body: { calories: 2000, protein: 100 },
   });
-  const res = await request('GET', '/api/nutrition/goal', { cookie: celClient.cookie });
-  assert.equal(res.json.source, 'own', 'saját sor jött létre');
-  assert.equal(res.json.differs, false, 'de ugyanaz a szám — nem „eltértél"');
+  assert.equal(res.status, 403);
+  assert.ok(res.json.error, 'beszédes hibaüzenet');
+
+  const celja = await request('GET', '/api/nutrition/goal', { cookie: celClient.cookie });
+  assert.equal(celja.json.calories, 2900, 'a zárolt cél érintetlen');
 });
 
 test('csak az EDZŐ oldala tűzhet ki célt, és csak élő kapcsolatba', async () => {
@@ -962,10 +996,271 @@ test('a cél validál: hiányzó mező, tartományon kívüli érték', async ()
     [{ calories: 2400, protein: 900 }, 'irreálisan magas fehérje'],
   ];
   for (const [body, eset] of rossz) {
-    const res = await request('PUT', '/api/nutrition/goal', { cookie: celClient.cookie, body });
+    // Edző nélküli fiók: nála a saját cél szerkeszthető, tehát a validálás fut
+    const res = await request('PUT', '/api/nutrition/goal', { cookie: outsider.cookie, body });
     assert.equal(res.status, 400, eset);
     assert.ok(res.json.error, `${eset}: beszédes hibaüzenet`);
   }
+});
+
+/* ======================================================================
+   Edzői étrend — étkezések a napi cél mellé
+   ----------------------------------------------------------------------
+   Az edző étkezéseket állít össze (étel + gramm), a kcal-t és a makrókat a
+   szerver számolja. A sportoló látja, és egy gombbal naplózza. A cél-blokk
+   szereplőit (celTrainer, celClient, celLink) használjuk újra.
+   ====================================================================== */
+
+let reggeliId = 0;
+
+test('az edző étkezést állít össze, a kcal-t és a fehérjét a szerver számolja', async () => {
+  const res = await request('POST', `/api/athletes/${celLink}/meals`, {
+    cookie: celTrainer.cookie,
+    body: {
+      name: 'Reggeli',
+      items: [
+        { name: 'Csirkemell (sült)', grams: 200 },
+        { name: 'Csirkemell (nyers)', grams: 150 },
+      ],
+    },
+  });
+  assert.equal(res.status, 201, res.text);
+  assert.equal(res.json.length, 1);
+  const [meal] = res.json;
+  // 165 kcal · 31 g / 100 g → 200 g: 330 kcal, 62 g
+  assert.deepEqual(
+    meal.items.map((item) => [item.name, item.grams, item.kcal, item.protein]),
+    [
+      ['Csirkemell (sült)', 200, 330, 62],
+      ['Csirkemell (nyers)', 150, 165, 34.5],
+    ],
+  );
+  assert.equal(meal.kcal, 495);
+  assert.equal(meal.protein, 96.5);
+  assert.equal(meal.setBy, 'Cél Csaba');
+  reggeliId = meal.id;
+
+  // A sportoló-kártya is hozza — a részletnézet ebből rajzol.
+  const kartyak = await request('GET', '/api/athletes', { cookie: celTrainer.cookie });
+  const kartya = kartyak.json.athletes.find((a) => a.name === 'Cél Cecília');
+  assert.equal(kartya.meals.length, 1);
+});
+
+test('az edző SAJÁT étele is bekerülhet — a sportoló a másolatból kapja', async () => {
+  const sajat = await request('POST', '/api/foods/custom', {
+    cookie: celTrainer.cookie,
+    body: { name: 'Edzői zabkása', protein: 10, carbs: 60, fat: 5 },
+  });
+  assert.equal(sajat.status, 201, sajat.text);
+
+  const res = await request('POST', `/api/athletes/${celLink}/meals`, {
+    cookie: celTrainer.cookie,
+    body: { name: 'Uzsonna', items: [{ name: 'Edzői zabkása', grams: 100 }] },
+  });
+  assert.equal(res.status, 201, res.text);
+  assert.deepEqual(
+    res.json.map((meal) => meal.name),
+    ['Reggeli', 'Uzsonna'],
+    'a felvétel sorrendjében',
+  );
+
+  const sajatEtrend = await request('GET', '/api/nutrition/meals', { cookie: celClient.cookie });
+  assert.equal(sajatEtrend.status, 200);
+  assert.equal(sajatEtrend.json[1].items[0].name, 'Edzői zabkása');
+  assert.equal(sajatEtrend.json[1].kcal, sajat.json.kcal);
+});
+
+test('az étkezés szerkeszthető és törölhető', async () => {
+  const lista = await request('GET', '/api/nutrition/meals', { cookie: celClient.cookie });
+  const uzsonna = lista.json.find((meal) => meal.name === 'Uzsonna');
+
+  const szerk = await request('PUT', `/api/athletes/${celLink}/meals/${uzsonna.id}`, {
+    cookie: celTrainer.cookie,
+    body: { name: 'Vacsora', items: [{ name: 'Csirkemell (sült)', grams: 100 }] },
+  });
+  assert.equal(szerk.status, 200, szerk.text);
+  const vacsora = szerk.json.find((meal) => meal.id === uzsonna.id);
+  assert.equal(vacsora.name, 'Vacsora');
+  assert.equal(vacsora.kcal, 165);
+
+  const torles = await request('DELETE', `/api/athletes/${celLink}/meals/${uzsonna.id}`, {
+    cookie: celTrainer.cookie,
+  });
+  assert.equal(torles.status, 200);
+  assert.deepEqual(
+    torles.json.map((meal) => meal.name),
+    ['Reggeli'],
+  );
+
+  const ujra = await request('DELETE', `/api/athletes/${celLink}/meals/${uzsonna.id}`, {
+    cookie: celTrainer.cookie,
+  });
+  assert.equal(ujra.status, 404, 'már nincs ilyen étkezés');
+});
+
+test('étkezést csak az EDZŐ oldala írhat, és csak élő kapcsolatba', async () => {
+  const body = { name: 'Betolakodó', items: [{ name: 'Csirkemell (sült)', grams: 100 }] };
+  const sajatMaga = await request('POST', `/api/athletes/${celLink}/meals`, {
+    cookie: celClient.cookie,
+    body,
+  });
+  assert.equal(sajatMaga.status, 404);
+  const kivulallo = await request('POST', `/api/athletes/${celLink}/meals`, {
+    cookie: outsider.cookie,
+    body,
+  });
+  assert.equal(kivulallo.status, 404);
+  const torles = await request('DELETE', `/api/athletes/${celLink}/meals/${reggeliId}`, {
+    cookie: outsider.cookie,
+  });
+  assert.equal(torles.status, 404);
+
+  const lista = await request('GET', '/api/nutrition/meals', { cookie: celClient.cookie });
+  assert.deepEqual(
+    lista.json.map((meal) => meal.name),
+    ['Reggeli'],
+    'az étrend érintetlen',
+  );
+});
+
+test('az étkezés validál: név, tételek, ismeretlen étel, adag', async () => {
+  const rossz = [
+    [{ items: [{ name: 'Csirkemell (sült)', grams: 100 }] }, 'hiányzó név'],
+    [{ name: 'Üres', items: [] }, 'tétel nélkül'],
+    [{ name: 'X', items: [{ name: 'Nincs ilyen étel', grams: 100 }] }, 'ismeretlen étel'],
+    [{ name: 'X', items: [{ name: 'Csirkemell (sült)', grams: 0 }] }, 'nulla adag'],
+    [{ name: 'X', items: [{ name: 'Csirkemell (sült)', grams: 5000 }] }, 'túl nagy adag'],
+  ];
+  for (const [body, eset] of rossz) {
+    const res = await request('POST', `/api/athletes/${celLink}/meals`, {
+      cookie: celTrainer.cookie,
+      body,
+    });
+    assert.equal(res.status, 400, eset);
+    assert.ok(res.json.error, `${eset}: beszédes hibaüzenet`);
+  }
+});
+
+test('a sportoló egy gombbal naplózza az étkezést — minden tétel a mai naplóba kerül', async () => {
+  const elotte = await request('GET', '/api/nutrition', { cookie: celClient.cookie });
+
+  const res = await request('POST', `/api/nutrition/meals/${reggeliId}/log`, {
+    cookie: celClient.cookie,
+  });
+  assert.equal(res.status, 201, res.text);
+  assert.deepEqual(
+    res.json.entries.map((entry) => [entry.name, entry.grams, entry.kcal]),
+    [
+      ['Csirkemell (sült)', 200, 330],
+      ['Csirkemell (nyers)', 150, 165],
+    ],
+  );
+  assert.equal(res.json.totals.intake, elotte.json.intake + 495);
+
+  const naplo = await request('GET', '/api/nutrition/log', { cookie: celClient.cookie });
+  assert.equal(naplo.json.length, 2, 'a Mai napló is mutatja a tételeket');
+
+  const reggeli = res.json.meals.find((meal) => meal.id === reggeliId);
+  assert.equal(reggeli.eatenToday, true, 'a válasz a friss étrendet is hozza');
+});
+
+test('egy étkezés naponta csak EGYSZER naplózható — és az edző is látja, hogy megette', async () => {
+  const ujra = await request('POST', `/api/nutrition/meals/${reggeliId}/log`, {
+    cookie: celClient.cookie,
+  });
+  assert.equal(ujra.status, 409);
+  assert.ok(ujra.json.error, 'beszédes hibaüzenet');
+
+  const naplo = await request('GET', '/api/nutrition/log', { cookie: celClient.cookie });
+  assert.equal(naplo.json.length, 2, 'a második koppintás nem írt a naplóba');
+
+  const etrend = await request('GET', '/api/nutrition/meals', { cookie: celClient.cookie });
+  assert.equal(etrend.json.find((meal) => meal.id === reggeliId).eatenToday, true);
+
+  const kartyak = await request('GET', '/api/athletes', { cookie: celTrainer.cookie });
+  const kartya = kartyak.json.athletes.find((a) => a.name === 'Cél Cecília');
+  assert.equal(kartya.meals.find((meal) => meal.id === reggeliId).eatenToday, true);
+});
+
+test('más étrendjének étkezése nem naplózható', async () => {
+  const res = await request('POST', `/api/nutrition/meals/${reggeliId}/log`, {
+    cookie: outsider.cookie,
+  });
+  assert.equal(res.status, 404);
+});
+
+test('az edző kitűzi a napi víz-célt — a vízmérő ezt mutatja, a sportoló nem írja felül', async () => {
+  const elotte = await request('GET', '/api/water', { cookie: celClient.cookie });
+  assert.equal(elotte.json.targetSource, 'auto', 'edzői cél nélkül a testsúlyból számol');
+
+  const kituzes = await request('PUT', `/api/athletes/${celLink}/water-goal`, {
+    cookie: celTrainer.cookie,
+    body: { liters: 3.5 },
+  });
+  assert.equal(kituzes.status, 200, kituzes.text);
+  assert.equal(kituzes.json.waterMl, 3500);
+
+  const viz = await request('GET', '/api/water', { cookie: celClient.cookie });
+  assert.equal(viz.json.targetMl, 3500);
+  assert.equal(viz.json.targetSource, 'coach');
+
+  // Az edző a kártyán látja
+  const kartyak = await request('GET', '/api/athletes', { cookie: celTrainer.cookie });
+  const kartya = kartyak.json.athletes.find((a) => a.name === 'Cél Cecília');
+  assert.equal(kartya.nutritionGoal.waterMl, 3500);
+});
+
+test('a víz-célt csak az edző írhatja, validál, és visszaállítható automatikusra', async () => {
+  const sajatMaga = await request('PUT', `/api/athletes/${celLink}/water-goal`, {
+    cookie: celClient.cookie,
+    body: { liters: 1 },
+  });
+  assert.equal(sajatMaga.status, 404);
+  const kivulallo = await request('PUT', `/api/athletes/${celLink}/water-goal`, {
+    cookie: outsider.cookie,
+    body: { liters: 1 },
+  });
+  assert.equal(kivulallo.status, 404);
+
+  for (const liters of [0, 0.2, 25, 'sok', null]) {
+    const res = await request('PUT', `/api/athletes/${celLink}/water-goal`, {
+      cookie: celTrainer.cookie,
+      body: { liters },
+    });
+    assert.equal(res.status, 400, `érvénytelen: ${liters}`);
+  }
+
+  const torles = await request('DELETE', `/api/athletes/${celLink}/water-goal`, {
+    cookie: celTrainer.cookie,
+  });
+  assert.equal(torles.status, 200);
+  assert.equal(torles.json.waterMl, null);
+  const viz = await request('GET', '/api/water', { cookie: celClient.cookie });
+  assert.equal(viz.json.targetSource, 'auto');
+
+  // A leválás-teszthez újra kitűzzük
+  await request('PUT', `/api/athletes/${celLink}/water-goal`, {
+    cookie: celTrainer.cookie,
+    body: { liters: 3.5 },
+  });
+});
+
+test('leválás után a régi edző célja már nem zárol — a saját cél szól', async () => {
+  // A blokk ELEJÉN beállított saját cél (2400) végig megmaradt
+  const levalas = await request('DELETE', '/api/coach', { cookie: celClient.cookie });
+  assert.ok(levalas.status < 300, levalas.text);
+
+  const celja = await request('GET', '/api/nutrition/goal', { cookie: celClient.cookie });
+  assert.equal(celja.json.source, 'own');
+  assert.equal(celja.json.calories, 2400);
+  assert.equal(celja.json.locked, false);
+  assert.equal(celja.json.waterMl, null, 'a régi edző víz-célja sem él tovább');
+
+  const sajat = await request('PUT', '/api/nutrition/goal', {
+    cookie: celClient.cookie,
+    body: { calories: 2600, protein: 160 },
+  });
+  assert.equal(sajat.status, 200, 'edző nélkül újra szerkeszthető');
 });
 
 /* ======================================================================
@@ -1146,6 +1441,14 @@ test('az edzői kártya FELOLDOTT gyakorlatnevet ad — és nem szivárogtat use
     'a nyers "edzésId:index" célból az edző semmit nem tudna kiolvasni',
   );
   assert.equal(kartya.exerciseNotes[0].workout, 'Felsőtest');
+  assert.ok(
+    kartya.exerciseNotes.every((note) => !('authorId' in note)),
+    'a szerző belső azonosítója sem kerül ki',
+  );
+  assert.ok(
+    kartya.exerciseNotes.every((note) => typeof note.mine === 'boolean'),
+    'helyette a néző szemszögéből: „én írtam-e"',
+  );
 });
 
 test('a csoportosított lekérés egy körből megadja, hol VAN megjegyzés', async () => {
