@@ -835,12 +835,11 @@ function exerciseNotes(userId, workouts, viewerId) {
     const workout = workouts.find((w) => String(w.id) === workoutId);
     const exercise = workout?.exercises?.[Number(index)];
     if (!workout || !exercise) continue;
-    for (const { authorId, ...comment } of list) {
+    for (const comment of list) {
       notes.push({
+        /* A `mine` már a NÉZŐ szemszögéből jön (db.js → toComment) — a szerző
+           belső azonosítója ki sem jön az adatrétegből. */
         ...comment,
-        /* A szerző belső azonosítója nem megy ki — a felületnek csak az
-           kell, hogy a NÉZŐ írta-e (a sportolói panel „Te"-t ír ilyenkor). */
-        mine: authorId === viewerId,
         target,
         exercise: exercise.name,
         workout: workout.name,
@@ -1205,11 +1204,9 @@ const offerPayload = (offer, from) => ({
 /** Terv kiosztása a kapcsolat sportolójának. Törzs: { planId, note }.
     A terv az EDZŐ saját tervei közül való — a végpont nem terv-szerkesztő. */
 app.post('/api/athletes/:linkId/plan', (req, res) => {
-  const link = getCoachLink(Number(req.params.linkId));
   // Csak az edző oldala oszthat ki, és csak ÉLŐ kapcsolatba
-  if (!link || link.coachId !== req.user.id || link.status !== 'active') {
-    return res.status(404).json({ error: 'Nincs ilyen kapcsolat.' });
-  }
+  const link = activeLinkAsCoach(req);
+  if (!link) return res.status(404).json({ error: 'Nincs ilyen kapcsolat.' });
 
   const planId = Number(req.body?.planId);
   if (!Number.isInteger(planId)) {
@@ -1235,16 +1232,19 @@ function pendingOfferFor(userId, rawId) {
   return offer;
 }
 
-/** Ajánlat elfogadása: a terv MÁSOLATKÉNT kerül a sportoló tervei közé.
-    A meglévő terveihez nem nyúlunk — ez mindig hozzáadás, sosem felülírás. */
+/** Ajánlat elfogadása: a terv MÁSOLATKÉNT kerül a sportoló tervei közé, és
+    ez lesz az AKTÍV. A terv-követés ehhez a tervhez mér, az Edzés oldal pedig
+    csak az aktívat tölti be — inaktívan a sportoló a régi tervét edzené, az
+    edző pedig 0%-os követést látna. A meglévő tervek megmaradnak, csak
+    kikapcsolnak; a Tervek oldalon vissza lehet váltani. */
 app.post('/api/plan-offers/:id/accept', (req, res) => {
   const offer = pendingOfferFor(req.user.id, req.params.id);
   if (!offer) return res.status(404).json({ error: 'Nincs ilyen terv-ajánlat.' });
 
   resolvePlanAssignment(offer.id, 'accepted');
   // Az assignmentId köti a tervet az edzőhöz: a terv-követés ehhez mér
-  const plan = addPlan(req.user.id, offer.name, req.today, offer.week, offer.id);
-  res.status(201).json(plan);
+  const added = addPlan(req.user.id, offer.name, req.today, offer.week, offer.id);
+  res.status(201).json(setActivePlan(req.user.id, added.id, true));
 });
 
 /** Ajánlat elutasítása. A sor megmarad (lezárt állapotban), hogy az edző
@@ -2360,10 +2360,8 @@ app.delete('/api/athletes/:linkId/water-goal', (req, res) => {
 });
 
 app.put('/api/athletes/:linkId/nutrition-goal', (req, res) => {
-  const link = getCoachLink(Number(req.params.linkId));
-  if (!link || link.coachId !== req.user.id || link.status !== 'active') {
-    return res.status(404).json({ error: 'Nincs ilyen kapcsolat.' });
-  }
+  const link = activeLinkAsCoach(req);
+  if (!link) return res.status(404).json({ error: 'Nincs ilyen kapcsolat.' });
   const { goal, error } = parseGoalBody(req.body);
   if (error) return res.status(400).json({ error });
   res.json(saveNutritionGoal(link.athleteId, 'coach', goal, req.user.id));

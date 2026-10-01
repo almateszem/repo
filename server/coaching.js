@@ -510,6 +510,9 @@ export function buildAthleteCard({
     adherenceTrend: trend,
     // "6/9" — az elmúlt 4 hét edzéseiből hány indult tervből
     planWorkouts: fromPlan ? `${fromPlan.fromPlan}/${fromPlan.total}` : null,
+    /* Van-e az edzőtől elfogadott terve. Az adherence ettől még lehet null
+       (nem volt esedékes nap) — a felület ebből tudja, hogy nem „nincs terv". */
+    hasAssignedPlan: assignedPlans.length > 0,
     // A terv-követés bontása: { onDay: "9/12", sets: %, rpe: % } vagy null
     adherenceDetail: adherenceBreakdown({ workouts, plans: assignedPlans, today }),
     rating: athleteRating(readiness, adherenceValue),

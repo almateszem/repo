@@ -170,7 +170,9 @@ function renderAthleteCard(athlete, index) {
 
   // A név alatti sor: a riasztás oka, ha van — különben a cél
   $('.co-who-sub', card).textContent =
-    athlete.alert || athlete.goal || 'Még nincs adat — első edzésre vár';
+    athlete.alert ||
+    athlete.goal ||
+    (athlete.lastWorkout ? 'Nincs megadott cél' : 'Még nincs edzés — első edzésre vár');
 
   const stats = $('.co-stats', card);
   ATHLETE_CARD_STATS.forEach(([label, getValue]) =>
@@ -277,12 +279,12 @@ function average(values) {
     : null;
 }
 
-/** A szűrők: mind / figyelmet igényel / terv szerint (nincs riasztás, és
-    van mit pontozni). */
+/** A szűrők: mind / figyelmet igényel / rendben (nincs riasztás, és van mit
+    pontozni). Nem „terv szerint": kiosztott terv nélkül is ide kerülhet. */
 const ATHLETE_FILTERS = [
   ['all', 'Mind', () => true],
   ['alert', 'Figyelj rá', (a) => Boolean(a.alert)],
-  ['ok', 'Terv szerint', (a) => !a.alert && a.rating !== null && a.rating !== undefined],
+  ['ok', 'Rendben', (a) => !a.alert && a.rating !== null && a.rating !== undefined],
 ];
 
 function kpi(label, value, unit, sub, modifier) {
@@ -311,8 +313,10 @@ function renderCoachKpis(athletes) {
   const unread = athletes.reduce((sum, a) => sum + a.unread, 0);
   const readiness = average(athletes.map((a) => (hasReadiness(a.readiness) ? a.readiness : null)));
   const adherence = average(athletes.map((a) => a.adherence));
-  // Van kiosztott terv, csak még nem volt esedékes edzésnap — ez nem „nincs terv”
-  const hasPlan = athletes.some((a) => a.plan);
+  /* Van kiosztott terv, csak még nem volt esedékes edzésnap — ez nem „nincs
+     terv”. Az `a.plan` a sportoló BÁRMILYEN aktív terve (a sajátja is), ezért
+     a szerver külön jelzi, van-e tőlünk elfogadott terve. */
+  const hasAssignedPlan = athletes.some((a) => a.hasAssignedPlan);
   const flagged = athletes.filter((a) => a.alert).length;
 
   $('[data-kpis]').replaceChildren(
@@ -326,7 +330,7 @@ function renderCoachKpis(athletes) {
       'Átl. készenlét',
       orDash(readiness),
       readiness === null ? '' : '/100',
-      readiness === null ? 'még nincs check-in' : 'a legutóbbi check-inekből',
+      readiness === null ? 'még nincs check-in' : 'check-inből és edzésnaplóból',
       readiness === null ? 'is-empty' : '',
     ),
     kpi(
@@ -335,7 +339,7 @@ function renderCoachKpis(athletes) {
       adherence === null ? '' : '%',
       adherence !== null
         ? 'jó nap · szett · RPE a terv szerint'
-        : hasPlan
+        : hasAssignedPlan
           ? 'még nem volt ütemezett edzésnap'
           : 'még nincs kiosztott terv',
       adherence === null ? 'is-empty' : '',
@@ -391,7 +395,7 @@ function renderCoachStatus(athletes) {
     const strong = document.createElement('strong');
     strong.textContent = 'Minden rendben';
     const note = document.createElement('span');
-    note.textContent = 'Minden sportolód a terv szerint halad — nincs sürgős teendőd.';
+    note.textContent = 'Egyik sportolódnál sincs riasztás — nincs sürgős teendőd.';
     text.append(strong, note);
     box.append(icon('✓'), text);
     banner.replaceChildren(box);

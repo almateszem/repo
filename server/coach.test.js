@@ -778,6 +778,14 @@ test('a kiosztás mindkét irányban jogosultságot kér', async () => {
     ['A sajátom', 'Erő alapozó'],
     'a saját terve megmaradt — ez hozzáadás, nem felülírás',
   );
+  /* Az elfogadott edzői terv lesz az AKTÍV: a terv-követés ehhez mér, és csak
+     az aktív terv töltődik az Edzés oldalra. Inaktívan a sportoló a régi
+     tervét edzené, az edző pedig 0%-os követést látna. */
+  assert.deepEqual(
+    afterAccept.json.filter((p) => p.active).map((p) => p.name),
+    ['Erő alapozó'],
+    'az elfogadott edzői terv az aktív',
+  );
 
   // A kétszeri elfogadás nem duplázza a tervet
   const again = await request('POST', `/api/plan-offers/${offers[0].id}/accept`, {
@@ -1448,6 +1456,12 @@ test('az edzői kártya FELOLDOTT gyakorlatnevet ad — és nem szivárogtat use
   assert.ok(
     kartya.exerciseNotes.every((note) => typeof note.mine === 'boolean'),
     'helyette a néző szemszögéből: „én írtam-e"',
+  );
+  // A legfrissebb elöl: az edzőé (az övé), utána a sportolóé (nem az övé)
+  assert.deepEqual(
+    kartya.exerciseNotes.map((note) => note.mine),
+    [true, false],
+    'az edző a SAJÁT megjegyzését „Te"-ként látja',
   );
 });
 

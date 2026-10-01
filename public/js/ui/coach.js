@@ -14,7 +14,8 @@ import {
   renderStatList,
 } from '../render/coach.js';
 import { renderPlans } from '../render/plans.js';
-import { createChatController, relativeTime } from './chat.js';
+import { createChatController } from './chat.js';
+import { exerciseNoteRow } from './exercise-notes.js';
 import { setupClientView } from './coach-client.js';
 import { setupCoachMeals } from './coach-meals.js';
 
@@ -198,68 +199,18 @@ function setupAthleteDetail({ confirmAction, onUnlink, onRead, onAssign } = {}) 
     }
   });
 
-  /** Egy megjegyzés-sor, saját válasz-mezővel. A válasz UGYANABBA a szálba
-      megy (azonos cél), csak más szerzővel — ettől lesz egy beszélgetés a
-      gyakorlatról, nem két külön lista. */
-  function noteRow(note, athlete) {
-    const item = document.createElement('li');
-    item.className = 'co-note-item';
-
-    const head = document.createElement('p');
-    head.className = 'co-note-head';
-    // „Te", ha az edző maga írta — ugyanaz a szemszög-jelölés, mint a chatben.
-    const who = note.mine ? 'Te' : note.authorName;
-    head.textContent = `${note.exercise} · „${note.workout}" ${note.date} · ${who} · ${relativeTime(note.at)}`;
-
-    const body = document.createElement('p');
-    body.className = 'co-note-body';
-    body.textContent = note.text;
-
-    const form = document.createElement('form');
-    form.className = 'co-note-reply';
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.maxLength = 1000;
-    input.placeholder = 'Válasz erre a gyakorlatra…';
-    input.setAttribute('aria-label', `Válasz — ${note.exercise}`);
-    const send = document.createElement('button');
-    send.type = 'submit';
-    send.textContent = 'Küldés';
-    form.append(input, send);
-
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const text = input.value.trim();
-      if (!text) return;
-      send.disabled = true;
-      try {
-        await api.addAthleteComment(athlete.linkId, note.target, text);
-        input.value = '';
-        showToast('Megjegyzés elküldve');
-        // A friss sor a következő megnyitáskor jön le a szerverről; itt
-        // azonnal kiírjuk, hogy a küldés látható eredményt adjon.
-        const mine = document.createElement('p');
-        mine.className = 'co-note-body';
-        mine.textContent = `Te: ${text}`;
-        item.insertBefore(mine, form);
-      } catch (err) {
-        console.error(err);
-        showToast(err.message || 'A megjegyzést nem sikerült elküldeni', 'error');
-      } finally {
-        send.disabled = false;
-      }
-    });
-
-    item.append(head, body, form);
-    return item;
-  }
-
   /** A sportoló gyakorlat-megjegyzései. Ha nincs egy sem, a blokk rejtve
       marad — üres kerettel nem sugalljuk, hogy van mit nézni. */
   function renderExerciseNotes(athlete) {
     const notes = athlete.exerciseNotes ?? [];
     notesEl.hidden = notes.length === 0;
-    noteListEl.replaceChildren(...notes.map((note) => noteRow(note, athlete)));
+    noteListEl.replaceChildren(
+      ...notes.map((note) =>
+        exerciseNoteRow(note, (target, text) =>
+          api.addAthleteComment(athlete.linkId, target, text),
+        ),
+      ),
+    );
   }
 
   /** A sportoló legutóbbi edzés utáni visszajelzése. A számok mellett ez az
@@ -646,7 +597,7 @@ async function setupCoachPage(athleteDetail, confirmAction) {
       try {
         if (accepting) {
           const plan = await api.acceptPlanOffer(offerId);
-          showToast(`„${plan.name}” bekerült a terveid közé`);
+          showToast(`„${plan.name}” mostantól az aktív terved`);
           // A Tervek oldal listája ettől elavult — frissen húzzuk le
           await renderPlans();
         } else {

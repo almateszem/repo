@@ -317,10 +317,31 @@ test('a kártyán a sportoló SAJÁT terve nem mérce, csak a kiosztott', () => 
   assert.equal(own.adherence, null);
   assert.equal(own.adherenceDetail, null);
   assert.equal(own.plan, 'Saját', 'a heti állás és az aktív terv továbbra is a saját tervekből');
+  assert.equal(own.hasAssignedPlan, false, 'saját terv mellett sincs edzői terve');
 
   const coached = buildAthleteCard({ ...base, plans: [], assignedPlans: [assigned(EVERY_DAY)] });
   assert.equal(coached.adherence, 100);
   assert.deepEqual(coached.adherenceDetail, { onDay: '28/28', sets: 100, rpe: 100 });
+  assert.equal(coached.hasAssignedPlan, true);
+});
+
+test('a ma elfogadott terv: még nincs követés, de VAN edzői terv', () => {
+  // Egyetlen ütemezett nap sem volt még esedékes — a bontás is null
+  const fresh = { ...assigned(EVERY_DAY), date: TODAY };
+  const card = buildAthleteCard({
+    athlete: { linkId: 1, username: 'x', name: 'X' },
+    workouts: [],
+    plans: [],
+    assignedPlans: [fresh],
+    checkins: [],
+    weightLog: [],
+    readiness: null,
+    streak: 0,
+    lastMessage: null,
+    today: TODAY,
+  });
+  assert.equal(card.adherenceDetail, null);
+  assert.equal(card.hasAssignedPlan, true, 'a felület ebből tudja: nem „nincs kiosztott terv"');
 });
 
 test('az összpontszám terv nélkül maga a készenlét', () => {

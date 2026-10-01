@@ -71,6 +71,12 @@ const ex = (kg) =>
   plan.run('Erő', ex(100), '[0,3]'); // az elfogadás pontos másolata
   plan.run('Hipertrófia', ex(70), '[1]'); // azóta átírva
   plan.run('Erő', ex(100), '[2]'); // saját terv
+  // Az edzőnek csak egy nap nélküli „könyvtári" terve van — ez eddig sosem töltődött be
+  raw
+    .prepare(
+      "INSERT INTO plans (user_id, name, date, exercises, days) VALUES (1, 'Sablon', '2026.09.01', ?, '[]')",
+    )
+    .run(ex(80));
   raw.close();
 }
 
@@ -101,6 +107,13 @@ test('a régi tervek heti alakot kapnak, és egy lesz aktív', () => {
     [true, false, false],
   );
   assert.equal(own.name, 'Erő');
+});
+
+test('a nap nélküli régi terv NEM lesz aktív — különben hétfőnként betöltődne', () => {
+  const [sablon] = db.getUserPlans(1);
+  assert.equal(sablon.name, 'Sablon');
+  assert.equal(sablon.active, false, 'eddig sem volt ütemezve, ezután sem');
+  assert.equal(db.getActivePlan(1), null);
 });
 
 test('a visszakötött terv az edző példányával jön a terv-követésnek', () => {

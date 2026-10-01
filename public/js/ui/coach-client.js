@@ -18,7 +18,8 @@ import {
   renderWaterText,
 } from '../render/coach-client.js';
 import { renderInviteRow, renderPlanOffer } from '../render/coach.js';
-import { createChatController, relativeTime } from './chat.js';
+import { createChatController } from './chat.js';
+import { exerciseNoteRow } from './exercise-notes.js';
 
 const CLIENT_TABS = ['overview', 'nutrition', 'plan', 'messages'];
 
@@ -130,58 +131,6 @@ function setupClientView({ page, view, onChange }) {
     }
   });
 
-  /** Egy gyakorlat-megjegyzés, válasz-mezővel. A válasz UGYANABBA a szálba
-      megy (azonos cél) — az edződ a panelján ugyanitt látja. */
-  function noteRow(note) {
-    const item = document.createElement('li');
-    item.className = 'co-note-item';
-
-    const head = document.createElement('p');
-    head.className = 'co-note-head';
-    const author = note.mine ? 'Te' : note.authorName;
-    head.textContent = `${note.exercise} · „${note.workout}" ${note.date} · ${author} · ${relativeTime(note.at)}`;
-
-    const body = document.createElement('p');
-    body.className = 'co-note-body';
-    body.textContent = note.text;
-
-    const form = document.createElement('form');
-    form.className = 'co-note-reply';
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.maxLength = 1000;
-    input.placeholder = 'Válasz erre a gyakorlatra…';
-    input.setAttribute('aria-label', `Válasz — ${note.exercise}`);
-    const send = document.createElement('button');
-    send.type = 'submit';
-    send.textContent = 'Küldés';
-    form.append(input, send);
-
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      const text = input.value.trim();
-      if (!text) return;
-      send.disabled = true;
-      try {
-        await api.addMyComment(note.target, text);
-        input.value = '';
-        showToast('Megjegyzés elküldve');
-        const mine = document.createElement('p');
-        mine.className = 'co-note-body';
-        mine.textContent = `Te: ${text}`;
-        item.insertBefore(mine, form);
-      } catch (err) {
-        console.error(err);
-        showToast(err.message || 'A megjegyzést nem sikerült elküldeni', 'error');
-      } finally {
-        send.disabled = false;
-      }
-    });
-
-    item.append(head, body, form);
-    return item;
-  }
-
   function renderOverview(me) {
     renderClientTodo($('[data-client-todo]', view), {
       offers: data.planOffers.length,
@@ -205,7 +154,9 @@ function setupClientView({ page, view, onChange }) {
     const typing = noteListEl.contains(document.activeElement);
     const notes = me.exerciseNotes ?? [];
     notesEl.hidden = notes.length === 0;
-    if (!typing) noteListEl.replaceChildren(...notes.map(noteRow));
+    if (!typing) {
+      noteListEl.replaceChildren(...notes.map((note) => exerciseNoteRow(note, api.addMyComment)));
+    }
 
     const entries = me.recent.length > 0 ? me.recent : ['Még nincs naplózott aktivitás.'];
     activityEl.replaceChildren(
