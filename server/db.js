@@ -2374,9 +2374,10 @@ export function saveCheckin(userId, date, fields) {
 
 /** A testsúly egy adott napon: az utolsó bejegyzés a napon vagy előtte. Ha a
     napló csak később kezdődik, a legkorábbi bejegyzés — az a legjobb
-    közelítés. Bejegyzés híján 0, és a hívó onnan tudja, hogy nem tippelünk. */
-export function weightForDate(userId, date) {
-  const log = getWeightLog(userId);
+    közelítés. Bejegyzés híján 0, és a hívó onnan tudja, hogy nem tippelünk.
+    A ciklusban hívó a `log`-ot egyszer olvassa be és adja át — különben minden
+    edzés minden gyakorlata újra lekérdezné a teljes testsúly-naplót. */
+export function weightForDate(userId, date, log = getWeightLog(userId)) {
   let best = null;
   for (const entry of log) {
     if (entry.date <= date && (!best || entry.date >= best.date)) best = entry;
@@ -2621,6 +2622,8 @@ export function recomputeExerciseMaxes(userId) {
       ]),
   );
   const rewrites = []; // [{ id, exercises }] — csak a ténylegesen változó sorok
+  // A testsúlyos gyakorlatok alapterheléséhez — egyszer, nem soronként
+  const weightLog = getWeightLog(userId);
 
   for (const row of rows) {
     let exercises;
@@ -2647,7 +2650,7 @@ export function recomputeExerciseMaxes(userId) {
          alapterheléssel kell számolni, mint mentéskor, különben az
          újraszámolás visszaírná a régi, nulla körüli értéket. Az edzés NAPJÁHOZ
          tartozó testsúllyal, nem a maival. */
-      const baseLoad = effectiveLoad(name, 0, weightForDate(userId, row.date));
+      const baseLoad = effectiveLoad(name, 0, weightForDate(userId, row.date, weightLog));
       const record = bestCompletedSet(exercise?.sets ?? [], {
         fallbackToFirst: row.pr_rule === 0,
         baseLoad,

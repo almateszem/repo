@@ -12,11 +12,7 @@ import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SEXES, isPerHand, strengthStandards, strengthTier } from './data/strength-standards.js';
-import {
-  bodyweightFactors,
-  effectiveLoad,
-  isBodyweightExercise,
-} from './data/bodyweight-load.js';
+import { bodyweightFactors, effectiveLoad, isBodyweightExercise } from './data/bodyweight-load.js';
 import {
   getCollection,
   getWeightLog,
@@ -1981,11 +1977,11 @@ app.get('/api/workout-template', (req, res) => res.json(workoutTemplate(req.user
     amivel az addWorkout PR-nek jelölte a gyakorlatot. Korábban itt az ELSŐ
     teljesített szett szerepelt, ami a szett-típusok óta jellemzően a
     bemelegítés: a lista a könnyű bemelegítő sorozatot hirdette rekordnak. */
-function prEntryFor(userId, workout, exercise) {
+function prEntryFor(userId, workout, exercise, weightLog = getWeightLog(userId)) {
   /* Saját testsúlyos gyakorlatnál a terhelés zöme a test: ugyanazt az
      alapterhelést kell használni, mint amivel az addWorkout a PR-t megítélte,
      különben a lista más számot hirdetne, mint amit a rekord mögött tárolunk. */
-  const baseLoad = effectiveLoad(exercise.name, 0, weightForDate(userId, workout.date));
+  const baseLoad = effectiveLoad(exercise.name, 0, weightForDate(userId, workout.date, weightLog));
 
   // A mértékegység már nem az értékben van (szám-mezők), ezért itt tesszük hozzá
   // Csak kijelzés, és csak PR-jelölt gyakorlatra: a pipák előtti sorok
@@ -2025,10 +2021,11 @@ function prEntryFor(userId, workout, exercise) {
 // pontosan a jelenlegi rekord.
 app.get('/api/prs', (req, res) => {
   const latestByExercise = new Map();
+  const weightLog = getWeightLog(req.user.id);
   for (const workout of getWorkouts(req.user.id)) {
     for (const exercise of workout.exercises) {
       if (!exercise.pr || latestByExercise.has(exercise.name)) continue;
-      latestByExercise.set(exercise.name, prEntryFor(req.user.id, workout, exercise));
+      latestByExercise.set(exercise.name, prEntryFor(req.user.id, workout, exercise, weightLog));
     }
   }
   res.json([...latestByExercise.values()]);
@@ -2054,10 +2051,11 @@ app.get('/api/prs/history', (req, res) => {
   }
 
   const history = [];
+  const weightLog = getWeightLog(req.user.id);
   for (const workout of getWorkouts(req.user.id)) {
     for (const exercise of workout.exercises) {
       if (exercise.name !== exerciseName || !exercise.pr) continue;
-      history.push(prEntryFor(req.user.id, workout, exercise));
+      history.push(prEntryFor(req.user.id, workout, exercise, weightLog));
     }
   }
   res.json(history);
@@ -2110,12 +2108,13 @@ function weightOn(log, date) {
     számolva viszont egynek látszana, és a fejlődése sosem indulna el. */
 function firstLoggedMaxes(userId) {
   const first = new Map();
+  const weightLog = getWeightLog(userId);
   // A getWorkouts legújabb elöl ad; a legrégebbi felé haladva az UTOLSÓ
   // értékadás marad érvényben, tehát a legkorábbi edzésé.
   for (const workout of [...getWorkouts(userId)].reverse()) {
     // Az ADOTT NAP testsúlya: a saját testsúlyos gyakorlatok kiindulópontja is
     // akkori terhelés, nem mai.
-    const bodyweightThen = weightForDate(userId, workout.date);
+    const bodyweightThen = weightForDate(userId, workout.date, weightLog);
 
     for (const exercise of workout.exercises) {
       const baseLoad = effectiveLoad(exercise.name, 0, bodyweightThen);
@@ -2197,9 +2196,7 @@ app.get('/api/exercise-records', (req, res) => {
            értékbe nem adjuk hozzá — egy tolódzkodásnál a „98,7 kg" olyan
            szám, amit soha nem emeltél meg, és nem is így mondanád el. */
         bodyweightBased: isBodyweightExercise(record.exercise_name),
-        achievement: isBodyweightExercise(record.exercise_name)
-          ? (baseline?.peak ?? null)
-          : null,
+        achievement: isBodyweightExercise(record.exercise_name) ? (baseline?.peak ?? null) : null,
         /* Ha EGYIK mérce sem szólal meg, a felület nem hallgathat: a néma
            szürke érem megkülönböztethetetlen attól, mintha a színkódolás
            elromlott volna. A `needs` megmondja, MI hiányzik.
