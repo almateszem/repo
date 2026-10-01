@@ -577,7 +577,7 @@ sportolónál lévő példányt.
 | `POST /api/coach/invites/:linkId/accept`      | meghívó elfogadása                                                                                                          |
 | `DELETE /api/coach/invites/:linkId`           | meghívó elutasítása                                                                                                         |
 | `DELETE /api/coach`                           | leválás az edzőről                                                                                                          |
-| `POST /api/plan-offers/:id/accept`            | felajánlott terv elfogadása (másolatként bekerül)                                                                           |
+| `POST /api/plan-offers/:id/accept`            | felajánlott terv elfogadása (másolatként bekerül, és ez lesz az aktív)                                                      |
 | `DELETE /api/plan-offers/:id`                 | felajánlott terv elutasítása                                                                                                |
 | `GET` / `POST /api/messages/:linkId`          | a kapcsolat üzenet-szála                                                                                                    |
 | `POST /api/messages/:linkId/read`             | a szál nyugtázása (a másik fél üzenetei olvasottá válnak)                                                                   |

@@ -82,6 +82,57 @@ test('a törölt fiókú edző célja nem hajtja tovább a napi célt', () => {
   assert.notEqual(goal.calories, 3100);
 });
 
+/* ---- Az edzői ÉTREND ugyanígy a kapcsolathoz kötött ---- */
+
+const MEAL = {
+  name: 'Reggeli',
+  items: [{ food: { name: 'Zabpehely', kcal: 370, protein: 13, carbs: 60, fat: 7 }, grams: 80 }],
+};
+const NAP = '2026-10-01';
+
+test('a bontással a volt edző étkezései is lekerülnek — nem naplózhatók tovább', () => {
+  const edzo = db.createUser('edzo-etrend', 'Edző', HASH).user;
+  const sportolo = db.createUser('sportolo-etrend', 'Sportoló', HASH).user;
+
+  const kapcsolat = link(edzo, sportolo);
+  const [etkezes] = db.createCoachMeal(sportolo.id, edzo.id, MEAL, NAP);
+  assert.equal(db.getCoachMeals(sportolo.id, NAP).length, 1);
+
+  db.deleteCoachLink(kapcsolat.id);
+
+  assert.deepEqual(db.getCoachMeals(sportolo.id, NAP), [], 'a sportoló étrendje üres');
+  assert.equal(db.countCoachMeals(sportolo.id), 0);
+  assert.equal(db.logCoachMeal(sportolo.id, etkezes.id, NAP), null, 'nem írhat a naplóba');
+});
+
+test('a törölt fiókú edző étkezései sem maradnak a sportolónál', () => {
+  const edzo = db.createUser('edzo-etrend-torolt', 'Edző', HASH).user;
+  const sportolo = db.createUser('sportolo-etrend-torolt', 'Sportoló', HASH).user;
+
+  link(edzo, sportolo);
+  db.createCoachMeal(sportolo.id, edzo.id, MEAL, NAP);
+  db.deleteUser(edzo.id);
+
+  assert.deepEqual(db.getCoachMeals(sportolo.id, NAP), []);
+});
+
+test('az új edző nem látja / nem örökli a régi edző étrendjét', () => {
+  const regi = db.createUser('edzo-regi-etrend', 'Régi', HASH).user;
+  const uj = db.createUser('edzo-uj-etrend', 'Új', HASH).user;
+  const sportolo = db.createUser('sportolo-valto', 'Sportoló', HASH).user;
+
+  link(regi, sportolo);
+  /* Élő kapcsolat nélkül ottmaradt sor (régebbi fájlokon a bontás még nem
+     takarított): írjuk be közvetlenül, majd bontsuk a kapcsolatot SQL-lel. */
+  db.createCoachMeal(sportolo.id, regi.id, MEAL, NAP);
+  const raw = new DatabaseSync(DB_PATH);
+  raw.prepare('DELETE FROM coach_links WHERE coach_id = ?').run(regi.id);
+  raw.close();
+
+  link(uj, sportolo);
+  assert.deepEqual(db.getCoachMeals(sportolo.id, NAP), [], 'csak az élő edző étrendje számít');
+});
+
 test('élő kapcsolat nélkül ottmaradt edzői sort sem veszünk figyelembe', () => {
   /* Régebbi fájlokon előfordulhat: a sor a bontás-takarítás előttről maradt,
      vagy a set_by már NULL. Olvasáskor sem számít — írni nem kell hozzá. */

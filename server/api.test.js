@@ -930,6 +930,41 @@ test('egyszerre egy aktív terv van', async () => {
   assert.equal(idegen.status, 404, 'más tervét nem lehet aktiválni');
 });
 
+test('az AKTÍV terv törlésekor a legújabb megmaradt terv lesz az aktív', async () => {
+  const cookie = cookieFrom(
+    await request('POST', '/api/auth/register', {
+      body: { username: 'torlo', displayName: 'Törlő', password: 'jelszo123' },
+    }),
+  );
+  const uj = async (name) =>
+    (
+      await request('POST', '/api/plans', {
+        cookie,
+        body: { name, exercises: [gyakorlat('Evezés', 50)], days: [0] },
+      })
+    ).json;
+  const elso = await uj('Első');
+  const masodik = await uj('Második');
+  const harmadik = await uj('Harmadik');
+  assert.equal(elso.active, true, 'az első terv automatikusan aktív');
+
+  await request('DELETE', `/api/plans/${elso.id}`, { cookie });
+  const utana = (await request('GET', '/api/plans', { cookie })).json;
+  assert.deepEqual(
+    utana.filter((p) => p.active).map((p) => p.id),
+    [harmadik.id],
+    'nem marad aktív terv nélkül — a legújabb veszi át',
+  );
+
+  // Inaktív terv törlése nem kapcsolgat semmit
+  await request('DELETE', `/api/plans/${masodik.id}`, { cookie });
+  const vegul = (await request('GET', '/api/plans', { cookie })).json;
+  assert.deepEqual(
+    vegul.filter((p) => p.active).map((p) => p.id),
+    [harmadik.id],
+  );
+});
+
 test('a hétnap-lista egyedi, rendezett 0–6 indexekké normalizálódik', async () => {
   const terv = await request('POST', '/api/plans', {
     cookie: annaCookie,
