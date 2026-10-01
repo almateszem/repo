@@ -24,6 +24,7 @@ import {
   getNutritionLogForDate,
   deleteNutritionEntry,
   getWorkouts,
+  getWorkoutsForRecords,
   getWorkoutsSince,
   getWorkoutDates,
   getWeightLogSince,
@@ -2087,17 +2088,6 @@ app.get('/api/exercise-maxes', (req, res) => {
    ezért két ARÁNY között történik (1RM / testsúly), nem két súly között —
    mindkettőnél a HOZZÁ TARTOZÓ napi testsúllyal. */
 
-/** A testsúly egy adott napon: az utolsó bejegyzés a napon vagy előtte. Ha a
-    napló csak később kezdődik, a legkorábbi bejegyzés — ez a legjobb közelítés
-    ahhoz, hogy „mennyit nyomtál akkor, amikor ennyi voltál". */
-function weightOn(log, date) {
-  let best = null;
-  for (const entry of log) {
-    if (entry.date <= date) best = entry;
-  }
-  return best ?? log[0] ?? null;
-}
-
 /** Gyakorlatonként az ELSŐ naplózott 1RM — ehhez méri magát a mostani csúcs.
     Csak a naplóból: a bemondott felmérés nem kiindulópont, hanem becslés, és a
     `source` mezője úgyis eltűnik, amint egy mért szett felülírja.
@@ -2105,20 +2095,26 @@ function weightOn(log, date) {
     A `sessions` a külön EDZÉSEK száma, nem a külön napoké. A különbség nem
     elméleti: aki egy napon belül két edzést naplóz (vagy javít egyet, majd
     felvesz mellé egy másikat), az két adatpontot hozott létre — napokban
-    számolva viszont egynek látszana, és a fejlődése sosem indulna el. */
+    számolva viszont egynek látszana, és a fejlődése sosem indulna el.
+
+    Az edzések DÁTUM szerint jönnek (nem rögzítési sorrendben): egy utólag
+    bepótolt múlt havi edzés a kiindulópont, nem a múlt heti. A rekordot hozó
+    szettet ugyanazzal a szabállyal választjuk, amivel az edzést mentették
+    (pr_rule) — egy kipipálatlan, előre kitöltött sor nem kiindulópont. */
 function firstLoggedMaxes(userId) {
   const first = new Map();
   const weightLog = getWeightLog(userId);
-  // A getWorkouts legújabb elöl ad; a legrégebbi felé haladva az UTOLSÓ
-  // értékadás marad érvényben, tehát a legkorábbi edzésé.
-  for (const workout of [...getWorkouts(userId)].reverse()) {
+  for (const workout of getWorkoutsForRecords(userId)) {
     // Az ADOTT NAP testsúlya: a saját testsúlyos gyakorlatok kiindulópontja is
     // akkori terhelés, nem mai.
     const bodyweightThen = weightForDate(userId, workout.date, weightLog);
 
     for (const exercise of workout.exercises) {
       const baseLoad = effectiveLoad(exercise.name, 0, bodyweightThen);
-      const set = bestCompletedSet(exercise.sets, { fallbackToFirst: true, baseLoad });
+      const set = bestCompletedSet(exercise.sets, {
+        fallbackToFirst: workout.prRule === 0,
+        baseLoad,
+      });
       const oneRM = set ? calculateEpley1RM(Number(set.weight || 0) + baseLoad, set.reps) : 0;
       if (oneRM <= 0) continue;
 
@@ -2144,11 +2140,36 @@ function firstLoggedMaxes(userId) {
   return first;
 }
 
-/** A saját testsúlyos gyakorlatok nevei. A felület ebből tudja, hogy a napló
-    súly-oszlopa ott a RÁADÁST kéri, nem a terhelést. Külön végpont, mert a
-    lista a szerver kurált táblájából jön (data/bodyweight-load.js), nem a
+/** A kezenkénti súlyú gyakorlatok — EGY forrásból, hogy a napló felirata
+    („Súly·kg/kéz") és a profil csempéje („/ kéz") sose mondjon mást. Az
+    erőstandard `perHand` jelzője a mérvadó (azon múlik az érem), és mellé a
+    katalógus kézisúlyzós sorai, ahol standard nincs. Lustán épül, egyszer. */
+let perHandCache = null;
+function perHandNames() {
+  if (!perHandCache) {
+    perHandCache = new Set(
+      (getCollection('exerciseCatalog') || [])
+        .filter((item) => item.equipment === 'Kézisúlyzó' || isPerHand(item.name))
+        .map((item) => item.name),
+    );
+    for (const name of Object.keys(strengthStandards)) if (isPerHand(name)) perHandCache.add(name);
+  }
+  return perHandCache;
+}
+
+/** A napló súly-oszlopának konvenciói: melyik gyakorlatnál kezenkénti a súly,
+    melyiknél RÁADÁS a testsúlyon (tényezővel), és a mai testsúly. Az utóbbi
+    kettőből számol az élő PR-jelző ugyanúgy, ahogy a szerver mentéskor —
+    különben a saját testsúlyos gyakorlat jelzője sosem gyulladna ki. A
+    testsúlyos lista a kurált táblából jön (data/bodyweight-load.js), nem a
     katalógus `felszerelés` mezőjéből — az utóbbi erre nem megbízható. */
-app.get('/api/bodyweight-exercises', (req, res) => res.json(Object.keys(bodyweightFactors)));
+app.get('/api/weight-conventions', (req, res) =>
+  res.json({
+    perHand: [...perHandNames()],
+    bodyweightFactors,
+    bodyweightKg: weightForDate(req.user.id, requestDate(req)),
+  }),
+);
 
 /** Ugyanaz az adat, de SORONKÉNT, a dátummal és a forrással együtt.
     A profil rekord-csempéi ezt kérik: ott a felhasználó tetszőleges
@@ -2158,8 +2179,8 @@ app.get('/api/bodyweight-exercises', (req, res) => res.json(Object.keys(bodyweig
     az edzésnapló valós idejű PR-jelzése ül, ezért NEM írjuk át a alakját. */
 app.get('/api/exercise-records', (req, res) => {
   const first = firstLoggedMaxes(req.user.id);
-  const weightLog = [...getWeightLog(req.user.id)].sort((a, b) => a.date.localeCompare(b.date));
-  const bodyweight = weightLog[weightLog.length - 1]?.kg ?? 0;
+  const weightLog = getWeightLog(req.user.id);
+  const bodyweight = weightForDate(req.user.id, requestDate(req), weightLog);
   const sex = getUserSex(req.user.id);
   /* Az életkor évre pontos: a születési évet kérjük el, nem a dátumot. Az egy
      év bizonytalanság a küszöbön legfeljebb egy-két százalék — ennyiért nem
@@ -2189,7 +2210,7 @@ app.get('/api/exercise-records', (req, res) => {
         /* A beírt súly kezenkénti-e. A kártyának ki kell írnia, különben a
            kilogramm és a testsúly-szorzó ellentmond egymásnak: 34,7 kg és
            1,0× testsúly 67 kg-on csak úgy fér össze, ha a 34,7 egy kézé. */
-        perHand: isPerHand(record.exercise_name),
+        perHand: perHandNames().has(record.exercise_name),
         /* Saját testsúlyosnál a kártya NEM a számolt terhelést írja ki: a
            rekord az, amit ténylegesen csináltál. A testsúly benne marad a
            szint-számításban (a `standard` arányában), de a megjelenített
@@ -2228,18 +2249,23 @@ function missingFor(record, sex, bodyweight, first) {
 
 /** A fejlődés százalékban, vagy null, ha nincs mihez mérni. A null NEM nulla:
     „még nem tudjuk" és „nem fejlődtél" két külön állítás, és a felület is
-    másképp mutatja őket (semleges érem vs. bronz). Négy ok adhat null-t:
-    nincs naplózott kiindulópont (csak bemondott érték), egyetlen napod van az
-    adott gyakorlatból, nincs testsúly-bejegyzés, vagy nulla lenne az osztó. */
+    másképp mutatja őket (semleges érem vs. bronz). Null jön, ha nincs
+    naplózott kiindulópont, egyetlen edzésed van az adott gyakorlatból, nincs
+    testsúly-bejegyzés, nulla lenne az osztó — vagy ha a csúcs BEMONDOTT
+    érték: azt a naplózott kiindulóponthoz mérni becslést mérne méréshez.
+
+    Mindkét arány a SAJÁT napjának testsúlyával számol: a kiindulópont az első
+    edzés napjáéval, a csúcs a csúcs napjáéval — nem a maival. */
 function progressFor(record, first, weightLog) {
   if (!first || first.sessions < 2 || weightLog.length === 0) return null;
+  if (record.source === 'declared') return null;
 
-  const weightThen = weightOn(weightLog, first.date);
-  const weightNow = weightLog[weightLog.length - 1];
-  if (!weightThen?.kg || !weightNow?.kg) return null;
+  const weightThen = weightForDate(null, first.date, weightLog);
+  const weightAtRecord = weightForDate(null, record.date, weightLog);
+  if (!weightThen || !weightAtRecord) return null;
 
-  const ratioThen = first.max1rm / weightThen.kg;
-  const ratioNow = record.max_1rm / weightNow.kg;
+  const ratioThen = first.max1rm / weightThen;
+  const ratioNow = record.max_1rm / weightAtRecord;
   if (ratioThen <= 0) return null;
 
   return {
@@ -3380,6 +3406,7 @@ app.post('/api/strength-assessment', (req, res) => {
 
   const catalog = getCollection('exerciseCatalog') || [];
   const known = new Map(catalog.map((item) => [normalizeName(item.name), item.name]));
+  const bodyweightToday = weightForDate(req.user.id, req.today);
 
   const parsed = [];
   for (const entry of raw) {
@@ -3397,8 +3424,12 @@ app.post('/api/strength-assessment', (req, res) => {
           .json({ error: `${name}: a(z) ${key} ${min} és ${max} között adható meg.` });
       }
     }
-    // Ugyanaz az Epley-képlet, amivel a naplózott szettek is számolnak.
-    parsed.push({ name, max1rm: calculateEpley1RM(entry.weight, entry.reps) });
+    /* Ugyanaz az Epley-képlet ÉS ugyanaz a terhelés, amivel a naplózott
+       szettek számolnak: saját testsúlyos gyakorlatnál a beírt szám a ráadás,
+       a terhelés zöme a test (bodyweight-load.js). Testsúly-bejegyzés nélkül
+       nincs mihez adni — ott a beírt szám marad, mint eddig. */
+    const load = effectiveLoad(name, entry.weight, bodyweightToday);
+    parsed.push({ name, max1rm: calculateEpley1RM(load > 0 ? load : entry.weight, entry.reps) });
   }
 
   const stored = parsed.map(({ name, max1rm }) => {
