@@ -51,7 +51,12 @@ export const bodyweightFactors = {
 };
 
 /** Saját testsúlyos-e a gyakorlat (van-e rá tényezőnk). */
-export const isBodyweightExercise = (exercise) => Boolean(bodyweightFactors[exercise]);
+/* Object.hasOwn: a sima indexelés az örökölt kulcsokra (`constructor`,
+   `toString`) is igazat adna, és a terhelés NaN lenne. */
+const factorOf = (exercise) =>
+  Object.hasOwn(bodyweightFactors, exercise) ? bodyweightFactors[exercise] : 0;
+
+export const isBodyweightExercise = (exercise) => factorOf(exercise) > 0;
 
 /**
  * Egy szett TÉNYLEGES terhelése kilogrammban.
@@ -68,7 +73,7 @@ export const isBodyweightExercise = (exercise) => Boolean(bodyweightFactors[exer
  * @returns {number} a terhelés kilogrammban
  */
 export function effectiveLoad(exercise, weight, bodyweight) {
-  const factor = bodyweightFactors[exercise];
+  const factor = factorOf(exercise);
   const added = Number(weight);
   if (!factor) return Number.isFinite(added) ? added : 0;
   if (!(bodyweight > 0)) return 0;

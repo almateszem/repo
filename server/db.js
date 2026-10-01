@@ -27,7 +27,7 @@ import { buildExerciseCatalog, buildFoodCatalog } from './data/catalog.js';
 import { estimate1RM } from './recovery.js';
 import { splitLegacyMuscleMap } from './muscles.js';
 import { dayEntry, dayWorkoutName, weekFromLegacy, workoutDays } from './plan-week.js';
-import { effectiveLoad } from './data/bodyweight-load.js';
+import { effectiveLoad, isBodyweightExercise } from './data/bodyweight-load.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Alapból server/fittrack.db; a FITTRACK_DB env-változóval felülírható (pl. teszthez).
@@ -2379,10 +2379,29 @@ export function saveCheckin(userId, date, fields) {
     edzés minden gyakorlata újra lekérdezné a teljes testsúly-naplót. */
 export function weightForDate(userId, date, log = getWeightLog(userId)) {
   let best = null;
+  let earliest = null;
   for (const entry of log) {
     if (entry.date <= date && (!best || entry.date >= best.date)) best = entry;
+    // A tartalék a legkorábbi DÁTUMÚ bejegyzés, nem a legelőször rögzített:
+    // egy utólag bepótolt régi mérés is lehet a legkorábbi.
+    if (!earliest || entry.date < earliest.date) earliest = entry;
   }
-  return (best ?? log[0])?.kg ?? 0;
+  return (best ?? earliest)?.kg ?? 0;
+}
+
+/** Az edzések a rekord-csempék kiindulópontjához: DÁTUM szerint (azon belül
+    rögzítési sorrendben), a mentéskori PR-szabállyal (pr_rule) együtt. A
+    getWorkouts rögzítési sorrendje itt hibás volna: egy utólag bepótolt régi
+    edzés nem lenne kiindulópont. */
+export function getWorkoutsForRecords(userId) {
+  return db
+    .prepare('SELECT date, exercises, pr_rule FROM workouts WHERE user_id = ? ORDER BY date, id')
+    .all(userId)
+    .map((row) => ({
+      date: row.date,
+      exercises: JSON.parse(row.exercises),
+      prRule: row.pr_rule,
+    }));
 }
 
 /** A becsült 1RM a PR-követéshez: az app közös Epley-képlete (recovery.js →
@@ -2933,6 +2952,7 @@ export function updateWeightEntry(userId, id, kg) {
   const { changes } = db
     .prepare('UPDATE weight_log SET kg = ? WHERE id = ? AND user_id = ?')
     .run(kg, id, userId);
+  if (changes > 0) recomputeAfterWeightChange(userId);
   return changes > 0
     ? db.prepare('SELECT id, kg, date FROM weight_log WHERE id = ?').get(id)
     : null;
@@ -2942,9 +2962,26 @@ export function updateWeightEntry(userId, id, kg) {
     trend-kártya skáláját lapos vonallá nyomja, és a Testsúly Δ statot is
     elviszi — enélkül nem volt út a javításához. */
 export function deleteWeightEntry(userId, id) {
-  return (
-    db.prepare('DELETE FROM weight_log WHERE id = ? AND user_id = ?').run(id, userId).changes > 0
-  );
+  const deleted =
+    db.prepare('DELETE FROM weight_log WHERE id = ? AND user_id = ?').run(id, userId).changes > 0;
+  if (deleted) recomputeAfterWeightChange(userId);
+  return deleted;
+}
+
+/** A saját testsúlyos gyakorlatok csúcsa a NAPI testsúlyból számol
+    (bodyweight-load.js), tehát egy testsúly-bejegyzés felvétele, javítása vagy
+    törlése a tárolt csúcsot is elavulttá teszi. Csak akkor számolunk újra, ha a
+    naplóban van ilyen gyakorlat — a többi felhasználónál ez felesleges munka. */
+function recomputeAfterWeightChange(userId) {
+  const rows = db.prepare('SELECT exercises FROM workouts WHERE user_id = ?').all(userId);
+  const hasBodyweight = rows.some((row) => {
+    try {
+      return JSON.parse(row.exercises).some((exercise) => isBodyweightExercise(exercise?.name));
+    } catch {
+      return false;
+    }
+  });
+  if (hasBodyweight) recomputeExerciseMaxes(userId);
 }
 
 export function addWeightEntry(userId, kg, date) {
@@ -2953,11 +2990,13 @@ export function addWeightEntry(userId, kg, date) {
     .get(userId, date);
   if (existing) {
     db.prepare('UPDATE weight_log SET kg = ? WHERE id = ?').run(kg, Number(existing.id));
+    recomputeAfterWeightChange(userId);
     return db.prepare('SELECT id, kg, date FROM weight_log WHERE id = ?').get(Number(existing.id));
   }
   const { lastInsertRowid } = db
     .prepare('INSERT INTO weight_log (user_id, kg, date) VALUES (?, ?, ?)')
     .run(userId, kg, date);
+  recomputeAfterWeightChange(userId);
   return db
     .prepare('SELECT id, kg, date FROM weight_log WHERE id = ?')
     .get(Number(lastInsertRowid));
@@ -3355,16 +3394,27 @@ export function updateWorkout(userId, id, name, exercises) {
     Ha az AKTÍV tervet törli, a legújabb megmaradt veszi át a helyét — mint az
     addPlan-nél: aki tervet használ, ne maradjon némán aktív terv nélkül. */
 export function deletePlan(userId, id) {
-  const wasActive = getActivePlan(userId)?.id === Number(id);
-  const deleted =
-    db.prepare('DELETE FROM plans WHERE id = ? AND user_id = ?').run(id, userId).changes > 0;
-  if (deleted && wasActive) {
-    db.prepare(
-      `UPDATE plans SET active = 1
-       WHERE id = (SELECT id FROM plans WHERE user_id = ? ORDER BY id DESC LIMIT 1)`,
-    ).run(userId);
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const wasActive = getActivePlan(userId)?.id === Number(id);
+    const deleted =
+      db.prepare('DELETE FROM plans WHERE id = ? AND user_id = ?').run(id, userId).changes > 0;
+    /* Csak ütemezett napú terv veheti át a helyét: a nap nélküli régi
+       „könyvtári" terv a heti alakban hétfőre kerül, aktívként tehát minden
+       hétfőn betöltődne (ugyanezért nem aktiválja a migráció sem). */
+    if (deleted && wasActive) {
+      db.prepare(
+        `UPDATE plans SET active = 1
+         WHERE id = (SELECT id FROM plans WHERE user_id = ? AND days != '[]'
+                     ORDER BY id DESC LIMIT 1)`,
+      ).run(userId);
+    }
+    db.exec('COMMIT');
+    return deleted;
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
   }
-  return deleted;
 }
 
 /** Edzésterv mentése (a hét: plan-week.js alak); visszaadja a létrejött tervet.

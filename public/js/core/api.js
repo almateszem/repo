@@ -192,9 +192,10 @@ const api = {
   /* Ugyanaz soronként, dátummal és forrással — a profil rekord-csempéihez.
      Szintén nem cache-elt: egy most lezárt edzés azonnal átírhatja. */
   getExerciseRecords: () => getJson('/api/exercise-records'),
-  /* Cache-elt: a lista a szerver kurált táblája, egy munkameneten belül nem
-     változik — a napló súly-oszlopának feliratához kell. */
-  getBodyweightExercises: () => getJsonCached('/api/bodyweight-exercises'),
+  /* A napló súly-konvenciói: kezenkénti gyakorlatok, testsúly-tényezők és a
+     mai testsúly. Nem cache-elt: a testsúly a munkamenet közben is változhat,
+     az élő PR-jelző pedig abból számol. */
+  getWeightConventions: () => getJson('/api/weight-conventions'),
   /* Nem cache-elt: a lista a hívó VALÓDI eseményeiből áll össze (olvasatlan
      üzenet, meghívó, friss PR), tehát a panel minden megnyitásakor frisset
      kérünk — a munkamenetre eltett válasz órákig hazudna. */

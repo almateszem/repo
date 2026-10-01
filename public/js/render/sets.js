@@ -32,14 +32,10 @@ const addedWeightExercises = new Set();
 
 async function primePerHandExercises() {
   try {
-    const [catalog, bodyweight] = await Promise.all([
-      api.getExerciseCatalog(),
-      api.getBodyweightExercises(),
-    ]);
-    for (const entry of catalog) {
-      if (entry.equipment === 'Kézisúlyzó') perHandExercises.add(entry.name);
-    }
-    for (const name of bodyweight) addedWeightExercises.add(name);
+    // Egy forrásból a profillal: a szerver mondja meg mindkét listát
+    const { perHand, bodyweightFactors } = await api.getWeightConventions();
+    for (const name of perHand) perHandExercises.add(name);
+    for (const name of Object.keys(bodyweightFactors)) addedWeightExercises.add(name);
   } catch (err) {
     console.error('A súly-konvenciók listája nem töltődött be:', err);
   }
