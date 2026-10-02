@@ -2,3 +2,5 @@
 # lenne a projekt gráfjában (61 csomóponttal növelte).
 .claude/skills/
 .agents/
+# A Remotion bemutató videó külön projekt, nem az app kódja.
+video/
