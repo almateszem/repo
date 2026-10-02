@@ -5,3 +5,4 @@ server/data/exdb.names.hu.js
 server/data/exdb.map.js
 server/fittrack.db
 .claude/skills/
+.agents/
