@@ -5,7 +5,7 @@ import { $, $$, cloneTemplate } from '../core/dom.js';
 import { hooks } from '../core/page-hooks.js';
 import { showToast } from '../core/toast.js';
 import { navigate } from '../nav/router.js';
-import { renderExercise } from '../render/sets.js';
+import { defaultSetFor, renderExercise } from '../render/sets.js';
 import { setupThumb } from './workout.js';
 
 /** A gyakorlat-választó flow-oldal: katalógus a szerverről, kereső + izom-
@@ -247,15 +247,14 @@ async function setupExercisePicker(confirmAction) {
          három szett a súlyzós munka szokása; egy futásból nem csinál senki
          hármat, és a „+ Szett" gomb ezeken a kártyákon nincs is ott. */
       const cardio = item.dataset.logMode === 'duration';
+      const set = defaultSetFor(name, defaultSet);
       context.targetList.appendChild(
         renderExercise(
           {
             name,
             pr: false,
             ...(cardio && { logMode: 'duration' }),
-            sets: cardio
-              ? [{ ...defaultCardioSet }]
-              : [{ ...defaultSet }, { ...defaultSet }, { ...defaultSet }],
+            sets: cardio ? [{ ...defaultCardioSet }] : [{ ...set }, { ...set }, { ...set }],
           },
           context.exerciseOptions,
         ),
