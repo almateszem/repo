@@ -20,7 +20,7 @@ const GENERATED = [
 ];
 
 export default [
-  { ignores: ['node_modules/**', '.agents/**', 'public/gyujto/**', ...GENERATED] },
+  { ignores: ['node_modules/**', '.agents/**', 'video/**', 'public/gyujto/**', ...GENERATED] },
 
   js.configs.recommended,
 
