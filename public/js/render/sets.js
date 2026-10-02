@@ -384,11 +384,24 @@ function clampRpeInput(target) {
   return true;
 }
 
+/** Egy gyakorlat alap-szettje: a szerveré, de kézisúlyzósnál és saját
+    testsúlyosnál 0 kg-mal. A szerver 60 kg-ja rúdra van szabva: húzódzkodásnál
+    „+60 kg" ráadás, kézisúlyzónál 60 kg/kéz volna — és ha a sort így pipálja
+    ki, ezzel a súllyal is mentődne. */
+function defaultSetFor(name, defaultSet) {
+  return perHandExercises.has(name) || addedWeightExercises.has(name)
+    ? { ...defaultSet, weight: '0' }
+    : { ...defaultSet };
+}
+
 /** Az új szett értékei: az adott gyakorlat utolsó szettje (így ismétlődő
-    szetteknél nem kell újragépelni), üres listánál a szerver alap-szettje. */
+    szetteknél nem kell újragépelni), üres listánál a gyakorlat alap-szettje. */
 function nextSetValues(setList, defaultSet) {
   const last = setList.lastElementChild;
-  const values = last ? { ...readSetRow(last), done: false } : { ...defaultSet, done: false };
+  const name = $('.wk-exercise-name', setList.closest('.wk-exercise'))?.textContent.trim();
+  const values = last
+    ? { ...readSetRow(last), done: false }
+    : { ...defaultSetFor(name, defaultSet), done: false };
   // A típus nem öröklődik: az új szett a pozíciója szerinti alapot kapja
   // (a renderSetRow adja), különben egy bemelegítő sor után a következő is
   // bemelegítő lenne.
@@ -846,6 +859,7 @@ function enableExtraMenu(list) {
 
 export {
   clampRpeInput,
+  defaultSetFor,
   enableExtraMenu,
   enableIntensitySelect,
   enableOrderSelect,
