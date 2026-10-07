@@ -821,8 +821,8 @@
           <p class="wk-error" id="plan-name-error" hidden>Adj nevet a tervnek a mentéshez.</p>
           <p class="pb-summary" data-pb-summary aria-live="polite"></p>
 
-          <!-- A hét: minden nap saját edzés, pihenő vagy „ugyanaz, mint …", és
-             hetente ismétlődik. A fülek a napok; alattuk a kijelölt nap panelje. -->
+          <!-- A hét: minden nap saját edzés vagy pihenő, és hetente
+             ismétlődik. A fülek a napok; alattuk a kijelölt nap panelje. -->
           <div class="pb-days">
             <span class="pb-days-label" id="pb-days-label">A hét — hetente ismétlődik</span>
             <div
@@ -846,15 +846,6 @@
               <button class="ds-seg-btn" type="button" data-pb-mode="rest" aria-pressed="false">
                 Pihenő
               </button>
-              <button class="ds-seg-btn" type="button" data-pb-mode="same" aria-pressed="false">
-                Ugyanaz, mint…
-              </button>
-            </div>
-
-            <!-- „Ugyanaz, mint …": csak egy másik EDZÉSNAPRA mutathat -->
-            <div class="pb-same" data-pb-same hidden>
-              <label class="pb-same-label" for="pb-same-select">Melyik nap edzése?</label>
-              <select class="pb-same-select" id="pb-same-select" data-pb-same-select></select>
             </div>
 
             <p class="pb-rest-note" data-pb-rest hidden>
