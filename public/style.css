@@ -6214,6 +6214,23 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--c-accent);
 }
 
+/* Az edzés-választó (workout-picker) két blokkja: a terv napjai és a napló */
+.wp-block-title {
+  margin: var(--sp-9) 0 var(--sp-4);
+}
+
+/* A sor gyakorlat-felsorolása hosszú lehet: egy sorban, kipontozva */
+[data-page='workout-picker'] .ep-item-muscles {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A betöltés-gomb a hozzáadás-gomb testvére, de a lista FÖLÖTT áll */
+.pb-load {
+  margin-bottom: 0;
+}
+
 .co-modal-stat dt {
   font-size: var(--fs-2xs);
   letter-spacing: 0.02em;

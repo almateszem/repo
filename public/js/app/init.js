@@ -47,6 +47,7 @@ import { setupShortcuts } from '../ui/shortcuts.js';
 import { setupSummary, setupWeeklyCompare } from '../ui/summary.js';
 import { refreshWeightLog } from '../ui/weight.js';
 import { setupWorkout } from '../ui/workout.js';
+import { setupWorkoutPicker } from '../ui/workout-picker.js';
 
 /* ======================================================================
    8. Init
@@ -185,7 +186,10 @@ async function init() {
     }),
   );
 
-  const planBuilder = await safe(() => setupPlanBuilder(picker));
+  // A „Meglévő edzés betöltése" választója — szinkron épül fel, adatot
+  // csak megnyitáskor kér
+  const workoutPicker = await safe(() => setupWorkoutPicker(confirmAction));
+  const planBuilder = await safe(() => setupPlanBuilder(picker, workoutPicker));
   setupPlans(planBuilder, workout, confirmAction);
   setupSummary();
   setupShortcuts();

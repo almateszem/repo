@@ -3,7 +3,7 @@
 import { api } from '../core/api.js';
 import { DAY_LABELS, DAY_NAMES } from '../core/constants.js';
 import { $, $$ } from '../core/dom.js';
-import { inlineSameDays } from '../core/plan-sources.js';
+import { copyExercises, inlineSameDays } from '../core/plan-sources.js';
 import { dayTitle } from '../core/plan-week.js';
 import { showToast } from '../core/toast.js';
 import { navigate } from '../nav/router.js';
@@ -33,7 +33,7 @@ const freshDays = () =>
     közös választóra visz, a kijelölt nap listáját célozva. A Mentés új tervet
     hoz létre vagy a szerkesztettet írja felül, majd frissíti a Tervek listáját.
     Vezérlőt ad vissza: { startNew, loadPlan }. */
-async function setupPlanBuilder(picker) {
+async function setupPlanBuilder(picker, workoutPicker) {
   const page = $('[data-page="plan-builder"]');
   const nameInput = $('#plan-name');
   const nameError = $('#plan-name-error');
@@ -214,6 +214,39 @@ async function setupPlanBuilder(picker) {
       onChange: updateSummary,
     });
     navigate('exercise-picker');
+  });
+
+  // „Meglévő edzés betöltése": a terv másik edzésnapjai helyben, a napló a
+  // választóban töltődik. A kijelölt napot a hívás pillanatában rögzítjük.
+  $('[data-action="builder-load-workout"]').addEventListener('click', () => {
+    const day = activeDay;
+    workoutPicker?.open({
+      subtitle: `${dayTitle(day)} · ${dayWorkoutTitle(day)}`,
+      dayTitle: dayTitle(day),
+      planSources: days.flatMap((entry, index) =>
+        entry.type === 'workout' && index !== day && exerciseCount(index)
+          ? [
+              {
+                name: dayWorkoutTitle(index),
+                tag: dayTitle(index),
+                adoptName: entry.name.trim(),
+                exercises: readExercises(lists[index]),
+              },
+            ]
+          : [],
+      ),
+      currentCount: () => exerciseCount(day),
+      onPick: (source) => {
+        lists[day].replaceChildren(
+          ...copyExercises(source.exercises).map((exercise) =>
+            renderExercise(exercise, { withAddSet: true }),
+          ),
+        );
+        if (!days[day].name.trim()) days[day].name = source.adoptName;
+        selectDay(day);
+        showToast(`„${source.name}” betöltve — ${dayTitle(day)}`);
+      },
+    });
   });
   $('[data-action="builder-back"]').addEventListener('click', () => navigate('plans'));
 
