@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="hu">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Demó — Meglévő edzés betöltése</title>
+    <!-- Az app saját stíluslapja: a demó ugyanazokat az osztályokat használja -->
+    <link rel="stylesheet" href="../../../public/style.css" />
+    <style>
+      /* Csak a demóhoz: a gyakorlatkártya itt egyszerűsített (a valódi
+         szett-szerkesztő változatlanul marad), és egy jelzősáv felül. */
+      .demo-banner {
+        font-family: var(--font-mono);
+        font-size: var(--fs-2xs);
+        letter-spacing: var(--ls-label-tight);
+        text-transform: uppercase;
+        color: var(--text-muted);
+        border-bottom: 1px solid var(--hair-soft);
+        padding: var(--sp-4) var(--sp-6);
+        text-align: center;
+      }
+      .demo-sets {
+        margin: 0;
+        padding: var(--sp-3) 0 0;
+        font-size: var(--fs-sm);
+        color: var(--text-secondary);
+      }
+      .demo-load {
+        margin-bottom: 0;
+      }
+      .demo-section-title {
+        margin: var(--sp-9) 0 var(--sp-4);
+      }
+      .demo-new {
+        outline: 1px dashed var(--fg-40);
+        outline-offset: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <p class="demo-banner">Demó — nem éles adat · a szaggatott keret jelzi az új elemet</p>
+    <main class="app-main">
+      <!-- ============ Terv-építő ============ -->
+      <section class="app-page pb-page" id="builder">
+        <header class="pb-header">
+          <button class="ep-back tap-target" type="button" aria-label="Vissza a tervekhez">
+            ←
+          </button>
+          <p class="pb-eyebrow ds-eyebrow">Edzésterv szerkesztése</p>
+        </header>
+        <input class="wk-title pb-title" id="plan-name" value="Erő 3 nap" maxlength="60" />
+        <p class="pb-summary" id="summary"></p>
+
+        <div class="pb-days">
+          <span class="pb-days-label">A hét — hetente ismétlődik</span>
+          <div class="pb-days-chips ds-grid" id="chips" role="tablist"></div>
+        </div>
+
+        <div class="pb-day-panel" role="tabpanel">
+          <h3 class="pb-day-title ds-eyebrow" id="day-title"></h3>
+          <!-- Két gomb: az „Ugyanaz, mint…" kikerült -->
+          <div class="pb-mode ds-seg" role="group" aria-label="A nap típusa">
+            <button class="ds-seg-btn" type="button" data-mode="workout">Edzés</button>
+            <button class="ds-seg-btn" type="button" data-mode="rest">Pihenő</button>
+          </div>
+
+          <p class="pb-rest-note" id="rest-note" hidden>
+            Pihenőnap — ezen a napon nem töltődik be edzés.
+          </p>
+
+          <div class="pb-workout" id="workout-wrap">
+            <input class="pb-day-name" id="day-name" maxlength="40" autocomplete="off" />
+            <!-- ÚJ -->
+            <button class="wk-add-exercise demo-load demo-new" type="button" id="open-picker">
+              Meglévő edzés betöltése
+            </button>
+            <div id="list"></div>
+            <button class="wk-add-exercise" type="button">+ Gyakorlat hozzáadása</button>
+          </div>
+        </div>
+
+        <button class="wk-save ds-cta" type="button">
+          <span>Terv mentése</span><span class="wk-finish-arrow" aria-hidden="true">→</span>
+        </button>
+      </section>
+
+      <!-- ============ ÚJ: Edzés-választó ============ -->
+      <section class="app-page ep-page" id="picker" hidden>
+        <header class="ep-header">
+          <button
+            class="ep-back tap-target"
+            type="button"
+            id="picker-back"
+            aria-label="Vissza a terv-építőhöz"
+          >
+            ←
+          </button>
+          <div class="ep-header-text">
+            <p class="ep-subtitle ds-eyebrow" id="picker-sub"></p>
+            <h2 class="ep-title">Edzés betöltése</h2>
+          </div>
+        </header>
+
+        <div class="nu-search">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M10 4a6 6 0 1 0 3.8 10.6l5 5 1.4-1.4-5-5A6 6 0 0 0 10 4zm0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8z"
+            />
+          </svg>
+          <input
+            type="search"
+            id="search"
+            placeholder="Keresés az edzések között…"
+            autocomplete="off"
+          />
+        </div>
+
+        <h3 class="ds-eyebrow demo-section-title" id="plan-title">A terv napjai</h3>
+        <div class="ep-list" id="plan-list"></div>
+
+        <h3 class="ds-eyebrow demo-section-title" id="log-title">Korábbi edzések</h3>
+        <div class="ep-list" id="log-list"></div>
+        <p class="ep-empty" id="empty" hidden>Nincs találat a keresésre.</p>
+      </section>
+    </main>
+
+    <!-- A meglévő megerősítő ablak -->
+    <div class="confirm-modal" id="confirmModal" aria-hidden="true">
+      <div class="confirm-modal-backdrop" data-cancel></div>
+      <div
+        class="confirm-modal-card"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="cm-title"
+      >
+        <div class="confirm-modal-head">
+          <h3 id="cm-title">Lecseréled a gyakorlatokat?</h3>
+          <button
+            class="confirm-modal-close tap-target"
+            type="button"
+            data-cancel
+            aria-label="Mégse"
+          >
+            ✕
+          </button>
+        </div>
+        <p class="confirm-modal-text" id="cm-text"></p>
+        <div class="confirm-modal-actions ds-grid">
+          <button class="confirm-cancel" type="button" data-cancel>Mégse</button>
+          <button class="confirm-ok" type="button" id="cm-ok">Csere</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast-region" role="status" aria-live="polite"></div>
+
+    <script>
+      const LABELS = ['H', 'K', 'Sze', 'Cs', 'P', 'Szo', 'V'];
+      const NAMES = ['Hétfő', 'Kedd', 'Szerda', 'Csütörtök', 'Péntek', 'Szombat', 'Vasárnap'];
+
+      const ex = (name, sets, reps, kg) => ({ name, sets, reps, kg });
+      const days = [
+        {
+          type: 'workout',
+          name: 'Láb nap',
+          exercises: [
+            ex('Guggolás', 4, 6, 100),
+            ex('Román felhúzás', 3, 8, 80),
+            ex('Kitörés', 3, 10, 20),
+          ],
+        },
+        { type: 'rest', name: '', exercises: [] },
+        {
+          type: 'workout',
+          name: 'Felsőtest',
+          exercises: [
+            ex('Fekvenyomás', 4, 6, 80),
+            ex('Húzódzkodás', 4, 8, 0),
+            ex('Vállból nyomás', 3, 10, 40),
+          ],
+        },
+        { type: 'rest', name: '', exercises: [] },
+        { type: 'workout', name: '', exercises: [ex('Felhúzás', 3, 5, 140)] },
+        { type: 'rest', name: '', exercises: [] },
+        { type: 'rest', name: '', exercises: [] },
+      ];
+      const log = [
+        {
+          name: 'Láb nap',
+          date: 'okt. 3.',
+          exercises: [
+            ex('Guggolás', 4, 6, 105),
+            ex('Román felhúzás', 3, 8, 85),
+            ex('Lábtolás', 3, 12, 160),
+          ],
+        },
+        {
+          name: 'Felsőtest',
+          date: 'okt. 1.',
+          exercises: [ex('Fekvenyomás', 4, 6, 82.5), ex('Evezés rúddal', 4, 8, 70)],
+        },
+        {
+          name: 'Láb nap',
+          date: 'szept. 30.',
+          exercises: [
+            ex('Guggolás', 4, 6, 100),
+            ex('Román felhúzás', 3, 8, 80),
+            ex('Kitörés', 3, 10, 20),
+          ],
+        },
+        {
+          name: 'Teljes test',
+          date: 'szept. 27.',
+          exercises: [ex('Felhúzás', 3, 5, 135), ex('Tolódzkodás', 3, 10, 0), ex('Plank', 3, 1, 0)],
+        },
+        {
+          name: 'Felsőtest',
+          date: 'szept. 26.',
+          exercises: [ex('Fekvenyomás', 4, 6, 80), ex('Húzódzkodás', 4, 8, 0)],
+        },
+      ];
+      let active = 4;
+
+      const $ = (s) => document.querySelector(s);
+      const planName = () => $('#plan-name').value.trim() || 'Terv';
+      const title = (d) => days[d].name.trim() || `${planName()} – ${NAMES[d]}`;
+      const kgText = (kg) => (kg ? `${kg} kg` : 'testsúly');
+
+      const toast = (msg) => {
+        const el = document.createElement('div');
+        el.className = 'toast';
+        el.textContent = msg;
+        $('.toast-region').appendChild(el);
+        setTimeout(() => el.remove(), 2600);
+      };
+
+      function render() {
+        const chips = $('#chips');
+        chips.replaceChildren();
+        days.forEach((d, i) => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'pb-day' + (d.type === 'rest' ? ' is-rest' : '');
+          b.setAttribute('role', 'tab');
+          b.setAttribute('aria-selected', String(i === active));
+          const status =
+            d.type === 'rest'
+              ? 'Pihenő'
+              : d.name || (d.exercises.length ? `${d.exercises.length} gyak.` : 'Üres');
+          b.innerHTML = `<span class="pb-day-label">${LABELS[i]}</span><span class="pb-day-status"></span>`;
+          b.lastChild.textContent = status;
+          b.onclick = () => {
+            active = i;
+            render();
+          };
+          chips.appendChild(b);
+        });
+
+        const d = days[active];
+        $('#day-title').textContent = NAMES[active];
+        document
+          .querySelectorAll('[data-mode]')
+          .forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === d.type)));
+        $('#rest-note').hidden = d.type !== 'rest';
+        $('#workout-wrap').hidden = d.type !== 'workout';
+        $('#day-name').value = d.name;
+        $('#day-name').placeholder = `${planName()} – ${NAMES[active]}`;
+
+        const list = $('#list');
+        list.replaceChildren();
+        d.exercises.forEach((e) => {
+          const card = document.createElement('article');
+          card.className = 'wk-exercise';
+          card.innerHTML =
+            '<header class="wk-exercise-head"><h3 class="wk-exercise-name"></h3></header><p class="demo-sets"></p>';
+          card.querySelector('h3').textContent = e.name;
+          card.querySelector('p').textContent =
+            `${e.sets} szett × ${e.reps} ism. · ${kgText(e.kg)}`;
+          list.appendChild(card);
+        });
+
+        const training = days.filter((x) => x.type !== 'rest').length;
+        const count = days.reduce((s, x) => s + (x.type === 'workout' ? x.exercises.length : 0), 0);
+        $('#summary').textContent =
+          `${training} edzésnap · ${7 - training} pihenő · ${count} gyakorlat`;
+      }
+
+      document.querySelectorAll('[data-mode]').forEach((b) =>
+        b.addEventListener('click', () => {
+          days[active].type = b.dataset.mode;
+          render();
+        }),
+      );
+      $('#day-name').addEventListener('input', (e) => {
+        days[active].name = e.target.value;
+        render();
+        $('#day-name').focus();
+      });
+
+      /* ---------- Választó ---------- */
+      function row(name, tag, sub, onPick) {
+        const item = document.createElement('article');
+        item.className = 'ep-item ds-row';
+        item.innerHTML =
+          '<div class="ep-item-info ds-row-main"><h3 class="ep-item-name ds-row-name"></h3>' +
+          '<p class="ep-item-meta"><span class="ep-item-tag"></span><span class="ep-item-muscles ds-row-sub"></span></p></div>' +
+          '<button class="ep-item-toggle tap-target" type="button" aria-label="Betöltés">→</button>';
+        item.querySelector('h3').textContent = name;
+        item.querySelector('.ep-item-tag').textContent = tag;
+        item.querySelector('.ds-row-sub').textContent = sub;
+        item.querySelector('button').onclick = onPick;
+        item.querySelector('.ep-item-info').style.cursor = 'pointer';
+        item.querySelector('.ep-item-info').onclick = onPick;
+        return item;
+      }
+      const preview = (exs) => `${exs.length} gyakorlat · ${exs.map((e) => e.name).join(', ')}`;
+
+      function renderPicker() {
+        const q = $('#search').value.trim().toLowerCase();
+        const match = (name, exs) =>
+          !q || name.toLowerCase().includes(q) || exs.some((e) => e.name.toLowerCase().includes(q));
+
+        const planList = $('#plan-list');
+        planList.replaceChildren();
+        days.forEach((d, i) => {
+          if (i === active || d.type !== 'workout' || !d.exercises.length) return;
+          const name = title(i);
+          if (!match(name, d.exercises)) return;
+          planList.appendChild(
+            row(name, NAMES[i], preview(d.exercises), () => pick(name, d.exercises)),
+          );
+        });
+
+        const logList = $('#log-list');
+        logList.replaceChildren();
+        log.forEach((w) => {
+          if (!match(w.name, w.exercises)) return;
+          logList.appendChild(
+            row(w.name, w.date, preview(w.exercises), () => pick(w.name, w.exercises)),
+          );
+        });
+
+        $('#plan-title').hidden = !planList.children.length;
+        $('#log-title').hidden = !logList.children.length;
+        $('#empty').hidden = planList.children.length + logList.children.length > 0;
+      }
+
+      function showPage(id) {
+        $('#builder').hidden = id !== 'builder';
+        $('#picker').hidden = id !== 'picker';
+        window.scrollTo(0, 0);
+      }
+
+      $('#open-picker').onclick = () => {
+        $('#picker-sub').textContent = `${NAMES[active]} · ${title(active)}`;
+        $('#search').value = '';
+        renderPicker();
+        showPage('picker');
+      };
+      $('#picker-back').onclick = () => showPage('builder');
+      $('#search').addEventListener('input', renderPicker);
+
+      /* ---------- Csere + megerősítés ---------- */
+      const modal = $('#confirmModal');
+      let pending = null;
+      const closeModal = () => {
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+        pending = null;
+      };
+      modal.querySelectorAll('[data-cancel]').forEach((b) => (b.onclick = closeModal));
+      $('#cm-ok').onclick = () => {
+        const p = pending;
+        closeModal();
+        p && p();
+      };
+
+      function pick(name, exercises) {
+        const apply = () => {
+          const d = days[active];
+          d.exercises = exercises.map((e) => ({ ...e })); // másolat
+          if (!d.name.trim()) d.name = name;
+          showPage('builder');
+          render();
+          toast(`„${name}" betöltve — ${NAMES[active]}`);
+        };
+        const current = days[active].exercises.length;
+        if (!current) return apply();
+        $('#cm-text').textContent =
+          `${NAMES[active]} ${current} gyakorlata helyére a(z) „${name}" ${exercises.length} gyakorlata kerül.`;
+        pending = apply;
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+        $('#confirmModal .confirm-cancel').focus();
+      }
+
+      render();
+    </script>
+  </body>
+</html>

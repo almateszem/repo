@@ -5916,18 +5916,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   margin: 0;
 }
 
-.pb-same {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-3);
-}
-
-.pb-same-label {
-  font-size: var(--fs-sm);
-  color: var(--text-secondary);
-}
-
-.pb-same-select,
 .pb-day-name {
   width: 100%;
   min-height: var(--tap-min);
@@ -5939,7 +5927,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   font-size: var(--fs-input);
 }
 
-.pb-same-select:focus-visible,
 .pb-day-name:focus-visible {
   outline: 2px solid var(--c-accent);
   outline-offset: 1px;
@@ -6225,6 +6212,23 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
    de nem is rábólintás — az accent szín jelzi, hogy itt óvatosság kell. */
 .ep-reason--low {
   color: var(--c-accent);
+}
+
+/* Az edzés-választó (workout-picker) két blokkja: a terv napjai és a napló */
+.wp-block-title {
+  margin: var(--sp-9) 0 var(--sp-4);
+}
+
+/* A sor gyakorlat-felsorolása hosszú lehet: egy sorban, kipontozva */
+[data-page='workout-picker'] .ep-item-muscles {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A betöltés-gomb a hozzáadás-gomb testvére, de a lista FÖLÖTT áll */
+.pb-load {
+  margin-bottom: 0;
 }
 
 .co-modal-stat dt {

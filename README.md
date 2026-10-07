@@ -342,8 +342,11 @@ tartja ki a gráfból magát a vendorolt skillt (különben a saját dokumentác
   törölt rekord helyére a következő legjobb edzés lép be. A művelet
   tranzakcióban fut: a napló és a rekordok csak együtt igazak.
 - **Heti bontású tervek.** Egy terv egy hét, és hetente ismétlődik: minden nap
-  saját edzés (opcionális névvel, pl. „Láb nap”), pihenőnap, vagy „ugyanaz, mint”
-  egy másik edzésnap (`server/plan-week.js`). Egyszerre egy terv aktív; annak a
+  saját edzés (opcionális névvel, pl. „Láb nap”) vagy pihenőnap
+  (`server/plan-week.js`). Egy edzésnapba a „Meglévő edzés betöltése” a terv
+  másik napjának vagy egy naplózott edzésnek a másolatát tölti. A régi tervek
+  „ugyanaz, mint” napjait a szerver továbbra is elfogadja; a terv-építőben
+  megnyitva ezek másolattá válnak. Egyszerre egy terv aktív; annak a
   mai napja automatikusan betöltődik az Edzés oldalra — de egy már megkezdett
   edzést soha nem ír felül. A terv-kártya heti sávjából bármelyik nap edzése
   elindítható.

@@ -821,8 +821,8 @@
           <p class="wk-error" id="plan-name-error" hidden>Adj nevet a tervnek a mentéshez.</p>
           <p class="pb-summary" data-pb-summary aria-live="polite"></p>
 
-          <!-- A hét: minden nap saját edzés, pihenő vagy „ugyanaz, mint …", és
-             hetente ismétlődik. A fülek a napok; alattuk a kijelölt nap panelje. -->
+          <!-- A hét: minden nap saját edzés vagy pihenő, és hetente
+             ismétlődik. A fülek a napok; alattuk a kijelölt nap panelje. -->
           <div class="pb-days">
             <span class="pb-days-label" id="pb-days-label">A hét — hetente ismétlődik</span>
             <div
@@ -846,15 +846,6 @@
               <button class="ds-seg-btn" type="button" data-pb-mode="rest" aria-pressed="false">
                 Pihenő
               </button>
-              <button class="ds-seg-btn" type="button" data-pb-mode="same" aria-pressed="false">
-                Ugyanaz, mint…
-              </button>
-            </div>
-
-            <!-- „Ugyanaz, mint …": csak egy másik EDZÉSNAPRA mutathat -->
-            <div class="pb-same" data-pb-same hidden>
-              <label class="pb-same-label" for="pb-same-select">Melyik nap edzése?</label>
-              <select class="pb-same-select" id="pb-same-select" data-pb-same-select></select>
             </div>
 
             <p class="pb-rest-note" data-pb-rest hidden>
@@ -870,6 +861,15 @@
                 autocomplete="off"
                 data-pb-day-name
               />
+              <!-- Egy meglévő edzés (a terv másik napja vagy a napló) MÁSOLATA
+                 kerül a napba — a választó flow-oldalra visz (#workout-picker) -->
+              <button
+                class="wk-add-exercise pb-load"
+                type="button"
+                data-action="builder-load-workout"
+              >
+                Meglévő edzés betöltése
+              </button>
               <!-- Napononként egy lista; csak a kijelölté látszik (a JS tölti fel) -->
               <div data-pb-lists></div>
 
@@ -969,6 +969,61 @@
               >Gym visual</a
             >
           </p>
+        </section>
+
+        <!-- ================================================================
+           Workout Picker — meglévő edzés betöltése (flow-oldal)
+           A terv-építő „Meglévő edzés betöltése" gombja hozza be. Két forrás:
+           a terv többi edzésnapja és a napló minden edzése (legújabb elöl).
+           A választás a kijelölt nap gyakorlatait MÁSOLATTAL cseréli le.
+           ================================================================ -->
+        <section
+          class="app-page ep-page"
+          data-page="workout-picker"
+          aria-labelledby="title-workout-picker"
+          hidden
+        >
+          <header class="ep-header">
+            <button
+              class="ep-back tap-target"
+              type="button"
+              data-action="workout-picker-back"
+              aria-label="Vissza a terv-építőhöz"
+            >
+              ←
+            </button>
+            <div class="ep-header-text">
+              <p class="ep-subtitle ds-eyebrow" data-wp-subtitle></p>
+              <h2 class="ep-title" id="title-workout-picker">Edzés betöltése</h2>
+            </div>
+          </header>
+
+          <div class="nu-search">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M10 4a6 6 0 1 0 3.8 10.6l5 5 1.4-1.4-5-5A6 6 0 0 0 10 4zm0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8z"
+              />
+            </svg>
+            <label class="sr-only" for="workout-search">Keresés az edzések között</label>
+            <input
+              type="search"
+              id="workout-search"
+              placeholder="Keresés az edzések között…"
+              autocomplete="off"
+            />
+          </div>
+
+          <section class="wp-block" data-wp-plan aria-labelledby="title-wp-plan" hidden>
+            <h3 class="wp-block-title ds-eyebrow" id="title-wp-plan">A terv napjai</h3>
+            <div class="ep-list" data-list="wp-plan"></div>
+          </section>
+
+          <section class="wp-block" data-wp-log aria-labelledby="title-wp-log" hidden>
+            <h3 class="wp-block-title ds-eyebrow" id="title-wp-log">Korábbi edzések</h3>
+            <div class="ep-list" data-list="wp-log"></div>
+          </section>
+
+          <p class="ep-empty" data-wp-empty hidden></p>
         </section>
 
         <!-- ================================================================
@@ -3457,6 +3512,19 @@
           <p class="ep-item-reasons" hidden></p>
         </div>
         <button class="ep-item-toggle tap-target" type="button" aria-pressed="false"></button>
+      </article>
+    </template>
+
+    <!-- Az edzés-választó egy sora: név, forrás (nap vagy dátum), gyakorlatok -->
+    <template id="tpl-workout-source">
+      <article class="ep-item ds-row">
+        <div class="ep-item-info ds-row-main">
+          <h3 class="ep-item-name ds-row-name"></h3>
+          <p class="ep-item-meta">
+            <span class="ep-item-tag"></span><span class="ep-item-muscles ds-row-sub"></span>
+          </p>
+        </div>
+        <button class="ep-item-toggle tap-target" type="button">→</button>
       </article>
     </template>
 
