@@ -121,11 +121,12 @@ const PAGE_TITLES = {
   summary: 'Edzés-összegző',
   'plan-builder': 'Terv-építő',
   'exercise-picker': 'Gyakorlat hozzáadása',
+  'workout-picker': 'Edzés betöltése',
   checkin: 'Napi check-in',
 };
 
 /** Az oldalak ikonjai a nav gyűrű gombjához — az index.html tetején lévő közös
-    sprite symbol-id-jei. Ugyanaz a 11 kulcs, mint a PAGE_TITLES-ben, hogy a
+    sprite symbol-id-jei. Ugyanaz a 12 kulcs, mint a PAGE_TITLES-ben, hogy a
     kettő ne sodródjon szét. Az Edző és a Profil oldal is a már meglévő
     #icon-user-t használja — hogy melyiken állsz, a gomb neve és a hint-sor
     mondja meg (mindkettő a PAGE_TITLES-ből). */
@@ -140,6 +141,7 @@ const PAGE_ICONS = {
   summary: 'icon-page-summary',
   'plan-builder': 'icon-page-plan-builder',
   'exercise-picker': 'icon-page-exercise-picker',
+  'workout-picker': 'icon-page-plan-builder',
   checkin: 'icon-page-checkin',
 };
 

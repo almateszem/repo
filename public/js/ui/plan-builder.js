@@ -1,8 +1,9 @@
-/** Tervkészítő: a hét napjai (edzés / pihenő / ugyanaz, mint …), gyakorlatok, mentés. */
+/** Tervkészítő: a hét napjai (edzés / pihenő), gyakorlatok, mentés. */
 
 import { api } from '../core/api.js';
 import { DAY_LABELS, DAY_NAMES } from '../core/constants.js';
 import { $, $$ } from '../core/dom.js';
+import { copyExercises, inlineSameDays } from '../core/plan-sources.js';
 import { dayTitle } from '../core/plan-week.js';
 import { showToast } from '../core/toast.js';
 import { navigate } from '../nav/router.js';
@@ -21,17 +22,18 @@ import {
 
 /** Üres hét egy új tervhez: hétfőn edzés, a többi pihenő. */
 const freshDays = () =>
-  DAY_LABELS.map((_, day) => ({ type: day === 0 ? 'workout' : 'rest', of: null, name: '' }));
+  DAY_LABELS.map((_, day) => ({ type: day === 0 ? 'workout' : 'rest', name: '' }));
 
 /** A terv-építő flow-oldal (a Tervek „+ Új terv" és szerkesztés gombja hozza
     be). A terv EGY HÉT: a napfülek alatt a kijelölt nap panelje — edzés
-    (saját név + gyakorlatkártyák), pihenő, vagy „ugyanaz, mint" egy másik
-    edzésnap. Minden napnak saját listája van a DOM-ban (csak a kijelölt
+    (saját név + gyakorlatkártyák) vagy pihenő. Egy edzésnapba a „Meglévő
+    edzés betöltése" a terv másik napjának vagy egy naplózott edzésnek a
+    MÁSOLATÁT tölti. Minden napnak saját listája van a DOM-ban (csak a kijelölt
     látszik), így a fülváltás nem veszít adatot. A „+ Gyakorlat hozzáadása" a
     közös választóra visz, a kijelölt nap listáját célozva. A Mentés új tervet
     hoz létre vagy a szerkesztettet írja felül, majd frissíti a Tervek listáját.
     Vezérlőt ad vissza: { startNew, loadPlan }. */
-async function setupPlanBuilder(picker) {
+async function setupPlanBuilder(picker, workoutPicker) {
   const page = $('[data-page="plan-builder"]');
   const nameInput = $('#plan-name');
   const nameError = $('#plan-name-error');
@@ -40,8 +42,6 @@ async function setupPlanBuilder(picker) {
   const listsWrap = $('[data-pb-lists]', page);
   const dayTitleEl = $('[data-pb-day-title]', page);
   const modeBtns = $$('[data-pb-mode]', page);
-  const sameWrap = $('[data-pb-same]', page);
-  const sameSelect = $('[data-pb-same-select]', page);
   const restNote = $('[data-pb-rest]', page);
   const workoutWrap = $('[data-pb-workout]', page);
   const dayNameInput = $('[data-pb-day-name]', page);
@@ -49,7 +49,7 @@ async function setupPlanBuilder(picker) {
 
   // A szerkesztett terv id-ja — null, amíg új terv készül
   let editingId = null;
-  // A kijelölt nap (0 = hétfő) és a napok beállítása: { type, of, name }. A
+  // A kijelölt nap (0 = hétfő) és a napok beállítása: { type, name }. A
   // gyakorlatok nem itt, hanem a napok listáiban (DOM) élnek.
   let activeDay = 0;
   let days = freshDays();
@@ -64,7 +64,7 @@ async function setupPlanBuilder(picker) {
     return list;
   });
 
-  // Napfülek: a nap betűje, alatta az állapota (név / pihenő / „= H")
+  // Napfülek: a nap betűje, alatta az állapota (név / pihenő / gyakorlatszám)
   const chips = DAY_LABELS.map((label, day) => {
     const chip = document.createElement('button');
     chip.type = 'button';
@@ -98,12 +98,11 @@ async function setupPlanBuilder(picker) {
 
   /** A készülő hét a szerver alakjában (server/plan-week.js). */
   const readWeek = () =>
-    days.map((day, index) => {
-      if (day.type === 'workout') {
-        return { type: 'workout', name: day.name.trim(), exercises: readExercises(lists[index]) };
-      }
-      return day.type === 'same' ? { type: 'same', of: day.of } : { type: 'rest' };
-    });
+    days.map((day, index) =>
+      day.type === 'workout'
+        ? { type: 'workout', name: day.name.trim(), exercises: readExercises(lists[index]) }
+        : { type: 'rest' },
+    );
 
   const exerciseCount = (day) => $$('.wk-exercise', lists[day]).length;
 
@@ -115,7 +114,6 @@ async function setupPlanBuilder(picker) {
   const statusOf = (day) => {
     const entry = days[day];
     if (entry.type === 'rest') return 'Pihenő';
-    if (entry.type === 'same') return `= ${DAY_LABELS[entry.of]}`;
     const count = exerciseCount(day);
     return entry.name.trim() || (count ? `${count} gyak.` : 'Üres');
   };
@@ -137,10 +135,6 @@ async function setupPlanBuilder(picker) {
     });
   };
 
-  /** A másik edzésnapok, amelyekre a kijelölt nap „ugyanaz, mint"-je mutathat. */
-  const sameTargets = (day) =>
-    days.flatMap((entry, index) => (entry.type === 'workout' && index !== day ? [index] : []));
-
   /** A kijelölt nap panelje a `days` szerint. */
   const renderPanel = () => {
     const entry = days[activeDay];
@@ -152,17 +146,10 @@ async function setupPlanBuilder(picker) {
 
     workoutWrap.hidden = entry.type !== 'workout';
     restNote.hidden = entry.type !== 'rest';
-    sameWrap.hidden = entry.type !== 'same';
     lists.forEach((list, day) => {
       list.hidden = day !== activeDay || entry.type !== 'workout';
     });
 
-    if (entry.type === 'same') {
-      sameSelect.replaceChildren(
-        ...sameTargets(activeDay).map((day) => new Option(dayTitle(day), String(day))),
-      );
-      sameSelect.value = String(entry.of);
-    }
     dayNameInput.value = entry.name;
     dayNameInput.placeholder = `${nameInput.value.trim() || 'Terv'} – ${dayTitle(activeDay)}`;
     updateSummary();
@@ -173,57 +160,15 @@ async function setupPlanBuilder(picker) {
     renderPanel();
   };
 
-  /** Ha egy edzésnapból pihenő vagy „same" lesz, a rá hivatkozó napok nem
-      maradhatnak gazdátlanul: az első átveszi a gyakorlatait (és a nevét), a
-      többi erre az új napra mutat. Így nem vész el edzés egy kattintástól. */
-  const releaseReferences = (day) => {
-    const refs = days.flatMap((entry, index) =>
-      entry.type === 'same' && entry.of === day ? [index] : [],
-    );
-    if (refs.length === 0) return;
-    const [heir, ...others] = refs;
-    lists[heir].replaceChildren(...lists[day].children);
-    days[heir] = { type: 'workout', of: null, name: days[day].name };
-    others.forEach((index) => {
-      days[index].of = heir;
-    });
-    showToast(`${dayTitle(heir)} átvette a ${DAY_NAMES[day]}i edzést`);
-  };
-
-  /** A kijelölt nap típusának váltása. */
+  /** A kijelölt nap típusának váltása. A pihenőre állított nap gyakorlatai
+      rejtve megmaradnak — visszaváltáskor ott vannak; mentéskor nem mennek fel. */
   const setMode = (type) => {
-    const current = days[activeDay];
-    if (current.type === type) return;
-
-    if (type === 'same') {
-      const referenced = days.some((entry) => entry.type === 'same' && entry.of === activeDay);
-      if (sameTargets(activeDay).length === 0 && !referenced) {
-        showToast('Előbb állíts be egy másik edzésnapot', 'error');
-        return;
-      }
-    }
-    if (current.type === 'workout') releaseReferences(activeDay);
-
-    if (type === 'same') {
-      days[activeDay] = { type, of: sameTargets(activeDay)[0], name: current.name };
-    } else {
-      // „Same"-ből saját edzés: üres lista helyett a hivatkozott nap másolatából
-      // indul — a tipikus eset, hogy a pénteki a hétfői kicsit módosítva.
-      if (type === 'workout' && current.type === 'same' && exerciseCount(activeDay) === 0) {
-        readExercises(lists[current.of]).forEach((exercise) => {
-          lists[activeDay].appendChild(renderExercise(exercise, { withAddSet: true }));
-        });
-      }
-      days[activeDay] = { type, of: null, name: current.name };
-    }
+    if (days[activeDay].type === type) return;
+    days[activeDay] = { type, name: days[activeDay].name };
     renderPanel();
   };
 
   modeBtns.forEach((btn) => btn.addEventListener('click', () => setMode(btn.dataset.pbMode)));
-  sameSelect.addEventListener('change', () => {
-    days[activeDay].of = Number(sameSelect.value);
-    updateSummary();
-  });
   dayNameInput.addEventListener('input', () => {
     days[activeDay].name = dayNameInput.value;
     updateSummary();
@@ -270,6 +215,39 @@ async function setupPlanBuilder(picker) {
     });
     navigate('exercise-picker');
   });
+
+  // „Meglévő edzés betöltése": a terv másik edzésnapjai helyben, a napló a
+  // választóban töltődik. A kijelölt napot a hívás pillanatában rögzítjük.
+  $('[data-action="builder-load-workout"]').addEventListener('click', () => {
+    const day = activeDay;
+    workoutPicker?.open({
+      subtitle: `${dayTitle(day)} · ${dayWorkoutTitle(day)}`,
+      dayTitle: dayTitle(day),
+      planSources: days.flatMap((entry, index) =>
+        entry.type === 'workout' && index !== day && exerciseCount(index)
+          ? [
+              {
+                name: dayWorkoutTitle(index),
+                tag: dayTitle(index),
+                adoptName: entry.name.trim(),
+                exercises: readExercises(lists[index]),
+              },
+            ]
+          : [],
+      ),
+      currentCount: () => exerciseCount(day),
+      onPick: (source) => {
+        lists[day].replaceChildren(
+          ...copyExercises(source.exercises).map((exercise) =>
+            renderExercise(exercise, { withAddSet: true }),
+          ),
+        );
+        if (!days[day].name.trim()) days[day].name = source.adoptName;
+        selectDay(day);
+        showToast(`„${source.name}” betöltve — ${dayTitle(day)}`);
+      },
+    });
+  });
   $('[data-action="builder-back"]').addEventListener('click', () => navigate('plans'));
 
   nameInput.addEventListener('input', () => {
@@ -278,21 +256,19 @@ async function setupPlanBuilder(picker) {
     dayNameInput.placeholder = `${nameInput.value.trim() || 'Terv'} – ${dayTitle(activeDay)}`;
   });
 
-  /** A builder feltöltése egy héttel (üres héttel új tervhez). */
+  /** A builder feltöltése egy héttel (üres héttel új tervhez). A régi tervek
+      „same" napjai itt másolattá válnak (inlineSameDays). */
   const fill = (name, week) => {
     nameInput.value = name;
     nameInput.classList.remove('has-error');
     nameError.hidden = true;
     lists.forEach((list) => list.replaceChildren());
-    days = week.map((entry, day) => {
-      if (entry.type === 'workout') {
-        (entry.exercises ?? []).forEach((exercise) => {
-          lists[day].appendChild(renderExercise(exercise, { withAddSet: true }));
-        });
-        return { type: 'workout', of: null, name: entry.name ?? '' };
-      }
-      if (entry.type === 'same') return { type: 'same', of: entry.of, name: '' };
-      return { type: 'rest', of: null, name: '' };
+    days = inlineSameDays(week).map((entry, day) => {
+      if (entry.type !== 'workout') return { type: 'rest', name: '' };
+      entry.exercises.forEach((exercise) => {
+        lists[day].appendChild(renderExercise(exercise, { withAddSet: true }));
+      });
+      return { type: 'workout', name: entry.name };
     });
     const firstWorkout = days.findIndex((day) => day.type === 'workout');
     selectDay(Math.max(0, firstWorkout));

@@ -20,10 +20,11 @@ const NOTIF_CATEGORIES = [
 ];
 
 /** Az oldalak, a nav gyűrű irányai és a gyorsbillentyűk megfeleltetése.
-    A 'summary', a 'plan-builder', az 'exercise-picker' és a 'checkin'
-    flow-oldalak: a hash-router ismeri őket, de szándékosan nincsenek a nav
-    gyűrű irányai és a gyorsbillentyűk között (az „Edzés befejezése", az
-    „+ Új terv", a „+ Gyakorlat hozzáadása", ill. az áttekintő check-in
+    A 'summary', a 'plan-builder', az 'exercise-picker', a 'workout-picker'
+    és a 'checkin' flow-oldalak: a hash-router ismeri őket, de szándékosan
+    nincsenek a nav gyűrű irányai és a gyorsbillentyűk között (az „Edzés
+    befejezése", az „+ Új terv", a „+ Gyakorlat hozzáadása", a „Meglévő
+    edzés betöltése", ill. az áttekintő check-in
     emlékeztetője és a Regeneráció oldal gombja visz oda). */
 const PAGES = [
   'dashboard',
@@ -36,10 +37,11 @@ const PAGES = [
   'summary',
   'plan-builder',
   'exercise-picker',
+  'workout-picker',
   'checkin',
 ];
 
-const FLOW_PAGES = ['summary', 'plan-builder', 'exercise-picker', 'checkin']; // friss megnyitáskor nem állnak vissza
+const FLOW_PAGES = ['summary', 'plan-builder', 'exercise-picker', 'workout-picker', 'checkin']; // friss megnyitáskor nem állnak vissza
 
 const DIR_TO_PAGE = {
   up: 'coach',
