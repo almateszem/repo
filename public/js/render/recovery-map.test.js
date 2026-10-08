@@ -168,7 +168,8 @@ test('unusualNote: a szokatlan terhelést kapott ismert csoportok, okonként', (
     unusualNote([
       m('quads', 60, { unusual: 'novelty' }),
       m('glutes', 65, { unusual: 'novelty' }),
-      m('calves', 80, { unusual: 'gap' }),
+      m('calves', 79, { unusual: 'gap' }),
+      m('chest', 85, { unusual: 'novelty' }),
     ]),
     'Szokatlan terhelés (új gyakorlat: quads, glutes; hosszú kihagyás után: calves), ezért ezek lassabban regenerálódnak.',
   );
