@@ -48,24 +48,21 @@ test('buildNoveltyIndex: megszokott gyakorlatnál és rendszeres edzésnél 1', 
   });
 });
 
-test(
-  'buildNoveltyIndex: a mellékizom kis részesedése nem ad kihagyás-szorzót',
-  () => {
-    const history = [0, 7, 14, 21, 28, 35].map((n) => wo(n, ['Guggolás']));
-    const last = wo(42, ['Guggolás']);
-    const all = [...history, last];
-    for (const group of ['glutes', 'core']) {
-      assert.deepEqual(
-        noveltyOf(all, { at: 42, workout: last }, 0, group),
-        {
-          value: 1,
-          reason: null,
-        },
-        group,
-      );
-    }
-  },
-);
+test('buildNoveltyIndex: a mellékizom kis részesedése nem ad kihagyás-szorzót', () => {
+  const history = [0, 7, 14, 21, 28, 35].map((n) => wo(n, ['Guggolás']));
+  const last = wo(42, ['Guggolás']);
+  const all = [...history, last];
+  for (const group of ['glutes', 'core']) {
+    assert.deepEqual(
+      noveltyOf(all, { at: 42, workout: last }, 0, group),
+      {
+        value: 1,
+        reason: null,
+      },
+      group,
+    );
+  }
+});
 
 test('buildNoveltyIndex: új gyakorlat 1,3, excentrikus új gyakorlat 1,5', () => {
   const history = [0, 7, 14, 21, 28, 35].map((n) => wo(n, ['Guggolás']));
@@ -126,4 +123,13 @@ test('buildNoveltyIndex: üres vagy érvénytelen napló nem hiba', () => {
   assert.equal(buildNoveltyIndex([], dayKey(dayOf(0)), []).size, 0);
   assert.equal(buildNoveltyIndex(null, dayKey(dayOf(0)), []).size, 0);
   assert.equal(buildNoveltyIndex([{ date: 'rossz', exercises: [] }], dayKey(dayOf(0)), []).size, 0);
+});
+
+test('buildNoveltyIndex: korábbi érdemi terhelés nélküli csoportra nincs kihagyás-szorzó', () => {
+  const history = [0, 7, 14, 21, 28, 35].map((n) => wo(n, ['Guggolás']));
+  const last = wo(42, ['Vádliemelés']);
+  assert.deepEqual(noveltyOf([...history, last], { at: 42, workout: last }, 0, 'calves'), {
+    value: 1.3,
+    reason: 'novelty',
+  });
 });

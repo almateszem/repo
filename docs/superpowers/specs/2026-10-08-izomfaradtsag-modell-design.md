@@ -77,7 +77,8 @@ jel közül a nagyobbik számít:
   kihagyás-szorzó is csak akkor él, ha az adott gyakorlat érdemben terheli a
   csoportot.
   Görbe: 3 hétig 1,0, utána `1 + 0,8 × (1 − e^(−(hét − 3) / 10))`, 26 hétnél
-  kb. 1,72.
+  kb. 1,72. Ha a csoportnak még nem volt érdemi terhelése, nincs kihagyás-szorzó;
+  az új gyakorlat szabálya érvényes.
 - **Új gyakorlat.** A gyakorlat az előző 8 hétben legfeljebb egyszer
   szerepelt: 1,3, excentrikus osztályú gyakorlatnál (szorzó > 1) 1,5.
 
