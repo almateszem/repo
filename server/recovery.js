@@ -417,10 +417,13 @@ export function buildNoveltyIndex(workouts, todayKey, catalog) {
               ? NOVELTY.newEccentric
               : NOVELTY.newExercise
             : 1;
-        for (const group of Object.keys(load)) {
+        for (const [group, share] of Object.entries(load)) {
           const last = lastMeaningful[group];
           const weeks = last === undefined ? Infinity : daysBetween(last, key) / 7;
-          const gap = gapNovelty(weeks);
+          // A kihagyás csak érdemi terhelésnél számít, különben a mellékizmok
+          // (pl. guggolásnál a core) örökös szünetet mutatnának.
+          const gap =
+            stimulus * share >= NOVELTY.meaningfulStimulus ? gapNovelty(weeks) : 1;
           const value = Math.max(gap, exerciseNovelty);
           byGroup[group] = {
             value,

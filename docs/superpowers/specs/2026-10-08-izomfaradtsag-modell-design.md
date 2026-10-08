@@ -73,7 +73,9 @@ jel közül a nagyobbik számít:
 
 - **Kihagyás.** Hány hét telt el az izomcsoport utolsó érdemi terhelése óta.
   Érdemi az az edzés, amely legalább 1 teljes szettnyi stimulust adott a
-  csoportnak (a mellékizmok kis részesedése nem nullázza az órát).
+  csoportnak (a mellékizmok kis részesedése nem nullázza az órát). A
+  kihagyás-szorzó is csak akkor él, ha az adott gyakorlat érdemben terheli a
+  csoportot.
   Görbe: 3 hétig 1,0, utána `1 + 0,8 × (1 − e^(−(hét − 3) / 10))`, 26 hétnél
   kb. 1,72.
 - **Új gyakorlat.** A gyakorlat az előző 8 hétben legfeljebb egyszer
