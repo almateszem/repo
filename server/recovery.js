@@ -174,7 +174,11 @@ const MUSCLE_WINDOW_DAYS = 7; // az izomkárosodás ennél régebbről már elha
 const PERSONAL_REF_MIN_DAYS = 14;
 
 const FATIGUE_REF_MULT = 10; // személyes referencia: napi átlagterhelés × ennyi
-const MUSCLE_REF_MULT = 1.5; // ennyiszer tipikus szesszió visz egy csoportot nulláig
+const MUSCLE_REF_MULT = 2.5; // a gyors és a lassú tároló együtt; kalibrálva: recovery-calibration.test.js
+
+/** A gyors (metabolikus) tároló időállandója napban. A motor napra kerekít,
+    így ez gyakorlatilag csak az edzés napját érinti. */
+const FAST_TAU = 0.4;
 
 /** Az újdonság-szorzó paraméterei (kiinduló értékek a kutatási riportból). */
 const NOVELTY = {
@@ -361,12 +365,29 @@ export function failureWeight(rpe, reps) {
   return 0.2;
 }
 
+/** Egy teljesített szett lassú-tároló egysége, az izom-részesedés és az
+    excentrikus szorzó előtt. Az RPE itt csak a bukás-súlyon át hat. */
+function slowSetUnits(set) {
+  if (!set?.done) return 0;
+  const reps = num(set.reps);
+  if (reps === null || reps <= 0) return 0;
+  const typeFactor = typeStimulusFactor(set.type);
+  if (typeFactor === 0) return 0;
+  return typeFactor * failureWeight(num(set.rpe), reps);
+}
+
 /** Kihagyás utáni újdonság: 3 hétig 1, utána sima görbén nő (26 hétnél ~1,72). */
 function gapNovelty(weeks) {
   if (weeks <= NOVELTY.gapFreeWeeks) return 1;
   return (
     1 + NOVELTY.gapMax * (1 - Math.exp(-(weeks - NOVELTY.gapFreeWeeks) / NOVELTY.gapScaleWeeks))
   );
+}
+
+/** A lassú tároló szorzója: excentrikus jelleg × újdonság, együtt legfeljebb
+    NOVELTY.cap, hogy a két, részben azonos jelenség ne számítson kétszer. */
+function slowMultiplier(novelty, eccentric) {
+  return Math.min(eccentric * novelty, NOVELTY.cap);
 }
 
 /**
@@ -488,12 +509,22 @@ export function epley1RM(reps, weight, rpe) {
  * Visszaadja: napi összterhelés, napi CNS-terhelés, napi izomcsoport-terhelés,
  * valamint gyakorlatonként az alkalmak listája (dátum + becsült 1RM).
  */
-function summarizeWorkouts(workouts, todayKey, catalog, bodyWeight) {
-  const byDay = new Map(); // daysAgo → { load, cns, muscles }
+function summarizeWorkouts(workouts, todayKey, catalog, bodyWeight, novelty = new Map()) {
+  const byDay = new Map(); // daysAgo → { load, cns, muscles, slow, unusual }
   const exercises = new Map(); // név → { name, sessions: [{ daysAgo, best1RM, sets }] }
 
+  // muscles: a gyors tároló, slow: a lassú tároló (mindkettő szett-egység);
+  // unusual: volt-e aznap újdonság-szorzós terhelés a csoporton.
   const dayBucket = (ago) => {
-    if (!byDay.has(ago)) byDay.set(ago, { load: 0, cns: 0, muscles: emptyMuscleMap() });
+    if (!byDay.has(ago)) {
+      byDay.set(ago, {
+        load: 0,
+        cns: 0,
+        muscles: emptyMuscleMap(),
+        slow: emptyMuscleMap(),
+        unusual: Object.fromEntries(MUSCLE_KEYS.map((key) => [key, null])),
+      });
+    }
     return byDay.get(ago);
   };
 
@@ -506,7 +537,8 @@ function summarizeWorkouts(workouts, todayKey, catalog, bodyWeight) {
     if (!Number.isFinite(ago) || ago < 0 || ago >= CHRONIC_WINDOW_DAYS) continue;
     const bucket = dayBucket(ago);
 
-    for (const exercise of workout.exercises ?? []) {
+    const workoutNovelty = novelty.get(workout) ?? [];
+    for (const [exerciseIndex, exercise] of (workout.exercises ?? []).entries()) {
       /* Időalapú (kardió) sor: szisztémás terhelés, kemény fokozaton CNS is —
          izom és gyakorlat-ajánlás nincs (lásd cardioSetLoad fölött). */
       if (exercise.logMode === 'duration') {
@@ -522,6 +554,7 @@ function summarizeWorkouts(workouts, todayKey, catalog, bodyWeight) {
       const axial = isAxialLift(exercise.name);
       let exerciseLoad = 0;
       let exerciseStimulus = 0;
+      let exerciseSlow = 0;
       let best1RM = null;
       let doneSets = 0;
 
@@ -531,6 +564,7 @@ function summarizeWorkouts(workouts, todayKey, catalog, bodyWeight) {
         // munka, ezért a szisztémás terhelés és a CNS minden teljesített
         // szettet lát. A két mérőszám itt szándékosan külön kapun megy át.
         exerciseStimulus += setStimulus(set);
+        exerciseSlow += slowSetUnits(set);
 
         const load = setLoad(set);
         if (load === 0) continue; // saját testsúlyos vagy be nem pipált szett: izmot terhel, tonnát nem
@@ -558,8 +592,17 @@ function summarizeWorkouts(workouts, todayKey, catalog, bodyWeight) {
       }
 
       bucket.load += exerciseLoad;
+      const eccentric = eccentricClass(exercise.name);
+      const groupNovelty = workoutNovelty[exerciseIndex] ?? {};
       for (const [group, share] of Object.entries(muscleLoad)) {
         bucket.muscles[group] += exerciseStimulus * share;
+        if (exerciseSlow > 0) {
+          const { value, reason } = groupNovelty[group] ?? { value: 1, reason: null };
+          bucket.slow[group] += exerciseSlow * share * slowMultiplier(value, eccentric);
+          if (reason === 'novelty' || (reason === 'gap' && !bucket.unusual[group])) {
+            bucket.unusual[group] = reason;
+          }
+        }
       }
 
       if (doneSets > 0) {
@@ -692,6 +735,25 @@ export function nutritionScore(nutrition, hydrationLiters, bodyWeight, hydration
    Izomcsoport-readiness
    ====================================================================== */
 
+/** Egy izomcsoport károsodása a két tároló összegeként, és hogy az ablakon
+    belül érte-e szokatlan terhelés (az új gyakorlat az erősebb jel). */
+function muscleDamage(byDay, group) {
+  const fast = decayedSum(byDay, FAST_TAU, MUSCLE_WINDOW_DAYS, (bucket) => bucket.muscles[group]);
+  const slow = decayedSum(
+    byDay,
+    TAU_BY_GROUP[group],
+    MUSCLE_WINDOW_DAYS,
+    (bucket) => bucket.slow[group],
+  );
+  let unusual = null;
+  for (const [ago, bucket] of byDay) {
+    if (ago > MUSCLE_WINDOW_DAYS) continue;
+    const reason = bucket.unusual[group];
+    if (reason === 'novelty' || (reason === 'gap' && !unusual)) unusual = reason;
+  }
+  return { damage: fast + slow, unusual };
+}
+
 function muscleReadiness({ byDay, checkin, hasHistory, hasAnyWorkout }) {
   const soreness = checkin?.soreness ?? {};
   const pain = checkin?.pain ?? {};
@@ -709,15 +771,14 @@ function muscleReadiness({ byDay, checkin, hasHistory, hasAnyWorkout }) {
   }
 
   return MUSCLE_KEYS.map((group) => {
-    const tau = TAU_BY_GROUP[group];
-    const damage = decayedSum(byDay, tau, MUSCLE_WINDOW_DAYS, (bucket) => bucket.muscles[group]);
+    const { damage, unusual } = muscleDamage(byDay, group);
 
     // A szett-egység nem skálázódik testsúllyal (öt szett az öt szett) —
     // ellentétben a tonna-alapú fáradtság- és CNS-referenciákkal.
     const absoluteRef = ABS_GROUP_REF[group];
     const base =
       hasHistory && personalRef[group] > 0
-        ? Math.max(personalRef[group], absoluteRef * 0.5)
+        ? Math.max(personalRef[group], absoluteRef)
         : absoluteRef;
     const modelled = 100 * (1 - clamp01(damage / (base * MUSCLE_REF_MULT)));
 
@@ -769,6 +830,7 @@ function muscleReadiness({ byDay, checkin, hasHistory, hasAnyWorkout }) {
       pain: reportedPain,
       source: reportedSoreness === null ? 'model' : damage > 0 ? 'blend' : 'reported',
       lastLoadedDaysAgo,
+      unusual,
     };
   });
 }
@@ -1099,7 +1161,8 @@ export function computeReadiness({
   const bodyWeight = num(latestWeight?.kg) ?? REF_BODY_WEIGHT;
 
   // — Edzésadatok
-  const { byDay, exercises } = summarizeWorkouts(workouts, todayKey, catalog, bodyWeight);
+  const novelty = buildNoveltyIndex(workouts, todayKey, catalog);
+  const { byDay, exercises } = summarizeWorkouts(workouts, todayKey, catalog, bodyWeight, novelty);
   const historyDays = byDay.size ? Math.max(...[...byDay.keys()]) + 1 : 0;
   const hasHistory = historyDays >= PERSONAL_REF_MIN_DAYS;
 
