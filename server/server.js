@@ -845,11 +845,14 @@ app.get('/api/profile', (req, res) => {
 /** Egy üzenet legfeljebb ennyi karakter (a felület input-ja is ennyit enged). */
 const MESSAGE_MAX = 280;
 
-/** Ennyi napra visszamenőleg olvassuk be a sportoló edzéseit a kártyához.
-    A leghosszabb ablak, amit a kártya bármelyik számítása használ, 28 nap (a
-    készenlét-motor személyes referenciája és a terv-követés is ennyi) — a
-    ráadás napok csak biztonsági tartalék, hogy egy határeset se csússzon ki. */
+/** Ennyi napra visszamenőleg olvassuk be a sportoló check-injeit és testsúlyát a
+    kártyához; a terv-követés és a személyes referencia 28 napot néz, a többi
+    napnyi csak biztonsági tartalék, hogy egy határeset se csússzon ki. */
 const CARD_WINDOW_DAYS = 35;
+
+/** Az edzésnapló ablaka a kártyán: 56 nap újdonság-visszatekintés + 7 nap izom-ablak.
+    Rövidebb naplóból a megszokott gyakorlatok újnak látszanának a készenlét-motornak. */
+const CARD_READINESS_WINDOW_DAYS = 63;
 
 /** Egy sportoló kártyája: a kapcsolat + a sportoló saját naplóiból számolt
     összegzés. A sportoló BELSŐ azonosítója nem kerül ki a válaszba — kifelé a
@@ -890,12 +893,12 @@ function exerciseNotes(userId, workouts, viewerId) {
 
 function athleteCard(athlete, today, viewerId, unread = 0) {
   /* Az edzés-napló ABLAKOZVA jön be. A kártya minden számítása belefér a
-     CARD_WINDOW_DAYS ablakba: a készenlét-motor 28 napnál régebbit amúgy is
-     eldob (recovery.js -> summarizeWorkouts), a terv-követés ablaka szintén
-     28 nap, a heti állás egy hét, a „legutóbbi aktivitás" pedig négy elem.
+     CARD_READINESS_WINDOW_DAYS ablakba: a készenlét-motor az újdonság-szorzóhoz
+     63 napot néz (recovery.js -> buildNoveltyIndex), a terv-követés ablaka 28
+     nap, a heti állás egy hét, a „legutóbbi aktivitás" pedig négy elem.
      Ami ezen kívülre nyúlik — a sorozat hossza és az utolsó edzés napja —, azt
      a NAPOK listája adja: az a teljes előzményt látja, de gyakorlat-listát nem
-     olvas, tehát olcsó. Egy éves naplónál ez ~183 JSON.parse helyett ~12. */
+     olvas, tehát olcsó. Egy éves naplónál ez ~183 JSON.parse helyett ~21. */
   const since = shiftDate(today, -CARD_WINDOW_DAYS);
 
   /* A napló ABLAKOZVA jön be, és ugyanaz a három sor szolgálja ki a
@@ -903,7 +906,7 @@ function athleteCard(athlete, today, viewerId, unread = 0) {
      és a testsúly ugyanabból az okból szűkíthető, mint az edzés: a motor az
      alvásadóssághoz 3 napot néz, a megbízhatósághoz 28-at, a testsúlyból
      pedig egyedül a LEGUTOLSÓ mérés érdekli. */
-  const workouts = getWorkoutsSince(athlete.userId, since);
+  const workouts = getWorkoutsSince(athlete.userId, shiftDate(today, -CARD_READINESS_WINDOW_DAYS));
   const checkins = getCheckins(athlete.userId, CARD_WINDOW_DAYS);
   const weightLog = getWeightLogSince(athlete.userId, since);
   const workoutDates = getWorkoutDates(athlete.userId);
