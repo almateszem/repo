@@ -16,6 +16,7 @@ import {
   ringDashOffset,
   ringState,
   spareList,
+  unusualNote,
 } from './recovery-map.js';
 
 const m = (key, readiness, extra = {}) => ({
@@ -157,4 +158,19 @@ test('a mobil oszlopok nézetenként ugyanazt a készletet adják, mint a térk�
     const columns = [...MOBILE_COLUMNS[view].left, ...MOBILE_COLUMNS[view].right];
     assert.deepEqual([...columns].sort(), MAP_RINGS[view].map((ring) => ring.key).sort());
   }
+});
+
+test('unusualNote: a szokatlan terhelést kapott ismert csoportok, okonként', () => {
+  assert.equal(unusualNote([m('quads', 70), m('chest', 90)]), null);
+  assert.equal(unusualNote([]), null);
+  assert.equal(unusualNote(null), null);
+  assert.equal(
+    unusualNote([
+      m('quads', 60, { unusual: 'novelty' }),
+      m('glutes', 65, { unusual: 'novelty' }),
+      m('calves', 80, { unusual: 'gap' }),
+    ]),
+    'Szokatlan terhelés (új gyakorlat: quads, glutes; hosszú kihagyás után: calves), ezért ezek lassabban regenerálódnak.',
+  );
+  assert.equal(unusualNote([m('quads', 60, { unusual: 'gap', known: false })]), null);
 });
