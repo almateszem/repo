@@ -244,6 +244,26 @@ export function isAxialLift(name) {
   );
 }
 
+/** Excentrikus jelleg szerinti szorzó a lassú (károsodási) tárolóhoz.
+    Edzetteknél a különbség kicsi, ezért csak négy osztály van; a kutatási
+    háttér a reports/Izomfáradtság modell kalibráció.md-ben. */
+const ECCENTRIC_CLASSES = [
+  [1.5, /nordic|nordikus/],
+  [0.6, /\bszan|\bsled|prowler/],
+  [
+    1.2,
+    /roman|\brdl\b|merev labu|merev labas|jo reggelt|good ?morning|kitores|lunge|bolgar|bulgarian|deficit|rezsutos padon hajlitas|dontott padon.*(hajlitas|curl)|incline.*curl|fej mogotti|fej (feletti|folotti).*(nyujtas|tricepsz)|overhead.*(extension|tricep)|negativ|excentrikus/,
+  ],
+];
+
+export function eccentricClass(name) {
+  const normalized = normalizeName(name);
+  for (const [factor, pattern] of ECCENTRIC_CLASSES) {
+    if (pattern.test(normalized)) return factor;
+  }
+  return 1;
+}
+
 /** Egy üres, minden izomcsoportot tartalmazó számláló-objektum ({ chest: 0, … }).
     A terhelés-összegzők ebből indulnak, hogy sosem legyen hiányzó kulcs. */
 export const emptyMuscleMap = () => Object.fromEntries(MUSCLE_KEYS.map((key) => [key, 0]));
