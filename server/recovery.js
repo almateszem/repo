@@ -600,7 +600,12 @@ function summarizeWorkouts(workouts, todayKey, catalog, bodyWeight, novelty = ne
         if (exerciseSlow > 0) {
           const { value, reason } = groupNovelty[group] ?? { value: 1, reason: null };
           bucket.slow[group] += exerciseSlow * share * slowMultiplier(value, eccentric);
-          if (reason === 'novelty' || (reason === 'gap' && !bucket.unusual[group])) {
+          // A jelzés a felhasználónak szól: a mellékizom kis részesedése nem szokatlan terhelés.
+          const meaningful = exerciseStimulus * share >= NOVELTY.meaningfulStimulus;
+          if (
+            meaningful &&
+            (reason === 'novelty' || (reason === 'gap' && !bucket.unusual[group]))
+          ) {
             bucket.unusual[group] = reason;
           }
         }

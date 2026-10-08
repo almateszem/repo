@@ -83,9 +83,11 @@ export function muscleNote(muscles = []) {
 }
 
 /** A szokatlan terhelést (új gyakorlat, hosszú kihagyás) kapott csoportok
-    rövid magyarázata a térkép alá. Null, ha nincs ilyen csoport. */
+    rövid magyarázata a térkép alá, amíg még nem álltak helyre. Null, ha nincs ilyen. */
 export function unusualNote(muscles = []) {
-  const list = (muscles ?? []).filter((muscle) => muscle.known !== false);
+  const list = (muscles ?? []).filter(
+    (muscle) => muscle.known !== false && muscle.readiness < RC_READY_FROM,
+  );
   const labels = (reason) =>
     list.filter((muscle) => muscle.unusual === reason).map((muscle) => muscle.label);
   const parts = [];

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { failureWeight, buildNoveltyIndex, dayKey } from './recovery.js';
+import { failureWeight, buildNoveltyIndex, computeReadiness, dayKey } from './recovery.js';
 
 test('failureWeight: konvex a bukás közelsége szerint', () => {
   assert.equal(failureWeight(5, 8), 0.2);
@@ -132,4 +132,20 @@ test('buildNoveltyIndex: korábbi érdemi terhelés nélküli csoportra nincs ki
     value: 1.3,
     reason: 'novelty',
   });
+});
+
+test('computeReadiness: a szokatlan jelzés csak érdemi részesedésű csoportra él', () => {
+  const history = [0, 7, 14, 21, 28, 35].map((n) => wo(n, ['Guggolás']));
+  const last = wo(42, ['Bolgár guggolás']);
+  const report = computeReadiness({
+    checkins: [],
+    workouts: [...history, last],
+    nutrition: { today: {}, yesterday: {} },
+    weightLog: [{ kg: 80, date: dayOf(0) }],
+    catalog: [],
+    today: dayOf(43),
+  });
+  const unusual = (key) => report.muscles.find((m) => m.key === key).unusual;
+  assert.equal(unusual('quads'), 'novelty');
+  assert.equal(unusual('core'), null);
 });
