@@ -13,7 +13,8 @@ Két lépés, egy spec:
 
 1. A modell pontosítása és a kalibrációs tesztek.
 2. Az izomláz kivezetése, de csak ha az 1. lépés kalibrációs tesztjei izomláz
-   nélkül is tartományon belül vannak.
+   nélkül is tartományon belül vannak. Ez a lépés a kapu után külön
+   implementációs tervet kap.
 
 Kimarad: a termen kívüli sport (foci, meccs) izomterhelése. Ez a `TEENDOK.txt`
 kardió-pontjában szerepel.
@@ -30,8 +31,8 @@ Minden teljesített szett két, egymástól független részt ad:
 - **Gyors rész** = szett-típus × RPE-szorzó × izom-részesedés. Ez a mostani
   `setStimulus`, változatlanul (RPE-szorzó 0,6–1,7, bemelegítő 0, drop 0,5).
   Lecsengése τ = 0,4 nap.
-- **Lassú rész** = szett-típus × bukás-súly × excentrikus szorzó ×
-  izom-részesedés. Lecsengése τ = `TAU_BY_GROUP[csoport] × tauScale`.
+- **Lassú rész** = szett-típus × bukás-súly × min(excentrikus szorzó ×
+  újdonság, 2,5) × izom-részesedés. Lecsengése τ = `TAU_BY_GROUP[csoport]`.
 
 A lassú rész nem a gyors rész maradéka: a „maradék” negatív lenne, ha a lassú
 szorzók együtt 1 fölé mennek. Az RPE a lassú részben csak a bukás-súlyon át
@@ -81,23 +82,26 @@ jel közül a nagyobbik számít:
 Kivétel: ha az edzés napján a fióknak 4 hétnél rövidebb az előzménye, a
 szorzó 1,0. A hiányzó előzmény nem lehet büntetés.
 
-Az újdonság a lecsengést lassítja, nem a terhelést növeli:
-
-```
-tauScale = min(1 + 0,5 × (újdonság − 1), 2,5 / excentrikus szorzó)
-```
-
-Így az excentrikus szorzó és az újdonság együttes hatása legfeljebb 2,5.
+Az újdonság a lassú rész nagyságát növeli, az excentrikus szorzóval együtt
+legfeljebb 2,5-szeresre (a kettő részben ugyanaz a jelenség). A lecsengés
+lassítása is szóba került, de a profil-tesztekben a hatása 1 pont alatt
+maradt, ezért elvetettük.
 
 ### Pontszám
 
 ```
-damage   = Σ gyors × e^(−d / 0,4) + Σ lassú × e^(−d / (τ_csoport × tauScale))
+damage   = Σ gyors × e^(−d / 0,4) + Σ lassú × e^(−d / τ_csoport)
+base     = személyes referencia, legalább ABS_GROUP_REF (előzmény nélkül ABS_GROUP_REF)
 modelled = 100 × (1 − damage / (base × MUSCLE_REF_MULT))
 ```
 
-A `base` a mostani (személyes referencia vagy `ABS_GROUP_REF`), a
-`MUSCLE_REF_MULT` 1,5 helyett 2,5. Az ablak marad 7 nap.
+A `MUSCLE_REF_MULT` 1,5 helyett 2,5. Az ablak marad 7 nap.
+
+A személyes referencia alsó határa eddig az `ABS_GROUP_REF` fele volt. Ez
+megfordította a szünet utáni esetet: a hosszú szünet után nincs személyes
+referencia, így a nagyobb abszolút számít, és ugyanaz az edzés enyhébb
+pontot kapott (92), mint folyamatos edzésnél (83). Az alsó határ ezért a
+teljes `ABS_GROUP_REF`.
 
 Az 1. lépésben az izomláz-keverés még marad.
 
@@ -116,8 +120,26 @@ Négyfejű, abszolút referencia (5 × 2,5), pontszám a d1 / d2 / d3 napon:
 | 4×8 RPE 8, 26 hét szünet után | 66 / 79 / 86 | 85 / 91 / 93 |
 
 A céltartományok a riport adataiból becsültek, a pontszámot
-teljesítmény-százalékként kezelve. Ez közelítés. A szünet utáni eset
-szándékosan enyhe: a szünetes adatok edzetlenektől származnak.
+teljesítmény-százalékként kezelve. Ez közelítés. A fenti táblázat még a
+lecsengést nyújtó újdonsággal készült; a végleges számokat a profil-tesztek
+adják.
+
+### Profil-próba a valódi motorral
+
+A motor módosított másolatán, 6 hetes előzménnyel (személyes referencia),
+a végleges paraméterekkel:
+
+| Profil | d1 / d2 / d3 |
+|---|---|
+| Erőemelő (négyfejű) | 89 / 94 / 96 |
+| Testépítő, megszokott lábnap | 78 / 88 / 92 |
+| Csapatsportoló | 95 / 97 / 98 |
+| 4×8 RPE 8, folyamatos edzés | 91 / 95 / 97 |
+| Ugyanez 26 hét szünet után | 88 / 93 / 96 |
+| Új fiók, lábnap (abszolút referencia) | 54 / 75 / 84 |
+
+A meglévő 83 motor-teszt (`recovery.test.js`, `muscles.test.js`) a
+módosított motorral is zöld volt.
 
 ## 2. Adatfolyam és interfész
 
@@ -130,11 +152,14 @@ A `readinessReport` már most minden edzést átad, az API-hívás nem változik
    időrendi menet az összes edzésen, a 28 napon túliakon is. Kimenet: a 7
    napos ablakba eső edzésekhez gyakorlatonként és izomcsoportonként az
    újdonság-szorzó és az oka (`'novelty'` vagy `'gap'`).
-3. **`summarizeWorkouts`**: a napi bucket új mezőt kap.
+3. **`summarizeWorkouts`**: a napi bucket két új mezőt kap.
    - `muscles[group]`: a gyors rész, változatlan. Erre épül továbbra is a
      személyes referencia és a `lastLoadedDaysAgo`.
-   - `slow[group]`: `{ amount, tauScale, reason }` elemek listája.
-4. **`muscleReadiness`**: a fenti `damage` képlet. Új kimeneti mező
+   - `slow[group]`: a lassú rész, szett-egységben.
+   - `unusual[group]`: `'novelty' | 'gap' | null`, volt-e aznap
+     újdonság-szorzós terhelés a csoporton.
+4. **`muscleReadiness`**: a fenti `damage` képlet (új segéd:
+   `muscleDamage(byDay, group)`), és a referencia új alsó határa. Új kimeneti mező
    csoportonként: `unusual: 'novelty' | 'gap' | null`, ha a csoport az
    ablakon belül újdonság-szorzós terhelést kapott.
 5. **Felület**: a regenerációs oldalon az érintett izomcsoport rövid jelzést
@@ -161,23 +186,34 @@ Mindegyik 6 hetes előzménnyel, hogy a személyes referencia és az
 
 | Profil | Utolsó edzés | Elvárás |
 |---|---|---|
-| Erőemelő | guggolás 5×3 RPE 8–9, fekvenyomás 5×3 | d1 ≥ 75, d2 ≥ 85 |
-| Testépítő | lábnap, 12 munkaszett a négyfejűre, a fele bukásig | d1 40–65, d2 65–85, d3 ≥ 80 |
-| Csapatsportoló | teljes test hetente 2×, RPE 7, 3 szett/izom | d1 ≥ 85 |
-| Testépítő, új gyakorlattal | ugyanaz a lábnap, benne először bolgár guggolás | d3 alacsonyabb, mint a sima lábnapnál, de ≥ 70 |
-| 6 hónap szünet után | 4×8 RPE 8 a négyfejűre | d1 alacsonyabb, mint ugyanez folyamatos edzésnél |
+| Erőemelő | guggolás 5×3 RPE 8,5, fekvenyomás 5×3 RPE 8,5 | d1 ≥ 75, d2 ≥ 85 |
+| Testépítő | lábnap, 12 munkaszett a négyfejűre, a fele bukásig | d1 65–85, d2 ≥ 85, d3 ≥ 90 |
+| Csapatsportoló | teljes test hetente 2×, RPE 7, 3 szett/gyakorlat | d1 ≥ 85 |
+| Testépítő, új gyakorlattal | előzmény kitöréssel, az utolsó lábnapon először bolgár guggolás | d1 alacsonyabb, mint megszokott bolgárral, d3 ≥ 70 |
+| 6 hónap szünet után | 4×8 RPE 8 guggolás | d1 alacsonyabb, mint ugyanez folyamatos edzésnél |
+
+A testépítő tartománya a személyes referencia miatt magasabb, mint az
+abszolút referenciás szimulációban: a megszokott edzés a saját mércéhez
+mérve közepes. Ez megfelel a kutatásnak (edzetteknél 12(12) után 24 órával
+kb. 93% teljesítmény).
+
+Az új gyakorlatos összevetésben a kitörés és a bolgár guggolás izom-megoszlása
+és excentrikus osztálya azonos, így a személyes referencia is: csak az
+újdonság különbözik.
 
 ### Különleges esetek
 
 - Hiányzó RPE: ugyanaz, mint az RPE 8.
-- Új fiók (4 hétnél rövidebb előzmény): az újdonság-szorzó 1,0.
+- Új fiók (4 hétnél rövidebb előzmény): az újdonság-szorzó 1,0; az abszolút
+  referenciával a lábnap után d1 40–70, d3 ≥ 80.
 - Az újdonság elkopik: ugyanaz a gyakorlat a 3. alkalomtól 1,0.
 
 ### Invariánsok
 
 - Közelebb a bukáshoz: alacsonyabb pontszám, minden más azonos.
 - Több eltelt nap: magasabb pontszám.
-- A gyors rész sosem negatív, a `tauScale × excentrikus szorzó` legfeljebb 2,5.
+- A gyors és a lassú rész független, egyik sem negatív; az excentrikus
+  szorzó × újdonság legfeljebb 2,5.
 - A bemelegítő szett 0, a drop set fél szett (a meglévő tesztek maradnak).
 
 ### Kapu a 2. lépéshez
