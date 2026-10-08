@@ -82,6 +82,23 @@ export function muscleNote(muscles = []) {
   return unknown > 0 ? `${base} · ${unknown} csoport adat nélkül` : base;
 }
 
+/** A szokatlan terhelést (új gyakorlat, hosszú kihagyás) kapott csoportok
+    rövid magyarázata a térkép alá, amíg még nem álltak helyre. Null, ha nincs ilyen. */
+export function unusualNote(muscles = []) {
+  const list = (muscles ?? []).filter(
+    (muscle) => muscle.known !== false && muscle.readiness < RC_READY_FROM,
+  );
+  const labels = (reason) =>
+    list.filter((muscle) => muscle.unusual === reason).map((muscle) => muscle.label);
+  const parts = [];
+  const novel = labels('novelty');
+  const gap = labels('gap');
+  if (novel.length) parts.push(`új gyakorlat: ${novel.join(', ')}`);
+  if (gap.length) parts.push(`hosszú kihagyás után: ${gap.join(', ')}`);
+  if (!parts.length) return null;
+  return `Szokatlan terhelés (${parts.join('; ')}), ezért ezek lassabban regenerálódnak.`;
+}
+
 /* ======================================================================
    A térkép geometriája — a design 848×700-as vásznának koordinátái.
    A gyűrű (x, y) a KÖZÉPPONT; a `line` az összekötő vonal a gyűrű
