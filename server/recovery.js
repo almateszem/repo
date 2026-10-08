@@ -440,11 +440,12 @@ export function buildNoveltyIndex(workouts, todayKey, catalog) {
             : 1;
         for (const [group, share] of Object.entries(load)) {
           const last = lastMeaningful[group];
-          const weeks = last === undefined ? Infinity : daysBetween(last, key) / 7;
-          // A kihagyás csak érdemi terhelésnél számít, különben a mellékizmok
-          // (pl. guggolásnál a core) örökös szünetet mutatnának.
+          // Kihagyásról csak korábbi és mostani érdemi terhelés közt beszélünk: a
+          // mellékizmok (pl. core) és a sosem edzett csoportok az új gyakorlat szabályát kapják.
           const gap =
-            stimulus * share >= NOVELTY.meaningfulStimulus ? gapNovelty(weeks) : 1;
+            last !== undefined && stimulus * share >= NOVELTY.meaningfulStimulus
+              ? gapNovelty(daysBetween(last, key) / 7)
+              : 1;
           const value = Math.max(gap, exerciseNovelty);
           byGroup[group] = {
             value,
