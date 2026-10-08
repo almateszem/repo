@@ -46,6 +46,7 @@ import {
   TAU_BY_GROUP,
   resolveExerciseLoad,
   isAxialLift,
+  eccentricClass,
   emptyMuscleMap,
   normalizeName,
 } from './muscles.js';
@@ -174,6 +175,19 @@ const PERSONAL_REF_MIN_DAYS = 14;
 
 const FATIGUE_REF_MULT = 10; // személyes referencia: napi átlagterhelés × ennyi
 const MUSCLE_REF_MULT = 1.5; // ennyiszer tipikus szesszió visz egy csoportot nulláig
+
+/** Az újdonság-szorzó paraméterei (kiinduló értékek a kutatási riportból). */
+const NOVELTY = {
+  gapFreeWeeks: 3, // eddig a kihagyás nem számít
+  gapMax: 0.8, // a kihagyás-görbe plafonja 1 + gapMax
+  gapScaleWeeks: 10,
+  newExercise: 1.3,
+  newEccentric: 1.5,
+  lookbackDays: 56, // „új gyakorlat": ennyi napban legfeljebb egyszer
+  minHistoryDays: 28, // ennél rövidebb előzménynél nincs újdonság-szorzó
+  meaningfulStimulus: 1, // ennyi szett-egység nullázza a kihagyás-órát
+  cap: 2.5, // újdonság × excentrikus szorzó felső korlátja
+};
 
 /** Referencia-testsúly, amihez az abszolút terhelés-referenciák skálázódnak. */
 const REF_BODY_WEIGHT = 80;
@@ -332,6 +346,106 @@ function setStimulus(set) {
   if (typeFactor === 0) return 0;
   const rpe = num(set.rpe);
   return (rpe === null ? 1 : clamp(1 + (rpe - 8) * 0.3, 0.6, 1.7)) * typeFactor;
+}
+
+/** A lassú tároló súlya a bukás közelsége szerint (RIR = 10 − RPE). Edzetteknél
+    a bukástól távoli munka után 6–24 óra alatt helyreáll a teljesítmény, a
+    bukásig vitt munka után 2–5 napos farok marad. Hiányzó RPE: RIR 2. */
+export function failureWeight(rpe, reps) {
+  if (rpe === null) return 0.55;
+  const rir = Math.round(10 - rpe);
+  if (rir <= 0) return reps >= 12 ? 1.3 : 1;
+  if (rir === 1) return 0.75;
+  if (rir === 2) return 0.55;
+  if (rir === 3) return 0.4;
+  return 0.2;
+}
+
+/** Kihagyás utáni újdonság: 3 hétig 1, utána sima görbén nő (26 hétnél ~1,72). */
+function gapNovelty(weeks) {
+  if (weeks <= NOVELTY.gapFreeWeeks) return 1;
+  return (
+    1 + NOVELTY.gapMax * (1 - Math.exp(-(weeks - NOVELTY.gapFreeWeeks) / NOVELTY.gapScaleWeeks))
+  );
+}
+
+/**
+ * Újdonság-szorzó edzésenként, gyakorlatonként és izomcsoportonként, az adott
+ * edzés előtti előzményből. Az egész naplót bejárja (a 28 napon túlit is), de
+ * csak a MUSCLE_WINDOW_DAYS ablakba eső edzésekhez ad eredményt.
+ *
+ * @returns {Map<object, Array<Object<string, {value: number, reason: 'novelty'|'gap'|null}>|null>>}
+ *   kulcs: a workout objektum; érték: a gyakorlatok sorrendjében egy-egy
+ *   csoport → szorzó térkép (időalapú sornál null).
+ */
+export function buildNoveltyIndex(workouts, todayKey, catalog) {
+  const dated = (Array.isArray(workouts) ? workouts : [])
+    .map((workout) => ({ workout, key: dayKey(workout?.date) }))
+    .filter(({ key }) => Number.isFinite(key) && key <= todayKey)
+    .sort((a, b) => a.key - b.key);
+  const index = new Map();
+  if (!dated.length) return index;
+
+  const firstKey = dated[0].key;
+  const lastMeaningful = {}; // csoport – nap-kulcs
+  const exerciseDays = new Map(); // normalizált név – nap-kulcsok
+
+  for (const { workout, key } of dated) {
+    const mature = daysBetween(firstKey, key) >= NOVELTY.minHistoryDays;
+    const groupStimulus = emptyMuscleMap();
+    const trainedNames = new Set();
+    const perExercise = [];
+
+    for (const exercise of workout.exercises ?? []) {
+      if (exercise.logMode === 'duration') {
+        perExercise.push(null);
+        continue;
+      }
+      const load = resolveExerciseLoad(exercise.name, catalog);
+      const stimulus = (exercise.sets ?? []).reduce((sum, set) => sum + setStimulus(set), 0);
+      const name = normalizeName(exercise.name);
+      const byGroup = {};
+
+      if (mature && stimulus > 0) {
+        const previous = (exerciseDays.get(name) ?? []).filter((day) => {
+          const gap = daysBetween(day, key);
+          return gap > 0 && gap <= NOVELTY.lookbackDays;
+        });
+        const exerciseNovelty =
+          previous.length <= 1
+            ? eccentricClass(exercise.name) > 1
+              ? NOVELTY.newEccentric
+              : NOVELTY.newExercise
+            : 1;
+        for (const group of Object.keys(load)) {
+          const last = lastMeaningful[group];
+          const weeks = last === undefined ? Infinity : daysBetween(last, key) / 7;
+          const gap = gapNovelty(weeks);
+          const value = Math.max(gap, exerciseNovelty);
+          byGroup[group] = {
+            value,
+            reason: value === 1 ? null : exerciseNovelty >= gap ? 'novelty' : 'gap',
+          };
+        }
+      }
+      perExercise.push(byGroup);
+
+      if (stimulus > 0) trainedNames.add(name);
+      for (const [group, share] of Object.entries(load)) groupStimulus[group] += stimulus * share;
+    }
+
+    // A frissítés az edzés után jön, hogy egy gyakorlat önmagát ne lássa előzménynek.
+    for (const name of trainedNames) {
+      const days = exerciseDays.get(name) ?? [];
+      if (days[days.length - 1] !== key) days.push(key);
+      exerciseDays.set(name, days);
+    }
+    for (const group of MUSCLE_KEYS) {
+      if (groupStimulus[group] >= NOVELTY.meaningfulStimulus) lastMeaningful[group] = key;
+    }
+    if (daysBetween(key, todayKey) <= MUSCLE_WINDOW_DAYS) index.set(workout, perExercise);
+  }
+  return index;
 }
 
 /**
