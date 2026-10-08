@@ -13,6 +13,7 @@ import {
   ringDashOffset,
   ringState,
   spareList,
+  unusualNote,
 } from './recovery-map.js';
 
 /** A tizenkét izomcsoport kulcsa és magyar címkéje — a szerver
@@ -369,6 +370,14 @@ function renderMuscleMap(muscles, view = 'front') {
 
   // — Mobil: egy nézet, a figura két oldalán —
   host.replaceChildren(wide, split, tabbedMap(byKey, view));
+
+  const note = unusualNote(muscles);
+  if (note) {
+    const el = document.createElement('p');
+    el.className = 'rc-unusual';
+    el.textContent = note;
+    host.append(el);
+  }
 }
 
 /** Elöl/Hátul váltás: csak a mobil változatot építjük újra — az asztali SVG

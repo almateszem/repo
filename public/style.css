@@ -7066,6 +7066,13 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--fg-55);
 }
 
+.rc-unusual {
+  margin: var(--sp-6) 0 0;
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  color: var(--fg-55);
+}
+
 .rc-dot {
   display: inline-block;
   width: 8px;
