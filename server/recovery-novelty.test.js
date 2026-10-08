@@ -48,6 +48,25 @@ test('buildNoveltyIndex: megszokott gyakorlatnál és rendszeres edzésnél 1', 
   });
 });
 
+test(
+  'buildNoveltyIndex: a mellékizom kis részesedése nem ad kihagyás-szorzót',
+  () => {
+    const history = [0, 7, 14, 21, 28, 35].map((n) => wo(n, ['Guggolás']));
+    const last = wo(42, ['Guggolás']);
+    const all = [...history, last];
+    for (const group of ['glutes', 'core']) {
+      assert.deepEqual(
+        noveltyOf(all, { at: 42, workout: last }, 0, group),
+        {
+          value: 1,
+          reason: null,
+        },
+        group,
+      );
+    }
+  },
+);
+
 test('buildNoveltyIndex: új gyakorlat 1,3, excentrikus új gyakorlat 1,5', () => {
   const history = [0, 7, 14, 21, 28, 35].map((n) => wo(n, ['Guggolás']));
   const last = wo(42, ['Lábtolás', 'Bolgár guggolás']);
