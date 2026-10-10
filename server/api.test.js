@@ -191,6 +191,10 @@ test('bejelentkezés nélkül MINDEN /api végpont 401-et ad', async () => {
     ['POST', '/api/water'],
     ['DELETE', '/api/water/1'],
     ['GET', '/api/exercise-suggestions?title=X'],
+    ['GET', '/api/exercises'],
+    ['GET', '/api/exercise-groups'],
+    ['GET', '/api/food-groups'],
+    ['GET', '/api/foods/by-name?name=X'],
   ];
 
   for (const [method, urlPath] of endpoints) {
@@ -1641,6 +1645,154 @@ test('a gyakorlat-katalógus nem küldi ki a belső mezőket', async () => {
   assert.ok(katalogus[0].name, 'a névnek viszont ki kell mennie');
 });
 
+test('a gyakorlat-keresés lapoz: 40-es alapoldal, nextOffset, total', async () => {
+  const elso = (await request('GET', '/api/exercises', { cookie: annaCookie })).json;
+  assert.equal(elso.items.length, 40);
+  assert.ok(elso.total > 40, 'a seed-katalógus 40-nél több gyakorlat');
+  assert.equal(elso.nextOffset, 40);
+
+  const masodik = (
+    await request('GET', `/api/exercises?offset=${elso.nextOffset}`, { cookie: annaCookie })
+  ).json;
+  assert.notEqual(masodik.items[0].name, elso.items[0].name, 'a második lap máshol kezdődik');
+
+  const utolso = (
+    await request('GET', `/api/exercises?offset=${elso.total - 5}`, { cookie: annaCookie })
+  ).json;
+  assert.equal(utolso.items.length, 5);
+  assert.equal(utolso.nextOffset, null, 'az utolsó lap után nincs több');
+});
+
+test('a gyakorlat-keresés sem küldi ki a belső mezőket', async () => {
+  const { items } = (await request('GET', '/api/exercises?limit=100', { cookie: annaCookie })).json;
+  for (const elem of items) {
+    assert.ok(!('load' in elem));
+    assert.ok(!('loadSource' in elem));
+    assert.ok(!('extId' in elem));
+  }
+});
+
+test('a gyakorlat-keresés szűr névre (ékezettel) és csoportra', async () => {
+  const q = encodeURIComponent('FEKVENYOMÁS');
+  const talalat = (await request('GET', `/api/exercises?q=${q}&limit=100`, { cookie: annaCookie }))
+    .json;
+  assert.ok(talalat.total > 0, 'van fekvenyomás a katalógusban');
+  for (const elem of talalat.items) {
+    assert.ok(
+      `${elem.name} ${elem.equipment ?? ''}`.toLowerCase().includes('fekvenyomás'),
+      elem.name,
+    );
+  }
+
+  const csoportok = (await request('GET', '/api/exercise-groups', { cookie: annaCookie })).json;
+  assert.ok(csoportok.includes('Mell'));
+
+  const mell = (await request('GET', '/api/exercises?group=Mell&limit=100', { cookie: annaCookie }))
+    .json;
+  assert.ok(mell.total > 0);
+  assert.ok(mell.items.every((elem) => elem.group === 'Mell'));
+
+  const ismeretlen = await request('GET', '/api/exercises?group=Nincs', { cookie: annaCookie });
+  assert.equal(ismeretlen.status, 200, 'az ismeretlen csoport üres keresés, nem hiba');
+  assert.deepEqual(ismeretlen.json, { items: [], total: 0, nextOffset: null });
+});
+
+test('a keresőszöveg speciális karakterei nem törik el a kérést', async () => {
+  for (const q of ['%', '&', '+', '100%&x=1']) {
+    const res = await request('GET', `/api/exercises?q=${encodeURIComponent(q)}`, {
+      cookie: annaCookie,
+    });
+    assert.equal(res.status, 200, q);
+    assert.ok(Array.isArray(res.json.items), q);
+  }
+});
+
+test('hibás lapozási paraméterre 400 jön', async () => {
+  const rossz = [
+    'offset=-1',
+    'offset=abc',
+    'limit=0',
+    'limit=101',
+    'limit=1.5',
+    'q=a&q=b',
+    'q[x]=1',
+    `q=${'a'.repeat(101)}`,
+  ];
+  for (const query of rossz) {
+    const res = await request('GET', `/api/exercises?${query}`, { cookie: annaCookie });
+    assert.equal(res.status, 400, query);
+    assert.ok(res.json.error, `${query}: a hibának magyar üzenete van`);
+  }
+});
+
+test('a javaslatok a kártya mezőit is hozzák', async () => {
+  const res = (await request('GET', '/api/exercise-suggestions?title=Mell', { cookie: annaCookie }))
+    .json;
+  assert.ok(res.suggestions.length > 0, 'a „Mell" cím javaslatot ad');
+  for (const javaslat of res.suggestions) {
+    assert.ok(javaslat.name);
+    assert.ok(Array.isArray(javaslat.reasons));
+    assert.ok(
+      javaslat.tag && javaslat.muscles && javaslat.group && javaslat.logMode,
+      javaslat.name,
+    );
+    assert.ok(!('load' in javaslat), 'a belső mező itt sem megy ki');
+  }
+});
+
+test('az étel-kategóriák ábécérendben jönnek, a „Saját étel" nélkül', async () => {
+  const csoportok = (await request('GET', '/api/food-groups', { cookie: annaCookie })).json;
+  assert.ok(csoportok.length > 0);
+  assert.ok(!csoportok.includes('Saját étel'));
+  assert.deepEqual(
+    csoportok,
+    [...csoportok].sort((a, b) => a.localeCompare(b, 'hu')),
+  );
+});
+
+test('étel név szerint: a megtaláltak jönnek, az ismeretlen kimarad', async () => {
+  const etel = seedFood((await request('GET', '/api/foods', { cookie: annaCookie })).json).name;
+  const res = await request(
+    'GET',
+    `/api/foods/by-name?name=${encodeURIComponent(etel)}&name=Nincs%20ilyen`,
+    { cookie: annaCookie },
+  );
+  assert.equal(res.status, 200, res.text);
+  assert.deepEqual(
+    res.json.map((food) => food.name),
+    [etel],
+  );
+});
+
+test('étel név szerint: 50 név még elfogadott, 51 vagy 0 már nem', async () => {
+  /* Az Express query-parsere 20 ismétlődő kulcs felett objektummá alakítja a
+     `name`-et — a végpontnak ettől még tömbként kell kezelnie (egy 30 tételes
+     edzői étkezés betöltése nem bukhat el ezen). */
+  const etel = seedFood((await request('GET', '/api/foods', { cookie: annaCookie })).json).name;
+  const otven = [etel, ...Array.from({ length: 49 }, (_, i) => `ismeretlen-${i}`)];
+  const ok = await request(
+    'GET',
+    `/api/foods/by-name?${otven.map((n) => `name=${encodeURIComponent(n)}`).join('&')}`,
+    { cookie: annaCookie },
+  );
+  assert.equal(ok.status, 200, ok.text);
+  assert.deepEqual(
+    ok.json.map((food) => food.name),
+    [etel],
+  );
+
+  const sok = Array.from({ length: 51 }, (_, i) => `name=n${i}`).join('&');
+  assert.equal(
+    (await request('GET', `/api/foods/by-name?${sok}`, { cookie: annaCookie })).status,
+    400,
+  );
+  assert.equal((await request('GET', '/api/foods/by-name', { cookie: annaCookie })).status, 400);
+  assert.equal(
+    (await request('GET', '/api/foods/by-name?name=%20', { cookie: annaCookie })).status,
+    400,
+  );
+});
+
 test('a készenléti riport szerkezete teljes', async () => {
   const r = (await request('GET', '/api/readiness', { cookie: annaCookie })).json;
   assert.ok(r.overall >= 0 && r.overall <= 100, 'az összesített készenlét 0–100 közötti');
@@ -1967,6 +2119,23 @@ test('ugyanaz a név két fióknak felvihető', async () => {
   });
   assert.equal(res.status, 201, 'a UNIQUE (user_id, name) fiókonként párosít');
   assert.equal(res.json.kcal, 165, '4·30 + 9·5 = 165 — BÉLA értékeivel');
+});
+
+test('étel név szerint: a saját ételt a saját értékeivel kapja mindkét fiók', async () => {
+  const anna = (
+    await request('GET', `/api/foods/by-name?name=${encodeURIComponent('Anna csirkéje')}`, {
+      cookie: annaCookie,
+    })
+  ).json;
+  const bela = (
+    await request('GET', `/api/foods/by-name?name=${encodeURIComponent('Anna csirkéje')}`, {
+      cookie: belaCookie,
+    })
+  ).json;
+  assert.equal(anna.length, 1);
+  assert.equal(anna[0].kcal, 108, 'Anna a saját értékeit kapja');
+  assert.equal(bela.length, 1);
+  assert.equal(bela[0].kcal, 165, 'Béla a sajátját — nem Annáét');
 });
 
 test('MÁS fiók saját ételét nem lehet naplózni és törölni', async () => {
