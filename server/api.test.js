@@ -132,7 +132,6 @@ test('bejelentkezés nélkül MINDEN /api végpont 401-et ad', async () => {
     ['GET', '/api/checkin'],
     ['GET', '/api/export'],
     ['GET', '/api/foods'],
-    ['GET', '/api/exercise-catalog'],
     ['GET', '/api/athletes'],
     ['GET', '/api/notifications'],
     ['GET', '/api/default-set'],
@@ -1634,15 +1633,11 @@ test('a heti volumen-diagram a saját MUNKASOROZATAIBÓL épül (bemelegítő n�
   assert.equal(utana, elotte, 'a két bemelegítő szett nem növelte a volument');
 });
 
-test('a gyakorlat-katalógus nem küldi ki a belső mezőket', async () => {
-  const katalogus = (await request('GET', '/api/exercise-catalog', { cookie: annaCookie })).json;
-  assert.ok(katalogus.length > 0);
-  for (const elem of katalogus) {
-    assert.ok(!('load' in elem), 'a load szerver-belső (a készenlét-motoré)');
-    assert.ok(!('loadSource' in elem), 'a loadSource szerver-belső');
-    assert.ok(!('extId' in elem), 'az extId szerver-belső');
-  }
-  assert.ok(katalogus[0].name, 'a névnek viszont ki kell mennie');
+test('a teljes gyakorlat-katalógus végpontja megszűnt', async () => {
+  /* A választó és a profil a lapozott /api/exercises-t használja; a teljes,
+     1400+ soros lista többé nem megy ki a hálózatra. */
+  const res = await request('GET', '/api/exercise-catalog', { cookie: annaCookie });
+  assert.equal(res.status, 404);
 });
 
 test('a gyakorlat-keresés lapoz: 40-es alapoldal, nextOffset, total', async () => {
@@ -2728,13 +2723,28 @@ test('a mérés törölhető, és idegen sorra 404 jön', async () => {
 
 let kardioCookie = '';
 
+/** A teljes gyakorlat-katalógus a lapozott keresőn át, 100-as lapokban — a
+    felület sosem kéri le egyben, de a katalógus egészére szóló állításokhoz
+    a teszt végigmegy rajta. */
+async function teljesKatalogus(cookie) {
+  const sorok = [];
+  let offset = 0;
+  while (offset !== null) {
+    const lap = (await request('GET', `/api/exercises?limit=100&offset=${offset}`, { cookie }))
+      .json;
+    sorok.push(...lap.items);
+    offset = lap.nextOffset;
+  }
+  return sorok;
+}
+
 test('a katalógus minden sora visel naplózási módot, és a futópad időalapú', async () => {
   const reg = await request('POST', '/api/auth/register', {
     body: { username: 'kardio', displayName: 'Kardiós Karcsi', password: 'jelszo123' },
   });
   kardioCookie = cookieFrom(reg);
 
-  const katalogus = (await request('GET', '/api/exercise-catalog', { cookie: kardioCookie })).json;
+  const katalogus = await teljesKatalogus(kardioCookie);
   assert.ok(
     katalogus.every((e) => e.logMode === 'reps' || e.logMode === 'duration'),
     'nincs mód nélküli sor — a felület nem találgat',
@@ -2958,7 +2968,7 @@ test('ajánlott gyakorlatok: a címből, a valódi katalógusból, indoklással'
   assert.deepEqual(res.json.titleLabels, ['Láb']);
   assert.ok(res.json.suggestions.length > 0);
 
-  const katalogus = (await request('GET', '/api/exercise-catalog', { cookie })).json;
+  const katalogus = await teljesKatalogus(cookie);
   const nevek = new Set(katalogus.map((e) => e.name));
   for (const javaslat of res.json.suggestions) {
     assert.ok(nevek.has(javaslat.name), `„${javaslat.name}" létező katalógus-sor`);

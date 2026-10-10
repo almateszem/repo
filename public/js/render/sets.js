@@ -17,11 +17,10 @@ import { showToast } from '../core/toast.js';
    mondott konvenciót senki nem tud követni, és a kétszeres eltérés az
    erőszint-érmen két elhibázott fokozatot jelent.
 
-   A halmaz a katalógus `felszerelés` mezőjéből épül, és INDULÁSKOR töltjük
-   fel: a renderExercise szinkron, menet közben nem várhat egy kérésre. A
-   katalógus-válasz kliens-oldalon cache-elt (api.getExerciseCatalog), tehát ez
-   nem jelent plusz hálózati kérést. Ha a töltés elhasal, a felirat marad a
-   semleges „Súly·kg" — rosszabb konvenciót nem írunk ki, mint amit tudunk. */
+   A halmazt a szerver adja (/api/weight-conventions), és INDULÁSKOR töltjük
+   fel: a renderExercise szinkron, menet közben nem várhat egy kérésre. Ha a
+   töltés elhasal, a felirat marad a semleges „Súly·kg" — rosszabb
+   konvenciót nem írunk ki, mint amit tudunk. */
 const perHandExercises = new Set();
 
 /* Saját testsúlyos gyakorlatok: ott a beírt kilogramm a RÁADÁS (öv, mellény),
