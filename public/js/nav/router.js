@@ -75,6 +75,8 @@ const pageEffects = {
     hooks.refreshWater?.().catch((err) => console.error('Vízmérő frissítési hiba:', err));
     // Az étrendet az edző írja — a mi másolatunk bármikor elavulhat.
     hooks.refreshCoachMeals?.().catch((err) => console.error('Étrend frissítési hiba:', err));
+    // Az étel-lista az első megnyitáskor töltődik (js/ui/nutrition.js)
+    hooks.startFoodList?.();
   },
 };
 

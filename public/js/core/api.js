@@ -185,14 +185,6 @@ const api = {
     invalidateCache('/api/charts');
     return getJsonCached('/api/charts');
   },
-  // A /api/foods FIÓKFÜGGŐ (elöl a saját ételek), de a cache-elés így is
-  // helyes: fiókváltáskor az app teljes oldalt tölt. Saját étel felvitele
-  // vagy törlése után viszont el kell dobni — erre való a refreshFoods.
-  getFoods: () => getJsonCached('/api/foods'),
-  refreshFoods: () => {
-    invalidateCache('/api/foods');
-    return getJsonCached('/api/foods');
-  },
   // Nem cache-elt: a saját tervek mentés/szerkesztés után változnak
   getPlans: () => getJson('/api/plans'),
   // Nem cache-elt: a PR-lista a mentett edzésekből épül, mentés után frissül

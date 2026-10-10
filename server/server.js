@@ -2467,11 +2467,15 @@ app.get('/api/charts', (req, res) =>
 // Testsúly-napló — a valódi weight_log táblából
 app.get('/api/weight-log', (req, res) => res.json(getWeightLog(req.user.id)));
 
-/** Az étel-lista: elöl a hívó SAJÁT ételei, utánuk a beépített katalógus.
-    Ezért nem maradhatott a READ_ENDPOINTS generikus ágán — az felhasználó-
-    független kollekciókat szolgál ki. A getCollection('foods') tömbje
-    megosztott és cache-elt: a getFoodsForUser ÚJ tömböt képez belőle. */
-app.get('/api/foods', (req, res) => res.json(getFoodsForUser(req.user.id)));
+/** Az étel-lista, lapozva: elöl a hívó SAJÁT ételei, utánuk a beépített
+    katalógus; a keresés a névre, a kategóriára és a márkára
+    (server/catalog-search.js). Ezért nem maradhatott a READ_ENDPOINTS
+    generikus ágán — az felhasználó-független kollekciókat szolgál ki. */
+app.get('/api/foods', (req, res) => {
+  const params = parsePageParams(req.query);
+  if (params.error) return res.status(400).json({ error: params.error });
+  res.json(catalogSearch.searchFoods(req.user.id, params));
+});
 
 // Napi táplálkozási összesítő (alap + a MAI naplózott ételek)
 app.get('/api/nutrition', (req, res) => res.json(getNutritionTotals(req.user.id, req.today)));

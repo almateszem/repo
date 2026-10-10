@@ -6,6 +6,7 @@ import { api } from '../core/api.js';
 import { $, $$, cloneTemplate } from '../core/dom.js';
 import { formatNumber } from '../core/format.js';
 import { scaleFood, sumMacros } from '../core/meals.js';
+import { SEARCH_DELAY_MS, debounce } from '../core/paged-list.js';
 import { showToast } from '../core/toast.js';
 
 /** A napi cél elfogadott tartománya — a szerver GOAL_RANGES-ével egyezik.
@@ -44,21 +45,44 @@ function setupCoachMeals(root, { getCurrent, onGoalChange, confirmAction }) {
 
   // A szerkesztett étkezés id-je; null = új étkezés
   let editingId = null;
-  // Név → étel. Az api.getFoods cache-elt, és az edző SAJÁT ételeit is hozza.
-  let foodsByName = null;
+  /* Név → étel. A teljes étel-listát már nem töltjük le: a tábla a kereső
+     találataiból és a név szerinti lekérésekből gyűlik. Az élő makró-összeg
+     ebből számol; a mentést a szerver úgyis ellenőrzi. */
+  const foodsByName = new Map();
+  const rememberFoods = (foods) => foods.forEach((food) => foodsByName.set(food.name, food));
 
-  async function loadFoods() {
-    if (foodsByName) return;
-    const foods = await api.getFoods();
-    foodsByName = new Map(foods.map((food) => [food.name, food]));
-    datalist.replaceChildren(...foods.map((food) => new Option(food.name)));
+  /** A még ismeretlen nevek tápértéke — szerkesztéskor a bent lévő
+      tételekhez, mentéskor a kézzel begépelt nevekhez. A szerver egyszerre
+      legfeljebb 50 nevet fogad, ezért 50-esével kérjük. */
+  async function resolveNames(names) {
+    const missing = [...new Set(names.filter((name) => name && !foodsByName.has(name)))];
+    for (let i = 0; i < missing.length; i += 50) {
+      rememberFoods(await api.getFoodsByName(missing.slice(i, i + 50)));
+    }
   }
+
+  /* Gépelés közben a kereső 10 találata kerül a javaslatok közé. Csak a
+     LEGUTÓBBI kérés válasza írhatja a listát. */
+  let suggestRequest = 0;
+  const suggestFoods = debounce(async (query) => {
+    const requestId = ++suggestRequest;
+    if (query === '') return;
+    try {
+      const { items } = await api.searchFoods({ q: query, limit: 10 });
+      if (requestId !== suggestRequest) return;
+      rememberFoods(items);
+      datalist.replaceChildren(...items.map((food) => new Option(food.name)));
+      updateSum();
+    } catch (err) {
+      console.error('Az étel-javaslatok nem töltődtek be:', err);
+    }
+  }, SEARCH_DELAY_MS);
 
   /* ---- Szerkesztő ---- */
 
   /** Egy sor aktuális állapota: a felismert étel (vagy null) és a gramm. */
   const readRow = (row) => ({
-    food: foodsByName?.get($('[data-item-food]', row).value.trim()) ?? null,
+    food: foodsByName.get($('[data-item-food]', row).value.trim()) ?? null,
     grams: Number($('[data-item-grams]', row).value),
   });
 
@@ -101,7 +125,7 @@ function setupCoachMeals(root, { getCurrent, onGoalChange, confirmAction }) {
 
   async function openForm(meal = null) {
     try {
-      await loadFoods();
+      await resolveNames((meal?.items ?? []).map((item) => item.name));
     } catch (err) {
       console.error(err);
       showToast('Az étel-lista most nem tölthető be', 'error');
@@ -132,7 +156,11 @@ function setupCoachMeals(root, { getCurrent, onGoalChange, confirmAction }) {
     updateSum();
   });
 
-  itemsEl.addEventListener('input', updateSum);
+  itemsEl.addEventListener('input', (event) => {
+    updateSum();
+    const foodInput = event.target.closest('[data-item-food]');
+    if (foodInput) suggestFoods(foodInput.value.trim());
+  });
   itemsEl.addEventListener('click', (event) => {
     const removeBtn = event.target.closest('[data-action="remove-meal-item"]');
     if (!removeBtn) return;
@@ -155,6 +183,15 @@ function setupCoachMeals(root, { getCurrent, onGoalChange, confirmAction }) {
       name: $('[data-item-food]', row).value.trim(),
       grams: Number($('[data-item-grams]', row).value),
     }));
+    // A pontosan begépelt, de a listából ki nem választott nevet is ismerjük
+    try {
+      await resolveNames(items.map((item) => item.name));
+    } catch (err) {
+      console.error(err);
+      showToast('Az ételeket most nem sikerült ellenőrizni', 'error');
+      return;
+    }
+    updateSum();
     const unknown = items.find((item) => !foodsByName.has(item.name));
     if (unknown) {
       showToast(`Ismeretlen étel: ${unknown.name || '(üres)'} — válassz a listából`, 'error');
