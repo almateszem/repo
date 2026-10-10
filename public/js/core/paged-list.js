@@ -107,7 +107,6 @@ function createPagedList({ list, fetchPage, renderItem, onPage = () => {}, onSta
   sentinel.className = 'paged-sentinel';
   sentinel.setAttribute('aria-live', 'polite');
   list.after(sentinel);
-  let sentinelVisible = false;
 
   const renderSentinel = ({ status }) => {
     if (status === 'loading') {
@@ -139,22 +138,27 @@ function createPagedList({ list, fetchPage, renderItem, onPage = () => {}, onSta
       // Ha már az első lap sem jött le, a hibasor álljon a lista helyén
       if (state.status === 'error' && state.firstPage) list.replaceChildren();
       onState(state);
-      /* Rövid lap vagy magas képernyő: az őrelem a betöltés után is látszik,
-         és az IntersectionObserver nem jelez újra (nem változott semmi) —
-         ilyenkor magunk kérjük a következőt. */
-      if (state.status === 'ready' && sentinelVisible) paged.loadMore();
+      /* Betöltés után friss jelzést kérünk a megfigyelőtől. A korábbi
+         „látszik" már elavult: az új sorok jellemzően kitolták az őrelemet,
+         csak a megfigyelő még nem jelzett. Az újrafigyelés a MOSTANI
+         elrendezésből ad egy jelzést — rövid lapnál / magas képernyőn az
+         őrelem még látszik, és jön a következő lap; különben semmi. */
+      if (state.status === 'ready') {
+        observer.unobserve(sentinel);
+        observer.observe(sentinel);
+      }
     },
   });
 
   /* Rejtett oldalon (display: none) az őrelem nem metszi a látóteret, tehát
      háttérben nem töltünk; az oldal megjelenésekor a megfigyelő újra jelez. */
-  new IntersectionObserver(
+  const observer = new IntersectionObserver(
     ([entry]) => {
-      sentinelVisible = entry.isIntersecting;
-      if (sentinelVisible) paged.loadMore();
+      if (entry.isIntersecting) paged.loadMore();
     },
     { rootMargin: PREFETCH_MARGIN },
-  ).observe(sentinel);
+  );
+  observer.observe(sentinel);
 
   return {
     setQuery: (query) => paged.setQuery(query),
