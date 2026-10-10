@@ -592,29 +592,14 @@ const READ_ENDPOINTS = {
   '/api/default-set': 'defaultSet',
   // Az időalapú sorok alapértékei — a szett-alap párja.
   '/api/default-cardio-set': 'defaultCardioSet',
-  '/api/exercise-catalog': 'exerciseCatalog',
   // A választható edzés-célok (kulcs + kártya-címke + felirat). A sportolók
   // listája NINCS köztük: az nem referencia-adat, hanem valódi kapcsolat —
   // ld. lentebb, „Edző–sportoló kapcsolatok".
   '/api/goals': 'goals',
 };
 
-/* Mezőszűrés a válaszhoz. A kollekció a DB-ben TELJES marad (a Recovery
-   Engine szerver oldalon a `load` súlyokból dolgozik) — csak a hálózatra
-   nem küldjük ki azt, amire a felületnek nincs szüksége.
-   A gyakorlat-katalógus 1401 sor: a `load` és a `loadSource` elhagyása a
-   válasz negyedét lefaragja, és a kliens egyiket sem használja (a kártya a
-   névből, a címkéből, az izom-szövegből és a képből áll össze). */
-const RESPONSE_PROJECTIONS = {
-  exerciseCatalog: (catalog) => catalog.map(({ load, loadSource, extId, ...visible }) => visible),
-};
-
 for (const [route, key] of Object.entries(READ_ENDPOINTS)) {
-  app.get(route, (req, res) => {
-    const value = getCollection(key);
-    const project = RESPONSE_PROJECTIONS[key];
-    res.json(project && Array.isArray(value) ? project(value) : value);
-  });
+  app.get(route, (req, res) => res.json(getCollection(key)));
 }
 
 /* ---- Katalógus-keresés ----

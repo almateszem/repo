@@ -217,7 +217,6 @@ const api = {
   // kettő ne sodródjon szét (ugyanaz az elv, mint a mérési helyeknél).
   getDefaultCardioSet: () => getJsonCached('/api/default-cardio-set'),
   getCardioIntensities: () => getJsonCached('/api/cardio-intensities'),
-  getExerciseCatalog: () => getJsonCached('/api/exercise-catalog'),
   /* ---- Katalógus-keresés ----
      A szerver keres és lapoz (server/catalog-search.js); a válasz
      `{ items, total, nextOffset }`. Nem cache-elt: minden keresés más szelet. */
