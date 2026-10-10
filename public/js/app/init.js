@@ -15,7 +15,6 @@ import {
   renderDashboard,
   renderUserName,
 } from '../render/dashboard.js';
-import { renderFoods } from '../render/foods.js';
 import { renderPlans } from '../render/plans.js';
 import { renderPrs } from '../render/prs.js';
 import { renderWorkout } from '../render/workout.js';
@@ -79,7 +78,6 @@ async function init() {
     safe(renderChromeDate),
     safe(renderWorkout),
     safe(renderPrs),
-    safe(renderFoods),
     safe(renderPlans),
     /* Az intenzitás-fokozatok felirata a szervertől. A gyakorlat-kártyák
        rajzolása szinkron, ezért a listának a setup-ok ELŐTT kell megérkeznie —

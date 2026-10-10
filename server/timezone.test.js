@@ -134,7 +134,7 @@ test('a check-in és a napi táplálkozási napló ugyanazt a napot használja',
 
   // Étel is a kliens napjára naplózódik
   const foods = await request('GET', '/api/foods', { cookie });
-  const food = foods.json[0];
+  const food = foods.json.items[0];
   const logged = await request('POST', '/api/nutrition/log', {
     cookie,
     date: holnap,
