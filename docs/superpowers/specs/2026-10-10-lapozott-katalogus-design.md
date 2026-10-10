@@ -70,6 +70,8 @@ A gyakorlatok kártya-alakja a mai `RESPONSE_PROJECTIONS` vetülete: a `load`,
 
 - `limit` alapértéke 40, legfeljebb 100. Nem egész, negatív vagy 100 feletti
   `offset`/`limit` → **400**.
+- `q` legfeljebb 100 karakter, csak egyetlen szöveg lehet (`q=a&q=b` vagy
+  `q[x]=1` → **400**). Ugyanez a `group`-ra.
 - Ismeretlen `group` → **200**, üres lista (érvényes, csak üres keresés).
 - `by-name`: legalább 1, legfeljebb 50 név; ezen kívül → 400. Az ismeretlen
   nevek egyszerűen kimaradnak a válaszból.
