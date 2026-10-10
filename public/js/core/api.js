@@ -38,9 +38,10 @@ const clientDate = () => {
     gép időzónája menet közben változik) magától a helyes napot küldi. */
 const requestHeaders = (extra) => ({ [CLIENT_DATE_HEADER]: clientDate(), ...extra });
 
-/** GET egy JSON-végpontra, egységes hibakezeléssel. */
-async function getJson(path) {
-  const res = await fetch(path, { headers: requestHeaders() });
+/** GET egy JSON-végpontra, egységes hibakezeléssel. A `signal`-lal a hívó
+    megszakíthatja (a lapozott lista az elavult keresést). */
+async function getJson(path, { signal } = {}) {
+  const res = await fetch(path, { headers: requestHeaders(), signal });
   if (res.status === 401) throw handleUnauthorized();
   if (!res.ok) throw new Error(`GET ${path} → ${res.status}`);
   return res.json();
@@ -107,6 +108,16 @@ async function authRequest(path, body) {
   const detail = res.status === 204 ? null : await res.json().catch(() => null);
   if (!res.ok) throw new Error(detail?.error || `Hiba (${res.status})`);
   return detail;
+}
+
+/** Query-sztring a megadott, nem üres paraméterekből. */
+function queryString(params) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null || value === '') continue;
+    search.set(key, String(value));
+  }
+  return search.toString();
 }
 
 /** GET-cache a csak-olvasható referencia-végpontokhoz: több modul kéri
@@ -207,6 +218,23 @@ const api = {
   getDefaultCardioSet: () => getJsonCached('/api/default-cardio-set'),
   getCardioIntensities: () => getJsonCached('/api/cardio-intensities'),
   getExerciseCatalog: () => getJsonCached('/api/exercise-catalog'),
+  /* ---- Katalógus-keresés ----
+     A szerver keres és lapoz (server/catalog-search.js); a válasz
+     `{ items, total, nextOffset }`. Nem cache-elt: minden keresés más szelet. */
+  searchExercises: ({ q, group, offset, limit, signal } = {}) =>
+    getJson(`/api/exercises?${queryString({ q, group, offset, limit })}`, { signal }),
+  // A csoport-chipek — referencia-adat, egyszer töltjük le
+  getExerciseGroups: () => getJsonCached('/api/exercise-groups'),
+  searchFoods: ({ q, offset, limit, signal } = {}) =>
+    getJson(`/api/foods?${queryString({ q, offset, limit })}`, { signal }),
+  // A beépített étel-kategóriák (a saját étel modál legördülője)
+  getFoodGroups: () => getJsonCached('/api/food-groups'),
+  // Ételek pontos név szerint — az edzői étrend már bent lévő tételeihez
+  getFoodsByName: (names) => {
+    const search = new URLSearchParams();
+    names.forEach((name) => search.append('name', name));
+    return getJson(`/api/foods/by-name?${search}`);
+  },
   // A választható edzés-célok (kulcs + kártya-címke + felirat) — referencia-adat
   getGoals: () => getJsonCached('/api/goals'),
 
