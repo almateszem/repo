@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PAGE_SIZE, createPagedQuery, debounce } from './paged-list.js';
+import { PAGE_SIZE, createPagedList, createPagedQuery, debounce } from './paged-list.js';
 
 /** Kívülről feloldható ígéret — a kérések sorrendjét a teszt dönti el. */
 const deferred = () => {
@@ -165,4 +165,69 @@ test('debounce: a cancel elejti a függő hívást', (t) => {
   fn.cancel();
   t.mock.timers.tick(500);
   assert.deepEqual(calls, []);
+});
+
+/* ---- A DOM-réteg (createPagedList) kamu DOM-mal és IntersectionObserverrel ---- */
+
+const fakeElement = () => ({
+  setAttribute() {},
+  addEventListener() {},
+  after() {},
+  append() {},
+  replaceChildren() {},
+});
+
+/** Kamu IntersectionObserver: a teszt maga jelez (`notify`), és látja, hányszor
+    kérték az őrelem megfigyelését (`observeCount`). */
+function fakeObserverEnv(t) {
+  const env = { observeCount: 0, callback: null };
+  globalThis.document = { createElement: fakeElement };
+  globalThis.IntersectionObserver = class {
+    constructor(callback) {
+      env.callback = callback;
+    }
+    observe() {
+      env.observeCount += 1;
+    }
+    unobserve() {}
+  };
+  env.notify = (isIntersecting) => env.callback([{ isIntersecting }]);
+  t.after(() => {
+    delete globalThis.document;
+    delete globalThis.IntersectionObserver;
+  });
+  return env;
+}
+
+test('lista: a betöltés alatti láthatóság nem kér magától még egy lapot', async (t) => {
+  const env = fakeObserverEnv(t);
+  const { calls, fetchPage } = fakeFetch();
+  const paged = createPagedList({ list: fakeElement(), fetchPage, renderItem: fakeElement });
+
+  const first = paged.setQuery({ q: '' });
+  // Az üres lista miatt az őrelem látszik, amíg az első lap úton van
+  env.notify(true);
+  calls[0].resolve(pageOf(['a', 'b'], 4, 2));
+  await first;
+
+  /* A 40 új sor kitolta az őrelemet a látótérből, de a megfigyelő még nem
+     jelzett újra — a régi „látszik" alapján nem szabad továbbtölteni. */
+  assert.equal(calls.length, 1, 'egy jelzésre egy lap');
+});
+
+test('lista: betöltés után friss jelzést kér, és ha az őrelem látszik, továbbtölt', async (t) => {
+  const env = fakeObserverEnv(t);
+  const { calls, fetchPage } = fakeFetch();
+  const paged = createPagedList({ list: fakeElement(), fetchPage, renderItem: fakeElement });
+  const observedAtStart = env.observeCount;
+
+  const first = paged.setQuery({ q: '' });
+  calls[0].resolve(pageOf(['a', 'b'], 4, 2));
+  await first;
+  assert.ok(env.observeCount > observedAtStart, 'a ready után újra megfigyeli az őrelemet');
+
+  // Rövid lap / magas képernyő: a friss jelzés szerint az őrelem még látszik
+  env.notify(true);
+  assert.equal(calls.length, 2, 'a friss jelzésre jön a következő lap');
+  assert.equal(calls[1].params.offset, 2);
 });
