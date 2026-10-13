@@ -28,10 +28,13 @@ function renderGate(stepName, nav) {
     const title = document.createElement('span');
     title.className = 'ci-gate-label';
     title.textContent = label;
-    const note = document.createElement('span');
-    note.className = 'ci-gate-sub';
-    note.textContent = sub;
-    btn.append(title, note);
+    btn.append(title);
+    if (sub) {
+      const note = document.createElement('span');
+      note.className = 'ci-gate-sub';
+      note.textContent = sub;
+      btn.append(note);
+    }
 
     btn.addEventListener('click', () => {
       ci.gates[gate.key] = answer;

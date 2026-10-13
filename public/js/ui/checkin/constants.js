@@ -44,8 +44,8 @@ const CI_GATES = {
     eyebrow: 'Fájdalom · sérülés',
     title: 'Van éles fájdalmad vagy sérülésed?',
     sub: 'Ez más, mint az izomláz. A 7-es vagy nagyobb érték letiltja az érintett izmot terhelő gyakorlatokat.',
-    no: ['Nincs', 'Ugorhatunk az összegzésre'],
-    yes: ['Van fájdalom vagy sérülés', 'Jelöld be, hol érzed'],
+    no: ['Nincs'],
+    yes: ['Van fájdalom vagy sérülés'],
   },
 };
 
