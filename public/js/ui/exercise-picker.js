@@ -1,21 +1,22 @@
-/** Gyakorlat-választó: katalógus, keresés, szűrők. */
+/** Gyakorlat-választó: szerveroldali keresés, lapozott katalógus, szűrők. */
 
 import { api } from '../core/api.js';
 import { $, $$, cloneTemplate } from '../core/dom.js';
 import { hooks } from '../core/page-hooks.js';
+import { SEARCH_DELAY_MS, createPagedList, debounce } from '../core/paged-list.js';
 import { showToast } from '../core/toast.js';
 import { navigate } from '../nav/router.js';
 import { defaultSetFor, renderExercise } from '../render/sets.js';
 import { setupThumb } from './workout.js';
 
-/** A gyakorlat-választó flow-oldal: katalógus a szerverről, kereső + izom-
-    csoport chipek, a → gomb a cél-listához adja a gyakorlatot (alap
-    szettekkel), a ✓ eltávolítja onnan. A cél (a terv-építő VAGY az
-    edzésnapló listája) egy use(context)-tel váltható vezérlőn át áll be —
-    a hívó (setupPlanBuilder / setupWorkout) adja meg, mielőtt idenavigál. */
+/** A gyakorlat-választó flow-oldal: a katalógus a szerverről jön, lapozva
+    (server/catalog-search.js), kereső + izomcsoport chipek, a → gomb a
+    cél-listához adja a gyakorlatot (alap szettekkel), a ✓ eltávolítja onnan.
+    A cél (a terv-építő VAGY az edzésnapló listája) egy use(context)-tel
+    váltható vezérlőn át áll be — a hívó (setupPlanBuilder / setupWorkout)
+    adja meg, mielőtt idenavigál. */
 async function setupExercisePicker(confirmAction) {
-  const [catalog, defaultSet, defaultCardioSet] = await Promise.all([
-    api.getExerciseCatalog(),
+  const [defaultSet, defaultCardioSet] = await Promise.all([
     api.getDefaultSet(),
     api.getDefaultCardioSet(),
   ]);
@@ -44,13 +45,7 @@ async function setupExercisePicker(confirmAction) {
       `targetList` és a `nameInput` el is hagyható. */
   let context = null;
 
-  /* A kártyák egyszer épülnek fel; a szűrés csak elrejt/megmutat.
-     A katalógus 1400+ elemű, ezért a kártyák egy DocumentFragmentbe
-     készülnek el, és EGY beszúrással kerülnek a listába — így a böngésző
-     egyszer számol elrendezést, nem elemenként. A kártyák tényleges
-     kirajzolását a CSS `content-visibility: auto` halasztja a láthatóságig
-     (lásd .ep-item a style.css-ben). */
-  /** Egy katalógus-sor kártyája — a teljes lista és a „Javasolt" blokk is
+  /** Egy katalógus-sor kártyája — a lapozott lista és a „Javasolt" blokk is
       ebből épül, így a két helyen ugyanúgy néz ki és ugyanúgy kattintható. */
   const buildItem = (entry) => {
     const item = cloneTemplate('tpl-picker-item');
@@ -60,39 +55,12 @@ async function setupExercisePicker(confirmAction) {
        kiválasztva: a chip nem tárolódik sehol, és a kereséssel meg is
        kerülhető. A mezőt a szerver égeti rá minden sorra (data/catalog.js). */
     if (entry.logMode === 'duration') item.dataset.logMode = 'duration';
-    // A keresés a felszerelésre is illeszkedjen: a katalógus nagy része a
-    // külső datasetből jön, ahol a variánsokat a felszerelés különbözteti
-    // meg — így a „kettlebell” beírásával azok is előjönnek, amiknek a
-    // magyar nevében a szó nem szerepel.
-    item.dataset.search = [entry.name, entry.equipment].filter(Boolean).join(' ').toLowerCase();
     $('.ep-item-name', item).textContent = entry.name;
     $('.ep-item-tag', item).textContent = entry.tag;
     $('.ep-item-muscles', item).textContent = entry.muscles;
     setupThumb($('.ep-item-thumb', item), entry);
     return item;
   };
-
-  const fragment = document.createDocumentFragment();
-  catalog.forEach((entry) => fragment.appendChild(buildItem(entry)));
-  list.appendChild(fragment);
-
-  const catalogByName = new Map(catalog.map((entry) => [entry.name, entry]));
-
-  // Szűrő-chipek a katalógus csoportjaiból (+ Mind)
-  let activeGroup = 'Mind';
-  ['Mind', ...new Set(catalog.map((entry) => entry.group))].forEach((group) => {
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = 'ep-chip';
-    chip.textContent = group;
-    chip.setAttribute('aria-pressed', String(group === activeGroup));
-    chip.addEventListener('click', () => {
-      activeGroup = group;
-      $$('.ep-chip', chipWrap).forEach((c) => c.setAttribute('aria-pressed', String(c === chip)));
-      refresh();
-    });
-    chipWrap.appendChild(chip);
-  });
 
   /** A célban MÁR szereplő gyakorlat-nevek — ehhez igazodik a ✓/→ állapot.
       Lista-célnál a cél-lista kártyáiból olvassuk ki, név-célnál (onPick) a
@@ -117,9 +85,76 @@ async function setupExercisePicker(confirmAction) {
     );
   };
 
-  /** Szűrés + a fejléc és a gombállapotok szinkronja a cél állapotával.
-      A keresés/szűrés cél (context) nélkül is működik — csak a ✓/→
-      gombállapot múlik a célon, mert csak annak van mihez igazodnia. */
+  /* ---- A katalógus: szerveroldali keresés, 40-es lapok ----
+     A DOM-ban mindig csak a betöltött lapok kártyái vannak, nem a teljes,
+     1400+ elemű katalógus. Az első lapot az első megnyitás kéri, nem az app
+     indulása. A kártyák kirajzolását a CSS `content-visibility: auto` továbbra
+     is a láthatóságig halasztja (lásd .ep-item a style.css-ben). */
+  let activeGroup = null; // null = „Mind"
+  let catalogStarted = false;
+
+  const paged = createPagedList({
+    list,
+    fetchPage: (params) => api.searchExercises(params),
+    renderItem: buildItem,
+    // Az új lap kártyái a beszúráskor kapják meg a ✓/→ állapotot
+    onPage: (_items, nodes) => {
+      if (!context) return;
+      const added = namesInTarget();
+      nodes.forEach((item) => syncToggle(item, added));
+    },
+    onState: ({ status, total }) => {
+      if (status === 'ready') {
+        countEl.textContent = total;
+        emptyState.hidden = total > 0;
+      }
+      // Hibánál az „Újra" sor beszél — a „Nincs találat" félrevezetne
+      if (status === 'error') emptyState.hidden = true;
+    },
+  });
+
+  const runQuery = () => {
+    runQueryDebounced.cancel();
+    return paged.setQuery({ q: searchInput.value.trim(), group: activeGroup });
+  };
+  const runQueryDebounced = debounce(runQuery, SEARCH_DELAY_MS);
+
+  /** Szűrő-chipek a szerver csoportjaiból (+ Mind). */
+  const buildChips = (groups) => {
+    chipWrap.replaceChildren(
+      ...[null, ...groups].map((group) => {
+        const chip = document.createElement('button');
+        chip.type = 'button';
+        chip.className = 'ep-chip';
+        chip.textContent = group ?? 'Mind';
+        chip.setAttribute('aria-pressed', String(group === activeGroup));
+        chip.addEventListener('click', () => {
+          activeGroup = group;
+          $$('.ep-chip', chipWrap).forEach((c) =>
+            c.setAttribute('aria-pressed', String(c === chip)),
+          );
+          refresh();
+          runQuery();
+        });
+        return chip;
+      }),
+    );
+  };
+
+  /** Az első megnyitás: első lap + chipek. Egyszer fut. A chipek hibája nem
+      állítja meg a listát — szűrő nélkül is teljes értékű a választó. */
+  const startCatalog = () => {
+    if (catalogStarted) return;
+    catalogStarted = true;
+    runQuery();
+    api
+      .getExerciseGroups()
+      .then(buildChips, (err) => console.error('A gyakorlat-csoportok nem töltődtek be:', err));
+  };
+
+  /** A fejléc és a gombállapotok szinkronja a cél állapotával. Szűrni már
+      nem szűr — azt a szerver teszi. Csak a ✓/→ gombállapot múlik a célon,
+      mert csak annak van mihez igazodnia. */
   const refresh = () => {
     /* Név-mező nélküli célnál (onPick) a felirat ÜRES, nem „Névtelen": ott
        nincs edzés vagy terv, aminek neve lehetne — a „Névtelen" egy nem
@@ -128,32 +163,23 @@ async function setupExercisePicker(confirmAction) {
       $('[data-picker-workout]').textContent = context.nameInput
         ? context.nameInput.value.trim() || 'Névtelen'
         : '';
-    const query = searchInput.value.trim().toLowerCase();
+    const query = searchInput.value.trim();
     const added = context ? namesInTarget() : null;
-    let visibleCount = 0;
-    $$('.ep-item', list).forEach((item) => {
-      const matches =
-        (activeGroup === 'Mind' || item.dataset.group === activeGroup) &&
-        item.dataset.search.includes(query);
-      item.hidden = !matches;
-      if (matches) visibleCount += 1;
-      if (context) syncToggle(item, added);
-    });
-    countEl.textContent = visibleCount;
-    emptyState.hidden = visibleCount > 0;
+    if (context) $$('.ep-item', list).forEach((item) => syncToggle(item, added));
 
     // A „Javasolt" blokk csak szűretlen listán látszik: keresés vagy chip
     // mellett a felhasználó már maga választ, és a blokk csak útban volna.
     const suggestItems = $$('.ep-item', suggestList);
     suggestBlock.hidden =
-      !context || suggestItems.length === 0 || query !== '' || activeGroup !== 'Mind';
+      !context || suggestItems.length === 0 || query !== '' || activeGroup !== null;
     if (context) suggestItems.forEach((item) => syncToggle(item, added));
   };
 
   /* Ajánlások betöltése a cél nevéhez. A kérés lassabb lehet, mint egy
      célváltás (a felhasználó visszalép és másik oldalról jön vissza), ezért
      csak a LEGUTÓBBI kérés válasza rajzolódik ki. Hiba esetén a blokk rejtve
-     marad — a választó nélküle is teljes értékű. */
+     marad — a választó nélküle is teljes értékű. A javaslat a kártya mezőit
+     is hozza (a szerver tölti ki), tehát közvetlenül kártya rajzolható belőle. */
   let suggestRequest = 0;
   const loadSuggestions = async () => {
     const requestId = ++suggestRequest;
@@ -171,25 +197,21 @@ async function setupExercisePicker(confirmAction) {
     }
     if (requestId !== suggestRequest) return;
 
-    const items = result.suggestions
-      .map((suggestion) => {
-        const entry = catalogByName.get(suggestion.name);
-        if (!entry) return null;
-        const item = buildItem(entry);
-        // A javasolt sor mindig látszik: a content-visibility becslése itt
-        // nem spórol semmit, csak a blokk magasságát rontaná el.
-        item.classList.add('ep-item--suggested');
-        const reasons = $('.ep-item-reasons', item);
-        suggestion.reasons.forEach((reason) => {
-          const span = document.createElement('span');
-          span.className = `ep-reason ep-reason--${reason.kind}`;
-          span.textContent = reason.text;
-          reasons.appendChild(span);
-        });
-        reasons.hidden = suggestion.reasons.length === 0;
-        return item;
-      })
-      .filter(Boolean);
+    const items = result.suggestions.map((suggestion) => {
+      const item = buildItem(suggestion);
+      // A javasolt sor mindig látszik: a content-visibility becslése itt
+      // nem spórol semmit, csak a blokk magasságát rontaná el.
+      item.classList.add('ep-item--suggested');
+      const reasons = $('.ep-item-reasons', item);
+      suggestion.reasons.forEach((reason) => {
+        const span = document.createElement('span');
+        span.className = `ep-reason ep-reason--${reason.kind}`;
+        span.textContent = reason.text;
+        reasons.appendChild(span);
+      });
+      reasons.hidden = suggestion.reasons.length === 0;
+      return item;
+    });
     suggestList.replaceChildren(...items);
 
     /* Ha a cím nem mondott semmit, ezt ki is mondjuk — különben a felhasználó
@@ -202,10 +224,14 @@ async function setupExercisePicker(confirmAction) {
     refresh();
   };
 
-  searchInput.addEventListener('input', refresh);
+  // A „Javasolt" blokk azonnal eltűnik/visszajön, a keresés késleltetve megy ki
+  searchInput.addEventListener('input', () => {
+    refresh();
+    runQueryDebounced();
+  });
 
   // Hozzáadás/eltávolítás: közvetlenül a cél-lista DOM-ját módosítja. A
-  // teljes lista és a „Javasolt" blokk ugyanazt a kezelőt kapja.
+  // lapozott lista és a „Javasolt" blokk ugyanazt a kezelőt kapja.
   const onToggleClick = async (event) => {
     const toggle = event.target.closest('.ep-item-toggle');
     if (!toggle || !context) return;
@@ -271,11 +297,13 @@ async function setupExercisePicker(confirmAction) {
 
   hooks.refreshExercisePicker = refresh;
 
-  /** A cél átállítása — a hívó ezt hívja, mielőtt a választóra navigál. */
+  /** A cél átállítása — a hívó ezt hívja, mielőtt a választóra navigál. Az
+      első hívás indítja a katalógust is. */
   const use = (next) => {
     context = next;
     backBtn.setAttribute('aria-label', context.backLabel);
     nounEl.textContent = context.subtitleNoun;
+    startCatalog();
     loadSuggestions();
   };
 

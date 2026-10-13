@@ -2,16 +2,16 @@
 
 import { SESSION_LOST, api } from '../core/api.js';
 import { onDayChange } from '../core/day.js';
-import { $, $$, cloneTemplate } from '../core/dom.js';
+import { $, cloneTemplate } from '../core/dom.js';
 import { animateNumber, formatNumber } from '../core/format.js';
 import { hooks } from '../core/page-hooks.js';
+import { SEARCH_DELAY_MS, createPagedList, debounce } from '../core/paged-list.js';
 import { showToast } from '../core/toast.js';
+import { currentPage } from '../nav/router.js';
 import { refreshDailyStats } from '../render/dashboard.js';
-import { renderFoods } from '../render/foods.js';
+import { renderFoodItem } from '../render/foods.js';
 
 async function setupNutrition(foodDetail) {
-  // `let`, nem `const`: saját étel felvitele/törlése után újratöltjük.
-  let foods = await api.getFoods();
   const searchInput = $('#food-search');
   const emptyState = $('.nu-empty');
   const logList = $('[data-list="nutrition-log"]');
@@ -367,31 +367,47 @@ async function setupNutrition(foodDetail) {
     }
   });
 
-  /* Az élő szűrés önálló függvényben: a lista újraépítése után (saját étel
-     felvitele/törlése) újra érvényre kell juttatni, különben a beírt keresés
-     némán feloldódna, és a felhasználó hirtelen mind a 437 ételt látná. */
-  const applyFilter = () => {
-    const query = searchInput.value.trim().toLowerCase();
-    let visibleCount = 0;
-    $$('.nu-food').forEach((item) => {
-      const matches = item.dataset.foodName.includes(query);
-      item.hidden = !matches;
-      if (matches) visibleCount += 1;
-    });
-    emptyState.hidden = visibleCount > 0;
-  };
-  searchInput.addEventListener('input', applyFilter);
+  /* ---- Étel-lista: szerveroldali keresés, 40-es lapok ----
+     A lista az oldal ELSŐ megnyitásakor töltődik (a router nutrition()
+     hatása hívja a hooks.startFoodList-et), nem az app indulásakor. A nyíl
+     kattintásakor az ételt a betöltött lapokból épülő név → étel táblából
+     vesszük; új keresésnél a tábla kiürül. */
+  const foodList = $('[data-list="foods"]');
+  const foodsByName = new Map();
+  let foodsStarted = false;
 
-  /* Az étel-lista újratöltése saját étel felvitele/törlése után. A kliens-
-     oldali cache-t EL KELL DOBNI (api.refreshFoods), különben a lista a
-     munkamenet végéig a betöltéskori állapotot mutatná — a /api/charts már
-     ugyanezt a mintát követi. Egyetlen hálózati kör: a friss válasz a cache-be
-     kerül, a renderFoods pedig már a memóriabeli tömböt kapja meg. */
-  const refreshFoods = async () => {
-    foods = await api.refreshFoods();
-    await renderFoods(foods);
-    applyFilter();
+  const foodsPaged = createPagedList({
+    list: foodList,
+    fetchPage: (params) => api.searchFoods(params),
+    renderItem: renderFoodItem,
+    onPage: (items, _nodes, { append }) => {
+      if (!append) foodsByName.clear();
+      items.forEach((food) => foodsByName.set(food.name, food));
+    },
+    onState: ({ status, total }) => {
+      if (status === 'ready') emptyState.hidden = total > 0;
+      // Hibánál az „Újra" sor beszél — a „Nincs találat" félrevezetne
+      if (status === 'error') emptyState.hidden = true;
+    },
+  });
+
+  const runFoodQuery = () => {
+    runFoodQueryDebounced.cancel();
+    foodsStarted = true;
+    return foodsPaged.setQuery({ q: searchInput.value.trim() });
   };
+  const runFoodQueryDebounced = debounce(runFoodQuery, SEARCH_DELAY_MS);
+  searchInput.addEventListener('input', runFoodQueryDebounced);
+
+  const startFoods = () => {
+    if (!foodsStarted) runFoodQuery();
+  };
+  hooks.startFoodList = startFoods;
+
+  /* Saját étel felvitele/törlése után: a lista a MOSTANI kereséssel indul
+     elölről, így az új saját étel (a szerver elöl adja) azonnal látszik, a
+     beírt keresés pedig nem oldódik fel. */
+  const refreshFoods = () => runFoodQuery();
 
   /** Az adagválasztó megnyitása egy ételre — a napi összesítővel és a mai,
       EBBŐL az ételből származó bejegyzésekkel. A lista nyila és a saját étel
@@ -425,11 +441,11 @@ async function setupNutrition(foodDetail) {
 
   // A kártya nyila az adagválasztó modált nyitja. Ha az (betöltési hiba
   // miatt) nem áll rendelkezésre, a korábbi viselkedés marad: 100 g naplózása.
-  $('[data-list="foods"]').addEventListener('click', async (event) => {
+  foodList.addEventListener('click', async (event) => {
     const addBtn = event.target.closest('.nu-food-add');
     if (!addBtn) return;
 
-    const food = foods.find((f) => f.name === addBtn.dataset.food);
+    const food = foodsByName.get(addBtn.dataset.food);
     if (!food) return;
 
     if (openFoodDetail(food)) return;
@@ -441,6 +457,11 @@ async function setupNutrition(foodDetail) {
       showToast(err.message || 'Nem sikerült hozzáadni az ételt', 'error');
     }
   });
+
+  /* Közvetlen nyitás a Táplálkozás oldalon (újratöltés #nutrition-ön): a
+     router már a setup ELŐTT lefuttatta az oldal hatását, amikor a
+     hooks.startFoodList még nem létezett — itt pótoljuk. */
+  if (currentPage() === 'nutrition') startFoods();
 
   return { logFood, refreshFoods, openFoodDetail };
 }

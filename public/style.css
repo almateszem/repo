@@ -6175,6 +6175,25 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   padding: var(--sp-9) 0;
 }
 
+/* A lapozott lista vége (js/core/paged-list.js): töltés közben „Betöltés…",
+   hibánál „Újra" gomb. Üresen is kell 1px magasság, különben az
+   IntersectionObserver nem látná. */
+.paged-sentinel {
+  min-height: 1px;
+  color: var(--text-muted);
+  font-size: var(--fs-base);
+  text-align: center;
+}
+
+.paged-sentinel:not(:empty) {
+  padding: var(--sp-5) 0;
+}
+
+.paged-retry {
+  margin-left: var(--sp-3);
+  text-decoration: underline;
+}
+
 /* „Javasolt" blokk a katalógus fölött (js/ui/exercise-picker.js ->
    loadSuggestions). Ugyanazokból a sorokból áll, mint a lista, csak az
    indoklás-sor az új; a blokk alsó margója választja el a „Találatok"-tól. */
