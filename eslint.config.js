@@ -60,7 +60,7 @@ export default [
   },
 
   {
-    files: ['server/**/*.js', 'scripts/**/*.js', 'eslint.config.js'],
+    files: ['server/**/*.js', 'scripts/**/*.js', 'tests/**/*.js', 'eslint.config.js'],
     languageOptions: { globals: globals.node },
   },
 
@@ -89,7 +89,7 @@ export default [
     // A require-await is kikapcsol: a hibakezelés tesztjeihez KELLENEK olyan
     // async kezelők, amelyek await nélkül dobnak — pontosan az az eset, amit
     // a védőhálónak el kell kapnia.
-    files: ['server/**/*.test.js'],
+    files: ['tests/**/*.js'],
     rules: { 'no-console': 'off', 'require-await': 'off' },
   },
 
