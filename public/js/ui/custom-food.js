@@ -48,14 +48,12 @@ async function setupCustomFood({ scanner, confirmAction, onSaved, onLog } = {}) 
   let kcalMode = 'auto';
   let prefillSource = 'manual';
 
-  /* A kategória-opciók az étel-listából jönnek, nem a FOOD_GROUPS kliens-
-     oldali másolatából: így nincs két igazság, és a szerver FOOD_GROUPS-
-     alapú validálásával sem csúszhat el. A saját ételek 'Saját étel'
-     csoportja kimarad — az nem valódi kategória, csak megjelenítési alap. */
-  const foods = await api.getFoods();
-  const groups = [...new Set(foods.filter((f) => !f.custom).map((f) => f.group))]
-    .filter(Boolean)
-    .sort((a, b) => a.localeCompare(b, 'hu'));
+  /* A kategória-opciók a szerver kategória-listájából jönnek, nem a
+     FOOD_GROUPS kliensoldali másolatából: így nincs két igazság, és a szerver
+     FOOD_GROUPS-alapú validálásával sem csúszhat el. A saját ételek
+     'Saját étel' csoportja kimarad — az nem valódi kategória, csak
+     megjelenítési alap. A szerver már rendezve adja (catalog-search.js). */
+  const groups = await api.getFoodGroups();
   groups.forEach((group) => {
     const option = document.createElement('option');
     option.value = group;

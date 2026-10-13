@@ -4,6 +4,7 @@ import { api } from '../core/api.js';
 import { $, $$, cloneTemplate } from '../core/dom.js';
 import { animateNumber, formatNumber, formatWhole } from '../core/format.js';
 import { hooks } from '../core/page-hooks.js';
+import { SEARCH_DELAY_MS, debounce } from '../core/paged-list.js';
 import { prefs } from '../core/prefs.js';
 import { showToast } from '../core/toast.js';
 import { currentPage, navigate } from '../nav/router.js';
@@ -245,27 +246,28 @@ async function setupProfile() {
   const assessSave = $('.pf-assess-save', page);
   const assessOptions = $('#pf-assess-options');
 
-  /* A gyakorlat-nevek a katalógusból: a szerver csak ismert nevet fogad el
-     (kitalált névre az izomcsoportokat sem ismernénk, tehát ajánlani sem
-     tudnánk belőle). A lista cache-elt, egyszer töltjük le. */
-  let catalogLoaded = false;
-  const loadCatalogOptions = async () => {
-    if (catalogLoaded) return;
-    try {
-      const catalog = await api.getExerciseCatalog();
-      assessOptions.replaceChildren(
-        ...catalog.map((item) => {
-          const option = document.createElement('option');
-          option.value = item.name;
-          return option;
-        }),
-      );
-      catalogLoaded = true;
-    } catch (err) {
-      // A datalist csak kényelem — nélküle is be lehet gépelni a nevet.
-      console.error('A gyakorlat-lista betöltése nem sikerült:', err);
+  /* A gyakorlat-nevek a szerver keresőjéből, gépelés közben: a szerver csak
+     ismert nevet fogad el (kitalált névre az izomcsoportokat sem ismernénk,
+     tehát ajánlani sem tudnánk belőle). A teljes katalógust nem töltjük le —
+     a datalist csak kényelem, nélküle is be lehet gépelni a nevet. */
+  let assessRequest = 0;
+  const suggestAssessNames = debounce(async () => {
+    const requestId = ++assessRequest;
+    const q = assessExercise.value.trim();
+    if (q === '') {
+      assessOptions.replaceChildren();
+      return;
     }
-  };
+    try {
+      const { items } = await api.searchExercises({ q, limit: 10 });
+      // Közben továbbgépelt: a régebbi válasz ne írja felül az újabbat
+      if (requestId !== assessRequest) return;
+      assessOptions.replaceChildren(...items.map((item) => new Option(item.name)));
+    } catch (err) {
+      console.error('A gyakorlat-javaslatok nem töltődtek be:', err);
+    }
+  }, SEARCH_DELAY_MS);
+  assessExercise.addEventListener('input', suggestAssessNames);
 
   const renderAssessment = (entries) => {
     assessEmpty.hidden = entries.length > 0;
@@ -312,7 +314,6 @@ async function setupProfile() {
   });
 
   hooks.refreshProfile = async () => {
-    loadCatalogOptions();
     renderAssessment(await api.getStrengthAssessment());
     /* A két kérés független egymástól, tehát párhuzamosan megy — sorosan az
        oldal kétszer annyi ideig állna félkészen.

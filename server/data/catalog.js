@@ -87,7 +87,7 @@ export function validateExercises(list, source) {
 /**
  * A teljes gyakorlat-katalógus: kurált gyakorlatok elöl, utánuk a generáltak
  * közül azok, amiknek a neve még nem foglalt.
- * @returns {Array<object>} a /api/exercise-catalog tartalma
+ * @returns {Array<object>} a gyakorlat-katalógus (server/catalog-search.js keres benne)
  */
 export function buildExerciseCatalog() {
   const generated = validateExercises(exdbExercises, 'exercises.exdb.js');

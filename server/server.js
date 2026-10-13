@@ -195,6 +195,7 @@ import { createRateLimiter, parseTrustProxy } from './ratelimit.js';
 import { guardAsyncRoutes, apiErrorHandler, installProcessGuards } from './errors.js';
 // HTTP biztonsági fejlécek (CSP, nosniff, frame-ancestors, HSTS) — server/headers.js.
 import { securityHeaders } from './headers.js';
+import { createCatalogSearch, parseNames, parsePageParams } from './catalog-search.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public'); // a statikus frontend mappája
@@ -591,30 +592,45 @@ const READ_ENDPOINTS = {
   '/api/default-set': 'defaultSet',
   // Az időalapú sorok alapértékei — a szett-alap párja.
   '/api/default-cardio-set': 'defaultCardioSet',
-  '/api/exercise-catalog': 'exerciseCatalog',
   // A választható edzés-célok (kulcs + kártya-címke + felirat). A sportolók
   // listája NINCS köztük: az nem referencia-adat, hanem valódi kapcsolat —
   // ld. lentebb, „Edző–sportoló kapcsolatok".
   '/api/goals': 'goals',
 };
 
-/* Mezőszűrés a válaszhoz. A kollekció a DB-ben TELJES marad (a Recovery
-   Engine szerver oldalon a `load` súlyokból dolgozik) — csak a hálózatra
-   nem küldjük ki azt, amire a felületnek nincs szüksége.
-   A gyakorlat-katalógus 1401 sor: a `load` és a `loadSource` elhagyása a
-   válasz negyedét lefaragja, és a kliens egyiket sem használja (a kártya a
-   névből, a címkéből, az izom-szövegből és a képből áll össze). */
-const RESPONSE_PROJECTIONS = {
-  exerciseCatalog: (catalog) => catalog.map(({ load, loadSource, extId, ...visible }) => visible),
-};
-
 for (const [route, key] of Object.entries(READ_ENDPOINTS)) {
-  app.get(route, (req, res) => {
-    const value = getCollection(key);
-    const project = RESPONSE_PROJECTIONS[key];
-    res.json(project && Array.isArray(value) ? project(value) : value);
-  });
+  app.get(route, (req, res) => res.json(getCollection(key)));
 }
+
+/* ---- Katalógus-keresés ----
+   A gyakorlat-választó és az étel-lista szeletenként kéri a katalógust: a
+   szerver keres és lapoz (server/catalog-search.js), a kliens sosem kapja meg
+   a teljes listát. */
+const catalogSearch = createCatalogSearch({
+  exercises: () => getCollection('exerciseCatalog') || [],
+  seedFoods: () => getCollection('foods') || [],
+  foodsFor: (userId) => getFoodsForUser(userId),
+});
+
+app.get('/api/exercises', (req, res) => {
+  const params = parsePageParams(req.query);
+  if (params.error) return res.status(400).json({ error: params.error });
+  res.json(catalogSearch.searchExercises(params));
+});
+
+app.get('/api/exercise-groups', (req, res) => res.json(catalogSearch.exerciseGroups()));
+
+app.get('/api/food-groups', (req, res) => res.json(catalogSearch.foodGroups()));
+
+/* Az edzői étrend-szerkesztő ezzel oldja fel a már bent lévő tételek
+   tápértékét. A neveket a nyers URL-ből olvassuk: az Express query-parsere
+   20 ismétlődő `name` felett tömb helyett objektumot ad. */
+app.get('/api/foods/by-name', (req, res) => {
+  const raw = new URLSearchParams(req.originalUrl.split('?')[1] ?? '').getAll('name');
+  const parsed = parseNames(raw);
+  if (parsed.error) return res.status(400).json({ error: parsed.error });
+  res.json(catalogSearch.findFoodsByName(req.user.id, parsed.names));
+});
 
 /** Egy edzés-cél kulcsa → a kártyán megjelenő rövid címke ("ERŐ"), vagy null.
     A lista a seedből jön (data.js → goals), tehát egy helyen bővíthető. */
@@ -1490,14 +1506,25 @@ app.get('/api/exercise-suggestions', (req, res) => {
   const title = typeof req.query.title === 'string' ? req.query.title : '';
   const workouts = getWorkouts(userId);
   const report = req.query.readiness === '1' ? readinessReport(userId, req.today, workouts) : null;
-  res.json(
-    suggestExercises({
-      title,
-      report,
-      catalog: getCollection('exerciseCatalog') || [],
-      workouts,
-    }),
+  const result = suggestExercises({
+    title,
+    report,
+    catalog: getCollection('exerciseCatalog') || [],
+    workouts,
+  });
+  /* A javaslat a kártya mezőit is hozza: a választó már nem tartja a teljes
+     katalógust, amiben név szerint kikereshetné őket. */
+  const cards = new Map(
+    catalogSearch
+      .findExercisesByName(result.suggestions.map((suggestion) => suggestion.name))
+      .map((card) => [card.name, card]),
   );
+  res.json({
+    ...result,
+    suggestions: result.suggestions
+      .filter((suggestion) => cards.has(suggestion.name))
+      .map((suggestion) => ({ ...cards.get(suggestion.name), ...suggestion })),
+  });
 });
 
 /* ======================================================================
@@ -2440,11 +2467,15 @@ app.get('/api/charts', (req, res) =>
 // Testsúly-napló — a valódi weight_log táblából
 app.get('/api/weight-log', (req, res) => res.json(getWeightLog(req.user.id)));
 
-/** Az étel-lista: elöl a hívó SAJÁT ételei, utánuk a beépített katalógus.
-    Ezért nem maradhatott a READ_ENDPOINTS generikus ágán — az felhasználó-
-    független kollekciókat szolgál ki. A getCollection('foods') tömbje
-    megosztott és cache-elt: a getFoodsForUser ÚJ tömböt képez belőle. */
-app.get('/api/foods', (req, res) => res.json(getFoodsForUser(req.user.id)));
+/** Az étel-lista, lapozva: elöl a hívó SAJÁT ételei, utánuk a beépített
+    katalógus; a keresés a névre, a kategóriára és a márkára
+    (server/catalog-search.js). Ezért nem maradhatott a READ_ENDPOINTS
+    generikus ágán — az felhasználó-független kollekciókat szolgál ki. */
+app.get('/api/foods', (req, res) => {
+  const params = parsePageParams(req.query);
+  if (params.error) return res.status(400).json({ error: params.error });
+  res.json(catalogSearch.searchFoods(req.user.id, params));
+});
 
 // Napi táplálkozási összesítő (alap + a MAI naplózott ételek)
 app.get('/api/nutrition', (req, res) => res.json(getNutritionTotals(req.user.id, req.today)));
