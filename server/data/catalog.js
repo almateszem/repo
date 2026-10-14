@@ -30,6 +30,8 @@
  * kuráltak. Ha az a fájl maga is beolvasztaná a generált listát, a saját
  * kimenetét látná kuráltnak, és az ütközés-feloldás értelmét vesztené.
  */
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { exercises as curatedExercises, GROUPS } from './exercises.hu.js';
 import { exdbExercises, exdbMediaForCurated } from './exercises.exdb.js';
 import { foods as curatedFoods } from './foods.hu.js';
@@ -125,7 +127,24 @@ export function buildExerciseCatalog() {
      és sem a felület, sem a szerver nem old fel többé nevet. A kurált sorok a
      saját kimondott értéküket tartják meg, a generált kardió a mintázatból
      kapja meg — lásd logmode.js → resolveLogMode. */
-  return merged.map((entry) => ({ ...entry, logMode: resolveLogMode(entry) }));
+  return merged.map((entry) => withAvailableMedia({ ...entry, logMode: resolveLogMode(entry) }));
+}
+
+const MEDIA_ROOT = fileURLToPath(new URL('../../public/exercises/', import.meta.url));
+
+/**
+ * Csak azt a médiát hagyja a soron, ami tényleg letöltött fájl. Ha az
+ * `npm run exdb:media` nem futott le, a felület különben soronként 404-et
+ * kérne, és tele lenne a böngésző konzolja hibával. A hiányzó kép/gif mezőt
+ * nem kapja meg a kliens, így meg sem próbálja betölteni.
+ */
+function withAvailableMedia(entry) {
+  const { image, gif, ...rest } = entry;
+  return {
+    ...rest,
+    ...(image && existsSync(MEDIA_ROOT + image) && { image }),
+    ...(gif && existsSync(MEDIA_ROOT + gif) && { gif }),
+  };
 }
 
 /**
