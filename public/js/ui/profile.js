@@ -149,7 +149,7 @@ async function setupProfile() {
     if (hiany) {
       $('[data-pf-notice-text]', page).textContent =
         hiany === 'sex'
-          ? 'A valós erőszinthez meg kell adnod a nemed — a küszöbök nemenként eltérnek. Addig az érem csak a saját fejlődésedet mutatja.'
+          ? 'A valós erőszinthez add meg a nemed.'
           : 'Az érmekhez testsúly kell: a teljesítményt ahhoz mérjük.';
       $('[data-pf-notice-action]', page).hidden = hiany !== 'sex';
     }

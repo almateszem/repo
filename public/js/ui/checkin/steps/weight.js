@@ -43,7 +43,7 @@ function renderWeight(nav) {
   function weightNote(value) {
     if (value === null) {
       return reference
-        ? `Üresen hagyva kihagyjuk — az utolsó mérésed ${formatNumber(reference.kg)} kg (${reference.date}).`
+        ? `Utolsó mérésed: ${formatNumber(reference.kg)} kg (${reference.date}).`
         : 'Üresen hagyva kihagyjuk — ma nem kerül bejegyzés a testsúly-naplóba.';
     }
     if (todayEntry) {

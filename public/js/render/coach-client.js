@@ -208,7 +208,7 @@ function renderActivePlan(el, history) {
     const p = document.createElement('p');
     p.className = 'co-goal-state';
     p.textContent =
-      'Még nem fogadtál el tervet az edződtől. Amíg nincs, a terv-követésed sem mérhető.';
+      'Még nem fogadtál el tervet az edződtől.';
     el.replaceChildren(p);
     return;
   }
