@@ -248,7 +248,7 @@ function setupAthleteDetail({ confirmAction, onUnlink, onRead, onAssign } = {}) 
         `${formatNumber(goal.protein)} g fehérje. Amit kitűzöl, az felülírja, és ő nem módosíthatja.`;
     } else {
       goalStateEl.textContent =
-        'Még nincs kitűzött cél — az alapértelmezett szám szól. Amit kitűzöl, azt ő nem módosíthatja.';
+        'Még nincs kitűzött cél.';
     }
 
     // Háttér-frissítéskor a félig begépelt értéket nem írjuk felül
@@ -262,8 +262,8 @@ function setupAthleteDetail({ confirmAction, onUnlink, onRead, onAssign } = {}) 
   function renderAthleteWater(athlete, { keepInputs = false } = {}) {
     const waterMl = athlete.nutritionGoal?.waterMl ?? null;
     waterStateEl.textContent = waterMl
-      ? `Érvényben: ${formatNumber(waterMl / 1000)} liter — ezt te tűzted ki, ${athlete.name} nem módosíthatja.`
-      : `Nincs kitűzött víz-cél — ${athlete.name} célja a testsúlyából számolódik (~33 ml/kg).`;
+      ? `Érvényben: ${formatNumber(waterMl / 1000)} liter`
+      : `Nincs kitűzött víz-cél (~33 ml/kg).`;
     waterResetBtn.hidden = !waterMl;
     if (keepInputs) return;
     waterInput.value = waterMl ? String(waterMl / 1000) : '';

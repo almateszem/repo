@@ -504,12 +504,12 @@ function renderRecovery(report) {
   const cns = report.cns.readiness;
   $('[data-rc-cns]').textContent = hasReadiness(cns) ? String(cns) : '—';
   $('[data-rc-cns-note]').textContent = !hasReadiness(cns)
-    ? 'Még nincs naplózott edzésed — ebből nem becsülhető idegrendszeri terhelés.'
+    ? 'Még nincs naplózott edzésed.'
     : cns >= 80
       ? 'Friss idegrendszer — a nehéz, alacsony ismétléses munka rendben van.'
       : cns >= 60
         ? 'Enyhén terhelt — kerüld a maximum-közeli szetteket.'
-        : 'Terhelt idegrendszer — nehéz guggolás, felhúzás és PR-próbálkozás ma nem javasolt.';
+        : 'Terhelt idegrendszer — ma nem javasolt nehéz emelés.';
 
   // — Gyakorlat-ajánlások —
   const lifts = $('[data-list="rc-lifts"]');
@@ -529,7 +529,7 @@ function renderRecovery(report) {
     basisEl.hidden = lift.basis !== 'declared';
     if (!basisEl.hidden) {
       basisEl.textContent =
-        'A bemondott erőfelmérésed alapján — a mai összesített készenlétedre mérve.';
+        'A bemondott erőfelmérésed alapján.';
     }
 
     $('[data-lift-load]', item).textContent = lift.loadDelta;

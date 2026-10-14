@@ -99,8 +99,8 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
       // A dátum a mentett edzésekből oldódik fel, és ez eggyel későbbi kérés:
       // amíg nincs meg, dátum nélkül is értelmes mondatot írunk ki.
       editingText.textContent = editing.date
-        ? `A(z) ${editing.date} napi edzésedet javítod — a mentés a meglévő sort frissíti, nem hoz létre újat.`
-        : 'Egy korábbi edzésedet javítod — a mentés a meglévő sort frissíti, nem hoz létre újat.';
+        ? `A(z) ${editing.date} napi edzésedet javítod.`
+        : 'Egy korábbi edzésedet javítod.';
     }
     finishLabel.textContent = isEditing ? 'Módosítások mentése' : FINISH_TEXT;
   };

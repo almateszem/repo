@@ -214,9 +214,6 @@ function setupClientView({ page, view, onChange }) {
     $('[data-privacy-title]', view).textContent = coach
       ? 'Mit lát rólad az edződ?'
       : 'Mit látna rólad egy edző?';
-    $('[data-privacy-note]', view).textContent = coach
-      ? 'Leválással a hozzáférése azonnal megszűnik, az üzenetváltásotok pedig törlődik.'
-      : 'Csak az elfogadott meghívó után — és csak addig, amíg le nem válsz róla.';
 
     if (switching) chat.reset(); // másik edző szála nem maradhat kint
     if (!coach || !me) return;

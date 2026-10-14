@@ -35,15 +35,15 @@ const CI_GATES = {
     key: 'sore',
     eyebrow: 'Részletes kitöltés',
     title: 'Van izomlázad valahol?',
-    sub: 'Az edzés utáni szokásos izommerevség. Ha nincs, kihagyjuk ezt a lépést.',
-    no: ['Nincs izomlázam', 'Ugorhatunk tovább'],
-    yes: ['Van, megjelölöm', 'Koppints az érintett izmokra'],
+    sub: '',
+    no: ['Nincs izomlázam'],
+    yes: ['Van, megjelölöm'],
   },
   painGate: {
     key: 'pain',
     eyebrow: 'Fájdalom · sérülés',
     title: 'Van éles fájdalmad vagy sérülésed?',
-    sub: 'Ez más, mint az izomláz. A 7-es vagy nagyobb érték letiltja az érintett izmot terhelő gyakorlatokat.',
+    sub: 'Ez más, mint az izomláz.',
     no: ['Nincs'],
     yes: ['Van fájdalom vagy sérülés'],
   },
@@ -58,8 +58,8 @@ const CI_MAP_MODES = {
     noun: 'izomláz',
     eyebrow: 'Részletes kitöltés',
     title: 'Hol van izomlázad?',
-    sub: 'Koppints egy izomra, majd csúsztasd fel/le az erősséghez. Amit kihagysz, az 0 marad.',
-    legend: '1 = alig érezhető · 10 = nagyon erős izomláz.',
+    sub: 'Koppints egy izomra, majd csúsztasd az erősséghez.',
+    legend: '1 = alig érezhető · 10 = nagyon erős',
   },
   painMap: {
     field: 'pain',
@@ -68,9 +68,9 @@ const CI_MAP_MODES = {
     noun: 'fájdalom',
     eyebrow: 'Fájdalom · sérülés',
     title: 'Hol fáj pontosan?',
-    sub: 'Koppints a fájó területre, majd csúsztasd fel/le az erősséghez (1–10).',
+    sub: 'Koppints a fájó területre, majd csúsztasd az erősséghez.',
     legend:
-      '1 = enyhe · 10 = nagyon erős. A 7-es vagy nagyobb érték letiltja az izmot terhelő gyakorlatokat.',
+      '1 = enyhe · 10 = nagyon erős · 7-től letiltja az izmot terhelő gyakorlatokat',
   },
 };
 
