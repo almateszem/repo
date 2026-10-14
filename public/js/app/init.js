@@ -237,7 +237,7 @@ function setupAuthGate() {
     },
     register: {
       title: 'Regisztráció',
-      lead: 'Hozz létre egy fiókot — az adataid csak hozzád tartoznak.',
+      lead: 'Hozz létre egy fiókot.',
       submit: 'Fiók létrehozása',
       switchText: 'Van már fiókod?',
       switchLabel: 'Belépés',
