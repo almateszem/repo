@@ -7,7 +7,8 @@
       "Bash(npm init *)",
       "Bash(npm install *)",
       "Read(//c/Users/valte/AppData/Local/Temp/claude/c--Users-valte-Documents-repo/1d559b9d-5f1c-40b9-89ca-931745ce2584/scratchpad/pw-test4/**)",
-      "Bash(node test.mjs)"
+      "Bash(node test.mjs)",
+      "Bash(grep -v \"^$\")"
     ]
   }
 }

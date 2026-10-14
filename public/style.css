@@ -519,7 +519,7 @@ input.wk-chip:focus-visible {
      hőse melletti adatsorok. A minta a .ds-display --ds-display-size-jáé. */
   gap: var(--ds-row-gap, var(--sp-7));
   min-height: var(--tap-min);
-  padding: var(--sp-7) 0;
+  padding: var(--sp-7) var(--sp-7);
 }
 
 /* Az elválasztó a sorok KÖZÉ kerül, szomszéd-szelektorral. A `:first-of-type`
@@ -9921,10 +9921,24 @@ body[data-onboarding] .app-page.ci-page {
 /* Sor helyett vízszintes csoport: a mértékegység a szám MELLETT áll, nem
    alatta (a prototípus szerint), a léptető-pár középre igazítva. */
 .ci-num-row {
-  display: flex;
+  /* Három oszlop (1fr auto 1fr): a léptető-pár a KÖZÉPSŐBEN áll, a
+     mértékegység a jobb oldali üres oszlopba kerül — így nem tolja ki
+     balra a párt, és az alatta lévő preset-sávval egy tengelyen marad. */
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: center;
-  gap: var(--sp-4);
+  column-gap: var(--sp-4);
+}
+
+/* Csak két gyerek van, ezért az automatikus elhelyezés a léptetőt az 1.
+   oszlopba tenné — a közepsőt ki kell jelölni. */
+.ci-num-row > .ci-num-dial {
+  grid-column: 2;
+}
+
+.ci-num-row > .ci-num-unit {
+  grid-column: 3;
+  justify-self: start;
 }
 
 /* A megosztott .wk-num sávból itt .ds-step lesz (osztályként fel is van
