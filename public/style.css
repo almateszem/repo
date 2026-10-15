@@ -4876,13 +4876,14 @@ body:is([data-page='checkin'], [data-page='plan-builder'], [data-page='exercise-
      megkülönböztethető legyen, és egy accent ■ jelölőt a bal szélén.
 
      A horgony az aria-current attribútum, nem osztály — a js/nav/router.js
-     setAttribute/removeAttribute-tal kezeli. */
-  .side-nav-link[aria-current='page'] {
+     setAttribute/removeAttribute-tal kezeli. A 'page' az oldal maga, a
+     'true' a flow-oldal szülő-eleme (pl. Terv-építőnél a Tervek). */
+  .side-nav-link[aria-current] {
     background: var(--surface-strong);
     color: var(--text-primary);
   }
 
-  .side-nav-link[aria-current='page']::before {
+  .side-nav-link[aria-current]::before {
     content: '■';
     position: absolute;
     left: var(--sp-5);

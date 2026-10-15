@@ -7,7 +7,13 @@
  * el a lapok vezérlőit — így a router nem függ a ui/ modulaktól.
  */
 
-import { DIR_TO_PAGE, FLOW_PAGES, NAV_UP_FALLBACK, PAGES } from '../core/constants.js';
+import {
+  DIR_TO_PAGE,
+  FLOW_PAGES,
+  NAV_UP_FALLBACK,
+  PAGE_SECTION,
+  PAGES,
+} from '../core/constants.js';
 import { $, $$, prefersReducedMotion } from '../core/dom.js';
 import { animateNumber, formatWhole } from '../core/format.js';
 import { hooks, shared } from '../core/page-hooks.js';
@@ -198,15 +204,34 @@ function syncNavRingState(name) {
   }
 }
 
+/** Melyik side-nav elem alatt van az oldal. A flow-oldalaké a PAGE_SECTION-ből
+    jön; a gyakorlat-választóé onnan, ahonnan érkeztünk (terv-építő → Tervek,
+    edzésnapló → Edzés, profil → Profil). Alapértelmezése a Tervek, mint a
+    választó vissza-gombjának is. */
+function pageSection(name, from) {
+  if (name !== 'exercise-picker') return PAGE_SECTION[name] ?? name;
+  if (!from || from === name) return 'plans';
+  return PAGE_SECTION[from] ?? from;
+}
+
+/** Az éppen kiemelt side-nav elem — oldalváltáskor számoljuk, hogy ugyanarra
+    az oldalra való újrahívás (azonos hash) ne írja felül a hívótól függőt. */
+let activeSection = null;
+
 function showPage(name) {
-  const changed = currentPage() !== name;
+  const previous = currentPage();
+  const changed = previous !== name;
+  if (changed || activeSection === null) activeSection = pageSection(name, previous);
 
   $$('.app-page').forEach((page) => {
     page.hidden = page.dataset.page !== name;
   });
+  // Az oldal maga aria-current="page"; a flow-oldal szülő-eleme "true" — a
+  // CSS mindkettőt kiemeli, a képernyőolvasó pedig csak az előbbit mondja oldalnak.
   $$('.side-nav-link').forEach((link) => {
     const target = link.getAttribute('href').slice(1);
     if (target === name) link.setAttribute('aria-current', 'page');
+    else if (target === activeSection) link.setAttribute('aria-current', 'true');
     else link.removeAttribute('aria-current');
   });
   syncNavRingState(name);
