@@ -4319,6 +4319,17 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--text-primary);
 }
 
+/* Húzás közben a cél felirata kiemelődik, és a gomb fölé kerül — a gomb
+   különben épp a célfeliratot takarná. A gomb kerete is akcentre vált. */
+.nl.is-target {
+  color: var(--text-primary);
+  z-index: 1;
+}
+
+.nav-knob.is-armed {
+  border-color: var(--c-accent);
+}
+
 /* „Itt vagy" — mobilon eddig SEMMI nem mutatta az aktív oldalt: az
    aria-current csak a side-nav linkjeire kerül, azok viszont 1025px alatt
    display:none-ok. A gyűrű annak az iránynak a feliratát emeli ki, amelyik az
