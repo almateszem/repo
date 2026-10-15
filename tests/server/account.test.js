@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — jelszóváltoztatás és fióktörlés (végponti tesztek)
+ * Podium — jelszóváltoztatás és fióktörlés (végponti tesztek)
  * ----------------------------------------------------------------
  * Két olyan műveletről van szó, amit rosszul csinálni drága: az egyik kizárhat
  * a saját fiókodból, a másik véglegesen töröl mindent. Ezért itt nem csak a

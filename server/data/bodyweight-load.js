@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — saját testsúlyos gyakorlatok terhelése (KURÁLT adat)
+ * Podium — saját testsúlyos gyakorlatok terhelése (KURÁLT adat)
  * ==================================================================
  * Egy húzódzkodásnál a napló 0 kg-ot lát, pedig a terhelés a saját tested —
  * egy 70 kg-os embernek nyolc húzódzkodás nem „nulla". Az estimate1RM

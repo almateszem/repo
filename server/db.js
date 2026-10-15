@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — SQLite adatréteg (beépített node:sqlite)
+ * Podium — SQLite adatréteg (beépített node:sqlite)
  * ------------------------------------------------------
  * Pragmatikus hibrid séma + világos adatszétválasztás:
  *   - collections: kulcs-érték tábla a CSAK OLVASHATÓ referencia/seed adatnak
@@ -14,7 +14,7 @@
  *     modul MINDEN lekérdezése szűr rá — a felhasználók nem látják egymás
  *     adatát. A seed ezeket nem érinti, megmaradnak.
  *
- * A DB fájl: server/fittrack.db — a szerver újraindítását túléli. Ez az
+ * A DB fájl: server/podium.db — a szerver újraindítását túléli. Ez az
  * egyetlen modul, amely a tárolást ismeri; ha később Postgresre váltanánk,
  * elég ezt átírni.
  */
@@ -30,8 +30,16 @@ import { dayEntry, dayWorkoutName, weekFromLegacy, workoutDays } from './plan-we
 import { effectiveLoad, isBodyweightExercise } from './data/bodyweight-load.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-// Alapból server/fittrack.db; a FITTRACK_DB env-változóval felülírható (pl. teszthez).
-const DB_PATH = process.env.FITTRACK_DB || path.join(__dirname, 'fittrack.db');
+// Alapból server/podium.db; a PODIUM_DB env-változóval felülírható (pl. teszthez).
+// A projekt korábban FitTrack néven futott: a régi FITTRACK_DB változót és a
+// régi server/fittrack.db fájlt is elfogadjuk, hogy az átnevezés után egy
+// meglévő telepítés ne üres adatbázissal induljon.
+const DEFAULT_DB = path.join(__dirname, 'podium.db');
+const LEGACY_DB = path.join(__dirname, 'fittrack.db');
+const DB_PATH =
+  process.env.PODIUM_DB ||
+  process.env.FITTRACK_DB ||
+  (!existsSync(DEFAULT_DB) && existsSync(LEGACY_DB) ? LEGACY_DB : DEFAULT_DB);
 
 /* Volt-e már adatbázis, mielőtt megnyitottuk? Ez a legolcsóbb ELLENŐRIZHETŐ
    jele annak, hogy a fájl tényleg megmarad a deployok között: sok hostingon

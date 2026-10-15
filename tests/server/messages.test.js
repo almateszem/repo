@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — az üzenetek olvasottság-jelölése az ADATRÉTEG szintjén
+ * Podium — az üzenetek olvasottság-jelölése az ADATRÉTEG szintjén
  * ---------------------------------------------------------------------
  * A coach.test.js a végpontokon át bizonyítja, hogy az olvasatlan-számláló a
  * felületre is kijut. Itt két olyan dolog a kérdés, ami HTTP-n nem látszik:
@@ -19,7 +19,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
-const workDir = mkdtempSync(path.join(tmpdir(), 'fittrack-msg-'));
+const workDir = mkdtempSync(path.join(tmpdir(), 'podium-msg-'));
 const DB_PATH = path.join(workDir, 'messages.db');
 
 /* ---- A read_at ELŐTTI séma, két üzenettel ----
@@ -69,7 +69,7 @@ const DB_PATH = path.join(workDir, 'messages.db');
 }
 
 /* Az adatréteg importáláskor migrál — ezért a felépítés UTÁN töltjük be. */
-process.env.FITTRACK_DB = DB_PATH;
+process.env.PODIUM_DB = DB_PATH;
 const db = await import('../../server/db.js');
 
 process.on('exit', () => {

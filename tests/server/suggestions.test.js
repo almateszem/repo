@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — az ajánlott gyakorlatok unit-tesztjei
+ * Podium — az ajánlott gyakorlatok unit-tesztjei
  * ----------------------------------------------------
  * A suggestions.js tiszta függvény: kitalált katalógussal és riporttal a
  * teljes döntési logika ellenőrizhető, adatbázis és szerver nélkül.

@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — referencia-katalógusok összeállítása
+ * Podium — referencia-katalógusok összeállítása
  * ==================================================
  * Két nagy csak-olvasható lista áll össze itt, mielőtt a db.js beseedelné
  * őket a `collections` táblába: a gyakorlat-katalógus és az étel-katalógus.

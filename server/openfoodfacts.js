@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — Open Food Facts proxy
+ * Podium — Open Food Facts proxy
  * ------------------------------------
  * A vonalkód-olvasó ebből tölti fel a „saját étel" űrlapot. A böngésző NEM
  * hívja közvetlenül az OFF-ot, három okból:
@@ -16,10 +16,10 @@
 // Az alap-URL env-változóból jön, hogy a teszt egy helyi stubra irányíthassa —
 // a tesztcsomag nem függhet az internettől és egy külső szolgáltatás
 // rendelkezésre állásától.
-const BASE_URL = process.env.FITTRACK_OFF_URL || 'https://world.openfoodfacts.org';
+const BASE_URL = process.env.PODIUM_OFF_URL || 'https://world.openfoodfacts.org';
 // Az OFF használati feltétele az azonosító User-Agent; névtelen kérésre 403 jár.
-const USER_AGENT = process.env.FITTRACK_OFF_UA || 'FitTrackPro/0.1 (hobbi projekt)';
-const TIMEOUT_MS = Number(process.env.FITTRACK_OFF_TIMEOUT_MS) || 6000;
+const USER_AGENT = process.env.PODIUM_OFF_UA || 'Podium/0.1 (hobbi projekt)';
+const TIMEOUT_MS = Number(process.env.PODIUM_OFF_TIMEOUT_MS) || 6000;
 
 /* A válasz felső mérethatára. A `fields=` paraméterrel kért termék néhány
    kilobájt; 256 KB fölött már biztosan nem az van a vonalon, amit kértünk.
@@ -74,7 +74,7 @@ const clean = (value) =>
     .trim();
 
 /**
- * OFF v2 termék → a FitTrack étel-alakja, 100 g / 100 ml alapmennyiségre
+ * OFF v2 termék → a Podium étel-alakja, 100 g / 100 ml alapmennyiségre
  * (ugyanúgy, mint a beépített katalógus — a naplózás így semmit nem tud meg
  * arról, hogy az étel vonalkódról jött).
  *

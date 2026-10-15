@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — a fiókok bevezetése előtti adatbázis migrációja
+ * Podium — a fiókok bevezetése előtti adatbázis migrációja
  * ---------------------------------------------------------------
  * A legkockázatosabb lépés az egész átálláson: aki eddig helyben használta az
  * appot, annak a naplója már a régi, felhasználó nélküli sémában van. Ez a
@@ -17,7 +17,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
-const workDir = mkdtempSync(path.join(tmpdir(), 'fittrack-migr-'));
+const workDir = mkdtempSync(path.join(tmpdir(), 'podium-migr-'));
 const DB_PATH = path.join(workDir, 'legacy.db');
 
 /* ---- A RÉGI séma felépítése (szó szerint a fiókok előtti alak) ---- */
@@ -92,7 +92,7 @@ const legacyPipalatlan = JSON.stringify([
 }
 
 /* Az adatréteg importáláskor migrál — ezért a felépítés UTÁN töltjük be. */
-process.env.FITTRACK_DB = DB_PATH;
+process.env.PODIUM_DB = DB_PATH;
 const db = await import('../../server/db.js');
 
 /* Takarítás előtt zárjuk az adatréteg kapcsolatát — Windowson a nyitott fájlt

@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — a Recovery Engine unit-tesztjei
+ * Podium — a Recovery Engine unit-tesztjei
  * ----------------------------------------------
  * A beépített `node:test` futtatóval (`npm test`), nulla új függőséggel.
  * A motor tiszta függvényekből áll, ezért itt kitalált bemenetekkel a teljes

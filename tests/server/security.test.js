@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — biztonsági végponti tesztek
+ * Podium — biztonsági végponti tesztek
  * ------------------------------------------
  * A 2026-09-13-i biztonsági átnézés három MAGAS leletének őrei, valódi
  * szerverrel (a többi végponti tesztfájl mintájára: saját folyamat, saját
@@ -20,13 +20,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { startServer, cookieFrom } from './test-harness.js';
 
-/* Egy proxy mögötti telepítést utánzunk (FITTRACK_TRUST_PROXY=1): a
+/* Egy proxy mögötti telepítést utánzunk (PODIUM_TRUST_PROXY=1): a
    forrásonkénti korlát csak így mérhető két KÜLÖNBÖZŐ forrásra, és ez a
    beállítás nélkül proxy mögött az egész forgalom egyetlen forrásnak
    látszana. X-Forwarded-For nélkül a forrás továbbra is a TCP-cím. */
 const { request: rawRequest } = await startServer({
   label: 'security',
-  extraEnv: { FITTRACK_TRUST_PROXY: '1' },
+  extraEnv: { PODIUM_TRUST_PROXY: '1' },
 });
 
 /** A közös harness a fejléceket `headers`-ben várja; itt a `forwardedFor`

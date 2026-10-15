@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — a hibakezelő védőháló tesztjei
+ * Podium — a hibakezelő védőháló tesztjei
  * ---------------------------------------------
  * Ez a fájl azt őrzi, ami eddig hiányzott: hogy egy elszálló végpont VÁLASZT
  * adjon, és hogy a hiba részletei NE menjenek ki a kliensnek.
@@ -65,7 +65,7 @@ test('az async kezelő elutasított ígérete 500-as JSON-t ad, nem néma kéré
   const log = silenceErrorLog();
   const app = await startApp((a) => {
     a.get('/boom', async () => {
-      throw new Error('adatbázis /var/lib/fittrack.db megnyitása sikertelen');
+      throw new Error('adatbázis /var/lib/podium.db megnyitása sikertelen');
     });
   });
   try {

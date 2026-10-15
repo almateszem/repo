@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — az EGYÉNI CSÚCSOK (PR) felhasználónkénti elkülönítése
+ * Podium — az EGYÉNI CSÚCSOK (PR) felhasználónkénti elkülönítése
  * --------------------------------------------------------------------
  * Az automatikus PR-számítás és a fiókok egymástól függetlenül készültek, és
  * a találkozásuknál van egy csendes hibalehetőség: ha az exercise_maxes tábla
@@ -10,7 +10,7 @@
  * mérünk-e. A válasz mindenhol igen.
  *
  * Az adatréteg fájlba ír, ezért a teszt saját ideiglenes adatbázist kap
- * (FITTRACK_DB), és a db.js-t CSAK utána importáljuk — a modul importáláskor
+ * (PODIUM_DB), és a db.js-t CSAK utána importáljuk — a modul importáláskor
  * nyitja meg a fájlt.
  */
 import test from 'node:test';
@@ -20,8 +20,8 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
-const workDir = mkdtempSync(path.join(tmpdir(), 'fittrack-prs-'));
-process.env.FITTRACK_DB = path.join(workDir, 'test.db');
+const workDir = mkdtempSync(path.join(tmpdir(), 'podium-prs-'));
+process.env.PODIUM_DB = path.join(workDir, 'test.db');
 
 const db = await import('../../server/db.js');
 
@@ -304,7 +304,7 @@ test('ha az edzés beszúrása elbukik, csúcs sem marad utána', () => {
      következő törlésnél vagy javításnál venné észre. A hibát egy trigger
      kényszeríti ki, ugyanazon a fájlon. */
   const user = db.createUser('bukott', 'Bukott Bence', 'scrypt$16384$8$1$mm$nn').user;
-  const raw = new DatabaseSync(process.env.FITTRACK_DB);
+  const raw = new DatabaseSync(process.env.PODIUM_DB);
   raw.exec(`CREATE TRIGGER bukott_mentes BEFORE INSERT ON workouts
             WHEN NEW.name = 'Bukó' BEGIN SELECT RAISE(ABORT, 'teszt: elbukott beszúrás'); END`);
   try {

@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — VÉGPONTI (HTTP) tesztek
+ * Podium — VÉGPONTI (HTTP) tesztek
  * --------------------------------------
  * A többi tesztfájl a modulokat külön-külön méri: a recovery.test.js a
  * matematikát, a users.test.js az adatréteg szűrését, az auth.test.js a
@@ -26,7 +26,7 @@ import { startServer, cookieFrom, today, gyakorlat } from './test-harness.js';
    A /api/foods/barcode végpont kifelé hívna. A tesztcsomag viszont nem
    függhet az internettől és egy külső szolgáltatás rendelkezésre állásától:
    egy elszálló CI-futás semmit nem mondana a mi kódunkról. Ezért a szervert a
-   FITTRACK_OFF_URL-lel erre a stubra irányítjuk, és mi döntjük el, mit lát —
+   PODIUM_OFF_URL-lel erre a stubra irányítjuk, és mi döntjük el, mit lát —
    terméket, „nem ismerem"-et vagy hibát.
 
    Az /__hits számláló azért kell, hogy a gyorsítótár BIZONYÍTHATÓ legyen: a
@@ -86,7 +86,7 @@ const offHitCount = async () => (await (await fetch(`${OFF_URL}/__hits`)).json()
 
 const { baseUrl, request } = await startServer({
   label: 'api',
-  extraEnv: { FITTRACK_OFF_URL: OFF_URL },
+  extraEnv: { PODIUM_OFF_URL: OFF_URL },
 });
 
 // Az OFF-stub is a teszt eseményhurkát tartaná életben.
@@ -310,7 +310,7 @@ test('kijelentkezés után a régi süti már nem nyit ajtót', async () => {
 });
 
 test('a kitalált munkamenet-token nem ad hozzáférést', async () => {
-  const res = await request('GET', '/api/user', { cookie: 'fittrack_session=hamisitott-token' });
+  const res = await request('GET', '/api/user', { cookie: 'podium_session=hamisitott-token' });
   assert.equal(res.status, 401);
 });
 
@@ -1826,7 +1826,7 @@ test('a frontend bejelentkezés nélkül is kiszolgálódik (a belépő képerny
 test('a szerver-belső fájlok nem érhetők el HTTP-n', async () => {
   for (const utvonal of [
     '/server/db.js',
-    '/server/fittrack.db',
+    '/server/podium.db',
     '/package.json',
     '/../server/db.js',
     // A /vendor/zxing mount a node_modules EGY mappáját teszi ki — a többinek

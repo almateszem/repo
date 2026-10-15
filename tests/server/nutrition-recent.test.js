@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — a Táplálkozás oldal „Legutóbbiak" sora (getRecentFoods)
+ * Podium — a Táplálkozás oldal „Legutóbbiak" sora (getRecentFoods)
  * ---------------------------------------------------------------------
  * A sor egy koppintással újranaplóz, ezért három dolgon múlik:
  *   1. egy étel csak EGYSZER szerepel, a legutóbbi adagjával, legújabb elöl;
@@ -12,8 +12,8 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-const workDir = mkdtempSync(path.join(tmpdir(), 'fittrack-recent-'));
-process.env.FITTRACK_DB = path.join(workDir, 'test.db');
+const workDir = mkdtempSync(path.join(tmpdir(), 'podium-recent-'));
+process.env.PODIUM_DB = path.join(workDir, 'test.db');
 
 const db = await import('../../server/db.js');
 

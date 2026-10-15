@@ -1,4 +1,4 @@
-# FitTrack Pro — mi hiányzik az MVP-hez, és mit érdemes átszabni UI/UX-ben
+# Podium — mi hiányzik az MVP-hez, és mit érdemes átszabni UI/UX-ben
 
 Készült: 2026-08-20 · a `main` állapota alapján (128/128 teszt zöld)
 **Felülvizsgálva: 2026-08-27** · a `Viktor/hianyzotemak` + `valter/verzio2`
@@ -119,7 +119,7 @@ a kliens időzónájából kell venni (fejléc vagy a profilban tárolt IANA zó
 
 ### 1.5 Adatmegőrzés: perzisztens volume + mentés 🟡
 
-A `server/fittrack.db` egy fájl. Ephemeral fájlrendszeren (Heroku, Render, Fly
+A `server/podium.db` egy fájl. Ephemeral fájlrendszeren (Heroku, Render, Fly
 volume nélkül) minden deploynál elvész — a seed újraépül, a naplók nem. Kell
 perzisztens volume, és mellé egy egyszerű, ütemezett mentés (SQLite
 `VACUUM INTO` egy timestampelt fájlba). Ez üzemeltetés, nem kód, de MVP-blokkoló.
@@ -127,7 +127,7 @@ perzisztens volume, és mellé egy egyszerű, ütemezett mentés (SQLite
 > **🟡 Láthatóvá téve, de nincs mentés.** A szerver induláskor kiírja a feloldott
 > adatbázis-útvonalat, és azt is, hogy **meglévő fájlt nyitott-e meg vagy újat
 > hozott létre** — a néma újralétrehozás eddig pont az a hiba volt, ami akkor
-> derült ki, amikor a naplók már eltűntek. Az útvonal a `FITTRACK_DB`
+> derült ki, amikor a naplók már eltűntek. Az útvonal a `PODIUM_DB`
 > env-változóval állítható, és a README kapott egy _Élesítés_ szakaszt.
 > **Ütemezett mentés (`VACUUM INTO`) továbbra sincs**, és a volume maga
 > ugyanúgy telepítési kérdés maradt.

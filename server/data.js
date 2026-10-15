@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — seed / referencia-adat
+ * Podium — seed / referencia-adat
  * -------------------------------------
  * A SQLite adatbázis (server/db.js) kiinduló tartalma: minden indításkor
  * innen szinkronizálódnak a csak-olvasható kollekciók (INSERT OR REPLACE).

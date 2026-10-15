@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — a 12 izomcsoportos váltás migrációja (user_version 2)
+ * Podium — a 12 izomcsoportos váltás migrációja (user_version 2)
  * -------------------------------------------------------------------
  * A tárolt check-inek izomláz- és fájdalom-térképe a régi `arms` és `back`
  * kulcsot használja. Induláskor egyszer átíródnak: az érték minden utódra
@@ -19,7 +19,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const workDir = mkdtempSync(path.join(tmpdir(), 'fittrack-muscles-'));
+const workDir = mkdtempSync(path.join(tmpdir(), 'podium-muscles-'));
 const DB_PATH = path.join(workDir, 'muscles.db');
 
 /* 1. Friss séma egy fiókkal — külön folyamatban. */
@@ -35,7 +35,7 @@ execFileSync(
     db.closeDatabase();
     `,
   ],
-  { env: { ...process.env, FITTRACK_DB: DB_PATH }, stdio: 'pipe' },
+  { env: { ...process.env, PODIUM_DB: DB_PATH }, stdio: 'pipe' },
 );
 
 /* 2. A régi állapot: 9 csoportos kulcsok és a migráció előtti séma-verzió. */
@@ -59,7 +59,7 @@ const updatedAt = '2026-09-01 10:00:00';
 }
 
 /* 3. Az adatréteg betöltése — itt fut a migráció. */
-process.env.FITTRACK_DB = DB_PATH;
+process.env.PODIUM_DB = DB_PATH;
 const db = await import('../../server/db.js');
 process.on('exit', () => {
   db.closeDatabase();

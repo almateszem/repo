@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — rekord-csempék és saját testsúlyos terhelés: a merge utáni
+ * Podium — rekord-csempék és saját testsúlyos terhelés: a merge utáni
  * átnézés leletei
  * -------------------------------------------------------------------------
  * KÜLÖN FÁJL, szándékosan: az api.test.js a regisztrációs korlát (30/óra/IP)

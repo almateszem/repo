@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — az értesítés-panel összeállítása
+ * Podium — az értesítés-panel összeállítása
  * ------------------------------------------------
  * A modul tiszta függvény, tehát adatbázis és HTTP nélkül vizsgálható. A
  * kérdés itt nem az, hogy „megjelenik-e valami", hanem hogy pontosan azt

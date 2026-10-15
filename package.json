@@ -1,9 +1,9 @@
 {
-  "name": "fittrack-pro",
+  "name": "podium",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "FitTrack Pro — edző–kliens edzésmenedzsment demo + Express backend",
+  "description": "Podium — edző–kliens edzésmenedzsment demo + Express backend",
   "engines": {
     "node": ">=22.5.0"
   },

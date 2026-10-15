@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — exercises-dataset → saját katalógus leképezés
+ * Podium — exercises-dataset → saját katalógus leképezés
  * ===========================================================
  * A külső adatforrás: https://github.com/hasaneyldrm/exercises-dataset
  * (1324 gyakorlat, 180×180 gif + thumbnail). A szöveges adat MIT licenc

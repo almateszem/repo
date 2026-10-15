@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — gyakorlat-katalógus generátor a külső datasetből
+ * Podium — gyakorlat-katalógus generátor a külső datasetből
  * ==============================================================
  * Forrás: https://github.com/hasaneyldrm/exercises-dataset (1324 gyakorlat)
  * Kimenet: server/data/exercises.exdb.js — GENERÁLT fájl, kézzel NE szerkeszd.
@@ -426,7 +426,7 @@ function matchCuratedBySuffix(curated, generated, mediaForCurated, mediaSeen) {
     hogy a git diff értelmes maradjon, amikor a szótár bővül. */
 function renderModule(entries, mediaForCurated) {
   const header = `/**
- * FitTrack Pro — GENERÁLT gyakorlat-katalógus. KÉZZEL NE SZERKESZD.
+ * Podium — GENERÁLT gyakorlat-katalógus. KÉZZEL NE SZERKESZD.
  * ================================================================
  * Előállítja: scripts/build-exdb.js  (npm run exdb:build)
  * Forrás: https://github.com/hasaneyldrm/exercises-dataset

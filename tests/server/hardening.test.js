@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — a 2026-09-18-i biztonsági kör őrei
+ * Podium — a 2026-09-18-i biztonsági kör őrei
  * -------------------------------------------------
  * A TEENDOK.txt BIZTONSÁG szakaszának KÖZEPES és ALACSONY leletei közül
  * hatot javítottunk. Ez a fájl azokat őrzi — mindegyik olyan hiba, ami
@@ -54,7 +54,7 @@ const OFF_URL = `http://127.0.0.1:${offStub.address().port}`;
 
 const { request } = await startServer({
   label: 'hardening',
-  extraEnv: { FITTRACK_OFF_URL: OFF_URL, FITTRACK_TRUST_PROXY: '1' },
+  extraEnv: { PODIUM_OFF_URL: OFF_URL, PODIUM_TRUST_PROXY: '1' },
 });
 
 after(async () => {

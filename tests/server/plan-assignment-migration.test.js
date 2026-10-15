@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — a régi tervek migrációja: kiosztás-visszakötés és heti alak
+ * Podium — a régi tervek migrációja: kiosztás-visszakötés és heti alak
  * ------------------------------------------------------------------------
  * 1. A terv-követés az edző kiosztott tervéhez mér, ezért a sportoló tervének
  *    tudnia kell, melyik kiosztásból született (plans.assignment_id). Az
@@ -22,7 +22,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const workDir = mkdtempSync(path.join(tmpdir(), 'fittrack-assign-'));
+const workDir = mkdtempSync(path.join(tmpdir(), 'podium-assign-'));
 const DB_PATH = path.join(workDir, 'assign.db');
 
 /* 1. Friss séma egy edzővel, egy sportolóval és az élő kapcsolatukkal. */
@@ -40,7 +40,7 @@ execFileSync(
     db.closeDatabase();
     `,
   ],
-  { env: { ...process.env, FITTRACK_DB: DB_PATH }, stdio: 'pipe' },
+  { env: { ...process.env, PODIUM_DB: DB_PATH }, stdio: 'pipe' },
 );
 
 /* 2. A régi állapot: az új oszlopok nélkül, a régi alakú sorokkal. Két
@@ -81,7 +81,7 @@ const ex = (kg) =>
 }
 
 /* 3. Az adatréteg betöltése — itt futnak a migrációk. */
-process.env.FITTRACK_DB = DB_PATH;
+process.env.PODIUM_DB = DB_PATH;
 const db = await import('../../server/db.js');
 process.on('exit', () => {
   db.closeDatabase();

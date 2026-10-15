@@ -1,8 +1,8 @@
-# FitTrack Pro — PR (Personal Record) Tracking Implementation Guide
+# Podium — PR (Personal Record) Tracking Implementation Guide
 
 ## Overview
 
-This guide documents the automatic PR tracking system implemented for FitTrack Pro using the **Epley formula** to calculate estimated 1RM (one-rep maximum) from any set.
+This guide documents the automatic PR tracking system implemented for Podium using the **Epley formula** to calculate estimated 1RM (one-rep maximum) from any set.
 
 Records are **per account**: every user is measured against their own previous performance, never against another user's lifts.
 

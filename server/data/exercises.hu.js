@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — gyakorlat-katalógus (magyar)
+ * Podium — gyakorlat-katalógus (magyar)
  * ===========================================
  * Ez a fájl a gyakorlat-katalógus EGYETLEN szerkesztési helye. Az importáló
  * (server/import.js) innen tölti fel az `exercises` táblát; a felület és a

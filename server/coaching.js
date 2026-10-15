@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — az edzői panel sportoló-összegzője
+ * Podium — az edzői panel sportoló-összegzője
  * -------------------------------------------------
  * Ez a modul VÁLASZOLJA MEG azt a kérdést, amit korábban a data.js beégetett
  * demo-listája játszott el: „hogy áll a sportolóm?". A bemenete a sportoló

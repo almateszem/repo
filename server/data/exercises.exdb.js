@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — GENERÁLT gyakorlat-katalógus. KÉZZEL NE SZERKESZD.
+ * Podium — GENERÁLT gyakorlat-katalógus. KÉZZEL NE SZERKESZD.
  * ================================================================
  * Előállítja: scripts/build-exdb.js  (npm run exdb:build)
  * Forrás: https://github.com/hasaneyldrm/exercises-dataset

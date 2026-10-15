@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — az EDZŐ–SPORTOLÓ kapcsolat végponti tesztjei
+ * Podium — az EDZŐ–SPORTOLÓ kapcsolat végponti tesztjei
  * ----------------------------------------------------------
  * Ez a fájl azt őrzi, ami az Edző oldalt valódivá teszi: két különböző fiók
  * kapcsolatba lép, üzenetet vált, és az edző a sportoló SAJÁT naplójából

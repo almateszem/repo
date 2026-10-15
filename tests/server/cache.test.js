@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — a kollekció-cache SZERZŐDÉSE
+ * Podium — a kollekció-cache SZERZŐDÉSE
  * -------------------------------------------
  * A teljesítmény-javítás két nagy referencia-listát (exerciseCatalog, foods)
  * memóriában tart, hogy ne kelljen kérésenként újra JSON-ból visszafejteni
@@ -25,8 +25,8 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-const workDir = mkdtempSync(path.join(tmpdir(), 'fittrack-cache-'));
-process.env.FITTRACK_DB = path.join(workDir, 'test.db');
+const workDir = mkdtempSync(path.join(tmpdir(), 'podium-cache-'));
+process.env.PODIUM_DB = path.join(workDir, 'test.db');
 
 const db = await import('../../server/db.js');
 const { resolveExerciseLoad } = await import('../../server/muscles.js');

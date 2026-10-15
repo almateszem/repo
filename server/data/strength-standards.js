@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — erőszint-küszöbök (KURÁLT, forrásból levezetett adat)
+ * Podium — erőszint-küszöbök (KURÁLT, forrásból levezetett adat)
  * ===================================================================
  * A kérdés, amire ez a fájl felel: „hol tartok EBBEN a gyakorlatban a hozzám
  * hasonló (nemű, testsúlyú, korú) emberekhez képest?". Nem a saját

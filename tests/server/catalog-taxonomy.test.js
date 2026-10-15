@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — a 12 csoportos taxonómia a katalógusokban
+ * Podium — a 12 csoportos taxonómia a katalógusokban
  * --------------------------------------------------------
  * A szerkezeti ellenőrzést (ismert kulcs, összeg = 1) a catalog.js induláskor
  * elvégzi. Ez a teszt a TARTALMAT nézi: a jellegzetes gyakorlatok a
