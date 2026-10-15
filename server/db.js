@@ -1630,6 +1630,42 @@ export function getNutritionLogForDate(userId, date) {
     .all(userId, date);
 }
 
+/** A legutóbb naplózott, egymástól KÜLÖNBÖZŐ ételek (legújabb elöl), mindegyik
+    a legutóbbi adagjával. A Táplálkozás oldal „Legutóbbiak" sora ebből épül:
+    ugyanazt az ételt újra naplózni a leggyakoribb művelet.
+
+    Csak a ma is naplózható ételek kerülnek bele (findFoodForUser): egy azóta
+    törölt saját étel újranaplózása 400-zal bukna el. A kalória a MOSTANI
+    tápértékből és a legutóbbi adagból számolódik — ezt fogja a naplózás is
+    rögzíteni. */
+export function getRecentFoods(userId, limit = 8) {
+  const rows = db
+    .prepare(
+      `SELECT name, grams FROM nutrition_log n
+        WHERE user_id = ?
+          AND id = (SELECT MAX(id) FROM nutrition_log m
+                     WHERE m.user_id = n.user_id AND m.name = n.name)
+        ORDER BY id DESC
+        LIMIT ?`,
+    )
+    // Tartalék a kiszűrt (már nem naplózható) nevekre
+    .all(userId, limit * 3);
+
+  const recent = [];
+  for (const row of rows) {
+    const food = findFoodForUser(userId, row.name);
+    if (!food) continue;
+    recent.push({
+      name: row.name,
+      grams: row.grams,
+      unit: food.unit || 'g',
+      kcal: Math.round((food.kcal * row.grams) / 100),
+    });
+    if (recent.length === limit) break;
+  }
+  return recent;
+}
+
 /* ---- Megjegyzések ----
    A hozzáférést NEM ez a modul dönti el — az a server.js kapuja. Itt csak az
    olvasás és az írás van. */
