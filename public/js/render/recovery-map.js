@@ -49,6 +49,46 @@ export function spareList(muscles = []) {
     });
 }
 
+/** A gyakorlat-ajánlás verdiktjei, amelyek csökkentést vagy kihagyást kérnek. */
+const HELD_BACK_VERDICTS = ['reduce', 'skip', 'avoid'];
+
+/** Az idegrendszeri készenlét ez alatt „enyhén terhelt" (lásd a CNS-kártya
+    szövege): a nehéz, maximum-közeli munkát nem javasoljuk. */
+export const CNS_FRESH_MIN = 80;
+
+/** Az összpontszám melletti egymondatos ítélet; null, ha nincs összpontszám
+    (a hívó ilyenkor a „nincs adat" szöveget írja ki).
+
+    Az összpontszám, a CNS és a gyakorlat-ajánlások KÜLÖN mérőszámok, ezért a
+    „ma mehet a nehezebb edzés" akkor is kijöhetett (92), amikor lejjebb az
+    idegrendszer 78%-on állt, és egy gyakorlat csökkentett terhelést kért. Az
+    ítélet ezért a lejjebb látható jelzéseket is figyelembe veszi, hogy a lap
+    ne mondjon ellent önmagának. */
+export function verdictText(report) {
+  const overall = report?.overall;
+  if (overall === null || overall === undefined) return null;
+
+  const cns = report.cns?.readiness;
+  const heldBack = (report.exercises ?? []).some((lift) =>
+    HELD_BACK_VERDICTS.includes(lift.verdict),
+  );
+  const cnsTired = cns !== null && cns !== undefined && cns < CNS_FRESH_MIN;
+
+  if (overall >= 85) {
+    return heldBack || cnsTired
+      ? 'Jó állapotban vagy — de a nehéz munkát korlátozd, részletek lent.'
+      : 'Készen állsz — ma mehet a nehezebb edzés.';
+  }
+  if (overall >= 70) {
+    return heldBack
+      ? 'Rendben vagy — egyes gyakorlatoknál vissza kell venni, részletek lent.'
+      : 'Rendben vagy — tartsd a tervezett terhelést.';
+  }
+  return overall >= 55
+    ? 'Fáradt vagy — érdemes visszavenni a volumenből.'
+    : 'A tested pihenést kér — ma inkább könnyű nap.';
+}
+
 /** A gyűrű kitöltetlen ívének hossza (stroke-dashoffset) egy 0–100 értékhez. */
 export function ringDashOffset(value, r) {
   const circumference = 2 * Math.PI * r;

@@ -14,6 +14,7 @@ import {
   ringState,
   spareList,
   unusualNote,
+  verdictText,
 } from './recovery-map.js';
 
 /** A tizenkét izomcsoport kulcsa és magyar címkéje — a szerver
@@ -403,15 +404,7 @@ function renderRecovery(report) {
   const known = hasReadiness(overall);
   $('[data-rc-score]').textContent = known ? String(overall) : '—';
 
-  $('[data-rc-verdict]').textContent = !known
-    ? NO_READINESS_TEXT
-    : overall >= 85
-      ? 'Készen állsz — ma mehet a nehezebb edzés.'
-      : overall >= 70
-        ? 'Rendben vagy — tartsd a tervezett terhelést.'
-        : overall >= 55
-          ? 'Fáradt vagy — érdemes visszavenni a volumenből.'
-          : 'A tested pihenést kér — ma inkább könnyű nap.';
+  $('[data-rc-verdict]').textContent = verdictText(report) ?? NO_READINESS_TEXT;
 
   /* Mi húz vissza: csak ha a nap NEM „készen állsz" — ott nincs mit indokolni.
      A szám a komponens saját 0–100-as pontszáma, nem a hozzájárulása.
@@ -528,8 +521,7 @@ function renderRecovery(report) {
     const basisEl = $('[data-lift-basis]', item);
     basisEl.hidden = lift.basis !== 'declared';
     if (!basisEl.hidden) {
-      basisEl.textContent =
-        'A bemondott erőfelmérésed alapján.';
+      basisEl.textContent = 'A bemondott erőfelmérésed alapján.';
     }
 
     $('[data-lift-load]', item).textContent = lift.loadDelta;

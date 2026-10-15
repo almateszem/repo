@@ -16,6 +16,7 @@ import {
   ringDashOffset,
   ringState,
   spareList,
+  verdictText,
   unusualNote,
 } from '../../../../public/js/render/recovery-map.js';
 
@@ -174,4 +175,50 @@ test('unusualNote: a szokatlan terhelést kapott ismert csoportok, okonként', (
     'Szokatlan terhelés (új gyakorlat: quads, glutes; hosszú kihagyás után: calves), ezért ezek lassabban regenerálódnak.',
   );
   assert.equal(unusualNote([m('quads', 60, { unusual: 'gap', known: false })]), null);
+});
+
+/* ---- verdictText: az ítélet nem mondhat ellent a lap többi jelzésének ---- */
+
+const report = (overall, { cns = null, verdicts = [] } = {}) => ({
+  overall,
+  cns: { readiness: cns },
+  exercises: verdicts.map((verdict) => ({ verdict })),
+});
+
+test('verdictText: összpontszám nélkül null (a hívó a „nincs adat" szöveget írja)', () => {
+  assert.equal(verdictText(report(null)), null);
+  assert.equal(verdictText(report(undefined)), null);
+});
+
+test('verdictText: friss idegrendszer és semmi csökkentés → „ma mehet a nehezebb"', () => {
+  assert.match(
+    verdictText(report(92, { cns: 90, verdicts: ['strong', 'normal'] })),
+    /nehezebb edzés/,
+  );
+  // CNS adat nélkül (nincs edzés-előzmény) nem von le
+  assert.match(verdictText(report(92)), /nehezebb edzés/);
+});
+
+test('verdictText: 92 pont, de a CNS 78% → nem mondja, hogy mehet a nehezebb', () => {
+  const text = verdictText(report(92, { cns: 78 }));
+  assert.doesNotMatch(text, /nehezebb edzés/);
+  assert.match(text, /korlátozd/);
+});
+
+test('verdictText: 92 pont, de egy gyakorlat csökkentést kér → óvatos', () => {
+  for (const verdict of ['reduce', 'skip', 'avoid']) {
+    assert.match(verdictText(report(92, { cns: 90, verdicts: ['strong', verdict] })), /korlátozd/);
+  }
+  // a „trim" (−1 szett) még nem csökkentés
+  assert.match(verdictText(report(92, { cns: 90, verdicts: ['trim'] })), /nehezebb edzés/);
+});
+
+test('verdictText: 70–84 pont, a gyakorlat-csökkentés megjelenik az ítéletben', () => {
+  assert.match(verdictText(report(75)), /tartsd a tervezett terhelést/);
+  assert.match(verdictText(report(75, { verdicts: ['reduce'] })), /egyes gyakorlatoknál/);
+});
+
+test('verdictText: alacsony pontszámnál a régi szöveg marad', () => {
+  assert.match(verdictText(report(60)), /Fáradt/);
+  assert.match(verdictText(report(40)), /pihenést kér/);
 });
