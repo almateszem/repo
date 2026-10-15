@@ -51,9 +51,12 @@ const DIR_TO_PAGE = {
   home: 'dashboard',
 };
 
+/** A „fel" irány adaptív: az Edző oldalra visz, ha a fióknak van edzői
+    tevékenysége (edző, sportoló vagy meghívó — lásd shared.coachActive),
+    egyébként ide. Az Edző oldal ilyenkor a Profilból érhető el. */
+const NAV_UP_FALLBACK = 'recovery';
+
 // A gyorsbillentyűk a desktop side-nav sorrendjét követik.
-// A Regeneráció oldal szándékosan nincs a nav gyűrű négy iránya között —
-// mobilon az áttekintő készenlét-kártyája visz oda (lásd .db-readiness).
 const KEY_TO_PAGE = {
   1: 'dashboard',
   2: 'recovery',
@@ -76,6 +79,7 @@ export {
   DIR_TO_PAGE,
   FLOW_PAGES,
   KEY_TO_PAGE,
+  NAV_UP_FALLBACK,
   NOTIF_CATEGORIES,
   OPEN_MODAL_SELECTOR,
   PAGES,

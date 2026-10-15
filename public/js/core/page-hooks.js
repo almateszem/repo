@@ -86,4 +86,10 @@ export const shared = {
       kapcsolatokból következik. A jelzőt ezért az Edző oldal állapota tölti
       fel (setupCoachPage → refresh), ami az induláskor amúgy is lefut. */
   hasCoachLink: false,
+
+  /** Van-e a fióknak edzői tevékenysége: edzője, sportolója vagy függő
+      meghívója (kapott vagy küldött). A nav gyűrű „fel" iránya ebből dől el:
+      igen → Edző, nem → Regeneráció. Az Edző oldal frissítése tölti
+      (setupCoachPage → refresh). */
+  coachActive: false,
 };

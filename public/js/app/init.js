@@ -1,13 +1,12 @@
 /** Indítás: a vezérlők felépítése és összekötése, belépési kapu. */
 
 import { api } from '../core/api.js';
-import { DIR_TO_PAGE } from '../core/constants.js';
 import { onDayChange, startDayWatcher } from '../core/day.js';
 import { $, $$ } from '../core/dom.js';
 import { hooks, shared } from '../core/page-hooks.js';
 import { showToast } from '../core/toast.js';
 import { setupNavRing } from '../nav/navring.js';
-import { navigate, setOnboardingLock, setupRouter } from '../nav/router.js';
+import { dirToPage, navigate, setOnboardingLock, setupRouter } from '../nav/router.js';
 import {
   refreshDailyStats,
   renderCharts,
@@ -193,7 +192,7 @@ async function init() {
   setupShortcuts();
   setupConnectivity();
 
-  setupNavRing($('#navKnob'), (dir) => navigate(DIR_TO_PAGE[dir] ?? 'dashboard'));
+  setupNavRing($('#navKnob'), (dir) => navigate(dirToPage(dir)));
 
   // Napváltás-figyelő: éjfél után az áttekintő napi statjai nullázódnak, és
   // a check-in emlékeztető is visszatér — az új napra még nincs check-in.

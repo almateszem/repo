@@ -7,7 +7,7 @@
  * el a lapok vezérlőit — így a router nem függ a ui/ modulaktól.
  */
 
-import { DIR_TO_PAGE, FLOW_PAGES, PAGES } from '../core/constants.js';
+import { DIR_TO_PAGE, FLOW_PAGES, NAV_UP_FALLBACK, PAGES } from '../core/constants.js';
 import { $, $$, prefersReducedMotion } from '../core/dom.js';
 import { animateNumber, formatWhole } from '../core/format.js';
 import { hooks, shared } from '../core/page-hooks.js';
@@ -150,14 +150,28 @@ const PAGE_ICONS = {
 /** Az éppen látható oldal (a DOM az igazságforrás — a hash lehet horgony is). */
 const currentPage = () => $('.app-page:not([hidden])')?.dataset.page ?? 'dashboard';
 
-/** A mobil nav gyűrű „itt vagy" jelzése: a négy címke közül kiemeli az
-    aktuálisat (ha van ilyen), a gomb ikonja pedig minden oldalra jelzi. */
-function syncNavRingState(name) {
+/** A nav gyűrű iránya → oldal. A „fel" adaptív: edzői tevékenységnél az Edző,
+    egyébként a Regeneráció (lásd NAV_UP_FALLBACK). */
+function dirToPage(dir) {
+  if (dir === 'up' && !shared.coachActive) return NAV_UP_FALLBACK;
+  return DIR_TO_PAGE[dir] ?? 'dashboard';
+}
+
+/** A négy iránycímke: a „fel" címke követi az adaptív célt (↑ Edző vagy
+    ↑ Regeneráció), és az aktuális oldalra mutató kiemelődik. */
+function syncNavRingLabels(name) {
   $$('.nl').forEach((el) => {
-    const dir = el.className.match(/nl--(\w+)/)?.[1];
-    const dirKey = { up: 'up', dn: 'down', lt: 'left', rt: 'right' }[dir];
-    el.classList.toggle('is-current', DIR_TO_PAGE[dirKey] === name);
+    const dir = el.dataset.navDir;
+    const target = dirToPage(dir);
+    if (dir === 'up') el.textContent = `↑ ${PAGE_TITLES[target]}`;
+    el.classList.toggle('is-current', target === name);
   });
+}
+
+/** A mobil nav gyűrű „itt vagy" jelzése: a címkék kiemelése, a gomb ikonja
+    pedig minden oldalra jelzi, hol vagy. */
+function syncNavRingState(name) {
+  syncNavRingLabels(name);
 
   /* A gombon lévő ikon az egyetlen jelzés, ami MINDEN oldalra működik: a négy
      iránycímke az Áttekintésnél, a Regenerációnál és a flow-oldalakon egyszerre
@@ -271,4 +285,16 @@ function setupRouter() {
   }
 }
 
-export { animateCoachRatings, currentPage, navigate, setOnboardingLock, setupRouter };
+/** A gyűrű újraszinkronizálása az aktuális oldalra — az Edző oldal hívja, ha
+    megváltozott, hogy a „fel" irány hová visz. */
+const refreshNavRing = () => syncNavRingLabels(currentPage());
+
+export {
+  animateCoachRatings,
+  currentPage,
+  dirToPage,
+  navigate,
+  refreshNavRing,
+  setOnboardingLock,
+  setupRouter,
+};
