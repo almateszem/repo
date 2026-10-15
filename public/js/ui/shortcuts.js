@@ -4,7 +4,7 @@ import { KEY_TO_PAGE, OPEN_MODAL_SELECTOR } from '../core/constants.js';
 import { $ } from '../core/dom.js';
 import { currentPage, navigate } from '../nav/router.js';
 
-/** Gyorsbillentyűk: 1–5 oldalváltás. Gépelés közben és nyitott modal
+/** Gyorsbillentyűk: 1–7 oldalváltás (a side-nav sorrendje). Gépelés közben és nyitott modal
     mellett inaktív — utóbbi nélkül a háttérben lévő oldal átváltott,
     miközben az ablak nyitva maradt előtte. A modált közös horgony ismeri fel,
     nem osztálylista: a lista idején az étel-, a saját étel és a szkenner

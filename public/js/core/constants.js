@@ -56,14 +56,26 @@ const DIR_TO_PAGE = {
     egyébként ide. Az Edző oldal ilyenkor a Profilból érhető el. */
 const NAV_UP_FALLBACK = 'recovery';
 
+/** A flow-oldalak „szülője": az a side-nav elem, amelyik alatt a felhasználó
+    jár. Az asztali oldalsáv ezt emeli ki, hogy a flow-oldalon se vesszen el a
+    „hol vagyok". A gyakorlat-választóé a hívótól függ (terv-építő, edzés vagy
+    profil), ezért az nincs itt — lásd a router pageSection()-jét. */
+const PAGE_SECTION = {
+  summary: 'workout',
+  'plan-builder': 'plans',
+  'workout-picker': 'plans',
+  checkin: 'recovery',
+};
+
 // A gyorsbillentyűk a desktop side-nav sorrendjét követik.
 const KEY_TO_PAGE = {
   1: 'dashboard',
-  2: 'recovery',
-  3: 'coach',
-  4: 'plans',
-  5: 'workout',
-  6: 'nutrition',
+  2: 'workout',
+  3: 'nutrition',
+  4: 'recovery',
+  5: 'plans',
+  6: 'coach',
+  7: 'profile',
 };
 
 /** Nyitott modál felismerése: a createModalController `is-open`-t tesz a
@@ -82,5 +94,6 @@ export {
   NAV_UP_FALLBACK,
   NOTIF_CATEGORIES,
   OPEN_MODAL_SELECTOR,
+  PAGE_SECTION,
   PAGES,
 };
