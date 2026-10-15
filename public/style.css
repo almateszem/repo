@@ -338,6 +338,15 @@ button:disabled {
   outline-offset: 2px;
 }
 
+/* Az oldal- és lépéscímet a JS fókuszálja váltáskor (router.js, check-in
+   varázsló), hogy a képernyőolvasó az új tartalomnál folytassa. A cím nem
+   interaktív, a keret tehát nem ad információt, csak villan az oldalváltáson.
+   Szándékosan csak a címsorokra: a többi tabindex="-1" elem (fülek, léptető
+   gombok) a nyílbillentyűs mozgatásnál igenis kapjon fókuszjelzést. */
+:is(h1, h2, h3)[tabindex='-1']:focus {
+  outline: none;
+}
+
 /* A szövegmezők egérrel/érintéssel nem kapnak keretet (a komponenseknek saját
    fókuszjelzésük van), billentyűzettel viszont IGEN. Korábban itt sima
    `input:focus { outline: none }` állt, ami magasabb specificitása miatt a
