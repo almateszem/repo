@@ -73,10 +73,14 @@ function renderClientStatus(el, me) {
     icon.textContent = '✓';
     const text = document.createElement('span');
     text.className = 'co-status-text';
+    // Kevés napló mellett a jelzés hiánya adathiány, nem „minden rendben"
+    const lowData = me.confidence === 'low';
     const strong = document.createElement('strong');
-    strong.textContent = 'Minden rendben';
+    strong.textContent = lowData ? 'Még kevés az adat' : 'Minden rendben';
     const note = document.createElement('span');
-    note.textContent = 'Az edződ panelján nincs rólad jelzés — tartsd a tempót.';
+    note.textContent = lowData
+      ? 'Az edződ panelján nincs rólad jelzés — több naplóval pontosabb lesz az értékelés.'
+      : 'Az edződ panelján nincs rólad jelzés — tartsd a tempót.';
     text.append(strong, note);
     box.append(icon, text);
   }
@@ -85,7 +89,7 @@ function renderClientStatus(el, me) {
 
 /** Az oldalsáv „Az edződ panelján" blokkja: szint-jelvény és stat-lista. */
 function renderClientScore(block, me) {
-  const tier = athleteTier(me.rating);
+  const tier = athleteTier(me.rating, me.confidence);
   const badge = $('[data-client-badge]', block);
   badge.className = `co-modal-badge co-tier--${tier.key}`;
   $('.co-modal-rating', badge).textContent = orDash(me.rating);
@@ -207,8 +211,7 @@ function renderActivePlan(el, history) {
   if (!active) {
     const p = document.createElement('p');
     p.className = 'co-goal-state';
-    p.textContent =
-      'Még nem fogadtál el tervet az edződtől.';
+    p.textContent = 'Még nem fogadtál el tervet az edződtől.';
     el.replaceChildren(p);
     return;
   }

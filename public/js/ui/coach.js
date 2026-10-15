@@ -331,7 +331,7 @@ function setupAthleteDetail({ confirmAction, onUnlink, onRead, onAssign } = {}) 
     renderAthleteFeedback(athlete);
     renderExerciseNotes(athlete);
 
-    const tier = athleteTier(athlete.rating);
+    const tier = athleteTier(athlete.rating, athlete.confidence);
     badge.className = `co-modal-badge co-tier--${tier.key}`;
     $('.co-modal-rating', badge).textContent = athlete.rating ?? '—';
     $('.co-modal-tag', badge).textContent = athlete.goal ?? '—';

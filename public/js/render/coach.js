@@ -22,15 +22,20 @@ function createCoachNote({ meta, text, me = false }) {
    ≥ 85, ezüst ≥ 70, alatta bronz) ebből jön.
    A sor azonosítója a KAPCSOLAT azonosítója: a sportoló belső id-jét a
    szerver nem is adja ki. */
-const athleteTier = (rating) =>
+const athleteTier = (rating, confidence = null) =>
   rating === null || rating === undefined
     ? // Nincs mérhető jel (se készenlét, se terv-követés) — ez nem „bronz"
       { key: 'none', label: 'Még nincs pontszám', short: 'Nincs pont' }
-    : rating >= 85
-      ? { key: 'gold', label: 'Arany szint', short: 'Arany' }
-      : rating >= 70
-        ? { key: 'silver', label: 'Ezüst szint', short: 'Ezüst' }
-        : { key: 'bronze', label: 'Bronz szint', short: 'Bronz' };
+    : confidence === 'low'
+      ? /* Kevés napló: a motor általános referenciával számol, a magas szám
+           így nem „arany" teljesítmény, hanem adathiány. A pontszám marad,
+           de szint nem jár hozzá. */
+        { key: 'none', label: 'Kevés adat', short: 'Kevés adat' }
+      : rating >= 85
+        ? { key: 'gold', label: 'Arany szint', short: 'Arany' }
+        : rating >= 70
+          ? { key: 'silver', label: 'Ezüst szint', short: 'Ezüst' }
+          : { key: 'bronze', label: 'Bronz szint', short: 'Bronz' };
 
 /** Hiányzó érték helyén gondolatjel. A „még nincs adat" NEM nulla: terv
     nélkül nincs terv-követés, edzés nélkül nincs utolsó edzés. */
@@ -134,7 +139,7 @@ function renderStat(label, athlete, getValue) {
 function renderAthleteCard(athlete, index) {
   const card = cloneTemplate('tpl-athlete-card');
   const rating = athlete.rating;
-  const tier = athleteTier(rating);
+  const tier = athleteTier(rating, athlete.confidence);
 
   card.classList.add(`co-tier--${tier.key}`);
   card.classList.toggle('is-alert', Boolean(athlete.alert));
@@ -392,10 +397,14 @@ function renderCoachStatus(athletes) {
     box.className = 'co-status';
     const text = document.createElement('span');
     text.className = 'co-status-text';
+    // Kevés napló mellett a riasztás hiánya adathiány, nem „minden rendben"
+    const lowData = athletes.every((athlete) => athlete.confidence === 'low');
     const strong = document.createElement('strong');
-    strong.textContent = 'Minden rendben';
+    strong.textContent = lowData ? 'Még kevés az adat' : 'Minden rendben';
     const note = document.createElement('span');
-    note.textContent = 'Egyik sportolódnál sincs riasztás — nincs sürgős teendőd.';
+    note.textContent = lowData
+      ? 'Egyik sportolódnál sincs riasztás, de még kevés napló van az értékeléshez.'
+      : 'Egyik sportolódnál sincs riasztás — nincs sürgős teendőd.';
     text.append(strong, note);
     box.append(icon('✓'), text);
     banner.replaceChildren(box);
