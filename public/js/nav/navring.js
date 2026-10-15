@@ -7,18 +7,26 @@ import { prefersReducedMotion } from '../core/dom.js';
    ====================================================================== */
 const RING_RADIUS = 44; // px, a gomb maximális kitérése
 
-const DIR_THRESHOLD = 26; // px, ekkora elmozdulástól számít iránynak
+const DIR_THRESHOLD = 26; // px, ekkora elmozdulástól számít iránynak; ez alatt a húzás koppintás (home)
 
-const TAP_THRESHOLD = 9; // px, ez alatt koppintásnak (home) számít
+const AXIS_BIAS = 1.25; // az egyik tengelynek ennyiszer nagyobbnak kell lennie, hogy irányt válasszon
 
 function setupNavRing(knob, onNavigate) {
+  const labels = knob.closest('.nav-ring-wrap')?.querySelectorAll('.nl') ?? [];
   let pointerId = null;
   let startX = 0;
   let startY = 0;
   let direction = null;
   let maxDistance = 0;
 
+  // A cél kiemelése húzás közben: a felirat és a gomb kerete is jelzi, hová visz.
+  const highlight = (dir) => {
+    labels.forEach((label) => label.classList.toggle('is-target', label.dataset.navDir === dir));
+    knob.classList.toggle('is-armed', dir !== null);
+  };
+
   const reset = () => {
+    highlight(null);
     knob.style.cursor = 'grab';
     if (!prefersReducedMotion) {
       knob.style.transition = 'transform .4s cubic-bezier(.18,.9,.2,1.1)';
@@ -56,22 +64,21 @@ function setupNavRing(knob, onNavigate) {
     const angle = Math.atan2(dy, dx);
     knob.style.transform = `translate(calc(-50% + ${Math.cos(angle) * clamped}px), calc(-50% + ${Math.sin(angle) * clamped}px))`;
 
-    direction =
-      distance < DIR_THRESHOLD
-        ? null
-        : Math.abs(dx) > Math.abs(dy)
-          ? dx > 0
-            ? 'right'
-            : 'left'
-          : dy > 0
-            ? 'down'
-            : 'up';
+    // Domináns tengely + hiszterézis: az átlós sávban (a két tengely közel
+    // egyenlő) az előző irány marad — pontosan 45°-nál nem dől el véletlenül.
+    const previous = direction;
+    if (distance < DIR_THRESHOLD) direction = null;
+    else if (Math.abs(dx) > Math.abs(dy) * AXIS_BIAS) direction = dx > 0 ? 'right' : 'left';
+    else if (Math.abs(dy) > Math.abs(dx) * AXIS_BIAS) direction = dy > 0 ? 'down' : 'up';
+    if (direction !== previous) highlight(direction);
     event.preventDefault();
   };
 
   const onUp = (event) => {
     if (event.pointerId !== pointerId) return;
-    const nav = direction ?? (maxDistance < TAP_THRESHOLD ? 'home' : null);
+    // A rövid húzás (nem érte el az irány-küszöböt) koppintás: az Áttekintésre visz.
+    // Ha viszont a felhasználó kihúzta, majd visszahúzta a gombot, az mégse.
+    const nav = direction ?? (maxDistance < DIR_THRESHOLD ? 'home' : null);
     reset();
     if (nav) onNavigate(nav);
   };
