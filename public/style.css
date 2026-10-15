@@ -4299,6 +4299,24 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   transition:
     color var(--t-fast),
     opacity var(--t-fast);
+  /* Koppintható: a wrap pointer-events: none-t kap, a címke maga nem. */
+  pointer-events: auto;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* A látható szöveg ~12px magas — a találati terület a ::before-ral nő 44px
+   fölé. A gomb a DOM-ban később jön, ezért ahol a területek fedik egymást,
+   a húzható gomb nyer. */
+.nl::before {
+  content: '';
+  position: absolute;
+  inset: -16px -12px;
+}
+
+.nl:active {
+  color: var(--text-primary);
 }
 
 /* „Itt vagy" — mobilon eddig SEMMI nem mutatta az aktív oldalt: az
