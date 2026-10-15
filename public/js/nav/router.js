@@ -111,7 +111,7 @@ function pageFromHash() {
   return PAGES.includes(hash) ? hash : null;
 }
 
-/** Az oldalak emberi neve — a mobil nav-hint és a fókusz-bejelentés használja. */
+/** Az oldalak emberi neve — a nav gomb neve és a fókusz-bejelentés használja. */
 const PAGE_TITLES = {
   dashboard: 'Áttekintés',
   recovery: 'Regeneráció',
@@ -130,8 +130,8 @@ const PAGE_TITLES = {
 /** Az oldalak ikonjai a nav gyűrű gombjához — az index.html tetején lévő közös
     sprite symbol-id-jei. Ugyanaz a 12 kulcs, mint a PAGE_TITLES-ben, hogy a
     kettő ne sodródjon szét. Az Edző és a Profil oldal is a már meglévő
-    #icon-user-t használja — hogy melyiken állsz, a gomb neve és a hint-sor
-    mondja meg (mindkettő a PAGE_TITLES-ből). */
+    #icon-user-t használja — hogy melyiken állsz, a gomb neve mondja meg
+    (a PAGE_TITLES-ből). */
 const PAGE_ICONS = {
   dashboard: 'icon-page-dashboard',
   recovery: 'icon-page-recovery',
@@ -150,13 +150,9 @@ const PAGE_ICONS = {
 /** Az éppen látható oldal (a DOM az igazságforrás — a hash lehet horgony is). */
 const currentPage = () => $('.app-page:not([hidden])')?.dataset.page ?? 'dashboard';
 
-/** A mobil nav gyűrű „itt vagy" jelzése. A gyűrűnek négy iránya van, az
-    Áttekintés és a Regeneráció nincs köztük — ezért a hint-sor mindig
-    kiírja az oldal nevét, a négy címke közül pedig kiemeli az aktuálisat
-    (ha van ilyen). Enélkül mobilon semmi nem mutatta, hol vagy. */
+/** A mobil nav gyűrű „itt vagy" jelzése: a négy címke közül kiemeli az
+    aktuálisat (ha van ilyen), a gomb ikonja pedig minden oldalra jelzi. */
 function syncNavRingState(name) {
-  const label = $('[data-nav-current]');
-  if (label) label.textContent = PAGE_TITLES[name] ?? '';
   $$('.nl').forEach((el) => {
     const dir = el.className.match(/nl--(\w+)/)?.[1];
     const dirKey = { up: 'up', dn: 'down', lt: 'left', rt: 'right' }[dir];
@@ -200,6 +196,8 @@ function showPage(name) {
     else link.removeAttribute('aria-current');
   });
   syncNavRingState(name);
+  // A CSS ebből tudja elrejteni a gyűrűt a folyamat-oldalakon (A1).
+  document.body.dataset.page = name;
 
   /* Oldalváltáskor a görgetés és a fókusz is az új oldalra kerül. Korábban
      egyik sem történt meg: a Regeneráció aljáról az Áttekintésre lépve a lap

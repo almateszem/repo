@@ -210,7 +210,6 @@
   /* Z-index rétegek */
   --z-nav-fade: 40;
   --z-nav-ring: 41;
-  --z-nav-hint: 42;
   --z-popover: 60;
   --z-modal: 100;
   --z-toast: 110;
@@ -232,8 +231,8 @@
   --sidebar-width: 240px;
   /* Alsó hely a fix nav gyűrűnek mobil nézetben. 200px volt — egy 667px magas
      telefonon a nézetablak 30%-a. A gyűrű lejjebb és laposabban ül (lásd 11.
-     szakasz), így 164px elég. */
-  --nav-ring-clearance: 164px;
+     szakasz), így 186px elég (a gyűrű alja 40px-re ül az éltől). */
+  --nav-ring-clearance: 186px;
 }
 
 /* A világos téma helye. A prototípusban opció (paper: #f4f2ed), de a
@@ -4223,7 +4222,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 
 .nav-ring-wrap {
   position: fixed;
-  bottom: 18px; /* 30px volt — a gyűrű lejjebb ül, hogy kevesebb tartalmat takarjon */
+  bottom: 40px; /* a súgósor megszűnt alóla, így feljebb ül: kényelmesebb a hüvelykujjnak */
   left: 50%;
   transform: translateX(-50%);
   width: 248px;
@@ -4340,28 +4339,60 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   transform: translate(0, -50%);
 }
 
-/* A hint-sor egyben az aktuális oldal neve is: „Áttekintés · húzd bármelyik
-   irányba". A négy iránycímke csak a szomszédokat mutatja, az Áttekintés és a
-   Regeneráció pedig egyáltalán nincs köztük — enélkül a felhasználó nem tudta
-   megmondani, hol van. */
-.nav-hint {
-  position: fixed;
-  left: 50%;
-  bottom: var(--sp-2);
-  transform: translateX(-50%);
-  z-index: var(--z-nav-hint);
-  margin: 0;
-  color: var(--text-muted); /* --fg-35 volt: 3,2:1 — a lap legrosszabb kontrasztja */
-  font-size: var(--fs-xs);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  pointer-events: none;
+/* A fix gyűrű és kifakulása nem takarhatja a tartalmat ott, ahol a feladat a
+   fontos, és nincs rá szükség:
+   - a folyamat-oldalakon (check-in, terv-építő, gyakorlat-választó) saját
+     vissza-nyíl és fő gomb van, a gyűrű csak a "Tovább" / "Terv mentése"
+     gombot takarta;
+   - szövegmezőn álló fókusznál a billentyűzet amúgy is elviszi a hely nagy
+     részét, a gyűrű pedig a fókuszált mezőt fedte volna. */
+body:is([data-page='checkin'], [data-page='plan-builder'], [data-page='exercise-picker'])
+  :is(.nav-ring-fade, .nav-ring-wrap),
+body:has(
+    :is(
+      input:not(
+        [type='checkbox'],
+        [type='radio'],
+        [type='range'],
+        [type='button'],
+        [type='submit']
+      ),
+      textarea,
+      select
+    ):focus
+  )
+  :is(.nav-ring-fade, .nav-ring-wrap) {
+  display: none;
 }
 
-.nav-hint-page {
-  color: var(--text-primary);
-  font-weight: 700;
+/* A rejtett gyűrű helyét sem kell szabadon hagyni a lap alján. */
+body:is([data-page='checkin'], [data-page='plan-builder'], [data-page='exercise-picker']) {
+  --nav-ring-clearance: var(--sp-12);
+}
+
+/* Alacsony (főleg fekvő) kijelzőn a 164px-es sáv a nézetablak felét vinné el. */
+@media (max-height: 520px) {
+  :root {
+    --nav-ring-clearance: 112px;
+  }
+
+  .nav-ring-wrap {
+    bottom: 20px;
+    width: 220px;
+    height: 84px;
+  }
+
+  .nav-knob {
+    width: 50px;
+    height: 50px;
+  }
+}
+
+/* A fókuszba görgetett elem (pl. a súlymező) ne a gyűrű alá kerüljön. */
+@media (max-width: 1024px) {
+  html {
+    scroll-padding-bottom: var(--nav-ring-clearance);
+  }
 }
 
 /* ==========================================================================
@@ -4837,8 +4868,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   }
 
   .nav-ring-fade,
-  .nav-ring-wrap,
-  .nav-hint {
+  .nav-ring-wrap {
     display: none;
   }
 }
@@ -9696,8 +9726,7 @@ details[open] > .rc-details-summary::before {
 body[data-onboarding] .app-chrome,
 body[data-onboarding] .side-nav,
 body[data-onboarding] .nav-ring-wrap,
-body[data-onboarding] .nav-ring-fade,
-body[data-onboarding] .nav-hint {
+body[data-onboarding] .nav-ring-fade {
   display: none;
 }
 
