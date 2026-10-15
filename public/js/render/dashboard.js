@@ -222,8 +222,12 @@ async function renderDashboard() {
   // hogy az adatból származó rész se kerülhessen soha HTML-ként a lapra.
   const quoteEl = $('[data-db-quote]');
   if (quoteEl) {
-    const [first, second] =
-      readiness >= 85
+    /* Adat nélkül (readiness === null) nincs mit tanácsolni: a `null >= 85` és
+       `null >= 65` is hamis, ezért a régi lánc a „pihenést kér" ágra esett, és
+       egy teljesen új felhasználónak azt mondta, hogy pihenjen. */
+    const [first, second] = !readinessKnown
+      ? ['Még nincs elég adat a készenléthez —', 'töltsd ki a napi check-int.']
+      : readiness >= 85
         ? [
             `${streak} napos sorozatban vagy, és a tested is készen áll —`,
             'ma mehet a nehezebb edzés.',
