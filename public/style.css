@@ -2952,7 +2952,14 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   flex-shrink: 0;
 }
 
+/* Ragadós: görgetés közben a fejléc-sáv alatt megáll, így a hosszú listák
+   (étel, gyakorlat, korábbi edzés) közepéről is lehet keresni. A --chrome-h-t
+   a js/ui/chrome.js méri (asztalon 0, ott a fejléc az oldalsávban ül). Az opak
+   háttér kell, különben az alatta elgördülő sorok átlátszanának. */
 .nu-search {
+  position: sticky;
+  top: var(--chrome-h, 0px);
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: var(--sp-4);
@@ -2960,6 +2967,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   border: 1px solid var(--hair);
   padding: var(--sp-4) var(--sp-6);
   margin-bottom: var(--sp-8);
+  background: var(--c-bg);
   transition: border-color var(--t-fast);
 }
 
@@ -3020,6 +3028,39 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .nu-food-macros {
   font-size: var(--fs-xs);
   color: var(--text-muted);
+  /* A .ds-row-sub ritkítása nélkül fér egy sorba telefonon is. */
+  letter-spacing: 0.02em;
+}
+
+/* Keresés nélkül csak az első 8 étel látszik — a számot a js/ui/nutrition.js
+   COLLAPSED_FOODS konstansa is használja, a kettőnek egyeznie kell. */
+.nu-food-list.is-collapsed > li:nth-child(n + 9) {
+  display: none;
+}
+
+.nu-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: var(--tap-min);
+  margin-top: var(--sp-7);
+  border: 1px solid var(--hair);
+  background: none;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  transition:
+    color var(--t-fast),
+    border-color var(--t-fast);
+}
+
+.nu-more:hover {
+  color: var(--text-primary);
+  border-color: var(--fg-40);
 }
 
 .nu-food-add {
