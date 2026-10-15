@@ -1188,7 +1188,14 @@ input.wk-chip:focus-visible {
   align-items: flex-start;
   flex-wrap: wrap;
   gap: clamp(20px, 4vw, 64px);
-  padding: var(--sp-11) 0 var(--sp-13);
+  /* Az alsó térköz kisebb, mert közvetlenül utána az „Edzés indítása" gomb áll. */
+  padding: var(--sp-11) 0 var(--sp-9);
+}
+
+/* Az „Edzés indítása" a készenlét alatt: az állapot után rögtön a teendő, az
+   első képernyőn. A következő blokk (kalória) saját vonala választja el. */
+.db-start {
+  padding-bottom: var(--sp-13);
 }
 
 .db-readiness {
