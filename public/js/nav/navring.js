@@ -96,6 +96,13 @@ function setupNavRing(knob, onNavigate) {
     onNavigate(dir);
   };
 
+  // Az iránycímkék is koppinthatók: a húzás mellett egy érintés is elég.
+  // A címkék aria-hidden-ek — a billentyűzet és a képernyőolvasó a gombot használja.
+  knob.closest('.nav-ring-wrap')?.addEventListener('click', (event) => {
+    const dir = event.target.closest('.nl')?.dataset.navDir;
+    if (dir) onNavigate(dir);
+  });
+
   knob.addEventListener('pointerdown', onDown);
   knob.addEventListener('pointermove', onMove);
   knob.addEventListener('pointerup', onUp);
