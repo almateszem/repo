@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — HTTP biztonsági fejlécek
+ * Podium — HTTP biztonsági fejlécek
  * ---------------------------------------
  * Egyetlen köztes réteg, ami MINDEN válaszra ráteszi ugyanazt a néhány
  * fejlécet. Nulla új függőség (a helmet ugyanezt a néhány sort hozná el egy

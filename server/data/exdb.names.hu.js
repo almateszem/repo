@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — gyakorlatnév-szótár (angol → magyar)
+ * Podium — gyakorlatnév-szótár (angol → magyar)
  * ==================================================
  * A külső dataset nevei kompozicionálisak: „{felszerelés} {módosítók}
  * {mozgás}”, például `dumbbell seated incline biceps curl`. Ezért NEM

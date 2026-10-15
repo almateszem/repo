@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — izomcsoport-taxonómia és gyakorlat → izom leképezés
+ * Podium — izomcsoport-taxonómia és gyakorlat → izom leképezés
  * ------------------------------------------------------------------
  * A Recovery Engine csak akkor tud izomcsoportonként regenerációt becsülni,
  * ha meg tudja mondani, egy adott gyakorlat MELYIK izmot mennyire terhelte.

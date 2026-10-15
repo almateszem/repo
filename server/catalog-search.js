@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — katalógus-keresés (gyakorlatok, ételek)
+ * Podium — katalógus-keresés (gyakorlatok, ételek)
  * -----------------------------------------------------
  * A gyakorlat-választó és az étel-lista korábban a TELJES katalógust töltötte
  * le és rajzolta ki induláskor (1400+ gyakorlat, 400+ étel). Mostantól a

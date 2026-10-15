@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — Recovery Engine
+ * Podium — Recovery Engine
  * ==============================
  * A napi készenléti állapot (Readiness Score) és a belőle következő edzés-
  * ajánlások motorja. Ez a modul SZÁNDÉKOSAN nem ismeri az adatbázist: minden

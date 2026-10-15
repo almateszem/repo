@@ -1,4 +1,4 @@
-# FitTrack Pro
+# Podium
 
 Edző–kliens edzésmenedzsment demo: edzésnapló, tervkészítő, táplálkozás-követés
 és edzői panel — utóbbi valódi, több fiók közti edző–sportoló kapcsolattal. Egyetlen Express szerver szolgálja ki a statikus frontendet és a
@@ -23,12 +23,12 @@ Környezeti változók:
 | Változó                | Alapérték            | Mire jó                                                                                                    |
 | ---------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------- |
 | `PORT`                 | `3000`               | A szerver portja                                                                                           |
-| `FITTRACK_DB`          | `server/fittrack.db` | Az adatbázisfájl útvonala — **teszthez érdemes eldobható fájlra állítani**, hogy a valódi adat ne sérüljön |
-| `FITTRACK_TRUST_PROXY` | kikapcsolva          | Reverse proxy mögött a megbízható proxy-lépések száma (pl. `1`) — ld. _Élesítés_                           |
+| `PODIUM_DB`          | `server/podium.db` | Az adatbázisfájl útvonala — **teszthez érdemes eldobható fájlra állítani**, hogy a valódi adat ne sérüljön |
+| `PODIUM_TRUST_PROXY` | kikapcsolva          | Reverse proxy mögött a megbízható proxy-lépések száma (pl. `1`) — ld. _Élesítés_                           |
 
 ```bash
 # Kísérletezés külön adatbázison, az éles adat érintése nélkül
-PORT=3999 FITTRACK_DB=/tmp/proba.db npm start
+PORT=3999 PODIUM_DB=/tmp/proba.db npm start
 ```
 
 ## Élesítés
@@ -39,31 +39,31 @@ kódkérdés — a telepítés környezetén múlnak.
 ### 1. Az adatbázisnak perzisztens tárolón kell lennie
 
 Sok hostingon (Heroku, Render, Fly volume nélkül) a fájlrendszer **ephemeral**:
-minden újradeploynál üres lappal indul. A `server/fittrack.db` ilyenkor
+minden újradeploynál üres lappal indul. A `server/podium.db` ilyenkor
 eltűnik, és vele az összes felhasználó edzésnaplója. A seed adat (gyakorlat- és
 étel-katalógus) újraépül a `data.js`-ből, a **naplók nem**.
 
-Állítsd a `FITTRACK_DB`-t egy csatolt kötetre:
+Állítsd a `PODIUM_DB`-t egy csatolt kötetre:
 
 ```bash
 # Fly.io — a fly.toml-ban létrehozott volume mountja alá
-FITTRACK_DB=/data/fittrack.db
+PODIUM_DB=/data/podium.db
 
 # Docker — nevesített kötettel
-docker run -v fittrack-data:/data -e FITTRACK_DB=/data/fittrack.db …
+docker run -v podium-data:/data -e PODIUM_DB=/data/podium.db …
 ```
 
 A szerver indításkor kiírja a feloldott útvonalat és azt is, hogy meglévő
 adatbázist nyitott-e meg vagy újat hozott létre:
 
 ```
-SQLite kész → /data/fittrack.db (meglévő)
+SQLite kész → /data/podium.db (meglévő)
 ```
 
 Ha ehelyett **minden indításkor** `(ÚJ adatbázis jött létre)` látszik, akkor a
 tároló nem perzisztens — ez a hiba pontos tünete.
 
-A WAL mód miatt a `fittrack.db` mellé `-wal` és `-shm` fájlok is kerülnek;
+A WAL mód miatt a `podium.db` mellé `-wal` és `-shm` fájlok is kerülnek;
 mentésnél/másolásnál a hármat együtt kell kezelni (vagy leállított szerverrel
 másolni).
 
@@ -75,7 +75,7 @@ a feltételek rendben vannak (az attribúció ki van téve a gyakorlat-választ�
 alján), **kereskedelmi felhasználáshoz viszont saját engedély kell** a
 jogtulajdonostól. Részletek: `public/exercises/ATTRIBUTION.txt`.
 
-### 3. Reverse proxy mögött: `FITTRACK_TRUST_PROXY`
+### 3. Reverse proxy mögött: `PODIUM_TRUST_PROXY`
 
 A belépés és a regisztráció korlátja a **kérés forrására** szól. Proxy mögött
 (Fly.io, nginx, a legtöbb PaaS) beállítás nélkül minden kérés a proxy címéről
@@ -84,7 +84,7 @@ szemét-belépés 15 percre mindenkit kizár. Állítsd a megbízható proxy-lé
 számára:
 
 ```bash
-FITTRACK_TRUST_PROXY=1   # egy proxy a szerver előtt (Fly.io, egy nginx)
+PODIUM_TRUST_PROXY=1   # egy proxy a szerver előtt (Fly.io, egy nginx)
 ```
 
 A `true` szándékosan tiltott (a szerver el sem indul vele): mellette a kliens
@@ -135,7 +135,7 @@ nem ütközik bele, egy végigsorolt kódtartomány viszont nem tudja sem az Ope
 Food Facts felé a szerver nevét elégetni, sem a `barcode_cache`-t hízlalni.
 
 Reverse proxy mögött a forrásra szóló korlátokhoz (belépés, regisztráció)
-`FITTRACK_TRUST_PROXY` kell (ld. fent), különben minden kérés a proxy címéről
+`PODIUM_TRUST_PROXY` kell (ld. fent), különben minden kérés a proxy címéről
 érkezőnek látszik, és a korlát az egész forgalomra közösen számol.
 
 ## Felépítés
@@ -190,7 +190,7 @@ server/
   account.test.js  jelszóváltoztatás és fióktörlés végponti tesztjei (npm test)
   security.test.js  biztonsági végponti tesztek: belépési korlát, kizárás, méretkorlátok (npm test)
   timezone.test.js  a kérés napja (X-Client-Date) végponti tesztjei (npm test)
-  fittrack.db    az adatbázisfájl (nem verziókövetett, a szerver hozza létre)
+  podium.db    az adatbázisfájl (nem verziókövetett, a szerver hozza létre)
 scripts/
   build-exdb.js  a server/data/exercises.exdb.js generálása (npm run exdb:build)
   fetch-exdb-media.js  a hivatkozott gyakorlat-képek letöltése a public/exercises/ alá (npm run exdb:media)
@@ -366,7 +366,7 @@ tartja ki a gráfból magát a vendorolt skillt (különben a saját dokumentác
   mint ami a Korábbi rekordok listáját kiírja. A csúcsok fiókonként külön
   táblasorban állnak, tehát mindenki a saját korábbi teljesítményéhez mérődik.
 - **Migrációk.** A séma bővítései a `db.js` `ensureColumn` hívásaival futnak le a
-  meglévő adatbázisfájlokon is, tehát nem kell törölni a `fittrack.db`-t. Aki a
+  meglévő adatbázisfájlokon is, tehát nem kell törölni a `podium.db`-t. Aki a
   PR-követés bevezetése előtt naplózott, annak a csúcsait a szerver egyszer
   visszatölti a meglévő edzésekből — enélkül a következő edzés minden
   gyakorlata hamis rekordot ütne.

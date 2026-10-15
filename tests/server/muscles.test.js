@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — a régi (9 csoportos) izomtérképek szétosztása
+ * Podium — a régi (9 csoportos) izomtérképek szétosztása
  * ------------------------------------------------------------
  * A 12 csoportos taxonómia a régi `arms` és `back` kulcsot felbontja. A
  * check-inekben tárolt izomláz- és fájdalom-értékeknek ÁT kell öröklődniük

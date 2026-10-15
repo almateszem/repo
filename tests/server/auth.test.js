@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — a jelszó- és munkamenet-kezelés unit-tesztjei
+ * Podium — a jelszó- és munkamenet-kezelés unit-tesztjei
  * -------------------------------------------------------------
  * A beépített `node:test` futtatóval (`npm test`), nulla új függőséggel.
  * A server/auth.js tiszta függvényekből áll (nem ismeri sem az adatbázist,
@@ -82,7 +82,7 @@ test('a munkamenet-token véletlen, és a lenyomata determinisztikus', () => {
 
 test('parseCookies', () => {
   assert.deepEqual(parseCookies('a=1; b=2'), { a: '1', b: '2' });
-  assert.deepEqual(parseCookies('fittrack_session=abc%2Fdef'), { fittrack_session: 'abc/def' });
+  assert.deepEqual(parseCookies('podium_session=abc%2Fdef'), { podium_session: 'abc/def' });
   assert.deepEqual(parseCookies(''), {});
   assert.deepEqual(parseCookies(undefined), {});
   assert.deepEqual(parseCookies('hibás'), {}, 'egyenlőségjel nélküli rész kimarad');
@@ -91,8 +91,8 @@ test('parseCookies', () => {
 });
 
 test('serializeCookie — a védő jelzők mindig rajta vannak', () => {
-  const cookie = serializeCookie('fittrack_session', 'token123', { maxAge: 60 });
-  assert.match(cookie, /^fittrack_session=token123/);
+  const cookie = serializeCookie('podium_session', 'token123', { maxAge: 60 });
+  assert.match(cookie, /^podium_session=token123/);
   assert.ok(cookie.includes('HttpOnly'), 'JS-ből ne legyen olvasható');
   assert.ok(cookie.includes('SameSite=Lax'), 'más oldalról ne menjen el');
   assert.ok(cookie.includes('Max-Age=60'));

@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — a heti bontású edzésterv
+ * Podium — a heti bontású edzésterv
  * ---------------------------------------
  * Egy terv EGY HÉT: hét nap, hétfőtől (0) vasárnapig (6), és hetente
  * ismétlődik. Minden nap a három közül egy:

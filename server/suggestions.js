@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — ajánlott gyakorlatok a gyakorlat-választóhoz
+ * Podium — ajánlott gyakorlatok a gyakorlat-választóhoz
  * ----------------------------------------------------------
  * A választó magától javasol gyakorlatokat, KÉT EGYENRANGÚ jelből:
  *

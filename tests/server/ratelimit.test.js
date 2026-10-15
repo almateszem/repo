@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — a kérés-korlátozó
+ * Podium — a kérés-korlátozó
  * ---------------------------------
  * Tiszta számláló, tehát az idő is átadható: a tesztnek nem kell VÁRNIA egy
  * ablak leteltére, csak előre tekernie az órát. Ez nem kényelmi fogás — egy

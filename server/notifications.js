@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — az értesítés-panel tartalma
+ * Podium — az értesítés-panel tartalma
  * -------------------------------------------
  * Ez a modul VÁLTJA KI azt, amit korábban a data.js beégetett demo-listája
  * játszott el (egy nem létező edző, kitalált tervekkel és „5 órája" idővel).

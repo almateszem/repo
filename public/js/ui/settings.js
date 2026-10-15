@@ -128,7 +128,7 @@ async function setupSettingsModal({ onNotifCatsChange, confirmAction } = {}) {
       const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.download = 'fittrack-pro-demo.json';
+      link.download = 'podium-demo.json';
       link.click();
       setTimeout(() => URL.revokeObjectURL(link.href), 1000);
     } catch {

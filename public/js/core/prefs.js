@@ -1,12 +1,15 @@
 /** Felhasználói preferenciák — localStorage, a szervertől függetlenül. */
 
 /** Felhasználói preferenciák — egyetlen JSON kulcs alatt, hibatűrően. */
-const PREFS_KEY = 'fittrackpro:prefs';
+const PREFS_KEY = 'podium:prefs';
+// A projekt régi (FitTrack) nevén mentett kulcs — olvasáskor átvesszük.
+const LEGACY_PREFS_KEY = 'fittrackpro:prefs';
 
 const prefs = {
   read() {
     try {
-      return JSON.parse(localStorage.getItem(PREFS_KEY)) || {};
+      const stored = localStorage.getItem(PREFS_KEY) ?? localStorage.getItem(LEGACY_PREFS_KEY);
+      return JSON.parse(stored) || {};
     } catch {
       return {};
     }

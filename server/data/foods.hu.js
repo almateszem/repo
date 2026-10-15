@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — étel-adatbázis (magyar)
+ * Podium — étel-adatbázis (magyar)
  * ======================================
  * Ez a fájl az étel-katalógus EGYETLEN szerkesztési helye. Az importáló
  * (server/import.js) innen tölti fel a `foods` és `food_portions` táblákat;

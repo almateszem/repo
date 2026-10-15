@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — a heti bontású edzésterv tiszta függvényei (plan-week.js)
+ * Podium — a heti bontású edzésterv tiszta függvényei (plan-week.js)
  * -----------------------------------------------------------------------
  * A régi tervek átalakítása, a beküldött hét validálása és a napok
  * feloldása („same" → a hivatkozott nap edzése). A HTTP-oldalt az

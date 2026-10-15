@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — gyakorlat-média letöltése
+ * Podium — gyakorlat-média letöltése
  * ========================================
  * A generált katalógus (server/data/exercises.exdb.js) által HIVATKOZOTT
  * képeket és gifeket tölti le a public/exercises/ alá. Csak azt, amire

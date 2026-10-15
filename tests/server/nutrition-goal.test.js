@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — az EDZŐI táplálkozási cél élettartama, az adatréteg szintjén
+ * Podium — az EDZŐI táplálkozási cél élettartama, az adatréteg szintjén
  * ---------------------------------------------------------------------------
  * A hardening.test.js a végponton át bizonyítja, hogy a bontással a volt edző
  * célja megszűnik. Itt két olyan eset a kérdés, ami a szokásos felületi úton
@@ -18,9 +18,9 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 
-const workDir = mkdtempSync(path.join(tmpdir(), 'fittrack-goal-'));
+const workDir = mkdtempSync(path.join(tmpdir(), 'podium-goal-'));
 const DB_PATH = path.join(workDir, 'test.db');
-process.env.FITTRACK_DB = DB_PATH;
+process.env.PODIUM_DB = DB_PATH;
 
 const db = await import('../../server/db.js');
 

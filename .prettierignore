@@ -3,5 +3,5 @@ package-lock.json
 server/data/exercises.exdb.js
 server/data/exdb.names.hu.js
 server/data/exdb.map.js
-server/fittrack.db
+server/*.db
 .claude/skills/

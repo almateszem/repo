@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — a felhasználók közti ADATIZOLÁCIÓ tesztjei
+ * Podium — a felhasználók közti ADATIZOLÁCIÓ tesztjei
  * ----------------------------------------------------------
  * Ez a fájl azt a HIBÁT őrzi, ami miatt a fiókok bekerültek: korábban egyetlen
  * közös adathalmaz volt, és két ember felülírta egymás adatait.
@@ -8,7 +8,7 @@
  * listázással, id-re hivatkozva, vagy exporttal. A válasz mindenhol nem.
  *
  * Az adatréteg fájlba ír, ezért a teszt saját ideiglenes adatbázist kap
- * (FITTRACK_DB), és a db.js-t CSAK utána importáljuk — a modul importáláskor
+ * (PODIUM_DB), és a db.js-t CSAK utána importáljuk — a modul importáláskor
  * nyitja meg a fájlt.
  */
 import test from 'node:test';
@@ -17,8 +17,8 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-const workDir = mkdtempSync(path.join(tmpdir(), 'fittrack-users-'));
-process.env.FITTRACK_DB = path.join(workDir, 'test.db');
+const workDir = mkdtempSync(path.join(tmpdir(), 'podium-users-'));
+process.env.PODIUM_DB = path.join(workDir, 'test.db');
 
 const db = await import('../../server/db.js');
 const { weekFromLegacy } = await import('../../server/plan-week.js');

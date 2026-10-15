@@ -1,4 +1,4 @@
-FitTrack Pro — MI MIT CSINÁL
+Podium — MI MIT CSINÁL
 ============================
 Az alkalmazás funkciói és működése, egy helyen.
 Utolsó frissítés: 2026-09-03
@@ -39,7 +39,7 @@ Node 22.5+ kell (a beépített node:sqlite modul miatt).
 
 Környezeti változók:
     PORT          alapérték 3000
-    FITTRACK_DB   alapérték server/fittrack.db (teszthez eldobható fájlra)
+    PODIUM_DB   alapérték server/podium.db (teszthez eldobható fájlra)
 
 Fájlok:
     public/index.html   minden oldal + a listaelemek <template> sablonjai
@@ -649,7 +649,7 @@ NINCS `notifications` tábla: az értesítés-panel VALÓDI eseményekből
 származtatva áll össze olvasáskor (server/notifications.js).
 
 MIGRÁCIÓK: a séma bővítései minden induláskor lefutnak a meglévő
-adatbázisfájlon is, tehát nem kell törölni a fittrack.db-t.
+adatbázisfájlon is, tehát nem kell törölni a podium.db-t.
 
 ==========================================================================
 13. API — VÉGPONTOK

@@ -3,7 +3,7 @@
  *
  * Ez a fájl SEM hálózatot, SEM adatbázist nem használ: a modul tiszta
  * függvényeit vizsgálja, a fetchProduct átirányítás-kezelését pedig egy
- * helyettesített globális fetch-csel. Ezért nem kell hozzá FITTRACK_DB, ideiglenes könyvtár
+ * helyettesített globális fetch-csel. Ezért nem kell hozzá PODIUM_DB, ideiglenes könyvtár
  * vagy closeDatabase — ezredmásodpercek alatt fut. A hálózati kört és a
  * gyorsítótárat a végponti teszt (api.test.js) fedi le, egy helyi stubbal.
  */

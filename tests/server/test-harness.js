@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — közös test-harness a spawn-alapú (HTTP) végponti tesztekhez
+ * Podium — közös test-harness a spawn-alapú (HTTP) végponti tesztekhez
  * -------------------------------------------------------------------------
  * Öt tesztfájl (api, coach, account, security, timezone) ugyanazt csinálja:
  *   1. létrehoz egy ideiglenes munkakönyvtárat + SQLite-fájlt,
@@ -21,7 +21,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
- * Elindít egy izolált FitTrack szervert saját ideiglenes adatbázissal.
+ * Elindít egy izolált Podium szervert saját ideiglenes adatbázissal.
  * A folyamatot és a munkakönyvtárat az after() hookba kötjük, így a hívó
  * fájlnak nincs teendője a takarítással.
  *
@@ -31,7 +31,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  * @returns {Promise<{baseUrl:string, request:Function, cookieFrom:Function, workDir:string}>}
  */
 export async function startServer({ label, extraEnv = {} }) {
-  const workDir = mkdtempSync(path.join(tmpdir(), `fittrack-${label}-`));
+  const workDir = mkdtempSync(path.join(tmpdir(), `podium-${label}-`));
 
   const child = spawn(
     process.execPath,
@@ -39,7 +39,7 @@ export async function startServer({ label, extraEnv = {} }) {
     {
       env: {
         ...process.env,
-        FITTRACK_DB: path.join(workDir, `${label}.db`),
+        PODIUM_DB: path.join(workDir, `${label}.db`),
         PORT: '0',
         ...extraEnv,
       },

@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — jelszó-kezelés, munkamenet-tokenek, sütik
+ * Podium — jelszó-kezelés, munkamenet-tokenek, sütik
  * ---------------------------------------------------------
  * Nulla új függőség: minden a beépített node:crypto-ból jön.
  *

@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — óraátállítás (DST) tesztek
+ * Podium — óraátállítás (DST) tesztek
  * -----------------------------------------
  * A napok helyi éjfélre normalizált timestampek (recovery.js → dayKey). A
  * napi léptetés korábban `± n × 24 óra` volt, ami az óraátállítás 23 és 25

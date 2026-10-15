@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — a gyakorlatok NAPLÓZÁSI MÓDJA
+ * Podium — a gyakorlatok NAPLÓZÁSI MÓDJA
  * ============================================
  * Két mód van, és a különbség az, hogy MIT ír be a felhasználó egy sorba:
  *

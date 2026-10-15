@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — kérés-korlátozás
+ * Podium — kérés-korlátozás
  * --------------------------------
  * Rögzített ablakos számláló, memóriában. Nulla új függőség, és szándékosan
  * nem elosztott: újraindításkor nullázódik, több példánynál példányonként
@@ -20,7 +20,7 @@
  */
 
 /**
- * A FITTRACK_TRUST_PROXY környezeti változó értelmezése az Express
+ * A PODIUM_TRUST_PROXY környezeti változó értelmezése az Express
  * `trust proxy` beállításához. Ettől függ, mi a kérés FORRÁSA (req.ip) — azaz
  * a forrásonkénti korlátok kulcsa.
  *
@@ -39,7 +39,7 @@ export function parseTrustProxy(raw) {
   if (/^\d+$/.test(value)) return Number(value);
   if (value === 'true' || /^-/.test(value)) {
     throw new Error(
-      `FITTRACK_TRUST_PROXY="${value}": a megbízható proxy-lépések számát add meg (pl. 1), ` +
+      `PODIUM_TRUST_PROXY="${value}": a megbízható proxy-lépések számát add meg (pl. 1), ` +
         'vagy a proxy címét — a "true" bármelyik kliensnek megengedné, hogy a forrását hamisítsa.',
     );
   }

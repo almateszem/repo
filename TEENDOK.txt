@@ -1,4 +1,4 @@
-FitTrack Pro — TEENDŐK ÉS OPTIMALIZÁCIÓK
+Podium — TEENDŐK ÉS OPTIMALIZÁCIÓK
 ========================================
 Ide gyűjtjük, ami működik ugyan, de még javításra/optimalizálásra vár.
 Nem hibajegy-rendszer: rövid, cselekvésre kész sorok, prioritás szerint.
@@ -512,8 +512,8 @@ RENDBEN VAN (ellenőrizve):
 
 --- KÖZEPES ---
 
-[ ] Élesítéskor: FITTRACK_TRUST_PROXY beállítása + HSTS
-    2026-09-13 óta VAN kapcsoló (FITTRACK_TRUST_PROXY, proxy-lépések száma;
+[ ] Élesítéskor: PODIUM_TRUST_PROXY beállítása + HSTS
+    2026-09-13 óta VAN kapcsoló (PODIUM_TRUST_PROXY, proxy-lépések száma;
     a `true` tiltott, indításkor dob; beállítás nélküli proxy-fejlécre egyszeri
     figyelmeztetés a naplóban — README Élesítés 3.). A kódátnézés hozta elő:
     proxy mögött enélkül az új belépési korlát KÖZÖS keret lett volna
@@ -719,11 +719,11 @@ EREDMÉNY (1 éves adat, azonos gépen), megtartva jövőbeli összevetéshez:
 
 [~] A DB fájl elveszhet: perzisztens volume kell
     Sok hostingon (Heroku, Render, Fly volume nélkül) a fájlrendszer
-    ephemeral, és újradeploykor törlődik a server/fittrack.db — vele az
+    ephemeral, és újradeploykor törlődik a server/podium.db — vele az
     összes felhasználói adat. A seed újraépül, a naplók NEM.
     EZT NEM LEHET KÓDBÓL MEGOLDANI: a telepítés környezetén múlik. Amit
     2026-08-26-án meg lehetett tenni:
-      · A README kapott „Élesítés" szakaszt konkrét FITTRACK_DB példákkal
+      · A README kapott „Élesítés" szakaszt konkrét PODIUM_DB példákkal
         (Fly volume mount, Docker nevesített kötet), és a WAL-fájlok
         (-wal, -shm) együttes kezeléséről is szól.
       · A szerver indításkor kiírja a FELOLDOTT útvonalat, és azt is, hogy
@@ -760,7 +760,7 @@ EREDMÉNY (1 éves adat, azonos gépen), megtartva jövőbeli összevetéshez:
     hozzá. A cél most nem is ő volt, hanem az elszabadult kliens és a
     fiók-gyártó szkript.
     Reverse proxy mögött a forrásra szóló korlátokhoz (belépés, regisztráció)
-    FITTRACK_TRUST_PROXY kell (2026-09-13 óta), különben minden kérés a
+    PODIUM_TRUST_PROXY kell (2026-09-13 óta), különben minden kérés a
     proxy címéről érkezőnek látszik.
 
 --------------------------------------------------------------------------
@@ -1332,7 +1332,7 @@ fájl, mert a belépés forrásonkénti korlátja közös keret a 127.0.0.1-en).
     A KÓDÁTNÉZÉS LELETE, ugyanaznap javítva: proxy mögött a „forrás" a proxy
     címe, tehát a fenti kettő (és az új belépési korlát) csak helyes
     `trust proxy` mellett működik — enélkül az új korlát mindenkire közös
-    keret lett volna. Új kapcsoló: FITTRACK_TRUST_PROXY (ratelimit.js ->
+    keret lett volna. Új kapcsoló: PODIUM_TRUST_PROXY (ratelimit.js ->
     parseTrustProxy; a `true` tiltott), végponti teszttel két forrásra.
     NYITVA MARADT: a meghívó 404-e (ld. az ALACSONY tételek között), és a
     kapcsoló tényleges beállítása a hostingon (ld. a KÖZEPES tételt).

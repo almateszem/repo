@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — az edzői panel összegzőjének tesztjei
+ * Podium — az edzői panel összegzőjének tesztjei
  * ---------------------------------------------------
  * A coaching.js tiszta függvényeket ad (nincs adatbázis, nincs Express),
  * ezért itt a SZÁMÍTÁS kérdezhető ki közvetlenül — az a rész, amit a

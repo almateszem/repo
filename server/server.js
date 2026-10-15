@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — Express szerver
+ * Podium — Express szerver
  * ------------------------------
  * Egyetlen origin: ugyanez a szerver szolgálja ki a statikus frontendet
  * (a public/ mappából) ÉS a REST API-t (/api/*). Így nincs CORS, és egyetlen
@@ -208,7 +208,10 @@ const PORT = process.env.PORT || 3000;
    nélkül minden kérés a proxy címéről jön, és a forrásonkénti korlátok (a
    belépésé és a regisztrációé) az EGÉSZ forgalomra közös keretet adnak — 60
    szemét-belépés mindenkit kizárna. Alapból kikapcsolva (ld. parseTrustProxy). */
-const TRUST_PROXY = parseTrustProxy(process.env.FITTRACK_TRUST_PROXY);
+// A FITTRACK_TRUST_PROXY a projekt régi nevéből maradt, meglévő telepítéseknek.
+const TRUST_PROXY = parseTrustProxy(
+  process.env.PODIUM_TRUST_PROXY || process.env.FITTRACK_TRUST_PROXY,
+);
 app.set('trust proxy', TRUST_PROXY);
 
 /* Az Express alapból kiírja, hogy Express — ez csak a támadónak segít abban,
@@ -242,7 +245,7 @@ app.use(express.json({ limit: '256kb' }));
    SHA-256 lenyomata van (ld. server/auth.js).
    ====================================================================== */
 
-const SESSION_COOKIE = 'fittrack_session';
+const SESSION_COOKIE = 'podium_session';
 const SESSION_DAYS = 30;
 const SESSION_MAX_AGE = SESSION_DAYS * 24 * 60 * 60;
 
@@ -294,7 +297,7 @@ const messageLimiter = createRateLimiter({ limit: 20, windowMs: MINUTE });
     nem jut tovább. */
 const barcodeLookupLimiter = createRateLimiter({ limit: 20, windowMs: MINUTE });
 
-/** A kérés forrása. Reverse proxy mögött ehhez FITTRACK_TRUST_PROXY kell
+/** A kérés forrása. Reverse proxy mögött ehhez PODIUM_TRUST_PROXY kell
     (ld. fent), különben minden kérés a proxy címéről érkezőnek látszik — a
     regisztrációs és a belépési korlát ilyenkor az egész forgalomra közösen
     számol. */
@@ -308,9 +311,9 @@ app.use((req, res, next) => {
   if (!TRUST_PROXY && !proxyWarned && req.get('x-forwarded-for')) {
     proxyWarned = true;
     console.warn(
-      'FIGYELEM: X-Forwarded-For fejléc érkezett, de a FITTRACK_TRUST_PROXY nincs beállítva — ' +
+      'FIGYELEM: X-Forwarded-For fejléc érkezett, de a PODIUM_TRUST_PROXY nincs beállítva — ' +
         'proxy mögött a forrásonkénti korlátok (belépés, regisztráció) a TELJES forgalomra közösen számolnak. ' +
-        'Állítsd a proxy-lépések számára (pl. FITTRACK_TRUST_PROXY=1).',
+        'Állítsd a proxy-lépések számára (pl. PODIUM_TRUST_PROXY=1).',
     );
   }
   next();
@@ -3636,7 +3639,7 @@ app.use(apiErrorHandler);
    sorból olvassa ki, hova küldje a kéréseket. */
 const server = app.listen(PORT, () => {
   // eslint-disable-next-line no-console -- indulási banner: a szerver címe
-  console.log(`FitTrack Pro szerver fut: http://localhost:${server.address().port}`);
+  console.log(`Podium szerver fut: http://localhost:${server.address().port}`);
 });
 
 /* Ami a kérés-kezelésen KÍVÜL szállna el (időzítő, háttér-feladat): naplózzuk.

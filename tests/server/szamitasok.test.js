@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — a számítás-átvizsgálás (2026-09-17) végponti tesztjei
+ * Podium — a számítás-átvizsgálás (2026-09-17) végponti tesztjei
  * --------------------------------------------------------------------
  * A motor-szintű javításokat a recovery.test.js és a dst.test.js őrzi. Ez a
  * fájl azokat, amelyek a végpontok és az adatréteg összjátékán múlnak:

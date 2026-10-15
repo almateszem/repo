@@ -1,5 +1,5 @@
 /**
- * FitTrack Pro — a KÉRÉS NAPJA (időzóna) tesztjei
+ * Podium — a KÉRÉS NAPJA (időzóna) tesztjei
  * -----------------------------------------------
  * A naplózás egy napra könyvel: edzés, check-in, étkezés, testsúly. Korábban
  * ezt a napot a SZERVER helyi ideje adta, ami néma adathibát okozott: egy
