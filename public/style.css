@@ -1029,7 +1029,7 @@ input.wk-chip:focus-visible {
   font-size: var(--fs-2xs);
   font-weight: 700;
   letter-spacing: var(--ls-label-tight);
-  color: var(--c-accent);
+  color: var(--text-secondary);
   white-space: nowrap;
 }
 
@@ -2090,8 +2090,10 @@ input.wk-chip:focus-visible {
   border-color: rgba(232, 193, 90, 0.3); /* --c-tier-gold, halványítva */
 }
 
+/* A piros csak a keretben marad: a kis számjegy piros szöveggel nem érné el az
+   AA kontrasztot, a típust így a keret színe hordozza. */
 .wk-set-row[data-set-type='drop'] .wk-set-num {
-  color: var(--c-accent);
+  color: var(--text-primary);
   border-color: var(--c-accent-line);
 }
 
@@ -2148,7 +2150,8 @@ input.wk-chip:focus-visible {
 }
 
 .wk-set-type-option[data-type='drop'] {
-  color: var(--c-accent);
+  color: var(--text-primary);
+  box-shadow: inset 2px 0 0 var(--c-accent);
 }
 
 /* ---- IDŐALAPÚ (kardió) sor ----
@@ -2642,7 +2645,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 .wk-history-btn:hover {
-  color: var(--c-accent);
+  color: var(--text-primary);
   background: var(--surface-hover);
 }
 
@@ -4361,12 +4364,13 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
    aktuális oldalra mutat; a script.js syncNavRingState-je kapcsolja az
    .is-current osztályt. */
 .nl.is-current {
-  color: var(--c-accent);
+  color: var(--text-primary);
 }
 
-/* A pont is accentre vált. Eddig --c-ok (zöld) volt, ami egy MÁSIK jelentést
-   hordoz a lapokon (készenlét, teljesítve) — itt viszont nem állapotot
-   jelöl, hanem azt, hogy melyik irányban állunk. */
+/* A pont accent marad: a felirat fehér (a kis piros szöveg nem érné el az AA
+   kontrasztot), a jelölő viszont nem szöveg. Eddig --c-ok (zöld) volt, ami egy
+   MÁSIK jelentést hordoz a lapokon (készenlét, teljesítve) — itt viszont nem
+   állapotot jelöl, hanem azt, hogy melyik irányban állunk. */
 .nl.is-current::after {
   content: ' ·';
   color: var(--c-accent);
@@ -6315,7 +6319,8 @@ body:is([data-page='checkin'], [data-page='plan-builder'], [data-page='exercise-
 /* Az ALACSONY regeneráltság a címből jött javaslat mellett: a sor nem tiltás,
    de nem is rábólintás — az accent szín jelzi, hogy itt óvatosság kell. */
 .ep-reason--low {
-  color: var(--c-accent);
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 /* Az edzés-választó (workout-picker) két blokkja: a terv napjai és a napló */
@@ -6787,7 +6792,7 @@ body:is([data-page='checkin'], [data-page='plan-builder'], [data-page='exercise-
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--c-accent);
+  color: var(--text-secondary);
 }
 
 .co-msg-divider::before,
@@ -9071,9 +9076,12 @@ details[open] > .rc-details-summary::before {
   border-radius: var(--r-md);
 }
 
-.pl-card-delete:hover,
+.pl-card-delete:hover {
+  color: var(--c-alert);
+}
+
 .nu-log-edit:hover {
-  color: var(--c-accent);
+  color: var(--text-primary);
 }
 
 /* ---- Erőfelmérés a profilon (pf-assess-*) ----
@@ -9619,7 +9627,7 @@ details[open] > .rc-details-summary::before {
   border: 0;
   background: none;
   padding: 0;
-  color: var(--c-accent);
+  color: var(--text-primary);
   font: inherit;
   font-size: var(--fs-2xs);
   font-weight: 600;
@@ -10442,9 +10450,10 @@ body[data-onboarding] .app-page.ci-page {
 }
 
 /* A tipográfiát a .ds-eyebrow adja; a márkajel annyiban tér el a többi
-   felkiáltótól, hogy accent színű — ez az egyetlen hely, ahol a márkanév áll. */
+   felkiáltótól, hogy a márkanév áll benne. Korábban accent színű volt, de a
+   kis piros szöveg nem érte el az AA kontrasztot (3:1 a 4,5:1 helyett). */
 .au-brand {
-  color: var(--c-accent);
+  color: var(--text-primary);
   margin-bottom: var(--sp-7);
 }
 
