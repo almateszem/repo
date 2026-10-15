@@ -1248,6 +1248,15 @@
             <input type="search" id="food-search" placeholder="Étel keresése…" autocomplete="off" />
           </div>
 
+          <!-- „Legutóbbiak": az utoljára naplózott ételek, egy koppintásra újra a
+             naplóba a legutóbbi adaggal — ugyanazt az ételt újra naplózni a
+             leggyakoribb művelet. Keresés közben rejtve: akkor a találatok a
+             fontosak. A tartalmat a js/ui/nutrition.js tölti. -->
+          <section class="nu-recent" aria-labelledby="title-nu-recent" data-nu-recent hidden>
+            <h3 class="nu-recent-title ds-eyebrow" id="title-nu-recent">Legutóbbiak</h3>
+            <ul class="nu-recent-list" data-list="recent-foods"></ul>
+          </section>
+
           <ul class="nu-food-list is-collapsed" data-list="foods"></ul>
           <!-- Keresés nélkül a lista összecsukott (js/ui/nutrition.js) -->
           <button class="nu-more" type="button" data-action="more-foods" hidden>

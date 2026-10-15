@@ -424,13 +424,16 @@ async function setupNutrition(foodDetail) {
     foodsStarted = true;
     const q = searchInput.value.trim();
     setFoodsExpanded(q !== '');
+    syncRecentVisibility();
     return foodsPaged.setQuery({ q });
   };
   const runFoodQueryDebounced = debounce(runFoodQuery, SEARCH_DELAY_MS);
   searchInput.addEventListener('input', runFoodQueryDebounced);
 
   const startFoods = () => {
-    if (!foodsStarted) runFoodQuery();
+    if (foodsStarted) return;
+    runFoodQuery();
+    refreshRecent();
   };
   hooks.startFoodList = startFoods;
 
@@ -454,6 +457,69 @@ async function setupNutrition(foodDetail) {
   /* Naplózás a részlet-modálból: a szerver a megadott adagra számolja át a
      makrókat, és visszaadja a frissített összesítőt. Hibát tovább dobunk —
      a modál ilyenkor nyitva marad a beállított adaggal. */
+  /* ---- Legutóbbiak ----
+     Az utoljára naplózott, különböző ételek a legutóbbi adaggal. Egy koppintás
+     ugyanazt az adagot naplózza újra; ha más kell, a listából az adagválasztó
+     nyílik. Hibánál a sor egyszerűen nem jelenik meg — nem blokkolja a lapot. */
+  const recentSection = $('[data-nu-recent]');
+  const recentList = $('[data-list="recent-foods"]');
+  let recentFoods = [];
+
+  const syncRecentVisibility = () => {
+    recentSection.hidden = recentFoods.length === 0 || searchInput.value.trim() !== '';
+  };
+
+  const renderRecent = () => {
+    recentList.replaceChildren(
+      ...recentFoods.map((entry) => {
+        const amount = `${formatNumber(entry.grams)} ${entry.unit}`;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'nu-recent-item';
+        button.dataset.recentFood = entry.name;
+        button.setAttribute('aria-label', `${entry.name}, ${amount} naplózása`);
+
+        const name = document.createElement('span');
+        name.className = 'nu-recent-name';
+        name.textContent = entry.name;
+        const meta = document.createElement('span');
+        meta.className = 'nu-recent-meta';
+        meta.textContent = `${amount} · ${formatNumber(entry.kcal)} kcal`;
+        button.append(name, meta);
+
+        const item = document.createElement('li');
+        item.appendChild(button);
+        return item;
+      }),
+    );
+    syncRecentVisibility();
+  };
+
+  const refreshRecent = async () => {
+    try {
+      recentFoods = await api.getRecentFoods();
+      renderRecent();
+    } catch (err) {
+      console.error('Legutóbbiak betöltési hiba:', err);
+    }
+  };
+
+  recentList.addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-recent-food]');
+    if (!button) return;
+    const entry = recentFoods.find((food) => food.name === button.dataset.recentFood);
+    if (!entry) return;
+    // Dupla koppintás ne naplózzon kétszer
+    button.disabled = true;
+    try {
+      await logFood({ name: entry.name, unit: entry.unit }, entry.grams);
+    } catch (err) {
+      showToast(err.message || 'Nem sikerült hozzáadni az ételt', 'error');
+    } finally {
+      button.disabled = false;
+    }
+  });
+
   const logFood = async (food, grams) => {
     const previous = totals;
     // A válasz a létrejött bejegyzést IS tartalmazza — így a mai napló
@@ -467,6 +533,8 @@ async function setupNutrition(foodDetail) {
     showToast(
       `${food.name} · ${formatNumber(grams)} ${food.unit || 'g'} hozzáadva · +${formatNumber(entry.kcal)} kcal`,
     );
+    // Az épp naplózott étel a „Legutóbbiak" elejére kerül
+    refreshRecent();
   };
 
   // A kártya nyila az adagválasztó modált nyitja. Ha az (betöltési hiba

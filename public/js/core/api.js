@@ -287,6 +287,8 @@ const api = {
   logMeal: (id) => postJson(`/api/nutrition/meals/${id}/log`),
   // A mai naplózott tételek — a Táplálkozás oldal „Mai napló" listájához
   getNutritionLog: () => getJson('/api/nutrition/log'),
+  // A legutóbb naplózott ételek (legújabb elöl), a legutóbbi adaggal
+  getRecentFoods: () => getJson('/api/nutrition/recent'),
   // Étel naplózása név + adag (gramm) alapján — a válasz { entry, totals }.
   // A makrókat a szerver számolja át az adagra, a kliens csak a grammot küldi.
   addNutritionEntry: (name, grams) => postJson('/api/nutrition/log', { name, grams }),

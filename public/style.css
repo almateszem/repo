@@ -3032,6 +3032,76 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   letter-spacing: 0.02em;
 }
 
+/* „Legutóbbiak": vízszintesen görgethető sor a kereső alatt. Egy elem egy
+   koppintással újranaplóz, ezért legalább 44px magas, és a felirata
+   kimondja, mennyit (adag + kcal). */
+.nu-recent {
+  margin-bottom: var(--sp-8);
+}
+
+.nu-recent-title {
+  margin: 0 0 var(--sp-5);
+}
+
+.nu-recent-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 var(--sp-2);
+  display: flex;
+  gap: var(--sp-4);
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+}
+
+.nu-recent-list > li {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+}
+
+.nu-recent-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-1);
+  min-height: var(--tap-min);
+  max-width: 200px;
+  padding: var(--sp-4) var(--sp-6);
+  border: 1px solid var(--hair);
+  background: none;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  transition: border-color var(--t-fast);
+}
+
+.nu-recent-item:hover {
+  border-color: var(--fg-40);
+}
+
+.nu-recent-name {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nu-recent-meta {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+/* Asztalon a jobb oszlopban van hely: a sor tördel, nem kell görgetni. */
+@media (min-width: 1280px) {
+  .nu-recent-list {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+}
+
 /* Keresés nélkül csak az első 8 étel látszik — a számot a js/ui/nutrition.js
    COLLAPSED_FOODS konstansa is használja, a kettőnek egyeznie kell. */
 .nu-food-list.is-collapsed > li:nth-child(n + 9) {

@@ -22,6 +22,7 @@ import {
   getNutritionTotals,
   addNutritionEntry,
   getNutritionLogForDate,
+  getRecentFoods,
   deleteNutritionEntry,
   getWorkouts,
   getWorkoutsForRecords,
@@ -2655,6 +2656,9 @@ app.put('/api/athletes/:linkId/nutrition-goal', (req, res) => {
 app.get('/api/nutrition/log', (req, res) =>
   res.json(getNutritionLogForDate(req.user.id, req.today)),
 );
+
+// A legutóbb naplózott ételek a legutóbbi adaggal — a „Legutóbbiak" sorhoz
+app.get('/api/nutrition/recent', (req, res) => res.json(getRecentFoods(req.user.id)));
 
 // Mentett edzések (legújabb elöl)
 app.get('/api/workouts', (req, res) => res.json(getWorkouts(req.user.id)));
