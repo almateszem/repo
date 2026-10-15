@@ -231,8 +231,16 @@
   --sidebar-width: 240px;
   /* Alsó hely a fix nav gyűrűnek mobil nézetben. 200px volt — egy 667px magas
      telefonon a nézetablak 30%-a. A gyűrű lejjebb és laposabban ül (lásd 11.
-     szakasz), így 186px elég (a gyűrű alja 40px-re ül az éltől). */
-  --nav-ring-clearance: 186px;
+     szakasz), így 186px elég (a gyűrű alja 40px-re ül az éltől).
+
+     A gyűrű alja legalább 40px, de a hornyolt telefonok alsó biztonsági
+     sávja fölé is kerül. A böngésző jelenleg a biztonságos területen belül
+     rajzol (nincs viewport-fit=cover), ezért az env() értéke 0 és semmi nem
+     változik; ha az app később edge-to-edge lesz, a gyűrű nem kerül a
+     kezdőképernyő-csík alá. */
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --nav-ring-bottom: max(40px, calc(var(--safe-bottom) + 12px));
+  --nav-ring-clearance: calc(var(--nav-ring-bottom) + 146px);
 }
 
 /* A világos téma helye. A prototípusban opció (paper: #f4f2ed), de a
@@ -4222,7 +4230,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 
 .nav-ring-wrap {
   position: fixed;
-  bottom: 40px; /* a súgósor megszűnt alóla, így feljebb ül: kényelmesebb a hüvelykujjnak */
+  /* 40px: a súgósor megszűnt alóla, így feljebb ül, kényelmesebb a hüvelykujjnak */
+  bottom: var(--nav-ring-bottom);
   left: 50%;
   transform: translateX(-50%);
   width: 248px;
@@ -4396,17 +4405,17 @@ body:has(
 
 /* A rejtett gyűrű helyét sem kell szabadon hagyni a lap alján. */
 body:is([data-page='checkin'], [data-page='plan-builder'], [data-page='exercise-picker']) {
-  --nav-ring-clearance: var(--sp-12);
+  --nav-ring-clearance: calc(var(--sp-12) + var(--safe-bottom));
 }
 
 /* Alacsony (főleg fekvő) kijelzőn a 164px-es sáv a nézetablak felét vinné el. */
 @media (max-height: 520px) {
   :root {
-    --nav-ring-clearance: 112px;
+    --nav-ring-bottom: max(20px, calc(var(--safe-bottom) + 12px));
+    --nav-ring-clearance: calc(var(--nav-ring-bottom) + 92px);
   }
 
   .nav-ring-wrap {
-    bottom: 20px;
     width: 220px;
     height: 84px;
   }
