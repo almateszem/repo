@@ -852,6 +852,16 @@ input.wk-chip:focus-visible {
   animation: page-in var(--t-slow);
 }
 
+/* Tablet (álló iPad, fekvő régebbi iPad): a telefonos felület marad (gyűrű,
+   egyoszlopos oldalak), de a 480px-es oszlop 820px-en 170, 1024px-en 272px
+   üres sávot hagyna mindkét oldalon. Az 1025px-es asztali lépcső alatt egy
+   szélesebb oszlop kitölti a helyet, az asztali elrendezés érintetlen. */
+@media (min-width: 768px) and (max-width: 1024px) {
+  :root {
+    --page-max: 680px;
+  }
+}
+
 /* Kis telefonon minden vízszintes pixel a tartalomé — a 2×22px oldalmargó a
    360px-es kijelző 12%-a, és pont a szett-sor mezőitől veszi el. */
 @media (max-width: 380px) {
