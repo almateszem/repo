@@ -18,6 +18,7 @@ import { renderPlans } from '../render/plans.js';
 import { renderPrs } from '../render/prs.js';
 import { renderWorkout } from '../render/workout.js';
 import { setupCheckinWizard } from '../ui/checkin/wizard.js';
+import { setupChromeHeight } from '../ui/chrome.js';
 import { setupAthleteDetail, setupCoachPage } from '../ui/coach.js';
 import { setupConnectivity } from '../ui/connectivity.js';
 import { setupCustomFood } from '../ui/custom-food.js';
@@ -191,6 +192,7 @@ async function init() {
   setupSummary();
   setupShortcuts();
   setupConnectivity();
+  setupChromeHeight();
 
   setupNavRing($('#navKnob'), (dir) => navigate(dirToPage(dir)));
 

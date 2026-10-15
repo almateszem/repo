@@ -1248,7 +1248,11 @@
             <input type="search" id="food-search" placeholder="Étel keresése…" autocomplete="off" />
           </div>
 
-          <ul class="nu-food-list" data-list="foods"></ul>
+          <ul class="nu-food-list is-collapsed" data-list="foods"></ul>
+          <!-- Keresés nélkül a lista összecsukott (js/ui/nutrition.js) -->
+          <button class="nu-more" type="button" data-action="more-foods" hidden>
+            Mutass többet
+          </button>
           <p class="nu-empty" hidden>Nincs találat a keresésre.</p>
           </div>
         </section>

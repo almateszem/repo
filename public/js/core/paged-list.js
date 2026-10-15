@@ -101,6 +101,11 @@ function createPagedQuery({ fetchPage, onItems, onState }) {
 }
 
 function createPagedList({ list, fetchPage, renderItem, onPage = () => {}, onState = () => {} }) {
+  /* Szüneteltetve a lista végén álló őrelem nem tölt újabb lapot — a hívó így
+     tud egy rövid, összecsukott listát mutatni anélkül, hogy a háttérben
+     lapok sora töltődne be. */
+  let paused = false;
+
   /* Az őrelem a lista UTÁN áll, nem benne: a lista lehet <ul> is, és a
      „Betöltés…" / „Újra" sor nem lista-elem. */
   const sentinel = document.createElement('div');
@@ -154,7 +159,7 @@ function createPagedList({ list, fetchPage, renderItem, onPage = () => {}, onSta
      háttérben nem töltünk; az oldal megjelenésekor a megfigyelő újra jelez. */
   const observer = new IntersectionObserver(
     ([entry]) => {
-      if (entry.isIntersecting) paged.loadMore();
+      if (entry.isIntersecting && !paused) paged.loadMore();
     },
     { rootMargin: PREFETCH_MARGIN },
   );
@@ -163,6 +168,15 @@ function createPagedList({ list, fetchPage, renderItem, onPage = () => {}, onSta
   return {
     setQuery: (query) => paged.setQuery(query),
     retry: () => paged.retry(),
+    /** A végtelen görgetés ki-/bekapcsolása. Feloldáskor friss jelzést kérünk
+        a megfigyelőtől: ha az őrelem már látszik, azonnal jön a következő lap. */
+    setPaused(value) {
+      paused = Boolean(value);
+      if (!paused) {
+        observer.unobserve(sentinel);
+        observer.observe(sentinel);
+      }
+    },
   };
 }
 

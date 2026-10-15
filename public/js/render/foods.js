@@ -13,8 +13,11 @@ function renderFoodItem(food) {
   const nameEl = $('.nu-food-name', item);
   nameEl.insertBefore(document.createTextNode(food.name + ' '), nameEl.firstChild);
   $('.nu-food-kcal', item).textContent = `${food.kcal} kcal`;
+  /* Egy sorba férjen telefonon is: a mértékegység egyszer áll elöl (az adag),
+     a makrók betű + szám alakban. A korábbi „23 g F · 0 g Cs · 1,8 g Zs"
+     360px-en két sorba tört, és minden ételsor háromsoros lett. */
   $('.nu-food-macros', item).textContent =
-    `${food.per} · ${formatNumber(food.protein)} g F · ${formatNumber(food.carbs)} g Cs · ${formatNumber(food.fat)} g Zs`;
+    `${food.per} · F ${formatNumber(food.protein)} · Cs ${formatNumber(food.carbs)} · Zs ${formatNumber(food.fat)}`;
 
   // A nyíl az adagválasztó modált nyitja — a naplózás onnan indul
   const addBtn = $('.nu-food-add', item);

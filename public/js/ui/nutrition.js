@@ -373,8 +373,20 @@ async function setupNutrition(foodDetail) {
      kattintásakor az ételt a betöltött lapokból épülő név → étel táblából
      vesszük; új keresésnél a tábla kiürül. */
   const foodList = $('[data-list="foods"]');
+  const moreBtn = $('[data-action="more-foods"]');
   const foodsByName = new Map();
   let foodsStarted = false;
+
+  /* Keresés nélkül a lista összecsukott: az első COLLAPSED_FOODS étel
+     látszik, alatta „Mutass többet". Korábban az első 40 étel (és görgetésre a
+     következő 40) szűretlenül állt a lapon, ami telefonon 4000px fölé nyújtotta
+     az oldalt. A szám a CSS .nu-food-list.is-collapsed szabályával egyezik. */
+  const COLLAPSED_FOODS = 8;
+  let foodsExpanded = false;
+
+  const syncMoreButton = () => {
+    moreBtn.hidden = foodsExpanded || foodList.children.length <= COLLAPSED_FOODS;
+  };
 
   const foodsPaged = createPagedList({
     list: foodList,
@@ -388,13 +400,31 @@ async function setupNutrition(foodDetail) {
       if (status === 'ready') emptyState.hidden = total > 0;
       // Hibánál az „Újra" sor beszél — a „Nincs találat" félrevezetne
       if (status === 'error') emptyState.hidden = true;
+      syncMoreButton();
     },
+  });
+
+  /** Összecsukott vagy teljes lista. Kereséskor mindig a teljes: aki gépel,
+      az a találatokat akarja látni, nem egy újabb gombot. */
+  const setFoodsExpanded = (expanded) => {
+    foodsExpanded = expanded;
+    foodList.classList.toggle('is-collapsed', !expanded);
+    foodsPaged.setPaused(!expanded);
+    syncMoreButton();
+  };
+
+  moreBtn.addEventListener('click', () => {
+    setFoodsExpanded(true);
+    // A billentyűzetes felhasználó ott folytatja, ahol az új sorok kezdődnek
+    foodList.children[COLLAPSED_FOODS]?.querySelector('.nu-food-add')?.focus();
   });
 
   const runFoodQuery = () => {
     runFoodQueryDebounced.cancel();
     foodsStarted = true;
-    return foodsPaged.setQuery({ q: searchInput.value.trim() });
+    const q = searchInput.value.trim();
+    setFoodsExpanded(q !== '');
+    return foodsPaged.setQuery({ q });
   };
   const runFoodQueryDebounced = debounce(runFoodQuery, SEARCH_DELAY_MS);
   searchInput.addEventListener('input', runFoodQueryDebounced);
