@@ -11074,6 +11074,13 @@ body[data-onboarding] .app-page.ci-page {
   background: var(--surface-hover);
 }
 
+/* Az Edző link <a>, a többi <button> — ugyanúgy nézzen ki. */
+a.pf-action {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+}
+
 /* A kijelentkezés a beállítások modal gombjának mintáját követi. */
 .pf-action--danger {
   background: none;

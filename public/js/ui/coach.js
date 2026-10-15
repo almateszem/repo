@@ -6,7 +6,7 @@ import { formatNumber } from '../core/format.js';
 import { shared } from '../core/page-hooks.js';
 import { prefs } from '../core/prefs.js';
 import { showToast } from '../core/toast.js';
-import { animateCoachRatings } from '../nav/router.js';
+import { animateCoachRatings, refreshNavRing } from '../nav/router.js';
 import {
   athleteTier,
   renderAthleteList,
@@ -247,8 +247,7 @@ function setupAthleteDetail({ confirmAction, onUnlink, onRead, onAssign } = {}) 
         `${athlete.name} saját célja: ${formatNumber(goal.calories)} kcal · ` +
         `${formatNumber(goal.protein)} g fehérje. Amit kitűzöl, az felülírja, és ő nem módosíthatja.`;
     } else {
-      goalStateEl.textContent =
-        'Még nincs kitűzött cél.';
+      goalStateEl.textContent = 'Még nincs kitűzött cél.';
     }
 
     // Háttér-frissítéskor a félig begépelt értéket nem írjuk felül
@@ -498,6 +497,14 @@ async function setupCoachPage(athleteDetail, confirmAction) {
     /* Az összegző visszajelzés-blokkja ebből tudja, van-e edző, akinek a
        visszajelzés szólna. */
     shared.hasCoachLink = Boolean(coachData.coach);
+    /* A nav gyűrű „fel" iránya ebből dől el: van-e a fióknak edzői
+       tevékenysége, amiért az Edző oldal a gyűrűn kell. */
+    shared.coachActive =
+      shared.hasCoachLink ||
+      coachData.invites.length > 0 ||
+      panel.athletes.length > 0 ||
+      panel.invites.length > 0;
+    refreshNavRing();
     client.render(coachData);
     renderCoachPanel(panel, listView);
     // A nyitott részletnézet is a friss számokat mutassa (vagy záruljon be)
