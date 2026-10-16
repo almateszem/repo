@@ -3,22 +3,21 @@
 import { api } from '../core/api.js';
 import { $, cloneTemplate } from '../core/dom.js';
 import {
-  cycleDay,
   dayEntry,
   dayLetter,
   dayRound,
   dayStatus,
   dayTitle,
   dayWorkoutName,
+  todayIndex,
 } from '../core/plan-week.js';
 
 /** A kártya sávja: a terv minden napja egy cella (a nap betűje, a második
     körben „2." jelölés, alatta az állapota). Az edzésnap gomb — azt a napot
-    tölti az edzésnaplóba —, a pihenőnap tiltott. A mai nap az aktív terven
-    kiemelt; a nem aktív terven csak hétnapos tervnél (ott a ciklus a hét,
-    máshol a „ma" az aktiválástól függne). */
+    tölti az edzésnaplóba —, a pihenőnap tiltott; a mai nap (todayIndex)
+    kiemelt. */
 function weekStrip(plan) {
-  const today = plan.active || plan.week.length === 7 ? cycleDay(plan) : -1;
+  const today = todayIndex(plan);
   return plan.week.map((_, day) => {
     const cell = document.createElement('button');
     cell.type = 'button';
