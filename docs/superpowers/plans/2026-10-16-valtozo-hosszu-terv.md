@@ -37,10 +37,12 @@
 ### Task 1: Szerver — a ciklus tiszta függvényei
 
 **Files:**
+
 - Modify: `server/plan-week.js` (fejkomment, `DAY_COUNT`, `DAY_NAMES/LABELS` köré, `normalizeWeek`, `dayWorkoutName`)
 - Test: `tests/server/plan-week.test.js`
 
 **Interfaces:**
+
 - Produces:
   - `export const MIN_DAYS = 1`, `export const MAX_DAYS = 14`
   - `export function dayName(i: number): string` — `'Hétfő'`, `'Hétfő (2.)'`
@@ -134,11 +136,13 @@ git commit -m "Terv: 1–14 napos ciklus tiszta függvényei (cycleDay, dayName)
 ### Task 2: Szerver — `active_since`, a mai nap a ciklusból
 
 **Files:**
+
 - Modify: `server/db.js` (oszlop ~420. sor; aktiválási migráció ~810–828; `PLAN_COLUMNS`/`toPlan` ~2772; `getUserPlanSchedules`, `getAssignedPlanTargets`; `deletePlan`, `addPlan`, `setActivePlan` ~3440–3510)
 - Modify: `server/server.js` (1306–1307 elfogadás; 1415 sablon; 1475 `restDay`; 1955–1975 `GET /api/plans`; 1997–2003 aktiválás; 1984 törlés; 3283–3295 mentés)
 - Test: `tests/server/api.test.js`
 
 **Interfaces:**
+
 - Consumes: `cycleDay`, `dayLabel` (Task 1)
 - Produces:
   - `toPlan(row)` kiegészül: `activeSince: string | null`
@@ -158,11 +162,16 @@ test('ciklusos terv: a mai nap az aktiválás hetének hétfőjétől számít',
   await request('DELETE', '/api/workout-draft', { cookie });
   const maiNap = (new Date().getDay() + 6) % 7; // az aktiválás hetében = napok a hétfő óta
   const week = Array.from({ length: 3 }, (_, i) => ({
-    type: 'workout', name: `Nap ${i}`, exercises: [gyakorlat('Guggolás', 100)],
+    type: 'workout',
+    name: `Nap ${i}`,
+    exercises: [gyakorlat('Guggolás', 100)],
   }));
   const terv = await request('POST', '/api/plans', { cookie, body: { name: 'Hármas', week } });
   assert.equal(terv.status, 201);
-  const aktiv = await request('POST', `/api/plans/${terv.json.id}/active`, { cookie, body: { active: true } });
+  const aktiv = await request('POST', `/api/plans/${terv.json.id}/active`, {
+    cookie,
+    body: { active: true },
+  });
   assert.equal(aktiv.json.activeSince, today());
   const sablon = (await request('GET', '/api/workout-template', { cookie })).json;
   assert.equal(sablon.name, `Nap ${maiNap % 3}`);
@@ -214,10 +223,12 @@ git commit -m "Terv: active_since horgony, a mai terv-nap a ciklusból"
 ### Task 3: Szerver — az edzői nézet a ciklus szerint
 
 **Files:**
+
 - Modify: `server/coaching.js` (80–100 segédek; `weekProgress` 125–144; `evaluatePlans` ~240–250; terv-név ~524–527)
 - Test: `tests/server/coaching.test.js`
 
 **Interfaces:**
+
 - Consumes: `cycleDayAt`, `dayEntry` (Task 1); a `plans`/`assignedPlans` elemei `{ id, date, activeSince, week }` (Task 2)
 - Produces: `weekProgress` és `adherenceBreakdown` publikus aláírása változatlan
 
@@ -227,10 +238,14 @@ git commit -m "Terv: active_since horgony, a mai terv-nap a ciklusból"
 test('heti állás 9 napos tervvel: a cél a ciklus szerint erre a hétre eső edzésnapok', () => {
   const week = Array.from({ length: 9 }, () => ({ type: 'rest' }));
   for (const i of [0, 2, 4, 7]) week[i] = { type: 'workout', name: '', exercises: [] };
-  const plans = [{ id: 1, date: '2026.10.05', activeSince: '2026.10.05', week, days: [0, 2, 4, 7] }];
+  const plans = [
+    { id: 1, date: '2026.10.05', activeSince: '2026.10.05', week, days: [0, 2, 4, 7] },
+  ];
   // 2026.10.14 szerda; e heti ciklus-napok H..V: 7,8,0,1,2,3,4 → edzés: H, Sze, P, V
   assert.deepEqual(weekProgress({ workouts: [], plans, today: '2026.10.14' }), {
-    done: 0, target: 4, missed: 1, // a hétfő kimaradt, a kedd pihenő volt
+    done: 0,
+    target: 4,
+    missed: 1, // a hétfő kimaradt, a kedd pihenő volt
   });
 });
 
@@ -264,12 +279,14 @@ git commit -m "Edzői nézet: heti cél és terv-követés a terv ciklusa szerin
 ### Task 4: Kliens — a ciklus tükre, terv-kártyák, edzői felsorolás
 
 **Files:**
+
 - Modify: `public/js/core/plan-week.js`, `public/js/core/constants.js` (komment)
 - Modify: `public/js/render/plans.js` (`weekStrip`), `public/js/ui/plans.js` (~76. sor), `public/js/render/coach.js` (~248), `public/js/render/coach-client.js` (~206)
 - Modify: `public/style.css` (`.pl-week` — görgethető 14 napnál, „2.” jelölés)
 - Create: `tests/public/js/core/plan-week.test.js`
 
 **Interfaces:**
+
 - Produces (kliens, `public/js/core/plan-week.js`):
   - `dayTitle(i)` → `'Hétfő'` / `'Hétfő (2.)'`
   - `dayLabel(i)` → `'H'` / `'K (2.)'` (felsorolásokhoz)
@@ -317,11 +334,13 @@ git commit -m "Kliens: a terv ciklus-napja, (2.) jelölés a kártyán és az ed
 ### Task 5: Terv-építő — „+” és „X”
 
 **Files:**
+
 - Modify: `public/js/ui/plan-builder.js`, `public/js/app/init.js:190`
 - Modify: `public/index.html:833–846` (felirat, tipp)
 - Modify: `public/style.css` (`.pb-days-chips`, `.pb-day` ~6093–6180)
 
 **Interfaces:**
+
 - Consumes: `dayTitle`, `dayLetter`, `dayRound`, `dayAdjective` (Task 4); `confirmAction(message, { title, confirmLabel }) → Promise<boolean>` (init.js)
 - Produces: `setupPlanBuilder(picker, workoutPicker, confirmAction)`
 
@@ -359,6 +378,7 @@ git commit -m "Terv-építő: napok hozzáadása (+) és törlése (X), 1–14 n
 ### Task 6: Dokumentáció és zárás
 
 **Files:**
+
 - Modify: `README.md:344–352` („Heti bontású tervek” pont)
 
 - [ ] **Step 1:** Írd át a pontot: a terv 1–14 napos ciklus, a horgony az aktiválás hetének hétfője, 7 napnál ez a megszokott heti terv; a 8.–14. nap „(2.)” jelölésű; a „+”/„X” a terv-építőben.

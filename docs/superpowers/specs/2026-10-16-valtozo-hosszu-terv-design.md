@@ -77,6 +77,7 @@ ez ma nem megoldható. A cél: a terv hossza 1 és 14 nap között szabadon
 ## Érintett helyek
 
 **Szerver**
+
 - `server/plan-week.js`: `DAY_COUNT` helyett min/max hossz; névadó
   függvény (`dayName(i)`, `dayLabel(i)`); `cycleDay`; `dayWorkoutName` az
   új névvel; `weekFromLegacy` változatlanul 7 napot ad.
@@ -95,6 +96,7 @@ ez ma nem megoldható. A cél: a terv hossza 1 és 14 nap között szabadon
   - Az „aktív terv” sor (526.) a mai ciklus-nap szerint választ.
 
 **Kliens**
+
 - `public/js/core/plan-week.js`: `todayWeekday` helyett a terv mai
   ciklus-napja (`cycleDay`); `dayTitle(i)` a „(2.)” utótaggal.
 - `public/js/ui/plan-builder.js` + `public/index.html` + `public/style.css`:
@@ -130,8 +132,7 @@ ez ma nem megoldható. A cél: a terv hossza 1 és 14 nap között szabadon
 
 ## Tesztek
 
-- `plan-week` tiszta függvényei: `cycleDay` (7 napos = hétnap; 9 napos a
-  2. héten; óraátállításon át; aktiválás a hét közepén), névadás,
+- `plan-week` tiszta függvényei: `cycleDay` (7 napos = hétnap; 9 napos a 2. héten; óraátállításon át; aktiválás a hét közepén), névadás,
   `normalizeWeek` 1/14/0/15 hosszal.
 - API: hosszabb/rövidebb terv mentése, aktiválás → `active_since`; a mai
   edzés betöltése 9 napos tervvel.
