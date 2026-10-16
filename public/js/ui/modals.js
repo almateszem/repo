@@ -109,7 +109,11 @@ function setupAdviceModal() {
     stop: 'Leáll',
   };
 
+  /** A megjelenített javaslat ujjlenyomata — az elfogadás ezt küldi vissza. */
+  let shownToken = null;
+
   const render = (advice) => {
+    shownToken = advice.token ?? null;
     lead.textContent = advice.name
       ? `A(z) „${advice.name}" mai naplójában ${advice.items.length} gyakorlatot érdemes visszavenni:`
       : `${advice.items.length} gyakorlatot érdemes ma visszavenni:`;
@@ -132,9 +136,9 @@ function setupAdviceModal() {
     const button = event.currentTarget;
     button.disabled = true;
     try {
-      const { applied } = await api.applySessionAdvice();
+      const { applied, template } = await api.applySessionAdvice(shownToken);
       // A szerver a piszkozatot írta át — a képernyőn lévő napló elavult.
-      await workout?.reloadFromServer();
+      workout?.replaceFromServer(template);
       showToast(
         applied === 1
           ? 'A mai naplód egy gyakorlaton módosult'
@@ -144,6 +148,12 @@ function setupAdviceModal() {
     } catch (err) {
       console.error('A javaslat alkalmazása nem sikerült:', err);
       showToast(err.message || 'A javaslat alkalmazása nem sikerült', 'error');
+      /* 409: a javaslat elavult (a napló változott, vagy már elfogadták) —
+         nincs mit újra megpróbálni, a friss naplót viszont betöltjük. */
+      if (err.status === 409) {
+        if (err.detail?.template) workout?.replaceFromServer(err.detail.template);
+        controller.close();
+      }
     } finally {
       button.disabled = false;
     }

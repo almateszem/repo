@@ -75,7 +75,10 @@ async function sendJson(method, path, body) {
   if (res.status === 401) throw handleUnauthorized();
   if (!res.ok) {
     const detail = await res.json().catch(() => null);
-    throw new Error(detail?.error || `${method} ${path} → ${res.status}`);
+    const err = new Error(detail?.error || `${method} ${path} → ${res.status}`);
+    err.status = res.status;
+    err.detail = detail;
+    throw err;
   }
   return res.json();
 }
@@ -354,7 +357,8 @@ const api = {
      javaslatot a szerveren — a kliens listáját nem fogadja el bemenetként,
      különben egy hamisított kérés tetszőleges gyakorlatot törölhetne. */
   getSessionAdvice: () => getJson('/api/readiness/advice'),
-  applySessionAdvice: () => postJson('/api/readiness/advice/apply'),
+  // A token a látott javaslat ujjlenyomata: ha a napló azóta változott, 409
+  applySessionAdvice: (token) => postJson('/api/readiness/advice/apply', { token }),
   getCheckin: () => getJson('/api/checkin'),
   // A mentés a friss riportot is visszaadja, hogy a felület egy körből frissüljön
   saveCheckin: (fields) => putJson('/api/checkin', fields),

@@ -133,9 +133,105 @@ test('a súlycsökkentési javaslat kis súlyon sem visz nullára', async () => 
   assert.equal(item.action, 'reduce');
   assert.equal(item.detail, 'a legnehezebb szett 20 kg → 17 kg', '15%, nem 25% (15 kg)');
 
-  const applied = await request('POST', '/api/readiness/advice/apply', { cookie });
+  const applied = await request('POST', '/api/readiness/advice/apply', {
+    cookie,
+    body: { token: advice.token },
+  });
   const weights = applied.json.template.exercises[0].sets.map((set) => set.weight);
   assert.deepEqual(weights, ['2', '17'], 'a 2 kg-os szettnek nincs értelmes lépcsője — marad');
+});
+
+/* A készenlét-javaslat elfogadása (KOD-KRITIKA H1, H2). A mai karedzés után a
+   kar készenléte „nagyon alacsony" — a piszkozat súlyát 15%-kal vennénk le. */
+const tiredArms = async (username) => {
+  const cookie = await register(username);
+  const hardSet = { reps: '12', weight: '15', rpe: '10', type: 'work', done: true };
+  await request('POST', '/api/workouts', {
+    cookie,
+    body: {
+      name: 'Karnap',
+      exercises: [{ name: 'Bicepsz hajlítás', sets: [hardSet, hardSet, hardSet, hardSet] }],
+    },
+  });
+  return cookie;
+};
+const curl = (weight) => ({
+  name: 'Bicepsz hajlítás',
+  sets: [{ reps: '8', weight, rpe: '', type: 'work', done: false }],
+});
+
+test('az elfogadás nem ismétlődik: a régi javaslatra a második kattintás 409, nem újabb levétel', async () => {
+  const cookie = await tiredArms('dupla-elfogado');
+  await request('PUT', '/api/workout-draft', {
+    cookie,
+    body: { name: 'Esti kar', exercises: [curl('100')] },
+  });
+  const advice = (await request('GET', '/api/readiness/advice', { cookie })).json;
+  assert.equal(advice.items.length, 1);
+  assert.ok(advice.token, 'a javaslat ujjlenyomatot visz');
+
+  const first = await request('POST', '/api/readiness/advice/apply', {
+    cookie,
+    body: { token: advice.token },
+  });
+  assert.equal(first.status, 200);
+  assert.equal(first.json.template.exercises[0].sets[0].weight, '85');
+
+  const second = await request('POST', '/api/readiness/advice/apply', {
+    cookie,
+    body: { token: advice.token },
+  });
+  assert.equal(second.status, 409, 'az átírt naplóra a régi javaslat már nem érvényes');
+  assert.equal(second.json.template.exercises[0].sets[0].weight, '85', 'nem 72,5 kg');
+
+  const missing = await request('POST', '/api/readiness/advice/apply', { cookie, body: {} });
+  assert.equal(missing.status, 409, 'ujjlenyomat nélkül sem alkalmaz');
+});
+
+test('az elfogadás megtartja a visszanyitott edzés azonosítóját (nem lesz duplikátum)', async () => {
+  const cookie = await tiredArms('javitas-elfogado');
+  const workouts = (await request('GET', '/api/workouts', { cookie })).json;
+  const reopened = workouts.find((w) => w.name === 'Karnap');
+  await request('PUT', '/api/workout-draft', {
+    cookie,
+    body: { name: 'Karnap', exercises: [curl('100')], workoutId: reopened.id },
+  });
+  const advice = (await request('GET', '/api/readiness/advice', { cookie })).json;
+  const applied = await request('POST', '/api/readiness/advice/apply', {
+    cookie,
+    body: { token: advice.token },
+  });
+  assert.equal(applied.status, 200);
+  assert.equal(applied.json.template.workoutId, reopened.id);
+});
+
+test('tegnapi piszkozat + mai terv: a csökkentett mai terv MAI piszkozatként mentődik', async () => {
+  const cookie = await tiredArms('tegnapi-piszkozat');
+  const week = Array.from({ length: 7 }, () => ({
+    type: 'workout',
+    name: 'Kar',
+    exercises: [curl('100')],
+  }));
+  const plan = await request('POST', '/api/plans', { cookie, body: { name: 'Karterv', week } });
+  await request('POST', `/api/plans/${plan.json.id}/active`, { cookie, body: { active: true } });
+
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  const pad = (n) => String(n).padStart(2, '0');
+  const yesterday = `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`;
+  await request('PUT', '/api/workout-draft', {
+    cookie,
+    headers: { 'X-Client-Date': yesterday },
+    body: { name: 'Tegnapi félkész', exercises: [curl('40')] },
+  });
+
+  const advice = (await request('GET', '/api/readiness/advice', { cookie })).json;
+  assert.equal(advice.name, 'Kar', 'a javaslat a mai tervből dolgozik');
+  await request('POST', '/api/readiness/advice/apply', { cookie, body: { token: advice.token } });
+
+  const template = (await request('GET', '/api/workout-template', { cookie })).json;
+  assert.equal(template.source, 'draft', 'a mai piszkozat, nem a csökkentetlen terv');
+  assert.equal(template.exercises[0].sets[0].weight, '85');
 });
 
 test('egy másik edzés törlése nem teszi újra „friss" értesítéssé a meglévő PR-t', async () => {

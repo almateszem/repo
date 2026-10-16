@@ -2409,7 +2409,11 @@ test('az ELFOGADÁS a mai naplót írja át — a tervet nem', async () => {
   });
   assert.equal(terv.status, 201);
 
-  const res = await request('POST', '/api/readiness/advice/apply', { cookie: advCookie, body: {} });
+  const { token } = (await request('GET', '/api/readiness/advice', { cookie: advCookie })).json;
+  const res = await request('POST', '/api/readiness/advice/apply', {
+    cookie: advCookie,
+    body: { token },
+  });
   assert.equal(res.status, 200);
   assert.equal(res.json.applied, 1);
   assert.equal(res.json.template.exercises.length, 0, 'a naplóból kikerült a gyakorlat');

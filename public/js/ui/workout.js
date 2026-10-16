@@ -630,7 +630,17 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
     showToast('Betöltés visszavonva — semmi nem került a naplóba');
   });
 
-  return { loadPlan };
+  /** A szerver átírta a piszkozatot (a készenlét-javaslat elfogadása): a
+      képernyőn álló napló elavult. A függő mentést eldobjuk — különben a
+      régi tartalmat írná vissza —, és a szerver változatát töltjük be. */
+  const replaceFromServer = (template) => {
+    cancelAutosave();
+    setUndo(null);
+    applyTemplate(template);
+    syncEmpty();
+  };
+
+  return { loadPlan, replaceFromServer };
 }
 
 /**

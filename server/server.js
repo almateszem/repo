@@ -9,6 +9,7 @@
  * írják, a frontend `api` rétege pedig ezeket a végpontokat hívja.
  */
 import express from 'express';
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SEXES, isPerHand, strengthStandards, strengthTier } from './data/strength-standards.js';
@@ -1693,7 +1694,18 @@ function sessionAdvice(userId, todayDate) {
     });
   });
 
-  return { name: template.name, items };
+  return { name: template.name, items, token: adviceToken(template, items) };
+}
+
+/** A javaslat ujjlenyomata: a napló tartalma és a belőle számolt tételek.
+    Az elfogadás ezt kéri vissza — ha a napló közben változott (vagy a
+    javaslatot már elfogadták, és a súlyok egyszer már lejjebb mentek), a
+    régi ujjlenyomat nem egyezik, és a második kattintás nem csökkent újra. */
+function adviceToken(template, items) {
+  return createHash('sha256')
+    .update(JSON.stringify([template.name, template.exercises, items]))
+    .digest('base64url')
+    .slice(0, 22);
 }
 
 /** A javaslat alkalmazása a mai naplóra.
@@ -1701,10 +1713,11 @@ function sessionAdvice(userId, todayDate) {
     A javaslatokat ÚJRASZÁMOLJUK — a kliens listáját nem fogadjuk el
     bemenetként. Enélkül egy hamisított kérés tetszőleges gyakorlatot
     törölhetne a naplóból. */
-function applySessionAdvice(userId, todayDate) {
+function applySessionAdvice(userId, todayDate, token) {
   const template = workoutTemplate(userId, todayDate);
-  const { items } = sessionAdvice(userId, todayDate);
+  const { items, token: current } = sessionAdvice(userId, todayDate);
   if (items.length === 0) return { applied: 0 };
+  if (token !== current) return { applied: 0, stale: true };
 
   const byIndex = new Map(items.map((item) => [item.index, item]));
   const exercises = [];
@@ -1733,16 +1746,19 @@ function applySessionAdvice(userId, todayDate) {
     });
   });
 
-  /* A piszkozat DÁTUMA marad, ami volt — ha ma még nincs piszkozat (a terv
-     töltődött be), akkor mai. Így az elfogadás nem datálja át némán egy
-     korábbi, félbehagyott edzést. */
+  /* A piszkozat DÁTUMA marad, ami volt, ha a javaslat a piszkozatból
+     dolgozott — így az elfogadás nem datálja át némán egy korábbi,
+     félbehagyott edzést. Ha a mai TERVBŐL (a tegnapi piszkozat helyett), akkor
+     mai: a felület is a mai tervet mutatja. A workoutId is marad: egy
+     javításra visszanyitott edzés különben a befejezéskor új edzés lenne. */
   const draft = getWorkoutDraft(userId);
   saveWorkoutDraft(
     userId,
     template.name,
     exercises,
-    draft?.date ?? todayDate,
+    template.source === 'draft' ? draft.date : todayDate,
     template.planId ?? null,
+    template.workoutId ?? null,
   );
   return { applied: items.length };
 }
@@ -1751,8 +1767,14 @@ app.get('/api/readiness/advice', (req, res) => res.json(sessionAdvice(req.user.i
 
 /** Elfogadás. A válasz a friss napló, hogy a felület egy körből frissüljön. */
 app.post('/api/readiness/advice/apply', (req, res) => {
-  const result = applySessionAdvice(req.user.id, req.today);
-  res.json({ ...result, template: workoutTemplate(req.user.id, req.today) });
+  const { stale, ...result } = applySessionAdvice(req.user.id, req.today, req.body?.token);
+  const template = workoutTemplate(req.user.id, req.today);
+  if (stale) {
+    return res
+      .status(409)
+      .json({ error: 'A mai napló időközben változott — a javaslatot nem alkalmaztuk.', template });
+  }
+  res.json({ ...result, template });
 });
 
 // A mai check-in (vagy null, ha még nem töltötted ki)
