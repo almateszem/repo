@@ -3,10 +3,9 @@
     A bemenet a GET /api/coach válasza; a `me` UGYANAZ a kártya, amit az
     edződ a panelján rólad lát. */
 
-import { DAY_LABELS } from '../core/constants.js';
 import { $ } from '../core/dom.js';
 import { formatNumber } from '../core/format.js';
-import { dayStatus } from '../core/plan-week.js';
+import { dayLabel, dayStatus } from '../core/plan-week.js';
 import { ATHLETE_DETAIL_STATS, athleteTier, kpi, orDash, renderStatList } from './coach.js';
 import { CONFIDENCE_LABELS, hasReadiness } from './recovery.js';
 
@@ -203,7 +202,7 @@ function renderClientMeals(list, meals) {
 
 /** A hét napról napra: „H: Push · Sze: Pull" — a pihenőnap kimarad. */
 const weekText = (offer) =>
-  (offer.days ?? []).map((day) => `${DAY_LABELS[day]}: ${dayStatus(offer.week, day)}`).join(' · ');
+  (offer.days ?? []).map((day) => `${dayLabel(day)}: ${dayStatus(offer.week, day)}`).join(' · ');
 
 /** Az aktív edzői terv: a legutóbb ELFOGADOTT ajánlat — a terv-követés is ehhez mér. */
 function renderActivePlan(el, history) {

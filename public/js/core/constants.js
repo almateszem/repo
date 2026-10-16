@@ -1,8 +1,8 @@
 /** Oldal- és naptár-konstansok. Több modul osztozik rajtuk, ezért állnak külön. */
 
-/** Hétnapok hétfőtől (0 = hétfő), ahogy a szerver is indexeli őket
-    (plans.days). A terv-építő chipjei és a felajánlott terv ütemezése is
-    innen kapja a feliratot — a kettő nem csúszhat el egymástól. */
+/** Hétnapok hétfőtől (0 = hétfő). A ciklusos terv napjainak neve ezt
+    ismétli (a 8. naptól „(2.)" utótaggal — core/plan-week.js → dayTitle,
+    dayLabel), a terv-építő és a felajánlott terv is innen kapja a feliratot. */
 const DAY_LABELS = ['H', 'K', 'Sze', 'Cs', 'P', 'Szo', 'V'];
 
 const DAY_NAMES = ['hétfő', 'kedd', 'szerda', 'csütörtök', 'péntek', 'szombat', 'vasárnap'];
