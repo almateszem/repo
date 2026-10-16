@@ -3309,6 +3309,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .pl-week {
   flex-wrap: nowrap;
   overflow-x: auto;
+  scrollbar-width: thin;
 }
 
 .pl-week-day {
@@ -3348,7 +3349,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 
 /* A második kör („2.") jelölése a betű mellett, kicsiben. */
 .pl-week-round {
-  margin-left: 1px;
+  margin-left: 2px;
   font-size: 0.75em;
   color: var(--c-accent);
 }
@@ -6120,11 +6121,89 @@ body:is([data-page='checkin'], [data-page='plan-builder'], [data-page='exercise-
   margin-bottom: var(--sp-5);
 }
 
-/* A hét napja egy összefüggő, hajszálvonalakkal osztott sáv: a .ds-grid 1px-es
-   rése adja a vonalat, a chipeknek nincs saját keretük. A `wrap` megmarad — a
-   legkeskenyebb kijelzőn a hét nap két sorba törik, és a rés ott is vonal. */
+/* A ciklus napjai egy összefüggő, hajszálvonalakkal osztott sáv: a .ds-grid
+   1px-es rése adja a vonalat, a chipeknek nincs saját keretük. A sáv EGY sor
+   (1–14 nap + a „+"): ami nem fér ki, vízszintesen görgethető — két sorba
+   törve a „+" és a napok sorrendje szétesne. */
 .pb-days-chips {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
   margin-bottom: var(--sp-3);
+}
+
+/* Egy nap cellája: a napfül és a sarokban a törlés (testvérek — gomb a
+   gombban nem lehet). */
+.pb-day-cell {
+  position: relative;
+  flex: 1 0 48px;
+  display: flex;
+}
+
+.pb-day-cell > .pb-day {
+  width: 100%;
+}
+
+/* Törlés a cella jobb felső sarkában: kicsi jel, de 24×24-es célterület. */
+.pb-day-remove {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  padding: 3px 4px 0 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pb-day-remove:hover,
+.pb-day-remove:focus-visible {
+  color: var(--c-accent);
+}
+
+/* A kijelölt (accent) cellán a törlés is accent-ellentétes. */
+.pb-day[aria-selected='true'] + .pb-day-remove {
+  color: var(--on-accent);
+}
+
+/* A második kör („2.") jelölése a betű mellett, kicsiben. */
+.pb-day-round {
+  margin-left: 2px;
+  font-size: 0.75em;
+  color: var(--c-accent);
+}
+
+.pb-day[aria-selected='true'] .pb-day-round {
+  color: var(--on-accent);
+}
+
+/* Új nap a ciklus végére: szaggatott accent keret; 14 napnál tiltott. */
+.pb-day-add {
+  flex: 0 0 48px;
+  min-height: 56px;
+  border: 1px dashed var(--c-accent);
+  background: var(--c-bg);
+  color: var(--c-accent);
+  font-size: var(--fs-lg);
+  cursor: pointer;
+  transition: background var(--t-fast);
+}
+
+.pb-day-add:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.pb-day-add:disabled {
+  border-color: var(--hair);
+  color: var(--text-muted);
+  cursor: not-allowed;
 }
 
 /* Napfül: fent a nap betűje, alatta az állapota (az edzés neve, „Pihenő",

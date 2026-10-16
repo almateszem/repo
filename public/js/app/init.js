@@ -187,7 +187,7 @@ async function init() {
   // A „Meglévő edzés betöltése" választója — szinkron épül fel, adatot
   // csak megnyitáskor kér
   const workoutPicker = await safe(() => setupWorkoutPicker(confirmAction));
-  const planBuilder = await safe(() => setupPlanBuilder(picker, workoutPicker));
+  const planBuilder = await safe(() => setupPlanBuilder(picker, workoutPicker, confirmAction));
   setupPlans(planBuilder, workout, confirmAction);
   setupSummary();
   setupShortcuts();
