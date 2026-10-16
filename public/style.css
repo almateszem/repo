@@ -3301,16 +3301,19 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   color: var(--text-primary);
 }
 
-/* A terv hete: hét cella, a .ds-grid rése a vonal. Az edzésnap gomb (azt a
-   napot tölti be), a pihenő halvány és tiltott; a mai nap alávonalas. A hét
-   EGY sor marad — telefonon a cellák keskenyednek, az állapot levágódik. */
+/* A terv napjai: cellánként egy nap (1–14), a .ds-grid rése a vonal. Az
+   edzésnap gomb (azt a napot tölti be), a pihenő halvány és tiltott; a mai
+   nap alávonalas. A sáv EGY sor marad — telefonon a cellák keskenyednek, az
+   állapot levágódik; ami így sem fér ki (hosszú ciklus), vízszintesen
+   görgethető. */
 .pl-week {
   flex-wrap: nowrap;
+  overflow-x: auto;
 }
 
 .pl-week-day {
-  flex: 1;
-  min-width: 0;
+  flex: 1 0 28px;
+  min-width: 28px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -3341,6 +3344,17 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   font-size: var(--fs-2xs);
   font-weight: 700;
   text-transform: uppercase;
+}
+
+/* A második kör („2.") jelölése a betű mellett, kicsiben. */
+.pl-week-round {
+  margin-left: 1px;
+  font-size: 0.75em;
+  color: var(--c-accent);
+}
+
+.pl-week-day:disabled .pl-week-round {
+  color: inherit;
 }
 
 .pl-week-status {

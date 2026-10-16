@@ -2,7 +2,7 @@
 
 import { api } from '../core/api.js';
 import { $ } from '../core/dom.js';
-import { dayEntry, dayWorkoutName, todayWeekday } from '../core/plan-week.js';
+import { cycleDay, dayEntry, dayWorkoutName } from '../core/plan-week.js';
 import { showToast } from '../core/toast.js';
 import { navigate } from '../nav/router.js';
 import { plansData, renderPlans } from '../render/plans.js';
@@ -73,7 +73,7 @@ function setupPlans(planBuilder, workout, confirmAction) {
     // Nyíl — a MAI nap edzése. Pihenőnapon a heti sávra irányítunk: onnan
     // bármelyik edzésnap elindítható.
     if (!event.target.closest('.pl-card-open')) return;
-    const today = todayWeekday();
+    const today = cycleDay(plan);
     if (dayEntry(plan.week, today)) {
       loadDay(plan, today);
       return;

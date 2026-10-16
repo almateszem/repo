@@ -1,16 +1,25 @@
 /** Terv-kártyák és a Tervek oldal listája. */
 
 import { api } from '../core/api.js';
-import { DAY_LABELS } from '../core/constants.js';
 import { $, cloneTemplate } from '../core/dom.js';
-import { dayEntry, dayStatus, dayTitle, dayWorkoutName, todayWeekday } from '../core/plan-week.js';
+import {
+  cycleDay,
+  dayEntry,
+  dayLetter,
+  dayRound,
+  dayStatus,
+  dayTitle,
+  dayWorkoutName,
+} from '../core/plan-week.js';
 
-/** A kártya heti sávja: hét cella (a nap betűje + állapota). Az edzésnap
-    gomb — azt a napot tölti az edzésnaplóba —, a pihenőnap tiltott; a mai nap
-    kiemelt. */
+/** A kártya sávja: a terv minden napja egy cella (a nap betűje, a második
+    körben „2." jelölés, alatta az állapota). Az edzésnap gomb — azt a napot
+    tölti az edzésnaplóba —, a pihenőnap tiltott. A mai nap az aktív terven
+    kiemelt; a nem aktív terven csak hétnapos tervnél (ott a ciklus a hét,
+    máshol a „ma" az aktiválástól függne). */
 function weekStrip(plan) {
-  const today = todayWeekday();
-  return DAY_LABELS.map((label, day) => {
+  const today = plan.active || plan.week.length === 7 ? cycleDay(plan) : -1;
+  return plan.week.map((_, day) => {
     const cell = document.createElement('button');
     cell.type = 'button';
     cell.className = 'pl-week-day';
@@ -21,7 +30,13 @@ function weekStrip(plan) {
     cell.classList.toggle('is-today', day === today);
     const labelEl = document.createElement('span');
     labelEl.className = 'pl-week-label';
-    labelEl.textContent = label;
+    labelEl.textContent = dayLetter(day);
+    if (dayRound(day)) {
+      const roundEl = document.createElement('span');
+      roundEl.className = 'pl-week-round';
+      roundEl.textContent = dayRound(day);
+      labelEl.append(roundEl);
+    }
     const statusEl = document.createElement('span');
     statusEl.className = 'pl-week-status';
     // A keskeny cellában a pihenő egy vonás, a név nélküli edzésnap egy pötty —

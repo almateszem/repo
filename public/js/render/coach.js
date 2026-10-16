@@ -1,8 +1,7 @@
 /** Az edzői panel elemei: KPI-sor, sportoló-lista, állapot, üzenetek, meghívók, terv-ajánlatok. */
 
-import { DAY_LABELS } from '../core/constants.js';
 import { $, cloneTemplate } from '../core/dom.js';
-import { dayStatus } from '../core/plan-week.js';
+import { dayLabel, dayStatus } from '../core/plan-week.js';
 import { CONFIDENCE_LABELS, hasReadiness } from './recovery.js';
 
 /** Egy üzenet-buborék. A `me` a saját üzeneteket tolja jobbra — a szerver a
@@ -245,7 +244,7 @@ function renderPlanOffer(offer) {
   const weekEl = document.createElement('span');
   weekEl.className = 'co-invite-meta';
   weekEl.textContent = days
-    .map((day) => `${DAY_LABELS[day]}: ${dayStatus(offer.week, day)}`)
+    .map((day) => `${dayLabel(day)}: ${dayStatus(offer.week, day)}`)
     .join(' · ');
   info.append(nameEl, metaEl, weekEl);
 
