@@ -20,11 +20,11 @@ npm test           # unit-tesztek (node --test, nulla függőség):
 
 Környezeti változók:
 
-| Változó                | Alapérték            | Mire jó                                                                                                    |
-| ---------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `PORT`                 | `3000`               | A szerver portja                                                                                           |
+| Változó              | Alapérték          | Mire jó                                                                                                    |
+| -------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `PORT`               | `3000`             | A szerver portja                                                                                           |
 | `PODIUM_DB`          | `server/podium.db` | Az adatbázisfájl útvonala — **teszthez érdemes eldobható fájlra állítani**, hogy a valódi adat ne sérüljön |
-| `PODIUM_TRUST_PROXY` | kikapcsolva          | Reverse proxy mögött a megbízható proxy-lépések száma (pl. `1`) — ld. _Élesítés_                           |
+| `PODIUM_TRUST_PROXY` | kikapcsolva        | Reverse proxy mögött a megbízható proxy-lépések száma (pl. `1`) — ld. _Élesítés_                           |
 
 ```bash
 # Kísérletezés külön adatbázison, az éles adat érintése nélkül
@@ -341,14 +341,20 @@ tartja ki a gráfból magát a vendorolt skillt (különben a saját dokumentác
   jelzők is újraépülnek — a PR-lista azokból dolgozik, nem a táblából —, így a
   törölt rekord helyére a következő legjobb edzés lép be. A művelet
   tranzakcióban fut: a napló és a rekordok csak együtt igazak.
-- **Heti bontású tervek.** Egy terv egy hét, és hetente ismétlődik: minden nap
-  saját edzés (opcionális névvel, pl. „Láb nap”) vagy pihenőnap
-  (`server/plan-week.js`). Egy edzésnapba a „Meglévő edzés betöltése” a terv
+- **Ciklusos tervek (1–14 nap).** Egy terv alapból egy hét, de a terv-építő
+  sávjának végén a „+” napot ad hozzá, a nap sarkában az „✕” törli (a többi
+  nap feljebb csúszik) — így 1 és 14 nap közötti ciklus is lehet, amely a
+  végére érve elölről kezdődik. A napok neve a hét napjait követi, a 8.
+  naptól „(2.)” jelöléssel. A ciklus az aktiválás hetének hétfőjétől számít
+  (`plans.active_since`, `cycleDay` a `server/plan-week.js`-ben és tükörként
+  a `public/js/core/plan-week.js`-ben) — a 7 napos terv mai napja így
+  mindig a mai hétnap. Minden nap saját edzés (opcionális névvel, pl. „Láb
+  nap”) vagy pihenőnap. Egy edzésnapba a „Meglévő edzés betöltése” a terv
   másik napjának vagy egy naplózott edzésnek a másolatát tölti. A régi tervek
   „ugyanaz, mint” napjait a szerver továbbra is elfogadja; a terv-építőben
   megnyitva ezek másolattá válnak. Egyszerre egy terv aktív; annak a
   mai napja automatikusan betöltődik az Edzés oldalra — de egy már megkezdett
-  edzést soha nem ír felül. A terv-kártya heti sávjából bármelyik nap edzése
+  edzést soha nem ír felül. A terv-kártya sávjából bármelyik nap edzése
   elindítható.
 - **Szett-értékek.** Az ismétlés, a súly (kg) és az RPE szám; a mértékegység a
   táblázat fejlécében van. A régebbi, mértékegységgel együtt tárolt értékeket
