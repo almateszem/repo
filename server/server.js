@@ -174,7 +174,14 @@ import {
 // Az edzői panel sportoló-összegzője. Szintén tiszta számítás: a végpont
 // gyűjti az adatot, a modul számol belőle (server/coaching.js).
 import { buildAthleteCard, streakFromDates } from './coaching.js';
-import { allWeekExercises, dayEntry, normalizeWeek, weekFromLegacy } from './plan-week.js';
+import {
+  allWeekExercises,
+  cycleDay,
+  dayEntry,
+  dayLabel,
+  normalizeWeek,
+  weekFromLegacy,
+} from './plan-week.js';
 // Az értesítés-panel sorai. Szintén tiszta összeállítás: a végpont gyűjti az
 // eseményeket, a modul formázza őket (server/notifications.js).
 import { buildNotifications } from './notifications.js';
@@ -566,12 +573,6 @@ const shiftDate = (dateStr, days) => {
   date.setDate(date.getDate() + days);
   return formatDate(date);
 };
-
-/** Egy nap hétnap-indexe, hétfőtől számolva (0 = hétfő … 6 = vasárnap). */
-const weekdayOf = (dateStr) => (parseDate(dateStr).getDay() + 6) % 7;
-
-/** A tervek hétnap-címkéi — a kártya-metában és a kliens chipjein is ez a sorrend. */
-const DAY_LABELS = ['H', 'K', 'Sze', 'Cs', 'P', 'Szo', 'V'];
 
 /** A beküldött hétnap-lista normalizálása: egyedi, rendezett 0–6 indexek. */
 const normalizeDays = (raw) =>
@@ -1304,7 +1305,7 @@ app.post('/api/plan-offers/:id/accept', (req, res) => {
   resolvePlanAssignment(offer.id, 'accepted');
   // Az assignmentId köti a tervet az edzőhöz: a terv-követés ehhez mér
   const added = addPlan(req.user.id, offer.name, req.today, offer.week, offer.id);
-  res.status(201).json(setActivePlan(req.user.id, added.id, true));
+  res.status(201).json(setActivePlan(req.user.id, added.id, true, req.today));
 });
 
 /** Ajánlat elutasítása. A sor megmarad (lezárt állapotban), hogy az edző
@@ -1412,7 +1413,8 @@ function workoutTemplate(userId, today) {
   const draft = getWorkoutDraft(userId);
   if (draft && draft.date === today) return fromDraft(draft);
 
-  const plan = getPlanForDay(userId, weekdayOf(today));
+  const activePlan = getActivePlan(userId);
+  const plan = activePlan && getPlanForDay(userId, cycleDay(activePlan, today));
   if (plan) {
     return {
       source: 'plan',
@@ -1472,7 +1474,9 @@ app.get('/api/dashboard', (req, res) => {
      felület ezt írja ki a „Kezdj új edzést" helyett. Külön jelző, nem edzésnév —
      a név az edzésnapló címének is az alapértéke lenne. */
   const activePlan = template ? null : getActivePlan(userId);
-  dashboard.restDay = Boolean(activePlan && !dayEntry(activePlan.week, weekdayOf(req.today)));
+  dashboard.restDay = Boolean(
+    activePlan && !dayEntry(activePlan.week, cycleDay(activePlan, req.today)),
+  );
   dashboard.workoutPlan = template
     ? {
         name: template.name?.trim() || null,
@@ -1958,7 +1962,7 @@ app.get('/api/plans', (req, res) => {
   res.json(
     plans.map((plan) => {
       const daysLabel = plan.days.length
-        ? ` · ${plan.days.map((d) => DAY_LABELS[d]).join(', ')}`
+        ? ` · ${plan.days.map((d) => dayLabel(d)).join(', ')}`
         : '';
       return {
         id: plan.id,
@@ -1973,6 +1977,9 @@ app.get('/api/plans', (req, res) => {
         safety: safetyOf(allWeekExercises(plan.week)),
         week: plan.week,
         days: plan.days,
+        // A ciklus horgonyához (plan-week.js → cycleAnchor) a kliensnek is kell
+        date: plan.date,
+        activeSince: plan.activeSince,
       };
     }),
   );
@@ -1986,7 +1993,7 @@ app.delete('/api/plans/:id', (req, res) => {
   if (!Number.isInteger(id) || id <= 0) {
     return res.status(400).json({ error: 'Érvénytelen terv-azonosító.' });
   }
-  if (!deletePlan(req.user.id, id)) {
+  if (!deletePlan(req.user.id, id, req.today)) {
     return res.status(404).json({ error: 'Nincs ilyen terved — lehet, hogy időközben törölték.' });
   }
   res.status(204).end();
@@ -1999,7 +2006,7 @@ app.post('/api/plans/:id/active', (req, res) => {
   if (!Number.isInteger(id) || id <= 0) {
     return res.status(400).json({ error: 'Érvénytelen terv-azonosító.' });
   }
-  const plan = setActivePlan(req.user.id, id, req.body?.active !== false);
+  const plan = setActivePlan(req.user.id, id, req.body?.active !== false, req.today);
   if (!plan) return res.status(404).json({ error: 'Nincs ilyen terved.' });
   res.json(plan);
 });

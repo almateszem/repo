@@ -420,6 +420,10 @@ ensureColumn('plans', 'assignment_id', 'assignment_id INTEGER');
 const plansHadActive = hasColumn('plans', 'active');
 ensureColumn('plans', 'week', 'week TEXT');
 ensureColumn('plans', 'active', 'active INTEGER NOT NULL DEFAULT 0');
+/* A ciklus horgonya (plan-week.js → cycleAnchor): az aktiválás napja. A
+   kitöltés lentebb, az aktív terv bevezetése után. */
+const plansHadActiveSince = hasColumn('plans', 'active_since');
+ensureColumn('plans', 'active_since', 'active_since TEXT');
 ensureColumn('plan_assignments', 'week', 'week TEXT');
 ensureColumn('workout_draft', 'date', "date TEXT NOT NULL DEFAULT ''");
 ensureColumn('workouts', 'plan_id', 'plan_id INTEGER');
@@ -822,6 +826,16 @@ if (!plansHadActive) {
     const plan = pick.get(owner.id);
     if (plan) activate.run(plan.id);
   }
+}
+
+/* A ciklus bevezetésekor a már aktív terv a mai napot kapja horgonynak. A
+   meglévő tervek mind hétnaposak, és azoknál bármely hétfő ugyanazt a mai
+   napot adja — a mai terv-nap tehát nem mozdul. */
+if (!plansHadActiveSince) {
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  const todayStr = `${now.getFullYear()}.${pad(now.getMonth() + 1)}.${pad(now.getDate())}`;
+  db.prepare('UPDATE plans SET active_since = ? WHERE active = 1').run(todayStr);
 }
 
 /*   3 — a saját testsúlyos gyakorlatok terhelése (data/bodyweight-load.js):
@@ -2769,7 +2783,7 @@ export function recomputeExerciseMaxes(userId) {
 
 /* ---- Tervek (heti bontás: plan-week.js) ---- */
 
-const PLAN_COLUMNS = 'id, name, date, week, exercises, days, active, assignment_id';
+const PLAN_COLUMNS = 'id, name, date, week, exercises, days, active, active_since, assignment_id';
 
 /** Egy terv-sor → a hívók által látott alak. A `days` SZÁMOLT érték (a nem
     pihenő napok); a régi `exercises`/`days` oszlop csak a migráció forrása. */
@@ -2784,6 +2798,7 @@ const toPlan = (row) => {
     week,
     days: workoutDays(week),
     active: row.active === 1,
+    activeSince: row.active_since ?? null,
     assignmentId: row.assignment_id ?? null,
   };
 };
@@ -2797,12 +2812,23 @@ export function getActivePlan(userId) {
   return row ? toPlan(row) : null;
 }
 
-/** Az aktív terv ÜTEMEZÉSE (0 vagy 1 elem) — gyakorlat-lista nélkül. Az
-    edzői kártya heti állása a hétnapokból és a terv kezdőnapjából számol, a
-    kártyán pedig a terv NEVE látszik. */
+/** Az aktív terv ÜTEMEZÉSE (0 vagy 1 elem). Az edzői kártya heti állása a
+    terv ciklusából (hét + horgony) és a kezdőnapjából számol, a kártyán
+    pedig a terv NEVE látszik. */
 export function getUserPlanSchedules(userId) {
   const plan = getActivePlan(userId);
-  return plan ? [{ id: plan.id, name: plan.name, date: plan.date, days: plan.days }] : [];
+  return plan
+    ? [
+        {
+          id: plan.id,
+          name: plan.name,
+          date: plan.date,
+          activeSince: plan.activeSince,
+          week: plan.week,
+          days: plan.days,
+        },
+      ]
+    : [];
 }
 
 /** A terv-követés mércéje: amit EZ a kapcsolat (edző) LEGUTÓBB kiosztott és a
@@ -2815,7 +2841,7 @@ export function getAssignedPlanTargets(userId, linkId) {
   return db
     .prepare(
       `
-    SELECT p.id, p.date, a.week, a.exercises, a.days
+    SELECT p.id, p.date, p.active_since, a.week, a.exercises, a.days
     FROM plans p JOIN plan_assignments a ON a.id = p.assignment_id
     WHERE p.user_id = ? AND a.link_id = ?
     ORDER BY p.id DESC LIMIT 1
@@ -2825,6 +2851,8 @@ export function getAssignedPlanTargets(userId, linkId) {
     .map((row) => ({
       id: row.id,
       date: row.date,
+      // A ciklus horgonya a sportoló tervéé — ő aktiválta
+      activeSince: row.active_since ?? null,
       week: row.week
         ? JSON.parse(row.week)
         : weekFromLegacy(JSON.parse(row.exercises), JSON.parse(row.days)),
@@ -2848,7 +2876,7 @@ export function getUserPlans(userId) {
     .map(toPlan);
 }
 
-/** Az aktív terv edzése a megadott hétnapon (0 = hétfő):
+/** Az aktív terv edzése a ciklus megadott napján (plan-week.js → cycleDay):
     `{ id, name, exercises }`, vagy null — pihenőnapon és terv nélkül is. */
 export function getPlanForDay(userId, dayIndex) {
   const plan = getActivePlan(userId);
@@ -3437,7 +3465,7 @@ export function updateWorkout(userId, id, name, exercises) {
     saját sora (az elfogadás MÁSOLATOT hoz létre), ezért az is törölhető.
     Ha az AKTÍV tervet törli, a legújabb megmaradt veszi át a helyét — mint az
     addPlan-nél: aki tervet használ, ne maradjon némán aktív terv nélkül. */
-export function deletePlan(userId, id) {
+export function deletePlan(userId, id, today) {
   db.exec('BEGIN IMMEDIATE');
   try {
     const wasActive = getActivePlan(userId)?.id === Number(id);
@@ -3448,10 +3476,10 @@ export function deletePlan(userId, id) {
        hétfőn betöltődne (ugyanezért nem aktiválja a migráció sem). */
     if (deleted && wasActive) {
       db.prepare(
-        `UPDATE plans SET active = 1
+        `UPDATE plans SET active = 1, active_since = ?
          WHERE id = (SELECT id FROM plans WHERE user_id = ? AND days != '[]'
                      ORDER BY id DESC LIMIT 1)`,
-      ).run(userId);
+      ).run(today ?? null, userId);
     }
     db.exec('COMMIT');
     return deleted;
@@ -3470,8 +3498,9 @@ export function addPlan(userId, name, date, week, assignmentId = null) {
   const active = getActivePlan(userId) ? 0 : 1;
   const { lastInsertRowid } = db
     .prepare(
-      `INSERT INTO plans (user_id, name, date, week, exercises, days, active, assignment_id)
-       VALUES (?, ?, ?, ?, '[]', ?, ?, ?)`,
+      `INSERT INTO plans
+         (user_id, name, date, week, exercises, days, active, active_since, assignment_id)
+       VALUES (?, ?, ?, ?, '[]', ?, ?, ?, ?)`,
     )
     .run(
       userId,
@@ -3480,6 +3509,7 @@ export function addPlan(userId, name, date, week, assignmentId = null) {
       JSON.stringify(week),
       JSON.stringify(workoutDays(week)),
       active,
+      active ? date : null,
       assignmentId,
     );
   return getPlan(userId, Number(lastInsertRowid));
@@ -3496,13 +3526,18 @@ export function updatePlan(userId, id, name, week) {
 }
 
 /** A terv aktívvá tétele (a felhasználó többi terve ettől kikapcsol) vagy
-    kikapcsolása. A frissített tervet adja vissza, idegen/ismeretlen id-re null. */
-export function setActivePlan(userId, id, active) {
+    kikapcsolása. Bekapcsoláskor a `today` lesz a ciklus horgonya — az
+    újraaktiválás tehát újraindítja a ciklust; a már aktív terv „újra-
+    bekapcsolása" nem (a SET a régi `active` értéket látja). A frissített tervet adja
+    vissza, idegen/ismeretlen id-re null. */
+export function setActivePlan(userId, id, active, today) {
   if (!getPlan(userId, id)) return null;
   if (active) {
     db.prepare(
-      'UPDATE plans SET active = CASE WHEN id = ? THEN 1 ELSE 0 END WHERE user_id = ?',
-    ).run(id, userId);
+      `UPDATE plans SET active = CASE WHEN id = ? THEN 1 ELSE 0 END,
+         active_since = CASE WHEN id = ? AND active = 0 THEN ? ELSE active_since END
+       WHERE user_id = ?`,
+    ).run(id, id, today ?? null, userId);
   } else {
     db.prepare('UPDATE plans SET active = 0 WHERE id = ? AND user_id = ?').run(id, userId);
   }
