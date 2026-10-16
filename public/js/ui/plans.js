@@ -2,7 +2,7 @@
 
 import { api } from '../core/api.js';
 import { $ } from '../core/dom.js';
-import { cycleDay, dayEntry, dayWorkoutName } from '../core/plan-week.js';
+import { dayEntry, dayWorkoutName, todayIndex } from '../core/plan-week.js';
 import { showToast } from '../core/toast.js';
 import { navigate } from '../nav/router.js';
 import { plansData, renderPlans } from '../render/plans.js';
@@ -70,15 +70,20 @@ function setupPlans(planBuilder, workout, confirmAction) {
       return;
     }
 
-    // Nyíl — a MAI nap edzése. Pihenőnapon a heti sávra irányítunk: onnan
-    // bármelyik edzésnap elindítható.
+    // Nyíl — a MAI nap edzése. Pihenőnapon (és a nem aktív, nem heti
+    // tervnél, ahol nincs „mai" nap) a sávra irányítunk: onnan bármelyik
+    // edzésnap elindítható.
     if (!event.target.closest('.pl-card-open')) return;
-    const today = cycleDay(plan);
+    const today = todayIndex(plan);
     if (dayEntry(plan.week, today)) {
       loadDay(plan, today);
       return;
     }
-    showToast('Ma pihenőnap van ebben a tervben — válaszd ki, melyik nap edzését indítod');
+    showToast(
+      today === -1
+        ? 'Ennek a tervnek nincs mai napja, amíg nem aktív — válaszd ki, melyik nap edzését indítod'
+        : 'Ma pihenőnap van ebben a tervben — válaszd ki, melyik nap edzését indítod',
+    );
     $('.pl-week-day:not(:disabled)', card)?.focus();
   });
 

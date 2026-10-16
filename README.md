@@ -20,11 +20,11 @@ npm test           # unit-tesztek (node --test, nulla függőség):
 
 Környezeti változók:
 
-| Változó              | Alapérték          | Mire jó                                                                                                    |
-| -------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------- |
-| `PORT`               | `3000`             | A szerver portja                                                                                           |
+| Változó                | Alapérték            | Mire jó                                                                                                    |
+| ---------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `PORT`                 | `3000`               | A szerver portja                                                                                           |
 | `PODIUM_DB`          | `server/podium.db` | Az adatbázisfájl útvonala — **teszthez érdemes eldobható fájlra állítani**, hogy a valódi adat ne sérüljön |
-| `PODIUM_TRUST_PROXY` | kikapcsolva        | Reverse proxy mögött a megbízható proxy-lépések száma (pl. `1`) — ld. _Élesítés_                           |
+| `PODIUM_TRUST_PROXY` | kikapcsolva          | Reverse proxy mögött a megbízható proxy-lépések száma (pl. `1`) — ld. _Élesítés_                           |
 
 ```bash
 # Kísérletezés külön adatbázison, az éles adat érintése nélkül

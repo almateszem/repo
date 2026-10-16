@@ -13,6 +13,7 @@ import {
   dayLetter,
   dayRound,
   dayTitle,
+  todayIndex,
 } from '../../../../public/js/core/plan-week.js';
 
 const cyclePlan = (length, extra = {}) => ({
@@ -59,4 +60,11 @@ test('ciklus-nap: az óraátállítás nem csúsztatja el a ciklust', () => {
 test('ciklus-nap dátum nélkül a mai napra szól', () => {
   const d = new Date();
   assert.equal(cycleDay(cyclePlan(7)), (d.getDay() + 6) % 7);
+});
+
+test('a „ma" az aktív terven és a hétnapos terven a ciklus napja, máshol nincs', () => {
+  const nine = cyclePlan(9, { activeSince: '2026.10.14' });
+  assert.equal(todayIndex({ ...nine, active: true }, '2026.10.19'), 7);
+  assert.equal(todayIndex({ ...nine, active: false }, '2026.10.19'), -1, 'inaktív, nem heti');
+  assert.equal(todayIndex({ ...cyclePlan(7), active: false }, '2026.10.16'), 4);
 });

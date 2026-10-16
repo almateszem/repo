@@ -94,11 +94,13 @@ const scheduledAt = (plan, key) =>
     napra — egy nap akkor is EGY edzésnap. */
 const scheduledByAny = (plans, key) => plans.some((plan) => scheduledAt(plan, key));
 
-/** A terv kezdőnapja (timestamp), vagy -Infinity, ha nincs dátuma — a dátum
+/** A terv kezdőnapja (timestamp): a létrehozás és az aktiválás közül a
+    későbbi — a régen készült, de csak most aktivált terv ciklusa az
+    aktiválás előtt nem szólt semmiről. Dátum nélkül -Infinity: a dátum
     nélküli terv „mindig is élt" (régi hívók, tesztek). */
 const planStart = (plan) => {
-  const key = plan.date ? dayKey(plan.date) : NaN;
-  return Number.isFinite(key) ? key : -Infinity;
+  const keys = [plan.date, plan.activeSince].filter(Boolean).map(dayKey).filter(Number.isFinite);
+  return keys.length ? Math.max(...keys) : -Infinity;
 };
 
 /** Edzésnap-e a nap az aznap már élő tervek szerint. A terv létrehozása

@@ -715,3 +715,16 @@ test('terv-követés 9 napos kiosztott tervvel: a naptári napra a ciklus napja 
   assert.equal(onDay('2026.10.13').split('/')[0], '1');
   assert.equal(onDay('2026.10.12').split('/')[0], '0');
 });
+
+test('a régen készült, de a héten aktivált terv csak az aktiválástól hagyható ki', () => {
+  // 9 napos terv, edzés a ciklus 0–3. napján; 2026.10.01-én készült, szerdán
+  // (10.14) aktiválták → horgony: 10.12 hétfő, a H–Cs mind edzésnap
+  const week = Array.from({ length: 9 }, (_, day) =>
+    day < 4 ? { type: 'workout', name: '', exercises: SQUAT_DAY } : { type: 'rest' },
+  );
+  const plans = [
+    { id: 2, date: '2026.10.01', activeSince: '2026.10.14', week, days: [0, 1, 2, 3] },
+  ];
+  // Péntek: a hétfő és a kedd még nem volt ennek a tervnek a napja
+  assert.equal(weekProgress({ workouts: [], plans, today: '2026.10.16' }).missed, 2);
+});

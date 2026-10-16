@@ -59,6 +59,13 @@ function cycleDay(plan, dateStr = localToday()) {
   return ((offset % length) + length) % length;
 }
 
+/** A kártya „mai" napja: az aktív terven a ciklus napja; a nem aktív terven
+    csak hétnapos tervnél (ott a ciklus maga a hét) — máshol a „ma" az
+    aktiválástól függne, ezért -1 (nincs mai nap). */
+function todayIndex(plan, dateStr = localToday()) {
+  return plan.active || plan.week?.length === 7 ? cycleDay(plan, dateStr) : -1;
+}
+
 /** Egy nap feloldva: { weekday, sourceDay, name, exercises }, pihenőnapon null.
     A „same" nap a hivatkozott nap edzését adja. */
 function dayEntry(week, weekday) {
@@ -94,4 +101,5 @@ export {
   dayStatus,
   dayTitle,
   dayWorkoutName,
+  todayIndex,
 };
