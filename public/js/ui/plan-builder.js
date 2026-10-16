@@ -1,10 +1,9 @@
-/** Tervkészítő: a hét napjai (edzés / pihenő), gyakorlatok, mentés. */
+/** Tervkészítő: a ciklus napjai (edzés / pihenő), gyakorlatok, mentés. */
 
 import { api } from '../core/api.js';
-import { DAY_LABELS, DAY_NAMES } from '../core/constants.js';
 import { $, $$ } from '../core/dom.js';
 import { copyExercises, inlineSameDays } from '../core/plan-sources.js';
-import { dayTitle } from '../core/plan-week.js';
+import { dayAdjective, dayLetter, dayRound, dayTitle } from '../core/plan-week.js';
 import { showToast } from '../core/toast.js';
 import { navigate } from '../nav/router.js';
 import { renderPlans } from '../render/plans.js';
@@ -20,12 +19,19 @@ import {
   renderExercise,
 } from '../render/sets.js';
 
+/** A terv hosszának határai (napban) — a szerver (server/plan-week.js) is
+    ezeket fogadja el. */
+const MIN_DAYS = 1;
+const MAX_DAYS = 14;
+
 /** Üres hét egy új tervhez: hétfőn edzés, a többi pihenő. */
 const freshDays = () =>
-  DAY_LABELS.map((_, day) => ({ type: day === 0 ? 'workout' : 'rest', name: '' }));
+  Array.from({ length: 7 }, (_, day) => ({ type: day === 0 ? 'workout' : 'rest', name: '' }));
 
 /** A terv-építő flow-oldal (a Tervek „+ Új terv" és szerkesztés gombja hozza
-    be). A terv EGY HÉT: a napfülek alatt a kijelölt nap panelje — edzés
+    be). A terv 1–14 napos CIKLUS: a sáv végén a „+" egy pihenőnapot ad a
+    végére, a nap sarkában az „✕" törli — a többi nap feljebb csúszik, a
+    nevek a sorrendet követik. A napfülek alatt a kijelölt nap panelje — edzés
     (saját név + gyakorlatkártyák) vagy pihenő. Egy edzésnapba a „Meglévő
     edzés betöltése" a terv másik napjának vagy egy naplózott edzésnek a
     MÁSOLATÁT tölti. Minden napnak saját listája van a DOM-ban (csak a kijelölt
@@ -33,7 +39,7 @@ const freshDays = () =>
     közös választóra visz, a kijelölt nap listáját célozva. A Mentés új tervet
     hoz létre vagy a szerkesztettet írja felül, majd frissíti a Tervek listáját.
     Vezérlőt ad vissza: { startNew, loadPlan }. */
-async function setupPlanBuilder(picker, workoutPicker) {
+async function setupPlanBuilder(picker, workoutPicker, confirmAction) {
   const page = $('[data-page="plan-builder"]');
   const nameInput = $('#plan-name');
   const nameError = $('#plan-name-error');
@@ -45,42 +51,80 @@ async function setupPlanBuilder(picker, workoutPicker) {
   const restNote = $('[data-pb-rest]', page);
   const workoutWrap = $('[data-pb-workout]', page);
   const dayNameInput = $('[data-pb-day-name]', page);
+  const daysLabel = $('#pb-days-label', page);
+  const cycleNote = $('[data-pb-cycle-note]', page);
   const defaultSet = await api.getDefaultSet();
 
   // A szerkesztett terv id-ja — null, amíg új terv készül
   let editingId = null;
-  // A kijelölt nap (0 = hétfő) és a napok beállítása: { type, name }. A
-  // gyakorlatok nem itt, hanem a napok listáiban (DOM) élnek.
+  // A kijelölt nap (0 = a ciklus első napja) és a napok beállítása:
+  // { type, name }. A gyakorlatok nem itt, hanem a napok listáiban (DOM)
+  // élnek — a `lists` a `days`-szel párban mozog (hozzáadás, törlés).
   let activeDay = 0;
-  let days = freshDays();
+  let days = [];
+  let lists = [];
+  let chips = [];
 
-  // Naponként egy gyakorlat-lista
-  const lists = DAY_LABELS.map((_, day) => {
+  /** Egy üres gyakorlat-lista egy naphoz. */
+  const createList = () => {
     const list = document.createElement('div');
     list.className = 'wk-list';
-    list.dataset.day = day;
     list.hidden = true;
     listsWrap.appendChild(list);
     return list;
-  });
+  };
 
-  // Napfülek: a nap betűje, alatta az állapota (név / pihenő / gyakorlatszám)
-  const chips = DAY_LABELS.map((label, day) => {
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = 'pb-day';
-    chip.setAttribute('role', 'tab');
-    chip.dataset.day = day;
-    const labelEl = document.createElement('span');
-    labelEl.className = 'pb-day-label';
-    labelEl.textContent = label;
-    const statusEl = document.createElement('span');
-    statusEl.className = 'pb-day-status';
-    chip.append(labelEl, statusEl);
-    chip.addEventListener('click', () => selectDay(day));
-    daysWrap.appendChild(chip);
-    return chip;
-  });
+  /** A napok sávja a `days` szerint: naponként egy cella — a napfül (a nap
+      betűje, a második körben „2.", alatta az állapota) és a sarokban a
+      törlés —, a végén a „+". A törlés a fül testvére, nem a gyereke: gomb
+      a gombban nem lehet. */
+  const renderChips = () => {
+    chips = days.map((_, day) => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'pb-day';
+      chip.setAttribute('role', 'tab');
+      chip.dataset.day = day;
+      const labelEl = document.createElement('span');
+      labelEl.className = 'pb-day-label';
+      labelEl.textContent = dayLetter(day);
+      if (dayRound(day)) {
+        const roundEl = document.createElement('span');
+        roundEl.className = 'pb-day-round';
+        roundEl.textContent = dayRound(day);
+        labelEl.append(roundEl);
+      }
+      const statusEl = document.createElement('span');
+      statusEl.className = 'pb-day-status';
+      chip.append(labelEl, statusEl);
+      chip.addEventListener('click', () => selectDay(day));
+      return chip;
+    });
+    const cells = chips.map((chip, day) => {
+      const cell = document.createElement('div');
+      cell.className = 'pb-day-cell';
+      cell.append(chip);
+      if (days.length > MIN_DAYS) {
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'pb-day-remove';
+        remove.textContent = '✕';
+        remove.setAttribute('aria-label', `${dayTitle(day)} törlése`);
+        remove.addEventListener('click', () => removeDay(day));
+        cell.append(remove);
+      }
+      return cell;
+    });
+    const add = document.createElement('button');
+    add.type = 'button';
+    add.className = 'pb-day-add';
+    add.textContent = '+';
+    add.disabled = days.length >= MAX_DAYS;
+    add.setAttribute('aria-label', 'Nap hozzáadása');
+    add.title = add.disabled ? `Legfeljebb ${MAX_DAYS} nap` : 'Nap hozzáadása';
+    add.addEventListener('click', addDay);
+    daysWrap.replaceChildren(...cells, add);
+  };
 
   /** Egy lista gyakorlatai (a napló-olvasóval azonos alak). A tervben a
       szettek mindig teljesítetlenek — a „kész" jelölés az edzésnaplóé. */
@@ -118,6 +162,15 @@ async function setupPlanBuilder(picker, workoutPicker) {
     return entry.name.trim() || (count ? `${count} gyak.` : 'Üres');
   };
 
+  /** A sáv felirata: hét napnál a megszokott hét, különben a ciklus hossza. */
+  const updateDaysLabel = () => {
+    const weekly = days.length === 7;
+    daysLabel.textContent = weekly
+      ? 'A hét — hetente ismétlődik'
+      : `A ciklus — ${days.length} nap, utána elölről kezdődik`;
+    cycleNote.hidden = weekly;
+  };
+
   /** Élő összegző: „3 edzésnap · 4 pihenő · 12 gyakorlat". */
   const updateSummary = () => {
     const training = days.filter((day) => day.type !== 'rest').length;
@@ -128,7 +181,7 @@ async function setupPlanBuilder(picker, workoutPicker) {
     summaryLine.textContent =
       exercises === 0
         ? 'Még nincs gyakorlat — válassz egy napot, és adj hozzá a lenti gombbal.'
-        : `${training} edzésnap · ${7 - training} pihenő · ${exercises} gyakorlat`;
+        : `${training} edzésnap · ${days.length - training} pihenő · ${exercises} gyakorlat`;
     chips.forEach((chip, day) => {
       $('.pb-day-status', chip).textContent = statusOf(day);
       chip.classList.toggle('is-rest', days[day].type === 'rest');
@@ -158,6 +211,39 @@ async function setupPlanBuilder(picker, workoutPicker) {
   const selectDay = (day) => {
     activeDay = day;
     renderPanel();
+  };
+
+  /** Egy pihenőnap a ciklus végére; az új nap lesz kijelölve. */
+  const addDay = () => {
+    if (days.length >= MAX_DAYS) return;
+    days.push({ type: 'rest', name: '' });
+    lists.push(createList());
+    renderChips();
+    updateDaysLabel();
+    selectDay(days.length - 1);
+    // Hosszú ciklusnál a sáv görgethető — az új nap (és a „+") látsszon
+    daysWrap.lastElementChild.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  };
+
+  /** A `day`-edik nap törlése: a tartalma tűnik el, a többi nap feljebb
+      csúszik (a nevük a helyükből jön). Gyakorlatos napnál előbb kérdez. */
+  const removeDay = async (day) => {
+    if (days.length <= MIN_DAYS) return;
+    const count = days[day].type === 'workout' ? exerciseCount(day) : 0;
+    if (count > 0) {
+      const ok = await confirmAction(
+        `${dayTitle(day)} törlődik ${count} gyakorlatával együtt; a többi nap feljebb csúszik.`,
+        { title: 'Törlöd a napot?', confirmLabel: 'Törlés' },
+      );
+      if (!ok) return;
+    }
+    days.splice(day, 1);
+    lists.splice(day, 1)[0].remove();
+    renderChips();
+    updateDaysLabel();
+    if (day < activeDay) selectDay(activeDay - 1);
+    else if (day === activeDay) selectDay(Math.max(0, day - 1));
+    else selectDay(activeDay);
   };
 
   /** A kijelölt nap típusának váltása. A pihenőre állított nap gyakorlatai
@@ -209,7 +295,7 @@ async function setupPlanBuilder(picker, workoutPicker) {
       backPage: 'plan-builder',
       backLabel: 'Vissza a terv-építőhöz',
       subtitleNoun: 'edzéshez',
-      toastTarget: `a ${DAY_NAMES[activeDay]}i edzéshez`,
+      toastTarget: `a ${dayAdjective(activeDay)} edzéshez`,
       exerciseOptions: { withAddSet: true },
       onChange: updateSummary,
     });
@@ -262,14 +348,18 @@ async function setupPlanBuilder(picker, workoutPicker) {
     nameInput.value = name;
     nameInput.classList.remove('has-error');
     nameError.hidden = true;
-    lists.forEach((list) => list.replaceChildren());
-    days = inlineSameDays(week).map((entry, day) => {
+    const resolved = inlineSameDays(week);
+    lists.forEach((list) => list.remove());
+    lists = resolved.map(() => createList());
+    days = resolved.map((entry, day) => {
       if (entry.type !== 'workout') return { type: 'rest', name: '' };
       entry.exercises.forEach((exercise) => {
         lists[day].appendChild(renderExercise(exercise, { withAddSet: true }));
       });
       return { type: 'workout', name: entry.name };
     });
+    renderChips();
+    updateDaysLabel();
     const firstWorkout = days.findIndex((day) => day.type === 'workout');
     selectDay(Math.max(0, firstWorkout));
   };

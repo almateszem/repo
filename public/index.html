@@ -400,9 +400,7 @@
             <a class="db-checkin-cta" href="#checkin" data-checkin-cta hidden>
               <span class="db-checkin-cta-text">
                 <span class="db-checkin-cta-title">Töltsd ki a napi check-int</span>
-                <span class="db-checkin-cta-note"
-                  >Alvás, energia, izomláz — pár koppintás.</span
-                >
+                <span class="db-checkin-cta-note">Alvás, energia, izomláz — pár koppintás.</span>
               </span>
               <span class="db-checkin-cta-arrow" aria-hidden="true">→</span>
             </a>
@@ -417,9 +415,7 @@
             <p class="db-side-meta" data-workout-meta hidden></p>
 
             <ol class="db-side-list" data-list="today-exercises"></ol>
-            <p class="db-side-empty" data-side-empty hidden>
-              Mára nincs terv ütemezve.
-            </p>
+            <p class="db-side-empty" data-side-empty hidden>Mára nincs terv ütemezve.</p>
 
             <div class="db-side-actions">
               <a class="db-side-link" href="#nutrition">Étkezés</a>
@@ -448,213 +444,208 @@
           <h2 class="sr-only" id="title-profile">Profil</h2>
 
           <div class="pg-col pg-col--main">
-          <header class="pf-head">
-            <span class="pf-avatar" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><use href="#icon-user" /></svg>
-            </span>
-            <div class="pf-ident">
-              <span class="pf-name" data-pf-name></span>
-              <span class="pf-username" data-pf-username></span>
-              <span class="pf-joined" data-pf-joined></span>
-            </div>
-          </header>
+            <header class="pf-head">
+              <span class="pf-avatar" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><use href="#icon-user" /></svg>
+              </span>
+              <div class="pf-ident">
+                <span class="pf-name" data-pf-name></span>
+                <span class="pf-username" data-pf-username></span>
+                <span class="pf-joined" data-pf-joined></span>
+              </div>
+            </header>
 
-          <!-- A négy összesítő. A számokat a frontend írja be; a 0 nem
+            <!-- A négy összesítő. A számokat a frontend írja be; a 0 nem
              placeholder, hanem érvényes érték (új fióknál ez a helyes). -->
-          <section class="pf-section" aria-labelledby="pf-title-stats">
-            <h3 class="pf-section-title" id="pf-title-stats">Összesítés</h3>
-            <div class="pf-section-body">
-              <ul class="pf-stat-grid">
-                <li class="pf-stat">
-                  <span class="pf-stat-label">Naplózott edzés</span>
-                  <span class="pf-stat-value ds-display" data-pf-stat="workouts">0</span>
-                </li>
-                <li class="pf-stat">
-                  <span class="pf-stat-label">Napos sorozat</span>
-                  <span class="pf-stat-value ds-display" data-pf-stat="streak">0</span>
-                </li>
-                <li class="pf-stat">
-                  <span class="pf-stat-label">Gyakorlat rekorddal</span>
-                  <span class="pf-stat-value ds-display" data-pf-stat="prs">0</span>
-                </li>
-                <li class="pf-stat">
-                  <span class="pf-stat-label">Teljesített munkasorozat</span>
-                  <span class="pf-stat-value ds-display" data-pf-stat="workSets">0</span>
-                </li>
-              </ul>
-            </div>
-          </section>
+            <section class="pf-section" aria-labelledby="pf-title-stats">
+              <h3 class="pf-section-title" id="pf-title-stats">Összesítés</h3>
+              <div class="pf-section-body">
+                <ul class="pf-stat-grid">
+                  <li class="pf-stat">
+                    <span class="pf-stat-label">Naplózott edzés</span>
+                    <span class="pf-stat-value ds-display" data-pf-stat="workouts">0</span>
+                  </li>
+                  <li class="pf-stat">
+                    <span class="pf-stat-label">Napos sorozat</span>
+                    <span class="pf-stat-value ds-display" data-pf-stat="streak">0</span>
+                  </li>
+                  <li class="pf-stat">
+                    <span class="pf-stat-label">Gyakorlat rekorddal</span>
+                    <span class="pf-stat-value ds-display" data-pf-stat="prs">0</span>
+                  </li>
+                  <li class="pf-stat">
+                    <span class="pf-stat-label">Teljesített munkasorozat</span>
+                    <span class="pf-stat-value ds-display" data-pf-stat="workSets">0</span>
+                  </li>
+                </ul>
+              </div>
+            </section>
 
-          <!-- Cellák, amiknek nincs mindig értelmes értékük (nulla edzés,
+            <!-- Cellák, amiknek nincs mindig értelmes értékük (nulla edzés,
              egyetlen testsúly-mérés) — a frontend egyenként rejti el őket. A
              rács a megmaradt cellákat magától zárja össze. -->
-          <section class="pf-section" aria-labelledby="pf-title-facts">
-            <h3 class="pf-section-title" id="pf-title-facts">Részletek</h3>
-            <div class="pf-section-body">
-              <dl class="pf-stat-grid pf-fact-list">
-                <div class="pf-stat pf-fact" data-pf-fact="firstWorkout" hidden>
-                  <dt class="pf-stat-label">Első edzés</dt>
-                  <dd
-                    class="pf-stat-value pf-stat-value--fact ds-display"
-                    data-pf-value="firstWorkout"
-                  ></dd>
-                </div>
-                <div class="pf-stat pf-fact" data-pf-fact="lastWorkout" hidden>
-                  <dt class="pf-stat-label">Legutóbbi edzés</dt>
-                  <dd
-                    class="pf-stat-value pf-stat-value--fact ds-display"
-                    data-pf-value="lastWorkout"
-                  ></dd>
-                </div>
-                <div class="pf-stat pf-fact" data-pf-fact="weight" hidden>
-                  <dt class="pf-stat-label">Testsúly</dt>
-                  <dd
-                    class="pf-stat-value pf-stat-value--fact ds-display"
-                    data-pf-value="weight"
-                  ></dd>
-                </div>
-                <div class="pf-stat pf-fact" data-pf-fact="weightDelta" hidden>
-                  <dt class="pf-stat-label">Változás az első mérés óta</dt>
-                  <dd
-                    class="pf-stat-value pf-stat-value--fact ds-display"
-                    data-pf-value="weightDelta"
-                  ></dd>
-                </div>
-              </dl>
-              <p class="pf-empty" data-pf-empty hidden>
-                Még nincs naplózott edzésed.
-              </p>
-            </div>
-          </section>
-
+            <section class="pf-section" aria-labelledby="pf-title-facts">
+              <h3 class="pf-section-title" id="pf-title-facts">Részletek</h3>
+              <div class="pf-section-body">
+                <dl class="pf-stat-grid pf-fact-list">
+                  <div class="pf-stat pf-fact" data-pf-fact="firstWorkout" hidden>
+                    <dt class="pf-stat-label">Első edzés</dt>
+                    <dd
+                      class="pf-stat-value pf-stat-value--fact ds-display"
+                      data-pf-value="firstWorkout"
+                    ></dd>
+                  </div>
+                  <div class="pf-stat pf-fact" data-pf-fact="lastWorkout" hidden>
+                    <dt class="pf-stat-label">Legutóbbi edzés</dt>
+                    <dd
+                      class="pf-stat-value pf-stat-value--fact ds-display"
+                      data-pf-value="lastWorkout"
+                    ></dd>
+                  </div>
+                  <div class="pf-stat pf-fact" data-pf-fact="weight" hidden>
+                    <dt class="pf-stat-label">Testsúly</dt>
+                    <dd
+                      class="pf-stat-value pf-stat-value--fact ds-display"
+                      data-pf-value="weight"
+                    ></dd>
+                  </div>
+                  <div class="pf-stat pf-fact" data-pf-fact="weightDelta" hidden>
+                    <dt class="pf-stat-label">Változás az első mérés óta</dt>
+                    <dd
+                      class="pf-stat-value pf-stat-value--fact ds-display"
+                      data-pf-value="weightDelta"
+                    ></dd>
+                  </div>
+                </dl>
+                <p class="pf-empty" data-pf-empty hidden>Még nincs naplózott edzésed.</p>
+              </div>
+            </section>
           </div>
 
           <div class="pg-col pg-col--side">
-          <!-- Rekordok. A rácsot a felhasználó maga állítja össze: a „+" a közös
+            <!-- Rekordok. A rácsot a felhasználó maga állítja össze: a „+" a közös
              gyakorlat-választóra visz (ugyanarra, ahonnan az edzésnapló és a
              terv-építő is válogat), és amit ott kipipál, az itt jelenik meg
              kártyaként. A pipa két irányba működik — újabb kattintás leveszi.
              A rács tartalmát a frontend építi (profile.js → renderRecords). -->
-          <section class="pf-section" aria-labelledby="pf-title-records">
-            <h3 class="pf-section-title" id="pf-title-records">Rekordok</h3>
-            <div class="pf-section-body">
-              <p class="pf-records-lead">
-                Az érem a hozzád hasonló nemű, testsúlyú és korú edzőkhöz mér.
-              </p>
-              <!-- Egy kitöltetlen beállítás (nem, testsúly) MINDEN érmet
+            <section class="pf-section" aria-labelledby="pf-title-records">
+              <h3 class="pf-section-title" id="pf-title-records">Rekordok</h3>
+              <div class="pf-section-body">
+                <p class="pf-records-lead">
+                  Az érem a hozzád hasonló nemű, testsúlyú és korú edzőkhöz mér.
+                </p>
+                <!-- Egy kitöltetlen beállítás (nem, testsúly) MINDEN érmet
                  elnémít. Kártya-felirattal ezt nem lehet elég hangosan
                  elmondani, mert ugyanaz a hiány áll mind a tizenketten —
                  ezért itt is szólunk, és a gomb oda visz, ahol pótolható. -->
-              <p class="pf-records-notice" data-pf-records-notice hidden>
-                <span data-pf-notice-text></span>
-                <button
-                  class="pf-records-notice-action"
-                  type="button"
-                  data-action="settings"
-                  data-pf-notice-action
-                >
-                  Beállítások
-                </button>
-              </p>
+                <p class="pf-records-notice" data-pf-records-notice hidden>
+                  <span data-pf-notice-text></span>
+                  <button
+                    class="pf-records-notice-action"
+                    type="button"
+                    data-action="settings"
+                    data-pf-notice-action
+                  >
+                    Beállítások
+                  </button>
+                </p>
 
-              <!-- A fokozatok sorrendje (server/data/strength-standards.js →
+                <!-- A fokozatok sorrendje (server/data/strength-standards.js →
                  TIERS). A kártyán nincs hely kiírni, hogy a cián az arany
                  FÖLÖTT van — itt viszont egyszer elfér. -->
-              <ul class="pf-tier-legend">
-                <li>
-                  <span class="pf-tier-dot pf-medal--bronze" aria-hidden="true"></span>
-                  <span class="pf-tier-name">Kezdő · Újonc</span>
-                </li>
-                <li>
-                  <span class="pf-tier-dot pf-medal--silver" aria-hidden="true"></span>
-                  <span class="pf-tier-name">Középhaladó</span>
-                </li>
-                <li>
-                  <span class="pf-tier-dot pf-medal--gold" aria-hidden="true"></span>
-                  <span class="pf-tier-name">Haladó</span>
-                </li>
-                <li>
-                  <span class="pf-tier-dot pf-medal--diamond" aria-hidden="true"></span>
-                  <span class="pf-tier-name">Elit</span>
-                </li>
-              </ul>
-              <!-- A gépek áttétele gyártónként más: ott a szint tájékoztató.
+                <ul class="pf-tier-legend">
+                  <li>
+                    <span class="pf-tier-dot pf-medal--bronze" aria-hidden="true"></span>
+                    <span class="pf-tier-name">Kezdő · Újonc</span>
+                  </li>
+                  <li>
+                    <span class="pf-tier-dot pf-medal--silver" aria-hidden="true"></span>
+                    <span class="pf-tier-name">Középhaladó</span>
+                  </li>
+                  <li>
+                    <span class="pf-tier-dot pf-medal--gold" aria-hidden="true"></span>
+                    <span class="pf-tier-name">Haladó</span>
+                  </li>
+                  <li>
+                    <span class="pf-tier-dot pf-medal--diamond" aria-hidden="true"></span>
+                    <span class="pf-tier-name">Elit</span>
+                  </li>
+                </ul>
+                <!-- A gépek áttétele gyártónként más: ott a szint tájékoztató.
                  A kártyán a „≈" jelöli, és ez az egyetlen hely, ahol ki van
                  mondva, mit jelent. -->
-              <p class="pf-tier-note">≈ gépi és kábeles gyakorlat — a szint tájékoztató</p>
-              <ul class="pf-record-grid" data-pf-record-grid></ul>
-            </div>
-          </section>
+                <p class="pf-tier-note">≈ gépi és kábeles gyakorlat — a szint tájékoztató</p>
+                <ul class="pf-record-grid" data-pf-record-grid></ul>
+              </div>
+            </section>
 
-          <!-- Erőfelmérés. A friss fiók enélkül hetekig nem kap
+            <!-- Erőfelmérés. A friss fiók enélkül hetekig nem kap
              gyakorlat-ajánlást: a naplózott út három alkalmat kér. A bemondott
              érték NEM mérés — a felület ezt ki is mondja, és a naplózott
              csúcsot nem írja felül. -->
-          <section class="pf-section" aria-labelledby="pf-title-assess">
-            <h3 class="pf-section-title" id="pf-title-assess">Erőfelmérés</h3>
-            <div class="pf-section-body pf-assess-body">
-              <p class="pf-assess-lead">
-                Mit tudsz egy-két gyakorlatban?
-              </p>
+            <section class="pf-section" aria-labelledby="pf-title-assess">
+              <h3 class="pf-section-title" id="pf-title-assess">Erőfelmérés</h3>
+              <div class="pf-section-body pf-assess-body">
+                <p class="pf-assess-lead">Mit tudsz egy-két gyakorlatban?</p>
 
-              <ul class="pf-assess-list" data-pf-assess-list></ul>
-              <p class="pf-assess-empty" data-pf-assess-empty hidden>Még nincs felmérésed.</p>
+                <ul class="pf-assess-list" data-pf-assess-list></ul>
+                <p class="pf-assess-empty" data-pf-assess-empty hidden>Még nincs felmérésed.</p>
 
-              <form class="pf-assess-form" data-form="strength-assessment">
-                <div class="pf-assess-field pf-assess-field--wide">
-                  <label for="pf-assess-exercise">Gyakorlat</label>
-                  <input
-                    id="pf-assess-exercise"
-                    list="pf-assess-options"
-                    type="text"
-                    placeholder="pl. Fekvenyomás"
-                    autocomplete="off"
-                    required
-                  />
-                  <datalist id="pf-assess-options"></datalist>
-                </div>
-                <div class="pf-assess-field">
-                  <label for="pf-assess-weight">Súly (kg)</label>
-                  <input
-                    id="pf-assess-weight"
-                    type="number"
-                    inputmode="decimal"
-                    min="1"
-                    max="500"
-                    step="2.5"
-                    required
-                    autocomplete="off"
-                  />
-                </div>
-                <div class="pf-assess-field">
-                  <label for="pf-assess-reps">Ismétlés</label>
-                  <input
-                    id="pf-assess-reps"
-                    type="number"
-                    inputmode="numeric"
-                    min="1"
-                    max="12"
-                    step="1"
-                    required
-                    autocomplete="off"
-                  />
-                </div>
-                <button class="pf-assess-save" type="submit">Hozzáadom</button>
-              </form>
+                <form class="pf-assess-form" data-form="strength-assessment">
+                  <div class="pf-assess-field pf-assess-field--wide">
+                    <label for="pf-assess-exercise">Gyakorlat</label>
+                    <input
+                      id="pf-assess-exercise"
+                      list="pf-assess-options"
+                      type="text"
+                      placeholder="pl. Fekvenyomás"
+                      autocomplete="off"
+                      required
+                    />
+                    <datalist id="pf-assess-options"></datalist>
+                  </div>
+                  <div class="pf-assess-field">
+                    <label for="pf-assess-weight">Súly (kg)</label>
+                    <input
+                      id="pf-assess-weight"
+                      type="number"
+                      inputmode="decimal"
+                      min="1"
+                      max="500"
+                      step="2.5"
+                      required
+                      autocomplete="off"
+                    />
+                  </div>
+                  <div class="pf-assess-field">
+                    <label for="pf-assess-reps">Ismétlés</label>
+                    <input
+                      id="pf-assess-reps"
+                      type="number"
+                      inputmode="numeric"
+                      min="1"
+                      max="12"
+                      step="1"
+                      required
+                      autocomplete="off"
+                    />
+                  </div>
+                  <button class="pf-assess-save" type="submit">Hozzáadom</button>
+                </form>
 
-              <p class="pf-assess-note">
-                A bemondott szám csak kiindulás — a naplózott edzés felülírja.
-              </p>
+                <p class="pf-assess-note">
+                  A bemondott szám csak kiindulás — a naplózott edzés felülírja.
+                </p>
+              </div>
+            </section>
+
+            <div class="pf-actions">
+              <a class="pf-action" href="#coach">Edző</a>
+              <button class="pf-action" type="button" data-action="settings">Beállítások</button>
+              <button class="pf-action pf-action--danger" type="button" data-action="logout">
+                Kijelentkezés
+              </button>
             </div>
-          </section>
-
-          <div class="pf-actions">
-            <a class="pf-action" href="#coach">Edző</a>
-            <button class="pf-action" type="button" data-action="settings">Beállítások</button>
-            <button class="pf-action pf-action--danger" type="button" data-action="logout">
-              Kijelentkezés
-            </button>
-          </div>
           </div>
         </section>
 
@@ -671,126 +662,119 @@
           <h2 class="sr-only" id="title-workout">Edzésnapló</h2>
 
           <div class="pg-col pg-col--main">
-          <!-- A Tervek oldalról betöltött edzés visszavonása: a napló a betöltés
+            <!-- A Tervek oldalról betöltött edzés visszavonása: a napló a betöltés
              előtti állapotára áll vissza (üres, vagy a korábbi edzés), és a
              Tervek oldal jön vissza. Véletlen koppintásra — semmi nem mentődik. -->
-          <p class="wk-undo" data-plan-undo hidden>
-            <button class="wk-undo-btn" type="button" data-action="undo-plan-load">← Vissza</button>
-            <span>A tervből betöltött edzés elvetése — semmi nem mentődik.</span>
-          </p>
+            <p class="wk-undo" data-plan-undo hidden>
+              <button class="wk-undo-btn" type="button" data-action="undo-plan-load">
+                ← Vissza
+              </button>
+              <span>A tervből betöltött edzés elvetése — semmi nem mentődik.</span>
+            </p>
 
-          <header class="wk-header">
-            <label class="sr-only" for="workout-name">Edzés neve</label>
-            <input
-              class="wk-title"
-              id="workout-name"
-              maxlength="60"
-              placeholder="Edzés neve"
-              aria-describedby="workout-name-error"
-            />
-          </header>
-          <p class="wk-error" id="workout-name-error" hidden>
-            Adj nevet az edzésnek a befejezéshez.
-          </p>
-          <!-- Visszanyitott edzés jelzése. Enélkül a szerkesztő pontosan úgy néz
+            <header class="wk-header">
+              <label class="sr-only" for="workout-name">Edzés neve</label>
+              <input
+                class="wk-title"
+                id="workout-name"
+                maxlength="60"
+                placeholder="Edzés neve"
+                aria-describedby="workout-name-error"
+              />
+            </header>
+            <p class="wk-error" id="workout-name-error" hidden>
+              Adj nevet az edzésnek a befejezéshez.
+            </p>
+            <!-- Visszanyitott edzés jelzése. Enélkül a szerkesztő pontosan úgy néz
              ki, mint egy új edzésnél — a felhasználó azt hinné, ma naplóz, és
              nem értené, miért nem került új sor a Korábbi edzések tetejére. -->
-          <p class="wk-editing" data-editing-workout hidden>
-            <span data-editing-text></span>
-            <button class="wk-editing-cancel" type="button" data-action="cancel-workout-edit">
-              Szerkesztés megszakítása
-            </button>
-          </p>
-          <!-- Automatikus mentés állapota. Élő régió: korábban csak egy statikus
+            <p class="wk-editing" data-editing-workout hidden>
+              <span data-editing-text></span>
+              <button class="wk-editing-cancel" type="button" data-action="cancel-workout-edit">
+                Szerkesztés megszakítása
+              </button>
+            </p>
+            <!-- Automatikus mentés állapota. Élő régió: korábban csak egy statikus
              ígéret állt itt, a mentés hibáját pedig semmi nem jelezte — a
              felhasználó azt hitte, minden mentve van. -->
-          <p class="wk-autosave-note" data-autosave-status aria-live="polite" data-state="idle">
-            <span class="wk-autosave-dot" aria-hidden="true"></span>
-            <span data-autosave-text
-              >Automatikus mentés</span
-            >
-          </p>
+            <p class="wk-autosave-note" data-autosave-status aria-live="polite" data-state="idle">
+              <span class="wk-autosave-dot" aria-hidden="true"></span>
+              <span data-autosave-text>Automatikus mentés</span>
+            </p>
 
-          <div class="wk-list" data-list="exercises"></div>
+            <div class="wk-list" data-list="exercises"></div>
 
-          <!-- Üres állapot — ha nincs se aznapi piszkozat, se mára ütemezett terv -->
-          <p class="wk-empty" data-workout-empty hidden>
-            Nincs betöltött edzés.
-          </p>
+            <!-- Üres állapot — ha nincs se aznapi piszkozat, se mára ütemezett terv -->
+            <p class="wk-empty" data-workout-empty hidden>Nincs betöltött edzés.</p>
 
-          <!-- A gyakorlat-választó flow-oldalra visz (#exercise-picker), az edzésnaplót célozva -->
-          <button class="wk-add-exercise" type="button" data-action="workout-add-exercise">
-            + Gyakorlat hozzáadása
-          </button>
+            <!-- A gyakorlat-választó flow-oldalra visz (#exercise-picker), az edzésnaplót célozva -->
+            <button class="wk-add-exercise" type="button" data-action="workout-add-exercise">
+              + Gyakorlat hozzáadása
+            </button>
 
-          <!-- Elsődleges lezáró művelet — az összegző oldalra visz (#summary) -->
-          <button class="wk-finish ds-cta" type="button" data-action="finish-workout">
-            <span>Edzés befejezése</span>
-            <span class="wk-finish-arrow" aria-hidden="true">→</span>
-          </button>
-
+            <!-- Elsődleges lezáró művelet — az összegző oldalra visz (#summary) -->
+            <button class="wk-finish ds-cta" type="button" data-action="finish-workout">
+              <span>Edzés befejezése</span>
+              <span class="wk-finish-arrow" aria-hidden="true">→</span>
+            </button>
           </div>
 
           <div class="pg-col pg-col--side">
-          <!-- Naplózott edzések. Itt korábban egy „Fejlődés" diagram is állt, de
+            <!-- Naplózott edzések. Itt korábban egy „Fejlődés" diagram is állt, de
              se a beégetett seed-görbe, se a belőle épített gyakorlat-kártya nem
              mondott többet, mint maga a lista — ezért csak az előzmény maradt. -->
-          <section class="wk-progress" aria-labelledby="title-progress">
-            <h3 class="wk-progress-title" id="title-progress">Korábbi edzések</h3>
-            <ul class="wk-history" data-list="history"></ul>
-            <p class="wk-list-empty" data-history-empty hidden>
-              Még nincs mentett edzés.
-            </p>
-          </section>
+            <section class="wk-progress" aria-labelledby="title-progress">
+              <h3 class="wk-progress-title" id="title-progress">Korábbi edzések</h3>
+              <ul class="wk-history" data-list="history"></ul>
+              <p class="wk-list-empty" data-history-empty hidden>Még nincs mentett edzés.</p>
+            </section>
 
-          <section class="wk-compare" aria-labelledby="title-compare">
-            <div class="wk-compare-head">
-              <h3 class="wk-progress-title" id="title-compare">Heti volumen — összehasonlítás</h3>
-              <div class="wk-toggle ds-seg" role="group" aria-label="Időszak kiválasztása">
-                <button
-                  class="wk-toggle-btn ds-seg-btn"
-                  type="button"
-                  data-period="volumeThisWeek"
-                  aria-pressed="true"
-                >
-                  Ez a hét
-                </button>
-                <button
-                  class="wk-toggle-btn ds-seg-btn"
-                  type="button"
-                  data-period="volumeLastWeek"
-                  aria-pressed="false"
-                >
-                  Múlt hét
-                </button>
+            <section class="wk-compare" aria-labelledby="title-compare">
+              <div class="wk-compare-head">
+                <h3 class="wk-progress-title" id="title-compare">Heti volumen — összehasonlítás</h3>
+                <div class="wk-toggle ds-seg" role="group" aria-label="Időszak kiválasztása">
+                  <button
+                    class="wk-toggle-btn ds-seg-btn"
+                    type="button"
+                    data-period="volumeThisWeek"
+                    aria-pressed="true"
+                  >
+                    Ez a hét
+                  </button>
+                  <button
+                    class="wk-toggle-btn ds-seg-btn"
+                    type="button"
+                    data-period="volumeLastWeek"
+                    aria-pressed="false"
+                  >
+                    Múlt hét
+                  </button>
+                </div>
               </div>
-            </div>
-            <div
-              class="chart"
-              role="img"
-              aria-label="Munkasorozatok naponta — ez a hét"
-              data-chart="volumeThisWeek"
-            >
-              <div class="chart-bars" aria-hidden="true"></div>
-              <div class="chart-axis" aria-hidden="true"></div>
-            </div>
-            <div class="wk-compare-days" aria-hidden="true">
-              <span>H</span><span>K</span><span>Sze</span><span>Cs</span><span>P</span
-              ><span>Szo</span><span>V</span>
-            </div>
-            <p class="wk-compare-note">
-              Összvolumen: <strong><span data-compare-total></span> munkasorozat</strong> ·
-              <span data-compare-note></span>
-            </p>
-          </section>
+              <div
+                class="chart"
+                role="img"
+                aria-label="Munkasorozatok naponta — ez a hét"
+                data-chart="volumeThisWeek"
+              >
+                <div class="chart-bars" aria-hidden="true"></div>
+                <div class="chart-axis" aria-hidden="true"></div>
+              </div>
+              <div class="wk-compare-days" aria-hidden="true">
+                <span>H</span><span>K</span><span>Sze</span><span>Cs</span><span>P</span
+                ><span>Szo</span><span>V</span>
+              </div>
+              <p class="wk-compare-note">
+                Összvolumen: <strong><span data-compare-total></span> munkasorozat</strong> ·
+                <span data-compare-note></span>
+              </p>
+            </section>
 
-          <section class="wk-prs" aria-labelledby="title-prs">
-            <h3 class="wk-progress-title" id="title-prs">Rekordok</h3>
-            <ul class="wk-pr-list" data-list="prs"></ul>
-            <p class="wk-list-empty" data-prs-empty hidden>
-              Még nincs rögzített rekordod.
-            </p>
-          </section>
+            <section class="wk-prs" aria-labelledby="title-prs">
+              <h3 class="wk-progress-title" id="title-prs">Rekordok</h3>
+              <ul class="wk-pr-list" data-list="prs"></ul>
+              <p class="wk-list-empty" data-prs-empty hidden>Még nincs rögzített rekordod.</p>
+            </section>
           </div>
         </section>
 
@@ -830,8 +814,9 @@
           <p class="wk-error" id="plan-name-error" hidden>Adj nevet a tervnek a mentéshez.</p>
           <p class="pb-summary" data-pb-summary aria-live="polite"></p>
 
-          <!-- A hét: minden nap saját edzés vagy pihenő, és hetente
-             ismétlődik. A fülek a napok; alattuk a kijelölt nap panelje. -->
+          <!-- A ciklus (1–14 nap, alapból egy hét): minden nap saját edzés vagy
+             pihenő, és a végén elölről kezdődik. A fülek a napok (a „+" új
+             napot ad, a sarokban az „✕" töröl); alattuk a kijelölt nap panelje. -->
           <div class="pb-days">
             <span class="pb-days-label" id="pb-days-label">A hét — hetente ismétlődik</span>
             <div
@@ -843,6 +828,9 @@
             <p class="pb-days-hint">
               Az aktív terv mai napja töltődik be az edzésnaplóba (a megkezdett mai edzést nem írja
               felül).
+              <span data-pb-cycle-note hidden
+                >A ciklus az aktiválás hetének hétfőjétől számít.</span
+              >
             </p>
           </div>
 
@@ -1048,221 +1036,221 @@
           <h2 class="sr-only" id="title-nutrition">Táplálkozás</h2>
 
           <div class="pg-col pg-col--main">
-          <!-- A bevitel a lap hőse: egyetlen nagy szám, alatta a cél felé vezető
+            <!-- A bevitel a lap hőse: egyetlen nagy szám, alatta a cél felé vezető
              sáv. A „Bevitel / Cél" kétoszlopos fejléc helyett azért, mert a két
              szám nem egyenrangú — az egyik a mai eredmény, a másik a mérce.
              A sávot a js/ui/nutrition.js tölti ki (applyTotals), ahogy a
              vízmérőét a js/ui/water.js. -->
-          <header class="nu-summary" aria-label="Napi kalória-összesítő">
-            <p class="nu-summary-eyebrow ds-eyebrow">Mai bevitel</p>
-            <p class="nu-summary-value ds-display">
-              <span data-stat="intake"></span><span class="nu-summary-unit">kcal</span>
-            </p>
-            <div
-              class="nu-summary-track"
-              role="img"
-              data-intake-track
-              aria-label="A napi kalóriacél teljesülése"
-            >
-              <span class="nu-summary-fill" data-intake-fill></span>
-            </div>
-            <p class="nu-summary-goal">Cél <span data-goal="calories"></span> kcal</p>
-          </header>
+            <header class="nu-summary" aria-label="Napi kalória-összesítő">
+              <p class="nu-summary-eyebrow ds-eyebrow">Mai bevitel</p>
+              <p class="nu-summary-value ds-display">
+                <span data-stat="intake"></span><span class="nu-summary-unit">kcal</span>
+              </p>
+              <div
+                class="nu-summary-track"
+                role="img"
+                data-intake-track
+                aria-label="A napi kalóriacél teljesülése"
+              >
+                <span class="nu-summary-fill" data-intake-fill></span>
+              </div>
+              <p class="nu-summary-goal">Cél <span data-goal="calories"></span> kcal</p>
+            </header>
 
-          <div class="nu-macros" aria-label="Makrotápanyagok">
-            <div class="nu-macro ds-row">
-              <span class="nu-macro-label ds-row-name">Fehérje</span
-              ><span class="nu-macro-value ds-row-value"
-                ><span data-stat="protein"></span><span class="nu-macro-unit">g</span></span
-              >
+            <div class="nu-macros" aria-label="Makrotápanyagok">
+              <div class="nu-macro ds-row">
+                <span class="nu-macro-label ds-row-name">Fehérje</span
+                ><span class="nu-macro-value ds-row-value"
+                  ><span data-stat="protein"></span><span class="nu-macro-unit">g</span></span
+                >
+              </div>
+              <div class="nu-macro ds-row">
+                <span class="nu-macro-label ds-row-name">Szénhidrát</span
+                ><span class="nu-macro-value ds-row-value"
+                  ><span data-stat="carbs"></span><span class="nu-macro-unit">g</span></span
+                >
+              </div>
+              <div class="nu-macro ds-row">
+                <span class="nu-macro-label ds-row-name">Zsír</span
+                ><span class="nu-macro-value ds-row-value"
+                  ><span data-stat="fat"></span><span class="nu-macro-unit">g</span></span
+                >
+              </div>
             </div>
-            <div class="nu-macro ds-row">
-              <span class="nu-macro-label ds-row-name">Szénhidrát</span
-              ><span class="nu-macro-value ds-row-value"
-                ><span data-stat="carbs"></span><span class="nu-macro-unit">g</span></span
-              >
-            </div>
-            <div class="nu-macro ds-row">
-              <span class="nu-macro-label ds-row-name">Zsír</span
-              ><span class="nu-macro-value ds-row-value"
-                ><span data-stat="fat"></span><span class="nu-macro-unit">g</span></span
-              >
-            </div>
-          </div>
 
-          <!-- Napi cél. Két forrás lehet: amit az EDZŐ tűzött ki, és amit te
+            <!-- Napi cél. Két forrás lehet: amit az EDZŐ tűzött ki, és amit te
              magad állítottál be. Az edzőé az erősebb és zárol: amíg él, a
              „Módosítom" gomb rejtve van — csak az edző változtathat rajta. -->
-          <section class="nu-goal" aria-labelledby="nu-goal-title">
-            <div class="nu-goal-head">
-              <h3 class="nu-goal-title" id="nu-goal-title">Napi cél</h3>
-              <button
-                class="nu-goal-edit"
-                type="button"
-                data-action="edit-goal"
-                aria-expanded="false"
-              >
-                Módosítom
-              </button>
-            </div>
-
-            <p class="nu-goal-value" data-nu-goal-value></p>
-            <p class="nu-goal-source" data-nu-goal-source></p>
-
-            <form class="nu-goal-form" data-form="nutrition-goal" hidden>
-              <div class="nu-goal-field">
-                <label for="nu-goal-calories">Kalória</label>
-                <input
-                  id="nu-goal-calories"
-                  type="number"
-                  inputmode="numeric"
-                  min="500"
-                  max="10000"
-                  step="10"
-                  required
-                  autocomplete="off"
-                />
+            <section class="nu-goal" aria-labelledby="nu-goal-title">
+              <div class="nu-goal-head">
+                <h3 class="nu-goal-title" id="nu-goal-title">Napi cél</h3>
+                <button
+                  class="nu-goal-edit"
+                  type="button"
+                  data-action="edit-goal"
+                  aria-expanded="false"
+                >
+                  Módosítom
+                </button>
               </div>
-              <div class="nu-goal-field">
-                <label for="nu-goal-protein">Fehérje (g)</label>
-                <input
-                  id="nu-goal-protein"
-                  type="number"
-                  inputmode="numeric"
-                  min="0"
-                  max="500"
-                  step="5"
-                  required
-                  autocomplete="off"
-                />
-              </div>
-              <button class="nu-goal-save" type="submit">Mentés</button>
-            </form>
-          </section>
 
-          <!-- Az edző által összeállított étrend. Csak akkor látszik, ha van
+              <p class="nu-goal-value" data-nu-goal-value></p>
+              <p class="nu-goal-source" data-nu-goal-source></p>
+
+              <form class="nu-goal-form" data-form="nutrition-goal" hidden>
+                <div class="nu-goal-field">
+                  <label for="nu-goal-calories">Kalória</label>
+                  <input
+                    id="nu-goal-calories"
+                    type="number"
+                    inputmode="numeric"
+                    min="500"
+                    max="10000"
+                    step="10"
+                    required
+                    autocomplete="off"
+                  />
+                </div>
+                <div class="nu-goal-field">
+                  <label for="nu-goal-protein">Fehérje (g)</label>
+                  <input
+                    id="nu-goal-protein"
+                    type="number"
+                    inputmode="numeric"
+                    min="0"
+                    max="500"
+                    step="5"
+                    required
+                    autocomplete="off"
+                  />
+                </div>
+                <button class="nu-goal-save" type="submit">Mentés</button>
+              </form>
+            </section>
+
+            <!-- Az edző által összeállított étrend. Csak akkor látszik, ha van
              benne étkezés; a „Megettem" az étkezés MINDEN tételét a mai
              naplóba írja, a tárolt adagokkal. -->
-          <section class="nu-meals" aria-labelledby="nu-meals-title" data-nu-meals hidden>
-            <div class="nu-goal-head">
-              <h3 class="nu-goal-title" id="nu-meals-title">Az edződ étrendje</h3>
-              <span class="nu-log-count" data-nu-meals-total></span>
-            </div>
-            <ul class="nu-meal-list" data-list="coach-meals"></ul>
-            <p class="nu-goal-source" data-nu-meals-done hidden>
-              Mára minden étkezés megvan.
-            </p>
-          </section>
+            <section class="nu-meals" aria-labelledby="nu-meals-title" data-nu-meals hidden>
+              <div class="nu-goal-head">
+                <h3 class="nu-goal-title" id="nu-meals-title">Az edződ étrendje</h3>
+                <span class="nu-log-count" data-nu-meals-total></span>
+              </div>
+              <ul class="nu-meal-list" data-list="coach-meals"></ul>
+              <p class="nu-goal-source" data-nu-meals-done hidden>Mára minden étkezés megvan.</p>
+            </section>
 
-          <!-- Vízmérő. NEM külön számláló: minden korty a check-in folyadék-
+            <!-- Vízmérő. NEM külön számláló: minden korty a check-in folyadék-
              mezőjébe összegződik, amit a Recovery Engine is olvas — így a
              napközbeni koppintások a készenléti pontszámon is látszanak.
              A visszavonás azért kell, mert a +250 ml egy koppintás, és egy
              téves érintés különben javíthatatlan volna. -->
-          <section class="nu-water" aria-labelledby="title-nu-water">
-            <div class="nu-water-head">
-              <h3 class="nu-water-title" id="title-nu-water">Víz</h3>
-              <span class="nu-water-goal" data-water-goal></span>
-            </div>
-
-            <div class="nu-water-row">
-              <p class="nu-water-value">
-                <span data-water-liters>0</span><span class="nu-water-unit">liter</span>
-              </p>
-              <div class="nu-water-actions">
-                <button
-                  class="nu-water-undo tap-target"
-                  type="button"
-                  data-action="undo-water"
-                  hidden
-                >
-                  Visszavonás
-                </button>
-                <button class="nu-water-add tap-target" type="button" data-action="add-water">
-                  +250 ml
-                </button>
+            <section class="nu-water" aria-labelledby="title-nu-water">
+              <div class="nu-water-head">
+                <h3 class="nu-water-title" id="title-nu-water">Víz</h3>
+                <span class="nu-water-goal" data-water-goal></span>
               </div>
-            </div>
 
-            <div
-              class="nu-water-track"
-              role="img"
-              data-water-track
-              aria-label="Napi folyadékbevitel"
-            >
-              <span class="nu-water-fill" data-water-fill></span>
-            </div>
-          </section>
+              <div class="nu-water-row">
+                <p class="nu-water-value">
+                  <span data-water-liters>0</span><span class="nu-water-unit">liter</span>
+                </p>
+                <div class="nu-water-actions">
+                  <button
+                    class="nu-water-undo tap-target"
+                    type="button"
+                    data-action="undo-water"
+                    hidden
+                  >
+                    Visszavonás
+                  </button>
+                  <button class="nu-water-add tap-target" type="button" data-action="add-water">
+                    +250 ml
+                  </button>
+                </div>
+              </div>
 
-          <!-- Mai napló — a ténylegesen naplózott tételek, törlés-lehetőséggel.
+              <div
+                class="nu-water-track"
+                role="img"
+                data-water-track
+                aria-label="Napi folyadékbevitel"
+              >
+                <span class="nu-water-fill" data-water-fill></span>
+              </div>
+            </section>
+
+            <!-- Mai napló — a ténylegesen naplózott tételek, törlés-lehetőséggel.
              Enélkül a felület csak összesített, és egy téves koppintás
              visszavonhatatlan volt. -->
-          <section class="nu-log" aria-labelledby="title-nu-log">
-            <div class="nu-log-head">
-              <h3 class="nu-log-title" id="title-nu-log">Mai napló</h3>
-              <span class="nu-log-count" data-nu-log-count></span>
-            </div>
-            <ul class="nu-log-list" data-list="nutrition-log"></ul>
-            <p class="nu-log-empty" data-nu-log-empty hidden>
-              Ma még nem naplóztál ételt.
-            </p>
-          </section>
-
+            <section class="nu-log" aria-labelledby="title-nu-log">
+              <div class="nu-log-head">
+                <h3 class="nu-log-title" id="title-nu-log">Mai napló</h3>
+                <span class="nu-log-count" data-nu-log-count></span>
+              </div>
+              <ul class="nu-log-list" data-list="nutrition-log"></ul>
+              <p class="nu-log-empty" data-nu-log-empty hidden>Ma még nem naplóztál ételt.</p>
+            </section>
           </div>
 
           <div class="pg-col pg-col--side">
-          <!-- Saját étel felvitele: kézzel vagy a csomagolás vonalkódjáról.
+            <!-- Saját étel felvitele: kézzel vagy a csomagolás vonalkódjáról.
              A beépített katalógus általános referencia-értékeket ad; egy
              konkrét bolti termék ettől 100 kcal-t is eltérhet. -->
-          <div class="nu-actions ds-grid">
-            <button
-              class="nu-action"
-              type="button"
-              data-action="add-custom-food"
-              aria-haspopup="dialog"
-            >
-              + Étel hozzáadása
-            </button>
-            <button
-              class="nu-action nu-action--ghost"
-              type="button"
-              data-action="scan-barcode"
-              aria-haspopup="dialog"
-            >
-              <svg class="nu-action-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <div class="nu-actions ds-grid">
+              <button
+                class="nu-action"
+                type="button"
+                data-action="add-custom-food"
+                aria-haspopup="dialog"
+              >
+                + Étel hozzáadása
+              </button>
+              <button
+                class="nu-action nu-action--ghost"
+                type="button"
+                data-action="scan-barcode"
+                aria-haspopup="dialog"
+              >
+                <svg class="nu-action-icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M3 5h2v14H3zm3 0h1v14H6zm2 0h2v14H8zm3 0h1v14h-1zm2 0h2v14h-2zm3 0h1v14h-1zm2 0h2v14h-2z"
+                  />
+                </svg>
+                Vonalkód
+              </button>
+            </div>
+
+            <div class="nu-search">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path
-                  d="M3 5h2v14H3zm3 0h1v14H6zm2 0h2v14H8zm3 0h1v14h-1zm2 0h2v14h-2zm3 0h1v14h-1zm2 0h2v14h-2z"
+                  d="M10 4a6 6 0 1 0 3.8 10.6l5 5 1.4-1.4-5-5A6 6 0 0 0 10 4zm0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8z"
                 />
               </svg>
-              Vonalkód
-            </button>
-          </div>
-
-          <div class="nu-search">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path
-                d="M10 4a6 6 0 1 0 3.8 10.6l5 5 1.4-1.4-5-5A6 6 0 0 0 10 4zm0 2a4 4 0 1 1 0 8 4 4 0 0 1 0-8z"
+              <label class="sr-only" for="food-search">Étel keresése</label>
+              <input
+                type="search"
+                id="food-search"
+                placeholder="Étel keresése…"
+                autocomplete="off"
               />
-            </svg>
-            <label class="sr-only" for="food-search">Étel keresése</label>
-            <input type="search" id="food-search" placeholder="Étel keresése…" autocomplete="off" />
-          </div>
+            </div>
 
-          <!-- „Legutóbbiak": az utoljára naplózott ételek, egy koppintásra újra a
+            <!-- „Legutóbbiak": az utoljára naplózott ételek, egy koppintásra újra a
              naplóba a legutóbbi adaggal — ugyanazt az ételt újra naplózni a
              leggyakoribb művelet. Keresés közben rejtve: akkor a találatok a
              fontosak. A tartalmat a js/ui/nutrition.js tölti. -->
-          <section class="nu-recent" aria-labelledby="title-nu-recent" data-nu-recent hidden>
-            <h3 class="nu-recent-title ds-eyebrow" id="title-nu-recent">Legutóbbiak</h3>
-            <ul class="nu-recent-list" data-list="recent-foods"></ul>
-          </section>
+            <section class="nu-recent" aria-labelledby="title-nu-recent" data-nu-recent hidden>
+              <h3 class="nu-recent-title ds-eyebrow" id="title-nu-recent">Legutóbbiak</h3>
+              <ul class="nu-recent-list" data-list="recent-foods"></ul>
+            </section>
 
-          <ul class="nu-food-list is-collapsed" data-list="foods"></ul>
-          <!-- Keresés nélkül a lista összecsukott (js/ui/nutrition.js) -->
-          <button class="nu-more" type="button" data-action="more-foods" hidden>
-            Mutass többet
-          </button>
-          <p class="nu-empty" hidden>Nincs találat a keresésre.</p>
+            <ul class="nu-food-list is-collapsed" data-list="foods"></ul>
+            <!-- Keresés nélkül a lista összecsukott (js/ui/nutrition.js) -->
+            <button class="nu-more" type="button" data-action="more-foods" hidden>
+              Mutass többet
+            </button>
+            <p class="nu-empty" hidden>Nincs találat a keresésre.</p>
           </div>
         </section>
 
@@ -1270,16 +1258,19 @@
            Plans — kiosztott edzéstervek
            (a kártyákat a frontend tölti fel az API-ból)
            ================================================================ -->
-        <section class="app-page pl-page pg-wide" data-page="plans" aria-labelledby="title-plans" hidden>
+        <section
+          class="app-page pl-page pg-wide"
+          data-page="plans"
+          aria-labelledby="title-plans"
+          hidden
+        >
           <header class="pl-header">
             <h2 id="title-plans">Edzésterveid</h2>
             <!-- A terv-építő flow-oldalra visz (#plan-builder) -->
             <button class="pl-new" type="button" data-action="new-plan">+ Új terv</button>
           </header>
           <ul class="pl-list" data-list="plans"></ul>
-          <p class="pl-empty" data-plans-empty hidden>
-            Még nincs edzésterved.
-          </p>
+          <p class="pl-empty" data-plans-empty hidden>Még nincs edzésterved.</p>
         </section>
 
         <!-- ================================================================
@@ -1489,9 +1480,7 @@
                       <h4 class="co-modal-section-title">Felajánlott tervek</h4>
                       <!-- Elfogadásig SEMMI nem kerül a terveid közé — a meglévőkhöz
                          pedig sosem nyúlunk hozzá. -->
-                      <p class="co-invite-lead">
-                        Elfogadás után ez lesz az aktív terved.
-                      </p>
+                      <p class="co-invite-lead">Elfogadás után ez lesz az aktív terved.</p>
                       <ul
                         class="co-invite-list"
                         data-list="plan-offers"
@@ -1841,9 +1830,7 @@
                         + Új étkezés
                       </button>
                     </div>
-                    <p class="co-goal-state" data-meals-empty>
-                      Még nincs összeállított étkezés.
-                    </p>
+                    <p class="co-goal-state" data-meals-empty>Még nincs összeállított étkezés.</p>
                     <ul class="co-meal-list" data-meal-list></ul>
                     <!-- Az étrend összege a napi célhoz mérve: érték, eltérés és
                        lefedettség-sáv. A sáv csak díszítés — a szám mondja ki. -->
@@ -1936,9 +1923,7 @@
                         autocomplete="off"
                       />
 
-                      <p class="co-assign-hint">
-                        A sportolód elfogadhatja vagy elutasíthatja.
-                      </p>
+                      <p class="co-assign-hint">A sportolód elfogadhatja vagy elutasíthatja.</p>
                       <button class="co-action co-action--primary" type="submit">Kiosztás</button>
                     </form>
                     <p class="co-assign-empty" data-plan-empty hidden>
@@ -2003,9 +1988,7 @@
                     />
                     <button type="submit">Meghívás<span aria-hidden="true">→</span></button>
                   </form>
-                  <p class="co-invite-hint">
-                    A sportoló a saját Edző oldalán fogadja el.
-                  </p>
+                  <p class="co-invite-hint">A sportoló a saját Edző oldalán fogadja el.</p>
 
                   <!-- Kiküldött, még el nem fogadott meghívók -->
                   <p class="co-pending-lead" data-sent-lead hidden>Elfogadásra vár</p>
@@ -2185,9 +2168,7 @@
                 <li><span class="rc-dot rc-dot--pain"></span>Fájdalom</li>
                 <li><span class="rc-dot rc-dot--ready"></span>80%+ kész</li>
               </ul>
-              <p class="rc-legend-note">
-                100% = teljesen regenerált.
-              </p>
+              <p class="rc-legend-note">100% = teljesen regenerált.</p>
             </div>
 
             <div class="rc-maphead">
@@ -2245,9 +2226,7 @@
             </summary>
 
             <form class="rc-checkin" data-form="checkin" aria-labelledby="title-checkin">
-              <p class="rc-hint">
-                Minden mező egy képernyőn.
-              </p>
+              <p class="rc-hint">Minden mező egy képernyőn.</p>
 
               <div class="rc-field">
                 <label class="field-label" for="checkin-sleep">Mennyit aludtál?</label>
@@ -2294,9 +2273,7 @@
                  „Részletes szerkesztés" blokkban van, egy második kattintás
                  ugyanannak a tartalomnak a megnyitásához fölösleges volt. -->
               <div class="rc-checkin-body">
-                <p class="rc-hint">
-                  Jelöld az emberkén, hol van izomlázad (1–10).
-                </p>
+                <p class="rc-hint">Jelöld az emberkén, hol van izomlázad (1–10).</p>
                 <div data-map="checkin-soreness"></div>
 
                 <p class="rc-hint">
@@ -2381,9 +2358,7 @@
                     <span class="rc-field-unit">kg</span>
                   </div>
                 </div>
-                <p class="rc-hint">
-                  Naponta egy bejegyzés kerül a testsúly-naplóba.
-                </p>
+                <p class="rc-hint">Naponta egy bejegyzés kerül a testsúly-naplóba.</p>
               </div>
 
               <button class="rc-save" type="submit">Check-in mentése</button>
@@ -2428,9 +2403,7 @@
               <button class="rc-body-save" type="submit">Mérés mentése</button>
             </form>
 
-            <p class="rc-hint" data-body-empty hidden>
-              Még nincs mérésed.
-            </p>
+            <p class="rc-hint" data-body-empty hidden>Még nincs mérésed.</p>
             <ul class="rc-body-list" data-body-list></ul>
           </section>
 
@@ -2546,9 +2519,7 @@
         <!-- A videós technika-napló még nem készült el. Korábban itt egy nem
            működő lejátszó, egy kitalált edzői megjegyzés és üres „Korábbi
            videók" kockák álltak — a felhasználó valós adatnak hihette. -->
-        <p class="video-modal-soon">
-          Hamarosan: technika-videó feltöltés.
-        </p>
+        <p class="video-modal-soon">Hamarosan: technika-videó feltöltés.</p>
       </div>
     </div>
 
@@ -2629,9 +2600,7 @@
             <label class="sr-only" for="st-goal">Edzés-cél</label>
             <select class="st-input st-select" id="st-goal"></select>
           </div>
-          <p class="st-section-hint">
-            Ezt a címkét látja az edződ.
-          </p>
+          <p class="st-section-hint">Ezt a címkét látja az edződ.</p>
         </section>
 
         <!-- A nem az erőszint-érméhez kell: a testsúly-szorzós küszöbök
@@ -2648,9 +2617,7 @@
               <option value="female">Nő</option>
             </select>
           </div>
-          <p class="st-section-hint">
-            Az erőszint-érmet pontosítja.
-          </p>
+          <p class="st-section-hint">Az erőszint-érmet pontosítja.</p>
         </section>
 
         <!-- A születési év az erőszint életkori korrekciójához kell: 45 év
@@ -2670,9 +2637,7 @@
               placeholder="pl. 1990"
             />
           </div>
-          <p class="st-section-hint">
-            Az erőszint-érmet pontosítja.
-          </p>
+          <p class="st-section-hint">Az erőszint-érmet pontosítja.</p>
         </section>
 
         <section class="st-section" aria-labelledby="st-title-data">
@@ -2714,9 +2679,7 @@
               minlength="8"
               required
             />
-            <p class="st-account-hint">
-              Legalább 8 karakter. A többi eszközön kijelentkeztet.
-            </p>
+            <p class="st-account-hint">Legalább 8 karakter. A többi eszközön kijelentkeztet.</p>
             <p class="st-account-error" data-password-error role="alert" hidden></p>
             <button class="st-account-save" type="submit">Jelszó mentése</button>
           </form>
@@ -2735,7 +2698,8 @@
           </button>
           <form class="st-account-form" id="st-delete-form" data-form="delete-account" hidden>
             <p class="st-account-warning">
-              A törlés végleges: edzésnapló, tervek, check-inek, rekordok, edző-kapcsolatok és üzenetek is eltűnnek.
+              A törlés végleges: edzésnapló, tervek, check-inek, rekordok, edző-kapcsolatok és
+              üzenetek is eltűnnek.
             </p>
             <label class="st-label" for="st-delete-password">Jelszó a megerősítéshez</label>
             <input
@@ -3181,9 +3145,7 @@
         </div>
         <p class="confirm-modal-text" id="adviceModalText"></p>
         <ul class="ad-list" data-advice-list></ul>
-        <p class="ad-note">
-          A terved nem változik, csak a mai napló.
-        </p>
+        <p class="ad-note">A terved nem változik, csak a mai napló.</p>
         <div class="confirm-modal-actions ds-grid">
           <button class="confirm-cancel" type="button" data-advice-decline>Most nem</button>
           <button class="confirm-ok" type="button" data-advice-accept>Elfogadom</button>
@@ -3461,9 +3423,7 @@
                 placeholder="0"
               />
             </label>
-            <p class="wk-extra-note">
-              Feljegyzés — a terhelést nem érinti.
-            </p>
+            <p class="wk-extra-note">Feljegyzés — a terhelést nem érinti.</p>
           </div>
         </div>
         <button
@@ -3941,9 +3901,7 @@
         <div class="ci-head-block">
           <p class="ci-eyebrow ds-eyebrow">Napi check-in</p>
           <h2 class="ci-question">Mennyi a testsúlyod?</h2>
-          <p class="ci-sub">
-            Reggel, étkezés előtt a legpontosabb.
-          </p>
+          <p class="ci-sub">Reggel, étkezés előtt a legpontosabb.</p>
         </div>
         <div class="ci-stage">
           <div class="ci-num-row">
