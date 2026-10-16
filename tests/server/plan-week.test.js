@@ -9,7 +9,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   allWeekExercises,
+  cycleDay,
   dayEntry,
+  dayLabel,
+  dayName,
   dayWorkoutName,
   normalizeWeek,
   weekFromLegacy,
@@ -46,7 +49,7 @@ test('kijelölt nap nélküli régi terv: az edzés hétfőre kerül', () => {
   assert.deepEqual(workoutDays(weekFromLegacy(PUSH, [9, -1, 'kedd'])), [0]);
 });
 
-test('a hét validálása: pontosan hét nap, legalább egy edzésnap', () => {
+test('a hét validálása: legalább egy edzésnap', () => {
   assert.ok(normalizeWeek([REST], exercisesOk).error);
   assert.ok(normalizeWeek(Array(7).fill(REST), exercisesOk).error, 'csak pihenő');
 
@@ -105,4 +108,58 @@ test('a nap feloldása: saját edzés, „same", pihenő', () => {
   assert.equal(dayWorkoutName(plan, 2), 'Erő – Szerda', 'név nélkül: terv – nap');
 
   assert.deepEqual(allWeekExercises(week), [...PUSH, ...PULL], 'a „same" nem duplikál');
+});
+
+/* ---- Változó hosszú terv: 1–14 napos ciklus ---- */
+
+const cyclePlan = (length, extra = {}) => ({
+  week: Array.from({ length }, () => ({ ...REST })),
+  ...extra,
+});
+
+test('a napnév a hét napját követi, a második körben (2.) utótaggal', () => {
+  assert.equal(dayName(0), 'Hétfő');
+  assert.equal(dayName(6), 'Vasárnap');
+  assert.equal(dayName(7), 'Hétfő (2.)');
+  assert.equal(dayName(13), 'Vasárnap (2.)');
+  assert.equal(dayLabel(2), 'Sze');
+  assert.equal(dayLabel(8), 'K (2.)');
+});
+
+test('ciklus-nap: 7 napos terv = a hétnap, bármikor aktiválták', () => {
+  assert.equal(cycleDay(cyclePlan(7, { activeSince: '2026.10.14' }), '2026.10.14'), 2);
+  assert.equal(cycleDay(cyclePlan(7), '2026.10.16'), 4, 'horgony nélkül is péntek');
+});
+
+test('ciklus-nap: 9 napos terv az aktiválás hetének hétfőjétől számol', () => {
+  const plan = cyclePlan(9, { activeSince: '2026.10.14' }); // horgony: 2026.10.12, hétfő
+  assert.equal(cycleDay(plan, '2026.10.14'), 2);
+  assert.equal(cycleDay(plan, '2026.10.19'), 7, 'a következő hétfő = „Hétfő (2.)"');
+  assert.equal(cycleDay(plan, '2026.10.21'), 0, 'újrakezdődik');
+});
+
+test('ciklus-nap: rövid terv, horgony előtti nap, a létrehozás dátuma mint horgony', () => {
+  assert.equal(cycleDay(cyclePlan(3, { activeSince: '2026.10.14' }), '2026.10.15'), 0);
+  assert.equal(cycleDay(cyclePlan(9, { activeSince: '2026.10.14' }), '2026.10.11'), 8);
+  assert.equal(cycleDay(cyclePlan(9, { date: '2026.10.07' }), '2026.10.14'), 0);
+});
+
+test('ciklus-nap: az óraátállítás nem csúsztatja el a ciklust', () => {
+  // 2026.03.29 a 23 órás nap
+  assert.equal(cycleDay(cyclePlan(9, { activeSince: '2026.03.23' }), '2026.03.30'), 7);
+});
+
+test('normalizeWeek: 1 és 14 nap között fogad el', () => {
+  const day = { type: 'workout', name: '', exercises: PUSH };
+  assert.ok(normalizeWeek([day], exercisesOk).week);
+  assert.equal(normalizeWeek(Array(14).fill(day), exercisesOk).week.length, 14);
+  for (const raw of [[], Array(15).fill(day)]) {
+    assert.equal(normalizeWeek(raw, exercisesOk).error, 'A tervnek 1–14 napból kell állnia.');
+  }
+  // a 9 napos terv utolsó (8.) napja a tartományon kívüli 9. napra mutat
+  const nine = [day, ...Array(7).fill(REST), { type: 'same', of: 9 }];
+  assert.equal(
+    normalizeWeek(nine, exercisesOk).error,
+    'Kedd (2.): csak egy edzésnappal lehet azonos.',
+  );
 });
