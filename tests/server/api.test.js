@@ -3103,3 +3103,87 @@ test('a kardió sor nem munkasorozat: a profil és a heti diagram sem számolja'
   const terheles = riport.components.find((c) => c.key === 'load');
   assert.ok(terheles.present && terheles.score < 100, `a futás terhel (${terheles.score})`);
 });
+
+/* ---- Változó hosszú terv: 1–14 napos ciklus ---- */
+
+/** Egy `length` napos hét, minden nap saját névvel (`${prefix}-${i}`). */
+const ciklusHet = (prefix, length) =>
+  Array.from({ length }, (_, i) => ({
+    type: 'workout',
+    name: `${prefix}-${i}`,
+    exercises: [gyakorlat('Guggolás', 100)],
+  }));
+
+/** Terv mentése és aktiválása; az aktivált tervet adja vissza. */
+async function aktivTerv(cookie, name, week) {
+  const terv = await request('POST', '/api/plans', { cookie, body: { name, week } });
+  assert.equal(terv.status, 201, JSON.stringify(terv.json));
+  const aktiv = await request('POST', `/api/plans/${terv.json.id}/active`, {
+    cookie,
+    body: { active: true },
+  });
+  assert.equal(aktiv.status, 200);
+  return aktiv.json;
+}
+
+const sablonNeve = async (cookie) =>
+  (await request('GET', '/api/workout-template', { cookie })).json.name;
+
+test('ciklusos terv: a mai nap az aktiválás hetének hétfőjétől számít', async () => {
+  const cookie = belaCookie;
+  await request('DELETE', '/api/workout-draft', { cookie });
+  // Az aktiválás hetében a hétfő óta eltelt napok = a mai hétnap
+  const maiNap = (new Date().getDay() + 6) % 7;
+  const terv = await aktivTerv(cookie, 'Hármas', ciklusHet('H3', 3));
+  assert.equal(terv.activeSince, today());
+  assert.equal(await sablonNeve(cookie), `H3-${maiNap % 3}`);
+});
+
+test('7 napos terv hét közbeni aktiválása: a mai hétnap töltődik (változatlan viselkedés)', async () => {
+  const cookie = belaCookie;
+  await request('DELETE', '/api/workout-draft', { cookie });
+  const maiNap = (new Date().getDay() + 6) % 7;
+  await aktivTerv(cookie, 'Heti', ciklusHet('N7', 7));
+  assert.equal(await sablonNeve(cookie), `N7-${maiNap}`);
+});
+
+test('az aktív terv megrövidítése után is a ciklus mai napja töltődik', async () => {
+  const cookie = belaCookie;
+  await request('DELETE', '/api/workout-draft', { cookie });
+  const maiNap = (new Date().getDay() + 6) % 7;
+  const terv = await aktivTerv(cookie, 'Kilences', ciklusHet('N9', 9));
+  assert.equal(await sablonNeve(cookie), `N9-${maiNap}`);
+
+  const rovid = await request('PUT', `/api/plans/${terv.id}`, {
+    cookie,
+    body: { name: 'Kettes', week: ciklusHet('R', 2) },
+  });
+  assert.equal(rovid.status, 200);
+  assert.equal(rovid.json.activeSince, terv.activeSince, 'a szerkesztés nem indítja újra');
+  assert.equal(await sablonNeve(cookie), `R-${maiNap % 2}`);
+});
+
+test('15 napos és üres terv mentése 400', async () => {
+  for (const week of [[], ciklusHet('X', 15)]) {
+    const res = await request('POST', '/api/plans', {
+      cookie: belaCookie,
+      body: { name: 'Rossz', week },
+    });
+    assert.equal(res.status, 400);
+    assert.equal(res.json.error, 'A tervnek 1–14 napból kell állnia.');
+  }
+});
+
+test('a terv-lista visszaadja a horgonyt és a (2.) címkéket', async () => {
+  const cookie = belaCookie;
+  const week = Array.from({ length: 9 }, () => ({ type: 'rest' }));
+  week[0] = { type: 'workout', name: '', exercises: [gyakorlat('Guggolás', 100)] };
+  week[8] = { type: 'workout', name: '', exercises: [gyakorlat('Felhúzás', 120)] };
+  const terv = await aktivTerv(cookie, 'Címkés', week);
+
+  const elem = (await request('GET', '/api/plans', { cookie })).json.find((p) => p.id === terv.id);
+  assert.ok(elem.meta.endsWith('· H, K (2.)'), elem.meta);
+  assert.equal(elem.activeSince, today());
+  assert.equal(elem.date, today());
+  assert.equal(elem.week.length, 9);
+});
