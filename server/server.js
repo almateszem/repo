@@ -2112,10 +2112,13 @@ app.get('/api/prs/history', (req, res) => {
     A frontend ezt használja valós idejű PR detektáláshoz szerkesztéskor. */
 app.get('/api/exercise-maxes', (req, res) => {
   const maxes = getAllExerciseMaxes(req.user.id);
-  // Könnyebb kereshetőséghez exercise_name → max1rm térkép formátum
+  /* Könnyebb kereshetőséghez exercise_name → max1rm térkép formátum. A NYERS
+     csúcs megy le, nem kerekítve: a napló valós idejű PR-jelzője ehhez mér, és
+     egy kerekített csúcs mellett a rekord-szett pontos megismétlése is
+     „rekordnak" látszott (80×8: tárolt 101,333…, kerekítve 101,3). */
   const maxMap = {};
   for (const record of maxes) {
-    maxMap[record.exercise_name] = Math.round(record.max_1rm * 10) / 10;
+    maxMap[record.exercise_name] = record.max_1rm;
   }
   res.json(maxMap);
 });

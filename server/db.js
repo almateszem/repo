@@ -2694,9 +2694,9 @@ export function updateExerciseMax(userId, exerciseName, new1rm, currentDate) {
  *     getRecentExerciseMaxes dátumra szűr, tehát különben egy törlés után az
  *     értesítés-panel a fél napló csúcsait „friss egyéni csúcs"-ként zúdítaná be.
  *   · A szabály a szerveré: PR az a gyakorlat, amelyik a futó maximumot
- *     megemelte. A kliens szerkesztés közbeni, előre kitett jelzője (addWorkout
- *     → `isPr || exercise.pr`) utólag nem reprodukálható, és nem is kell:
- *     amit a lista kiír, annak a naplóból következnie kell.
+ *     megemelte — mentéskor is ez íródik (addWorkout), a kliens szerkesztés
+ *     közbeni jelzője csak előrejelzés. Amit a lista kiír, annak a naplóból
+ *     kell következnie.
  */
 export function recomputeExerciseMaxes(userId) {
   /* A BEMONDOTT csúcsok (erőfelmérés) nem a naplóból jönnek, tehát az
@@ -3347,7 +3347,8 @@ function insertWorkoutOnce(userId, name, date, exercises, planId) {
 
     return {
       ...exercise,
-      pr: isPr || exercise.pr, // ha már volt PR jel vagy most érte el
+      // A szerver szabálya dönt: a kliens jelzője csak előrejelzés volt
+      pr: isPr,
     };
   });
 

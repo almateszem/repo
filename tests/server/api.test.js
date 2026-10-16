@@ -712,7 +712,7 @@ test('edzés mentése PR-t jelöl, és a rekord a saját csúcshoz mérődik', a
 
   // A nyomon követett csúcs a nagyobbik érték maradt.
   const maxes = (await request('GET', '/api/exercise-maxes', { cookie: belaCookie })).json;
-  assert.equal(maxes['Fekvenyomás'], Math.round(100 * (1 + 5 / 30) * 10) / 10);
+  assert.equal(maxes['Fekvenyomás'], 100 * (1 + 5 / 30));
 });
 
 test('a PR-lista a rekordot hozó szettet írja ki, nem a bemelegítőt', async () => {
@@ -797,7 +797,7 @@ test('az export tartalmazza az egyéni csúcsokat, a dátumukkal együtt', async
 
   // A /api/exercise-maxes végpont alakja ettől függetlenül változatlan marad.
   const maxMap = (await request('GET', '/api/exercise-maxes', { cookie: belaCookie })).json;
-  assert.equal(maxMap['Guggolás'], Math.round(120 * (1 + 3 / 30) * 10) / 10);
+  assert.equal(maxMap['Guggolás'], 120 * (1 + 3 / 30));
 
   /* És a szűrés itt is él. Mindkét fiók nyomott fekvenyomást, de más súllyal:
      a snapshotban Béla SAJÁT csúcsának kell állnia, nem Annáénak. */
@@ -1882,7 +1882,7 @@ test('a javítás a meglévő sort írja felül, az EREDETI dátumán', async ()
   const maxes = (await request('GET', '/api/exercise-maxes', { cookie: annaCookie })).json;
   assert.equal(
     maxes['Bicepsz curl'],
-    Math.round(18 * (1 + 5 / 30) * 10) / 10,
+    18 * (1 + 5 / 30),
     'a javítás után a csúcs a javított értékből jön',
   );
 });

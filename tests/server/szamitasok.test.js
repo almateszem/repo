@@ -264,3 +264,28 @@ test('egy másik edzés törlése nem teszi újra „friss" értesítéssé a me
   assert.equal((await request('DELETE', `/api/workouts/${other.json.id}`, { cookie })).status, 204);
   assert.equal(await prAt(), before, 'az újraépítés megtartja a rekord születési idejét');
 });
+
+test('a rekord-szett pontos megismétlése nem PR — a kliens jelzőjét a szerver nem hiszi el', async () => {
+  /* KOD-KRITIKA I1: 80×8 → 101,333… kg. A csúcs kerekítve (101,3) ment le, így
+     a kliens a megismételt szettre PR-t jelzett, a szerver pedig elhitte. */
+  const cookie = await register('ismetlo');
+  const bench = (pr) => ({
+    name: 'Fekvenyomás',
+    pr,
+    sets: [{ reps: '8', weight: '80', rpe: '8', type: 'work', done: true }],
+  });
+  const first = await request('POST', '/api/workouts', {
+    cookie,
+    body: { name: 'Mell 1', exercises: [bench(false)] },
+  });
+  assert.equal(first.json.exercises[0].pr, true, 'az első naplózás rekord');
+
+  const maxes = (await request('GET', '/api/exercise-maxes', { cookie })).json;
+  assert.equal(maxes['Fekvenyomás'], 80 * (1 + 8 / 30), 'a nyers csúcs megy le, kerekítés nélkül');
+
+  const again = await request('POST', '/api/workouts', {
+    cookie,
+    body: { name: 'Mell 2', exercises: [bench(true)] },
+  });
+  assert.equal(again.json.exercises[0].pr, false, 'a kliens pr:true-ja nem íródik el');
+});
