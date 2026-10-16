@@ -936,10 +936,7 @@ function athleteCard(athlete, today, viewerId, unread = 0) {
   const readiness = computeReadiness({
     checkins,
     workouts,
-    nutrition: {
-      today: getNutritionTotals(athlete.userId, today),
-      yesterday: getNutritionTotals(athlete.userId, shiftDate(today, -1)),
-    },
+    nutrition: nutritionInput(athlete.userId, today),
     weightLog,
     catalog: getCollection('exerciseCatalog') || [],
     today,
@@ -1862,21 +1859,13 @@ app.put('/api/checkin', (req, res) => {
   }
 
   /* A folyadék KÉT helyen írható: itt literben (a nap összege), a Táplálkozás
-     oldalon kortyonként. Egy szám van, ezért az űrlapon megadott érték
-     lecseréli a nap víznaplóját — a felhasználó ott az összegről nyilatkozik,
-     nem egy kortyról. A mezőt üresen hagyva a napló érintetlen marad, hogy a
-     gyors check-in ne törölje a napközben rögzített kortyokat. */
+     oldalon kortyonként. Egy forrás van, a víznapló (a check-in onnan olvassa),
+     ezért az űrlapon megadott érték lecseréli a nap víznaplóját — a felhasználó
+     ott az összegről nyilatkozik, nem egy kortyról. A mezőt üresen hagyva a
+     napló érintetlen marad, hogy a gyors check-in ne törölje a napközben
+     rögzített kortyokat. */
   if (fields.hydration !== null) {
     replaceWaterDay(userId, req.today, Math.round(fields.hydration * 1000));
-  } else {
-    /* Üres mező: a víznapló marad, és a check-in sor folyadék-mezője is a
-       naplót tükrözi. Korábban itt null íródott, tehát egy gyors check-in
-       a napközben rögzített kortyokat a motor elől eltüntette — a vízmérő
-       1,5 litert mutatott, a készenlét pedig semmit sem látott belőle. */
-    const water = getWaterDay(userId, req.today);
-    const previous = getCheckin(userId, req.today);
-    fields.hydration =
-      water.entries.length > 0 ? water.totalMl / 1000 : (previous?.hydration ?? null);
   }
 
   const checkin = saveCheckin(userId, req.today, fields);
@@ -1886,19 +1875,13 @@ app.put('/api/checkin', (req, res) => {
 });
 
 /* ---- Víznapló ----
-   A napi folyadékbevitel a Recovery Engine bemenete (nutritionScore), ezért
-   minden írás a checkins.hydration mezőt is frissíti — nem külön számláló.
-   A kliens így a Táplálkozás oldalról is a készenlétet mozgatja. */
+   A napi folyadékbevitel a Recovery Engine bemenete (nutritionScore). A
+   víznapló az egyetlen forrás: a motor (readinessInput) és a check-in
+   (db.js → CHECKIN_COLUMNS) is innen olvas, tehát egy korty nem hoz létre
+   check-in sort. A kliens így a Táplálkozás oldalról is a készenlétet mozgatja. */
 
 const WATER_SIP = { min: 1, max: 3000 }; // ml, egy bejegyzés
 const WATER_DAY_MAX = 15000; // ml, a napi összeg felső határa
-
-/** A nap víznaplója a checkins.hydration mezőbe írva, literben. Egy helyen
-    áll, hogy a három írási út (korty, törlés, űrlap) ne másolja szét. */
-function syncHydration(userId, date, day) {
-  saveCheckin(userId, date, { ...getCheckin(userId, date), hydration: day.totalMl / 1000 });
-  return waterDay(userId, date);
-}
 
 /** A nap víz-állapota a céllal együtt. A cél az edző által kitűzött érték,
     ha van (`targetSource: 'coach'`); különben UGYANABBÓL a képletből jön,
@@ -1932,8 +1915,8 @@ app.post('/api/water', (req, res) => {
   if (current.totalMl + parsed.value > WATER_DAY_MAX) {
     return res.status(400).json({ error: 'A napi folyadékbevitel legfeljebb 15 liter lehet.' });
   }
-  const day = addWaterEntry(req.user.id, req.today, parsed.value);
-  res.status(201).json(syncHydration(req.user.id, req.today, day));
+  addWaterEntry(req.user.id, req.today, parsed.value);
+  res.status(201).json(waterDay(req.user.id, req.today));
 });
 
 app.delete('/api/water/:id', (req, res) => {
@@ -1942,7 +1925,7 @@ app.delete('/api/water/:id', (req, res) => {
   if (!Number.isInteger(id) || !deleteWaterEntry(req.user.id, id)) {
     return res.status(404).json({ error: 'Nincs ilyen bejegyzés.' });
   }
-  res.json(syncHydration(req.user.id, req.today, getWaterDay(req.user.id, req.today)));
+  res.json(waterDay(req.user.id, req.today));
 });
 
 // Tervek — a felhasználó saját (terv-építőben mentett) tervei, legújabb elöl.
@@ -2354,16 +2337,28 @@ function trainingStreak(workouts, today) {
 /** A teljes készenléti riport összeállítása. Az adatgyűjtés itt van, a
     SZÁMÍTÁS a recovery.js-ben — az a modul nem ismeri az adatbázist, ezért
     külön tesztelhető (server/recovery.test.js). */
+/** A motor táplálkozási bemenete: a mai és a tegnapi összesítő, a hozzájuk
+    tartozó folyadékkal (literben, a víznaplóból; kortyok nélkül null). A motor
+    a tegnapi bevitelt preferálja (reggel a mai még előtted van), és a maira
+    esik vissza, ha tegnapról nincs naplózás. */
+function nutritionInput(userId, todayDate) {
+  const yesterday = shiftDate(todayDate, -1);
+  const liters = (date) => {
+    const day = getWaterDay(userId, date);
+    return day.entries.length > 0 ? day.totalMl / 1000 : null;
+  };
+  return {
+    today: getNutritionTotals(userId, todayDate),
+    yesterday: getNutritionTotals(userId, yesterday),
+    hydration: { today: liters(todayDate), yesterday: liters(yesterday) },
+  };
+}
+
 function readinessReport(userId, todayDate, workouts = getWorkouts(userId)) {
   return computeReadiness({
     checkins: getCheckins(userId, 60),
     workouts,
-    // A motor a tegnapi bevitelt preferálja (reggel a mai még előtted van),
-    // és a maira esik vissza, ha tegnapról nincs naplózás.
-    nutrition: {
-      today: getNutritionTotals(userId, todayDate),
-      yesterday: getNutritionTotals(userId, shiftDate(todayDate, -1)),
-    },
+    nutrition: nutritionInput(userId, todayDate),
     weightLog: getWeightLog(userId),
     catalog: getCollection('exerciseCatalog') || [],
     // Az erőfelmérésen bemondott csúcsok: ezekből is lesz gyakorlat-ajánlás,

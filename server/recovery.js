@@ -1110,7 +1110,8 @@ const QUICK_FIELDS = [
  * @param {object}   input
  * @param {Array}    input.checkins   napi check-in sorok (bármilyen sorrendben)
  * @param {Array}    input.workouts   mentett edzések ({ name, date, exercises })
- * @param {object}   input.nutrition  { today, yesterday } táplálkozási összesítők
+ * @param {object}   input.nutrition  { today, yesterday } táplálkozási összesítők, és
+ *                                    hydration: { today, yesterday } (liter | null)
  * @param {Array}    input.weightLog  testsúly-bejegyzések ({ kg, date })
  * @param {Array}    input.catalog    gyakorlat-katalógus (izom-súlyokkal)
  * @param {string}   input.today      a mai nap "ÉÉÉÉ.HH.NN" alakban
@@ -1153,14 +1154,15 @@ export function computeReadiness({
     : hasNutritionEntries(nutrition?.today)
       ? nutrition.today
       : null;
+  /* A folyadék a víznaplóból jön (nutrition.hydration: { today, yesterday },
+     liter vagy null) — check-in nélküli napon is van. Ha a hívó nem adja
+     meg, a check-in sor mezője a tartalék. */
+  const hydrationOf = (which, entry) =>
+    nutrition?.hydration ? (num(nutrition.hydration[which]) ?? null) : (entry?.hydration ?? null);
   const nutritionHydration =
     useYesterdayNutrition || nutritionSource === null
-      ? yesterdayCheckin
-        ? yesterdayCheckin.hydration
-        : null
-      : checkin
-        ? checkin.hydration
-        : null;
+      ? hydrationOf('yesterday', yesterdayCheckin)
+      : hydrationOf('today', checkin);
 
   // — Testsúly (a terhelés-referenciák skálázásához)
   const latestWeight = [...weightLog].sort((a, b) => dayKey(b.date) - dayKey(a.date))[0];

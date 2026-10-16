@@ -200,11 +200,11 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_measurements_user
     ON body_measurements(user_id, site, date);
 
-  -- Víznapló: KORTYONKÉNT egy sor, időbélyeggel. A napi összeg ebből jön, és
-  -- ez írja a checkins.hydration mezőt is (literben) — nem külön számláló,
-  -- mert a folyadékbevitel a Recovery Engine bemenete (nutritionScore, 0.2
-  -- súly). Két külön szám két külön készenlétet adna, attól függően, melyik
-  -- felületen írta be a felhasználó.
+  -- Víznapló: KORTYONKÉNT egy sor, időbélyeggel. A napi folyadék EGYETLEN
+  -- forrása: a check-in a hydration-t innen olvassa (CHECKIN_COLUMNS), az
+  -- űrlapon megadott liter is ide íródik. A folyadékbevitel a Recovery Engine
+  -- bemenete (nutritionScore, 0.2 súly) — két külön szám két külön
+  -- készenlétet adna, attól függően, melyik felületen írta be a felhasználó.
   CREATE TABLE IF NOT EXISTS water_log (
     id        INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -317,7 +317,7 @@ db.exec(`
     energy        INTEGER,             -- 1–5
     stress        INTEGER,             -- 1–5 (magasabb = rosszabb)
     mood          INTEGER,             -- 1–5 közérzet
-    hydration     REAL,                -- liter
+    hydration     REAL,                -- régi; a folyadék a water_log-ból jön
     soreness      TEXT NOT NULL DEFAULT '{}',  -- JSON: { chest: 0..10, … } izomcsoportonként
     pain          TEXT NOT NULL DEFAULT '{}',  -- JSON: { general: 0..10, quads: 0..10, … }
     updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
@@ -854,6 +854,32 @@ if (schemaVersion < 3) {
     .map((row) => row.id);
   for (const userId of userIds) recomputeExerciseMaxes(userId);
   db.exec('PRAGMA user_version = 3');
+}
+
+/*   4 — a folyadék egyetlen forrása a víznapló (ld. CHECKIN_COLUMNS). A
+         víznapló előtti check-inek literértéke átkerül a víznaplóba (ahol
+         aznapra még nincs korty), és törlődnek azok a sorok, amelyeket csak a
+         korábbi víz-szinkron hozott létre: egyetlen kitöltött mező nélkül
+         ezek „kitöltött check-innek" látszottak. */
+if (schemaVersion < 4) {
+  db.exec('BEGIN');
+  try {
+    db.exec(`
+      INSERT INTO water_log (user_id, date, ml)
+      SELECT c.user_id, c.date, CAST(ROUND(c.hydration * 1000) AS INTEGER) FROM checkins c
+      WHERE c.hydration > 0 AND NOT EXISTS (
+        SELECT 1 FROM water_log w WHERE w.user_id = c.user_id AND w.date = c.date
+      );
+      DELETE FROM checkins
+      WHERE sleep_hours IS NULL AND sleep_quality IS NULL AND energy IS NULL
+        AND stress IS NULL AND mood IS NULL AND soreness = '{}' AND pain = '{}';
+      PRAGMA user_version = 4;
+    `);
+    db.exec('COMMIT');
+  } catch (err) {
+    db.exec('ROLLBACK');
+    throw err;
+  }
 }
 
 /* ---- Indexek ----
@@ -1784,8 +1810,7 @@ export function getWaterDay(userId, date) {
   return { totalMl: entries.reduce((sum, row) => sum + row.ml, 0), entries };
 }
 
-/** Egy korty rögzítése. Visszaadja a nap frissített állapotát, hogy a hívó a
-    checkins.hydration szinkronizálásához ne kelljen újra kérdeznie. */
+/** Egy korty rögzítése. Visszaadja a nap frissített állapotát. */
 export function addWaterEntry(userId, date, ml) {
   db.prepare('INSERT INTO water_log (user_id, date, ml) VALUES (?, ?, ?)').run(userId, date, ml);
   return getWaterDay(userId, date);
@@ -2358,8 +2383,15 @@ const toCheckin = (row) =>
       }
     : null;
 
+/* A folyadék NEM a check-in sorából jön, hanem a víznaplóból (egy forrás):
+   a check-in űrlapján megadott liter is oda íródik (replaceWaterDay). Így egy
+   korty víz nem hoz létre „kitöltött" check-in sort, és a kortyok törlése
+   után nem marad 0 a NULL helyett. Az oszlop csak a régi adatbázisokban él. */
 const CHECKIN_COLUMNS = `date, sleep_hours, sleep_quality, energy, stress, mood,
-                         hydration, soreness, pain`;
+                         (SELECT SUM(w.ml) FROM water_log w
+                           WHERE w.user_id = checkins.user_id AND w.date = checkins.date)
+                           / 1000.0 AS hydration,
+                         soreness, pain`;
 
 /** Egy adott nap check-inje, vagy null. */
 export function getCheckin(userId, date) {
@@ -2406,12 +2438,12 @@ export function saveCheckin(userId, date, fields) {
   db.prepare(
     `
     INSERT INTO checkins (user_id, date, sleep_hours, sleep_quality, energy, stress, mood,
-                          hydration, soreness, pain, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+                          soreness, pain, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
     ON CONFLICT(user_id, date) DO UPDATE SET
       sleep_hours = excluded.sleep_hours, sleep_quality = excluded.sleep_quality,
       energy      = excluded.energy,      stress        = excluded.stress,
-      mood        = excluded.mood,        hydration     = excluded.hydration,
+      mood        = excluded.mood,
       soreness    = excluded.soreness,    pain          = excluded.pain,
       updated_at  = excluded.updated_at
   `,
@@ -2423,7 +2455,6 @@ export function saveCheckin(userId, date, fields) {
     value(fields.energy),
     value(fields.stress),
     value(fields.mood),
-    value(fields.hydration),
     JSON.stringify(fields.soreness ?? {}),
     JSON.stringify(fields.pain ?? {}),
   );

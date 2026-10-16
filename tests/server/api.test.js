@@ -1403,10 +1403,10 @@ test('a check-in mentése a testsúlyt a testsúly-naplóba írja, naponta egy s
 });
 
 /* ---- Víznapló ----
-   A folyadékbevitel a Recovery Engine bemenete, ezért a víznapló NEM külön
-   számláló: minden írásnak a checkins.hydration mezőben is meg kell jelennie.
-   Ezt őrzi az alábbi három teszt — enélkül a Táplálkozás oldalon rögzített
-   korty semmit nem mozdítana a készenléten. */
+   A folyadékbevitel a Recovery Engine bemenete, és a víznapló az EGYETLEN
+   forrása: a check-in folyadék-mezője is innen jön. Egy korty viszont nem
+   hoz létre check-in sort — különben egy pohár víz „kitöltött check-innek"
+   számítana (KOD-KRITIKA J1). */
 
 let vizCookie = '';
 
@@ -1431,7 +1431,14 @@ test('a víznapló kortyai a check-in folyadék-mezőjébe összegződnek', asyn
   assert.equal(nap.json.entries.length, 2, 'kortyonként egy sor, nem összevont érték');
 
   const checkin = await request('GET', '/api/checkin', { cookie: vizCookie });
-  assert.equal(checkin.json.hydration, 0.75, 'a motor literben látja ugyanazt a mennyiséget');
+  assert.equal(checkin.json, null, 'egy korty víz nem kitöltött check-in');
+  const dash = (await request('GET', '/api/dashboard', { cookie: vizCookie })).json;
+  assert.equal(dash.checkinPresent, false, 'a check-in felhívás megmarad');
+
+  // A check-in kitöltése után a folyadék-mezője a víznaplót mutatja, literben
+  await request('PUT', '/api/checkin', { cookie: vizCookie, body: { sleepHours: 7 } });
+  const kitoltve = await request('GET', '/api/checkin', { cookie: vizCookie });
+  assert.equal(kitoltve.json.hydration, 0.75, 'a motor literben látja ugyanazt a mennyiséget');
 });
 
 test('a check-in űrlapján megadott folyadék LECSERÉLI a nap víznaplóját', async () => {
@@ -1461,7 +1468,7 @@ test('a víznapló törlése is visszaírja a folyadék-mezőt, idegen sorra ped
   assert.equal(torles.json.totalMl, 0);
 
   const checkin = await request('GET', '/api/checkin', { cookie: vizCookie });
-  assert.equal(checkin.json.hydration, 0, 'a törlés a készenlét bemenetén is látszik');
+  assert.equal(checkin.json.hydration, null, 'kortyok nélkül nincs adat — nem 0 liter');
 
   // Anna sora Vili számára nem is létezik — 404, nem 403.
   const idegen = await request('DELETE', '/api/water/999999', { cookie: vizCookie });

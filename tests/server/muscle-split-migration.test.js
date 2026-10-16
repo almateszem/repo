@@ -82,8 +82,8 @@ test('a back fájdalom a hátra, a trapézra és az alsó hátra is átkerül; a
   assert.deepEqual(JSON.parse(rawRow().pain), { back: 8, traps: 8, lowerBack: 8, general: 3 });
 });
 
-test('a migráció nem írja át a módosítás idejét, és a séma a legfrissebb verzióra (3) lép', () => {
+test('a migráció nem írja át a módosítás idejét, és a séma a legfrissebb verzióra (4) lép', () => {
   const row = rawRow();
   assert.equal(row.updated_at, updatedAt);
-  assert.equal(row.version, 3, 'a 2-es (izomcsoport) után a 3-as is lefutott');
+  assert.equal(row.version, 4, 'a 2-es (izomcsoport) után a 3-as és a 4-es is lefutott');
 });

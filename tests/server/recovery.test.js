@@ -686,6 +686,21 @@ test('a MAI hiányos folyadék nem húzza le a pontszámot — a tegnapi a mérv
   assert.equal(tegnapi.score, 100, 'a célt elért tegnapi folyadék teljes pontot ér');
 });
 
+test('a folyadék a víznaplóból jön: tegnapi check-in nélkül is beszámít', () => {
+  /* A víznapló az egyetlen forrás (nutrition.hydration). Egy korty már nem
+     hoz létre check-in sort, tehát a motornak check-in nélküli napon is
+     látnia kell a tegnap megivott vizet. */
+  const unlogged = {
+    today: { intake: 0, protein: 0, goal: NUTRITION_GOAL },
+    yesterday: { intake: 0, protein: 0, goal: NUTRITION_GOAL },
+    hydration: { today: 0.25, yesterday: 2.64 },
+  };
+  const report = run({ checkins: [fullCheckin({ hydration: null })], nutrition: unlogged });
+  const nutrition = report.components.find((c) => c.key === 'nutrition');
+  assert.equal(nutrition.present, true, 'a tegnapi víz check-in sor nélkül is mérhető');
+  assert.equal(nutrition.score, 100);
+});
+
 test('a tegnapi bevitel a mérvadó — reggel a mai étkezések még előtted vannak', () => {
   const goodYesterday = run({ checkins: [fullCheckin({ hydration: null })], nutrition: NUTRITION });
   const badYesterday = run({
