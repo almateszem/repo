@@ -679,3 +679,39 @@ test('workoutDates nélkül minden a régi módon, az edzésekből képződik', 
 
   assert.equal(card.lastWorkout, '2 napja');
 });
+
+/* ---- Változó hosszú terv: a heti állás és a terv-követés a ciklus szerint ---- */
+
+/** 9 napos terv: edzés a ciklus 0., 5. és 8. napján, 2026.10.05-től (hétfő).
+    A napok szándékosan NEM esnek egybe a hétnapokkal: a hétnap szerinti
+    számolás itt mást adna. */
+const NINE_DAY = {
+  id: 1,
+  name: 'Kilences',
+  date: '2026.10.05',
+  activeSince: '2026.10.05',
+  week: Array.from({ length: 9 }, (_, day) =>
+    [0, 5, 8].includes(day)
+      ? { type: 'workout', name: '', exercises: SQUAT_DAY }
+      : { type: 'rest' },
+  ),
+  days: [0, 5, 8],
+};
+
+test('heti állás 9 napos tervvel: a cél a ciklus szerint erre a hétre eső edzésnapok', () => {
+  // 2026.10.15 csütörtök; e heti ciklus-napok H..V: 7, 8, 0, 1, 2, 3, 4 → edzés: K, Sze
+  assert.deepEqual(weekProgress({ workouts: [], plans: [NINE_DAY], today: '2026.10.15' }), {
+    done: 0,
+    target: 2,
+    missed: 2, // a kedd és a szerda kimaradt
+  });
+});
+
+test('terv-követés 9 napos kiosztott tervvel: a naptári napra a ciklus napja a mérce', () => {
+  const squat = (date) => ({ ...workout(date), planId: 1, exercises: SQUAT_DAY });
+  const onDay = (date) =>
+    adherenceBreakdown({ workouts: [squat(date)], plans: [NINE_DAY], today: '2026.10.15' }).onDay;
+  // 2026.10.13 kedd = ciklus 8. nap (edzés); 2026.10.12 hétfő = 7. nap (pihenő)
+  assert.equal(onDay('2026.10.13').split('/')[0], '1');
+  assert.equal(onDay('2026.10.12').split('/')[0], '0');
+});

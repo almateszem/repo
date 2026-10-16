@@ -25,8 +25,8 @@
  *   - ÖSSZPONTSZÁM (rating): a készenlét és a terv-követés átlaga; terv nélkül
  *     maga a készenlét. Ebből jön a kártya szintje (arany/ezüst/bronz).
  */
-import { parseDate, dayKey, daysBetween, formatDecimal, shiftDayKey } from './recovery.js';
-import { dayEntry } from './plan-week.js';
+import { dayKey, daysBetween, formatDecimal, shiftDayKey } from './recovery.js';
+import { cycleDayAt, dayEntry } from './plan-week.js';
 
 /** A terv-követés ablaka: 4 teljes hét, a MAI napot nem beleszámítva — a ma
     még hátralévő edzés nem számítható elmaradásnak. */
@@ -76,15 +76,23 @@ export function streakFromDates(dates, today) {
   return streak;
 }
 
-/** A hétnap indexe hétfőtől számolva (0 = hétfő … 6 = vasárnap). */
-const weekdayOf = (dateStr) => (parseDate(dateStr).getDay() + 6) % 7;
+/** Egy nap-kulcs hétnapja hétfőtől számolva (0 = hétfő … 6 = vasárnap). */
+const weekdayOf = (key) => (new Date(key).getDay() + 6) % 7;
 
 /** Azok a naptári napok (éjfélre normalizált timestamp), amikor volt edzés. */
 const trainingDayKeys = (workouts) => new Set(workouts.map((w) => dayKey(w.date)));
 
-/** A tervekben ütemezett hétnapok uniója. Több terv is szólhat ugyanarra a
-    napra — egy nap akkor is EGY edzésnap, ezért halmaz. */
-const scheduledWeekdays = (plans) => new Set(plans.flatMap((plan) => plan.days ?? []));
+/** Edzésnap-e a terv szerint az adott nap-kulcson. A terv ciklusa (hét +
+    horgony, plan-week.js → cycleDayAt) dönti el; a hét nélküli, csak
+    `days`-t hordozó (hétnapos ütemezés) alakban a hétnap. */
+const scheduledAt = (plan, key) =>
+  plan.week
+    ? Boolean(dayEntry(plan.week, cycleDayAt(plan, key)))
+    : (plan.days ?? []).includes(weekdayOf(key));
+
+/** Edzésnap-e a nap bármelyik terv szerint. Több terv is szólhat ugyanarra a
+    napra — egy nap akkor is EGY edzésnap. */
+const scheduledByAny = (plans, key) => plans.some((plan) => scheduledAt(plan, key));
 
 /** A terv kezdőnapja (timestamp), vagy -Infinity, ha nincs dátuma — a dátum
     nélküli terv „mindig is élt" (régi hívók, tesztek). */
@@ -93,11 +101,14 @@ const planStart = (plan) => {
   return Number.isFinite(key) ? key : -Infinity;
 };
 
-/** Az adott NAPON már élő tervek ütemezett hétnapjai. A terv létrehozása
+/** Edzésnap-e a nap az aznap már élő tervek szerint. A terv létrehozása
     (kiosztott tervnél az elfogadása) előtti napokon nem volt mit követni —
     enélkül a friss tervet kapott sportoló igazságtalanul alacsony %-ot kapna. */
 const scheduledOn = (plans, key) =>
-  scheduledWeekdays(plans.filter((plan) => planStart(plan) <= key));
+  scheduledByAny(
+    plans.filter((plan) => planStart(plan) <= key),
+    key,
+  );
 
 /** Munkasorozatok egy gyakorlat-listában. A bemelegítő nem az, és az időalapú
     (kardió) sor sem — ugyanaz a szabály, mint a server.js isWorkSet-jében. */
@@ -124,10 +135,15 @@ const cardioMinutes = (workout) =>
  */
 export function weekProgress({ workouts, plans, today }) {
   const todayKey = dayKey(today);
-  const weekday = weekdayOf(today);
+  const weekday = weekdayOf(todayKey);
   const monday = shiftDayKey(todayKey, -weekday);
   const trained = trainingDayKeys(workouts);
-  const scheduled = scheduledWeekdays(plans);
+
+  // A cél: a hét (hétfő–vasárnap) edzésnapjai a terv(ek) ciklusa szerint
+  let target = 0;
+  for (let day = 0; day < 7; day += 1) {
+    if (scheduledByAny(plans, shiftDayKey(monday, day))) target += 1;
+  }
 
   let done = 0;
   for (let i = 0; i <= weekday; i += 1) {
@@ -138,10 +154,10 @@ export function weekProgress({ workouts, plans, today }) {
   let missed = 0;
   for (let day = 0; day < weekday; day += 1) {
     const key = shiftDayKey(monday, day);
-    if (scheduledOn(plans, key).has(day) && !trained.has(key)) missed += 1;
+    if (scheduledOn(plans, key) && !trained.has(key)) missed += 1;
   }
 
-  return { done, target: scheduled.size, missed };
+  return { done, target, missed };
 }
 
 /* ---- Terv-követés: nap, szett, RPE ---- */
@@ -239,11 +255,10 @@ function evaluatePlans({ workouts, plans, today, from = 1, to = WINDOW_DAYS }) {
   // óraátállításon túli napok különben egyetlen edzésnappal sem egyeztek.
   for (let back = from; back <= to; back += 1) {
     const key = shiftDayKey(todayKey, -back);
-    const weekday = (new Date(key).getDay() + 6) % 7;
     for (const plan of plans) {
       // A terv elfogadása előtti napokon nem volt mit követni, pihenőnapon sem
       if (planStart(plan) > key) continue;
-      const entry = dayEntry(plan.week, weekday);
+      const entry = dayEntry(plan.week, cycleDayAt(plan, key));
       if (!entry) continue;
       result.planned += 1;
 
@@ -520,11 +535,9 @@ export function buildAthleteCard({
     lastWorkout: lastWorkoutDate ? relativeDay(lastWorkoutDate, todayKey) : null,
     // "3/4", terv nélkül "3/–" — a felület egy az egyben kiírja
     weekly: `${week.done}/${week.target || '–'}`,
-    // Aktív terv: amelyik a MAI hétnapra szól, különben a legutóbb készített
+    // Aktív terv: amelyik MÁRA edzést ír elő, különben a legutóbb készített
     // (a getUserPlans legújabb elöl ad vissza).
-    plan:
-      (plans.find((plan) => (plan.days ?? []).includes(weekdayOf(today))) ?? plans[0])?.name ??
-      null,
+    plan: (plans.find((plan) => scheduledAt(plan, todayKey)) ?? plans[0])?.name ?? null,
     alert: athleteAlert({
       missed: week.missed,
       daysSinceWorkout: daysSince(lastWorkoutDate),
