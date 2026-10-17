@@ -82,6 +82,6 @@ test('ahol már voltak kortyok, ott a víznapló az irányadó, nem duplázódik
   assert.equal(day.entries.length, 2);
   assert.equal(db.getCheckin(userId, '2026.10.02').hydration, 0.75);
   const raw = new DatabaseSync(DB_PATH);
-  assert.equal(raw.prepare('PRAGMA user_version').get().user_version, 4);
+  assert.equal(raw.prepare('PRAGMA user_version').get().user_version, 5);
   raw.close();
 });

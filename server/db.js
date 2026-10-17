@@ -380,6 +380,8 @@ db.exec(`
     max_1rm       REAL NOT NULL,       -- Epley-képlettel számított maximális 1RM (kg)
     date          TEXT NOT NULL,       -- mikor született ez a rekord
     updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
+    declared_1rm  REAL,                -- az erőfelmérésen BEMONDOTT csúcs (vagy NULL)
+    declared_date TEXT,                -- a bemondás napja
     PRIMARY KEY (user_id, exercise_name)
   );
 `);
@@ -461,7 +463,9 @@ ensureColumn('workouts', 'pr_rule', 'pr_rule INTEGER NOT NULL DEFAULT 0');
    'declared' — az erőfelmérésen BEMONDOTT érték. A kettő nem ugyanaz, és a
    felületnek ki is kell mondania, min alapul: a bemondott szám nem mérés.
    (Ugyanaz a megkülönböztetés, ami a gyakorlat-katalógusban a loadSource.)
-   A meglévő sorok mind naplózott szettből születtek, tehát a default helyes. */
+   A meglévő sorok mind naplózott szettből születtek, tehát a default helyes.
+   A `source` a CSÚCS forrása; maga a bemondás külön oszlopban él
+   (declared_1rm, lent), így egy mért szett nem tünteti el. */
 ensureColumn('exercise_maxes', 'source', "source TEXT NOT NULL DEFAULT 'measured'");
 // Olvasás-jelölés az üzeneteken. A régi sorok NULL-lal (olvasatlanul) jönnek
 // át — ez a helyes: nem tudhatjuk, látta-e őket a címzett. Aki megnyitja a
@@ -637,6 +641,12 @@ db.exec('PRAGMA foreign_keys = ON');
    fölötte hozzáadott oszlopot menet közben eldobná. Aki ide új oszlopot vesz
    fel a workout_draft-hoz, az ide vegye fel, ne a többi közé. */
 ensureColumn('workout_draft', 'workout_id', 'workout_id INTEGER');
+/* A bemondott csúcs (erőfelmérés) a mért mellett, külön oszlopokban — ugyanazért
+   itt, a rebuildExerciseMaxes UTÁN. Korábban a bemondás csak `source =
+   'declared'` sorként élt, és az első mért szett felülírta: egy elgépelt, majd
+   javított edzés után a csúcs a bemondás nélkül épült újra. */
+ensureColumn('exercise_maxes', 'declared_1rm', 'declared_1rm REAL');
+ensureColumn('exercise_maxes', 'declared_date', 'declared_date TEXT');
 
 /* A szett-értékek korábban mértékegységgel együtt, szabad szövegként voltak
    tárolva („12 rep", „60% TM", „–"). A felület már szám-mezőkkel szerkeszti
@@ -729,8 +739,19 @@ backfillExerciseMaxes();
          splitLegacyMuscleMap). Az edzésnaplót nem kell átírni: az
          izomterhelést a motor a gyakorlatnévből mindig újraszámolja.
      3 — a saját testsúlyos gyakorlatok maximumainak újraszámolása (lent, a
-         terv-migrációk után). */
+         terv-migrációk után).
+     4 — a víznapló mint egyetlen folyadék-forrás (lent).
+     5 — a bemondott csúcsok átmásolása a declared_1rm / declared_date
+         oszlopokba. Ez az ELSŐ lépés, nem az utolsó: az 1-es és a 3-as
+         újraszámolás már ezekből az oszlopokból indul, üresen a bemondás
+         elveszne. A másolás idempotens; a verziószámot a sor végén írjuk. */
 const schemaVersion = db.prepare('PRAGMA user_version').get().user_version;
+if (schemaVersion < 5) {
+  db.exec(`
+    UPDATE exercise_maxes SET declared_1rm = max_1rm, declared_date = date
+    WHERE source = 'declared' AND declared_1rm IS NULL
+  `);
+}
 if (schemaVersion < 1) {
   const userIds = db
     .prepare('SELECT DISTINCT user_id AS id FROM workouts')
@@ -881,6 +902,8 @@ if (schemaVersion < 4) {
     throw err;
   }
 }
+// 5 — a másolás fent, a többi migráció előtt futott (ld. a verziólistát).
+if (schemaVersion < 5) db.exec('PRAGMA user_version = 5');
 
 /* ---- Indexek ----
    A táblák átépítése (workout_draft, checkins) eldobja a rajtuk lévő
@@ -2602,29 +2625,34 @@ export function getRecentExerciseMaxes(userId, sinceDate, limit = 5) {
 /**
  * Az erőfelmérésen BEMONDOTT csúcs rögzítése.
  *
- * A bemondott szám nem mérés, ezért két dolgot NEM tesz:
- *   · nem ír felül MÉRT csúcsot — a naplózott szett erősebb bizonyíték, és
- *     egy alacsonyabb bemondás nem tüntetheti el a valódi rekordot;
- *   · nem hoz létre PR-bejegyzést: a PR-lista a naplózott edzésekből épül
- *     (/api/prs), ide csak a viszonyítási alap kerül. Egy KÉSŐBBI emelésnek
- *     viszont meg kell haladnia — a felmérés így valódi kiindulópont.
+ * A bemondás MINDIG eltárolódik (declared_1rm / declared_date), akkor is, ha
+ * mért csúcs van — így egy később törölt vagy lefelé javított mért edzés után
+ * újra ez a kiindulópont. A csúcs (max_1rm / source) a közös szabályt követi,
+ * amit a recomputeExerciseMaxes számol: a bemondott és a mért közül a NAGYOBB
+ * (egyenlőségnél a mért). Tehát:
+ *   · egy alacsonyabb bemondás nem tünteti el a valódi rekordot;
+ *   · egy nagyobb bemondás lesz a csúcs, és egy KÉSŐBBI emelésnek azt kell
+ *     meghaladnia — a felmérés így valódi kiindulópont;
+ *   · PR-bejegyzés nem születik: a PR-lista a naplózott edzésekből épül
+ *     (/api/prs), ide csak a viszonyítási alap kerül.
  *
- * Visszaadja, hogy tényleg beírtuk-e.
+ * Visszaadja, hogy a bemondás lett-e a csúcs (`stored`), és az érvényes csúcsot.
  */
 export function setDeclaredMax(userId, exerciseName, max1rm, date) {
-  const existing = getExerciseMax(userId, exerciseName);
-  if (existing && existing.source === 'measured') return { stored: false, max1rm: existing.max1rm };
-
   db.prepare(
     `
-    INSERT INTO exercise_maxes (user_id, exercise_name, max_1rm, date, source, updated_at)
-    VALUES (?, ?, ?, ?, 'declared', datetime('now'))
+    INSERT INTO exercise_maxes
+      (user_id, exercise_name, max_1rm, date, source, updated_at, declared_1rm, declared_date)
+    VALUES (?, ?, ?, ?, 'declared', datetime('now'), ?, ?)
     ON CONFLICT(user_id, exercise_name) DO UPDATE SET
-      max_1rm = excluded.max_1rm, date = excluded.date,
-      source = 'declared', updated_at = excluded.updated_at
+      declared_1rm = excluded.declared_1rm, declared_date = excluded.declared_date
   `,
-  ).run(userId, exerciseName, max1rm, date);
-  return { stored: true, max1rm };
+  ).run(userId, exerciseName, max1rm, date, max1rm, date);
+  /* Hogy a bemondás vagy a mérés a csúcs, és melyik edzés PR-jelzője igaz, az
+     a naplótól függ — ugyanaz az újraépítés dönti el, mint törlés után. */
+  recomputeExerciseMaxes(userId);
+  const peak = getExerciseMax(userId, exerciseName);
+  return { stored: peak.source === 'declared', max1rm: peak.max1rm };
 }
 
 /** A BEMONDOTT csúcsok. A készenlét-motor ezekből tudja, hogy a felhasználó
@@ -2645,8 +2673,11 @@ export function getDeclaredMaxes(userId) {
 export function updateExerciseMax(userId, exerciseName, new1rm, currentDate) {
   const existing = getExerciseMax(userId, exerciseName);
   const isPr = !existing || new1rm > existing.max1rm;
+  /* A bemondással egyenlő mért érték lesz a csúcs (a mérés erősebb
+     bizonyíték), de nem PR — ugyanaz a szabály, mint a recomputeExerciseMaxes-ban. */
+  const takesOver = !isPr && existing.source === 'declared' && new1rm === existing.max1rm;
 
-  if (isPr) {
+  if (isPr || takesOver) {
     db.prepare(
       `
       INSERT INTO exercise_maxes (user_id, exercise_name, max_1rm, date, source, updated_at)
@@ -2654,7 +2685,8 @@ export function updateExerciseMax(userId, exerciseName, new1rm, currentDate) {
       ON CONFLICT(user_id, exercise_name) DO UPDATE SET
         max_1rm = excluded.max_1rm,
         date = excluded.date,
-        -- A naplózott szett FELÜLÍRJA a bemondott alapot: a mérés erősebb bizonyíték.
+        -- A nagyobb mért érték lesz a csúcs; a bemondás (declared_1rm) marad,
+        -- egy későbbi törlés vagy javítás után onnan épül újra.
         source = 'measured',
         updated_at = excluded.updated_at
     `,
@@ -2663,7 +2695,7 @@ export function updateExerciseMax(userId, exerciseName, new1rm, currentDate) {
 
   return {
     max1rm: isPr ? new1rm : existing.max1rm,
-    date: isPr ? currentDate : existing.date,
+    date: isPr || takesOver ? currentDate : existing.date,
     isPr,
   };
 }
@@ -2703,12 +2735,14 @@ export function recomputeExerciseMaxes(userId) {
      újraépítés nem tudná előállítani őket. Korábban a törlés mindet elvitte:
      egy edzés törlése után eltűntek a felmérésre épülő ajánlások. Ezért ők a
      kiindulópont — pont úgy, ahogy mentéskor is az addWorkout hozzájuk méri
-     a naplózott szettet (updateExerciseMax). */
+     a naplózott szettet (updateExerciseMax). A bemondás a saját oszlopaiból
+     jön (declared_1rm), nem a csúcs forrásából: egy mért szett fölülírhatta a
+     csúcsot, a bemondás attól még megvan, és az újraépítés után is megmarad. */
   const existing = new Map(
     db
       .prepare(
-        `SELECT exercise_name, max_1rm, date, source, updated_at FROM exercise_maxes
-          WHERE user_id = ?`,
+        `SELECT exercise_name, max_1rm, date, source, updated_at, declared_1rm, declared_date
+           FROM exercise_maxes WHERE user_id = ?`,
       )
       .all(userId)
       .map((row) => [row.exercise_name, row]),
@@ -2723,10 +2757,17 @@ export function recomputeExerciseMaxes(userId) {
   // gyakorlatnév → { max1rm, date, source, bornAt }
   const best = new Map(
     [...existing.values()]
-      .filter((row) => row.source === 'declared')
+      .filter((row) => row.declared_1rm !== null)
       .map((row) => [
         row.exercise_name,
-        { max1rm: row.max_1rm, date: row.date, source: 'declared', bornAt: row.updated_at },
+        {
+          max1rm: row.declared_1rm,
+          date: row.declared_date,
+          source: 'declared',
+          // A születés ideje csak akkor ismert, ha eddig is a bemondás volt a csúcs
+          bornAt:
+            row.source === 'declared' && row.date === row.declared_date ? row.updated_at : null,
+        },
       ]),
   );
   const rewrites = []; // [{ id, exercises }] — csak a ténylegesen változó sorok
@@ -2770,7 +2811,10 @@ export function recomputeExerciseMaxes(userId) {
 
       const current = best.get(name);
       const isPr = !current || oneRM > current.max1rm;
-      if (isPr) {
+      /* Egyenlőségnél a mérés a csúcs (erősebb bizonyíték), de nem PR: a
+         bemondott szintet nem haladta meg. */
+      const takesOver = !isPr && current.source === 'declared' && oneRM === current.max1rm;
+      if (isPr || takesOver) {
         best.set(name, {
           max1rm: oneRM,
           date: row.date,
@@ -2790,8 +2834,9 @@ export function recomputeExerciseMaxes(userId) {
 
   const clear = db.prepare('DELETE FROM exercise_maxes WHERE user_id = ?');
   const insert = db.prepare(`INSERT INTO exercise_maxes
-                               (user_id, exercise_name, max_1rm, date, source, updated_at)
-                             VALUES (?, ?, ?, ?, ?, COALESCE(?, datetime('now')))`);
+                               (user_id, exercise_name, max_1rm, date, source, updated_at,
+                                declared_1rm, declared_date)
+                             VALUES (?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?)`);
   const rewrite = db.prepare('UPDATE workouts SET exercises = ? WHERE id = ?');
 
   clear.run(userId);
@@ -2807,7 +2852,16 @@ export function recomputeExerciseMaxes(userId) {
       previous && previous.date === record.date && previous.source === record.source
         ? previous.updated_at
         : record.bornAt;
-    insert.run(userId, name, record.max1rm, record.date, record.source, bornAt);
+    insert.run(
+      userId,
+      name,
+      record.max1rm,
+      record.date,
+      record.source,
+      bornAt,
+      previous?.declared_1rm ?? null,
+      previous?.declared_date ?? null,
+    );
   }
   for (const row of rewrites) rewrite.run(JSON.stringify(row.exercises), row.id);
 }
