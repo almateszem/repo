@@ -15,6 +15,8 @@
  * tesztelhető (server/catalog-search.test.js).
  */
 
+import { normalizeName } from './muscles.js';
+
 export const DEFAULT_LIMIT = 40;
 export const MAX_LIMIT = 100;
 export const MAX_QUERY_LENGTH = 100;
@@ -25,10 +27,42 @@ export const MAX_NAMES = 50;
     sem használja, és a válasz negyedét tennék ki. */
 export const toExerciseCard = ({ load, loadSource, extId, ...card }) => card;
 
-/** A keresés ugyanaz, mint korábban a kliensen volt: kisbetűsített
-    részszöveg a megadott mezők összefűzésén. */
-const matches = (parts, needle) =>
-  needle === '' || parts.filter(Boolean).join(' ').toLowerCase().includes(needle);
+/** A keresés ékezet- és kisbetű-független (normalizeName), és szavanként
+    illeszt: MINDEN keresett szónak részszövegként szerepelnie kell a mezők
+    összefűzésében, bármilyen sorrendben („első guggolás" = „guggolás első"). */
+const queryWords = (q) => normalizeName(q).split(/\s+/).filter(Boolean);
+
+const matches = (parts, words) => {
+  const haystack = normalizeName(parts.filter(Boolean).join(' '));
+  return words.every((word) => haystack.includes(word));
+};
+
+/** A találat rangja a NÉV alapján, kisebb az előrébb: 0 pontos egyezés,
+    1 a név a kereséssel kezdődik, 2 minden keresett szóval a név egy szava
+    kezdődik, 3 minden szó benne van a névben, 4 csak a többi mezőben talált. */
+function nameRank(name, words) {
+  const normalized = normalizeName(name).replace(/\s+/g, ' ');
+  const phrase = words.join(' ');
+  if (normalized === phrase) return 0;
+  if (normalized.startsWith(phrase)) return 1;
+  const nameWords = normalized.split(/[^a-z0-9]+/).filter(Boolean);
+  if (words.every((word) => nameWords.some((nameWord) => nameWord.startsWith(word)))) return 2;
+  if (words.every((word) => normalized.includes(word))) return 3;
+  return 4;
+}
+
+/** Szűrés és rangsor egy lépésben. Üres keresésre nincs rangsor; különben
+    stabil rendezés, tehát azonos rangon a forrás sorrendje marad (a kurált
+    gyakorlatok, illetve a saját ételek elöl). A lapozás ezután jön. */
+function searchIn(items, q, partsOf) {
+  const words = queryWords(q);
+  if (words.length === 0) return items;
+  return items
+    .filter((item) => matches(partsOf(item), words))
+    .map((item) => ({ item, rank: nameRank(item.name, words) }))
+    .sort((a, b) => a.rank - b.rank)
+    .map(({ item }) => item);
+}
 
 function page(items, offset, limit) {
   const slice = items.slice(offset, offset + limit);
@@ -75,10 +109,10 @@ export function parseNames(names) {
 export function createCatalogSearch({ exercises, seedFoods, foodsFor }) {
   return {
     searchExercises({ q = '', group = null, offset = 0, limit = DEFAULT_LIMIT } = {}) {
-      const needle = q.trim().toLowerCase();
-      const found = exercises().filter(
-        (entry) =>
-          (!group || entry.group === group) && matches([entry.name, entry.equipment], needle),
+      const found = searchIn(
+        exercises().filter((entry) => !group || entry.group === group),
+        q,
+        (entry) => [entry.name, entry.equipment],
       );
       const result = page(found, offset, limit);
       return { ...result, items: result.items.map(toExerciseCard) };
@@ -97,10 +131,7 @@ export function createCatalogSearch({ exercises, seedFoods, foodsFor }) {
 
     /** A saját ételek elöl: a `foodsFor` már így adja (db.js → getFoodsForUser). */
     searchFoods(userId, { q = '', offset = 0, limit = DEFAULT_LIMIT } = {}) {
-      const needle = q.trim().toLowerCase();
-      const found = foodsFor(userId).filter((food) =>
-        matches([food.name, food.group, food.brand], needle),
-      );
+      const found = searchIn(foodsFor(userId), q, (food) => [food.name, food.group, food.brand]);
       return page(found, offset, limit);
     },
 

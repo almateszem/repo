@@ -151,6 +151,87 @@ test('étel név szerint: a saját is, de csak a gazdájának', () => {
   assert.deepEqual(search.findFoodsByName(2, ['Anna zabkása']), []);
 });
 
+/* ---- Ékezet, szósorrend, rangsor ---- */
+
+test('ékezet nélkül is talál: „fekvenyomas", „turo"', () => {
+  assert.deepEqual(names(search.searchExercises({ q: 'fekvenyomas' }).items), ['Fekvenyomás']);
+  assert.deepEqual(names(search.searchFoods(1, { q: 'turo' }).items), ['Túró']);
+  assert.deepEqual(names(search.searchFoods(1, { q: 'TEJTERMEK' }).items), ['Túró']);
+});
+
+/* A katalógus sorrendje szándékosan a rangsor fordítottja: így látszik, hogy
+   a rangsor rendez, és azonos rangon a katalógus-sorrend marad. */
+const RANKED = [
+  ex('Lábtolás', 'Láb', 'Guggológép'),
+  ex('Előguggolás', 'Láb', 'Rúd'),
+  ex('Bolgár guggolás', 'Láb', 'Kézisúlyzó'),
+  ex('Guggolás, első változat', 'Láb', 'Rúd'),
+  ex('Guggolás', 'Láb', 'Rúd'),
+  ex('Fekvenyomás', 'Mell', 'Rúd'),
+];
+const ranked = createCatalogSearch({
+  exercises: () => RANKED,
+  seedFoods: () => [],
+  foodsFor: () => [],
+});
+
+test('a szavak sorrendje nem számít', () => {
+  const expected = ['Guggolás, első változat'];
+  assert.deepEqual(names(ranked.searchExercises({ q: 'guggolás első' }).items), expected);
+  assert.deepEqual(names(ranked.searchExercises({ q: 'első guggolás' }).items), expected);
+  assert.deepEqual(names(ranked.searchExercises({ q: '  elso   GUGGOLAS ' }).items), expected);
+});
+
+test('rangsor: pontos név → névvel kezdődik → szó eleje → részszöveg → más mező', () => {
+  assert.deepEqual(names(ranked.searchExercises({ q: 'guggolás' }).items), [
+    'Guggolás',
+    'Guggolás, első változat',
+    'Bolgár guggolás',
+    'Előguggolás',
+  ]);
+  // azonos rangon (két „guggol…"-lal kezdődő név) a katalógus sorrendje marad;
+  // a csak a felszerelésben találó Lábtolás a végére kerül
+  assert.deepEqual(names(ranked.searchExercises({ q: 'guggol' }).items), [
+    'Guggolás, első változat',
+    'Guggolás',
+    'Bolgár guggolás',
+    'Előguggolás',
+    'Lábtolás',
+  ]);
+});
+
+test('rangsor: a lapozás a rendezett listán fut', () => {
+  const second = ranked.searchExercises({ q: 'guggol', offset: 2, limit: 2 });
+  assert.deepEqual(names(second.items), ['Bolgár guggolás', 'Előguggolás']);
+  assert.equal(second.total, 5);
+  assert.equal(second.nextOffset, 4);
+});
+
+test('üres keresésnél és csoport-szűrésnél nincs rangsor: a katalógus sorrendje', () => {
+  assert.deepEqual(names(ranked.searchExercises({}).items), names(RANKED));
+  assert.deepEqual(
+    names(ranked.searchExercises({ group: 'Láb' }).items),
+    names(RANKED.filter((entry) => entry.group === 'Láb')),
+  );
+});
+
+test('étel-rangsor: azonos rangon a saját étel elöl', () => {
+  const foods = createCatalogSearch({
+    exercises: () => [],
+    seedFoods: () => [],
+    foodsFor: () => [
+      { id: 9, name: 'Túrós lepény', group: 'Saját étel', custom: true },
+      { name: 'Túrós palacsinta', group: 'Édesség' },
+      { name: 'Túró', group: 'Tejtermék' },
+    ],
+  });
+  assert.deepEqual(names(foods.searchFoods(1, { q: 'turo' }).items), [
+    'Túró',
+    'Túrós lepény',
+    'Túrós palacsinta',
+  ]);
+});
+
 test('lapozási paraméterek: alapértékek és érvényes értékek', () => {
   assert.deepEqual(parsePageParams({}), { q: '', group: null, offset: 0, limit: DEFAULT_LIMIT });
   assert.deepEqual(
