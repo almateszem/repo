@@ -1,6 +1,6 @@
 /** Alvás-lépés: óraszám léptetővel és gyorsgombokkal. */
 
-import { $, $$, cloneTemplate } from '../../../core/dom.js';
+import { $, $$, cloneTemplate, readNumberInput } from '../../../core/dom.js';
 import { formatNumber } from '../../../core/format.js';
 import { handleStepClick } from '../../../render/sets.js';
 import {
@@ -65,12 +65,11 @@ function renderSleep(nav) {
   });
 
   function commitSleep() {
-    const value = Number(input.value);
+    const value = readNumberInput(input);
     // A felhasználó látta a kiírt számot, tehát az a válasza — de a
-    // tartományon kívüli kézi bevitelt nem küldjük tovább.
-    ci.answers.sleepHours = Number.isFinite(value)
-      ? ciClamp(value, CI_SLEEP_MIN, CI_SLEEP_MAX)
-      : null;
+    // tartományon kívüli kézi bevitelt nem küldjük tovább. A kiürített mező
+    // „kihagyva", nem 0 óra alvás.
+    ci.answers.sleepHours = value === null ? null : ciClamp(value, CI_SLEEP_MIN, CI_SLEEP_MAX);
     ci.dirty = true;
   }
 

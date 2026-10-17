@@ -1,7 +1,7 @@
 /** Saját étel felvitele — makrók, Atwater-ellenőrzés. */
 
 import { SESSION_LOST, api } from '../core/api.js';
-import { $ } from '../core/dom.js';
+import { $, readNumberInput } from '../core/dom.js';
 import { showToast } from '../core/toast.js';
 import { createModalController } from './modals.js';
 
@@ -66,9 +66,36 @@ async function setupCustomFood({ scanner, confirmAction, onSaved, onLog } = {}) 
     errorEl.hidden = !text;
   };
 
-  const numberOf = (input) => {
-    const value = Number(String(input.value).replace(',', '.'));
-    return Number.isFinite(value) ? value : 0;
+  /** A mező száma, üresen 0 — csak a kalória-előnézethez és a kézi
+      kalóriához. A makrókat mentés előtt a requiredMacros ellenőrzi. */
+  const numberOf = (input) => readNumberInput(input) ?? 0;
+
+  const MACRO_FIELDS = [
+    [proteinInput, 'protein', 'a fehérje'],
+    [carbsInput, 'carbs', 'a szénhidrát'],
+    [fatInput, 'fat', 'a zsír'],
+  ];
+
+  /** A három makró, vagy null, ha valamelyik üres: az üres mező „nem tudjuk",
+      nem 0 g — a vonalkódos kitöltés a hiányzó tápértéket szándékosan üresen
+      hagyja. Az űrlap novalidate, ezért a required itt nem hatna. Az első
+      üres mező megjelölve, a hibaüzenet őt nevezi meg. */
+  const requiredMacros = () => {
+    const values = {};
+    for (const [input, key, label] of MACRO_FIELDS) {
+      const value = readNumberInput(input);
+      if (value === null) {
+        input.setAttribute('aria-invalid', 'true');
+        input.focus();
+        setError(`Add meg ${label} értékét, vagy írj 0-t.`);
+        return null;
+      }
+      values[key] = value;
+    }
+    return values;
+  };
+  const clearMacroErrors = () => {
+    MACRO_FIELDS.forEach(([input]) => input.removeAttribute('aria-invalid'));
   };
 
   const computeKcal = () =>
@@ -118,6 +145,7 @@ async function setupCustomFood({ scanner, confirmAction, onSaved, onLog } = {}) 
     kcalMode = 'auto';
     prefillSource = prefill?.source === 'openfoodfacts' ? 'openfoodfacts' : 'manual';
     setError('');
+    clearMacroErrors();
 
     if (prefill) {
       // A hiányzó (null) tápérték ÜRESEN marad, nem nulla lesz: a nulla azt
@@ -188,6 +216,9 @@ async function setupCustomFood({ scanner, confirmAction, onSaved, onLog } = {}) 
 
   const submit = async ({ thenLog = false } = {}) => {
     setError('');
+    clearMacroErrors();
+    const macros = requiredMacros();
+    if (!macros) return; // az űrlap és a bevitt adat marad
     saveButtons.forEach((button) => {
       button.disabled = true;
     });
@@ -196,9 +227,7 @@ async function setupCustomFood({ scanner, confirmAction, onSaved, onLog } = {}) 
         name: nameInput.value,
         group: groupSelect.value,
         unit: unitSelect.value,
-        protein: numberOf(proteinInput),
-        carbs: numberOf(carbsInput),
-        fat: numberOf(fatInput),
+        ...macros,
         kcal: numberOf(kcalInput),
         kcalMode,
         barcode: barcodeInput.value.trim() || undefined,

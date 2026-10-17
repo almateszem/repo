@@ -9,6 +9,19 @@ const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selec
 
 const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+/** Egy számmező értéke, vagy null, ha üres (vagy nem szám). A `Number('')`
+    0-t ad, ezért egy kiürített mező korábban csendben 0-ként ment tovább — az
+    „üres" viszont „nincs megadva", a ténylegesen beírt 0 pedig érvényes 0. A
+    vessző is tizedesjel. */
+const readNumberInput = (input) => {
+  const text = String(input?.value ?? '')
+    .trim()
+    .replace(',', '.');
+  if (text === '') return null;
+  const value = Number(text);
+  return Number.isFinite(value) ? value : null;
+};
+
 /** Template klónozása — a template-eknek egyetlen gyökérelemük van. */
 const cloneTemplate = (id) => $('#' + id).content.firstElementChild.cloneNode(true);
 
@@ -39,4 +52,4 @@ function loadScript(src) {
   return loadedScripts.get(src);
 }
 
-export { $, $$, cloneTemplate, loadScript, prefersReducedMotion };
+export { $, $$, cloneTemplate, loadScript, prefersReducedMotion, readNumberInput };
