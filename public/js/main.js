@@ -8,6 +8,7 @@
 
 import { api } from './core/api.js';
 import { hooks } from './core/page-hooks.js';
+import { prefs } from './core/prefs.js';
 import { setOnboardingLock } from './nav/router.js';
 import { init, setupAuthGate } from './app/init.js';
 
@@ -32,6 +33,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   try {
     const { user, firstRun } = await api.me();
     if (user) {
+      // A beállítások a fiókhoz kötődnek — az első prefs-olvasás (az init
+      // induló oldala) ELŐTT.
+      prefs.bind(user.username);
       // A zár az init ELŐTT áll be: a setupRouter már ebből választ induló
       // oldalt. Ez adja az újratöltés-túlélést is — a félbehagyott első
       // check-in után a frissítés megint a varázslóra tesz le.

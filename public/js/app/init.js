@@ -4,6 +4,7 @@ import { api } from '../core/api.js';
 import { onDayChange, startDayWatcher } from '../core/day.js';
 import { $, $$ } from '../core/dom.js';
 import { hooks, shared } from '../core/page-hooks.js';
+import { prefs } from '../core/prefs.js';
 import { showToast } from '../core/toast.js';
 import { setupNavRing } from '../nav/navring.js';
 import { dirToPage, navigate, setOnboardingLock, setupRouter } from '../nav/router.js';
@@ -289,6 +290,9 @@ function setupAuthGate() {
         mode === 'register'
           ? await api.register(username, displayName, password)
           : await api.login(username, password);
+      // A beállítások a fiókhoz kötődnek — a siker utáni lépés (init) előtt,
+      // ami már olvassa őket.
+      prefs.bind(account?.username ?? username);
       setOnboardingLock(Boolean(account?.onboarding));
 
       form.reset();

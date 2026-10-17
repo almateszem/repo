@@ -259,6 +259,7 @@ async function setupSettingsModal({ onNotifCatsChange, confirmAction } = {}) {
       } catch (err) {
         console.error('Kijelentkezési hiba:', err);
       }
+      prefs.unbind();
       window.location.reload();
     });
   });
