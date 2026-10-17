@@ -52,6 +52,8 @@ import {
 } from './muscles.js';
 // A kardió fokozatainak CR-10 értéke: a szesszió-RPE terhelés bemenete.
 import { INTENSITY_LEVELS, DEFAULT_INTENSITY } from './logmode.js';
+// A saját testsúlyos gyakorlatok alapterhelése — ugyanaz, mint a PR-követésé.
+import { effectiveLoad } from './data/bodyweight-load.js';
 
 /* ======================================================================
    Dátum-segédek — a mentett adatok „ÉÉÉÉ.HH.NN" formátumához.
@@ -337,12 +339,15 @@ const typeStimulusFactor = (type) => (type in SET_TYPE_STIMULUS ? SET_TYPE_STIMU
 /** Egy teljesített szett SZISZTÉMÁS terhelése tonnában (ismétlés × súly / 1000),
     RPE-vel súlyozva. A nem teljesített (be nem pipált) szettek nem számítanak.
     A tonnatömeg az össz-mechanikai munkát méri — ez jó proxy az általános
-    fáradtságra és az idegrendszeri költségre. */
-function setLoad(set) {
+    fáradtságra és az idegrendszeri költségre.
+    A `baseLoad` a saját testsúlyos gyakorlat alapterhelése (a testsúly hányada,
+    bodyweight-load.js → effectiveLoad); a beírt súly erre kerül rá, ahogy a
+    PR-követésnél is. Más gyakorlatnál 0. */
+function setLoad(set, baseLoad = 0) {
   if (!set?.done) return 0;
   const reps = num(set.reps);
-  const weight = num(set.weight);
-  if (reps === null || weight === null || reps <= 0 || weight <= 0) return 0;
+  const weight = (num(set.weight) ?? 0) + baseLoad;
+  if (reps === null || reps <= 0 || weight <= 0) return 0;
   return ((reps * weight) / 1000) * rpeFactor(num(set.rpe));
 }
 
@@ -570,6 +575,11 @@ function summarizeWorkouts(workouts, todayKey, catalog, bodyWeight, novelty = ne
 
       const muscleLoad = resolveExerciseLoad(exercise.name, catalog);
       const axial = isAxialLift(exercise.name);
+      /* Saját testsúlyos gyakorlatnál a terhelés zöme a test: ugyanaz az
+         alapterhelés, amivel a PR-követés is számol (a legutolsó testsúllyal;
+         más gyakorlatnál 0). Enélkül a tisztán testsúlyos edzés tonnája, CNS-e
+         és 1RM-je nulla volt. */
+      const baseLoad = effectiveLoad(exercise.name, 0, bodyWeight);
       let exerciseLoad = 0;
       let exerciseStimulus = 0;
       let exerciseSlow = 0;
@@ -585,12 +595,12 @@ function summarizeWorkouts(workouts, todayKey, catalog, bodyWeight, novelty = ne
         exerciseStimulus += setStimulus(set);
         exerciseSlow += slowSetUnits(set);
 
-        const load = setLoad(set);
-        if (load === 0) continue; // saját testsúlyos vagy be nem pipált szett: izmot terhel, tonnát nem
+        const load = setLoad(set, baseLoad);
+        if (load === 0) continue; // be nem pipált vagy súly nélküli (nem testsúlyos) szett: izmot terhel, tonnát nem
         doneSets += 1;
         exerciseLoad += load;
 
-        const estimate = epley1RM(num(set.reps), num(set.weight), num(set.rpe));
+        const estimate = epley1RM(num(set.reps), (num(set.weight) ?? 0) + baseLoad, num(set.rpe));
         if (estimate !== null && (best1RM === null || estimate > best1RM)) {
           best1RM = estimate;
           recordSetLoad = load;

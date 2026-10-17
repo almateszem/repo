@@ -375,7 +375,7 @@ test('a teljes lábnap sokkal jobban leviszi a csoportot, mint négy guggolás-s
   assert.ok(quadsOf(heavy) < quadsOf(light) - 20, 'a volumen érdemben számít');
 });
 
-test('a saját testsúlyos munka is terhel izmot, pedig nincs tonnatömege', () => {
+test('a saját testsúlyos munka is terhel izmot, súly beírása nélkül is', () => {
   const bodyweight = [exercise('Húzódzkodás', [set(10, 0), set(10, 0), set(10, 0), set(8, 0)])];
   const report = run({ checkins: [fullCheckin()], workouts: [workout(0, 'Hát', bodyweight)] });
   const back = report.muscles.find((m) => m.key === 'back');
@@ -1273,4 +1273,73 @@ test('referencia-átmenet: az izom-referencia is simán vált', () => {
   const values = [0, 1, 2, 3, 4, 5, 6].map(quadsWith);
   assertSmoothTransition(values, 1, 'quads');
   assert.equal(quadsWith(8), values[6]);
+});
+
+/* ---- Saját testsúlyos gyakorlat: a terhelés a testsúllyal számol ----
+   A PR-követés a testsúllyal számol (effectiveLoad), a motor eddig csak a
+   ráakasztott súllyal — a tisztán testsúlyos edzés terhelése nulla volt. Az
+   összevetés egy azonos tonnájú, nem axiális súlyzós gyakorlattal megy. */
+
+const fiveByFive = (name, weight) =>
+  exercise(
+    name,
+    Array.from({ length: 5 }, () => set(5, weight, 8)),
+  );
+const reportOf = (exercises, kg = 80) =>
+  run({
+    checkins: [fullCheckin()],
+    workouts: [workout(0, 'Edzés', exercises)],
+    weightLog: [{ kg, date: TODAY }],
+  });
+
+test('testsúlyos: a tisztán testsúlyos edzés terhel, mint a testsúlynyi súlyzó', () => {
+  const pullups = reportOf([fiveByFive('Húzódzkodás', '')]);
+  const rows = reportOf([fiveByFive('Evezés', 80)]);
+  assert.ok(loadScore(pullups) < 100, `van terhelés (${loadScore(pullups)})`);
+  assert.ok(pullups.cns.readiness < 100, `a CNS is terhelt (${pullups.cns.readiness})`);
+  assert.equal(loadScore(pullups), loadScore(rows));
+  assert.equal(pullups.cns.readiness, rows.cns.readiness);
+});
+
+test('testsúlyos: a ráakasztott súly a testsúlyra kerül', () => {
+  assert.equal(
+    loadScore(reportOf([fiveByFive('Húzódzkodás', 10)])),
+    loadScore(reportOf([fiveByFive('Evezés', 90)])),
+  );
+  // A testsúllyal együtt nő
+  assert.equal(
+    loadScore(reportOf([fiveByFive('Húzódzkodás', '')], 100)),
+    loadScore(reportOf([fiveByFive('Evezés', 100)], 100)),
+  );
+});
+
+test('testsúlyos: a gyakorlat ajánlást kap (van becsült 1RM-es alkalma)', () => {
+  const report = run({
+    checkins: [fullCheckin()],
+    workouts: [2, 4, 6].map((ago) => workout(ago, 'Hát', [fiveByFive('Húzódzkodás', '')])),
+  });
+  const pullup = report.exercises.find((entry) => entry.name === 'Húzódzkodás');
+  assert.ok(pullup, 'bekerül az ajánlások közé');
+  assert.equal(pullup.sessions, 3);
+  assert.equal(pullup.basis, 'logged');
+});
+
+test('testsúlyos: nem saját testsúlyos gyakorlatnál súly nélkül nincs terhelés, mint eddig', () => {
+  assert.equal(loadScore(reportOf([fiveByFive('Evezés', '')])), 100);
+});
+
+test('testsúlyos: a tisztán testsúlyos nap valódi edzésnapnak számít a referenciához', () => {
+  /* A 15. naptól visszafelé: a 14 napos terhelés-ablakon kívül, tehát csak a
+     személyes referencia súlyát mozdítják (és a nagyon kicsi krónikus átlagot). */
+  const cnsWith = (n) =>
+    run({
+      checkins: [fullCheckin()],
+      workouts: [
+        HEAVY_TODAY,
+        ...Array.from({ length: n }, (_, i) =>
+          workout(15 + i, 'Hát', [fiveByFive('Húzódzkodás', '')]),
+        ),
+      ],
+    }).cns.readiness;
+  assert.ok(cnsWith(6) < cnsWith(0), `${cnsWith(0)} → ${cnsWith(6)}`);
 });
