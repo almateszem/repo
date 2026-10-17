@@ -36,7 +36,9 @@ function renderMeasurements() {
   const empty = $('[data-body-empty]');
   if (!fields || !list) return;
 
-  // Mezők — a legutóbbi mérésből előtöltve.
+  /* Mezők — a legutóbbi mérés csak halvány placeholder, a value üres marad:
+     a mentés minden nem üres mezőt mai mérésként küld, így egy előtöltött,
+     változatlanul hagyott érték is új (hamis) sorként tárolódna. */
   fields.replaceChildren(
     ...measurementSites.map((site) => {
       const wrap = document.createElement('div');
@@ -55,7 +57,7 @@ function renderMeasurements() {
       input.max = String(site.max);
       input.dataset.site = site.key;
       const latest = measurementHistory(site.key)[0];
-      input.value = latest ? String(latest.value) : '';
+      input.placeholder = latest ? String(latest.value) : '';
 
       wrap.append(label, input);
       return wrap;
