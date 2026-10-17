@@ -1189,3 +1189,88 @@ test('kulcsszavas izom-becslés: a specifikus minta nyer az általános előtt',
   assert.equal(primary('Seated cable row'), 'back');
   assert.equal(primary('Román felhúzás'), 'hamstrings');
 });
+
+/* ---- Személyes referencia: folytonos átmenet a valódi edzésnapok szerint ----
+   Korábban az ablak LEGRÉGEBBI edzésének kora kapcsolt (14 nap) — egy
+   jelentéktelen edzés egy nappal korábbra tolása a CNS-t ugrásszerűen vitte. */
+
+const HEAVY_TODAY = workout(0, 'Lábnap', [
+  exercise(
+    'Guggolás',
+    Array.from({ length: 5 }, () => set(5, 100, 8)),
+  ),
+]);
+/** N apró, de valódi terhelésű nap (1 × 1 kg) az 1…N. napon: csak a
+    referencia súlyát mozdítja, a terhelést gyakorlatilag nem. */
+const tinyDays = (n) =>
+  Array.from({ length: n }, (_, i) =>
+    workout(i + 1, 'Apró', [exercise('Bicepsz hajlítás', [set(1, 1, 8)])]),
+  );
+const withTinyDays = (n) =>
+  run({ checkins: [fullCheckin()], workouts: [HEAVY_TODAY, ...tinyDays(n)] });
+
+/** Monoton és sima: egyetlen lépés sem viszi el a teljes átmenet felét. */
+const assertSmoothTransition = (values, direction, label) => {
+  const range = Math.abs(values[values.length - 1] - values[0]);
+  assert.ok(range > 0, `${label}: van átmenet (${values.join(', ')})`);
+  for (let i = 1; i < values.length; i += 1) {
+    const step = (values[i] - values[i - 1]) * direction;
+    assert.ok(step >= 0, `${label}: monoton (${values.join(', ')})`);
+    assert.ok(step <= range / 2, `${label}: nincs ugrás (${values.join(', ')})`);
+  }
+};
+
+test('referencia-átmenet: egy pipa nélküli edzés korábbra tolása nem ugrasztja a CNS-t', () => {
+  const recent = [0, 2, 4].map((ago) =>
+    workout(ago, 'Lábnap', [
+      exercise(
+        'Guggolás',
+        Array.from({ length: 5 }, () => set(5, 100, 8)),
+      ),
+    ]),
+  );
+  const undone = (ago) =>
+    workout(ago, 'Elfelejtett', [exercise('Fekvenyomás', [set(5, 60, 8, false)])]);
+  const cnsWith = (ago) =>
+    run({ checkins: [fullCheckin()], workouts: [...recent, undone(ago)] }).cns.readiness;
+  assert.equal(cnsWith(13), cnsWith(12), `${cnsWith(12)} → ${cnsWith(13)}`);
+});
+
+test('referencia-átmenet: a CNS 0 edzésnaptól 6-ig simán vált, utána a személyes marad', () => {
+  const values = [0, 1, 2, 3, 4, 5, 6].map((n) => withTinyDays(n).cns.readiness);
+  assertSmoothTransition(values, -1, 'CNS');
+  assert.equal(withTinyDays(8).cns.readiness, values[6], '≥ 6 edzésnapnál a személyes');
+  // 0 edzésnapnál az általános referencia: ugyanaz, mint előzmény nélkül
+  assert.equal(
+    values[0],
+    run({ checkins: [fullCheckin()], workouts: [HEAVY_TODAY] }).cns.readiness,
+  );
+});
+
+test('referencia-átmenet: a fáradtság-referencia is simán vált', () => {
+  const values = [0, 1, 2, 3, 4, 5, 6].map((n) => loadScore(withTinyDays(n)));
+  assertSmoothTransition(values, -1, 'terhelés');
+  assert.equal(loadScore(withTinyDays(8)), values[6]);
+});
+
+test('referencia-átmenet: az izom-referencia is simán vált', () => {
+  /* Egyforma, 16 szettes lábnapok a 8. naptól visszafelé: izomkárosodást már
+     nem okoznak (7 napos ablak), de a személyes referenciába beszámítanak. */
+  const legDay = (ago) =>
+    workout(ago, 'Lábnap', [
+      exercise(
+        'Guggolás',
+        Array.from({ length: 16 }, () => set(8, 60, 8)),
+      ),
+    ]);
+  const quadsWith = (n) =>
+    quadsOf(
+      run({
+        checkins: [fullCheckin()],
+        workouts: [legDay(0), ...Array.from({ length: n }, (_, i) => legDay(8 + i))],
+      }),
+    );
+  const values = [0, 1, 2, 3, 4, 5, 6].map(quadsWith);
+  assertSmoothTransition(values, 1, 'quads');
+  assert.equal(quadsWith(8), values[6]);
+});

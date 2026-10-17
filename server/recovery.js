@@ -169,9 +169,16 @@ const LOAD_WINDOW_DAYS = 14; // ennyi nap terhelését összegezzük
 const CHRONIC_WINDOW_DAYS = 28; // ennyiből képezzük a személyes referenciát (0…27. nap)
 const MUSCLE_WINDOW_DAYS = 7; // az izomkárosodás ennél régebbről már elhanyagolható
 
-/** Ennyi nap előzmény kell ahhoz, hogy a személyes referenciát használjuk az
-    abszolút (testsúlyra skálázott) helyett. */
+/** Ennyi nap előzmény után mondja a megbízhatósági szöveg, hogy személyre
+    szabott a becslés. (A referenciák súlyát már nem ez, hanem a valódi
+    edzésnapok száma adja — lásd PERSONAL_REF_MIN_TRAINING_DAYS.) */
 const PERSONAL_REF_MIN_DAYS = 14;
+
+/** Ennyi valódi edzésnap (terhelést hordozó nap a 28 napos ablakban) után a
+    személyes referencia teljes súllyal számít; addig folytonosan keveredik az
+    általánossal. Kb. heti 3 edzés két hétig — a korábbi 14 napos küszöbnek
+    felel meg, de az előzmény MENNYISÉGÉT méri, nem a legrégebbi edzés korát. */
+const PERSONAL_REF_MIN_TRAINING_DAYS = 6;
 
 const FATIGUE_REF_MULT = 10; // személyes referencia: napi átlagterhelés × ennyi
 const MUSCLE_REF_MULT = 2.5; // a gyors és a lassú tároló együtt; kalibrálva: recovery-calibration.test.js
@@ -784,7 +791,24 @@ function muscleDamage(byDay, group) {
   return { damage: fast + slow, unusual };
 }
 
-function muscleReadiness({ byDay, checkin, hasHistory, hasAnyWorkout }) {
+/** A személyes referencia súlya (0…1): a valódi edzésnapok száma a 28 napos
+    ablakban, PERSONAL_REF_MIN_TRAINING_DAYS-nál telítve. A pipa nélküli vagy
+    terhelés nélküli edzés napja nem számít. Egy helyen számolva, mert a CNS-,
+    a fáradtság- és az izom-referencia is ezzel keveredik. */
+function personalRefWeight(byDay) {
+  let trainingDays = 0;
+  for (const [ago, bucket] of byDay) {
+    if (ago < CHRONIC_WINDOW_DAYS && bucket.load > 0) trainingDays += 1;
+  }
+  return clamp01(trainingDays / PERSONAL_REF_MIN_TRAINING_DAYS);
+}
+
+/** Az általános és a személyes referencia keveréke a súly szerint. Korábban a
+    kettő közt lépcsős kapcsoló volt: egy jelentéktelen edzés egy nappal
+    korábbra tolása a CNS-t 66-ról 20-ra vitte. */
+const blendRef = (general, personal, weight) => (1 - weight) * general + weight * personal;
+
+function muscleReadiness({ byDay, checkin, refWeight, hasAnyWorkout }) {
   const soreness = checkin?.soreness ?? {};
   const pain = checkin?.pain ?? {};
 
@@ -806,10 +830,11 @@ function muscleReadiness({ byDay, checkin, hasHistory, hasAnyWorkout }) {
     // A szett-egység nem skálázódik testsúllyal (öt szett az öt szett) —
     // ellentétben a tonna-alapú fáradtság- és CNS-referenciákkal.
     const absoluteRef = ABS_GROUP_REF[group];
-    const base =
-      hasHistory && personalRef[group] > 0
-        ? Math.max(personalRef[group], absoluteRef)
-        : absoluteRef;
+    const base = blendRef(
+      absoluteRef,
+      personalRef[group] > 0 ? Math.max(personalRef[group], absoluteRef) : absoluteRef,
+      refWeight,
+    );
     const modelled = 100 * (1 - clamp01(damage / (base * MUSCLE_REF_MULT)));
 
     /* Szubjektív izomláz (0–10) bekeverése, ha a check-inben megadta.
@@ -869,13 +894,17 @@ function muscleReadiness({ byDay, checkin, hasHistory, hasAnyWorkout }) {
    CNS readiness
    ====================================================================== */
 
-function cnsReadiness({ byDay, sleep, bodyWeight, hasHistory, hasAnyWorkout }) {
+function cnsReadiness({ byDay, sleep, bodyWeight, refWeight, hasAnyWorkout }) {
   const scale = (bodyWeight ?? REF_BODY_WEIGHT) / REF_BODY_WEIGHT;
   const load = decayedSum(byDay, TAU_CNS, LOAD_WINDOW_DAYS, (bucket) => bucket.cns);
 
   const absoluteRef = ABS_CNS_REF * scale;
   const chronic = dailyAverage(byDay, CHRONIC_WINDOW_DAYS, (bucket) => bucket.cns);
-  const ref = hasHistory ? Math.max(chronic * FATIGUE_REF_MULT, absoluteRef * 0.4) : absoluteRef;
+  const ref = blendRef(
+    absoluteRef,
+    Math.max(chronic * FATIGUE_REF_MULT, absoluteRef * 0.4),
+    refWeight,
+  );
 
   // A rossz alvás közvetlenül rontja az idegrendszeri állapotot — legfeljebb
   // 25%-ot vág le. Ha nincs alvásadat, nem szorzunk (nem találunk ki értéket).
@@ -1212,8 +1241,10 @@ export function computeReadiness({
     firstWorkoutDate ? dayKey(firstWorkoutDate) : null,
   );
   const { byDay, exercises } = summarizeWorkouts(workouts, todayKey, catalog, bodyWeight, novelty);
+  // A legrégebbi edzés kora csak a megbízhatósági szöveghez kell; a
+  // referenciák súlyát a valódi edzésnapok száma adja.
   const historyDays = byDay.size ? Math.max(...[...byDay.keys()]) + 1 : 0;
-  const hasHistory = historyDays >= PERSONAL_REF_MIN_DAYS;
+  const refWeight = personalRefWeight(byDay);
 
   // — Izomcsoportok
   /* Naplózott-e VALAHA edzést? Ez választja el a „nem terhelted" (érvényes
@@ -1226,11 +1257,11 @@ export function computeReadiness({
       // és egy elgépelt/jövőbeli sor nem tehet „naplózó felhasználóvá" senkit.
       return Number.isFinite(key) && key <= todayKey;
     });
-  const muscles = muscleReadiness({ byDay, checkin, hasHistory, hasAnyWorkout });
+  const muscles = muscleReadiness({ byDay, checkin, refWeight, hasAnyWorkout });
 
   // — Komponensek
   const sleep = sleepScore(checkin, normalized);
-  const cns = cnsReadiness({ byDay, sleep, bodyWeight, hasHistory, hasAnyWorkout });
+  const cns = cnsReadiness({ byDay, sleep, bodyWeight, refWeight, hasAnyWorkout });
 
   /* Izom-komponens: a csoportok „soft-min" átlaga — a legrosszabb csoport
      nagyobb súlyt kap, hogy egy tönkrement lábnap ne tűnjön el a friss
@@ -1254,9 +1285,11 @@ export function computeReadiness({
   const fatigue = decayedSum(byDay, TAU_LOAD, LOAD_WINDOW_DAYS, (bucket) => bucket.load);
   const chronicDaily = dailyAverage(byDay, CHRONIC_WINDOW_DAYS, (bucket) => bucket.load);
   const absFatigueRef = ABS_FATIGUE_REF * (bodyWeight / REF_BODY_WEIGHT);
-  const fatigueRef = hasHistory
-    ? Math.max(chronicDaily * FATIGUE_REF_MULT, absFatigueRef * 0.4)
-    : absFatigueRef;
+  const fatigueRef = blendRef(
+    absFatigueRef,
+    Math.max(chronicDaily * FATIGUE_REF_MULT, absFatigueRef * 0.4),
+    refWeight,
+  );
   /* Ugyanaz a szabály a terhelésre: ha SOSEM naplózott edzést, a „nulla
      fáradtság" nem mérés, hanem üres napló. Aki viszont naplóz, annál a
      „régen edzettél" már érvényes következtetés — ott a 100 helyes. */
