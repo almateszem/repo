@@ -38,12 +38,68 @@ const clientDate = () => {
     gép időzónája menet közben változik) magától a helyes napot küldi. */
 const requestHeaders = (extra) => ({ [CLIENT_DATE_HEADER]: clientDate(), ...extra });
 
+/* ---- A közös kérés-mag ----
+   Minden burkoló (getJson, getJsonDetailed, sendJson, del, authRequest) ezen
+   megy át, így a hibák egyformán, a felhasználónak szóló magyar mondattal
+   érkeznek. Korábban a fetch TypeError-ja („Failed to fetch") és a nyers
+   „POST /api/… → 502" jutott el a felületre — a hívóhelyek `err.message ||
+   'magyar szöveg'` tartaléka így sosem futott le. */
+const NETWORK_MESSAGE = 'Nincs kapcsolat a szerverrel — próbáld újra.';
+
+/** A szerver `error` mezője nélküli hibák szövege a státusz alapján, vagy
+    null (ilyenkor a hívó saját, nyers szövege marad). */
+function statusMessage(status) {
+  if (status === 502 || status === 503 || status === 504) {
+    return 'A szerver most nem érhető el — próbáld újra.';
+  }
+  return status >= 500 ? 'Szerverhiba — próbáld újra.' : null;
+}
+
+/**
+ * Egy kérés a közös hibakezeléssel. Siker esetén a Response-t adja vissza
+ * (a válasz olvasása a hívóé: JSON, vagy semmi a 204-nél).
+ *   · Hálózati hiba → magyar üzenet, `err.code = 'network'`.
+ *   · AbortError → változatlanul tovább (a lapozott lista így szakítja meg az
+ *     elavult keresést).
+ *   · 401 → munkamenet-vesztés (handleUnauthorized), kivéve `sessionGuard:
+ *     false` mellett — az auth-végpontokon a 401 normális válasz.
+ *   · Egyéb hiba → a szerver `error` mezője, ennek híján a státusz szerinti
+ *     magyar mondat, végül a hívó `fallback(status)` szövege; `err.status` és
+ *     `err.detail` a hívónak.
+ */
+async function request(
+  path,
+  init = {},
+  {
+    sessionGuard = true,
+    fallback = (status) => `${init.method ?? 'GET'} ${path} → ${status}`,
+  } = {},
+) {
+  let res;
+  try {
+    res = await fetch(path, init);
+  } catch (cause) {
+    if (cause?.name === 'AbortError') throw cause;
+    const err = new Error(NETWORK_MESSAGE);
+    err.code = 'network';
+    err.cause = cause;
+    throw err;
+  }
+  if (sessionGuard && res.status === 401) throw handleUnauthorized();
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null);
+    const err = new Error(detail?.error || statusMessage(res.status) || fallback(res.status));
+    err.status = res.status;
+    err.detail = detail;
+    throw err;
+  }
+  return res;
+}
+
 /** GET egy JSON-végpontra, egységes hibakezeléssel. A `signal`-lal a hívó
     megszakíthatja (a lapozott lista az elavult keresést). */
 async function getJson(path, { signal } = {}) {
-  const res = await fetch(path, { headers: requestHeaders(), signal });
-  if (res.status === 401) throw handleUnauthorized();
-  if (!res.ok) throw new Error(`GET ${path} → ${res.status}`);
+  const res = await request(path, { headers: requestHeaders(), signal });
   return res.json();
 }
 
@@ -53,33 +109,18 @@ async function getJson(path, { signal } = {}) {
     „GET /api/… → 404" viszont semmit nem mond neki. A státusz az `err.status`
     mezőn marad elérhető a hívónak. */
 async function getJsonDetailed(path) {
-  const res = await fetch(path);
-  if (res.status === 401) throw handleUnauthorized();
-  const detail = await res.json().catch(() => null);
-  if (!res.ok) {
-    const err = new Error(detail?.error || `GET ${path} → ${res.status}`);
-    err.status = res.status;
-    throw err;
-  }
-  return detail;
+  const res = await request(path);
+  return res.json().catch(() => null);
 }
 
 /** JSON-törzsű kérés (POST/PUT) egy végpontra. Hiba esetén a szerver `error`
     üzenetét dobja, ha van, különben a HTTP-státuszt. A választ JSON-ként adja vissza. */
 async function sendJson(method, path, body) {
-  const res = await fetch(path, {
+  const res = await request(path, {
     method,
     headers: requestHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(body),
   });
-  if (res.status === 401) throw handleUnauthorized();
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    const err = new Error(detail?.error || `${method} ${path} → ${res.status}`);
-    err.status = res.status;
-    err.detail = detail;
-    throw err;
-  }
   return res.json();
 }
 
@@ -92,25 +133,22 @@ const putJson = (path, body) => sendJson('PUT', path, body);
     felhasználónak szóló mondat („Nincs ilyen edzés…"), és a toast azt
     mutatja meg — nem a nyers HTTP-státuszt. */
 async function del(path) {
-  const res = await fetch(path, { method: 'DELETE', headers: requestHeaders() });
-  if (res.status === 401) throw handleUnauthorized();
-  if (!res.ok) {
-    const detail = await res.json().catch(() => null);
-    throw new Error(detail?.error || `DELETE ${path} → ${res.status}`);
-  }
+  await request(path, { method: 'DELETE', headers: requestHeaders() });
 }
 
-/* Az auth-végpontok NEM mehetnek a fenti burkolókon: a 401 ott normális
-   válasz („nem vagy belépve"), nem a munkamenet elvesztése. */
+/* Az auth-végpontokon a 401 normális válasz („nem vagy belépve", „rossz
+   jelszó"), nem a munkamenet elvesztése — ezért sessionGuard nélkül. */
 async function authRequest(path, body) {
-  const res = await fetch(path, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body ?? {}),
-  });
-  const detail = res.status === 204 ? null : await res.json().catch(() => null);
-  if (!res.ok) throw new Error(detail?.error || `Hiba (${res.status})`);
-  return detail;
+  const res = await request(
+    path,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body ?? {}),
+    },
+    { sessionGuard: false, fallback: (status) => `Hiba (${status})` },
+  );
+  return res.status === 204 ? null : res.json().catch(() => null);
 }
 
 /** Query-sztring a megadott, nem üres paraméterekből. */
@@ -368,13 +406,13 @@ const api = {
      válasza, és a belépő képernyő ebből indul. A firstRun jelzi, ha még
      egyetlen fiók sincs — ilyenkor rögtön a regisztrációt kínáljuk. */
   me: async () => {
-    const res = await fetch('/api/auth/me');
-    if (res.status === 401) {
-      const detail = await res.json().catch(() => ({}));
-      return { user: null, firstRun: Boolean(detail.firstRun) };
+    try {
+      const res = await request('/api/auth/me', {}, { sessionGuard: false });
+      return { user: await res.json(), firstRun: false };
+    } catch (err) {
+      if (err.status !== 401) throw err;
+      return { user: null, firstRun: Boolean(err.detail?.firstRun) };
     }
-    if (!res.ok) throw new Error(`GET /api/auth/me → ${res.status}`);
-    return { user: await res.json(), firstRun: false };
   },
   login: (username, password) => authRequest('/api/auth/login', { username, password }),
   register: (username, displayName, password) =>
