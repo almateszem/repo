@@ -2950,7 +2950,7 @@ const toWorkout = (row) => ({
         difficulty: row.feedback_difficulty,
         mood: row.feedback_mood,
         note: row.feedback_note,
-        at: row.feedback_at,
+        at: toIso(row.feedback_at),
       }
     : null,
 });
@@ -3436,7 +3436,7 @@ export function getAthleteFeedbackSince(coachId, sinceDate) {
       workout: row.name,
       athlete: row.athlete_name,
       difficulty: row.feedback_difficulty,
-      at: row.feedback_at,
+      at: toIso(row.feedback_at),
     }));
 }
 

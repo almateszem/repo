@@ -1331,6 +1331,24 @@ test('a visszajelzés megjelenik az edző értesítés-panelján', async () => {
   assert.ok(sor.at, 'valódi időbélyeggel — enélkül nem kerülhetne a panelre');
 });
 
+test('a visszajelzés ideje ISO-alakú, és a „mind olvasott" után is újnak számít', async () => {
+  /* A feedback_at SQLite-alakú („ÉÉÉÉ-HH-NN ÓÓ:PP:MM", UTC, Z nélkül); a többi
+     értesítés ISO. A kliens szövegesen hasonlít (notif.at > seenAt): a szóközös
+     alak aznap mindig a „T"-s mögé rendeződött, így nem kapott jelvényt. */
+  const iso = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/;
+  const seenAt = new Date(Date.now() - 2000).toISOString();
+  const kuldes = await request('PUT', `/api/workouts/${fbWorkoutId}/feedback`, {
+    cookie: fbClient.cookie,
+    body: { difficulty: 4, mood: 2, note: 'Nehéz volt, de kibírtam.' },
+  });
+  assert.match(kuldes.json.feedback.at, iso, 'az edzés visszajelzése');
+
+  const ertesitesek = await request('GET', '/api/notifications', { cookie: fbTrainer.cookie });
+  const sor = ertesitesek.json.find((n) => n.cat === 'feedback');
+  assert.match(sor.at, iso, 'az értesítés');
+  assert.ok(sor.at > seenAt, `${sor.at} > ${seenAt}: a jelvény megjelenik`);
+});
+
 test('IDEGEN edzésre nem lehet visszajelzést küldeni', async () => {
   /* Az edző OLVASNI lát a sportolójánál — írni a naplójába nem. A user_id
      feltétel miatt nem talál sort: 404, nem 403. */
