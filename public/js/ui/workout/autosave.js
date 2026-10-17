@@ -11,7 +11,7 @@
  * edzés azonosítója). Így a motor nem ismeri a naplót, csak menteni tud.
  */
 
-import { api } from '../../core/api.js';
+import { api, requestHeaders } from '../../core/api.js';
 import { $ } from '../../core/dom.js';
 
 export function createDraftAutosave({ buildBody }) {
@@ -160,7 +160,8 @@ export function createDraftAutosave({ buildBody }) {
     fetch('/api/workout-draft', {
       method: 'PUT',
       keepalive: true,
-      headers: { 'Content-Type': 'application/json' },
+      // A közös fejlécek: az X-Client-Date nélkül a szerver a saját napjával mentene.
+      headers: requestHeaders({ 'Content-Type': 'application/json' }),
       body: serialized,
     }).catch(() => {});
   });
