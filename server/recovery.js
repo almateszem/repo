@@ -401,11 +401,15 @@ function slowMultiplier(novelty, eccentric) {
  * edzés előtti előzményből. Az egész naplót bejárja (a 28 napon túlit is), de
  * csak a MUSCLE_WINDOW_DAYS ablakba eső edzésekhez ad eredményt.
  *
+ * Az „érett előzmény" alapja az első edzés napja. Ha a hívó ablakozott naplót
+ * ad át (edzői kártya), a TELJES napló első edzésnapját `historyStartKey`-ként
+ * kívülről kell megadnia — különben az ablak első edzése számítana kezdetnek.
+ *
  * @returns {Map<object, Array<Object<string, {value: number, reason: 'novelty'|'gap'|null}>|null>>}
  *   kulcs: a workout objektum; érték: a gyakorlatok sorrendjében egy-egy
  *   csoport → szorzó térkép (időalapú sornál null).
  */
-export function buildNoveltyIndex(workouts, todayKey, catalog) {
+export function buildNoveltyIndex(workouts, todayKey, catalog, historyStartKey = null) {
   const dated = (Array.isArray(workouts) ? workouts : [])
     .map((workout) => ({ workout, key: dayKey(workout?.date) }))
     .filter(({ key }) => Number.isFinite(key) && key <= todayKey)
@@ -413,7 +417,7 @@ export function buildNoveltyIndex(workouts, todayKey, catalog) {
   const index = new Map();
   if (!dated.length) return index;
 
-  const firstKey = dated[0].key;
+  const firstKey = Number.isFinite(historyStartKey) ? historyStartKey : dated[0].key;
   const lastMeaningful = {}; // csoport – nap-kulcs
   const exerciseDays = new Map(); // normalizált név – nap-kulcsok
 
@@ -1137,6 +1141,13 @@ const QUICK_FIELDS = [
  * @param {string}   input.today      a mai nap "ÉÉÉÉ.HH.NN" alakban
  * @param {Array}    input.declaredMaxes  az erőfelmérésen bemondott csúcsok
  *                                       ({ name, max1rm }) — ezekből is lesz ajánlás
+ *
+ * Ablakozott napló esetén (edzői kártya) a hívó a TELJES naplóból adhatja át
+ * azt a hármat, ami az ablakon túlra nyúlik; ha elhagyja, a motor a kapott
+ * `workouts` / `weightLog` listából számolja őket (a sportoló útja):
+ * @param {number|null} [input.bodyWeight]       a legutolsó testsúly (kg); null: nincs mérés
+ * @param {boolean}     [input.hasAnyWorkout]    naplózott-e valaha (nem jövőbeli) edzést
+ * @param {string|null} [input.firstWorkoutDate] az első edzés napja ("ÉÉÉÉ.HH.NN")
  */
 export function computeReadiness({
   checkins = [],
@@ -1146,6 +1157,9 @@ export function computeReadiness({
   catalog = [],
   today,
   declaredMaxes = [],
+  bodyWeight: knownBodyWeight,
+  hasAnyWorkout: knownAnyWorkout,
+  firstWorkoutDate = null,
 }) {
   const todayKey = dayKey(today);
 
@@ -1186,10 +1200,17 @@ export function computeReadiness({
 
   // — Testsúly (a terhelés-referenciák skálázásához)
   const latestWeight = [...weightLog].sort((a, b) => dayKey(b.date) - dayKey(a.date))[0];
-  const bodyWeight = num(latestWeight?.kg) ?? REF_BODY_WEIGHT;
+  const bodyWeight =
+    (knownBodyWeight === undefined ? num(latestWeight?.kg) : num(knownBodyWeight)) ??
+    REF_BODY_WEIGHT;
 
   // — Edzésadatok
-  const novelty = buildNoveltyIndex(workouts, todayKey, catalog);
+  const novelty = buildNoveltyIndex(
+    workouts,
+    todayKey,
+    catalog,
+    firstWorkoutDate ? dayKey(firstWorkoutDate) : null,
+  );
   const { byDay, exercises } = summarizeWorkouts(workouts, todayKey, catalog, bodyWeight, novelty);
   const historyDays = byDay.size ? Math.max(...[...byDay.keys()]) + 1 : 0;
   const hasHistory = historyDays >= PERSONAL_REF_MIN_DAYS;
@@ -1197,12 +1218,14 @@ export function computeReadiness({
   // — Izomcsoportok
   /* Naplózott-e VALAHA edzést? Ez választja el a „nem terhelted" (érvényes
      következtetés) esetet a „nem tudunk róla semmit" esettől. */
-  const hasAnyWorkout = (Array.isArray(workouts) ? workouts : []).some((entry) => {
-    const key = dayKey(entry?.date);
-    // Érvényes dátum ÉS nem a jövő: a motor mindenhol így szűr (daysAgo >= 0),
-    // és egy elgépelt/jövőbeli sor nem tehet „naplózó felhasználóvá" senkit.
-    return Number.isFinite(key) && key <= todayKey;
-  });
+  const hasAnyWorkout =
+    knownAnyWorkout ??
+    (Array.isArray(workouts) ? workouts : []).some((entry) => {
+      const key = dayKey(entry?.date);
+      // Érvényes dátum ÉS nem a jövő: a motor mindenhol így szűr (daysAgo >= 0),
+      // és egy elgépelt/jövőbeli sor nem tehet „naplózó felhasználóvá" senkit.
+      return Number.isFinite(key) && key <= todayKey;
+    });
   const muscles = muscleReadiness({ byDay, checkin, hasHistory, hasAnyWorkout });
 
   // — Komponensek

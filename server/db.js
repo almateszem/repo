@@ -1679,6 +1679,18 @@ export function getWeightLogSince(userId, sinceDate) {
     .all(userId, sinceDate);
 }
 
+/** A LEGUTOLSÓ dátumú testsúly (kg), vagy null. Egy sor, nem a napló: az edzői
+    kártya ablakozva olvas (getWeightLogSince), a motor terhelés-referenciája
+    viszont a teljes napló legutolsó mérésére skálázódik — a sportoló saját
+    riportja is ezt látja. Azonos dátumnál a korábban rögzített, ahogy a motor
+    stabil rendezése is választ (computeReadiness → latestWeight). */
+export function getLatestWeight(userId) {
+  const row = db
+    .prepare('SELECT kg FROM weight_log WHERE user_id = ? ORDER BY date DESC, id ASC LIMIT 1')
+    .get(userId);
+  return row ? row.kg : null;
+}
+
 /** A naplózott ételek, rögzítési sorrendben. */
 export function getNutritionLog(userId) {
   return db

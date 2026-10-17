@@ -30,6 +30,7 @@ import {
   getWorkoutsSince,
   getWorkoutDates,
   getWeightLogSince,
+  getLatestWeight,
   getUserPlanSchedules,
   getAssignedPlanTargets,
   addWorkout,
@@ -933,6 +934,11 @@ function athleteCard(athlete, today, viewerId, unread = 0) {
   const weightLog = getWeightLogSince(athlete.userId, since);
   const workoutDates = getWorkoutDates(athlete.userId);
 
+  /* Az ablakon túlra három bemenet nyúlik, ezeket a teljes naplóból adjuk át
+     (olcsón: egy sor, illetve a dátum-lista) — különben a kártya más számot
+     mutatna, mint a sportoló saját riportja: a testsúly-referencia, a „valaha
+     edzett-e", és az első edzés napja (az újdonság-szorzó érett előzménye). */
+  const pastDates = workoutDates.filter((date) => date <= today); // csökkenő sorrend
   const readiness = computeReadiness({
     checkins,
     workouts,
@@ -940,6 +946,9 @@ function athleteCard(athlete, today, viewerId, unread = 0) {
     weightLog,
     catalog: getCollection('exerciseCatalog') || [],
     today,
+    bodyWeight: getLatestWeight(athlete.userId),
+    hasAnyWorkout: pastDates.length > 0,
+    firstWorkoutDate: pastDates[pastDates.length - 1] ?? null,
   });
 
   const lastMessage = getLastMessage(athlete.linkId);
