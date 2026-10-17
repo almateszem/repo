@@ -217,7 +217,9 @@ async function setupSettingsModal({ onNotifCatsChange, confirmAction } = {}) {
     event.preventDefault();
     const current = $('#st-password-current').value;
     const next = $('#st-password-new').value;
+    const submit = $('button[type="submit"]', accountForms.password.form);
     showFormError(accountForms.password.error, '');
+    submit.disabled = true; // a kérés idejére: ne legyen dupla beküldés
     try {
       await api.changePassword(current, next);
       closeAccountForms();
@@ -227,28 +229,34 @@ async function setupSettingsModal({ onNotifCatsChange, confirmAction } = {}) {
         accountForms.password.error,
         err.message || 'A jelszót nem sikerült megváltoztatni',
       );
+    } finally {
+      submit.disabled = false;
     }
   });
 
   accountForms.delete.form.addEventListener('submit', async (event) => {
     event.preventDefault();
     const password = $('#st-delete-password').value;
+    const submit = $('button[type="submit"]', accountForms.delete.form);
     showFormError(accountForms.delete.error, '');
-
-    /* A jelszó megerősítésnek is számít, de a törlés visszafordíthatatlan —
-       ezért kérdezünk rá külön is, ugyanazzal az ablakkal, amivel minden
-       más adatvesztés előtt. */
-    const confirmed = await confirmAction(
-      'A fiókod és MINDEN adatod véglegesen törlődik. Ez nem vonható vissza.',
-      { title: 'Fiók törlése', confirmLabel: 'Törlés' },
-    );
-    if (!confirmed) return;
-
+    // A megerősítő ablak és a kérés idejére is tiltott: ne legyen dupla beküldés
+    submit.disabled = true;
     try {
+      /* A jelszó megerősítésnek is számít, de a törlés visszafordíthatatlan —
+         ezért kérdezünk rá külön is, ugyanazzal az ablakkal, amivel minden
+         más adatvesztés előtt. */
+      const confirmed = await confirmAction(
+        'A fiókod és MINDEN adatod véglegesen törlődik. Ez nem vonható vissza.',
+        { title: 'Fiók törlése', confirmLabel: 'Törlés' },
+      );
+      if (!confirmed) return;
+
       await api.deleteAccount(password);
       window.location.reload(); // a belépő képernyőre esünk vissza
     } catch (err) {
       showFormError(accountForms.delete.error, err.message || 'A fiókot nem sikerült törölni');
+    } finally {
+      submit.disabled = false;
     }
   });
 

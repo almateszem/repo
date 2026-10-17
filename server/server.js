@@ -735,7 +735,10 @@ app.put('/api/auth/password', async (req, res) => {
   const row = getUserWithHash(req.user.username);
   if (!row || !(await verifyPassword(currentPassword, row.password_hash))) {
     recordFailure(lockKey);
-    return res.status(401).json({ error: 'A jelenlegi jelszó nem stimmel.' });
+    /* 403, nem 401: a munkamenet érvényes, csak a megerősítés rossz. A kliens
+       minden 401-et munkamenet-vesztésnek vesz (belépő kapu, újratöltés) —
+       401-gyel ez az üzenet sosem látszott. */
+    return res.status(403).json({ error: 'A jelenlegi jelszó nem stimmel.' });
   }
   clearFailures(lockKey);
 
@@ -767,7 +770,8 @@ app.post('/api/auth/delete-account', async (req, res) => {
   const row = getUserWithHash(req.user.username);
   if (!row || !(await verifyPassword(password, row.password_hash))) {
     recordFailure(lockKey);
-    return res.status(401).json({ error: 'A jelszó nem stimmel — a fiók nem törlődött.' });
+    // 403, nem 401 — ugyanazért, mint a jelszócserénél (ld. ott).
+    return res.status(403).json({ error: 'A jelszó nem stimmel — a fiók nem törlődött.' });
   }
   clearFailures(lockKey);
 

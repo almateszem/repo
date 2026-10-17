@@ -48,7 +48,11 @@ test('a jelszóváltás kéri a jelenlegi jelszót, és ellenőrzi az újat', as
     cookie,
     body: { currentPassword: 'nemez1234', newPassword: 'ujjelszo123' },
   });
-  assert.equal(wrong.status, 401, 'a munkamenet önmagában nem elég');
+  /* 403, nem 401: a kliens minden 401-et munkamenet-vesztésnek vesz (belépő
+     kapu, újratöltés), így a „rossz jelszó" üzenet sosem látszott. */
+  assert.equal(wrong.status, 403, 'a munkamenet önmagában nem elég');
+  assert.equal(wrong.json.error, 'A jelenlegi jelszó nem stimmel.');
+  assert.equal((await request('GET', '/api/user', { cookie })).status, 200, 'bejelentkezve marad');
 
   const short = await request('PUT', '/api/auth/password', {
     cookie,
@@ -128,7 +132,8 @@ test('a törlés jelszó nélkül nem megy végbe', async () => {
     cookie,
     body: { password: 'nemez1234' },
   });
-  assert.equal(wrong.status, 401);
+  assert.equal(wrong.status, 403, 'rossz jelszó — nem munkamenet-vesztés');
+  assert.equal(wrong.json.error, 'A jelszó nem stimmel — a fiók nem törlődött.');
   assert.equal((await request('GET', '/api/user', { cookie })).status, 200, 'a fiók megvan');
 });
 
