@@ -196,8 +196,14 @@ const NOVELTY = {
 /** Referencia-testsúly, amihez az abszolút terhelés-referenciák skálázódnak. */
 const REF_BODY_WEIGHT = 80;
 
-/** PR-próbálkozás CNS-felára szettenként, tonnában, 80 kg-os sportolóra. */
+/** PR-próbálkozás CNS-felárának plafonja gyakorlatonként, tonnában, 80 kg-os
+    sportolóra. */
 const PR_CNS_SURCHARGE = 0.4;
+
+/** A PR-felár a rekordot hozó szett terhelésének ennyiszerese (a plafonig):
+    egy tipikus nehéz rekordszett (kb. 0,5 t) éppen a 0,4 t-s plafont éri el,
+    egy könnyű izolációs rekord viszont csak a saját kis terhelésével arányos. */
+const PR_CNS_RECORD_FACTOR = 0.8;
 
 /** Az alvás célideje órában. EGY szám két helyen: az időtartam-görbe itt éri el
     a teljes pontot, és az alvásadósság is ehhez mér. Korábban az adósság 8
@@ -557,6 +563,7 @@ function summarizeWorkouts(workouts, todayKey, catalog, bodyWeight, novelty = ne
       let exerciseStimulus = 0;
       let exerciseSlow = 0;
       let best1RM = null;
+      let recordSetLoad = null; // a best1RM-et hozó szett terhelése
       let doneSets = 0;
 
       for (const set of exercise.sets ?? []) {
@@ -573,7 +580,10 @@ function summarizeWorkouts(workouts, todayKey, catalog, bodyWeight, novelty = ne
         exerciseLoad += load;
 
         const estimate = epley1RM(num(set.reps), num(set.weight), num(set.rpe));
-        if (estimate !== null && (best1RM === null || estimate > best1RM)) best1RM = estimate;
+        if (estimate !== null && (best1RM === null || estimate > best1RM)) {
+          best1RM = estimate;
+          recordSetLoad = load;
+        }
 
         // — CNS-költség —
         // Az idegrendszert az axiális összetett emelések és a bukáshoz közeli
@@ -587,9 +597,19 @@ function summarizeWorkouts(workouts, todayKey, catalog, bodyWeight, novelty = ne
         else if (rpe !== null && rpe >= 8.5) surcharge += 0.3;
 
         bucket.cns += load * (1 + surcharge);
-        // PR-próbálkozás: fix ráfizetés szettenként. Tonnában mért, ezért a
-        // testsúllyal skálázódik — ahogy a CNS-referencia is (cnsReadiness).
-        if (exercise.pr) bucket.cns += PR_CNS_SURCHARGE * (bodyWeight / REF_BODY_WEIGHT);
+      }
+
+      /* PR-próbálkozás: gyakorlatonként EGYSZER, a rekordot hozó szett
+         terhelésével arányos ráfizetés, plafonnal. Korábban szettenként járt
+         (a bemelegítőkre is), a `pr` pedig gyakorlat-szintű jelző — egy könnyű
+         karedzés így ~1,6 t felárat kapott ~0,5 t valódi munkára. A plafon
+         tonnában mért, ezért a testsúllyal skálázódik, ahogy a CNS-referencia
+         is (cnsReadiness). Teljesített, terhelésű szett nélkül nincs felár. */
+      if (exercise.pr && recordSetLoad !== null) {
+        bucket.cns += Math.min(
+          PR_CNS_SURCHARGE * (bodyWeight / REF_BODY_WEIGHT),
+          PR_CNS_RECORD_FACTOR * recordSetLoad,
+        );
       }
 
       bucket.load += exerciseLoad;

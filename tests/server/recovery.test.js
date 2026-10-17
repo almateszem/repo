@@ -1093,12 +1093,63 @@ test('táplálkozás: az ALAPÉRTELMEZETT cél nem mérce, csak a saját vagy az
   assert.equal(nutritionScore({ ...eaten, goal: ownGoal }, null, 55), 1);
 });
 
-test('a PR-próbálkozás CNS-felára a testsúllyal skálázódik', () => {
-  // Elhanyagolható tonnatömeg (1 × 1 kg): a CNS-terhelést szinte csak a felár adja
-  const prSet = [workout(0, 'Próba', [exercise('Fekvenyomás', [set(1, 1, 7)], true)])];
-  const cnsAt = (kg) => run({ workouts: prSet, weightLog: [{ kg, date: TODAY }] }).cns.readiness;
-  assert.ok(cnsAt(60) < 100, 'a felár terhel');
-  assert.ok(Math.abs(cnsAt(60) - cnsAt(120)) <= 1, `${cnsAt(60)} vs ${cnsAt(120)}`);
+/* ---- PR-felár: gyakorlatonként egyszer, a rekordszett terhelésével ----
+   Előzmény nélkül a CNS-referencia 18 t (80 kg-nál), tehát 1 pont ≈ 0,18 t:
+   a régi, szettenkénti 0,4 t-s felár szettenként ~2 pontot vitt. */
+
+/** Ennyi CNS-pontot visz el a `pr` jelző ugyanazon az edzésen. */
+const prCnsDrop = (sets, { name = 'Fekvenyomás', kg = 80 } = {}) => {
+  const cnsOf = (pr) =>
+    run({
+      workouts: [workout(0, 'Próba', [exercise(name, sets, pr)])],
+      weightLog: [{ kg, date: TODAY }],
+    }).cns.readiness;
+  return cnsOf(false) - cnsOf(true);
+};
+const HEAVY_RECORD = set(5, 100, 8); // 0,5 t: épp a régi 0,4 t-s plafont éri el
+
+test('PR-felár: könnyű, 4 szettes gyakorlatnál a rekordszett terhelésével arányos', () => {
+  // 4 × 12 × 10 kg = 0,48 t valódi munka; a régi felár 4 × 0,4 = 1,6 t (~9 pont) volt
+  const drop = prCnsDrop(
+    Array.from({ length: 4 }, () => set(12, 10, 8)),
+    {
+      name: 'Bicepsz hajlítás',
+    },
+  );
+  assert.ok(drop <= 1, `a felár a 0,12 t-s rekordszett 0,8-szorosa: ${drop} pont`);
+});
+
+test('PR-felár: nehéz rekordszettnél (0,5 t) a régi 0,4 t marad', () => {
+  const drop = prCnsDrop([HEAVY_RECORD]);
+  assert.ok(drop >= 2 && drop <= 3, `0,4 t ≈ 2,2 pont: ${drop}`);
+});
+
+test('PR-felár: gyakorlatonként egyszer jár, nem szettenként', () => {
+  const single = prCnsDrop([HEAVY_RECORD]);
+  const triple = prCnsDrop([HEAVY_RECORD, HEAVY_RECORD, HEAVY_RECORD]);
+  assert.ok(Math.abs(triple - single) <= 1, `1 szett: ${single}, 3 szett: ${triple}`);
+});
+
+test('PR-felár: a bemelegítő szettek nem növelik', () => {
+  const warmups = [
+    typedSet('warmup', 10, 40),
+    typedSet('warmup', 5, 60),
+    typedSet('warmup', 3, 80),
+  ];
+  const plain = prCnsDrop([HEAVY_RECORD]);
+  const withWarmups = prCnsDrop([...warmups, HEAVY_RECORD]);
+  assert.ok(Math.abs(withWarmups - plain) <= 1, `${plain} vs ${withWarmups}`);
+});
+
+test('a PR-próbálkozás CNS-felárának plafonja a testsúllyal skálázódik', () => {
+  /* 5 × 150 kg = 0,75 t → 0,8 × 0,75 = 0,6 t, ez mindkét testsúlynál a
+     plafon fölött van (60 kg: 0,3 t, 120 kg: 0,6 t). A plafon és a CNS-
+     referencia együtt skálázódik, tehát az elvitt pont ugyanannyi. */
+  const heavy = [set(5, 150, 8)];
+  const at60 = prCnsDrop(heavy, { kg: 60 });
+  const at120 = prCnsDrop(heavy, { kg: 120 });
+  assert.ok(at60 >= 2, `a felár terhel: ${at60}`);
+  assert.ok(Math.abs(at60 - at120) <= 1, `${at60} vs ${at120}`);
 });
 
 test('súlycsökkentés: sosem nulla, és nem vesz le aránytalanul sokat', () => {
