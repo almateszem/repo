@@ -118,10 +118,39 @@ async function refreshDailyStats() {
   syncCheckinCta(checkinPresent);
 }
 
+/** Ennyi ideig számít frissnek egy lefutott renderDashboard: az Áttekintő
+    megnyitása (pageEffects) ezen belül nem kér újra — pl. az induláskori
+    render után nem megy ki második /api/dashboard kérés. */
+const DASHBOARD_FRESH_MS = 2000;
+let lastRenderAt = -Infinity;
+let renderInFlight = null;
+
 /** Az áttekintő (dashboard) DB-vezérelt feltöltése: sorozat, regeneráció,
     napi statok, aktuális edzésnév, és a Regenerációval közös
-    készenléti ítélet (a statikus motivációs szöveg helyett). */
+    készenléti ítélet (a statikus motivációs szöveg helyett).
+    Mindig friss adatot kér: a hívók (edzés, check-in mentése) a saját
+    változásuk utáni állapotot várják. */
 async function renderDashboard() {
+  const run = drawDashboard();
+  renderInFlight = run;
+  try {
+    await run;
+    lastRenderAt = Date.now();
+  } finally {
+    if (renderInFlight === run) renderInFlight = null;
+  }
+}
+
+/** Az Áttekintő megnyitásakor: ha épp fut egy render, ahhoz csatlakozik; ha
+    az utolsó DASHBOARD_FRESH_MS-on belül futott, nem kér újra; különben friss
+    adatot kér. A visszaadott ígéret a `dashboardData` frissülése után teljesül. */
+function refreshDashboardIfStale() {
+  if (renderInFlight) return renderInFlight;
+  if (Date.now() - lastRenderAt < DASHBOARD_FRESH_MS) return Promise.resolve();
+  return renderDashboard();
+}
+
+async function drawDashboard() {
   dashboardData = await api.getDashboard();
   const { readiness, streak, recovery, dailyStats, workoutName } = dashboardData;
 
@@ -266,6 +295,7 @@ function renderChromeDate() {
 export {
   dashboardData,
   refreshDailyStats,
+  refreshDashboardIfStale,
   renderChart,
   renderCharts,
   renderChromeDate,

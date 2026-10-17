@@ -18,7 +18,7 @@ import { $, $$, prefersReducedMotion } from '../core/dom.js';
 import { animateNumber, formatWhole } from '../core/format.js';
 import { hooks, shared } from '../core/page-hooks.js';
 import { prefs } from '../core/prefs.js';
-import { dashboardData } from '../render/dashboard.js';
+import { dashboardData, refreshDashboardIfStale, renderChromeDate } from '../render/dashboard.js';
 import { renderPlans } from '../render/plans.js';
 import { hasReadiness } from '../render/recovery.js';
 import { renderSummary } from '../render/summary.js';
@@ -26,15 +26,24 @@ import { renderSummary } from '../render/summary.js';
 /** Oldal-megjelenéskor futó effektek (számláló-animációk stb.). */
 const pageEffects = {
   dashboard() {
-    if (dashboardData && hasReadiness(dashboardData.readiness)) {
-      // formatWhole: a lap legnagyobb számánál egyetlen tizedesvessző is
-      // megtörné az elrendezést minden képkockán.
-      animateNumber($('.db-percent-num'), dashboardData.readiness, {
-        from: 0,
-        duration: 900,
-        format: formatWhole,
-      });
-    }
+    /* Megnyitáskor friss adat — mint a többi oldalon: terv-aktiválás után az
+       új „mai edzés", éjfél után a mai streak és készenlét. Az induláskori
+       render után (2 mp-en belül) nem kér újra, egy futó renderhez csatlakozik
+       (refreshDashboardIfStale). A szám a MEGÉRKEZETT adatból pörög fel, így
+       nincs régi → új villanás. */
+    renderChromeDate();
+    refreshDashboardIfStale()
+      .then(() => {
+        if (!dashboardData || !hasReadiness(dashboardData.readiness)) return;
+        // formatWhole: a lap legnagyobb számánál egyetlen tizedesvessző is
+        // megtörné az elrendezést minden képkockán.
+        animateNumber($('.db-percent-num'), dashboardData.readiness, {
+          from: 0,
+          duration: 900,
+          format: formatWhole,
+        });
+      })
+      .catch((err) => console.error('Áttekintő frissítési hiba:', err));
   },
   coach() {
     /* Az Edző oldal MÁSIK EMBER adatát mutatja (a sportolóid állapotát, az

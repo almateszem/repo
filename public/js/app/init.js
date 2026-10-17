@@ -8,7 +8,6 @@ import { showToast } from '../core/toast.js';
 import { setupNavRing } from '../nav/navring.js';
 import { dirToPage, navigate, setOnboardingLock, setupRouter } from '../nav/router.js';
 import {
-  refreshDailyStats,
   renderCharts,
   renderChromeDate,
   renderDashboard,
@@ -196,10 +195,14 @@ async function init() {
 
   setupNavRing($('#navKnob'), (dir) => navigate(dirToPage(dir)));
 
-  // Napváltás-figyelő: éjfél után az áttekintő napi statjai nullázódnak, és
-  // a check-in emlékeztető is visszatér — az új napra még nincs check-in.
+  // Napváltás-figyelő: éjfél után az egész áttekintő az új napra áll — a
+  // fejléc dátuma, a napi statok, a streak, a készenlét, a mai edzés, és a
+  // check-in emlékeztető is visszatér (az új napra még nincs check-in).
   // (A táplálkozás-oldali frissítő a setupNutrition-ben iratkozik fel.)
-  onDayChange(refreshDailyStats);
+  onDayChange(() => {
+    renderChromeDate();
+    return renderDashboard();
+  });
   startDayWatcher();
 
   if (hadError) {
