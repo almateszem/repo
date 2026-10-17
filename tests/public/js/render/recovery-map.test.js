@@ -12,6 +12,7 @@ import {
   MOBILE_COLUMNS,
   RC_SPARE_BELOW,
   componentSummary,
+  dashboardQuote,
   muscleNote,
   ringDashOffset,
   ringState,
@@ -221,4 +222,34 @@ test('verdictText: 70–84 pont, a gyakorlat-csökkentés megjelenik az ítélet
 test('verdictText: alacsony pontszámnál a régi szöveg marad', () => {
   assert.match(verdictText(report(60)), /Fáradt/);
   assert.match(verdictText(report(40)), /pihenést kér/);
+});
+
+/* ---- dashboardQuote: az Áttekintő ugyanazt mondja, mint a Regeneráció ---- */
+
+const dash = (readiness, { cns = null, verdicts = [], streak = 5 } = {}) => ({
+  readiness,
+  streak,
+  cns: { readiness: cns },
+  exercises: verdicts.map((verdict) => ({ verdict })),
+});
+
+test('dashboardQuote: a Regeneráció verdictText-jét mondja, két sorba törve', () => {
+  // 92 + CNS 78: a régi lánc „ma mehet a nehezebb edzés"-t mondott
+  const [first, second] = dashboardQuote(dash(92, { cns: 78 }));
+  assert.equal(`${first} ${second}`, verdictText(report(92, { cns: 78 })));
+  assert.match(second, /korlátozd/);
+  assert.match(first, /—$/);
+  // 67: a régi lánc „tartsd a lendületet"-et mondott, a Regeneráció „Fáradt vagy"-ot
+  assert.equal(dashboardQuote(dash(67)).join(' '), verdictText(report(67)));
+});
+
+test('dashboardQuote: a sorozat nem kerül a mondatba', () => {
+  assert.doesNotMatch(dashboardQuote(dash(92, { streak: 12 })).join(' '), /sorozat|12/);
+});
+
+test('dashboardQuote: adat nélkül a check-inre hív', () => {
+  assert.deepEqual(dashboardQuote(dash(null)), [
+    'Még nincs elég adat a készenléthez —',
+    'töltsd ki a napi check-int.',
+  ]);
 });

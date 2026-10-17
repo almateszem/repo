@@ -1581,6 +1581,16 @@ test('a dashboard minden számolt mezőt kitölt', async () => {
   assert.equal(Number.isInteger(db.dailyStats.calories), true, 'a kalória egész szám');
 });
 
+test('a dashboard leküldi az ítélethez kellő CNS-t és gyakorlat-ajánlásokat', async () => {
+  /* Az Áttekintő ítélet-mondata a Regeneráció verdictText-jét hívja; ahhoz a
+     CNS és a gyakorlat-ítéletek is kellenek, ugyanabból a riportból. */
+  const db = (await request('GET', '/api/dashboard', { cookie: belaCookie })).json;
+  const report = (await request('GET', '/api/readiness', { cookie: belaCookie })).json;
+  assert.equal(db.readiness, report.overall);
+  assert.deepEqual(db.cns, report.cns);
+  assert.deepEqual(db.exercises, report.exercises);
+});
+
 test('a dashboard NEM ragadja meg a korábbi kérés értékeit', async () => {
   /* A végpont a `dashboard` kollekcióra írja rá a felhasználó-specifikus
      mezőket. Ha ez az objektum cache-elt (megosztott) lenne, a két fiók

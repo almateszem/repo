@@ -4,6 +4,7 @@ import { api, clientDate } from '../core/api.js';
 import { $, $$ } from '../core/dom.js';
 import { prefs } from '../core/prefs.js';
 import { hasReadiness } from './recovery.js';
+import { dashboardQuote } from './recovery-map.js';
 
 /** Az áttekintő adatai (renderDashboard tölti fel; a pageEffects innen veszi
     a készenlét-értéket az animációhoz). */
@@ -109,8 +110,8 @@ async function refreshDailyStats() {
 }
 
 /** Az áttekintő (dashboard) DB-vezérelt feltöltése: sorozat, regeneráció,
-    napi statok, aktuális edzésnév, és a készenlét + sorozat alapján
-    kontextusfüggő idézet (a statikus motivációs szöveg helyett). */
+    napi statok, aktuális edzésnév, és a Regenerációval közös
+    készenléti ítélet (a statikus motivációs szöveg helyett). */
 async function renderDashboard() {
   dashboardData = await api.getDashboard();
   const { readiness, streak, recovery, dailyStats, workoutName } = dashboardData;
@@ -222,19 +223,10 @@ async function renderDashboard() {
   // hogy az adatból származó rész se kerülhessen soha HTML-ként a lapra.
   const quoteEl = $('[data-db-quote]');
   if (quoteEl) {
-    /* Adat nélkül (readiness === null) nincs mit tanácsolni: a `null >= 85` és
-       `null >= 65` is hamis, ezért a régi lánc a „pihenést kér" ágra esett, és
-       egy teljesen új felhasználónak azt mondta, hogy pihenjen. */
-    const [first, second] = !readinessKnown
-      ? ['Még nincs elég adat a készenléthez —', 'töltsd ki a napi check-int.']
-      : readiness >= 85
-        ? [
-            `${streak} napos sorozatban vagy, és a tested is készen áll —`,
-            'ma mehet a nehezebb edzés.',
-          ]
-        : readiness >= 65
-          ? [`${streak} napos sorozat — tartsd a lendületet,`, 'de figyelj a regenerációra is.']
-          : ['A tested pihenést kér —', 'ma inkább könnyebb edzés jöhet.'];
+    /* Az ítélet ugyanaz, mint a Regeneráción (verdictText): korábban itt egy
+       saját 85/65-ös lánc futott CNS és gyakorlat-ítélet nélkül, és ellentmondott
+       neki (92 + CNS 78 → „ma mehet a nehezebb" vs. „korlátozd"). */
+    const [first, second] = dashboardQuote(dashboardData);
     quoteEl.replaceChildren(
       document.createTextNode(first),
       document.createElement('br'),

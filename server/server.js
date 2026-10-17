@@ -1448,6 +1448,9 @@ app.get('/api/dashboard', (req, res) => {
   dashboard.streak = trainingStreak(workouts, req.today);
   dashboard.readiness = readiness.overall;
   dashboard.recovery = readiness.recovery;
+  // Az ítélet-mondathoz (verdictText): ugyanazok a jelzések, mint a Regeneráción.
+  dashboard.cns = readiness.cns;
+  dashboard.exercises = readiness.exercises;
   // A készenlét-kártya feliratához: mennyire megbízható a szám, és van-e
   // egyáltalán mai check-in (ha nincs, a felület kitöltésre hív).
   dashboard.readinessConfidence = readiness.confidence;

@@ -89,6 +89,16 @@ export function verdictText(report) {
     : 'A tested pihenést kér — ma inkább könnyű nap.';
 }
 
+/** Az Áttekintő kétsoros idézete: ugyanaz az ítélet, mint a Regeneráción
+    (verdictText), a gondolatjel után megtörve. A dashboard válaszában a
+    pontszám neve `readiness`, nem `overall`. */
+export function dashboardQuote(dashboard) {
+  const text = verdictText({ ...dashboard, overall: dashboard?.readiness });
+  if (text === null) return ['Még nincs elég adat a készenléthez —', 'töltsd ki a napi check-int.'];
+  const cut = text.indexOf('— ') + 1;
+  return [text.slice(0, cut), text.slice(cut + 1)];
+}
+
 /** A gyűrű kitöltetlen ívének hossza (stroke-dashoffset) egy 0–100 értékhez. */
 export function ringDashOffset(value, r) {
   const circumference = 2 * Math.PI * r;
