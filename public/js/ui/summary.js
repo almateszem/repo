@@ -6,7 +6,7 @@ import { animateNumber, formatNumber } from '../core/format.js';
 import { hooks, shared } from '../core/page-hooks.js';
 import { showToast } from '../core/toast.js';
 import { navigate } from '../nav/router.js';
-import { renderChart } from '../render/dashboard.js';
+import { renderChart, renderVolumeTrend } from '../render/dashboard.js';
 import { buildScale, readScale, writeScale } from '../render/recovery.js';
 import { lastSummary } from '../render/summary.js';
 
@@ -219,6 +219,8 @@ async function setupWeeklyCompare() {
   hooks.refreshVolumeChart = async () => {
     charts = await api.refreshCharts();
     applyPeriod(activePeriod(), { animate: true });
+    // Az Áttekintő „Utolsó 14 nap" diagramja is ugyanebből a friss lekérésből
+    renderVolumeTrend(charts);
   };
 }
 

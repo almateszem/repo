@@ -98,4 +98,5 @@ export function installFakeDom() {
     addEventListener() {},
   };
   globalThis.requestAnimationFrame = (callback) => setTimeout(callback, 0);
+  globalThis.cancelAnimationFrame = (handle) => clearTimeout(handle);
 }

@@ -58,6 +58,15 @@ async function renderCharts() {
   });
 }
 
+/** Az Áttekintő „Utolsó 14 nap" diagramja a már lekért chartokból. Edzés
+    befejezése, javítása és törlése után ez fut (hooks.refreshVolumeChart) —
+    a teljes renderCharts() NEM: az a seed demo-testsúlygörbét (server/data.js)
+    is újrarajzolná a valódi fölé. */
+function renderVolumeTrend(charts) {
+  const container = $('[data-chart="volumeTrend"]');
+  if (container && charts?.volumeTrend) renderChart(container, charts.volumeTrend);
+}
+
 /** Az áttekintő napi statjainak (kalória/fehérje) kiírása. */
 function renderDailyStats(dailyStats) {
   const setText = (selector, value) => {
@@ -262,4 +271,5 @@ export {
   renderChromeDate,
   renderDashboard,
   renderUserName,
+  renderVolumeTrend,
 };
