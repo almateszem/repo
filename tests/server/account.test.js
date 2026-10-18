@@ -12,9 +12,11 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import path from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { startServer, gyakorlat as buildGyakorlat } from './test-harness.js';
 
-const { request, cookieFrom } = await startServer({ label: 'account' });
+const { request, cookieFrom, workDir } = await startServer({ label: 'account' });
 
 const register = async (username, displayName, password = 'jelszo123') =>
   cookieFrom(
@@ -205,4 +207,20 @@ test('a törölt felhasználónév újra kiadható, és az új fiók ÜRESEN ind
 
   const workouts = await request('GET', '/api/workouts', { cookie: cookieFrom(ujra) });
   assert.deepEqual(workouts.json, [], 'az új fiók NEM örökli a törölt fiók adatait');
+});
+
+test('bejelentkezéskor a lejárt munkamenetek takarítása is lefut', async () => {
+  await register('takarito', 'Takarító Tamás');
+  const raw = new DatabaseSync(path.join(workDir, 'account.db'));
+  const userId = raw.prepare("SELECT id FROM users WHERE username = 'takarito'").get().id;
+  raw
+    .prepare('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)')
+    .run('lejart-hash', userId, new Date(Date.now() - 60_000).toISOString());
+
+  await login('takarito', 'jelszo123');
+  const left = raw
+    .prepare("SELECT COUNT(*) AS n FROM sessions WHERE token_hash = 'lejart-hash'")
+    .get().n;
+  raw.close();
+  assert.equal(left, 0, 'a lejárt sor nem várja meg a napi takarítást');
 });

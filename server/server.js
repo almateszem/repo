@@ -467,6 +467,7 @@ app.post('/api/auth/login', async (req, res) => {
   }
 
   clearFailures(lockKey);
+  purgeExpiredSessions(); // olcsó: a lejárt sorok ne várják meg a napi takarítást
   startSession(req, res, row.id);
   res.json(withOnboarding({ id: row.id, username: row.username, displayName: row.display_name }));
 });

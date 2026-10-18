@@ -270,6 +270,17 @@ test('munkamenet: érvényes, lejárt és ismeretlen token', () => {
   assert.equal(db.getSessionUser('hash-ervenyes'), null, 'kijelentkezés után érvénytelen');
 });
 
+test('munkamenet: a takarítás a MA lejárt sort is viszi', () => {
+  /* Az expires_at ISO-8601 („…T…Z"), a datetime('now') szóközös alak — a
+     szöveges összevetésben a „T" a szóköz után rendeződik, így a ma lejárt
+     sor csak másnap törlődött. */
+  db.createSession('hash-ma-lejart', anna.id, new Date(Date.now() - 60_000).toISOString());
+  db.createSession('hash-ma-ervenyes', anna.id, new Date(Date.now() + 60_000).toISOString());
+  assert.equal(db.purgeExpiredSessions(), 1, 'a perce lejárt sor törlődik');
+  assert.equal(db.getSessionUser('hash-ma-ervenyes').username, 'anna', 'az érvényes marad');
+  db.deleteSession('hash-ma-ervenyes');
+});
+
 test('ismeretlen fiók azonosítójára üres eredmény jön, nem más adata', () => {
   // Ha valahol elmaradna a userId (bug), az eredmény legyen ÜRES, ne pedig
   // véletlenül a legelső felhasználó adata.

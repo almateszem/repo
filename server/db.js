@@ -1203,9 +1203,14 @@ export function deleteSession(tokenHash) {
   db.prepare('DELETE FROM sessions WHERE token_hash = ?').run(tokenHash);
 }
 
-/** A lejárt munkamenetek takarítása (induláskor és időzítve hívjuk). */
+/** A lejárt munkamenetek takarítása (induláskor, bejelentkezéskor és naponta).
+    A feltétel a tárolással azonos alakú paraméter (ISO-8601, „…T…Z"): a
+    korábbi datetime('now') szóközös alakjához mérve a ma lejárt sor csak
+    másnap törlődött. */
 export function purgeExpiredSessions() {
-  const { changes } = db.prepare("DELETE FROM sessions WHERE expires_at <= datetime('now')").run();
+  const { changes } = db
+    .prepare('DELETE FROM sessions WHERE expires_at <= ?')
+    .run(new Date().toISOString());
   return changes;
 }
 purgeExpiredSessions();
