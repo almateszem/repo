@@ -3,6 +3,7 @@
 import { api } from '../core/api.js';
 import { $, $$ } from '../core/dom.js';
 import { formatNumber } from '../core/format.js';
+import { createLatestOnly } from '../core/latest-only.js';
 import { hooks } from '../core/page-hooks.js';
 import { showToast } from '../core/toast.js';
 import { renderDashboard } from '../render/dashboard.js';
@@ -214,9 +215,19 @@ async function setupRecovery() {
     return body;
   };
 
+  /* Szerkesztés alatt álló űrlap: a frissítés (refreshRecovery) nem írja
+     felül. A skálák gombok, a ± léptető pedig input eseményt vált ki — ezért
+     a kattintás és az input is jelöl. Sikeres mentéskor törlődik. */
+  let formDirty = false;
+  const refreshes = createLatestOnly();
+  form.addEventListener('input', () => {
+    formDirty = true;
+  });
+
   // A ± léptetőgombok ugyanúgy működnek, mint az edzésnaplóban
   form.addEventListener('click', (event) => {
     handleStepClick(event);
+    if (event.target.closest('.rc-scale button')) formDirty = true;
   });
 
   form.addEventListener('submit', async (event) => {
@@ -268,6 +279,10 @@ async function setupRecovery() {
       hívja mentés után, hogy a Regeneráció oldal mindkét út után ugyanúgy
       frissüljön (űrlap-értékek + riport-kártyák + készenlét-gyűrű). */
   hooks.applyCheckinSaved = (checkin, readiness) => {
+    // A mentés a mérvadó állapot: a még futó frissítések elavulnak, és az
+    // űrlap újra szabadon tölthető.
+    refreshes.invalidate();
+    formDirty = false;
     fillForm(checkin);
     renderRecovery(readiness);
     /* A friss check-in új képet ad a mai állapotról — ez az a pillanat,
@@ -279,6 +294,7 @@ async function setupRecovery() {
   /** Friss riport + check-in a szerverről. A pageEffects és az edzés
       lezárása is ezt hívja. */
   hooks.refreshRecovery = async () => {
+    const request = refreshes.begin();
     // A testsúly-napló is ide tartozik: a trend-kártya ezen az oldalon van,
     // és a fillForm a mai bejegyzésből tölti a testsúly-mezőt.
     const [report, checkin] = await Promise.all([
@@ -288,7 +304,11 @@ async function setupRecovery() {
       // A testösszetétel is ezen az oldalon él, a testsúly-kártya mellett.
       refreshMeasurements(),
     ]);
-    fillForm(checkin);
+    /* Egy lassú, közben megelőzött (újabb frissítés vagy mentés) válasz nem
+       írja vissza a régi állapotot; a szerkesztés alatt álló űrlapot pedig
+       semmilyen frissítés nem írja felül. */
+    if (!refreshes.isCurrent(request)) return;
+    if (!formDirty) fillForm(checkin);
     renderRecovery(report);
   };
 
