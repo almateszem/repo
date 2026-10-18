@@ -576,67 +576,28 @@ ensureColumn('exercise_maxes', 'declared_date', 'declared_date TEXT');
    fogja meg — közben pedig minden indításkor csonkította a szándékosan
    szövegként mentett értékeket (".5" → "5", "1e2" → "1", "8-12" → "8"). */
 
-/* Az `exercise_maxes` táblát az addWorkout tölti, edzés mentésekor. Aki viszont
-   a PR-követés BEVEZETÉSE ELŐTT naplózott, annak az egész előzménye kimaradt
-   belőle: a tábla üres, miközben a workouts tele van. Ilyenkor a legközelebbi
-   edzés minden gyakorlata hamis PR-t ütne (nincs mihez mérni), és a rekord egy
-   gyengébb értéken ragadna. Ezért a meglévő edzésekből egyszer visszatöltjük a
-   csúcsokat.
-
-   Csak azokra a fiókokra fut, akiknek van edzésük, de EGYETLEN csúcsuk sincs —
-   így a második indulásnál már nincs dolga, és aki menet közben gyűjtötte a
-   rekordjait, annak az adatához nem nyúl.
-
-   Maga az újraépítés a recomputeExerciseMaxes-ban él (ld. lentebb, az egyéni
-   csúcsok között): ugyanazt a munkát végzi a törlés/javítás után is, és két
-   helyen álló, lassan elcsúszó másolatból pontosan a bestCompletedSet
-   kommentjében leírt hiba születne. */
-function backfillExerciseMaxes() {
-  const userIds = db
-    .prepare(
-      `
-    SELECT DISTINCT w.user_id AS id FROM workouts w
-    WHERE NOT EXISTS (SELECT 1 FROM exercise_maxes m WHERE m.user_id = w.user_id)
-  `,
-    )
-    .all()
-    .map((row) => row.id);
-
-  for (const userId of userIds) recomputeExerciseMaxes(userId);
-}
-backfillExerciseMaxes();
-
 /* Séma-verziók (PRAGMA user_version) az egyszer lefutó adat-migrációkhoz.
      1 — az 1RM-képlet egységesítése (recovery.js → estimate1RM): az
-         egyismétléses szett becslése a súly maga, nem +3,3%. A tárolt
-         mért csúcsokat és a PR-jelzőket a naplóból újraépítjük. A BEMONDOTT
-         csúcsokhoz nem tároltuk az ismétlésszámot, azok változatlanok.
+         egyismétléses szett becslése a súly maga, nem +3,3%. Az újraszámolás
+         a 3-as lépéssel egy körben fut (lent).
      2 — 9 → 12 izomcsoport: a check-inek izomláz- és fájdalom-térképében a
          régi `arms` a bicepszre és a tricepszre, a `back` a hátra, a
          trapézra és az alsó hátra is átmásolódik (muscles.js
          splitLegacyMuscleMap). Az edzésnaplót nem kell átírni: az
          izomterhelést a motor a gyakorlatnévből mindig újraszámolja.
-     3 — a saját testsúlyos gyakorlatok maximumainak újraszámolása (lent, a
-         terv-migrációk után).
+     3 — a csúcsok egyszeri újraszámolása a naplóból, mindenkinek (lent, a
+         terv-migrációk után): az 1-es képlet, a testsúlyos terhelés és a
+         PR-követés előtti napló visszatöltése egy körben.
      4 — a víznapló mint egyetlen folyadék-forrás (lent).
      5 — a bemondott csúcsok átmásolása a declared_1rm / declared_date
-         oszlopokba. Ez az ELSŐ lépés, nem az utolsó: az 1-es és a 3-as
-         újraszámolás már ezekből az oszlopokból indul, üresen a bemondás
-         elveszne. A másolás idempotens; a verziószámot a sor végén írjuk.
+         oszlopokba. Ez az ELSŐ lépés, nem az utolsó: a 3-as újraszámolás
+         már ezekből az oszlopokból indul, üresen a bemondás elveszne. A másolás idempotens; a verziószámot a sor végén írjuk.
    (A schemaVersion-t fent, az ensureColumn előtt olvassuk ki.) */
 if (schemaVersion < 5) {
   db.exec(`
     UPDATE exercise_maxes SET declared_1rm = max_1rm, declared_date = date
     WHERE source = 'declared' AND declared_1rm IS NULL
   `);
-}
-if (schemaVersion < 1) {
-  const userIds = db
-    .prepare('SELECT DISTINCT user_id AS id FROM workouts')
-    .all()
-    .map((row) => row.id);
-  for (const userId of userIds) recomputeExerciseMaxes(userId);
-  db.exec('PRAGMA user_version = 1');
 }
 if (schemaVersion < 2) {
   const parse = (text) => {
@@ -737,13 +698,20 @@ if (!plansHadActiveSince) {
   db.prepare('UPDATE plans SET active_since = ? WHERE active = 1').run(todayStr);
 }
 
-/*   3 — a saját testsúlyos gyakorlatok terhelése (data/bodyweight-load.js):
-         egy húzódzkodás terhelése a test maga, nem a beírt 0 kg. A korábbi
-         naplóból ezek a gyakorlatok vagy ki is maradtak az exercise_maxes-ből
-         (0 kg → nincs becslés), vagy egy értelmetlenül alacsony pluszsúly-
-         értékkel ültek benne — egy 66,5 kg-os embernél „10 kg-os tolódzkodás".
-         Az újraszámolás a napló alapján helyreteszi őket; a bemondott csúcsokat
-         nem érinti (azok a `declared` ágon kiindulópontok).
+/*   3 — a csúcsok és a PR-jelzők egyszeri újraépítése a naplóból
+         (recomputeExerciseMaxes), mindenkinek, akinek van edzése. Egy körben
+         három korábbi okból:
+         - az 1RM-képlet egységesítése (1-es lépés): az egyismétléses szett
+           becslése a súly maga, nem +3,3%;
+         - a saját testsúlyos gyakorlatok terhelése (data/bodyweight-load.js):
+           egy húzódzkodás terhelése a test maga, nem a beírt 0 kg — a korábbi
+           naplóból ezek kimaradtak, vagy egy „10 kg-os tolódzkodással" ültek
+           a csúcsok között;
+         - a PR-követés előtti napló: ott a csúcs-tábla üres, és a következő
+           edzés minden gyakorlata hamis PR-t ütne (korábban ezt egy MINDEN
+           induláskor lefutó visszatöltés pótolta).
+         A bemondott csúcsokat nem érinti (azok a `declared` ágon
+         kiindulópontok, és az 5-ös lépés már átmásolta őket).
          (A fejlesztő ágon ez még 2-es volt; a mainben a 2-es az izomcsoport-
          bontásé, ezért kapott új számot.) */
 if (schemaVersion < 3) {
@@ -2902,7 +2870,7 @@ export function getSnapshot(userId) {
   snapshot.userPlans = getUserPlans(userId);
   snapshot.checkins = getCheckins(userId, 1000);
   /* Az egyéni csúcsok is a felhasználó adata. Az edzésekből elvileg
-     visszaszámolhatók (ezt teszi a backfillExerciseMaxes), de a „teljes
+     visszaszámolhatók (ezt teszi a recomputeExerciseMaxes), de a „teljes
      pillanatkép" akkor teljes, ha nem kell hozzá újraszámolni semmit — és a
      csúcs DÁTUMA is megmarad, ami a naplóból csak közvetve jönne ki.
      A mezőnevek itt a getExerciseMax alakját követik (max1rm), nem a tábla
