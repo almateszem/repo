@@ -50,6 +50,12 @@ function guardHandler(handler) {
 /**
  * A kezelő-becsomagolás bekötése az alkalmazásba. KÖZVETLENÜL az express()
  * után hívandó, minden útvonal-regisztráció előtt.
+ *
+ * Csak az `app` metódusait foltozza: egy express.Router()-be tett async kezelő
+ * hibájára NEM jönne válasz, egy express() al-alkalmazás pedig elveszítené a
+ * felcsatolást és a trust proxy beállítást. Ezért kapja minden route-modul
+ * (server/routes/*.js, server/http/session.js) UGYANEZT az app-ot:
+ * register(app, deps).
  */
 export function guardAsyncRoutes(app) {
   for (const method of ROUTE_METHODS) {
