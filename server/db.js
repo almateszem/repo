@@ -103,6 +103,23 @@ db.exec('PRAGMA synchronous = NORMAL');
 // A user_id idegen kulcsok (ON DELETE CASCADE) csak bekapcsolva élnek.
 db.exec('PRAGMA foreign_keys = ON');
 
+/** Többlépéses írás atomikusan: hibánál minden lépése visszagördül, a hiba
+    továbbmegy. SAVEPOINT-tal, nem BEGIN-nel — így egy meglévő BEGIN
+    IMMEDIATE-be (pl. deleteWorkout → recomputeExerciseMaxes) és egy másik
+    transaction-be is beágyazható. */
+export function transaction(fn) {
+  db.exec('SAVEPOINT podium_tx');
+  try {
+    const result = fn();
+    db.exec('RELEASE podium_tx');
+    return result;
+  } catch (err) {
+    db.exec('ROLLBACK TO podium_tx');
+    db.exec('RELEASE podium_tx');
+    throw err;
+  }
+}
+
 /* ---- Séma ----
    Új adatbázison ez a teljes, végleges alak: minden oszlop itt születik. A
    többfelhasználós, de régebbi fájlokon a később bevezetett oszlopokat a
@@ -2425,20 +2442,22 @@ export function getRecentExerciseMaxes(userId, sinceDate, limit = 5) {
  * Visszaadja, hogy a bemondás lett-e a csúcs (`stored`), és az érvényes csúcsot.
  */
 export function setDeclaredMax(userId, exerciseName, max1rm, date) {
-  db.prepare(
-    `
+  return transaction(() => {
+    db.prepare(
+      `
     INSERT INTO exercise_maxes
       (user_id, exercise_name, max_1rm, date, source, updated_at, declared_1rm, declared_date)
     VALUES (?, ?, ?, ?, 'declared', datetime('now'), ?, ?)
     ON CONFLICT(user_id, exercise_name) DO UPDATE SET
       declared_1rm = excluded.declared_1rm, declared_date = excluded.declared_date
   `,
-  ).run(userId, exerciseName, max1rm, date, max1rm, date);
-  /* Hogy a bemondás vagy a mérés a csúcs, és melyik edzés PR-jelzője igaz, az
-     a naplótól függ — ugyanaz az újraépítés dönti el, mint törlés után. */
-  recomputeExerciseMaxes(userId);
-  const peak = getExerciseMax(userId, exerciseName);
-  return { stored: peak.source === 'declared', max1rm: peak.max1rm };
+    ).run(userId, exerciseName, max1rm, date, max1rm, date);
+    /* Hogy a bemondás vagy a mérés a csúcs, és melyik edzés PR-jelzője igaz, az
+       a naplótól függ — ugyanaz az újraépítés dönti el, mint törlés után. */
+    recomputeExerciseMaxes(userId);
+    const peak = getExerciseMax(userId, exerciseName);
+    return { stored: peak.source === 'declared', max1rm: peak.max1rm };
+  });
 }
 
 /** A BEMONDOTT csúcsok. A készenlét-motor ezekből tudja, hogy a felhasználó
@@ -2631,31 +2650,35 @@ export function recomputeExerciseMaxes(userId) {
                              VALUES (?, ?, ?, ?, ?, COALESCE(?, datetime('now')), ?, ?)`);
   const rewrite = db.prepare('UPDATE workouts SET exercises = ? WHERE id = ?');
 
-  clear.run(userId);
-  for (const [name, record] of best) {
-    /* Az updated_at a rekord SZÜLETÉSE — az értesítés-panel ebből dönti el,
-       mi „új" (notifications.js → notifSeenAt). Az újraépítés nem születés:
-       ha ugyanaz az edzés-nap viszi a rekordot, marad a régi időbélyeg (a
-       képlet-migráció csak az értéket számolja át); ha egy MÁSIK edzésre száll
-       át (törlés után), annak a mentési ideje. Korábban minden sor „most"
-       született, és a friss PR-ek egy törlés után újra olvasatlanként jöttek. */
-    const previous = existing.get(name);
-    const bornAt =
-      previous && previous.date === record.date && previous.source === record.source
-        ? previous.updated_at
-        : record.bornAt;
-    insert.run(
-      userId,
-      name,
-      record.max1rm,
-      record.date,
-      record.source,
-      bornAt,
-      previous?.declared_1rm ?? null,
-      previous?.declared_date ?? null,
-    );
-  }
-  for (const row of rewrites) rewrite.run(JSON.stringify(row.exercises), row.id);
+  // A törlés és a beszúrások egy lépés: egy közbeni hiba után a régi csúcsok
+  // — köztük a naplóból vissza nem állítható bemondottak — megmaradnak
+  transaction(() => {
+    clear.run(userId);
+    for (const [name, record] of best) {
+      /* Az updated_at a rekord SZÜLETÉSE — az értesítés-panel ebből dönti el,
+         mi „új" (notifications.js → notifSeenAt). Az újraépítés nem születés:
+         ha ugyanaz az edzés-nap viszi a rekordot, marad a régi időbélyeg (a
+         képlet-migráció csak az értéket számolja át); ha egy MÁSIK edzésre száll
+         át (törlés után), annak a mentési ideje. Korábban minden sor „most"
+         született, és a friss PR-ek egy törlés után újra olvasatlanként jöttek. */
+      const previous = existing.get(name);
+      const bornAt =
+        previous && previous.date === record.date && previous.source === record.source
+          ? previous.updated_at
+          : record.bornAt;
+      insert.run(
+        userId,
+        name,
+        record.max1rm,
+        record.date,
+        record.source,
+        bornAt,
+        previous?.declared_1rm ?? null,
+        previous?.declared_date ?? null,
+      );
+    }
+    for (const row of rewrites) rewrite.run(JSON.stringify(row.exercises), row.id);
+  });
 }
 
 /* ---- Tervek (heti bontás: plan-week.js) ---- */

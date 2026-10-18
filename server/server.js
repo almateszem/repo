@@ -48,6 +48,7 @@ import {
   getCheckin,
   getCheckins,
   saveCheckin,
+  transaction,
   hasAnyCheckin,
   getWaterDay,
   addWaterEntry,
@@ -1314,10 +1315,15 @@ app.post('/api/plan-offers/:id/accept', (req, res) => {
   const offer = pendingOfferFor(req.user.id, req.params.id);
   if (!offer) return res.status(404).json({ error: 'Nincs ilyen terv-ajánlat.' });
 
-  resolvePlanAssignment(offer.id, 'accepted');
-  // Az assignmentId köti a tervet az edzőhöz: a terv-követés ehhez mér
-  const added = addPlan(req.user.id, offer.name, req.today, offer.week, offer.id);
-  res.status(201).json(setActivePlan(req.user.id, added.id, true, req.today));
+  // A lezárás, a másolat és az aktiválás egy lépés: félúton nem marad
+  // elfogadott ajánlat terv nélkül
+  const active = transaction(() => {
+    resolvePlanAssignment(offer.id, 'accepted');
+    // Az assignmentId köti a tervet az edzőhöz: a terv-követés ehhez mér
+    const added = addPlan(req.user.id, offer.name, req.today, offer.week, offer.id);
+    return setActivePlan(req.user.id, added.id, true, req.today);
+  });
+  res.status(201).json(active);
 });
 
 /** Ajánlat elutasítása. A sor megmarad (lezárt állapotban), hogy az edző
@@ -1869,7 +1875,7 @@ app.put('/api/checkin', (req, res) => {
   // Opcionális testsúly — a weight_log táblába, ugyanazzal a validálással,
   // mint a /api/weight-log végponton. Üres/hiányzó mező = ma nincs mérés,
   // ilyenkor a korábbi bejegyzések érintetlenül maradnak.
-  let weightEntry = null;
+  let weightKg = null;
   if (body.weightKg !== null && body.weightKg !== undefined && body.weightKg !== '') {
     const kg = Number(body.weightKg);
     // Ugyanaz a tartomány, mint a /api/weight-log végponton (WEIGHT_RANGE)
@@ -1878,23 +1884,29 @@ app.put('/api/checkin', (req, res) => {
         error: `Érvénytelen testsúly — ${WEIGHT_RANGE.min} és ${WEIGHT_RANGE.max} kg között adható meg.`,
       });
     }
-    weightEntry = addWeightEntry(userId, kg, req.today);
+    weightKg = kg;
   }
 
-  /* A folyadék KÉT helyen írható: itt literben (a nap összege), a Táplálkozás
-     oldalon kortyonként. Egy forrás van, a víznapló (a check-in onnan olvassa),
-     ezért az űrlapon megadott érték lecseréli a nap víznaplóját — a felhasználó
-     ott az összegről nyilatkozik, nem egy kortyról. A mezőt üresen hagyva a
-     napló érintetlen marad, hogy a gyors check-in ne törölje a napközben
-     rögzített kortyokat. Ha a beküldött érték ml-re kerekítve megegyezik a
-     nap összegével (változatlanul visszaküldött mező), a napló marad: a
-     kortyok bontása nem vész el, és egy másik eszköz kortyait sem írja felül. */
-  if (fields.hydration !== null) {
-    const ml = Math.round(fields.hydration * 1000);
-    if (ml !== getWaterDay(userId, req.today).totalMl) replaceWaterDay(userId, req.today, ml);
-  }
+  // A testsúly, a víz és a check-in sor egy mentés: egy közbeni hiba nem
+  // hagy félig mentett napot (db.js → transaction)
+  const { checkin, weightEntry } = transaction(() => {
+    const weightEntry = weightKg === null ? null : addWeightEntry(userId, weightKg, req.today);
 
-  const checkin = saveCheckin(userId, req.today, fields);
+    /* A folyadék KÉT helyen írható: itt literben (a nap összege), a Táplálkozás
+       oldalon kortyonként. Egy forrás van, a víznapló (a check-in onnan olvassa),
+       ezért az űrlapon megadott érték lecseréli a nap víznaplóját — a felhasználó
+       ott az összegről nyilatkozik, nem egy kortyról. A mezőt üresen hagyva a
+       napló érintetlen marad, hogy a gyors check-in ne törölje a napközben
+       rögzített kortyokat. Ha a beküldött érték ml-re kerekítve megegyezik a
+       nap összegével (változatlanul visszaküldött mező), a napló marad: a
+       kortyok bontása nem vész el, és egy másik eszköz kortyait sem írja felül. */
+    if (fields.hydration !== null) {
+      const ml = Math.round(fields.hydration * 1000);
+      if (ml !== getWaterDay(userId, req.today).totalMl) replaceWaterDay(userId, req.today, ml);
+    }
+
+    return { checkin: saveCheckin(userId, req.today, fields), weightEntry };
+  });
   // Rögtön a friss riportot is visszaadjuk, hogy a kliensnek ne kelljen
   // külön kérnie — a mentés után azonnal frissülhet a gyűrű.
   res.json({ checkin, weightEntry, readiness: readinessReport(userId, req.today) });
