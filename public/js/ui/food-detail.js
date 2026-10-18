@@ -20,7 +20,7 @@ const PORTION_DEFAULT = 100;
 
 const PORTION_QUICK = [30, 50, 100, 150, 200, 300];
 
-const PICKER_ITEM_H = 24; // px — a .fd-picker-option magassága (style.css: --fd-item-h)
+const PICKER_ITEM_H = 24; // px — a .fd-picker-option magassága (css/11-etel-checkin.css: --fd-item-h)
 
 /** A gramm-választó lehetséges értékei (a rácson). */
 const PORTION_VALUES = (() => {

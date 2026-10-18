@@ -89,7 +89,7 @@ async function setupExercisePicker(confirmAction) {
      A DOM-ban mindig csak a betöltött lapok kártyái vannak, nem a teljes,
      1400+ elemű katalógus. Az első lapot az első megnyitás kéri, nem az app
      indulása. A kártyák kirajzolását a CSS `content-visibility: auto` továbbra
-     is a láthatóságig halasztja (lásd .ep-item a style.css-ben). */
+     is a láthatóságig halasztja (lásd .ep-item a css/08-flow-oldalak.css-ben). */
   let activeGroup = null; // null = „Mind"
   let catalogStarted = false;
 

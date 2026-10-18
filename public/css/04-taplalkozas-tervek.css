@@ -1,0 +1,708 @@
+/* Podium — 8–9: Táplálkozás (nu-*), Tervek (pl-*). (A sorrend a css/01-alap.css tartalomjegyzékében.) */
+
+/* ==========================================================================
+   8. Nutrition tracker
+   ========================================================================== */
+/* A lap hőse: egyetlen nagy szám, alatta a cél felé vezető sáv. A korábbi
+   „Bevitel / Cél" kétoszlopos fejléc egyenrangúnak mutatta a kettőt, pedig az
+   egyik a mai eredmény, a másik a mérce. */
+.nu-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  margin-bottom: var(--sp-11);
+}
+
+.nu-summary-value {
+  /* A .ds-display adja a súlyt, a ritkítást és a tabular-nums-ot; a méret a
+     lap hőséé, ezért itt kap értéket a primitív custom propertyje. */
+  --ds-display-size: clamp(56px, 16vw, 76px);
+}
+
+.nu-summary-unit {
+  font-size: 0.28em;
+  font-weight: 700;
+  margin-left: var(--sp-2);
+  color: var(--text-faint);
+}
+
+/* A cél a hős alatt, halkan: mérce, nem eredmény. */
+.nu-summary-goal {
+  margin: 0;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+/* A haladássáv a vízmérőével azonos recept, csak szögletesen: ott a napi
+   folyadék, itt a napi kalória tart a célja felé. A kitöltést a
+   js/ui/nutrition.js írja (applyTotals). */
+.nu-summary-track {
+  height: 4px;
+  background: var(--fg-10);
+  overflow: hidden;
+}
+
+.nu-summary-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--c-accent);
+  transition: width var(--t-slow);
+}
+
+/* A három makró kártya helyett hajszálvonalas sor (.ds-row): egymás alatt,
+   nem egymás mellett. Három 100px-es kártyában a szám és a címke is szorult;
+   sorban mindkettőnek jut hely, és a lap alatti listákkal egy nyelvet beszél. */
+.nu-macros {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: var(--sp-11);
+}
+
+.nu-macro-label {
+  color: var(--text-secondary);
+}
+
+.nu-macro-unit {
+  font-size: 0.6em;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-left: 1px;
+}
+
+/* ---- Mai napló — a ténylegesen naplózott tételek, törléssel ----
+   A felület korábban csak összesített: nem lehetett megnézni, mit ettél, és
+   egy téves koppintás visszavonhatatlan volt. */
+.nu-log {
+  margin-bottom: var(--sp-9);
+}
+
+.nu-log-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+
+.nu-log-title {
+  margin: 0;
+  font-size: var(--fs-base);
+  font-weight: 700;
+}
+
+.nu-log-count {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+/* A listából egyszerre kb. 5 tétel látszik, a többihez görgetni kell —
+   különben minél többet naplózol, annál lejjebb tolódik a kereső és a teljes
+   étel-katalógus. A sormagasság a .ds-row receptjéből számolódik: a tartalom
+   (két szövegsor: név + makrók, vagy a --tap-min, ha az a nagyobb), plusz a
+   két --sp-7 belső margó és az 1px-es hajszálvonal. Ha a .ds-row padding-je
+   vagy a sor szövegei változnak, ezt is követni kell. */
+.nu-log-list {
+  --nu-log-text: calc(var(--fs-sm) * 1.25 + var(--sp-2) + var(--fs-2xs) * 1.3);
+  --nu-log-row: calc(max(var(--tap-min), var(--nu-log-text)) + var(--sp-7) * 2 + 1px);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: calc(var(--nu-log-row) * 5);
+  overflow-y: auto;
+  overscroll-behavior: contain; /* a lista végén ne a lap kezdjen görögni */
+}
+
+/* A formát a .ds-row adja; itt csak a beúszás marad, ami a sorok sorrendjét
+   olvashatóvá teszi naplózás után. A háttér és a belső margó törölve: a sor
+   határa a hajszálvonal. */
+.nu-log-item {
+  --ds-row-gap: var(--sp-4);
+  animation: note-in 0.25s ease backwards;
+  animation-delay: calc(var(--i, 0) * 30ms);
+}
+
+.nu-log-name {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.nu-log-macros {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.nu-log-kcal {
+  flex-shrink: 0;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.nu-log-remove {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+  line-height: 1;
+  transition:
+    color var(--t-fast),
+    background var(--t-fast);
+}
+
+.nu-log-remove:hover {
+  color: var(--c-alert);
+  background: var(--surface-hover);
+}
+
+.nu-log-empty {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  text-align: center;
+  padding: var(--sp-9) var(--sp-5);
+  margin: 0;
+  border: 1px solid var(--hair-soft);
+}
+
+/* Saját étel felvitele / vonalkód-beolvasás — a kereső fölött, mert ez a
+   listával egyenrangú belépő, nem a keresés alárendeltje. A kettő a .ds-grid
+   1px-es résén osztozik: a köztük lévő vonalat a szülő háttere adja, így nem
+   két gomb áll egymás mellett, hanem egy kettéosztott sáv. Mindkettő a
+   17. taskban kap modált — itt csak a belépőjük formája változik. */
+.nu-actions {
+  margin-bottom: var(--sp-7);
+}
+
+.nu-action {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  min-height: var(--tap-min);
+  border: none;
+  padding: var(--sp-5) var(--sp-6);
+  background: var(--c-accent);
+  color: var(--on-accent);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    filter var(--t-fast),
+    background var(--t-fast);
+}
+
+.nu-action:hover {
+  filter: brightness(1.08);
+}
+
+/* A vonalkód a másodlagos út: a lap felületét viseli, nem az accentet. A
+   keret elmarad — a .ds-grid résének vonala elválasztja a szomszédjától. */
+.nu-action--ghost {
+  background: var(--c-bg);
+  color: var(--text-primary);
+}
+
+.nu-action--ghost:hover {
+  filter: none;
+  background: var(--surface-hover);
+}
+
+.nu-action-icon {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+/* Ragadós: görgetés közben a fejléc-sáv alatt megáll, így a hosszú listák
+   (étel, gyakorlat, korábbi edzés) közepéről is lehet keresni. A --chrome-h-t
+   a js/ui/chrome.js méri (asztalon 0, ott a fejléc az oldalsávban ül). Az opak
+   háttér kell, különben az alatta elgördülő sorok átlátszanának. */
+.nu-search {
+  position: sticky;
+  top: var(--chrome-h, 0px);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  min-height: var(--tap-min);
+  border: 1px solid var(--hair);
+  padding: var(--sp-4) var(--sp-6);
+  margin-bottom: var(--sp-8);
+  background: var(--c-bg);
+  transition: border-color var(--t-fast);
+}
+
+.nu-search:focus-within {
+  border-color: var(--fg-40);
+}
+
+.nu-search svg {
+  width: 16px;
+  height: 16px;
+  fill: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.nu-search input {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  font-size: var(--fs-input);
+}
+
+.nu-search input::placeholder {
+  color: var(--text-faint);
+}
+
+.nu-food-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* A formát a .ds-row adja — háttér, keret és belső margó nélkül. */
+.nu-food {
+  --ds-row-gap: var(--sp-5);
+}
+
+.nu-food-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+
+.nu-food-name {
+  font-size: var(--fs-base);
+  font-weight: 700;
+}
+
+.nu-food-kcal {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-left: var(--sp-2);
+}
+
+.nu-food-macros {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  /* A .ds-row-sub ritkítása nélkül fér egy sorba telefonon is. */
+  letter-spacing: 0.02em;
+}
+
+/* „Legutóbbiak": vízszintesen görgethető sor a kereső alatt. Egy elem egy
+   koppintással újranaplóz, ezért legalább 44px magas, és a felirata
+   kimondja, mennyit (adag + kcal). */
+.nu-recent {
+  margin-bottom: var(--sp-8);
+}
+
+.nu-recent-title {
+  margin: 0 0 var(--sp-5);
+}
+
+.nu-recent-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 var(--sp-2);
+  display: flex;
+  gap: var(--sp-4);
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+}
+
+.nu-recent-list > li {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+}
+
+.nu-recent-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-1);
+  min-height: var(--tap-min);
+  max-width: 200px;
+  padding: var(--sp-4) var(--sp-6);
+  border: 1px solid var(--hair);
+  background: none;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  transition: border-color var(--t-fast);
+}
+
+.nu-recent-item:hover {
+  border-color: var(--fg-40);
+}
+
+.nu-recent-name {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nu-recent-meta {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+/* Asztalon a jobb oszlopban van hely: a sor tördel, nem kell görgetni. */
+@media (min-width: 1280px) {
+  .nu-recent-list {
+    flex-wrap: wrap;
+    overflow-x: visible;
+  }
+}
+
+/* Keresés nélkül csak az első 8 étel látszik — a számot a js/ui/nutrition.js
+   COLLAPSED_FOODS konstansa is használja, a kettőnek egyeznie kell. */
+.nu-food-list.is-collapsed > li:nth-child(n + 9) {
+  display: none;
+}
+
+.nu-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: var(--tap-min);
+  margin-top: var(--sp-7);
+  border: 1px solid var(--hair);
+  background: none;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  transition:
+    color var(--t-fast),
+    border-color var(--t-fast);
+}
+
+.nu-more:hover {
+  color: var(--text-primary);
+  border-color: var(--fg-40);
+}
+
+.nu-food-add {
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: var(--surface-strong);
+  color: var(--text-primary);
+  flex-shrink: 0;
+  font-size: var(--fs-base);
+  transition: background var(--t-fast);
+}
+
+.nu-food-add:hover {
+  background: var(--fg-15);
+}
+
+/* Saját étel: bal oldali akcentus-sáv — a 437 elemű listában a felhasználó
+   ránézésre megtalálja, amit ő vitt fel. */
+.nu-food--custom {
+  box-shadow: inset 3px 0 0 var(--c-accent);
+}
+
+.nu-food-badge {
+  flex-shrink: 0;
+  padding: 2px var(--sp-4);
+  background: var(--fg-10);
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+}
+
+/* Törlés — a nu-log-remove mintájára, de halványabban: a lista fő művelete a
+   naplózás (→), a törlés csak ráközelítéskor kérje a figyelmet. */
+.nu-food-remove {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+  line-height: 1;
+  opacity: 0.5;
+  transition:
+    color var(--t-fast),
+    background var(--t-fast),
+    opacity var(--t-fast);
+}
+
+.nu-food-remove:hover,
+.nu-food-remove:focus-visible {
+  opacity: 1;
+  color: var(--c-alert);
+  background: var(--surface-hover);
+}
+
+.nu-food-remove:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.nu-empty {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  text-align: center;
+  padding: var(--sp-9) 0;
+  margin: 0;
+}
+
+/* ==========================================================================
+   9. Tervek
+   ========================================================================== */
+.pl-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-5);
+}
+
+.pl-header h2 {
+  font-size: var(--fs-3xl);
+  font-weight: 800;
+  margin: 0 0 var(--sp-9);
+}
+
+/* „+ Új terv" — a terv-építő flow-oldalra visz. Tömör paper-felület helyett
+   hajszálvonalas keret és mono nagybetűs felirat: a lap fő műveletei a
+   terv-SOROK (megnyitás), ez csak a belépő egy újhoz. */
+.pl-new {
+  flex-shrink: 0;
+  min-height: var(--tap-min);
+  background: none;
+  border: 1px solid var(--hair);
+  color: var(--text-primary);
+  padding: var(--sp-4) var(--sp-8);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
+  transition:
+    border-color var(--t-fast),
+    background var(--t-fast);
+}
+
+.pl-new:hover {
+  border-color: var(--fg-40);
+  background: var(--surface-hover);
+}
+
+/* A gap 0: a sorokat a .ds-row szomszéd-szelektora választja el. */
+.pl-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* A formát a .ds-row adja; kártya-háttér, keret és belső margó nincs többé. */
+.pl-card {
+  --ds-row-gap: var(--sp-6);
+}
+
+/* A .ds-row-main gap-je 2px, ami a haladássávnak kevés — a név, a meta, a
+   figyelmeztetés és a sáv négy külön szint, nem egy tömb. */
+.pl-card-info {
+  gap: var(--sp-3);
+}
+
+/* A név mellett az aktív-jelvény, illetve a többi terven az „Aktiválás". */
+.pl-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-4);
+}
+
+.pl-card-active,
+.pl-card-activate {
+  padding: 2px var(--sp-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
+}
+
+.pl-card-active {
+  background: var(--c-accent);
+  color: var(--on-accent);
+}
+
+.pl-card-activate {
+  border: 1px solid var(--hair);
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    border-color var(--t-fast),
+    color var(--t-fast);
+}
+
+.pl-card-activate:hover {
+  border-color: var(--fg-40);
+  color: var(--text-primary);
+}
+
+/* A terv napjai: cellánként egy nap (1–14), a .ds-grid rése a vonal. Az
+   edzésnap gomb (azt a napot tölti be), a pihenő halvány és tiltott; a mai
+   nap alávonalas. A sáv EGY sor marad — telefonon a cellák keskenyednek, az
+   állapot levágódik; ami így sem fér ki (hosszú ciklus), vízszintesen
+   görgethető. */
+.pl-week {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.pl-week-day {
+  flex: 1 0 28px;
+  min-width: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: var(--sp-2) 2px;
+  border: 0;
+  background: var(--c-bg);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background var(--t-fast);
+}
+
+.pl-week-day:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+
+.pl-week-day:disabled {
+  cursor: default;
+  color: var(--text-muted);
+}
+
+.pl-week-day.is-today {
+  box-shadow: inset 0 -2px 0 var(--c-accent);
+}
+
+.pl-week-label {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+/* A második kör („2.") jelölése a betű mellett, kicsiben. */
+.pl-week-round {
+  margin-left: 2px;
+  font-size: 0.75em;
+  color: var(--c-accent);
+}
+
+.pl-week-day:disabled .pl-week-round {
+  color: inherit;
+}
+
+.pl-week-status {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-2xs);
+  color: var(--text-secondary);
+}
+
+.pl-week-day:disabled .pl-week-status {
+  color: var(--text-muted);
+}
+
+.pl-progress {
+  height: 6px;
+  border-radius: var(--r-2xs);
+  background: var(--surface-strong);
+  overflow: hidden;
+}
+
+.pl-progress-fill {
+  display: block;
+  height: 100%;
+  background: var(--fg-100);
+  border-radius: var(--r-2xs);
+}
+
+/* A sor három művelete (szerkesztés, törlés, megnyitás) egy rendszer: azonos
+   méret, hajszálvonal-keret, felület nélkül. Eddig háromféleképp néztek ki —
+   tömör felület, keret és csupasz ikon egymás mellett —, ami a sugarak
+   nullázása után látható zajjá vált. A megnyitás marad a hangsúlyos: az kap
+   erősebb keretet. */
+.pl-card-open {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--fg-40);
+  background: none;
+  color: var(--text-primary);
+  flex-shrink: 0;
+  font-size: var(--fs-base);
+  transition: background var(--t-fast);
+}
+
+.pl-card-open:hover {
+  background: var(--fg-15);
+}
+
+/* Szerkesztés gomb — csak a saját terveken (a terv-építőbe tölti a tervet) */
+.pl-card-edit {
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--hair);
+  background: none;
+  color: var(--fg-70);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    border-color var(--t-fast),
+    color var(--t-fast);
+}
+
+.pl-card-edit:hover {
+  border-color: var(--fg-40);
+  color: var(--fg-100);
+}
+
+.pl-card-edit svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}

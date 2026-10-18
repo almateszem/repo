@@ -1,0 +1,1152 @@
+/* Podium — 22: Regeneráció (rc-*). (A sorrend a css/01-alap.css tartalomjegyzékében.) */
+
+/* ==========================================================================
+   22. Regeneráció — Recovery Engine oldal (rc-*)
+   --------------------------------------------------------------------------
+   Felül a design szerinti rész: készenlét-pontszám és ítélet (.rc-hero),
+   check-in CTA, „Ma kíméld" lista, izomtérkép gyűrűkkel (.rc-map — asztali
+   SVG, tablet-oszlopok, mobilon Elöl/Hátul kapcsoló) és a „Miből jön a
+   pontszám" bontás (.rc-comps). Alatta a részletes check-in űrlap és a
+   testösszetétel-mérés. Az elrendezést a `.rc-page` konténer szélessége
+   váltja (asztali ≥ 1040, tablet 600–1039, mobil < 600 px), nem a viewport.
+
+   Csak a :root meglévő tokenjeit használja (+ --c-pain). A küszöbök
+   (80%+ kész, 40% alatt kíméld) a render/recovery-map.js-ben élnek, a
+   kirajzolás a render/recovery.js-ben, a vezérlés a ui/recovery.js-ben.
+   ========================================================================== */
+
+/* ---- A lap szélessége: a felső rész kétsávos asztalon, ezért szélesebb,
+   mint a többi lap (a .dashboard mintájára). A konténer-lekérdezések a
+   `.rc-page` belső szélességéhez igazodnak, nem a viewporthoz: az oldalsáv
+   és a padding miatt ugyanaz a viewport más-más tartalomszélességet ad. ---- */
+.rc-page {
+  container: rc / inline-size;
+}
+
+@media (min-width: 760px) {
+  .app-page.rc-page {
+    max-width: 1312px;
+  }
+}
+
+/* ---- Felső rész: grid-területek, mobil az alap ---- */
+.rc-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    'hero'
+    'spare'
+    'cta'
+    'maphead'
+    'map'
+    'comps';
+  row-gap: var(--sp-5);
+  margin-bottom: var(--sp-15);
+}
+
+.rc-hero {
+  grid-area: hero;
+}
+.rc-cta {
+  grid-area: cta;
+}
+.rc-spare {
+  grid-area: spare;
+}
+.rc-legend--side {
+  grid-area: legend;
+  display: none;
+}
+.rc-maphead {
+  grid-area: maphead;
+  margin-top: var(--sp-13);
+}
+.rc-map {
+  grid-area: map;
+}
+.rc-comps {
+  grid-area: comps;
+  margin-top: var(--sp-13);
+}
+
+.rc-eyebrow {
+  font-size: var(--fs-xs);
+  letter-spacing: 0.14em;
+  color: var(--fg-55);
+}
+
+.rc-hero-score {
+  margin: var(--sp-5) 0 0;
+  display: flex;
+  align-items: baseline;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.rc-score-num {
+  font-size: 64px;
+  line-height: 0.9;
+  letter-spacing: -0.034em;
+}
+.rc-score-max {
+  font-size: 30px;
+  letter-spacing: -0.027em;
+  color: var(--fg-45);
+}
+.rc-verdict {
+  margin: var(--sp-4) 0 0;
+  max-width: 340px;
+  font-size: var(--fs-base);
+  line-height: 1.5;
+  color: var(--fg-60);
+}
+.rc-limiter,
+.rc-confidence {
+  margin: var(--sp-3) 0 0;
+  font-size: var(--fs-md);
+  line-height: 1.5;
+  color: var(--fg-55);
+}
+.rc-caps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin: var(--sp-3) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-md);
+  color: var(--c-pain);
+}
+
+.rc-cta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+  min-height: 44px;
+  padding: var(--sp-7);
+  background: var(--surface-panel);
+  box-shadow: inset 0 0 0 1px var(--hair);
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: box-shadow var(--t-fast);
+}
+.rc-cta:hover {
+  box-shadow: inset 0 0 0 1px var(--fg-40);
+}
+.rc-cta-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.rc-cta-title {
+  display: block;
+  font-size: var(--fs-lg);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.rc-cta-note {
+  display: block;
+  margin-top: var(--sp-1);
+  font-size: var(--fs-md);
+  line-height: 1.45;
+  color: var(--fg-70);
+}
+.rc-cta-arrow {
+  font-size: var(--fs-3xl);
+  font-weight: 800;
+}
+
+.rc-spare {
+  padding: var(--sp-7);
+  background: var(--surface-panel);
+  box-shadow: inset 0 0 0 1px var(--fg-15);
+}
+.rc-spare-list {
+  margin: var(--sp-6) 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+}
+.rc-spare-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  row-gap: var(--sp-2);
+  align-items: baseline;
+}
+.rc-spare-name {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+.rc-spare-value {
+  font-size: var(--fs-xl);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.rc-spare-bar {
+  grid-column: 1 / -1;
+  height: 3px;
+  background: var(--fg-10);
+}
+.rc-spare-fill {
+  display: block;
+  height: 3px;
+  background: var(--text-primary);
+}
+.rc-spare-note {
+  margin: var(--sp-6) 0 0;
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  color: var(--fg-55);
+}
+
+.rc-unusual {
+  margin: var(--sp-6) 0 0;
+  font-size: var(--fs-xs);
+  line-height: 1.55;
+  color: var(--fg-55);
+}
+
+.rc-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--r-full);
+  flex: 0 0 auto;
+}
+.rc-dot--sore {
+  background: var(--text-primary);
+}
+.rc-dot--pain {
+  background: var(--c-pain);
+}
+.rc-dot--ready {
+  background: var(--c-ok);
+}
+
+.rc-legend-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3) var(--sp-8);
+}
+.rc-legend-list li {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-60);
+}
+.rc-legend-note {
+  margin: var(--sp-5) 0 0;
+  font-size: var(--fs-xs);
+  line-height: 1.6;
+  color: var(--fg-50);
+}
+
+.rc-maphead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-5);
+}
+.rc-legend--map {
+  flex-basis: 100%;
+}
+.rc-map-tabs {
+  display: flex;
+  box-shadow: inset 0 0 0 1px var(--fg-25);
+}
+.rc-map-tab {
+  min-width: 64px;
+  height: 44px; /* érintési cél: legalább 44 px */
+  border: 0;
+  background: transparent;
+  color: var(--fg-60);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.rc-map-tab[aria-pressed='true'] {
+  background: var(--text-primary);
+  color: var(--c-bg);
+}
+
+/* ---- Miből jön a pontszám ---- */
+.rc-comps {
+  box-shadow: inset 0 0 0 1px var(--hair);
+}
+/* Mobilon a cím fölül, az egysoros összefoglaló alatta, a +/− jobbra a kettő
+   mellett — különben a keskeny cím három sorba tört az összefoglaló mellett. */
+.rc-comps-toggle {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'title chev'
+    'summary chev';
+  align-items: center;
+  column-gap: var(--sp-5);
+  row-gap: var(--sp-4);
+  width: 100%;
+  min-height: 56px;
+  padding: var(--sp-7);
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+.rc-comps-title {
+  grid-area: title;
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+.rc-comps-summary {
+  grid-area: summary;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-md);
+  color: var(--fg-60);
+}
+.rc-comps-chev {
+  grid-area: chev;
+}
+.rc-comps-chev::before {
+  content: '+';
+  font-size: var(--fs-4xl);
+  font-weight: 800;
+  line-height: 1;
+}
+.rc-comps-toggle[aria-expanded='true'] .rc-comps-chev::before {
+  content: '−';
+}
+.rc-comps-toggle[aria-expanded='true'] .rc-comps-summary {
+  display: none;
+}
+.rc-comps-body {
+  padding: 0 var(--sp-7) var(--sp-9);
+}
+.rc-comps-toggle[aria-expanded='false'] + .rc-comps-body {
+  display: none;
+}
+.rc-comps-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rc-comp {
+  padding: var(--sp-7) 0;
+  border-top: 1px solid var(--hair-soft);
+}
+.rc-comp-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-5);
+}
+.rc-comp-label {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+}
+.rc-comp-value {
+  font-size: var(--fs-3xl);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.rc-comp-bar {
+  margin-top: var(--sp-4);
+  height: 5px;
+  background: var(--fg-10);
+  overflow: hidden;
+}
+.rc-comp-fill {
+  display: block;
+  height: 100%;
+  width: calc(var(--value, 0) * 1%);
+  background: var(--fg-60);
+}
+.rc-comp[data-tone='ok'] .rc-comp-fill {
+  background: var(--c-ok);
+}
+.rc-comp-meta {
+  margin-top: var(--sp-3);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3) var(--sp-8);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-50);
+}
+.rc-comp-note {
+  color: var(--fg-60);
+}
+.rc-comps-missing {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-7);
+  padding-top: var(--sp-7);
+  border-top: 1px solid var(--hair-soft);
+}
+.rc-comps-missing-text {
+  font-size: var(--fs-base);
+  line-height: 1.5;
+  color: var(--fg-60);
+}
+.rc-comps-fill {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px; /* érintési cél: legalább 44 px */
+  padding: var(--sp-5) var(--sp-7);
+  box-shadow: inset 0 0 0 1px var(--fg-25);
+  color: var(--text-primary);
+  font-size: var(--fs-md);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+.rc-comps-fill:hover {
+  box-shadow: inset 0 0 0 1px var(--fg-60);
+}
+.rc-comps-hrv {
+  margin-top: var(--sp-9);
+}
+
+/* ---- Tablet: 600–1039px konténer ---- */
+@container rc (min-width: 600px) {
+  .rc-top {
+    grid-template-columns: minmax(0, 1fr) 340px;
+    grid-template-areas:
+      'hero spare'
+      'cta spare'
+      'maphead maphead'
+      'map map'
+      'comps comps';
+    column-gap: var(--sp-12);
+    align-items: start;
+  }
+  .rc-score-num {
+    font-size: 76px;
+  }
+  .rc-score-max {
+    font-size: 36px;
+  }
+  .rc-maphead {
+    margin-top: var(--sp-14);
+  }
+  .rc-map-tabs {
+    display: none;
+  }
+  .rc-legend--map {
+    flex-basis: auto;
+  }
+  /* Tableten és asztalon a bontás mindig nyitva: nincs mit összecsukni. A
+     gomb itt csak cím — a setupRecovery kiveszi a tab-sorrendből
+     (tabindex=-1, aria-disabled, aria-expanded=true). */
+  .rc-comps-toggle {
+    display: block;
+    pointer-events: none;
+    min-height: 0;
+    padding: var(--sp-12) var(--sp-12) 0;
+  }
+  .rc-comps-chev,
+  .rc-comps-summary {
+    display: none;
+  }
+  .rc-comps-toggle[aria-expanded='false'] + .rc-comps-body {
+    display: block;
+  }
+  .rc-comps-body {
+    padding: var(--sp-9) var(--sp-12) var(--sp-11);
+  }
+  .rc-comps-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--sp-13);
+  }
+}
+
+/* ---- Asztali: ≥ 1040px konténer ---- */
+@container rc (min-width: 1040px) {
+  .rc-top {
+    grid-template-columns: 360px minmax(0, 1fr);
+    grid-template-rows: auto auto auto 1fr auto;
+    grid-template-areas:
+      'hero map'
+      'cta map'
+      'spare map'
+      'legend map'
+      'comps comps';
+    column-gap: var(--sp-11);
+  }
+  .rc-hero {
+    padding-top: var(--sp-12);
+  }
+  .rc-score-num {
+    font-size: 82px;
+  }
+  .rc-score-max {
+    font-size: 39px;
+  }
+  .rc-cta {
+    margin-top: var(--sp-12);
+    padding: 21px 25px 23px;
+  }
+  .rc-cta-title {
+    font-size: 17px;
+  }
+  /* Asztalon a „Ma kíméld" nem doboz, hanem a bal hasáb vonallal tagolt
+     szakasza, ahogy a design mutatja. */
+  .rc-spare {
+    margin-top: var(--sp-14);
+    padding: var(--sp-10) 0 0;
+    background: none;
+    box-shadow: none;
+    border-top: 1px solid var(--fg-15);
+  }
+  .rc-legend--side {
+    display: block;
+    align-self: start;
+    margin-top: var(--sp-11);
+    padding-top: var(--sp-8);
+    border-top: 1px solid var(--fg-10);
+  }
+  .rc-maphead {
+    display: none;
+  }
+  .rc-comps {
+    margin-top: var(--sp-16);
+  }
+  .rc-comps-toggle {
+    padding: var(--sp-14) var(--sp-14) 0;
+  }
+  .rc-comps-title {
+    font-size: var(--fs-xl);
+  }
+  .rc-comps-body {
+    padding: var(--sp-14) var(--sp-14) var(--sp-13);
+  }
+  .rc-comps-list {
+    display: block;
+  }
+  .rc-comp {
+    padding: 26px 0;
+  }
+  .rc-comp:first-child {
+    border-top: 0;
+    padding-top: 0;
+  }
+  .rc-comp-bar {
+    height: 6px;
+    margin-top: var(--sp-6);
+  }
+}
+
+/* ---- Izomtérkép: három változat, a konténer-szélesség választ ---- */
+.rc-map-wide,
+.rc-map-split {
+  display: none;
+}
+.rc-map-tabbed {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) 76px;
+  gap: var(--sp-1);
+  height: 420px;
+  margin-top: var(--sp-8);
+}
+.rc-map-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-around;
+}
+.rc-map-figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-5);
+  min-width: 0;
+  overflow: hidden;
+}
+.rc-figure {
+  width: 100%;
+  height: 360px;
+  object-fit: contain;
+}
+.rc-map-figure figcaption,
+.rc-map-caption {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  fill: var(--fg-60);
+  color: var(--fg-60);
+}
+.rc-map-caption {
+  text-anchor: middle;
+}
+
+/* Gyűrű — közös (SVG-ben és HTML-ben is) */
+.rc-ring-bg {
+  fill: var(--fg-06);
+  stroke: var(--fg-15);
+  stroke-width: 3;
+}
+.rc-ring-fg {
+  fill: none;
+  stroke: var(--text-primary);
+  stroke-width: 3;
+}
+.rc-ring--ok .rc-ring-fg {
+  stroke: var(--c-ok);
+}
+.rc-ring-empty {
+  fill: var(--fg-06);
+  stroke: var(--fg-40);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 6;
+}
+.rc-ring-num {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  text-anchor: middle;
+  fill: var(--text-primary);
+}
+.rc-ring-num--none {
+  fill: var(--fg-40);
+}
+.rc-ring-pct {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  fill: var(--fg-50);
+}
+.rc-ring-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  text-anchor: middle;
+  fill: var(--fg-70);
+}
+.rc-ring-label--none {
+  fill: var(--fg-60);
+}
+.rc-ring-dot--sore {
+  fill: var(--text-primary);
+}
+.rc-ring-dot--pain {
+  fill: var(--c-pain);
+}
+.rc-map-lines line {
+  stroke: var(--fg-30);
+  stroke-width: 1;
+}
+.rc-map-anchor {
+  fill: var(--fg-75);
+}
+
+/* Kompakt (HTML) gyűrű */
+.rc-cring {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.rc-cring-box {
+  position: relative;
+}
+.rc-cring-box svg {
+  display: block;
+}
+.rc-cring-num {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+.rc-ring--none .rc-cring-num {
+  color: var(--fg-40);
+}
+.rc-cring-pct {
+  margin-left: 1px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--fg-50);
+}
+.rc-cring-label {
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--fg-70);
+}
+.rc-cring-none {
+  display: block;
+  color: var(--fg-60);
+}
+.rc-cring-dots {
+  display: flex;
+  gap: var(--sp-1);
+  height: 8px;
+}
+
+@container rc (min-width: 600px) {
+  .rc-map-tabbed {
+    display: none;
+  }
+  .rc-map-split {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr) minmax(0, 1fr) 96px;
+    gap: var(--sp-3);
+    height: 680px;
+    margin-top: var(--sp-10);
+  }
+  .rc-map-split > .rc-map-col:last-child {
+    justify-content: space-between;
+  }
+  .rc-map-split .rc-figure {
+    height: 560px;
+  }
+}
+
+@container rc (min-width: 1040px) {
+  .rc-map-split {
+    display: none;
+  }
+  .rc-map-wide {
+    display: block;
+    width: 100%;
+    max-width: 848px;
+    height: auto;
+    margin-left: auto;
+  }
+}
+
+.rc-header {
+  margin-bottom: var(--sp-7);
+}
+
+.rc-title {
+  font-size: var(--fs-4xl);
+  font-weight: 800;
+}
+
+.rc-subtitle {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  margin-top: var(--sp-1);
+}
+
+.rc-section-title {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-55);
+}
+
+.rc-hint {
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+  line-height: 1.5;
+}
+
+.rc-empty {
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+  line-height: 1.5;
+}
+
+/* ---- Kártya helyett hajszálvonal ----
+   A felső rész alatti blokkok nem kártyák, hanem hajszálvonallal elválasztott
+   szakaszok: nincs háttér, nincs keret, csak egy felső vonal és a fölötte
+   nagyobb (sp-13) légtér. A .ds-section-t itt NEM használjuk — a szomszéd-
+   szelektoros (`.ds-section + .ds-section`) receptje nagyobb specificitású
+   lenne ennél a szabálynál, és a sp-11-es térközét erőltetné a sp-13 helyett.
+   A check-in űrlapnál a vonalat és a mono címet a lenyitható BURKOLÓ
+   (.rc-checkin-advanced) kapja, nem maga az űrlap. */
+.rc-card,
+.rc-checkin-advanced {
+  padding: var(--sp-13) 0 0;
+  margin-top: var(--sp-13);
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--hair);
+  box-shadow: none;
+}
+
+.rc-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+/* Asztalon a felső rész 1312px-ig szélesedik, de az alatta lévő blokkok
+   tartalma szöveg-jellegű — a teljes szélesség csak nehezebben olvasható
+   sorokat adna. */
+@container rc (min-width: 1040px) {
+  .rc-page > .rc-card,
+  .rc-page > .rc-checkin-advanced {
+    max-width: 760px;
+  }
+}
+
+/* ---- Megbízhatóság-sáv ----
+   A .rc-confidence elrendezését (flex, rés, belső térköz) itt adjuk; a
+   betűméretet/színt/margót a 22. szakasz ELEJÉN álló, a .rc-limiter-rel közös
+   szabály — az a felső résznél (.rc-hero) kell, ide csak az elrendezés jut,
+   különben a később álló szabály felülírná a fenti tervezett értékeket. */
+
+.rc-confidence {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  padding: 0 var(--sp-2);
+}
+/* A felső részben a sor a pontszámmal és az ítélettel egy vonalban indul. */
+.rc-hero .rc-confidence {
+  padding: 0;
+}
+
+.rc-confidence-badge {
+  flex-shrink: 0;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px var(--sp-3);
+  background: var(--surface-strong);
+  color: var(--text-secondary);
+}
+
+.rc-confidence-badge[data-level='high'] {
+  background: rgba(74, 210, 149, 0.18); /* --c-ok, halványítva */
+  color: var(--c-ok);
+}
+
+.rc-confidence-badge[data-level='low'] {
+  background: rgba(224, 67, 90, 0.16); /* --c-alert, halványítva */
+  color: var(--c-alert);
+}
+
+/* Sapkák — a képletet felülíró állapotok indoklása (fájdalom, betegség).
+   Maga a .rc-caps szabály feljebb, a .rc-hero-score családjával van. */
+.rc-cap {
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  padding: var(--sp-3) var(--sp-5);
+  border-radius: var(--r-lg);
+  border-left: 3px solid var(--c-alert);
+  background: rgba(224, 67, 90, 0.1); /* --c-alert, halványítva */
+  color: var(--text-secondary);
+}
+
+/* ---- Check-in űrlap ---- */
+
+.rc-checkin {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+}
+
+/* A „Részletes szerkesztés" nyitófeje. Az állapot-felirat itt ül, hogy
+   összecsukva is látszódjon, kitöltötted-e ma. */
+.rc-checkin-summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
+
+/* A summary saját + / − jelet kap (lásd .rc-details-summary::before), ezért a
+   szövegblokk nem tapadhat rá. */
+.rc-checkin-summary .rc-section-title {
+  flex: 1;
+}
+
+/* Az űrlap csak nyitott állapotban látszik — a felső térközt a summary adja. */
+.rc-checkin-advanced[open] .rc-checkin {
+  padding-top: var(--sp-6);
+  margin-top: var(--sp-5);
+  border-top: 1px solid var(--border-card);
+}
+
+.rc-checkin-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+}
+
+.rc-checkin-state {
+  font-size: var(--fs-2xs);
+  color: var(--text-faint);
+}
+
+.rc-checkin-state[data-filled='true'] {
+  color: var(--c-ok);
+}
+
+.rc-field {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+
+.rc-field .field-label {
+  flex: 1 1 120px;
+  margin: 0;
+}
+
+.rc-num {
+  flex-shrink: 0;
+}
+
+.rc-field-unit {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.rc-scales {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+/* ---- Skála (chip-csoport) ---- */
+
+.rc-scale {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.rc-scale-label {
+  margin: 0;
+}
+
+.rc-scale-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.rc-scale-hint {
+  font-size: var(--fs-2xs);
+  color: var(--text-faint);
+}
+
+.rc-scale-hint:empty {
+  display: none;
+}
+
+.rc-chip {
+  min-width: 34px;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-card);
+  background: var(--surface-input);
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition:
+    background var(--t-fast),
+    color var(--t-fast),
+    border-color var(--t-fast);
+}
+
+.rc-chip:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.rc-chip[aria-pressed='true'] {
+  background: var(--c-paper);
+  border-color: var(--c-paper);
+  color: var(--c-ink);
+}
+
+/* ---- Lenyitható blokk-fej ---- */
+
+.rc-details-summary {
+  cursor: pointer;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  list-style: none;
+}
+
+.rc-details-summary::-webkit-details-marker {
+  display: none;
+}
+
+.rc-details-summary::before {
+  content: '+';
+  display: inline-block;
+  width: 1.2em;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+details[open] > .rc-details-summary::before {
+  content: '−';
+}
+
+.rc-extra-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.rc-save {
+  align-self: flex-start;
+  padding: var(--sp-4) var(--sp-8);
+  border: none;
+  border-radius: var(--r-lg);
+  background: var(--c-paper);
+  color: var(--c-ink);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background var(--t-fast),
+    opacity var(--t-fast);
+}
+
+.rc-save:hover {
+  background: var(--c-paper-bright);
+}
+
+.rc-save:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* ---- CNS ---- */
+
+.rc-cns {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-6);
+}
+
+.rc-cns-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.rc-cns-note {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.rc-cns-value {
+  flex-shrink: 0;
+  font-size: var(--fs-4xl);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.rc-unit {
+  font-size: 0.5em;
+  font-weight: 700;
+  margin-left: 2px;
+  color: var(--text-muted);
+}
+
+/* ---- Gyakorlat-ajánlások ----
+   A „Javaslat"-lista is a .ds-row-ra áll: a kártya-háttér és a bal
+   verdikt-csík eltűnik, a tónust innentől kizárólag a pontszám színe
+   hordozza (.rc-lift-score[data-tone]) — nem duplikáljuk ugyanazt az
+   infót két helyen. A .ds-row alapból függőlegesen KÖZÉPRE igazítaná az
+   értéket; itt a bal oldal többsoros (cím, leírás, esetleg delták), ezért
+   a pontszám a tetejéhez igazodik (align-items: flex-start felülírás). */
+
+.rc-lifts {
+  display: flex;
+  flex-direction: column;
+}
+
+.rc-lift.ds-row {
+  align-items: flex-start;
+}
+
+.rc-lift-main {
+  gap: var(--sp-3);
+}
+
+.rc-lift-score[data-tone='ok'] {
+  color: var(--c-ok);
+}
+.rc-lift-score[data-tone='bad'] {
+  color: var(--c-alert);
+}
+
+.rc-lift-text {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.rc-lift-deltas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-6);
+}
+
+.rc-lift-delta {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+.rc-lift-delta-label {
+  font-size: var(--fs-2xs);
+  font-weight: 500;
+  color: var(--text-faint);
+}

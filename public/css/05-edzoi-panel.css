@@ -1,0 +1,929 @@
+/* Podium — 10: Edzői panel (co-*). (A sorrend a css/01-alap.css tartalomjegyzékében.) */
+
+/* ==========================================================================
+   10. Edzői panel — állapot-sáv, sportoló-kártyák, üzenet-buborékok
+   ========================================================================== */
+/* ---- Oldalfejléc: felkiáltó + cím, mellette a nézetváltó ---- */
+.co-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sp-9);
+  margin-bottom: var(--sp-11);
+}
+
+.co-head-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+.co-head-title {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.025em;
+}
+
+/* ---- KPI-sor: háttér nélkül, csak hajszálvonalak (mint az Áttekintésen) ---- */
+.co-kpis {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: var(--sp-11);
+  border-top: 1px solid var(--hair);
+  border-bottom: 1px solid var(--hair);
+}
+
+.co-kpi {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+  padding: var(--sp-9) 0;
+  min-width: 0;
+}
+
+.co-kpi:nth-child(n + 3) {
+  border-top: 1px solid var(--hair-soft);
+}
+
+.co-kpi-value {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-1);
+  margin: 0;
+}
+
+.co-kpi-num {
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.045em;
+  font-variant-numeric: tabular-nums;
+}
+
+.co-kpi-num.is-empty {
+  color: var(--text-muted);
+}
+
+.co-kpi-num.is-alert {
+  color: var(--c-alert);
+}
+
+.co-kpi-unit {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--fg-30);
+}
+
+.co-kpi-sub {
+  margin: 0;
+  font-size: var(--fs-base);
+  line-height: 1.4;
+  color: var(--text-muted);
+  text-wrap: pretty;
+}
+
+/* ---- Fő rács: lista + oldalsáv (≥1280px-en két hasáb) ---- */
+.co-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-13);
+  margin-top: var(--sp-13);
+  align-items: start;
+}
+
+.co-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-5) var(--sp-7);
+  padding-bottom: var(--sp-7);
+}
+
+.co-list-title {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-4);
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.co-list-count {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  color: var(--text-muted);
+}
+
+.co-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-5);
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+/* Szűrők: a .ds-seg nyelvén (összeérő szegmensek, aktív accent) */
+.co-filters {
+  display: flex;
+  gap: 1px;
+  flex: 1 1 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  background: var(--hair);
+  border: 1px solid var(--hair);
+}
+
+.co-filter {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  min-height: 40px;
+  padding: 0 var(--sp-6);
+  border: 0;
+  background: var(--c-bg);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition: background var(--t-fast);
+}
+
+.co-filter:hover {
+  background: var(--surface-hover);
+}
+
+.co-filter[aria-pressed='true'] {
+  background: var(--c-accent);
+  color: var(--on-accent);
+}
+
+.co-filter-n {
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
+.co-search {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex: 1 1 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 0 var(--sp-5);
+  border: 1px solid var(--hair);
+  background: var(--c-bg-deep);
+}
+
+.co-search:focus-within {
+  border-color: var(--fg-40);
+  background: var(--c-bg-raised);
+}
+
+.co-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: none;
+  color: var(--text-primary);
+  font-size: var(--fs-input);
+  outline: none;
+}
+
+.co-search input::placeholder {
+  color: var(--text-faint);
+}
+
+.co-search-ico {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+/* ---- Sportoló-sor: mobilon kártyás blokk, ≥820px-en táblázatsor ---- */
+.co-tbl-head {
+  display: none;
+}
+
+.co-rows {
+  border-top: 1px solid var(--hair);
+}
+
+.co-row {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'who score'
+    'stats stats';
+  gap: var(--sp-6) var(--sp-5);
+  width: 100%;
+  padding: var(--sp-7) 0 var(--sp-7) var(--sp-7);
+  border: 0;
+  border-bottom: 1px solid var(--hair-soft);
+  background: none;
+  color: var(--text-primary);
+  text-align: left;
+  animation: note-in 0.25s ease backwards;
+  animation-delay: calc(var(--i, 0) * 40ms);
+}
+
+@media (hover: hover) {
+  .co-row {
+    transition: background var(--t-fast);
+  }
+
+  .co-row:hover {
+    background: var(--fg-04);
+  }
+}
+
+.co-row.is-alert {
+  background: rgba(224, 67, 90, 0.05); /* --c-alert, halványítva */
+}
+
+/* A bal szélen a szint színe. Tartalék a hajszálvonalra: a --tier-t a
+   .co-tier--* osztály adja, amit a JS tesz fel (render/coach.js). */
+.co-row::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: -1px;
+  width: 2px;
+  background: var(--tier, var(--hair));
+}
+
+/* Az avatar kör marad: a --r-full kivétel-listája kimondottan tartalmazza. */
+.co-avatar {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-full);
+  background: var(--fg-06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.co-avatar svg {
+  width: 55%;
+  height: 55%;
+  fill: var(--fg-30);
+}
+
+.co-who {
+  grid-area: who;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+  min-width: 0;
+}
+
+.co-who-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+
+.co-who-name {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+
+.co-row-name {
+  font-size: 17px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.co-who-sub {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.is-alert .co-who-sub {
+  color: var(--c-alert);
+}
+
+/* Jelvények a név mellett: olvasatlan (accent) és riasztás (!) */
+.co-badge {
+  flex-shrink: 0;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 var(--sp-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--c-accent);
+  color: var(--on-accent);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.co-badge--alert {
+  width: 18px;
+  padding: 0;
+  background: var(--c-alert);
+  color: var(--fg-100);
+  font-size: 12px;
+}
+
+.co-stats {
+  grid-area: stats;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-5) var(--sp-9);
+}
+
+.co-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.co-stat-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.co-stat-val {
+  font-size: 15px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.co-stat-val.is-empty {
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.co-stat-val.is-low {
+  color: var(--c-alert);
+}
+
+.co-bar {
+  display: block;
+  height: 3px;
+  background: var(--fg-10);
+}
+
+.co-bar i {
+  display: block;
+  height: 100%;
+  background: var(--fg-100);
+}
+
+.is-low + .co-bar i {
+  background: var(--c-alert);
+}
+
+.co-score {
+  grid-area: score;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--sp-1);
+}
+
+.co-score-num {
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--tier, var(--text-muted));
+}
+
+.co-score-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.co-chev {
+  display: none;
+}
+
+.co-rows-empty {
+  margin: 0;
+  padding: var(--sp-12) var(--sp-7);
+  font-size: 15px;
+  color: var(--text-faint);
+  border-bottom: 1px solid var(--hair-soft);
+}
+
+.co-legend {
+  margin: var(--sp-7) 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+/* ---- Oldalsáv: állapot, üzenetek, meghívás ---- */
+.co-aside {
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--sp-11);
+  border-top: 1px solid var(--hair);
+  min-width: 0;
+}
+
+.co-aside-block {
+  padding: var(--sp-11) 0;
+  border-top: 1px solid var(--hair);
+}
+
+/* Az első LÁTHATÓ blokk nem kap felső vonalat — a rejtett állapot-blokk
+   (sportoló nélkül) miatt a :first-child önmagában nem elég. */
+.co-aside-block:first-child,
+.co-aside-block[hidden] + .co-aside-block {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.co-aside-block:last-child {
+  padding-bottom: 0;
+}
+
+.co-status {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-6);
+  padding: var(--sp-7);
+  background: rgba(74, 210, 149, 0.07); /* --c-ok, halványítva */
+  border: 1px solid rgba(74, 210, 149, 0.3);
+}
+
+.co-status-ico {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 800;
+  background: rgba(74, 210, 149, 0.15);
+  color: var(--c-ok);
+}
+
+.co-status-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.co-status-text strong {
+  font-size: 17px;
+}
+
+.co-status-text span {
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--fg-60);
+  text-wrap: pretty;
+}
+
+.co-alerts {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  max-height: 50vh;
+  overflow-y: auto;
+  background: rgba(224, 67, 90, 0.38); /* --c-alert: a rések adják a vonalat */
+  border: 1px solid rgba(224, 67, 90, 0.38);
+}
+
+.co-alerts-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+  padding: var(--sp-6) var(--sp-7);
+  background: #1d1417;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.co-alerts-head .co-status-ico {
+  background: rgba(224, 67, 90, 0.18);
+  color: var(--c-alert);
+}
+
+.co-alert-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-5);
+  width: 100%;
+  min-height: 52px;
+  padding: var(--sp-4) var(--sp-7);
+  border: 0;
+  background: var(--c-bg);
+  color: var(--text-primary);
+  text-align: left;
+  transition: background var(--t-fast);
+}
+
+.co-alert-item:hover {
+  background: #221a1d;
+}
+
+.co-alert-item span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.co-alert-item b {
+  font-size: 15px;
+}
+
+.co-alert-item small {
+  font-size: 14px;
+  color: var(--fg-60);
+}
+
+.co-alert-item i {
+  font-style: normal;
+  font-weight: 800;
+  color: var(--c-alert);
+}
+
+.co-block-head {
+  margin-bottom: var(--sp-3);
+}
+
+.co-msg-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+  width: 100%;
+  min-height: 56px;
+  padding: var(--sp-4) 0;
+  border: 0;
+  border-bottom: 1px solid var(--hair-soft);
+  background: none;
+  color: var(--text-primary);
+  text-align: left;
+  transition: background var(--t-fast);
+}
+
+.co-msg-row:hover {
+  background: var(--fg-04);
+}
+
+.co-msg-row .co-avatar {
+  width: 32px;
+  height: 32px;
+}
+
+.co-msg-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.co-msg-text b {
+  font-size: 15px;
+}
+
+.co-msg-text span {
+  font-size: 14px;
+  color: var(--text-faint);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.co-msg-row.is-unread .co-msg-text span {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.co-invite-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+.co-invite-hint {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-faint);
+  text-wrap: pretty;
+}
+
+.co-pending-lead {
+  margin: 0;
+  padding-top: var(--sp-1);
+  font-size: 14px;
+  color: var(--text-faint);
+}
+
+/* A kiküldött meghívók az oldalsávban hajszálvonalas sorok, nem kártyák */
+.co-pending-list {
+  gap: 0;
+  margin: 0;
+}
+
+.co-pending-list .co-invite {
+  min-height: 48px;
+  padding: var(--sp-2) 0;
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--hair-soft);
+  border-radius: 0;
+}
+
+/* ---- Töréspontok: CONTAINER query, nem media query ----
+   A lap a side-nav mellett és a lapmargókon belül ül, így a viewport
+   szélessége félrevezető: 1440px-es ablakban is csak ~1100px jut a
+   tartalomnak. A rács ezért a saját konténere szélességére figyel — a lapéra
+   (co-page) a fejléc, a KPI-sor és a két hasáb, a listáéra (co-list) a
+   táblázat. */
+.co-page {
+  container: co-page / inline-size;
+}
+
+.co-list {
+  container: co-list / inline-size;
+  min-width: 0;
+}
+
+@container co-page (min-width: 600px) {
+  .co-head-title {
+    font-size: 34px;
+  }
+
+  .co-kpis {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    column-gap: var(--sp-13);
+  }
+
+  .co-kpi:nth-child(n + 3) {
+    border-top: 0;
+  }
+
+  .co-kpi-num {
+    font-size: 48px;
+  }
+
+  .co-kpi-unit {
+    font-size: 20px;
+  }
+}
+
+@container co-list (min-width: 560px) {
+  .co-tools {
+    flex: 0 1 auto;
+  }
+
+  .co-filters {
+    flex: 0 0 auto;
+  }
+
+  .co-search {
+    flex: 0 1 240px;
+  }
+
+  .co-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* ---- Táblázat: ha a lista szélessége elbírja a hét oszlopot ---- */
+@container co-list (min-width: 680px) {
+  .co-tbl-head,
+  .co-row {
+    grid-template-columns:
+      minmax(180px, 2.2fr) minmax(80px, 1.1fr) minmax(80px, 1.1fr) minmax(56px, 0.7fr)
+      minmax(72px, 0.9fr) 60px 16px;
+    column-gap: var(--sp-7);
+  }
+
+  .co-tbl-head {
+    display: grid;
+    align-items: center;
+    padding: var(--sp-5) var(--sp-7) var(--sp-5) var(--sp-8);
+    border-top: 1px solid var(--hair);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: var(--ls-label-tight);
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .co-tbl-head[hidden] {
+    display: none;
+  }
+
+  .co-tbl-head span:nth-child(6) {
+    text-align: right;
+  }
+
+  .co-row {
+    grid-template-areas: none;
+    align-items: center;
+    min-height: 76px;
+    padding: var(--sp-6) var(--sp-7) var(--sp-6) var(--sp-8);
+  }
+
+  .co-row .co-avatar {
+    width: 40px;
+    height: 40px;
+  }
+
+  .co-who,
+  .co-score {
+    grid-area: auto;
+  }
+
+  .co-stats {
+    display: contents;
+  }
+
+  .co-stat-label {
+    display: none;
+  }
+
+  .co-stat {
+    gap: var(--sp-3);
+  }
+
+  .co-stat-val {
+    font-size: 16px;
+  }
+
+  .co-bar {
+    height: 4px;
+  }
+
+  .co-chev {
+    display: block;
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--text-muted);
+    text-align: right;
+  }
+}
+
+/* ---- Két hasáb: a lista mellé oldalsáv, ha a lap elég széles ---- */
+@container co-page (min-width: 1040px) {
+  .co-main {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 400px);
+    column-gap: clamp(24px, 2.6cqi, 48px);
+  }
+
+  .co-aside {
+    padding-top: 0;
+    padding-left: clamp(24px, 2.6cqi, 48px);
+    border-top: 0;
+    border-left: 1px solid var(--hair);
+    align-self: stretch;
+  }
+}
+
+/* Az edzői panel irányítópult: a lap az Áttekintéshez hasonlóan kiszélesedik
+   (1560px-ig) — tableten is, ahol a táblázat már elfér. A belső elrendezést a
+   fenti container query-k igazítják. */
+.app-page.co-page {
+  max-width: 1560px;
+}
+
+/* ---- Tier-színek — a kártya és a modálbeli jelvény közös változói ---- */
+.co-tier--gold {
+  --tier: var(--c-tier-gold);
+  --tier-soft: rgba(232, 193, 90, 0.1);
+  --tier-border: rgba(232, 193, 90, 0.38);
+}
+
+.co-tier--silver {
+  --tier: var(--c-tier-silver);
+  --tier-soft: rgba(185, 196, 212, 0.09);
+  --tier-border: rgba(185, 196, 212, 0.32);
+}
+
+.co-tier--bronze {
+  --tier: var(--c-tier-bronze);
+  --tier-soft: rgba(205, 149, 105, 0.1);
+  --tier-border: rgba(205, 149, 105, 0.34);
+}
+
+/* Még nincs pontszám (se készenlét, se terv-követés): semleges, nem bronz */
+.co-tier--none {
+  --tier: var(--text-muted);
+  --tier-soft: transparent;
+  --tier-border: var(--hair);
+}
+
+/* ---- Üzenet-buborékok (a részletmodál és az Edző oldal chatje) ----
+   A buborék szögletes, és kártya-háttere nincs: a felület a lapé, a buborékot
+   a hajszálvonal-keret rajzolja ki. */
+.co-note {
+  border: 1px solid var(--hair);
+  padding: var(--sp-6);
+}
+
+.co-note-meta {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  display: block;
+  margin-bottom: var(--sp-2);
+}
+
+.co-note-text {
+  margin: 0;
+  font-size: var(--fs-md);
+  line-height: 1.5;
+}
+
+/* A rést a .ds-grid adja (osztályként fel van téve): a mező és a Küldés gomb
+   egy összefüggő sáv két szegmense, 1px-es hajszálvonallal elválasztva. A
+   `nowrap` felülírás kell: a primitív alapból törhet, egy külön sorba ugró
+   Küldés gomb viszont értelmetlen. */
+.co-composer {
+  flex-wrap: nowrap;
+}
+
+.co-composer input {
+  flex: 1;
+  min-width: 0;
+  background: var(--c-bg);
+  border: none;
+  padding: var(--sp-5) var(--sp-6);
+  color: var(--text-primary);
+  font-size: var(--fs-input);
+  transition: background var(--t-fast);
+}
+
+.co-composer input:focus {
+  background: var(--surface-hover);
+}
+
+/* A billentyűzetes fókuszkeret BEFELÉ rajzolódik: a globális 2px-es kifelé
+   tolás miatt a jobb oldalát a szomszédos Küldés gomb takarta el, és úgy
+   tűnt, mintha a gomb belecsúszna a mezőbe. */
+.co-composer input:focus-visible {
+  outline-offset: -2px;
+}
+
+.co-composer input::placeholder {
+  color: var(--text-faint);
+}
+
+/* A küldés az egyetlen művelet a sávon, ezért accent — a lapok fő
+   műveleteivel azonos jelölés, csak ikon-méretben. */
+.co-composer button {
+  width: var(--tap-min);
+  border: none;
+  background: var(--c-accent);
+  color: var(--on-accent);
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  flex-shrink: 0;
+  transition: opacity var(--t-fast);
+}
+
+.co-composer button:hover {
+  opacity: 0.9;
+}

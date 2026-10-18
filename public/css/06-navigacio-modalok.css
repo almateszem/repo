@@ -1,0 +1,826 @@
+/* Podium — 11–15: nav-gyűrű, oldalsáv, modálok, toast, breakpointok. (A sorrend a css/01-alap.css tartalomjegyzékében.) */
+
+/* ==========================================================================
+   11. Nav ring — mobil/tablet navigáció
+   ========================================================================== */
+.nav-ring-fade {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--nav-ring-clearance);
+  background: linear-gradient(
+    to top,
+    var(--c-bg-deep) 28%,
+    rgba(7, 7, 7, 0.92) 56%,
+    rgba(7, 7, 7, 0)
+  );
+  pointer-events: none;
+  z-index: var(--z-nav-fade);
+}
+
+.nav-ring-wrap {
+  position: fixed;
+  /* 40px: a súgósor megszűnt alóla, így feljebb ül, kényelmesebb a hüvelykujjnak */
+  bottom: var(--nav-ring-bottom);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 248px;
+  height: 126px; /* 150px volt; a 62px-es gomb körül így is marad 32px a feliratokig */
+  z-index: var(--z-nav-ring);
+  pointer-events: none;
+}
+
+.nav-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 62px;
+  height: 62px;
+  /* A korong marad KÖR — a --r-full kivétel-listája kimondottan tartalmazza
+     a nav-korongot. */
+  border-radius: var(--r-full);
+  /* Panel-felület a korábbi áttetsző fekete helyett. A backdrop-filter ezzel
+     együtt elmarad: opak háttér mögött nincs mit elmosni, a stacking
+     contextet és a mobil GPU-költséget viszont továbbra is hozná. */
+  background: var(--surface-panel);
+  border: 2px solid var(--fg-92);
+  box-shadow: var(--shadow-knob);
+  cursor: grab;
+  touch-action: none;
+  pointer-events: auto;
+  transition: border-color var(--t-base);
+  /* A display a gomb ikonját centrálja. A setupNavRing csak a transform / cursor
+     / transition inline stílusokat írja, ezt nem — a húzás-logika érintetlen. */
+  display: grid;
+  place-items: center;
+  color: var(--fg-92); /* ugyanaz, mint a keret: az ikon és a gomb egy rendszer */
+}
+
+/* „Itt vagy" a gombon. A gyűrű négy iránycímkéje csak 4 oldalt fed le a 10-ből
+   (az Áttekintés, a Regeneráció és a flow-oldalak kimaradnak), a hint-sor pedig
+   a képernyő legalján, 12px-es halvány szöveg — az ikon a legszembetűnőbb
+   navigációs elemre teszi ki a jelzést. A symbolt a script.js cseréli. */
+.nav-knob-icon {
+  width: 26px;
+  height: 26px;
+  fill: currentColor;
+  pointer-events: none; /* a pointer-események a gomboké — setPointerCapture */
+}
+
+/* Oldalváltáskor az új ikon beúszik. A globális prefers-reduced-motion szabály
+   (2. szakasz) ezt automatikusan lenullázza. */
+@keyframes knob-icon-in {
+  from {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+}
+
+.nav-knob-icon.is-swap {
+  animation: knob-icon-in var(--t-base) var(--ease-spring) both;
+}
+
+/* Az irány-címkék a felkiáltók nyelvén: mono, nagybetűs, --ls-label (.16em).
+   A méret egy fokozattal kisebb lett: a mono betűkép szélesebb, a ritkítás
+   pedig tovább nyújtja a szót — a korábbi --fs-sm-mel a leghosszabb címke
+   („TÁPLÁLKOZÁS") benyúlt volna a korong 44px-es kitérési sugarába
+   (navring.js RING_RADIUS), és húzás közben alákerült volna. */
+.nl {
+  position: absolute;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition:
+    color var(--t-fast),
+    opacity var(--t-fast);
+  /* Koppintható: a wrap pointer-events: none-t kap, a címke maga nem. */
+  pointer-events: auto;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* A látható szöveg ~12px magas — a találati terület a ::before-ral nő 44px
+   fölé. A gomb a DOM-ban később jön, ezért ahol a területek fedik egymást,
+   a húzható gomb nyer. */
+.nl::before {
+  content: '';
+  position: absolute;
+  inset: -16px -12px;
+}
+
+.nl:active {
+  color: var(--text-primary);
+}
+
+/* Húzás közben a cél felirata kiemelődik, és a gomb fölé kerül — a gomb
+   különben épp a célfeliratot takarná. A gomb kerete is akcentre vált. */
+.nl.is-target {
+  color: var(--text-primary);
+  z-index: 1;
+}
+
+.nav-knob.is-armed {
+  border-color: var(--c-accent);
+}
+
+/* „Itt vagy" — mobilon eddig SEMMI nem mutatta az aktív oldalt: az
+   aria-current csak a side-nav linkjeire kerül, azok viszont 1025px alatt
+   display:none-ok. A gyűrű annak az iránynak a feliratát emeli ki, amelyik az
+   aktuális oldalra mutat; a script.js syncNavRingState-je kapcsolja az
+   .is-current osztályt. */
+.nl.is-current {
+  color: var(--text-primary);
+}
+
+/* A pont accent marad: a felirat fehér (a kis piros szöveg nem érné el az AA
+   kontrasztot), a jelölő viszont nem szöveg. Eddig --c-ok (zöld) volt, ami egy
+   MÁSIK jelentést hordoz a lapokon (készenlét, teljesítve) — itt viszont nem
+   állapotot jelöl, hanem azt, hogy melyik irányban állunk. */
+.nl.is-current::after {
+  content: ' ·';
+  color: var(--c-accent);
+}
+
+.nl--up {
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, 0);
+}
+.nl--dn {
+  bottom: 0;
+  left: 50%;
+  transform: translate(-50%, 0);
+}
+.nl--lt {
+  left: 0;
+  top: 50%;
+  transform: translate(0, -50%);
+}
+.nl--rt {
+  right: 0;
+  top: 50%;
+  transform: translate(0, -50%);
+}
+
+/* A fix gyűrű és kifakulása nem takarhatja a tartalmat ott, ahol a feladat a
+   fontos, és nincs rá szükség:
+   - a folyamat-oldalakon (check-in, terv-építő, gyakorlat-választó) saját
+     vissza-nyíl és fő gomb van, a gyűrű csak a "Tovább" / "Terv mentése"
+     gombot takarta;
+   - szövegmezőn álló fókusznál a billentyűzet amúgy is elviszi a hely nagy
+     részét, a gyűrű pedig a fókuszált mezőt fedte volna. */
+body:is([data-page='checkin'], [data-page='plan-builder'], [data-page='exercise-picker'])
+  :is(.nav-ring-fade, .nav-ring-wrap),
+body:has(
+    :is(
+      input:not(
+        [type='checkbox'],
+        [type='radio'],
+        [type='range'],
+        [type='button'],
+        [type='submit']
+      ),
+      textarea,
+      select
+    ):focus
+  )
+  :is(.nav-ring-fade, .nav-ring-wrap) {
+  display: none;
+}
+
+/* A rejtett gyűrű helyét sem kell szabadon hagyni a lap alján. */
+body:is([data-page='checkin'], [data-page='plan-builder'], [data-page='exercise-picker']) {
+  --nav-ring-clearance: calc(var(--sp-12) + var(--safe-bottom));
+}
+
+/* Alacsony (főleg fekvő) kijelzőn a 164px-es sáv a nézetablak felét vinné el. */
+@media (max-height: 520px) {
+  :root {
+    --nav-ring-bottom: max(20px, calc(var(--safe-bottom) + 12px));
+    --nav-ring-clearance: calc(var(--nav-ring-bottom) + 92px);
+  }
+
+  .nav-ring-wrap {
+    width: 220px;
+    height: 84px;
+  }
+
+  .nav-knob {
+    width: 50px;
+    height: 50px;
+  }
+}
+
+/* A fókuszba görgetett elem (pl. a súlymező) ne a gyűrű alá kerüljön. */
+@media (max-width: 1024px) {
+  html {
+    scroll-padding-bottom: var(--nav-ring-clearance);
+  }
+}
+
+/* ==========================================================================
+   12. Side nav — desktop navigáció (mobil nézetben rejtve)
+   ========================================================================== */
+.side-nav {
+  display: none;
+}
+
+/* ==========================================================================
+   13. Modálok — közös alap (technika videó + beállítások + étel + megerősítés)
+   ========================================================================== */
+.video-modal,
+.settings-modal,
+.food-modal,
+.confirm-modal,
+.custom-food-modal,
+.scanner-modal,
+.pr-modal {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-9);
+}
+
+.video-modal.is-open,
+.settings-modal.is-open,
+.food-modal.is-open,
+.confirm-modal.is-open,
+.custom-food-modal.is-open,
+.scanner-modal.is-open,
+.pr-modal.is-open {
+  display: flex;
+}
+
+.video-modal-backdrop,
+.settings-modal-backdrop,
+.food-modal-backdrop,
+.confirm-modal-backdrop,
+.custom-food-modal-backdrop,
+.scanner-modal-backdrop,
+.pr-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: var(--scrim-modal);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  animation: fade-in var(--t-base) both;
+}
+
+.video-modal-card,
+.settings-modal-card,
+.food-modal-card,
+.confirm-modal-card,
+.custom-food-modal-card,
+.scanner-modal-card,
+.pr-modal-card {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  max-height: 100%; /* alacsony nézetablakban a kártya görgethető, nem lóg ki */
+  overflow-y: auto;
+  /* A modál-lap felülete a --surface-panel (a token kommentje eddig is ezt
+     ígérte, csak nem volt használója a modálokon). A --c-bg-raised-hez képest
+     sötétebb és semlegesebb — a fátyol fölött így válik el a laptól.
+     FIGYELEM: az étel-modál sticky akció-sávja (.fd-bar) ugyanezt a színt
+     használja a gradiensében; a kettő együtt mozog. */
+  background: var(--surface-panel);
+  border: 1px solid var(--hair);
+  padding: var(--sp-10);
+  box-shadow: var(--shadow-modal);
+  animation: modal-in var(--t-base) both;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes modal-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+
+.video-modal-head,
+.settings-modal-head,
+.food-modal-head,
+.confirm-modal-head,
+.custom-food-modal-head,
+.scanner-modal-head,
+.pr-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  padding-bottom: var(--sp-6);
+  margin-bottom: var(--sp-9);
+  border-bottom: 1px solid var(--hair);
+}
+
+.video-modal-head h3,
+.settings-modal-head h3,
+.food-modal-head h3,
+.confirm-modal-head h3,
+.custom-food-modal-head h3,
+.scanner-modal-head h3,
+.pr-modal-head h3 {
+  /* A tipográfiát a 2b. szakasz szekciócím-gyűjtője adja (a hét szelektor
+     ott is fel van sorolva) — itt csak a méret, a sormagasság és a szín áll.
+     Osztályt azért nem kapnak, mert a JS több helyen a h3 SZÖVEGÉT írja
+     (modals.js), és a className-hez nem nyúl.
+
+     A megerősítő ablakok kivételt kapnak lent: ott a cím MONDAT, nem címke. */
+  margin: 0;
+  font-size: var(--fs-2xs);
+  line-height: 1.3;
+  color: var(--text-muted);
+}
+
+/* A két megerősítő ablak címe kérdés vagy állítás („Biztosan folytatod?"),
+   nem rovatnév — mondat-szedéssel marad. Ugyanez az étel-részlet modálé: ott
+   a cím maga az étel NEVE, tulajdonnév. */
+.confirm-modal-head h3 {
+  font-family: var(--font-base);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--text-primary);
+}
+
+.video-modal-close,
+.settings-modal-close,
+.food-modal-close,
+.confirm-modal-close,
+.custom-food-modal-close,
+.scanner-modal-close,
+.pr-modal-close {
+  background: none;
+  border: none;
+  color: var(--fg-60);
+  font-size: var(--fs-xl);
+  padding: 2px;
+  transition: color var(--t-fast);
+}
+
+.video-modal-close:hover,
+.settings-modal-close:hover,
+.food-modal-close:hover,
+.confirm-modal-close:hover,
+.custom-food-modal-close:hover,
+.scanner-modal-close:hover,
+.pr-modal-close:hover {
+  color: var(--fg-100);
+}
+
+/* A videós technika-napló még nem készült el — az ablak csak ezt mondja ki. */
+.video-modal-soon {
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+/* ==========================================================================
+   13b. Megerősítő ablak — adatvesztéssel járó műveletekhez
+   A közös modál-alapra épül (lásd fent); itt csak a szűkebb kártya és a
+   gombpár van. A megerősítő gomb hangsúlyos, de a színe a veszélyt jelzi:
+   a „Mégse" a semleges, könnyen elérhető választás.
+   ========================================================================== */
+.confirm-modal-card {
+  max-width: 400px;
+}
+
+.confirm-modal-text {
+  margin: 0 0 var(--sp-9);
+  font-size: var(--fs-md);
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+/* A két gomb egy összefüggő sáv két szegmense: a rést a .ds-grid
+   hajszálvonal-háttere adja (osztályként fel van téve). Keret nincs többé —
+   két keretes gomb között a rés kettős vonalat rajzolt volna. */
+.confirm-modal-actions {
+  flex-wrap: nowrap;
+}
+
+.confirm-cancel,
+.confirm-ok {
+  flex: 1 1 130px;
+  min-height: var(--tap-min);
+  border: 0;
+  padding: var(--sp-4) var(--sp-7);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
+  transition:
+    background var(--t-fast),
+    color var(--t-fast),
+    filter var(--t-fast);
+}
+
+/* A mégse a lap felületét viseli — a modál-lapét, mert azon ül. */
+.confirm-cancel {
+  background: var(--surface-panel);
+  color: var(--text-secondary);
+}
+
+.confirm-cancel:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+/* A megerősítés --c-alert marad, nem accent: ez a gomb visszafordíthatatlan
+   műveletet indít (törlés), és a két token szándékosan külön dolgot jelent. */
+.confirm-ok {
+  background: var(--c-alert);
+  color: var(--fg-100);
+}
+
+.confirm-ok:hover {
+  filter: brightness(1.1);
+}
+
+/* ==========================================================================
+   14. Toast értesítések
+   ========================================================================== */
+.toast-region {
+  position: fixed;
+  top: var(--sp-9);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-3);
+  width: min(92vw, 360px);
+  pointer-events: none;
+}
+
+/* A toast a modálokkal egy felületet visel: panel-háttér, hajszálvonal-keret,
+   szögletes forma. A felirat mono nagybetűs — rövid, rendszer-szintű üzenet
+   („Mentve", „Nincs kapcsolat"), nem olvasnivaló szöveg.
+
+   Az osztályt a js/core/toast.js írja className-nel, ezért ds-* osztályt nem
+   kaphat a markupból; a tipográfia itt áll explicit. */
+.toast {
+  background: var(--surface-panel);
+  border: 1px solid var(--hair);
+  color: var(--text-primary);
+  font-size: var(--fs-2xs);
+  padding: var(--sp-5) var(--sp-7);
+  box-shadow: var(--shadow-modal);
+  max-width: 100%;
+  text-align: center;
+  animation: toast-in var(--t-slow) both;
+}
+
+.toast.is-leaving {
+  animation: toast-out var(--t-base) both;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+/* ==========================================================================
+   15. Breakpointok
+   ========================================================================== */
+
+/* ---- ≥1025px: a sidebar átveszi a nav gyűrű szerepét ---- */
+@media (min-width: 1025px) {
+  /* Desktopon a teljes betűméret-skála egy fokozattal feljebb lép —
+     a tokenek felülírása minden komponenst konzisztensen skáláz. */
+  :root {
+    --fs-2xs: 13px;
+    --fs-xs: 14px;
+    --fs-sm: 15px;
+    --fs-md: 16px;
+    --fs-base: 17px;
+    --fs-lg: 18px;
+    --fs-xl: 20px;
+    --fs-2xl: 22px;
+    --fs-3xl: 25px;
+    --fs-4xl: 28px;
+    --fs-5xl: 34px;
+    --fs-quote: 30px;
+    --fs-metric: 22px;
+    --fs-summary: 48px;
+    --fs-input: 17px;
+  }
+
+  body {
+    display: flex;
+    align-items: flex-start;
+  }
+
+  .side-nav {
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    flex: 0 0 var(--sidebar-width);
+    height: 100vh;
+    /* Alul a fejléc-sávnak tartunk helyet: az ráfekszik az oldalsávra, és
+       enélkül eltakarná az utolsó menüpontot alacsony nézetablakban. */
+    padding: var(--sp-13) var(--sp-9) calc(var(--sp-16) + var(--sp-11));
+    /* Panel-felület, mint a modáloké és a nav-korongé. A .app-chrome ugyanezt
+       kapja lent: desktopon az is ebben a hasábban ül, és két különböző
+       felület egymás alatt látható színtörést adna. */
+    background: var(--surface-panel);
+    border-right: 1px solid var(--hair);
+    overflow-y: auto; /* alacsony nézetablakban a nav görgethető marad */
+  }
+
+  /* A fejléc-sáv desktopon az oldalsáv aljára költözik — ez a dizájn „Fiók"
+     blokkja. Fixen ül, tehát kikerül a body flex-sorából (különben harmadik
+     oszlopként ékelődne a nav és a tartalom közé), és a görgetéstől
+     függetlenül elérhető marad. */
+  .app-chrome {
+    position: fixed;
+    left: 0;
+    bottom: 0;
+    top: auto;
+    width: var(--sidebar-width);
+    flex-wrap: wrap;
+    gap: var(--sp-3);
+    padding: var(--sp-6) var(--sp-9);
+    /* Ugyanaz a felület, mint a fölötte lévő .side-nav-é: desktopon a kettő
+       egy hasáb, két különböző háttér látható színtörést adna a varratnál. */
+    background: var(--surface-panel);
+    border-bottom: none;
+    border-top: 1px solid var(--hair);
+    border-right: 1px solid var(--hair);
+  }
+
+  /* Keskeny hasáb: a márkajel a nav tetején már ott van, itt csak a dátum
+     kell. A név és az ikonpár egy sorban fér el alatta. */
+  .chrome-brand-name {
+    display: none;
+  }
+
+  .chrome-brand {
+    order: 2;
+    margin-right: 0;
+  }
+
+  .db-profile {
+    order: 1;
+    flex: 1 0 100%;
+    min-width: 0;
+  }
+
+  .db-username {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .chrome-actions {
+    order: 3;
+    margin-left: auto;
+  }
+
+  /* Az értesítés-panel itt FELFELÉ nyílik: a sáv a képernyő alján ül, lefelé
+     nem férne el. Balra igazítva, mert a jobb széle a tartalom fölé lógna.
+     A szelektor szándékosan `.app-chrome .notif-panel`: a lenti alapszabály
+     később áll a fájlban, azonos specificitással felülírná ezt a blokkot —
+     a panel így a képernyő alá került. */
+  .app-chrome .notif-panel {
+    top: auto;
+    bottom: calc(100% + var(--sp-3));
+    right: auto;
+    left: var(--sp-5);
+  }
+
+  /* A márkajel mono nagybetűs, erős ritkítással — a belépő .ds-eyebrow
+     márkajelének nagyobb testvére. A .22em-hez nincs token: a fájl minden
+     letter-spacingje nyers érték ezen a szinten, és ez az egyetlen hely, ahol
+     ekkora ritkítás kell. */
+  .side-nav-brand {
+    font-family: var(--font-mono);
+    font-size: var(--fs-md);
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: var(--sp-14);
+  }
+
+  .side-nav-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+  }
+
+  /* A sugár elmarad (a token amúgy is 0, de a sor a kártyás nyelv maradványa
+     volt). A bal oldali hely az aktív jelölőé: minden elem behúzva tartja,
+     hogy az aktívvá válás ne tologassa a szöveget. */
+  .side-nav-link {
+    display: block;
+    padding: var(--sp-5) var(--sp-6) var(--sp-5) var(--sp-12);
+    position: relative;
+    color: var(--fg-60);
+    text-decoration: none;
+    font-size: var(--fs-base);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    transition:
+      background var(--t-fast),
+      color var(--t-fast);
+  }
+
+  .side-nav-link:hover {
+    background: var(--surface-hover);
+    color: var(--text-primary);
+  }
+
+  /* Az aktív oldal erősebb hátteret kap, hogy hover mellett is
+     megkülönböztethető legyen, és egy accent ■ jelölőt a bal szélén.
+
+     A horgony az aria-current attribútum, nem osztály — a js/nav/router.js
+     setAttribute/removeAttribute-tal kezeli. A 'page' az oldal maga, a
+     'true' a flow-oldal szülő-eleme (pl. Terv-építőnél a Tervek). */
+  .side-nav-link[aria-current] {
+    background: var(--surface-strong);
+    color: var(--text-primary);
+  }
+
+  .side-nav-link[aria-current]::before {
+    content: '■';
+    position: absolute;
+    left: var(--sp-5);
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--c-accent);
+    /* 8px: a ■ karakter a betűméretnél nagyobbnak látszik, mert a glifa
+       kitölti a sort. Ennél nagyobb mérettel a jelölő a szövegre ért. */
+    font-size: 8px;
+    line-height: 1;
+  }
+
+  .app-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .app-page {
+    max-width: var(--page-max-desktop);
+    padding: var(--sp-15) var(--sp-14);
+  }
+
+  .nav-ring-fade,
+  .nav-ring-wrap {
+    display: none;
+  }
+}
+
+/* ---- ≥1280px: a dashboard többkártyás griddé bővül ---- */
+@media (min-width: 1280px) {
+  /* A check-in varázsló kimarad: szándékosan fix 460px-es, egy-kérdés-egy-
+     képernyő oszlop marad minden méreten (lásd 25. szakasz). A Regeneráció
+     lap is kimarad: a saját, szélesebb lapszélessége (lásd 22. szakasz,
+     .app-page.rc-page) különben itt visszaszűkülne 760px-re, és a
+     kétsávos asztali elrendezés @container-küszöbe (1040px) sosem érne el. */
+  .app-page:not(.dashboard):not(.ci-page):not(.rc-page):not(.co-page):not(.pg-two):not(.pg-wide) {
+    max-width: var(--page-max-wide);
+  }
+
+  /* Áttekintés desktopon: KÉT HASÁB, nem kártyarács. A bal hasáb a mérőszámoké
+     (készenlét, táplálkozás, statok, trend), a jobb a mai edzésé és a fő
+     műveleteké. A rést nem gap adja, hanem a jobb hasáb bal oldali
+     hajszálvonala — a dizájn végig vonalakkal tagol, nem dobozokkal.
+
+     A check-in emlékeztető itt NEM vált rácsot: a bal hasáb folyamában marad,
+     ahol a többi blokk. A korábbi kétállapotú grid-template azért kellett,
+     mert a kártyák soronként álltak egymás mellett; hasábokkal ez a
+     bonyolultság feleslegessé vált. */
+  .dashboard {
+    max-width: 1560px;
+    padding: var(--sp-11) clamp(24px, 3vw, 48px) var(--sp-13);
+    display: grid;
+    grid-template-columns: minmax(400px, 1fr) minmax(250px, 424px);
+    column-gap: clamp(24px, 2.6vw, 60px);
+    align-items: start;
+  }
+
+  .db-main {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Az első blokknak nincs felső vonala: a lap tetején az elválasztó semmit
+     nem választana el. */
+  .db-readiness-row {
+    padding-top: var(--sp-13);
+  }
+
+  /* A jobb hasáb teljes magasságú, hogy a műveletek (margin-top: auto) a lap
+     aljára kerüljenek, ne a gyakorlatlista alá tapadva. */
+  .db-side {
+    align-self: stretch;
+    padding: var(--sp-13) 0 0 clamp(24px, 2.6vw, 48px);
+    border-top: none;
+    border-left: 1px solid var(--border-card);
+  }
+
+  .db-side-title {
+    font-size: 32px;
+  }
+}
+
+/* ---- Kétoszlopos oldalak: Táplálkozás, Edzés, Profil ----
+   Telefonon és tableten a két oszlop-burkoló (.pg-col) nem létezik az
+   elrendezés számára (display: contents), az oldal egyoszlopos marad. 1280px-
+   től a burkolók két oszlopot adnak: a napi munka (napló, gyakorlatok) a
+   balon, a keresés / előzmények / rekordok a jobbon. Enélkül az oldal 1920px-en
+   a tér ~60%-át üresen hagyta, és a Táplálkozás keresője 1000px mélyen volt. */
+.pg-col {
+  display: contents;
+}
+
+/* A .pf-section + .pf-section margója nem lépi át a burkolót: a jobb oszlop
+   első szekciója ezt itt kapja meg. */
+.pf-page .pg-col--side > .pf-section:first-child {
+  margin-top: var(--sp-15);
+}
+
+@media (min-width: 1280px) {
+  .app-page.pg-two {
+    max-width: 1280px;
+    display: grid;
+    grid-template-columns: var(--pg-cols, minmax(0, 1fr) minmax(0, 1fr));
+    column-gap: clamp(40px, 4vw, 80px);
+    align-items: start;
+  }
+
+  .pg-two > .pg-col {
+    display: block;
+    min-width: 0;
+  }
+
+  /* Az edzésnapló szett-sorainak mezői szélesebb oszlopot kérnek. */
+  .wk-page {
+    --pg-cols: minmax(0, 1.35fr) minmax(0, 1fr);
+  }
+
+  /* Egymás mellett a két oszlop felső széle közös. */
+  .pf-page .pg-col--side > .pf-section:first-child {
+    margin-top: 0;
+  }
+
+  /* Tervek: nincs két természetes oszlop, a tervsorok kerülnek kétoszlopos
+     rácsba. A sor-elválasztó vonalak a cellákon belül maradnak. */
+  .app-page.pg-wide {
+    max-width: 1280px;
+  }
+
+  .pg-wide .pl-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: clamp(40px, 4vw, 80px);
+    align-items: start;
+  }
+
+  /* A sorok közti vonalat a .ds-row + .ds-row adja; rácsban a második elem az
+     első sorba kerül, annak nincs mit elválasztania. */
+  .pg-wide .pl-list > li:nth-child(2) {
+    border-top: 0;
+  }
+
+  /* A bal oszlop (~520px) a négy összesítőt egy sorban nem bírja: a hosszú
+     feliratok („Teljesített munkasorozat") kilógnának, ezért 2×2. */
+  .pf-page .pf-stat-grid {
+    --pf-cols: 2;
+  }
+}

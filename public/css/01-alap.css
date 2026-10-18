@@ -1,0 +1,996 @@
+/* ==========================================================================
+   Podium — frontend foundation
+   --------------------------------------------------------------------------
+   Tartalomjegyzék — a szakaszok a fájlokban, a betöltés (index.html <link>)
+   sorrendjében. A kaszkád ezen a sorrenden múlik: a fájlok sorrendje nem
+   cserélhető fel.
+     css/01-alap.css
+       1.  Design tokenek (:root)
+       2.  Base és reset
+       2b. Műszerfal-tipográfia — címkék és mérőszámok
+       2c. Dizájn-primitívek — a prototípus újrahasznált építőelemei (ds-*)
+       3.  Akadálymentességi segédosztályok (+ .tap-target: érintési célterület)
+       4.  App layout és oldalváltás
+       5.  Oszlopdiagram (megosztott komponens)
+     css/02-attekinto.css
+       6.  Dashboard (db-*)
+     css/03-edzesnaplo.css
+       7.  Workout logger (wk-*)
+     css/04-taplalkozas-tervek.css
+       8.  Nutrition tracker (nu-*)
+       9.  Tervek (pl-*)
+     css/05-edzoi-panel.css
+      10.  Edzői panel — állapot-sáv, sportoló-kártyák, üzenet-buborékok (co-*)
+     css/06-navigacio-modalok.css
+      11.  Nav ring — mobil/tablet navigáció (nav-*, nl)
+      12.  Side nav — desktop navigáció (side-nav-*)
+      13.  Modálok — közös alap: technika videó + beállítások (video-modal-*, settings-modal-*)
+      13b. Megerősítő ablak — adatvesztéssel járó műveletekhez (confirm-modal-*)
+      14.  Toast értesítések (toast-*)
+      15.  Breakpointok: ≥1025px (sidebar), ≥1280px (széles dashboard grid)
+     css/07-allapotok-beallitasok.css
+      16.  Demo polish — mikro-animációk, értesítés-panel, állapotok
+      17.  Beállítások modal tartalma (st-*)
+      18.  Analitika — testsúly trend, heti összehasonlítás, PR lista
+      19.  Sportoló részletnézet (co-detail-*, co-modal-*, co-action, co-msg)
+     css/08-flow-oldalak.css
+      22b. Terv-építő flow-oldal (pb-*)
+      23.  Gyakorlat-választó flow-oldal (ep-*)
+     css/09-edzo-nezetek-osszegzo.css
+      20.  Edző oldal — a két nézet: nézetváltó, kliens chat, meghívók, üres állapotok
+           (co-toggle, co-view, co-coach-*, co-invite-*, co-client-feed, co-empty)
+      21.  Edzés-összegző oldal (su-*) + edzés-befejezés gomb (wk-finish)
+     css/10-regeneracio.css
+      22.  Regeneráció — Recovery Engine oldal (rc-*)
+     css/11-etel-checkin.css
+      24.  Étel részlet-modál (fd-*)
+      25.  Napi check-in varázsló (ci-*)
+     css/12-belepo-profil-sajat-etel.css
+      26.  Belépő képernyő (au-*)
+      27.  Profiloldal (pf-*)
+      28.  Saját étel modál (cf-*) + vonalkód-olvasó (sc-*)
+     css/13-testterkep-lenyilo-sportolo.css
+      29.  Testtérkép (bm-*) — a check-in és a Regeneráció közös emberkéje
+           Saját lenyíló (ds-select) — a natív <select> helyett
+      30.  Edző oldal — sportolói nézet (co-client-*)
+   ========================================================================== */
+
+/* ==========================================================================
+   1. Design tokenek
+   ========================================================================== */
+:root {
+  /* Szín — alap paletta */
+  --c-bg: #17181b;
+  --c-bg-deep: #0a0a0b;
+  --c-bg-raised: #1e1f23;
+  --c-neutral: #3a3a3c;
+  --c-paper: #f4f3f1;
+  --c-paper-bright: #ffffff;
+  --c-ink: #111111;
+  /* Kiemelés és riasztás SZÁNDÉKOSAN két külön token. Korábban egyetlen
+     --c-accent (#e0435a) volt mindkettő: a márkajel (.au-brand, mentés
+     gombok) és a vészjelzés (.au-error, „letiltva", alacsony készenlét) is.
+     A kettő szétválasztva marad, még ha most mindkettő vörös is: a jelentésük
+     különbözik, és a kiemelés színe a dizájnnal együtt változhat — a
+     vészjelzésé nem. A --c-accent a terv bordója (#c8102e). */
+  --c-accent: #c8102e;
+  --c-alert: #e0435a;
+  --c-ok: #4ad295;
+  /* Fájdalom-jelzés (Regeneráció térkép, „Ma kíméld"): borostyán, hogy a
+     piros márkaszíntől és a hiba-színtől is elváljon. */
+  --c-pain: #e8a33d;
+
+  /* Ami az akcentus HÁTTERÉRE kerül. A bordó sötét, tehát világos a tinta —
+     a token azért van, hogy a szabályoknak ne kelljen tudniuk, épp melyik
+     akcentus van érvényben. */
+  --on-accent: #ffffff;
+  --c-accent-dim: rgba(200, 16, 46, 0.16);
+  --c-accent-line: rgba(200, 16, 46, 0.45);
+  --c-alert-dim: rgba(224, 67, 90, 0.12);
+  --c-alert-line: rgba(224, 67, 90, 0.38);
+  /* Szuperszett-jelölés. Szándékosan NEM az accent: azt a PR-jelvény pulzálása
+     foglalja, a két jelzés pedig egy kártyán is találkozhat. */
+  --c-superset: #5aa9e6;
+
+  /* A dizájn két elválasztó-szintje. A rácsokat NEM border adja, hanem a
+     szülő háttere, amit 1px-es gap enged át (lásd 2c. szakasz): így a
+     vonalak sosem duplázódnak két szomszédos elem között. */
+  --hair: rgba(255, 255, 255, 0.18);
+  --hair-soft: rgba(255, 255, 255, 0.11);
+
+  /* A lapnál sötétebb felület: oldalsáv, CTA-sáv, modál-lap. */
+  --surface-panel: #0a0a0b;
+
+  /* Szín — minősítési fokozatok. Az edzői panel sportoló-kártyái az alsó
+     hármat viszik, a profil rekord-érmei mind a négyet.
+
+     A gyémánt SZÁNDÉKOSAN nem fém: a másik három egy skála (bronz → ezüst →
+     arany), a negyedik pedig kilép belőle. Hidegebb és világosabb is az
+     aranynál, tehát a sorrend fényességben is olvasható. Az ezüsttől azért
+     nem téveszthető össze, mert az tompa kékesszürke, ez pedig telített
+     cián — és a gyémánt-érem ezen felül csillanást is kap (lásd
+     .pf-medal--diamond), vagyis nem csak a színárnyalat különbözteti meg. */
+  --c-tier-gold: #e8c15a;
+  --c-tier-silver: #b9c4d4;
+  --c-tier-bronze: #cd9569;
+  --c-tier-diamond: #67e8f0;
+
+  /* Szín — fehér alfa-skála (a sötét téma teljes felület-/szövegrendszere) */
+  --fg-100: #ffffff;
+  --fg-92: rgba(255, 255, 255, 0.92);
+  --fg-85: rgba(255, 255, 255, 0.85);
+  --fg-75: rgba(255, 255, 255, 0.75);
+  --fg-70: rgba(255, 255, 255, 0.7);
+  --fg-60: rgba(255, 255, 255, 0.6);
+  --fg-55: rgba(255, 255, 255, 0.55);
+  --fg-50: rgba(255, 255, 255, 0.5);
+  --fg-45: rgba(255, 255, 255, 0.45);
+  --fg-40: rgba(255, 255, 255, 0.4);
+  --fg-35: rgba(255, 255, 255, 0.35);
+  --fg-30: rgba(255, 255, 255, 0.3);
+  --fg-25: rgba(255, 255, 255, 0.25);
+  --fg-20: rgba(255, 255, 255, 0.2);
+  --fg-15: rgba(255, 255, 255, 0.15);
+  --fg-10: rgba(255, 255, 255, 0.1);
+  --fg-08: rgba(255, 255, 255, 0.08);
+  --fg-06: rgba(255, 255, 255, 0.06);
+  /* A háttér-ragyogások színe: a piros kiemelőszín (--c-accent, #c8102e)
+     halvány árnyalata. Korábban kékes volt (rgba(1, 108, 150, .295)), de az
+     nem illett a szürke alaphoz és a piros kiemelőszínhez. */
+  --fg-05: rgba(200, 16, 46, 0.13);
+  --fg-04: rgba(255, 255, 255, 0.04);
+  --fg-03: rgba(255, 255, 255, 0.03);
+
+  /* Szín — szemantikus aliasok */
+  --surface-card: var(--fg-04);
+  --surface-soft: var(--hair-soft);
+  --surface-input: var(--fg-06);
+  --surface-hover: var(--fg-08);
+  --surface-strong: var(--fg-10);
+  --border-card: var(--hair);
+  --border-strong: var(--fg-15);
+  --text-primary: var(--fg-100);
+  --text-secondary: var(--fg-85);
+  /* A halvány szövegrétegek WCAG AA-ra hangolva a --c-bg (#0d0d0f) háttéren:
+     .5 → 5.35:1, .55 → 6.25:1. A korábbi --text-faint (.4) 3.8:1-et adott, és
+     éppen a legkisebb (10–11px-es) feliratokon ült — a legrosszabb párosítás. */
+  --text-muted: var(--fg-50);
+  /* A prototípus harmadlagos szintje (fehér .34) információt hordozó
+     szövegre nem elég — a 10–11px-es feliratokon 3:1 alá esne. Ezért a
+     .34 csak dekoratív elemre megy (pl. a % jel egy nagy szám mellett),
+     saját szabályban; címke ide sosem kerül. */
+  --text-faint: var(--fg-55);
+
+  /* Tipográfia */
+  --font-base: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Műszerfal-feliratok: monospace, nagybetűs, ritkított. A számokat így
+     azonos szélességű oszlopokban lehet olvasni, a címkék pedig a nagy
+     értékektől tipográfiával válnak el, nem csak színnel. */
+  --font-mono: ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Menlo, Consolas, monospace;
+  --ls-label: 0.16em;
+  --ls-label-tight: 0.12em;
+  --ls-display: -0.025em;
+  --fs-2xs: 11px; /* 10px volt — a kisbetűs feliratok a halvány színnel együtt olvashatatlanok voltak */
+  --fs-xs: 12px;
+  --fs-sm: 12px;
+  --fs-md: 13px;
+  --fs-base: 14px;
+  --fs-lg: 15px;
+  --fs-xl: 16px;
+  --fs-2xl: 18px;
+  --fs-3xl: 20px;
+  --fs-4xl: 22px;
+  --fs-5xl: 28px;
+  --fs-display: clamp(40px, 12vw, 56px);
+  --fs-quote: clamp(20px, 5.5vw, 26px);
+  --fs-metric: clamp(14px, 4vw, 19px);
+  --fs-summary: clamp(28px, 8vw, 40px);
+
+  /* Térköz-skála: 4 / 6 / 8 / 10 / 12 / 14 / 16 / 18 / 20 / 22 / 24 / 28 / 32 / 40 / 48 / 56 */
+  --sp-1: 4px;
+  --sp-2: 6px;
+  --sp-3: 8px;
+  --sp-4: 10px;
+  --sp-5: 12px;
+  --sp-6: 14px;
+  --sp-7: 16px;
+  --sp-8: 18px;
+  --sp-9: 20px;
+  --sp-10: 22px;
+  --sp-11: 24px;
+  --sp-12: 28px;
+  --sp-13: 32px;
+  --sp-14: 40px;
+  --sp-15: 48px;
+  --sp-16: 56px;
+
+  /* A dizájn szögletes: a formát a hajszálvonalak adják, nem a sarkok. A
+     tokenek szándékosan megmaradnak 0-n — így egy helyen visszafordítható a
+     döntés, és az új szabályoknak sem kell tudniuk, hogy épp nulla. */
+  --r-2xs: 0;
+  --r-xs: 0;
+  --r-sm: 0;
+  --r-md: 0;
+  --r-lg: 0;
+  --r-xl: 0;
+  --r-2xl: 0;
+  --r-3xl: 0;
+  --r-full: 50%;
+
+  /* Árnyék és scrim */
+  --shadow-knob: 0 12px 30px rgba(0, 0, 0, 0.55);
+  --shadow-modal: 0 24px 60px rgba(0, 0, 0, 0.5);
+  --scrim-modal: rgba(0, 0, 0, 0.6);
+
+  /* Mozgás */
+  --t-fast: 0.15s ease;
+  --t-base: 0.2s ease;
+  --t-slow: 0.25s ease;
+  --ease-spring: cubic-bezier(0.18, 0.9, 0.2, 1.1);
+
+  /* Z-index rétegek */
+  --z-nav-fade: 40;
+  --z-nav-ring: 41;
+  --z-popover: 60;
+  --z-modal: 100;
+  --z-toast: 110;
+
+  /* Érintés — a minimális kényelmes célterület (WCAG 2.5.5 / iOS HIG).
+     A vizuális méretet nem növeljük vele: a .tap-target recept egy láthatatlan
+     pszeudoelemmel tágítja a találati felületet (lásd 2. szakasz). */
+  --tap-min: 44px;
+
+  /* A beviteli mezők betűmérete. 16px alatt az iOS Safari fókuszkor ráközelít
+     a lapra, és nem nagyít vissza — az edzésnaplóban minden szett-értéknél. */
+  --fs-input: 16px;
+
+  /* Layout méretek */
+  --page-max: 480px;
+  --page-max-desktop: 640px;
+  --page-max-wide: 760px;
+  --dashboard-max-wide: 980px;
+  --sidebar-width: 240px;
+  /* Alsó hely a fix nav gyűrűnek mobil nézetben. 200px volt — egy 667px magas
+     telefonon a nézetablak 30%-a. A gyűrű lejjebb és laposabban ül (lásd 11.
+     szakasz), így 186px elég (a gyűrű alja 40px-re ül az éltől).
+
+     A gyűrű alja legalább 40px, de a hornyolt telefonok alsó biztonsági
+     sávja fölé is kerül. A böngésző jelenleg a biztonságos területen belül
+     rajzol (nincs viewport-fit=cover), ezért az env() értéke 0 és semmi nem
+     változik; ha az app később edge-to-edge lesz, a gyűrű nem kerül a
+     kezdőképernyő-csík alá. */
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --nav-ring-bottom: max(40px, calc(var(--safe-bottom) + 12px));
+  --nav-ring-clearance: calc(var(--nav-ring-bottom) + 146px);
+}
+
+/* A világos téma helye. A prototípusban opció (paper: #f4f2ed), de a
+   palettája még nincs kitöltve — ez a blokk SZÁNDÉKOSAN üres a
+   color-scheme-en túl, hogy a szerkezet készen álljon, és később EGY helyen
+   legyen mit írni.
+
+   Kitöltendő: --c-bg, --c-bg-deep, --c-bg-raised, --surface-panel, --hair,
+   --hair-soft, és a --fg-* alfa-skála fekete alfára fordítva. Minden más
+   token (accent, alert, tier-ek, tipográfia, térköz, sugarak, z-rétegek)
+   témától független — azokat ide NEM kell átmásolni.
+
+   A color-scheme itt már most helyes értéket ad: ha valaki a témaváltót
+   megírja, a natív vezérlők (görgetősáv, a type=search törlő ✕-e, a
+   szám-mezők belső részei, az autofill háttere) azonnal együtt mozdulnak a
+   lappal — ugyanazért, amiért a :root sötétre állítja (lásd a 2. szakasz
+   elején). */
+[data-theme='light'] {
+  color-scheme: light;
+}
+
+/* ==========================================================================
+   2. Base és reset
+   ========================================================================== */
+* {
+  box-sizing: border-box;
+}
+
+/* A [hidden] attribútum MINDIG rejtsen — ez a szabály egy egész hibaosztályt
+   zár le, ezért van rajta !important.
+   A böngésző alap-stíluslapján a [hidden] csak attribútum-erősségű, így
+   bármelyik osztály-szabály (`.valami { display: flex }`) megveri. A JS
+   viszont sok helyen az `el.hidden = true`-val szűr/rejt — ilyenkor az elem
+   „rejtettnek" számított a kódban, de látszott a képernyőn. Ez az appban
+   kilencszer sült el, változó súllyal: a gyakorlat-keresőnél a találatszám
+   frissült, de mind az 1401 kártya kint maradt; a regenerációs sapkáknál egy
+   üres doboz margója hagyott fantom rést.
+   A komponensenkénti felülírás helyett ezért itt egyszer, mindenkire.
+   Biztonságos: a lap sehol nem ad inline display-t, és minden korábbi
+   komponens-szabály is pontosan display: none-t állított. */
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+/* A felület sötét — ezt a böngészőnek is meg kell mondani, különben a natív
+   vezérlők (görgetősáv, a type=search törlő ✕-e, a szám-mezők belső részei,
+   az autofill háttere) világos rendszerstílussal renderelődnek a sötét lapon. */
+:root {
+  color-scheme: dark;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background:
+    radial-gradient(at 15% 8%, var(--fg-05), transparent 40%),
+    radial-gradient(at 85% 25%, var(--fg-04), transparent 35%),
+    radial-gradient(at 50% 90%, var(--fg-05), transparent 45%), var(--c-bg);
+  color: var(--text-primary);
+  font-family: var(--font-base);
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+input {
+  font-family: inherit;
+}
+
+/* Minden beviteli mező legalább 16px — lásd --fs-input. A komponensek ennél
+   nagyobbat állíthatnak, kisebbet szándékosan nem. */
+input {
+  font-size: var(--fs-input);
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* Billentyűzetes fókusz — minden interaktív elemre egységesen */
+:focus-visible {
+  outline: 2px solid var(--fg-60);
+  outline-offset: 2px;
+}
+
+/* Az oldal- és lépéscímet a JS fókuszálja váltáskor (router.js, check-in
+   varázsló), hogy a képernyőolvasó az új tartalomnál folytassa. A cím nem
+   interaktív, a keret tehát nem ad információt, csak villan az oldalváltáson.
+   Szándékosan csak a címsorokra: a többi tabindex="-1" elem (fülek, léptető
+   gombok) a nyílbillentyűs mozgatásnál igenis kapjon fókuszjelzést. */
+:is(h1, h2, h3)[tabindex='-1']:focus {
+  outline: none;
+}
+
+/* A szövegmezők egérrel/érintéssel nem kapnak keretet (a komponenseknek saját
+   fókuszjelzésük van), billentyűzettel viszont IGEN. Korábban itt sima
+   `input:focus { outline: none }` állt, ami magasabb specificitása miatt a
+   :focus-visible-t is elnyomta — a keresőn és a chat-mezőn (ahol a saját
+   jelzés csak 2% alfa-eltérés) így semmi nem mutatta a fókuszt. */
+input:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* A szűk mezőknél a keret befelé rajzolódik, hogy ne vágja el a szomszédját */
+.wk-num-input:focus-visible,
+input.wk-chip:focus-visible {
+  outline-offset: -2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ==========================================================================
+   2b. Műszerfal-tipográfia — címkék és mérőszámok
+   ==========================================================================
+   A címkéket a tipográfia választja el a mérőszámoktól, nem csak a szín:
+   monospace, nagybetűs, ritkított. Így a halvány szürke feliratok akkor is
+   címkének olvasódnak, ha a kontraszt épp csak elég.
+
+   A beviteli mezők feliratai (.field-label, .au-label, .cf-label, .st-label,
+   .pb-days-label, .co-assign-label) SZÁNDÉKOSAN kimaradnak: azok mondatok,
+   nem címkék, és nagybetűsen a magyar szöveg nehezebben olvasható.
+   A check-in varázsló (.ci-*) is kimarad — az az űrlap változatlan marad. */
+
+.db-label,
+.db-stat-unit,
+.nu-summary-unit,
+.nu-macro-unit,
+.rc-unit,
+.rc-body-row-label,
+.rc-scale-label,
+.rc-lift-delta-label,
+.fd-macro-label,
+.fd-macro-unit,
+.fd-goal-label {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: var(--ls-label);
+  font-weight: 600;
+}
+
+/* Szekciócímek: ugyanaz a nyelv, valamivel szűkebb ritkítással, mert
+   hosszabbak — a „TESTÖSSZETÉTEL" .16em-mel már kifutna a keskeny kártyából. */
+.rc-section-title,
+.pf-section-title,
+/* A profil rács-címkéi és a rekord-kártyák gyakorlatnevei ugyanezt a receptet
+   kérik, nem a fenti .db-label-csoportét: rövid, erősen ritkított feliratok
+   helyett itt több szóból álló, tördelhető címkék állnak — azoknak a szűkebb
+   .16em helyett a .12em ritkítás olvashatóbb. */
+.pf-stat-label,
+.pf-record-label,
+.pf-tier-name,
+.st-section-title,
+.co-modal-section-title,
+.fd-section-label,
+.wk-progress-title,
+.notif-title,
+.su-stat-unit,
+.su-kicker,
+.ep-count,
+.ep-item-tag,
+.nu-summary-goal,
+.toast,
+.video-modal-head h3,
+.settings-modal-head h3,
+.food-modal-head h3,
+.confirm-modal-head h3,
+.custom-food-modal-head h3,
+.scanner-modal-head h3,
+.pr-modal-head h3 {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: var(--ls-label-tight);
+  font-weight: 700;
+}
+
+/* Mérőszámok: sűrítve és táblázatos számokkal, hogy a másodpercenként
+   frissülő értékek (stopper, kalória) ne ugráltassák a sort. */
+.db-percent,
+.db-stat-value,
+.nu-summary-value,
+.nu-macro-value,
+/* A .pf-stat-value szándékosan hiányzik: a profil összesítői a .ds-display
+   primitívet viselik, az ezt a két tulajdonságot már megadja. */
+.su-stat-value {
+  letter-spacing: var(--ls-display);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ==========================================================================
+   2c. Dizájn-primitívek (ds-*)
+   ==========================================================================
+   A prototípus nem kártyákból áll, hanem vonalakból: a blokkokat felső
+   hajszálvonal választja el, a rácsok réseit pedig a SZÜLŐ HÁTTERE tölti ki.
+   Ez a trükk a lényeg — border helyett 1px-es gap egy vonalszínű szülőn:
+   két szomszédos elem között így sosem lesz 2px-es dupla vonal, és a rács
+   akkor is együtt marad, ha egy elem hiányzik.
+
+   Ezek az osztályok SZÁNDÉKOSAN prefixeltek (ds-), nem oldal-specifikusak:
+   ugyanaz a sor-elem áll a Regeneráció számítás-listájában és a Profil
+   adatsoraiban. Ha egy oldalnak egyedi viselkedés kell, a saját előtagú
+   osztálya MELLÉ kerül, nem helyette.
+   ========================================================================== */
+
+/* Hajszálvonalas rács. A gyerekeknek nincs saját keretük — a rés a vonal. */
+.ds-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1px;
+  background: var(--hair);
+}
+
+/* HASZNÁLATLAN. A .ds-grid--column, a .ds-row-value--accent és a
+   .ds-step-value a primitív-készlet része, de a 20. task záró átvizsgálásán
+   egyik sem talált call-site-ot: az oszlop-irányú rácsokat a lapok saját
+   flex-oszlopa adja, az accent-értékű sort sehol nem kértük, a léptető
+   értékmezőjét pedig mindkét használó (.wk-num-input, .ci-num-input) saját
+   szabállyal viszi.
+
+   SZÁNDÉKOSAN bent maradnak: a .ds-step-value a .ds-step dokumentált
+   receptjének a fele (nélküle a primitív csonka lenne), a másik kettő pedig
+   egysoros variáns. Ha a következő olvasó helyet keres, itt kezdje. */
+.ds-grid--column {
+  flex-direction: column;
+  flex-wrap: nowrap;
+}
+
+/* Szekció: nincs háttér, nincs keret, csak felső elválasztó.
+
+   A vonalat SZÁNDÉKOSAN a szomszéd-szelektor adja, nem egy
+   `:first-child` kivétel: az csak akkor működne, ha a szekciók a szülő
+   EGYETLEN gyerekei — egy cím vagy egy üres-állapot a lista elején már
+   megtörné, és az első szekció fölött ott maradna a felesleges vonal. */
+.ds-section {
+  padding-top: var(--sp-11);
+}
+
+.ds-section + .ds-section {
+  border-top: 1px solid var(--hair);
+  margin-top: var(--sp-11);
+}
+
+/* Felkiáltó: a szekciók és a lapok fölötti mono címke. */
+.ds-eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Display-szám. A méretet a hívó oldal adja (--ds-display-size), mert a
+   lépcső oldalanként más: 96px az áttekintés hőse, 32px egy oldalcím. */
+.ds-display {
+  /* A hívók <p> és <h2> elemekre is felteszik — a UA-margót a primitív
+     semlegesíti, hogy ne három helyen kelljen. */
+  margin: 0;
+  font-size: var(--ds-display-size, var(--fs-5xl));
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.045em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Sor-elem: balra név + halvány alcím, jobbra érték vagy vezérlő. Ez váltja
+   ki a korábbi kártyákat a listás oldalakon. */
+.ds-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  /* Hívónként állítható: a sűrű listák szűkebb rést kérnek, mint a lap
+     hőse melletti adatsorok. A minta a .ds-display --ds-display-size-jáé. */
+  gap: var(--ds-row-gap, var(--sp-7));
+  min-height: var(--tap-min);
+  padding: var(--sp-7) var(--sp-7);
+}
+
+/* Az elválasztó a sorok KÖZÉ kerül, szomszéd-szelektorral. A `:first-of-type`
+   kivétel itt csapda volna: az a saját TAG-jéből elsőt találja meg, nem a
+   `.ds-row`-k közül az elsőt — egy szűrősáv vagy üres-állapot ugyanabból a
+   tagből a lista elején néma módon visszahozná a felső vonalat. */
+.ds-row + .ds-row {
+  border-top: 1px solid var(--hair-soft);
+}
+
+/* A `flex: 1` a primitívbe tartozik: a sor bal oldala mindig a maradék
+   helyet viszi, ezt eddig három hívó tette hozzá külön. */
+.ds-row-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.ds-row-name {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.ds-row-sub {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.ds-row-value {
+  flex-shrink: 0;
+  font-size: var(--fs-4xl);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.ds-row-value--accent {
+  color: var(--c-accent);
+}
+
+/* CTA-sáv: a lap fő művelete. Teljes szélességű, nagybetűs, jobbra nyíllal.
+   Keskeny nézetben accent hátterű (a hüvelykujj alatt ez az egyetlen
+   művelet), széles nézetben panel hátterű, és hoveren vált accentre. */
+.ds-cta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-7);
+  width: 100%;
+  min-height: 64px;
+  padding: var(--sp-9) var(--sp-11);
+  border: 0;
+  /* A CTA nem mindig <button>: a Regeneráció lapján <a href="#checkin">.
+     Enélkül a böngésző alapértelmezett aláhúzása a sávra és az alcímére is
+     rákerül — a gomb aláhúzott szöveggel néz ki. */
+  text-decoration: none;
+  background: var(--c-accent);
+  color: var(--on-accent);
+  font-family: var(--font-base);
+  font-size: var(--fs-base);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background var(--t-fast),
+    opacity var(--t-fast);
+}
+
+/* A `:not(:disabled)` nem óvatoskodás: a terv-építő Mentés gombja az első
+   letiltható .ds-cta (mentés közben `disabled`), és a globális
+   `button:disabled { opacity: .55 }` fölött a `.ds-cta:hover` specificitása
+   nyer — letiltott gomb hoverre VILÁGOSABB lett volna, mint tiltás nélkül. */
+.ds-cta:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+/* Széles nézetben a CTA nem a hüvelykujj alatti egyetlen művelet, hanem egy
+   a lap elemei közül — ezért ott a panel-felületet viseli, és csak hoverre
+   vált accentre. A töréspont az app meglévő 1025px-e, nem a prototípus
+   1120px-e. A variáns SZÁNDÉKOSAN itt van, nem az oldalakon: különben
+   tizenegy helyen ismétlődne ugyanaz a media query. */
+@media (min-width: 1025px) {
+  .ds-cta {
+    background: var(--surface-panel);
+    border: 1px solid var(--hair);
+    color: var(--text-primary);
+  }
+
+  .ds-cta:hover:not(:disabled) {
+    background: var(--c-accent);
+    border-color: var(--c-accent);
+    color: var(--on-accent);
+    opacity: 1;
+  }
+}
+
+.ds-cta-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.ds-cta-sub {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: var(--ls-label-tight);
+  opacity: 0.72;
+  max-width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Léptető: −/+ egy soron belül. A 44px a --tap-min, nem véletlen szám. */
+.ds-step {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 1px;
+  background: var(--hair);
+}
+
+.ds-step-btn {
+  width: var(--tap-min);
+  height: var(--tap-min);
+  border: 0;
+  background: var(--c-bg);
+  color: var(--text-primary);
+  font-size: var(--fs-3xl);
+  font-weight: 800;
+  cursor: pointer;
+  transition: background var(--t-fast);
+}
+
+.ds-step-btn:hover {
+  background: var(--surface-hover);
+}
+
+.ds-step-value {
+  min-width: 88px;
+  padding: 0 var(--sp-5);
+  background: var(--c-bg);
+  font-size: var(--fs-2xl);
+  font-weight: 800;
+  line-height: var(--tap-min);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Szegmens-választó: összeérő gombok, az aktív accent hátterű. */
+.ds-seg {
+  display: flex;
+  gap: 1px;
+  background: var(--hair);
+}
+
+.ds-seg-btn {
+  flex: 1;
+  min-height: var(--tap-min);
+  padding: 0 var(--sp-5);
+  border: 0;
+  background: var(--c-bg);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background var(--t-fast),
+    color var(--t-fast);
+}
+
+.ds-seg-btn[aria-pressed='true'] {
+  background: var(--c-accent);
+  color: var(--on-accent);
+}
+
+/* ==========================================================================
+   3. Akadálymentességi segédosztályok
+   ========================================================================== */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: fixed;
+  top: var(--sp-3);
+  left: var(--sp-3);
+  z-index: var(--z-toast);
+  background: var(--c-paper);
+  color: var(--c-ink);
+  padding: var(--sp-3) var(--sp-5);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-200%);
+  transition: transform var(--t-fast);
+}
+
+.skip-link:focus {
+  transform: none;
+}
+
+/* ---- Érintési célterület ----------------------------------------------
+   Az ikongombok vizuálisan kicsik (18–34px), de az ujjnak 44px kell. A méret
+   növelése szétverné a sűrű elrendezéseket (szett-sor, kártya-fejléc), ezért
+   egy láthatatlan, középre igazított pszeudoelem tágítja a találati felületet.
+   A gomb saját geometriája változatlan marad.
+
+   A --tap egyedileg hangolható ott, ahol két gomb közel ül egymáshoz: a
+   szomszédos célterületek NEM fedhetnek át (a szett-sorban a ✕ különben
+   elnyelné a pipa szélét — és a törlés visszavonhatatlan).
+   ------------------------------------------------------------------------ */
+.tap-target {
+  position: relative;
+}
+
+.tap-target::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(100%, var(--tap, var(--tap-min)));
+  height: max(100%, var(--tap, var(--tap-min)));
+  transform: translate(-50%, -50%);
+}
+
+/* Finom mutatóeszközön (egér) nincs szükség a tágításra, és a láthatatlan
+   felület ott inkább zavarna a szomszédos elemek hoverénél. */
+@media (hover: hover) and (pointer: fine) {
+  .tap-target::after {
+    display: none;
+  }
+}
+
+/* ---- Célterület-hangolás komponensenként ----
+   Ahol két .tap-target közel ül egymáshoz, a --tap-ot szűkítjük annyira, hogy
+   a felületek ne érjenek össze. A számok a köztük lévő gap-hez igazodnak. */
+
+/* A gyakorlat-fejlécben a sorszám-választó, a PR-jelölő és a videó gomb
+   12px-re van egymástól: 2×5px kilógás fér el (lásd .wk-exercise-head gap). */
+.wk-pr-toggle,
+.wk-video-btn,
+.wk-order-trigger,
+.wk-exercise-remove {
+  --tap: 40px;
+}
+
+/* ---- Ahol a valódi méret növelhető, ott azt növeljük (chipek, szegmentált
+       váltók, listasorok): pszeudoelemmel átfednének a szomszédaikkal. ---- */
+.rc-chip,
+.pb-day,
+.ep-chip,
+.wk-toggle-btn,
+.co-toggle-btn,
+.co-action,
+.co-invite-btn,
+.co-invite-form button,
+.rc-save,
+.st-export,
+.ci-preset,
+.ci-primary {
+  min-height: 44px;
+}
+
+/* A kör alakú ikongombok arányát nem törjük el min-height-tal — ők a
+   .tap-target pszeudoelemmel nőnek (lásd az index.html osztálylistáit). */
+.rc-chip {
+  min-width: 44px;
+}
+
+/* Látható mezőfelirat (placeholder helyett) — a tartalom nem tűnik el gépeléskor */
+.field-label {
+  display: block;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: var(--sp-3);
+}
+
+/* ==========================================================================
+   4. App layout és oldalváltás
+   ========================================================================== */
+.app-page {
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: var(--sp-12) var(--sp-10) var(--nav-ring-clearance);
+  animation: page-in var(--t-slow);
+}
+
+/* Tablet (álló iPad, fekvő régebbi iPad): a telefonos felület marad (gyűrű,
+   egyoszlopos oldalak), de a 480px-es oszlop 820px-en 170, 1024px-en 272px
+   üres sávot hagyna mindkét oldalon. Az 1025px-es asztali lépcső alatt egy
+   szélesebb oszlop kitölti a helyet, az asztali elrendezés érintetlen. */
+@media (min-width: 768px) and (max-width: 1024px) {
+  :root {
+    --page-max: 680px;
+  }
+}
+
+/* Kis telefonon minden vízszintes pixel a tartalomé — a 2×22px oldalmargó a
+   360px-es kijelző 12%-a, és pont a szett-sor mezőitől veszi el. */
+@media (max-width: 380px) {
+  .app-page {
+    padding-left: var(--sp-7);
+    padding-right: var(--sp-7);
+  }
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+/* ==========================================================================
+   5. Oszlopdiagram (dashboard és workout oldalon közös komponens)
+   ========================================================================== */
+.chart {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  height: 140px;
+  margin-bottom: var(--sp-10);
+  padding-right: 44px; /* hely a jobb oldali tengelyfeliratoknak */
+}
+
+.chart-bars {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--sp-1);
+}
+
+.chart-bars span {
+  flex: 1;
+  height: var(--h);
+  min-width: 3px;
+  background: var(--fg-85);
+}
+
+/* A mai oszlop. Csak ott kap kiemelést, ahol a szerver megmondja, melyik az
+   (accentIndex) — a heti diagramok utolsó oszlopa vasárnap, nem a mai nap. */
+.chart-bars span.is-today {
+  background: var(--c-accent);
+}
+
+/* Nap-feliratok az oszlopok alatt. A .chart magasságán KÍVÜL ülnek, ezért a
+   konténer alsó margója adja a helyüket — különben az oszlopokba lógnának. */
+/* A feliratos változat (Áttekintés trend-diagramja) NEM használ jobb oldali
+   tengelyt: a dizájnban a napok neve a mérték, nem a skála. A tengely ezért
+   rejtve marad, és a helye is felszabadul az oszlopoknak. */
+.chart--labelled {
+  margin-bottom: var(--sp-13);
+  padding-right: 0;
+  gap: clamp(5px, 0.7vw, 10px);
+}
+
+.chart--labelled .chart-axis {
+  display: none;
+}
+
+.chart--labelled .chart-bars {
+  gap: clamp(5px, 0.7vw, 10px);
+}
+
+.chart-labels {
+  position: absolute;
+  left: 0;
+  right: 0; /* nincs tengely, tehát a teljes szélesség az oszlopoké */
+  top: calc(100% + var(--sp-2));
+  display: flex;
+  gap: clamp(5px, 0.7vw, 10px);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: var(--ls-label-tight);
+  color: var(--text-muted);
+}
+
+.chart-labels span {
+  flex: 1;
+  text-align: center;
+  overflow: hidden;
+}
+
+/* Terhelés-trend az áttekintőn: mobilon csak az utolsó hét látszik. A szerver
+   mind a 14 napot küldi, hogy a skála a két nézetben azonos maradjon; itt a
+   régebbi hetet rejtjük el, nem külön lekéréssel. A szabály SZÁNDÉKOSAN a
+   keskeny nézetre van szűkítve, nem desktopon felülírva: a `display` itt nem
+   írható vissza egy szóval, mert az oszlopok flex-elemek. */
+@media (max-width: 1024px) {
+  .db-trend .chart-bars span:nth-child(-n + 7),
+  .db-trend .chart-labels span:nth-child(-n + 7) {
+    display: none;
+  }
+}
+
+.chart-axis {
+  position: absolute;
+  right: 0;
+  top: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  text-align: right;
+}

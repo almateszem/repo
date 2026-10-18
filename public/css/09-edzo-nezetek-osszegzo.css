@@ -1,0 +1,517 @@
+/* Podium — 20–21: Edző oldal két nézete, edzés-összegző (su-*). (A sorrend a css/01-alap.css tartalomjegyzékében.) */
+
+/* ==========================================================================
+   20. Edző oldal — a két nézet
+   (nézetváltó, kliens chat a saját edzővel, meghívók, üres állapotok)
+   ========================================================================== */
+/* A nézetváltó az oldalfejlécben ül (.co-head): keskeny lapon teljes
+   szélességű sor a cím alatt, szélesebben a cím mellett. A container query
+   itt áll, nem a 10. szakaszban: ott ez az alap-szabály felülírná. */
+.co-toggle {
+  flex: 1 1 100%;
+}
+
+@container co-page (min-width: 600px) {
+  .co-toggle {
+    flex: 0 0 auto;
+    min-width: 320px;
+  }
+}
+
+/* A oldaltetőn ülő nézetváltó gombjai egyenlően osztoznak a szélességen */
+.co-toggle-btn {
+  flex: 1;
+  padding: var(--sp-3) var(--sp-5);
+}
+
+/* Jelvény a nézetváltón: hány függő meghívó vár a másik nézetben. Enélkül
+   a megjegyzett nézetválasztás elrejthetné a beérkezett meghívót. */
+.co-toggle-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: var(--sp-2);
+  padding: 0 5px;
+  background: var(--c-accent);
+  color: var(--on-accent);
+  font-size: var(--fs-2xs);
+  font-weight: 800;
+}
+
+/* ---- Kliens nézet: edző-fejléc ---- */
+.co-coach-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-2xl);
+  padding: var(--sp-6) var(--sp-7);
+  margin-bottom: var(--sp-7);
+}
+
+.co-coach-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--r-full);
+  background: var(--c-neutral);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.co-coach-avatar svg {
+  width: 26px;
+  height: 26px;
+  fill: var(--fg-70);
+}
+
+.co-coach-ident {
+  flex: 1;
+  min-width: 0;
+}
+
+.co-coach-name {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+
+.co-coach-role {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+/* ---- Kliens nézet: hírfolyam — oldal-kontextusban nem korlátozzuk 200px-re ---- */
+.co-client-feed {
+  max-height: none;
+  margin-bottom: var(--sp-6);
+}
+
+/* ---- Üres állapot (nincs egyik szerepkör sem) ---- */
+.co-empty {
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  color: var(--text-muted);
+  border: 1px solid var(--hair-soft);
+  padding: var(--sp-8);
+  margin: 0;
+}
+
+/* ---- Meghívók (mindkét irányban ugyanaz a sorminta) ---- */
+.co-invite-lead {
+  margin: 0 0 var(--sp-4);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.co-invite-list {
+  list-style: none;
+  /* A margó a listáé, nem a következő elemé: üresen a lista display:none, és
+     így a rés is vele tűnik el. */
+  margin: 0 0 var(--sp-6);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+/* Üresen ne hagyjon rést maga után a flex-elrendezésben */
+.co-invite-list:empty {
+  display: none;
+}
+
+.co-invite {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-xl);
+  padding: var(--sp-4) var(--sp-5);
+}
+
+.co-invite-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.co-invite-name {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+
+.co-invite-meta {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+/* Az edző kísérő sora a felajánlott tervnél. Idézet-jellegű, tehát dőlt és
+   halványabb — a terv neve marad a sor főszereplője. */
+.co-invite-note {
+  margin-top: 2px;
+  font-size: var(--fs-xs);
+  font-style: italic;
+  color: var(--text-faint);
+}
+
+.co-invite-actions {
+  display: flex;
+  gap: var(--sp-2);
+  flex-shrink: 0;
+}
+
+.co-invite-btn {
+  padding: var(--sp-2) var(--sp-5);
+  border: 1px solid var(--fg-20);
+  border-radius: var(--r-md);
+  background: none;
+  color: var(--text-secondary);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  transition:
+    background var(--t-fast),
+    color var(--t-fast),
+    border-color var(--t-fast);
+}
+
+.co-invite-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.co-invite-btn--primary {
+  background: var(--c-paper);
+  border-color: transparent;
+  color: var(--c-ink);
+}
+
+.co-invite-btn--primary:hover {
+  background: var(--c-paper-bright);
+  color: var(--c-ink);
+}
+
+/* ---- Meghívó űrlap (edzői nézet, oldalsáv) ----
+   A mező és a gomb egy összefüggő sáv két szegmense, 1px-es hajszálvonallal. */
+.co-invite-form {
+  display: flex;
+  gap: 1px;
+  margin: 0;
+  background: var(--hair);
+  border: 1px solid var(--hair);
+}
+
+.co-invite-form input {
+  flex: 1;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 var(--sp-6);
+  border: 0;
+  background: var(--c-bg-deep);
+  color: var(--text-primary);
+  font-size: var(--fs-input);
+  outline: none;
+  transition: background var(--t-fast);
+}
+
+.co-invite-form input:focus {
+  background: var(--c-bg-raised);
+}
+
+.co-invite-form input::placeholder {
+  color: var(--text-faint);
+}
+
+.co-invite-form button {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+  padding: 0 var(--sp-7);
+  border: 0;
+  background: var(--c-accent);
+  color: var(--on-accent);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  transition: opacity var(--t-fast);
+}
+
+.co-invite-form button:hover {
+  opacity: 0.9;
+}
+
+/* ---- Leválás az edzőről (a kliens fejléc jobb szélén) ---- */
+.co-unlink {
+  flex-shrink: 0;
+  padding: var(--sp-2) var(--sp-4);
+  border: 1px solid var(--fg-20);
+  border-radius: var(--r-md);
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  transition:
+    color var(--t-fast),
+    border-color var(--t-fast);
+}
+
+.co-unlink:hover {
+  color: var(--c-alert);
+  border-color: var(--c-alert);
+}
+
+/* ---- Terv kiosztása (a sportoló részletnézetének Terv fülén) ---- */
+.co-assign {
+  margin-top: var(--sp-6);
+  padding-top: var(--sp-6);
+  border-top: 1px solid var(--fg-08);
+}
+
+.co-assign-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.co-assign-label {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.co-assign-select,
+.co-assign-note {
+  width: 100%;
+  min-height: 44px;
+  padding: var(--sp-3) var(--sp-4);
+  background: none;
+  border: 1px solid var(--hair);
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.co-assign-hint,
+.co-assign-empty {
+  margin: 0;
+  font-size: var(--fs-xs);
+  line-height: 1.45;
+  color: var(--text-faint);
+}
+
+.co-assign-form button[type='submit'] {
+  margin-top: var(--sp-2);
+}
+
+/* ---- Üres üzenet-szál ---- */
+.co-msg-empty {
+  margin: 0;
+  padding: var(--sp-6) 0;
+  text-align: center;
+  font-size: var(--fs-sm);
+  color: var(--text-faint);
+}
+
+/* ---- Olvasatlan üzenetek ----
+   Az elválasztó egy címkézett vonal: innentől lefelé újdonság a tartalom.
+   A vonalat a ::before/::after húzza, hogy a felirat középen üljön benne. */
+.co-msg-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  margin: var(--sp-2) 0;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.co-msg-divider::before,
+.co-msg-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--c-accent);
+  opacity: 0.35;
+}
+
+/* Az olvasatlan BEÉRKEZŐ üzenet bal oldali sávot kap. A jelölés így nem
+   színezi át a buborékot (a szöveg kontrasztja marad), csak megmutatja,
+   meddig tart az újdonság. */
+.co-note--unread {
+  box-shadow: inset 3px 0 0 var(--c-accent);
+}
+
+/* ---- Beállítások: a szekciók magyarázó sora ---- */
+.st-section-hint {
+  margin: var(--sp-3) 0 0;
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+}
+
+/* ==========================================================================
+   21. Edzés-összegző oldal (su-*) + kapcsolódó belépési pontok
+   ========================================================================== */
+
+/* ---- Edzés befejezése gomb (workout oldal, elsődleges lezáró művelet) ----
+   A formát a .ds-cta adja (osztályként fel van téve): teljes szélesség, 64px,
+   nagybetűs felirat, keskeny nézetben accent háttér, szélesben panel. Itt csak
+   a lap-specifikus margó marad — a saját méret- és színszabályok törölve, hogy
+   a lap fő művelete pontosan úgy nézzen ki, mint a többi lapé. */
+.wk-finish {
+  margin: 0 0 var(--sp-12);
+}
+
+.wk-finish-arrow {
+  font-size: var(--fs-2xl);
+  transition: transform var(--t-fast);
+}
+
+.wk-finish:hover .wk-finish-arrow {
+  transform: translateX(3px);
+}
+
+/* ---- Az összegző oldal maga ---- */
+/* A középre igazítás a fejlécre és a hősre szűkült. Lap-szinten nem
+   maradhatott: a .ds-row space-between elrendezésében a bal oldali név és a
+   jobb oldali érték is befelé húzódna, és a sor szétesne. A .su-note és a
+   .su-feedback saját `text-align: left`-je ezzel feleslegessé vált, de
+   ártalmatlan — a 20. task takarítása viszi el. */
+.su-header,
+.su-hero {
+  text-align: center;
+}
+
+.su-header {
+  margin: var(--sp-14) 0 var(--sp-11);
+}
+
+.su-kicker {
+  display: block;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: var(--sp-4);
+}
+
+.su-title {
+  margin: 0 0 var(--sp-5);
+  font-size: var(--fs-display);
+  font-weight: 800;
+  line-height: 1.1;
+  overflow-wrap: break-word;
+}
+
+.su-quote {
+  margin: 0;
+  font-size: var(--fs-md);
+  color: var(--fg-70);
+}
+
+/* PR-kiemelés — a workout PR-jelvényét használja újra */
+.su-pr {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-4);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--fg-85);
+  background: var(--c-accent-dim);
+  border: 1px solid var(--c-accent-line);
+  border-radius: var(--r-xl);
+  padding: var(--sp-5) var(--sp-7);
+  margin: 0 0 var(--sp-9);
+}
+
+/* A két egyenrangú kártya helyett hős + kísérő sor. A két szám nem
+   egyenrangú: a teljesített szett az edzés eredménye, az időtartam csak
+   kíséri. */
+.su-stats {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: var(--sp-13);
+}
+
+.su-hero {
+  padding-bottom: var(--sp-11);
+  animation: note-in 0.3s ease backwards;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+
+/* A .ds-display adja a súlyt és a tabular-nums-ot; a méret a lap hőséé. */
+.su-hero-value {
+  --ds-display-size: clamp(64px, 18vw, 88px);
+  white-space: nowrap;
+}
+
+.su-hero-label {
+  margin: var(--sp-5) 0 0;
+}
+
+/* A kísérő sor formáját a .ds-row adja; itt csak a beúszás marad. A kártya
+   háttere, kerete és belső margója elmarad. */
+.su-stat {
+  animation: note-in 0.3s ease backwards;
+  animation-delay: calc(var(--i, 0) * 70ms);
+}
+
+/* Az egység mindkét helyen kicsi és halvány — a hősön a „/összes", a soron a
+   „perc". Az em-alapú méret a szülő betűméretéhez tapad, ezért működik a
+   88px-es hősön és a sor értékén is. */
+.su-stat-unit {
+  font-size: 0.42em;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-left: var(--sp-1);
+}
+
+.su-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-7);
+}
+
+/* A formát a .ds-cta adja (osztályként fel van téve). A korábbi 340px-es
+   középre igazított gomb helyett teljes szélességű sáv — a .su-actions
+   `align-items: center`-je emiatt `stretch`-re vált, különben a flex-oszlop
+   a 100%-os szélességet is összehúzná. */
+
+.su-cta-arrow {
+  font-size: var(--fs-2xl);
+  transition: transform var(--t-fast);
+}
+
+.su-cta:hover .su-cta-arrow {
+  transform: translateX(3px);
+}
+
+.su-back {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--fg-60);
+  text-decoration: none;
+  border-bottom: 1px solid var(--fg-25);
+  padding-bottom: 1px;
+  transition:
+    color var(--t-fast),
+    border-color var(--t-fast);
+}
+
+.su-back:hover {
+  color: var(--text-primary);
+  border-color: var(--fg-60);
+}

@@ -1,0 +1,2297 @@
+/* Podium — 24–25: étel részlet-modál (fd-*), check-in varázsló (ci-*). (A sorrend a css/01-alap.css tartalomjegyzékében.) */
+
+/* ==========================================================================
+   24. Étel részlet-modál (fd-*) — adagválasztás naplózás előtt
+   A Táplálkozás oldal étel-kártyáinak nyila nyitja. A korábbi viselkedés fix
+   100 g-os adagot naplózott; itt a felhasználó a görgethető gramm-választóval
+   (vagy a gyorsgombokkal) állítja be a valódi adagot, és rögtön látja, mit
+   tesz hozzá a napi célhoz.
+   ========================================================================== */
+.food-modal-card {
+  max-width: 440px;
+  /* Az akció-sáv a kártya aljára tapad, ezért ott nem kell külön belső térköz */
+  padding-bottom: 0;
+}
+
+.fd-ident {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+/* Az étel-modál címe maga az étel NEVE — tulajdonnév, nem rovatnév. A közös
+   fejléc-recept (mono, nagybetűs, halvány) itt teljes egészében vissza van
+   vonva, nem csak a mérete: a betűcsalád, a ritkítás, a nagybetűsítés és a
+   halvány szín mind átütne rá. */
+.food-modal-head h3 {
+  font-family: var(--font-base);
+  font-size: var(--fs-3xl);
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  text-transform: none;
+  color: var(--text-primary);
+}
+
+.fd-tag {
+  background: var(--surface-strong);
+  color: var(--text-secondary);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 3px var(--sp-3);
+  border-radius: var(--r-xs);
+}
+
+/* ---- Bélyegkép + a választott adagra átszámolt makrók ---- */
+.fd-hero {
+  display: flex;
+  gap: var(--sp-7);
+  align-items: stretch;
+  margin-bottom: var(--sp-9);
+}
+
+/* Az ételekhez nincs fotó az adatbázisban — a monogramos csempe tartja a
+   tervezett elrendezés arányait anélkül, hogy üres helyet hagyna. */
+.fd-photo {
+  flex: 0 0 42%;
+  aspect-ratio: 1;
+  /* A négyzetes arányt a nyújtás felülírná — a sor magasságát a csempe adja,
+     a makró-oszlop (és az elválasztó vonala) nyúlik hozzá. */
+  align-self: start;
+  border-radius: var(--r-3xl);
+  background: radial-gradient(at 30% 20%, var(--fg-10), transparent 60%), var(--surface-card);
+  border: 1px solid var(--border-card);
+  display: grid;
+  place-items: center;
+}
+
+.fd-photo-glyph {
+  font-size: var(--fs-5xl);
+  font-weight: 800;
+  color: var(--fg-25);
+  line-height: 1;
+}
+
+.fd-macros {
+  flex: 1;
+  min-width: 0;
+  border-left: 1px solid var(--fg-25);
+  padding-left: var(--sp-7);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: var(--sp-6);
+  text-align: right;
+}
+
+.fd-macro-value {
+  display: block;
+  font-size: var(--fs-4xl);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.fd-macro-unit {
+  font-size: 0.5em;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-left: 3px;
+}
+
+.fd-macro-label {
+  display: block;
+  font-size: var(--fs-2xs);
+  color: var(--text-faint);
+  margin-top: var(--sp-1);
+}
+
+.fd-portion {
+  margin: 0;
+  font-size: var(--fs-xs);
+  color: var(--text-faint);
+  letter-spacing: 0.03em;
+}
+
+/* ---- Napi cél ---- */
+.fd-goals {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  margin-bottom: var(--sp-9);
+}
+
+.fd-goal-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-2);
+}
+
+.fd-goal-label {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.fd-goal-value {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.fd-goal-track {
+  height: 4px;
+  background: var(--fg-10);
+  overflow: hidden;
+}
+
+.fd-goal-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--c-ok);
+  transition: width var(--t-slow);
+}
+
+.fd-goal-track--paper .fd-goal-fill {
+  background: var(--c-paper);
+}
+
+/* A célt túllépő rész figyelmeztet — a bevitel nem hiba, de látszódjon */
+.fd-goal-track.is-over .fd-goal-fill {
+  background: var(--c-alert);
+}
+
+.fd-goal-delta {
+  margin: 0;
+  font-size: var(--fs-2xs);
+  color: var(--text-faint);
+}
+
+/* ---- Gyors adag ---- */
+.fd-section-label {
+  display: block;
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-bottom: var(--sp-5);
+}
+
+.fd-quick {
+  margin-bottom: var(--sp-9);
+}
+
+.fd-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+}
+
+.fd-chip {
+  background: var(--surface-input);
+  border: 1px solid var(--border-card);
+  color: var(--text-secondary);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  padding: var(--sp-2) var(--sp-6);
+  transition:
+    background var(--t-fast),
+    color var(--t-fast),
+    border-color var(--t-fast);
+}
+
+.fd-chip:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.fd-chip[aria-pressed='true'] {
+  background: var(--c-paper);
+  border-color: var(--c-paper);
+  color: var(--c-ink);
+}
+
+/* ---- Ma ebből ---- */
+.fd-today {
+  margin-bottom: var(--sp-9);
+}
+
+.fd-today-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.fd-today-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-5);
+  padding: var(--sp-4) 0;
+}
+
+.fd-today-item + .fd-today-item {
+  border-top: 1px solid var(--hair-soft);
+}
+
+.fd-today-meta {
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+}
+
+.fd-today-value {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.fd-today-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-5);
+  padding: var(--sp-3) var(--sp-6) 0;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.fd-today-total span:last-child {
+  font-size: var(--fs-md);
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+/* ---- Akció-sáv: a kártya aljára tapad, hogy görgetés közben is elérhető ---- */
+.fd-bar {
+  position: sticky;
+  bottom: 0;
+  margin: 0 calc(var(--sp-10) * -1); /* a kártya belső térközén túlnyúlva teljes szélességű */
+  padding: var(--sp-6) var(--sp-10) var(--sp-10);
+  /* A gradiensnek a KÁRTYA hátterével kell kezdődnie, különben a sáv alól
+     kilátszik egy másik színű csík. A 17. taskban a kártya --c-bg-raised-ről
+     --surface-panel-re váltott, ezért ez is. */
+  background: linear-gradient(to top, var(--surface-panel) 70%, transparent);
+}
+
+.fd-bar-inner {
+  background: var(--c-paper);
+  border-radius: var(--r-3xl);
+  padding: var(--sp-5) var(--sp-8);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  box-shadow: var(--shadow-modal);
+}
+
+.fd-add {
+  background: none;
+  border: none;
+  color: var(--c-ink);
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  padding: var(--sp-2) var(--sp-1);
+  transition: opacity var(--t-fast);
+}
+
+.fd-add:hover {
+  opacity: 0.6;
+}
+
+.fd-go {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 auto;
+  border: 1.5px solid rgba(17, 17, 17, 0.55);
+  background: none;
+  color: var(--c-ink);
+  font-size: var(--fs-2xl);
+  display: grid;
+  place-items: center;
+  transition: background var(--t-fast);
+}
+
+.fd-go:hover {
+  background: rgba(17, 17, 17, 0.08);
+}
+
+/* ---- Görgethető gramm-választó ----
+   A tekerő magassága pontosan egy elem + a fölötte-alatta lévők fele, így a
+   kiválasztott érték mindig a középső keretben ül. A scroll-snap végzi a
+   beugratást, a JS csak leolvassa a legközelebbi elemet. */
+.fd-picker-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.fd-picker {
+  --fd-item-h: 24px;
+  width: 62px;
+  height: calc(var(--fd-item-h) * 4);
+  padding: calc(var(--fd-item-h) * 1.5) 0;
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(transparent, #000 34%, #000 66%, transparent);
+  mask-image: linear-gradient(transparent, #000 34%, #000 66%, transparent);
+}
+
+.fd-picker::-webkit-scrollbar {
+  display: none;
+}
+
+.fd-picker:focus-visible {
+  outline: 2px solid rgba(17, 17, 17, 0.6);
+  outline-offset: 2px;
+  border-radius: var(--r-sm);
+}
+
+.fd-picker-option {
+  height: var(--fd-item-h);
+  line-height: var(--fd-item-h);
+  scroll-snap-align: center;
+  text-align: center;
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  color: rgba(17, 17, 17, 0.32);
+  transition:
+    color var(--t-fast),
+    font-size var(--t-fast);
+}
+
+.fd-picker-option.is-selected {
+  font-size: var(--fs-xl);
+  font-weight: 800;
+  color: var(--c-ink);
+}
+
+.fd-picker-frame {
+  position: absolute;
+  left: 0;
+  width: 62px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 26px;
+  border: 1.5px solid rgba(17, 17, 17, 0.45);
+  border-radius: var(--r-xs);
+  pointer-events: none;
+}
+
+.fd-picker-unit {
+  color: var(--c-ink);
+  font-size: var(--fs-xl);
+  font-weight: 700;
+}
+
+/* Mozgásérzékenység: a választó ne animáljon, csak ugorjon */
+@media (prefers-reduced-motion: reduce) {
+  .fd-picker-option,
+  .fd-goal-fill {
+    transition: none;
+  }
+}
+
+/* ==========================================================================
+   25. Napi check-in varázsló (ci-*) — a #checkin flow-oldal
+   Egy kérdés / egy képernyő, fix 460px-es oszlop minden méreten.
+   Újrahasznált primitívek (nem írjuk újra őket):
+     · .wk-num / .wk-num-step  — a szám-lépések ± léptetőjének alaprétege
+     · .ds-eyebrow             — minden lépés felkiáltója (a .ci-eyebrow mellé)
+     · .ds-display             — a nyitócím, a nagy szám és a készenlét-szám
+                                  jelölője; a TÉNYLEGES méretet itt is helyi
+                                  --ci-fs-* clamp adja, nem --fs-5xl (lásd a
+                                  .app-page.ci-page komment a fix oszlopról)
+     · .ds-cta                 — minden elsődleges gomb (Kezdés/Tovább/Mentés)
+     · .ds-step / .ds-step-btn — a szám-lépések ± párja (osztályként FEL van
+                                  téve, de a .ci-round-btn/.ci-num-dial saját
+                                  szabálya írja explicit ugyanezeket az
+                                  értékeket — a megosztott .wk-num alapréteg
+                                  cascade-sorrendje enélkül átütne)
+     · .ds-grid                — a gyorsgombok sora (a gomb maga JS-generált,
+                                  saját .ci-preset szabállyal követi a receptet)
+     · .ds-seg                 — az 1–5 skála csoportja (a gomb JS-generált,
+                                  saját .ci-scale-btn szabállyal)
+     · .ds-row                 — az összegzés listája (a név/érték saját
+                                  tipográfiája marad — lásd a .ci-summary-
+                                  label komment az okról)
+     · .ds-section             — az összegzés két blokkja (készenlét-panel,
+                                  majd a lista) között
+   A .ci-back NEM az .ep-back listájában él többé: saját, 44px-es szabályt
+   kapott lent (a 23. szakasz .ep-back-je 38px maradt, változatlanul).
+   A testtérkép (Elöl/Hátul váltó, régiók, érték-chipek) NEM itt él: saját
+   komponens és saját szakasz (bm-*), lásd bodymap/index.js. Korábban a
+   .wk-toggle-btn és a .rc-chip volt rá újrahasználva — ez már nem igaz.
+   ========================================================================== */
+
+/* A .app-page.ci-page (0-2-0) szándékos: a ≥1025px-es .app-page szabállyal
+   azonos specificitású, de később jön, így nem szélesedik ki. */
+.app-page.ci-page {
+  max-width: 460px;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  /* A varázsló saját kiemelt méretei. Az --fs-* tokenek ≥1025px-en egy
+     fokozatot lépnek, ami a fix szélességű oszlopban törné a nagy számot
+     és a nyitócímet — ezért ez a kettő nem token, hanem helyi clamp.
+     A 10. feladat a nyitócímet ~56px-re, a nagy számot ~72px-re nagyítja
+     (a prototípus mérete) — MARADT a vw-alapú clamp, ugyanazzal az okkal:
+     a fix oszlop nem ismeri a token-töréspontot, csak a valós viewportot. */
+  --ci-fs-display: clamp(34px, 13vw, 56px);
+  --ci-fs-number: clamp(46px, 17vw, 72px);
+}
+
+/* Célkitűzés a sportoló-részletnézet Táplálkozás fülén. A mezők a Táplálkozás oldal
+   .nu-goal-field primitívjét használják — egy űrlap-recept, két helyen. */
+.co-modal-goal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.co-goal-state {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.co-goal-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-4);
+}
+
+/* Víz-cél és étrend a Táplálkozás fülön: hajszálvonallal elválasztott
+   blokkok. A mezők és a gombok ugyanazt a .nu-goal-* receptet használják,
+   mint a napi cél. */
+.co-water-goal,
+.co-meals {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  margin-top: var(--sp-8);
+  padding-top: var(--sp-7);
+  border-top: 1px solid var(--hair);
+}
+
+/* Másodlagos, körvonalas gomb — a .nu-goal-save méretével, hogy mellette
+   egy vonalban üljön (Automatikus, + Új étkezés, Átveszem napi célnak). */
+.co-ghost-btn {
+  flex-shrink: 0;
+  border: 1px solid var(--hair);
+  padding: var(--sp-3) var(--sp-7);
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    color var(--t-fast),
+    background var(--t-fast),
+    border-color var(--t-fast);
+}
+
+.co-ghost-btn:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+
+.co-ghost-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.co-meals-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
+
+.co-meal-list,
+.co-meal-lines,
+.co-meal-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.co-meal-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+/* Étkezés-kártya — a sportoló oldali .nu-meals kártya-receptje. */
+.co-meal {
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-2xl);
+  padding: var(--sp-5) var(--sp-6);
+}
+
+.co-meal-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.co-meal-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.co-meal-name {
+  font-size: var(--fs-md);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.co-meal-macros {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.co-meal-kcal {
+  flex-shrink: 0;
+  margin-right: var(--sp-2);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.co-meal-eaten {
+  flex-shrink: 0;
+  padding: 2px var(--sp-3);
+  border: 1px solid rgba(74, 210, 149, 0.4); /* --c-ok halványan */
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  color: var(--c-ok);
+  white-space: nowrap;
+}
+
+/* Ikon-gomb a kártya fejében — a .nu-log-remove mintája. */
+.co-icon-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color var(--t-fast),
+    background var(--t-fast);
+}
+
+.co-icon-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+.co-icon-btn:hover {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}
+
+.co-icon-btn--danger:hover {
+  color: var(--c-alert);
+}
+
+/* Tételek: étel | gramm | makrók, számok jobbra igazítva. */
+.co-meal-lines {
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--hair-soft);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.co-meal-lines li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: var(--sp-5);
+}
+
+.co-meal-lines li span:first-child {
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.co-meal-lines li span:not(:first-child) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Összesítő kártya: kcal és fehérje a napi célhoz mérve. */
+.co-meals-total {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  background: var(--surface-soft);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-2xl);
+  padding: var(--sp-6);
+}
+
+.co-meals-total-title {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.co-total-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.co-total-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-4);
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.co-total-label {
+  color: var(--text-muted);
+}
+
+.co-total-value {
+  flex: 1;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+
+.co-total-delta {
+  color: var(--text-muted);
+}
+
+.co-total-delta.is-over {
+  color: var(--c-alert);
+}
+
+/* A .nu-water-track receptje: a cél elérése kap csak akcentust. */
+.co-total-track {
+  height: 6px;
+  background: var(--fg-10);
+  overflow: hidden;
+}
+
+.co-total-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--fg-55);
+  transition:
+    width var(--t-slow),
+    background var(--t-base);
+}
+
+.co-total-track.is-full .co-total-fill {
+  background: var(--c-accent);
+}
+
+.co-meals-total .co-ghost-btn {
+  align-self: flex-end;
+}
+
+.co-meal-form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-4);
+}
+
+.co-meal-form > .nu-goal-field,
+.co-meal-items {
+  width: 100%;
+}
+
+.co-meal-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-4);
+  padding-bottom: var(--sp-4);
+}
+
+.co-meal-food {
+  flex: 3 1 200px;
+}
+
+.co-meal-grams {
+  flex: 1 1 90px;
+}
+
+.co-meal-item-macros {
+  flex: 1 1 160px;
+  align-self: center;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.co-meal-sum {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+
+.co-meal-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+}
+
+/* Mire épül a gyakorlat-ajánlás — csak a bemondott felmérésnél látszik. */
+.rc-lift-basis {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-top: var(--sp-2);
+}
+
+/* ---- Testösszetétel (rc-body-*) ---- */
+.rc-body-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+.rc-body-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+  gap: var(--sp-4);
+}
+
+.rc-body-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.rc-body-field label {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.rc-body-field input {
+  width: 100%;
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--hair);
+  background: none;
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.rc-body-field input:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+
+.rc-body-save {
+  align-self: flex-start;
+  border: 0;
+  padding: var(--sp-3) var(--sp-8);
+  background: var(--c-accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rc-body-save:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.rc-body-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  list-style: none;
+  margin-top: var(--sp-5);
+}
+
+.rc-body-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-4);
+  font-size: var(--fs-2xs);
+}
+
+.rc-body-row-label {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.rc-body-row-value {
+  font-weight: 600;
+}
+
+.rc-body-row-delta {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.rc-body-del {
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+  padding: var(--sp-2);
+  border-radius: var(--r-md);
+}
+
+.rc-body-del:hover {
+  color: var(--c-alert);
+}
+
+/* A napló-adag beépített szerkesztője (a ház nem használ natív ablakot). */
+.nu-log-grams {
+  width: 84px;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  border: 1px solid var(--c-accent);
+  background: var(--surface-strong);
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-2xs);
+}
+
+/* ---- Testsúly-bejegyzések javítása (rc-weight-list) ---- */
+.rc-weight-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  list-style: none;
+  margin-top: var(--sp-4);
+}
+
+.rc-weight-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  font-size: var(--fs-2xs);
+}
+
+.rc-weight-date {
+  color: var(--text-muted);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.rc-weight-input {
+  width: 72px;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-card);
+  background: var(--surface-strong);
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  text-align: right;
+}
+
+.rc-weight-input:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+
+.rc-weight-del {
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+  padding: var(--sp-2);
+  border-radius: var(--r-md);
+}
+
+.rc-weight-del:hover {
+  color: var(--c-alert);
+}
+
+/* Terv törlése és naplóadag-javítás — a meglévő ikongombok testvérei. */
+.pl-card-delete,
+.nu-log-edit {
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+}
+
+.pl-card-delete:hover {
+  color: var(--c-alert);
+}
+
+.nu-log-edit:hover {
+  color: var(--text-primary);
+}
+
+/* ---- Erőfelmérés a profilon (pf-assess-*) ----
+   A mezők a .nu-goal-field receptjét követik — egy űrlap-alak, több helyen. */
+/* A szekció külső térközét a .pf-section adja (27. szakasz); itt már csak a
+   szekció TÖRZSÉN belüli elemek elrendezése marad. */
+.pf-assess-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.pf-assess-lead,
+.pf-assess-note,
+.pf-assess-empty {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.pf-assess-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  list-style: none;
+  /* A böngésző alap <ul>-margója és 40px-es behúzása — a többi lista (pl.
+     .db-side-list) is maga nullázza, globális lista-reset nincs. */
+  margin: 0;
+  padding: 0;
+}
+
+.pf-assess-item {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  background: var(--surface-strong);
+  border-radius: var(--r-lg);
+  padding: var(--sp-4) var(--sp-5);
+  font-size: var(--fs-sm);
+}
+
+.pf-assess-item b {
+  font-weight: 600;
+}
+
+.pf-assess-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-4);
+}
+
+.pf-assess-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+  flex: 1 1 96px;
+}
+
+.pf-assess-field--wide {
+  flex: 2 1 180px;
+}
+
+.pf-assess-field label {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.pf-assess-field input {
+  width: 100%;
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--hair);
+  background: none;
+  color: var(--fg-100);
+  font: inherit;
+  /* NEM --fs-sm (12px): 16px alatt az iOS Safari fókuszkor ráközelít a lapra,
+     és nem nagyít vissza — ugyanaz a csapda, amiért az edzésnapló szám-mezői
+     is ezt a tokent viszik. */
+  font-size: var(--fs-input);
+}
+
+.pf-assess-field input:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+
+.pf-assess-save {
+  border: 0;
+  padding: var(--sp-3) var(--sp-7);
+  min-height: var(--tap-min);
+  background: var(--c-accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pf-assess-save:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ---- Gyakorlat-megjegyzések (su-note-*) ----
+   Itt korábban négy co-note szabály is állt: a .co-note-meta, a .co-note-text
+   és a .co-note--me SZÓ SZERINTI másolata a 10. és a 16. szakaszban lévőknek,
+   plusz egy .co-note--plan, amit sem a markup, sem a JS nem tesz fel senkire.
+
+   A három másolat nem volt ártalmatlan: mivel később álltak a fájlban, ŐK
+   nyertek — a 10. szakaszban átírt buborék-stílus némán hatástalan maradt
+   volna. Ezért törölve; a szabályok egyetlen helyen élnek tovább. */
+
+/* A két űrlap-blokk (visszajelzés és gyakorlat-megjegyzés) azonos szerepű és
+   azonos formájú: a .ds-section ritmusát viselik, kártya nélkül. A korábbi
+   `text-align: left` a lap-szintű középre igazítás szűkítése óta tárgytalan. */
+.su-note,
+.su-feedback {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  padding-top: var(--sp-11);
+  border-top: 1px solid var(--hair);
+  margin-top: var(--sp-11);
+}
+
+.su-note-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.su-note-select,
+.su-note-text {
+  width: 100%;
+  padding: var(--sp-4) var(--sp-5);
+  border: 1px solid var(--hair);
+  background: none;
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.su-note-text::placeholder {
+  color: var(--text-muted);
+}
+
+.su-note-select:focus-visible,
+.su-note-text:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+
+.su-note-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  list-style: none;
+}
+
+.su-note-item {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.su-note-item b {
+  color: var(--fg-100);
+  font-weight: 600;
+}
+
+.co-modal-notes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.co-note-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.co-note-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  background: var(--surface-strong);
+  border-radius: var(--r-lg);
+  padding: var(--sp-5);
+}
+
+.co-note-head {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.co-note-body {
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.co-note-reply {
+  display: flex;
+  gap: var(--sp-3);
+}
+
+.co-note-reply input {
+  flex: 1;
+  min-width: 0;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border-card);
+  background: var(--surface-card);
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-2xs);
+}
+
+.co-note-reply button {
+  border: 0;
+  padding: 0 var(--sp-6);
+  background: var(--c-accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.co-note-reply button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ---- Edzés utáni visszajelzés (su-feedback-*) + edzői megjelenítése ---- */
+.su-feedback-title {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+
+.su-feedback-lead {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.su-feedback-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+}
+
+.su-feedback-scales {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+}
+
+.su-feedback-note {
+  width: 100%;
+  resize: vertical;
+  min-height: 62px;
+  padding: var(--sp-5);
+  border: 1px solid var(--hair);
+  background: none;
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.su-feedback-note::placeholder {
+  color: var(--text-muted);
+}
+
+.su-feedback-note:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+
+.su-feedback-send {
+  align-self: flex-start;
+  padding: var(--sp-4) var(--sp-8);
+  border: 0;
+  background: var(--c-accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity var(--t-base);
+}
+
+.su-feedback-send:hover {
+  opacity: 0.9;
+}
+
+.su-feedback-send:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.su-feedback-done {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--c-ok);
+}
+
+.co-modal-feedback {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  background: var(--surface-strong);
+  border-radius: var(--r-lg);
+  padding: var(--sp-6);
+}
+
+.co-feedback-meta {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.co-feedback-note {
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+/* ---- Napi táplálkozási cél (nu-goal-*) ----
+   A cél két forrásból jöhet (edzői / saját), ezért nem elég egy szám: a
+   származást és az esetleges eltérést is ki kell írni. */
+/* ---- Vízmérő ----
+   A napi cél nem beégetett 3 liter: a szerver a Recovery Engine képletéből
+   adja (~33 ml/testsúlykg), és a felület csak kiírja. */
+.nu-water {
+  margin-bottom: var(--sp-9);
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-2xl);
+  padding: var(--sp-6) var(--sp-7);
+}
+
+.nu-water-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+
+.nu-water-title {
+  margin: 0;
+  font-size: var(--fs-base);
+  font-weight: 700;
+}
+
+.nu-water-goal {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--ls-label-tight);
+  color: var(--text-muted);
+}
+
+.nu-water-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-5);
+  margin-bottom: var(--sp-5);
+}
+
+.nu-water-value {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  font-size: var(--fs-5xl);
+  font-weight: 800;
+  letter-spacing: var(--ls-display);
+  font-variant-numeric: tabular-nums;
+}
+
+.nu-water-unit {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--ls-label);
+  color: var(--text-muted);
+}
+
+.nu-water-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  flex-shrink: 0;
+}
+
+.nu-water-add {
+  border: 1px solid var(--c-accent);
+  border-radius: var(--r-md);
+  background: var(--c-accent);
+  color: var(--on-accent);
+  padding: var(--sp-4) var(--sp-7);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: opacity var(--t-fast);
+}
+
+.nu-water-add:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* A visszavonás szándékosan halkabb: a gyakori művelet a hozzáadás. */
+.nu-water-undo {
+  border: none;
+  background: none;
+  padding: var(--sp-3);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition: color var(--t-fast);
+}
+
+.nu-water-undo:hover {
+  color: var(--text-primary);
+}
+
+.nu-water-track {
+  height: 6px;
+  background: var(--fg-10);
+  overflow: hidden;
+}
+
+.nu-water-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--fg-55);
+  transition:
+    width var(--t-slow),
+    background var(--t-base);
+}
+
+/* A cél elérése az EGYETLEN hely, ahol a sáv akcentust kap — így a kiemelés
+   valamit jelent, nem csak díszít. */
+.nu-water-track.is-full .nu-water-fill {
+  background: var(--c-accent);
+}
+
+.nu-goal {
+  margin-bottom: var(--sp-9);
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-2xl);
+  padding: var(--sp-6) var(--sp-7);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+/* Az edződ étrendje — ugyanaz a kártya-recept, mint a napi célé. */
+.nu-meals {
+  margin-bottom: var(--sp-9);
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-2xl);
+  padding: var(--sp-6) var(--sp-7);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.nu-meal-list,
+.nu-meal-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.nu-meal {
+  padding: var(--sp-4) 0;
+  border-top: 1px solid var(--hair);
+}
+
+.nu-meal-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+}
+
+.nu-meal-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.nu-meal-name {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+
+.nu-meal-macros,
+.nu-meal-items {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.nu-meal-kcal {
+  flex-shrink: 0;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.nu-meal-items {
+  margin-top: var(--sp-2);
+  line-height: 1.6;
+}
+
+.nu-goal-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
+
+.nu-goal-title {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+
+.nu-goal-edit,
+.nu-goal-revert {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.nu-goal-value {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+
+.nu-goal-source {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.nu-goal-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-4);
+  margin-top: var(--sp-2);
+}
+
+.nu-goal-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+  flex: 1 1 110px;
+}
+
+.nu-goal-field label {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.nu-goal-field input {
+  width: 100%;
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--hair);
+  background: none;
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.nu-goal-field input:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+
+.nu-goal-save {
+  border: 0;
+  padding: var(--sp-3) var(--sp-7);
+  background: var(--c-accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.nu-goal-save:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ---- Készenlét-javaslat (ad-*) + terv-kártya biztonsági jelzése ---- */
+.ad-list {
+  list-style: none;
+  margin: var(--sp-5) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  /* Sok gyakorlatnál se nőjön ki az ablak a képernyőből. */
+  max-height: 42vh;
+  overflow-y: auto;
+}
+
+.ad-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-4);
+  background: var(--surface-soft);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-lg);
+  padding: var(--sp-4) var(--sp-5);
+}
+
+.ad-item-action {
+  flex-shrink: 0;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: var(--sp-1) var(--sp-3);
+  border-radius: var(--r-2xs);
+  background: var(--surface-strong);
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.ad-item--drop .ad-item-action {
+  background: var(--c-accent);
+  color: var(--on-accent);
+}
+
+.ad-item-body {
+  min-width: 0;
+}
+
+.ad-item-name {
+  display: block;
+  font-size: var(--fs-base);
+  font-weight: 600;
+}
+
+.ad-item-detail {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.ad-note {
+  margin: var(--sp-5) 0 0;
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  color: var(--text-faint);
+}
+
+.pl-card-safety {
+  display: block;
+  margin-top: var(--sp-2);
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.pl-card-safety.is-blocked {
+  color: var(--c-alert);
+  font-weight: 600;
+}
+
+/* ---- Onboarding: az ELSŐ check-in ----
+   A frissen regisztrált fiók csak ezen a lapon jár, amíg ki nem tölti (a
+   script.js `onboardingLock`-ja teszi a [data-onboarding] jelzőt a body-ra).
+   A navigációt el is rejtjük: a JS-őr enélkül is visszaterelne, de egy
+   kattintásra némán visszapattanó menü rossz élmény.
+
+   A fejléc-sáv is rejtve marad: a profil- és értesítés-gombja a zár miatt
+   úgysem vinne sehova, a kijárat pedig a bevezető lépés „Kijelentkezés"
+   linkje — ott van, ahol a felhasználó éppen néz. */
+body[data-onboarding] .app-chrome,
+body[data-onboarding] .side-nav,
+body[data-onboarding] .nav-ring-wrap,
+body[data-onboarding] .nav-ring-fade {
+  display: none;
+}
+
+body[data-onboarding] .app-page.ci-page {
+  padding-bottom: var(--sp-12);
+}
+
+/* ---- Fejléc: vissza gomb + folyamatsáv + lépésszám ---- */
+
+.ci-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+  margin-bottom: var(--sp-2);
+}
+
+/* Kerek vissza gomb — NEM az .ep-back-kel közös többé (23. szakasz): itt
+   44px, mert ez a fejléc-sáv elsődleges érintési célpontja (a prototípus
+   mérete), az .ep-back 38px-e viszont a gyakorlat-választóra méretezett. */
+.ci-back {
+  flex-shrink: 0;
+  width: var(--tap-min);
+  height: var(--tap-min);
+  background: none;
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+  font-size: var(--fs-2xl);
+  line-height: 1;
+  transition:
+    border-color var(--t-fast),
+    color var(--t-fast);
+}
+
+.ci-back:hover {
+  border-color: var(--fg-40);
+  color: var(--fg-100);
+}
+
+/* Haladássáv: hajszálvonal-alapú sáv accent kitöltéssel, nem a korábbi
+   halvány-szürke pirula — a lekerekítés is elmarad, a szögletes vonal illik
+   a lap többi hajszálvonalához. */
+.ci-progress {
+  flex: 1;
+  height: 4px;
+  background: var(--hair-soft);
+  overflow: hidden;
+}
+
+.ci-progress-fill {
+  height: 100%;
+  width: 0;
+  background: var(--c-accent);
+  transition: width var(--t-base);
+}
+
+.ci-step-label {
+  min-width: 34px;
+  text-align: right;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+/* ---- Lépés-keret ---- */
+
+.ci-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* A data-step értékét a script.js minden váltáskor újraírja — ettől indul
+   újra a belépő animáció. (Csökkentett mozgás mellett a 2. szakasz globális
+   kapcsolója némítja.) */
+.ci-body[data-step] {
+  animation: ci-step-in 0.3s var(--ease-spring);
+}
+
+@keyframes ci-step-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+.ci-step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* A nyitóképernyő függőlegesen középre rendezett */
+.ci-step--center {
+  justify-content: center;
+  gap: var(--sp-8);
+}
+
+/* A kérdés és a gomb közti rugalmas tér — ettől ül a válasz a képernyő
+   közepén, a továbblépés pedig mindig az alján. */
+.ci-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--sp-7);
+}
+
+.ci-head-block {
+  margin-top: var(--sp-3);
+}
+
+/* A tényleges tipográfiát innentől a .ds-eyebrow adja (2c. szakasz, a
+   mono-nagybetűs felkiáltó); itt csak a margó marad. */
+.ci-eyebrow {
+  margin: 0;
+}
+
+/* A .ds-display adja a súlyt/ritkítást/tabular-nums-ot; a méretet és a
+   sortávot itt hagyjuk helyben — a fix 460px-es oszlop miatt a mérethez
+   a --ci-fs-display vw-clamp kell, nem a primitíva --fs-5xl alapértéke
+   (lásd a .app-page.ci-page komment). */
+.ci-display {
+  margin: 0;
+  font-size: var(--ci-fs-display);
+  line-height: 1.04;
+}
+
+.ci-question {
+  margin: var(--sp-3) 0 var(--sp-2);
+  font-size: var(--fs-5xl);
+  font-weight: 800;
+  line-height: 1.12;
+}
+
+/* A címsor fókusza programozott (tabindex=-1, lépésváltáskor) — a fókuszgyűrű
+   ott zavaró, a váltást a felirat és az élő régió amúgy is jelzi. */
+.ci-question:focus-visible,
+.ci-display:focus-visible {
+  outline: none;
+}
+
+.ci-sub {
+  margin: 0;
+  font-size: var(--fs-md);
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.ci-lead {
+  margin: 0;
+  font-size: var(--fs-lg);
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.ci-footnote {
+  margin: 0;
+  font-size: var(--fs-xs);
+  line-height: 1.5;
+  color: var(--text-faint);
+}
+
+/* ---- Elsődleges gomb: a megosztott .ds-cta sáv (2c. szakasz), accent
+   hátterű. A felirat (span vagy sima szövegcsomó) és a nyíl-span a .ds-cta
+   space-between-je miatt a két szélre kerül — nincs szükség külön
+   .ds-cta-text csomagolásra, ezeken a gombokon nincs alcím. ---- */
+
+.ci-primary {
+  margin-top: var(--sp-7);
+  transition:
+    background var(--t-fast),
+    transform var(--t-fast),
+    opacity var(--t-fast);
+}
+
+.ci-primary:active {
+  transform: translateY(1px);
+}
+
+.ci-primary:disabled {
+  opacity: 0.45;
+  transform: none;
+}
+
+/* A Mentés gombnak nincs nyíl-testvére (nem navigál tovább, hanem ment) —
+   a .ds-cta alap space-between-je enélkül balra tolná a feliratot. */
+.ci-primary--solo {
+  justify-content: center;
+}
+
+.ci-exit {
+  align-self: center;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  text-decoration: none;
+}
+
+.ci-exit:hover {
+  color: var(--text-secondary);
+}
+
+/* Kihagyás — a testsúly-lépés másodlagos kiútja (a .ci-exit szövegsúlya,
+   gombként). Tap-target méretű, mert az elsődleges gomb alatt ül. */
+.ci-skip {
+  align-self: center;
+  min-height: 44px;
+  padding: 0 var(--sp-5);
+  margin-top: var(--sp-3);
+  background: none;
+  border: none;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.ci-skip:hover {
+  color: var(--text-secondary);
+}
+
+/* ---- Nagy szám-bevitel (alvás, testsúly) ---- */
+
+/* Sor helyett vízszintes csoport: a mértékegység a szám MELLETT áll, nem
+   alatta (a prototípus szerint), a léptető-pár középre igazítva. */
+.ci-num-row {
+  /* Három oszlop (1fr auto 1fr): a léptető-pár a KÖZÉPSŐBEN áll, a
+     mértékegység a jobb oldali üres oszlopba kerül — így nem tolja ki
+     balra a párt, és az alatta lévő preset-sávval egy tengelyen marad. */
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  column-gap: var(--sp-4);
+}
+
+/* Csak két gyerek van, ezért az automatikus elhelyezés a léptetőt az 1.
+   oszlopba tenné — a közepsőt ki kell jelölni. */
+.ci-num-row > .ci-num-dial {
+  grid-column: 2;
+}
+
+.ci-num-row > .ci-num-unit {
+  grid-column: 3;
+  justify-self: start;
+}
+
+/* A megosztott .wk-num sávból itt .ds-step lesz (osztályként fel is van
+   téve): szögletes, hajszálvonal-résű szegmensek a korábbi kerek gombpár
+   helyett. A szabály itt EXPLICIT, nem a kaszkádra bízott — a .wk-num
+   alaprétege (padding, háttér) különben átütne.
+   A stretch azért kell, mert a display-szám magasabb a 44px-es gomboknál:
+   középre igazítva a gombok fölött és alatt kilátszana a hajszálvonal-háttér. */
+.ci-num-dial {
+  align-items: stretch;
+  gap: 1px;
+  padding: 0;
+  border: none;
+  background: var(--hair);
+}
+
+/* .ds-step-btn is fel van téve rá osztályként; a saját szabály itt ugyan-
+   azokat az értékeket adja explicit, ugyanazért az okért, mint fent. A
+   magasságot a sáv adja (stretch), a 44px csak alsó korlát. A `height: auto`
+   nem elhagyható: a .wk-num-step fix 30px-e különben kizárná a nyújtást. */
+.ci-round-btn {
+  width: var(--tap-min);
+  height: auto;
+  min-height: var(--tap-min);
+  border: 0;
+  background: var(--c-bg);
+  color: var(--fg-85);
+  font-size: var(--fs-3xl);
+  font-weight: 800;
+  transition: background var(--t-fast);
+}
+
+.ci-round-btn:hover {
+  background: var(--surface-hover);
+}
+
+/* A .ds-display adja a ritkítást/sormagasságot; a méretet a helyi
+   --ci-fs-number vw-clamp adja (fix oszlop, lásd a .app-page.ci-page
+   komment), ezért él tovább a saját custom property itt.
+   A méret és a súly MÉGIS explicit: a mezőn a .wk-num-input is rajta van,
+   és az a stíluslapban a .ds-display UTÁN áll, tehát a saját 16px-ét és
+   600-as súlyát tenné rá (a display-szám így némán kicsire zsugorodott).
+   A háttér a .ds-step recept másik fele: a gyerek takarja ki a .ci-num-dial
+   hajszálvonal-hátterét, különben a mező helyén világos folt marad (fókuszban
+   a .wk-num:focus-within még erősebbet).
+   A szélesség 118px-ről nő, ahogy a szám: a teljes 72px-en a négykarakteres
+   alvásidő („10.5") 131px, fix 118px mellett a szélső számjegy levágódott. */
+.ci-num-input {
+  --ds-display-size: var(--ci-fs-number);
+  width: clamp(118px, 34vw, 136px);
+  font-size: var(--ds-display-size);
+  font-weight: 800;
+  text-align: center;
+  background: var(--c-bg);
+  border: none;
+}
+
+/* A testsúly négy-öt jegyű („82.9", „102.4"), az alvás három („7.5") — a
+   szélesebb változat elfér a két körgomb mellett a legkeskenyebb telefonon is.
+   A szám itt egy fokkal kisebb (16vw a 17 helyett): a teljes --ci-fs-number
+   mellett az ötkarakteres érték minden szélességen 1–3px-szel túlnőtt a
+   mezőn, és a szélső számjegy levágódott. A mező szélessége maradt, így a
+   sor a 320px-es telefonon is kifér. */
+.ci-num-input--wide {
+  --ds-display-size: clamp(44px, 16vw, 68px);
+  width: clamp(120px, 40vw, 172px);
+}
+
+/* A böngésző saját fel/le nyilai fölöslegesek — a két körgomb ugyanaz. */
+.ci-num-input::-webkit-outer-spin-button,
+.ci-num-input::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.ci-num-input[type='number'] {
+  appearance: textfield;
+}
+
+/* Az üres mező a testsúly-lépésen érvényes állapot (= ma nem mértél), ezért a
+   helyőrző halvány, de a szám méretét tartja — nem ugrál a sor. */
+.ci-num-input::placeholder {
+  color: var(--text-faint);
+  font-weight: 800;
+}
+
+.ci-num-unit {
+  font-size: var(--fs-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* .ds-grid-ként viselkedik (osztály fel van téve rá); a gomb maga JS-
+   generált (weight.js/sleep.js), ezért a gyerek saját szabállyal, nem
+   osztállyal követi a receptet — lásd .ci-preset lent. */
+.ci-presets {
+  /* A sáv csak a gombok szélességéig tart, középre igazítva. Teljes
+     szélességen a .ds-grid vonalszínű háttere a gombok két oldalán széles
+     szürke sávként látszana. */
+  width: fit-content;
+  margin-inline: auto;
+  justify-content: center;
+}
+
+.ci-preset {
+  /* A min-height-et már a 2. szakasz globális érintési-lista adja (.ci-preset
+     szerepel benne) — itt csak a szélesség kell. */
+  min-width: 44px;
+  padding: 0 var(--sp-5);
+  /* A keretet a .ds-grid rése adja. Nullázás nélkül a böngésző saját 2px-es
+     gomb-kerete marad rajta, és a gombok kilógnak a hajszálvonalas sávból. */
+  border: 0;
+  background: var(--c-bg);
+  color: var(--fg-70);
+  font-size: var(--fs-base);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  transition:
+    background var(--t-fast),
+    color var(--t-fast);
+}
+
+.ci-preset:hover {
+  background: var(--surface-hover);
+}
+
+.ci-preset[aria-pressed='true'] {
+  background: var(--c-accent);
+  color: var(--on-accent);
+}
+
+/* ---- 1–5 skálák ---- */
+
+/* A .ci-scale osztály maga a .ds-seg-et kapja (a sablonban) — itt nincs
+   is rá szükség saját szabályra, a primitíva önmagában adja a hajszál-
+   vonalas hátteret. A gomb JS-generált (scale.js), saját szabállyal. */
+
+.ci-scale-btn {
+  flex: 1;
+  /* A prototípus mérete: ez a képernyő elsődleges érintési célpontja,
+     ezért magas (nem négyzet — aspect-ratio helyett rögzített magasság). */
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: var(--c-bg);
+  color: var(--fg-70);
+  font-size: var(--fs-4xl);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  transition:
+    background var(--t-fast),
+    color var(--t-fast);
+}
+
+.ci-scale-btn:hover {
+  background: var(--surface-hover);
+}
+
+.ci-scale-btn[aria-pressed='true'] {
+  background: var(--c-accent);
+  color: var(--on-accent);
+}
+
+.ci-scale-ends {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-5);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+/* ---- Kapuk: keret nélküli, hajszálvonallal elválasztott sorok a korábbi
+   két nagy választókártya helyett (a gomb JS-generált, gate.js). ---- */
+
+.ci-gates {
+  gap: 0;
+  flex-direction: column;
+}
+
+.ci-gate {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  width: 100%;
+  padding: var(--sp-9) 0;
+  background: none;
+  border: 0;
+  color: var(--text-primary);
+  text-align: left;
+  transition: background var(--t-fast);
+}
+
+/* A hajszálvonal a testvérek KÖZÉ kerül — az első sor fölött nincs (azt a
+   fejléc-blokk margója adja), ahogy a .ds-row-nál is. */
+.ci-gate + .ci-gate {
+  border-top: 1px solid var(--hair);
+}
+
+.ci-gate:hover {
+  background: var(--surface-hover);
+}
+
+/* A tónus korábban a teljes kártya körüli keret színe volt; keret nélkül a
+   felirat színe hordozza tovább ugyanazt a jelentést (a „Nem” válasz
+   halványzöld, az „Igen” accent — nem a KIVÁLASZTOTT választ jelöli, hanem
+   magát a két lehetőséget színezi). */
+.ci-gate[data-tone='ok'] .ci-gate-label {
+  color: var(--c-ok);
+}
+.ci-gate[data-tone='accent'] .ci-gate-label {
+  color: var(--c-accent);
+}
+
+.ci-gate-label {
+  font-size: var(--fs-3xl);
+  font-weight: 800;
+}
+
+/* Mono, nagybetűs alcím — a .ds-row-sub receptje, de a gombot a gate.js
+   generálja, ezért osztály helyett közvetlenül itt írva. */
+.ci-gate-sub {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ---- Testtérkép ---- */
+
+.ci-legend {
+  margin: 0;
+  font-size: var(--fs-xs);
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+/* ---- Összegzés ---- */
+
+/* A kártya-háttér/keret eltűnt: a .ds-section adja a felső légteret (osztály
+   a sablonban), a lista alatta ugyanígy .ds-section, ezért a kettő között
+   automatikusan hajszálvonal fut — ez választja el a nagy számot a
+   részletes listától. */
+.ci-readiness {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.ci-readiness-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
+
+.ci-readiness-label {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.ci-readiness-verdict {
+  font-size: var(--fs-md);
+  font-weight: 700;
+}
+
+/* Mentés előtt ez áll a szám helyén: a pontszámot a szerver számolja, helyi
+   becslést nem íratunk ki. */
+.ci-readiness-pending {
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.ci-readiness-value {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--sp-1);
+}
+
+/* A .ds-display adja a súlyt/ritkítést/tabular-nums-ot; a korábbi 44px-es
+   nyers érték helyi egyéni tulajdonságként él tovább — flat érték marad
+   (nem vw-clamp), mert ez eddig sem lépcsőzött a ≥1025px-es töréspontnál. */
+.ci-readiness-num {
+  --ds-display-size: 44px;
+}
+
+.ci-readiness-sign {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  color: var(--text-muted);
+  padding-bottom: 5px;
+}
+
+.ci-readiness-bar {
+  height: 8px;
+  background: var(--surface-strong);
+  overflow: hidden;
+}
+
+.ci-readiness-fill {
+  height: 100%;
+  width: 0;
+  background: var(--c-paper);
+  transition: width var(--t-slow) var(--ease-spring);
+}
+
+/* A készenlét tónusa ugyanaz a három sáv, mint a Regeneráció oldalon
+   (readinessTone: 80 / 60). A középső sáv a semleges alapszínt tartja. */
+.ci-readiness[data-tone='ok'] .ci-readiness-verdict,
+.ci-readiness[data-tone='ok'] .ci-readiness-num {
+  color: var(--c-ok);
+}
+.ci-readiness[data-tone='ok'] .ci-readiness-fill {
+  background: var(--c-ok);
+}
+.ci-readiness[data-tone='bad'] .ci-readiness-verdict,
+.ci-readiness[data-tone='bad'] .ci-readiness-num {
+  color: var(--c-alert);
+}
+.ci-readiness[data-tone='bad'] .ci-readiness-fill {
+  background: var(--c-alert);
+}
+
+.ci-summary {
+  display: flex;
+  flex-direction: column;
+}
+
+/* .ci-summary-row a .ds-row-t kapja (sablon) — a sor-magasságot, a térközt
+   és a testvérek közti hajszálvonalat onnan örökli, itt nincs több saját
+   szabálya.
+   .ci-summary-label SZÁNDÉKOSAN NEM kapja a .ds-row-name-t: az fs-xl/700-as
+   receptje itt megfordítaná a meglévő (helyes) hierarchiát — a névnél
+   ("Alvás") fontosabb az érték ("7.5 óra"), ami viszont tetszőlegesen
+   hosszú szöveg is lehet (pl. az izomláz/fájdalom felsorolása), nem egy
+   rövid szám, mint a Regeneráció oldal .ds-row-value-ja. A halvány,
+   visszafogott címke marad a korábbi recept szerint. */
+.ci-summary-label {
+  font-size: var(--fs-base);
+  color: var(--text-secondary);
+}
+
+.ci-summary-value {
+  margin: 0;
+  font-size: var(--fs-base);
+  font-weight: 700;
+  text-align: right;
+}
+
+.ci-summary-actions {
+  margin-top: auto;
+  padding-top: var(--sp-7);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+.ci-saved {
+  margin: 0;
+  padding: var(--sp-7);
+  border-radius: var(--r-lg);
+  background: var(--surface-card);
+  border: 1px solid var(--c-ok);
+  color: var(--c-ok);
+  font-size: var(--fs-lg);
+  font-weight: 800;
+  text-align: center;
+}
+
+/* ---- ≥1025px: a nav gyűrű eltűnik, az oszlop szélessége marad ---- */
+@media (min-width: 1025px) {
+  .app-page.ci-page {
+    padding: var(--sp-13) var(--sp-9);
+    /* Nagy képernyőn ne nyúljon szét az intro függőleges ritmusa. */
+    min-height: min(100dvh, 820px);
+  }
+}

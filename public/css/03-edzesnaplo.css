@@ -1,0 +1,1140 @@
+/* Podium — 7: Edzésnapló (wk-*). (A sorrend a css/01-alap.css tartalomjegyzékében.) */
+
+/* ==========================================================================
+   7. Workout logger
+   ========================================================================== */
+.wk-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+  margin-bottom: var(--sp-10);
+}
+
+.wk-title {
+  flex: 1;
+  min-width: 0;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--fg-20);
+  color: var(--text-primary);
+  font-size: var(--fs-2xl);
+  font-weight: 700;
+  padding: var(--sp-2) 2px;
+  transition: border-color var(--t-fast);
+}
+
+.wk-title:focus {
+  border-color: var(--fg-60);
+}
+
+/* A formát a .ds-cta adja; itt csak a lap-specifikus margó marad. A gomb a
+   terv-építő fejlécéből a lap aljára került — a flow-oldalak elsődleges
+   művelete ott áll, teljes szélességben. */
+.wk-save {
+  margin-top: var(--sp-5);
+}
+
+.wk-list {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: var(--sp-9);
+}
+
+/* A gyakorlat nem kártya többé: a felülete a lapé, a határa egy hajszálvonal.
+   A lista gap-je ezért 0 — az elválasztást a szomszéd-szelektor adja, nem a
+   rés. A vízszintes padding is elmarad: a sor a lap margójáig ér, így a
+   szett-rács oszlopai a lap többi listájával egy vonalban állnak. */
+.wk-exercise {
+  padding: var(--sp-9) 0;
+  position: relative; /* a szuperszett összekötő sávjának (::before) alapja */
+}
+
+.wk-exercise + .wk-exercise {
+  border-top: 1px solid var(--hair);
+}
+
+/* ---- Szuperszett ------------------------------------------------------
+   A csoport tagjai összeérnek: a köztük lévő lista-gap-et negatív margóval
+   oltjuk ki, az érintkező sarkok kiegyenesednek, és egy bal oldali sáv fogja
+   össze a blokkot. A szerepet (solo / start / middle / end) a script.js írja
+   a data-superset-role attribútumba — lásd refreshSupersetGroups.
+   ----------------------------------------------------------------------- */
+
+/* A kapocs a kártya tetején ül; az első kártyán rejtett (nincs mihez kötni). */
+.wk-superset-link {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  padding: var(--sp-2) 0;
+  margin-bottom: var(--sp-5);
+  background: none;
+  border: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-align: left;
+  transition: color var(--t-fast);
+}
+
+.wk-superset-link[aria-pressed='true'] {
+  color: var(--c-superset);
+}
+
+.wk-superset-icon {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+/* Az összekötő sáv. Sarok-kiegyenesítés és negatív margó nincs többé: kártya
+   sincs, a lista gap-je 0, a sugarak pedig mind nullák — a csoportot már csak
+   ez a bal oldali sáv fogja össze.
+
+   A sáv a sor bal szélén ül, a csoport tagjai pedig behúzást kapnak — a
+   behúzás maga is jelzés (ezek a gyakorlatok összetartoznak), és a sáv így
+   soha nem lóg ki a lapról. A lap margójába lógatni nem lehetett: ott már a
+   drop set gerince fut (--drop-line-x, −10px), 380px alatt pedig a lap
+   oldalmargója 16px-re szűkül, amin a kettő nem fér el egymás mellett.
+
+   A −1px-es top a szomszéd-hajszálvonalat fedi át, különben a csoport két
+   tagja között a sáv megszakadna. */
+.wk-exercise[data-superset-role='start'],
+.wk-exercise[data-superset-role='middle'],
+.wk-exercise[data-superset-role='end'] {
+  padding-left: var(--sp-8);
+}
+
+.wk-exercise[data-superset-role='start']::before,
+.wk-exercise[data-superset-role='middle']::before,
+.wk-exercise[data-superset-role='end']::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -1px;
+  bottom: 0;
+  width: 2px;
+  background: var(--c-superset);
+}
+
+.wk-exercise[data-superset-role='start']::before {
+  top: var(--sp-9);
+}
+
+.wk-exercise[data-superset-role='end']::before {
+  bottom: var(--sp-9);
+}
+
+/* ---- Nyitott lenyíló: a kártya a testvérei fölé kerül ----
+   A kártya hoverre elmozdul (transform: translateY, lásd a kártya-hovereknél),
+   a transform pedig SAJÁT stacking contextet nyit. Emiatt a benne lévő lenyílók
+   z-indexe hiába --z-popover: az a kártyán belül érvényes, a KÖVETKEZŐ kártya
+   fölé nem tud emelkedni — a szett-típus menüre ráfeküdt a következő gyakorlat
+   szuperszett-gombja. A menü helyett ezért magát a kártyát emeljük meg, amíg
+   nyitva van benne egy lenyíló.
+
+   :has() azért, mert a nyitott állapotot már a menü `hidden` attribútuma
+   hordozza — egy párhuzamos JS-es osztály előbb-utóbb kicsúszna vele a
+   szinkronból (a menüket négy különböző út zárja be). */
+.wk-exercise:has(.wk-set-type-menu:not([hidden])),
+.wk-exercise:has(.wk-order-menu:not([hidden])),
+.wk-exercise:has(.wk-intensity-menu:not([hidden])),
+.wk-exercise:has(.wk-extra-menu:not([hidden])) {
+  z-index: var(--z-popover);
+}
+
+.wk-exercise-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5); /* 12px — ennyi fér a PR- és a videógomb célterülete közé */
+  margin-bottom: var(--sp-5);
+}
+
+.wk-exercise-name {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  flex: 1;
+  min-width: 0;
+}
+
+.wk-pr {
+  background: var(--c-accent);
+  color: var(--on-accent);
+  font-size: var(--fs-2xs);
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  padding: 3px 7px;
+  border-radius: var(--r-xs);
+}
+
+/* Valós idejű PR detektálás: amikor az aktuális (teljesített) szett 1RM-je
+   nagyobb az eddigi maximumnál, a PR gomb aria-pressed="true" lesz — ez adja
+   a tömör bordó kitöltést (lásd lejjebb) és a lüktető box-shadow-t. */
+.wk-pr-toggle[aria-pressed='true'] {
+  animation: pr-pulse 1.5s ease-in-out infinite;
+  box-shadow: 0 0 12px rgba(200, 16, 46, 0.85);
+}
+
+@keyframes pr-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 6px rgba(200, 16, 46, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(200, 16, 46, 1);
+  }
+}
+
+/* Automatikus PR-jelvény az edzésnapló kártyáin (nem kattintható, a képlet
+   írja az aria-pressed állapotát): PR esetén a jelvény-kinézet, egyébként
+   halvány körvonalas gomb */
+.wk-pr-toggle {
+  border: 1px solid transparent;
+  transition:
+    background var(--t-fast),
+    color var(--t-fast),
+    border-color var(--t-fast);
+}
+
+.wk-pr-toggle[aria-pressed='false'] {
+  background: none;
+  border-color: var(--border-strong);
+  color: var(--text-muted);
+}
+
+.wk-pr-toggle[aria-pressed='false']:hover {
+  border-color: var(--fg-40);
+  color: var(--fg-70);
+}
+
+.wk-video-btn {
+  background: none;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg-70);
+  flex-shrink: 0;
+  transition:
+    border-color var(--t-fast),
+    color var(--t-fast);
+}
+
+/* Gyakorlat eltávolítása. Keret nélkül, halványan — a szomszédos videógombbal
+   azonos méretben, de vizuálisan csendesebben: ez a kártya egyetlen
+   visszavonhatatlan művelete, nem szabad a fejléc fő gombjának látszania.
+   A hover viszi akcentusra, ahogy a szett-sorok ✕-énél is. */
+.wk-exercise-remove {
+  background: none;
+  border: none;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  line-height: 1;
+  flex-shrink: 0;
+  transition:
+    color var(--t-fast),
+    background var(--t-fast);
+}
+
+.wk-exercise-remove:hover {
+  color: var(--c-alert);
+  background: var(--surface-hover);
+}
+
+.wk-video-btn:hover {
+  border-color: var(--fg-40);
+  color: var(--fg-100);
+}
+
+.wk-video-btn svg {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+}
+
+/* Sorszám-választó a gyakorlat-fejlécben: saját (nem natív) lenyíló, amivel
+   a gyakorlat az edzésnaplóban egy másik pozícióba ugorhat (lásd
+   enableOrderSelect / renumberOrderSelects a script.js-ben). Azért nem natív
+   <select>, mert annak opciólistája böngészőnként/OS-enként máshogy — és a
+   sötét témával összhangban egyáltalán nem — rajzolódott ki. */
+.wk-order-select {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.wk-order-trigger {
+  background: none;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-sm);
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  font-size: var(--fs-sm);
+  color: var(--fg-70);
+  cursor: pointer;
+  transition:
+    border-color var(--t-fast),
+    color var(--t-fast);
+}
+
+.wk-order-trigger:hover,
+.wk-order-trigger[aria-expanded='true'] {
+  border-color: var(--fg-40);
+  color: var(--fg-100);
+}
+
+.wk-order-menu {
+  position: absolute;
+  top: calc(100% + var(--sp-2));
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 40px;
+  max-height: 220px;
+  overflow-y: auto;
+  background: var(--c-bg-raised);
+  border: 1px solid var(--fg-10);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-modal);
+  padding: var(--sp-2);
+  z-index: var(--z-popover);
+  animation: modal-in var(--t-base) both;
+}
+
+.wk-order-option {
+  background: none;
+  border: none;
+  border-radius: var(--r-xs);
+  padding: var(--sp-2) var(--sp-3);
+  font: inherit;
+  font-weight: 700;
+  font-size: var(--fs-sm);
+  color: var(--fg-70);
+  text-align: center;
+  cursor: pointer;
+  transition:
+    background var(--t-fast),
+    color var(--t-fast);
+}
+
+.wk-order-option:hover {
+  background: var(--fg-10);
+  color: var(--fg-100);
+}
+
+.wk-order-option[aria-selected='true'] {
+  background: var(--c-accent);
+  color: var(--on-accent);
+}
+
+/* Minden sor önálló grid — a fejléc és az értéksorok csak akkor fedik egymást,
+   ha a fix oszlopok szélessége azonos. Az első oszlop a „Szett" fejléc-
+   felirathoz igazodik (a sorszám maga keskenyebb lenne). */
+.wk-set-row {
+  display: grid;
+  grid-template-columns: 32px 1fr 1fr 46px 34px 26px;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) 0;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
+  position: relative; /* a drop set összekötő zárójelének (::before/::after) alapja */
+}
+
+/* A sorok közé hajszálvonal kerül — a .ds-row receptje, nem a .ds-grid 1px-es
+   gap-je. A gap-recept itt megbukna: a drop set zárójele (::before gerinc) a
+   sorhatárokon ÖSSZEÉR, egy rés pedig pont ott szakítaná meg, ahol a rajz
+   folytonossága az egész jelentése.
+
+   A fejléc utáni első sor kivétel: a fejlécnek már van saját alsó vonala. */
+.wk-set-row:not(.wk-set-row--head) + .wk-set-row {
+  border-top: 1px solid var(--hair-soft);
+}
+
+/* ---- Drop set: összekötés az eredeti szettel ----
+   A drop set nem önálló sorozat, hanem az előtte lévő szett lecsökkentett
+   folytatása — ezt a sorszám mondja ki (2 → 2a, lásd renumberSets), a
+   zárójel pedig megrajzolja:
+
+     ┌─ 2      ← az eredeti szett (data-drop-role="parent"): itt indul a vonal
+     ├─ 2a     ← átmenő drop ("mid")
+     └─ 2b     ← lezáró drop ("last")
+
+   A rajz KÉT pszeudoelemből áll, nem soronkénti könyökökből: ::before a
+   függőleges gerinc, ::after a sorszámra mutató fog. Korábban minden sor egy
+   lekerekített sarkú könyököt rajzolt, és a lekerekítés két hibát is okozott:
+   az ív elkanyarodott a csatlakozási pont ELŐTT (a szakaszok közt rés maradt),
+   a következő sor egyenes gerince pedig az ív MELLETT nyúlt fel (csonk lógott
+   ki a szülő foga fölött). Egyenes szakaszokkal a sorhatárokon pontosan
+   illeszkednek: a gerinc a saját sorának teljes magasságát fedi, a szélső
+   sorokban a fogig.
+
+   A vonal a kártya belső margójába lóg ki, így a szett-rács oszlopai nem
+   csúsznak el a fejléchez képest. */
+
+.wk-set-list {
+  /* ÁTLÁTSZATLAN szín: a szakaszok a sorhatárokon összeérnek, két
+     féligáteresztő réteg viszont a találkozásnál összeadódna és sötétebb
+     foltot adna. A color-mix ugyanazt a halványított akcentust adja, csak
+     egyetlen rétegben. */
+  --drop-line: color-mix(in srgb, var(--c-accent) 45%, var(--c-bg-raised));
+  --drop-line-x: calc(var(--sp-4) * -1);
+}
+
+/* A gerinc. A szélső sorokban a fogig tart (ott zárul a zárójel), az átmenő
+   sorokban végigfut — így a szomszédos szakaszok hézag nélkül találkoznak. */
+.wk-set-row[data-drop-role]::before {
+  content: '';
+  position: absolute;
+  left: var(--drop-line-x);
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--drop-line);
+}
+
+.wk-set-row[data-drop-role='parent']::before {
+  top: 50%;
+}
+
+.wk-set-row[data-drop-role='last']::before {
+  bottom: 50%;
+}
+
+/* A fog: a gerinctől a sorszámig ér, a sor függőleges közepén. A szélessége
+   pont a gerinc kilógása, hogy a sorszám-gomb bal széléhez érjen — rövidebben
+   csak jelentés nélküli bütyök maradna. */
+.wk-set-row[data-drop-role]::after {
+  content: '';
+  position: absolute;
+  left: var(--drop-line-x);
+  top: 50%;
+  width: calc(var(--drop-line-x) * -1);
+  height: 2px;
+  background: var(--drop-line);
+}
+
+/* Keskeny kijelzőn a kártya belső margója a szűk keresztmetszet: a zárójel
+   közelebb húzódik, hogy ne érjen a kártya széléhez. */
+@media (max-width: 520px) {
+  .wk-set-row[data-drop-role] {
+    --drop-line-x: calc(var(--sp-2) * -1);
+  }
+}
+
+/* ---- Keskeny kijelző: a léptetők kiesnek, hogy az ÉRTÉK férjen ki ----
+   360px-es telefonon a hat oszlop és a két léptetőgomb-pár után az ismétlés-
+   és a súlymezőre 20-20px maradt — egy „102.5" bele sem fért. A léptetők
+   amúgy is redundánsak (aria-hidden, tabindex=-1): a szám-billentyűzet és a
+   fel/le nyíl ugyanezt tudja. Elhagyásukkal a két mező ~56px-re nő.
+
+   A határ 520px: efölött (nagy telefon fekvőben, tablet) a 480px-re kötött
+   oldalszélességen már kényelmesen elfér a léptetős változat is. */
+@media (max-width: 520px) {
+  .wk-set-row {
+    grid-template-columns: 26px 1fr 1fr 46px 40px 30px;
+  }
+
+  .wk-set-row .wk-num-step {
+    display: none;
+  }
+
+  /* A fejléc harmadik cellája („Súly·kg") a legszűkebb — itt nem kérünk
+     extra betűközt, hogy egy sorban maradjon. */
+  .wk-set-row--head {
+    letter-spacing: 0.02em;
+  }
+}
+
+.wk-set-row--head {
+  color: var(--text-faint);
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border-card);
+  padding-bottom: var(--sp-3);
+}
+
+/* ---- Szett-típus választó (bemelegítő / munkasorozat / drop set) ----
+   A sorszám egyben gomb: rákattintva lenyílik a három típus — ugyanaz a saját
+   lenyíló minta, mint a gyakorlatok sorrendjénél (.wk-order-select), csak
+   kisebb triggerrel, mert a sor első oszlopa 26–32px. A típust a szám színe és
+   kerete jelzi: a munkasorozat a semleges alapeset (ez a leggyakoribb, nem
+   érdemes kiabálnia), a bemelegítő arany, a drop set akcentus-piros. */
+.wk-set-type {
+  position: relative;
+}
+
+.wk-set-num {
+  --tap: 38px; /* a szomszédos ismétlés-mezőt nem nyelheti el (6px a gap) */
+  width: 100%;
+  padding: var(--sp-1) 0;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--r-xs);
+  font: inherit;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--fg-70);
+  text-align: center;
+  cursor: pointer;
+  transition:
+    border-color var(--t-fast),
+    color var(--t-fast),
+    background var(--t-fast);
+}
+
+.wk-set-num:hover,
+.wk-set-num[aria-expanded='true'] {
+  background: var(--surface-hover);
+  border-color: var(--fg-25);
+}
+
+.wk-set-row[data-set-type='warmup'] .wk-set-num {
+  color: var(--c-tier-gold);
+  border-color: rgba(232, 193, 90, 0.3); /* --c-tier-gold, halványítva */
+}
+
+/* A piros csak a keretben marad: a kis számjegy piros szöveggel nem érné el az
+   AA kontrasztot, a típust így a keret színe hordozza. */
+.wk-set-row[data-set-type='drop'] .wk-set-num {
+  color: var(--text-primary);
+  border-color: var(--c-accent-line);
+}
+
+/* A lenyíló a sor első oszlopából indul, de a típusnevek szélesebbek nála —
+   abszolút pozícióval a sor fölé úszik, nem tolja szét a rácsot. */
+.wk-set-type-menu {
+  position: absolute;
+  top: calc(100% + var(--sp-1));
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 132px;
+  background: var(--c-bg-raised);
+  border: 1px solid var(--fg-10);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-modal);
+  padding: var(--sp-2);
+  z-index: var(--z-popover);
+  animation: modal-in var(--t-base) both;
+}
+
+.wk-set-type-option {
+  background: none;
+  border: none;
+  border-radius: var(--r-xs);
+  padding: var(--sp-3);
+  font: inherit;
+  font-size: var(--fs-base);
+  color: var(--fg-70);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background var(--t-fast),
+    color var(--t-fast);
+}
+
+.wk-set-type-option:hover {
+  background: var(--fg-10);
+  color: var(--fg-100);
+}
+
+.wk-set-type-option[aria-selected='true'] {
+  background: var(--surface-strong);
+  color: var(--fg-100);
+  font-weight: 600;
+}
+
+/* Az opciók ugyanazt a színkódot viselik, amit a sorszámon lát a felhasználó
+   — a lenyíló így magától megtanítja, melyik szín melyik típus. */
+.wk-set-type-option[data-type='warmup'] {
+  color: var(--c-tier-gold);
+}
+
+.wk-set-type-option[data-type='drop'] {
+  color: var(--text-primary);
+  box-shadow: inset 2px 0 0 var(--c-accent);
+}
+
+/* ---- IDŐALAPÚ (kardió) sor ----
+   Négy oszlop a hat helyett: idő, intenzitás, plusz súly, pipa. Ismétlés-,
+   súly- és RPE-oszlop nincs — amit nem ismétlésben mérnek, ott azok a mezők
+   üresen kongatnának. A felszabaduló helyet az intenzitás kapja: a fokozat
+   neve („Nagyon könnyű") hosszabb, mint bármelyik szám, amit leváltott.
+   A fejléc-sor ugyanezt az osztályt kapja (lásd renderExercise), különben a
+   feliratok nem az értékek fölé esnének. */
+.wk-set-row--cardio {
+  grid-template-columns: 1fr 1.25fr 30px 34px;
+}
+
+@media (max-width: 520px) {
+  .wk-set-row--cardio {
+    grid-template-columns: 1fr 1.25fr 26px 30px;
+  }
+}
+
+/* ---- Intenzitás-fokozat ----
+   Ugyanaz a saját lenyíló minta, mint a szett-típusnál (.wk-set-type): a
+   trigger maga mondja ki a kiválasztott fokozatot, a lista a sor fölé úszik.
+   Színkód szándékosan NINCS: öt fokozat öt színe zaj lenne, és a fokozat neve
+   amúgy is kiírva áll — a szett-típusnál a szín azért kellett, mert ott csak
+   egy sorszám látszik. */
+.wk-intensity {
+  position: relative;
+  min-width: 0;
+}
+
+.wk-intensity-trigger {
+  --tap: 38px;
+  width: 100%;
+  min-width: 0;
+  padding: var(--sp-2) var(--sp-1);
+  background: var(--surface-input);
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition:
+    background var(--t-fast),
+    border-color var(--t-fast);
+}
+
+.wk-intensity-trigger:hover,
+.wk-intensity-trigger[aria-expanded='true'] {
+  background: var(--surface-hover);
+  border-color: var(--fg-25);
+}
+
+/* A lenyíló jobbra igazodik: a sor közepéről indul, és balra van hely — jobbra
+   csak a pötty-gomb és a pipa szűk sávja. */
+.wk-intensity-menu {
+  position: absolute;
+  top: calc(100% + var(--sp-1));
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 150px;
+  background: var(--c-bg-raised);
+  border: 1px solid var(--fg-10);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-modal);
+  padding: var(--sp-2);
+  z-index: var(--z-popover);
+  animation: modal-in var(--t-base) both;
+}
+
+.wk-intensity-option {
+  background: none;
+  border: none;
+  border-radius: var(--r-xs);
+  padding: var(--sp-3);
+  font: inherit;
+  font-size: var(--fs-base);
+  color: var(--fg-70);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background var(--t-fast),
+    color var(--t-fast);
+}
+
+.wk-intensity-option:hover {
+  background: var(--fg-10);
+  color: var(--fg-100);
+}
+
+.wk-intensity-option[aria-selected='true'] {
+  background: var(--surface-strong);
+  color: var(--fg-100);
+  font-weight: 600;
+}
+
+/* ---- Plusz súly (három pötty) ----
+   A sorok többségén nincs plusz súly, ezért a mező nem foglal állandó oszlopot.
+   Ha VAN, a gomb magát az értéket írja ki (+20) a pöttyök helyett — különben a
+   felvitt súlymellény láthatatlanul ülne egy csukott menüben. */
+.wk-extra {
+  position: relative;
+}
+
+.wk-extra-trigger {
+  --tap: 34px;
+  width: 100%;
+  padding: var(--sp-1) 0;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--r-xs);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition:
+    color var(--t-fast),
+    background var(--t-fast),
+    border-color var(--t-fast);
+}
+
+.wk-extra-trigger:hover,
+.wk-extra-trigger[aria-expanded='true'] {
+  background: var(--surface-hover);
+  border-color: var(--fg-25);
+  color: var(--fg-70);
+}
+
+.wk-set-row[data-has-weight='true'] .wk-extra-trigger {
+  color: var(--fg-70);
+  font-weight: 600;
+}
+
+.wk-extra-menu {
+  position: absolute;
+  top: calc(100% + var(--sp-1));
+  right: 0;
+  width: 200px;
+  background: var(--c-bg-raised);
+  border: 1px solid var(--fg-10);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-modal);
+  padding: var(--sp-3);
+  z-index: var(--z-popover);
+  animation: modal-in var(--t-base) both;
+}
+
+.wk-extra-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--fg-70);
+}
+
+.wk-extra-label input {
+  width: 76px;
+  flex: 0 0 auto;
+  padding: var(--sp-2);
+  background: var(--surface-input);
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  text-align: center;
+}
+
+.wk-extra-label input:focus {
+  background: var(--surface-hover);
+  border-color: var(--fg-40);
+}
+
+.wk-extra-note {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-2xs);
+  line-height: 1.4;
+  color: var(--text-faint);
+}
+
+.wk-chip {
+  background: var(--surface-input);
+  border-radius: var(--r-sm);
+  padding: var(--sp-2) var(--sp-3);
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* A szett-értékek szerkeszthető mezők — a chip-kinézetet megtartva. Az
+   átlátszó keret mindig ott van, hogy fókuszban ne ugorjon a sor. */
+input.wk-chip {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid transparent;
+  color: var(--text-primary);
+  font-size: var(--fs-input);
+  transition:
+    background var(--t-fast),
+    border-color var(--t-fast);
+}
+
+input.wk-chip:hover {
+  background: var(--surface-hover);
+}
+
+input.wk-chip:focus {
+  background: var(--surface-hover);
+  border-color: var(--fg-40);
+}
+
+/* ---- Szám-mező léptetőgombokkal (ismétlés, súly) ----
+   A sáv a .ds-step receptjét viseli: a háttér a hajszálvonal, a rés 1px, és a
+   gyerekek (léptetők, mező) a lap felületét takarják ki belőle. Chip-háttér és
+   keret nincs többé — a tagolást a rés adja.
+
+   A .ds-step osztály SZÁNDÉKOSAN nincs feltéve: ez az alapréteg a check-in
+   varázslóé is (.ci-num-dial, 25. szakasz), és a JS a .wk-num-step szülőjéből
+   keresi a mezőt (js/render/sets.js) — az osztálycsere mindkettőt megbontaná.
+   A natív number-nyilakat elrejtjük: a saját gombok nagyobbak és érintésre is
+   jók. */
+/* Az 1px-es padding a keret: a hajszálvonal-háttér így a mező KÖRÜL is
+   látszik, nem csak a léptetők körül. Korábban a gombok 30px-esek voltak a
+   34px-es sávban, és a vonal csak körülöttük bukkant elő — a −/+ külön
+   dobozkának, a szám keret nélküli foltnak látszott. A stretch miatt a
+   gombok kitöltik a sáv magasságát, így a három szegmens egy keretben áll. */
+.wk-num {
+  display: flex;
+  align-items: stretch;
+  gap: 1px;
+  min-width: 0;
+  padding: 1px;
+  background: var(--hair);
+  transition: background var(--t-fast);
+}
+
+/* Fókuszban a vonal erősödik — a chip-háttér eltűnésével ez maradt az egyetlen
+   felület, ami a mező aktív állapotát a soron belül jelezni tudja. */
+.wk-num:focus-within {
+  background: var(--fg-40);
+}
+
+.wk-num-step {
+  flex: 0 0 auto;
+  width: 24px;
+  height: auto;
+  min-height: 30px;
+  padding: 0;
+  border: none;
+  background: var(--c-bg);
+  color: var(--fg-50);
+  font-size: var(--fs-md);
+  line-height: 1;
+  transition:
+    color var(--t-fast),
+    background var(--t-fast);
+}
+
+.wk-num-step:hover {
+  color: var(--text-primary);
+  background: var(--fg-10);
+}
+
+.wk-num-input {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  padding: var(--sp-2) 0;
+  border: none;
+  background: var(--c-bg);
+  color: var(--text-primary);
+  font-size: var(--fs-input); /* 16px — kisebbnél az iOS ráközelít a lapra */
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+/* Natív number-nyilak elrejtése — a saját léptetők veszik át a szerepüket */
+.wk-num-input::-webkit-outer-spin-button,
+.wk-num-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.wk-num-input {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* Az RPE mező chip marad (nincs léptetője), de a szám-mező alapokat örökli */
+input.wk-chip.wk-num-input {
+  padding: var(--sp-2) var(--sp-1);
+}
+
+/* Üresen az RPE-mező eddig láthatatlan volt: a 6%-os chip-háttér a kártyán
+   szinte eltűnik, így nem derült ki, hogy oda 1–10 közti értéket lehet írni.
+   A halvány „–" és a szaggatott keret jelzi a kitölthető helyet; fókuszban
+   az általános chip-stílus (folytonos keret) veszi vissza. */
+input.wk-set-rpe::placeholder {
+  color: var(--text-faint);
+  opacity: 1;
+}
+
+input.wk-set-rpe:placeholder-shown:not(:focus) {
+  border-color: var(--fg-20);
+  border-style: dashed;
+}
+
+.wk-set-remove {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+  line-height: 1;
+  justify-self: center;
+  /* Szűkebb célterület, mint a szomszédos pipáé: a két találati felület nem
+     fedhet át, mert a törlés visszavonhatatlan, a pipázás nem. */
+  --tap: 36px;
+  transition:
+    color var(--t-fast),
+    background var(--t-fast);
+}
+
+.wk-set-remove:hover {
+  color: var(--c-alert);
+  background: var(--surface-hover);
+}
+
+/* A napló legtöbbet nyomott gombja. Vizuálisan 24px (a sor sűrű marad), a
+   találati felülete viszont teljes 44px — korábban 18px volt, izzadt kézzel,
+   edzés közben. */
+.wk-set-check {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--fg-40);
+  background: none;
+  justify-self: center;
+  padding: 0;
+  transition:
+    background var(--t-fast),
+    border-color var(--t-fast);
+}
+
+.wk-set-check:hover {
+  border-color: var(--fg-60);
+}
+
+.wk-set-check[aria-pressed='true'] {
+  background: var(--fg-100);
+  border-color: var(--fg-100);
+}
+
+/* A két hozzáadó gomb szaggatott kerete kilógott a lapról: a prototípusban
+   nincs szaggatott vonal. Helyette hajszálvonalas keret és mono nagybetűs
+   felirat — így másodlagos marad a lenti .ds-cta mellett, de nem „vázlat".
+   Mindkettőt a terv-építő is viseli (.wk-list / .wk-add-exercise közös). */
+.wk-add-set {
+  margin-top: var(--sp-5);
+  width: 100%;
+  background: none;
+  border: 1px solid var(--hair-soft);
+  color: var(--text-muted);
+  padding: var(--sp-4);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
+  transition:
+    border-color var(--t-fast),
+    color var(--t-fast);
+}
+
+.wk-add-set:hover,
+.wk-add-exercise:hover {
+  border-color: var(--fg-40);
+  color: var(--text-primary);
+}
+
+.wk-add-exercise {
+  width: 100%;
+  min-height: var(--tap-min);
+  background: none;
+  border: 1px solid var(--hair);
+  color: var(--text-secondary);
+  padding: var(--sp-6);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
+  margin-bottom: var(--sp-9);
+  transition:
+    border-color var(--t-fast),
+    color var(--t-fast);
+}
+
+/* Üres állapotok — az edzésnapló, a listák és a Tervek oldal közös stílusa */
+.wk-empty,
+.wk-list-empty,
+.pl-empty {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  text-align: center;
+  padding: var(--sp-7) var(--sp-5);
+  margin: 0 0 var(--sp-5);
+}
+
+.wk-progress-title {
+  font-size: var(--fs-base);
+  font-weight: 700;
+  margin: 0 0 var(--sp-5);
+}
+
+/* A listából egyszerre csak az 5 legutóbbi edzés látszik, a régebbiekhez
+   görgetni kell. A sor magassága a betűméretből számolódik (nem fix px),
+   így a nagyobb mobil-tipográfiánál is pontosan 5 sor fér ki. */
+.wk-history {
+  --wk-history-row: calc(var(--fs-sm) * 1.4 + var(--sp-5) * 2 + 1px);
+  list-style: none;
+  margin: var(--sp-7) 0 0;
+  padding: 0;
+  max-height: calc(var(--wk-history-row) * 5);
+  overflow-y: auto;
+  overscroll-behavior: contain; /* a lista végén ne a lap kezdjen görögni */
+}
+
+.wk-history li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  font-size: var(--fs-sm);
+  line-height: 1.4; /* a --wk-history-row számítás ezzel a sormagassággal egyezik */
+  color: var(--fg-70);
+  padding: var(--sp-5) 0;
+  flex-shrink: 0; /* görgethető listában a sorok nem lapulhatnak össze */
+}
+
+.wk-history li + li {
+  border-top: 1px solid var(--hair-soft);
+}
+
+.wk-history-date {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.wk-history-rpe {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* A sor műveletei (javítás, törlés). A detail-mező viszi a maradék helyet,
+   így a gombok akkor is a jobb szélen maradnak, ha rövid az edzésnév. */
+.wk-history-detail {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wk-history-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-shrink: 0;
+}
+
+.wk-history-btn {
+  padding: 0 var(--sp-3);
+  height: 26px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color var(--t-fast),
+    background var(--t-fast);
+}
+
+.wk-history-btn:hover {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}
+
+.wk-history-remove {
+  width: 26px;
+  padding: 0;
+}
+
+/* Visszanyitott edzés sávja. Ugyanaz a hangsúly, mint az autosave-jelzésé:
+   halk, de a naplózás előtt szem előtt van. */
+.wk-editing {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  margin: var(--sp-4) 0 0;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-md);
+  background: var(--surface-soft);
+  border: 1px dashed var(--fg-15);
+  font-size: var(--fs-sm);
+  color: var(--fg-70);
+}
+
+.wk-editing-cancel {
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  text-decoration: underline;
+  cursor: pointer;
+  transition: color var(--t-fast);
+}
+
+.wk-editing-cancel:hover {
+  color: var(--c-alert);
+}
+
+/* A tervből betöltött edzés visszavonása — a cím fölött, hogy a véletlen
+   koppintás után ez legyen az első, amit a szem talál. */
+.wk-undo {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+  flex-wrap: wrap;
+  margin: 0 0 var(--sp-6);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.wk-undo-btn {
+  flex-shrink: 0;
+  min-height: var(--tap-min);
+  padding: 0 var(--sp-6);
+  border: 1px solid var(--fg-40);
+  background: none;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background var(--t-fast);
+}
+
+.wk-undo-btn:hover {
+  background: var(--fg-15);
+}

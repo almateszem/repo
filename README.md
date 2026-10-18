@@ -150,7 +150,7 @@ public/          statikus frontend (a szerver innen szolgálja ki)
     render/      adat → DOM: áttekintő, szettek, tervek, edzői panel, összegző
     ui/          oldalankénti interakciók (egy fájl egy felület)
     app/init.js  a vezérlők felépítése és összekötése
-  style.css      dizájn-tokenek és komponensstílusok
+  css/           a stíluslap 13 része (sorrendjük a kaszkád része: index.html <link>)
 server/
   server.js      Express: /api/* végpontok + a public/ kiszolgálása
   auth.js        jelszó-hash (scrypt), munkamenet-tokenek, sütik — tiszta függvények

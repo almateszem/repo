@@ -1,0 +1,876 @@
+/* Podium — 16–19: demo polish, beállítások (st-*), analitika, sportoló részletnézet. (A sorrend a css/01-alap.css tartalomjegyzékében.) */
+
+/* ==========================================================================
+   16. Demo polish — mikro-animációk, értesítés-panel, állapotok
+   ========================================================================== */
+
+/* ---- Adat-animációk: a diagramok, a gyűrű és a folyamatjelzők
+       minden oldalmegjelenéskor „beúsznak” ---- */
+.chart-bars span {
+  transform-origin: bottom;
+  animation: bar-in 0.45s ease backwards;
+  animation-delay: calc(var(--i, 0) * 22ms); /* --i-t a script.js állítja be */
+}
+
+@keyframes bar-in {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+.db-ring-fg {
+  animation: ring-fill 1.1s ease 0.1s backwards;
+}
+
+@keyframes ring-fill {
+  from {
+    stroke-dashoffset: 264;
+  } /* üres gyűrűből tölt fel a készenléti értékre */
+}
+
+.pl-progress-fill {
+  transform-origin: left;
+  animation: grow-x 0.7s ease 0.15s backwards;
+}
+
+@keyframes grow-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+/* ---- Kártya-hoverek (csak hoverképes eszközön, hogy touch-on ne ragadjon be) ----
+   A .wk-exercise és a .nu-food kikerült innen: mióta nem kártyák, egyik fele
+   sem működik rajtuk. A `border-color` néma módon hatástalan — a sort elválasztó
+   vonal a KÖVETKEZŐ elem `border-top`-ja, nem a hoverelté —, a `translateY`
+   pedig épp ezért látható hibát okozna: a sor megemelkedne, a vonala nem
+   mozdulna vele, és hoveren elválna tőle.
+
+   Helyettük a felület halvány kiemelése áll, ami semmit nem mozgat. A .pl-card
+   is ide tartozik: a 13. task óta ő is .ds-row, tehát rá ugyanez a két hiba
+   érvényes volt. */
+@media (hover: hover) {
+  .wk-exercise,
+  .nu-food,
+  .pl-card {
+    transition: background var(--t-fast);
+  }
+
+  .wk-exercise:hover,
+  .nu-food:hover,
+  .pl-card:hover {
+    background: var(--surface-hover);
+  }
+}
+
+.db-cta-arrow {
+  transition: transform var(--t-fast);
+}
+
+.db-cta:hover .db-cta-arrow {
+  transform: translateX(3px);
+}
+
+/* ---- Értesítés-panel ---- */
+/* A panel a harang alá lóg le — az a fejléc JOBB szélén van, ezért jobbra
+   horgonyzunk (korábban az avatar volt a nyitógomb, és balra igazodott). */
+.notif-panel {
+  position: absolute;
+  top: calc(100% + var(--sp-3));
+  right: 0;
+  width: min(320px, 88vw);
+  background: var(--c-bg-raised);
+  border: 1px solid var(--fg-10);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-modal);
+  padding: var(--sp-6);
+  z-index: var(--z-popover);
+  animation: modal-in var(--t-base) both;
+}
+
+.notif-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+
+.notif-title {
+  font-size: var(--fs-md);
+  font-weight: 700;
+}
+
+.notif-clear {
+  background: none;
+  border: none;
+  color: var(--fg-60);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  transition: color var(--t-fast);
+}
+
+.notif-clear:hover {
+  color: var(--fg-100);
+}
+
+.notif-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.notif-item {
+  display: flex;
+  gap: var(--sp-4);
+  padding: var(--sp-4);
+  border-radius: var(--r-md);
+  background: var(--surface-soft);
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+  animation: note-in 0.25s ease backwards;
+  animation-delay: calc(var(--i, 0) * 30ms);
+}
+
+.notif-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--c-accent);
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+
+.notif-time {
+  display: block;
+  color: var(--text-muted);
+  font-size: var(--fs-2xs);
+  margin-top: 2px;
+}
+
+.notif-empty {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  text-align: center;
+  padding: var(--sp-8) 0;
+  margin: 0;
+}
+
+.db-badge.is-pop {
+  animation: badge-pop 0.3s ease;
+}
+
+@keyframes badge-pop {
+  50% {
+    transform: scale(1.3);
+  }
+}
+
+/* ---- Edzői chat: saját üzenet, beúszás, „gépel…" jelző ---- */
+.co-note {
+  animation: note-in 0.25s ease backwards;
+}
+
+@keyframes note-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+/* A saját üzenet accent KERETET kap, nem accent hátteret: tömör felületen egy
+   hosszabb üzenet nagy vörös folt volna, és a szövege is elvesztené a saját
+   kontrasztját. A behúzás marad — az mondja meg, ki beszél. */
+.co-note--me {
+  border-color: var(--c-accent);
+  margin-left: var(--sp-13); /* enyhén jobbra tolva, chat-szerűen */
+}
+
+/* ---- Validációs hibaállapot (edzésnév) ---- */
+.wk-error {
+  font-size: var(--fs-sm);
+  color: var(--c-alert);
+  margin: calc(-1 * var(--sp-4)) 0 var(--sp-7);
+}
+
+/* ---- Automatikus mentés állapota ----
+   Négy állapot egy soron: idle (mit csinál az app), saving, saved, error.
+   A pötty hordozza a színt, a szöveg a részletet — így a sor magassága nem
+   ugrál állapotváltáskor. */
+.wk-autosave-note {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  margin: calc(-1 * var(--sp-4)) 0 var(--sp-7);
+  transition: color var(--t-fast);
+}
+
+.wk-autosave-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  background: var(--fg-30);
+  transform: translateY(-1px);
+  transition: background var(--t-fast);
+}
+
+.wk-autosave-note[data-state='saving'] .wk-autosave-dot {
+  background: var(--fg-60);
+  animation: autosave-pulse 1s ease-in-out infinite;
+}
+
+.wk-autosave-note[data-state='saved'] {
+  color: var(--text-secondary);
+}
+
+.wk-autosave-note[data-state='saved'] .wk-autosave-dot {
+  background: var(--c-ok);
+}
+
+/* A hiba nem maradhat halvány szürke: ez az egyetlen jelzés arról, hogy a
+   napló NINCS elmentve. */
+.wk-autosave-note[data-state='error'] {
+  color: var(--c-alert);
+  font-weight: 600;
+}
+
+.wk-autosave-note[data-state='error'] .wk-autosave-dot {
+  background: var(--c-alert);
+}
+
+@keyframes autosave-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.wk-title.has-error {
+  border-color: var(--c-alert);
+}
+
+/* ---- Toast változatok ---- */
+.toast--error {
+  border-color: var(--c-alert);
+  color: var(--c-alert);
+}
+
+/* ---- Modal finom zárás ---- */
+.video-modal.is-closing,
+.settings-modal.is-closing,
+.food-modal.is-closing,
+.confirm-modal.is-closing,
+.custom-food-modal.is-closing,
+.scanner-modal.is-closing,
+.pr-modal.is-closing {
+  display: flex;
+}
+
+.video-modal.is-closing .video-modal-card,
+.settings-modal.is-closing .settings-modal-card,
+.food-modal.is-closing .food-modal-card,
+.confirm-modal.is-closing .confirm-modal-card,
+.custom-food-modal.is-closing .custom-food-modal-card,
+.scanner-modal.is-closing .scanner-modal-card,
+.pr-modal.is-closing .pr-modal-card {
+  animation: modal-out 0.18s ease both;
+}
+
+.video-modal.is-closing .video-modal-backdrop,
+.settings-modal.is-closing .settings-modal-backdrop,
+.food-modal.is-closing .food-modal-backdrop,
+.confirm-modal.is-closing .confirm-modal-backdrop,
+.custom-food-modal.is-closing .custom-food-modal-backdrop,
+.scanner-modal.is-closing .scanner-modal-backdrop,
+.pr-modal.is-closing .pr-modal-backdrop {
+  animation: fade-out 0.18s ease both;
+}
+
+@keyframes modal-out {
+  to {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* ==========================================================================
+   17. Beállítások modal tartalma (st-*)
+   ========================================================================== */
+.settings-modal-card {
+  max-width: 460px;
+}
+
+.st-section {
+  margin-bottom: var(--sp-8);
+}
+
+.st-section-title {
+  margin: 0 0 var(--sp-4);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.st-profile {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+}
+
+.st-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--r-full);
+  background: var(--c-neutral);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.st-avatar svg {
+  width: 26px;
+  height: 26px;
+  fill: var(--fg-70);
+}
+
+.st-field {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.st-label {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.st-input {
+  background: none;
+  border: 1px solid var(--hair);
+  padding: var(--sp-3) var(--sp-5);
+  color: var(--text-primary);
+  font-size: var(--fs-input);
+  transition:
+    background var(--t-fast),
+    border-color var(--t-fast);
+}
+
+.st-input:focus {
+  background: var(--surface-hover);
+  border-color: var(--fg-40);
+}
+
+/* A legördülő ugyanaz a mező-forma, mint a szövegmezők. A lenyíló maga a
+   közös saját lenyíló (.ds-select, a fájl végén) — a nyíl annak a része. */
+.st-select {
+  width: 100%;
+  cursor: pointer;
+}
+
+.st-toggle-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.st-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-5);
+  min-height: var(--tap-min);
+  padding: var(--sp-4) 0;
+}
+
+.st-toggle + .st-toggle {
+  border-top: 1px solid var(--hair-soft);
+}
+
+.st-toggle-label {
+  font-size: var(--fs-md);
+  color: var(--text-secondary);
+  transition: color var(--t-fast);
+}
+
+.st-toggle.is-off .st-toggle-label {
+  color: var(--text-faint);
+}
+
+.st-switch {
+  position: relative;
+  width: 42px;
+  height: 24px;
+  flex-shrink: 0;
+  padding: 0;
+  border-radius: var(--r-3xl);
+  border: 1px solid var(--border-strong);
+  background: var(--surface-input);
+  transition:
+    background var(--t-fast),
+    border-color var(--t-fast);
+}
+
+.st-switch:hover {
+  border-color: var(--fg-40);
+}
+
+.st-switch::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: var(--fg-60);
+  transition:
+    transform var(--t-fast),
+    background var(--t-fast);
+}
+
+.st-switch[aria-checked='true'] {
+  background: var(--fg-85);
+  border-color: var(--fg-85);
+}
+
+.st-switch[aria-checked='true']::before {
+  transform: translateX(18px);
+  background: var(--c-ink);
+}
+
+.st-export {
+  width: 100%;
+  background: none;
+  border: 1px solid var(--hair);
+  color: var(--fg-70);
+  border-radius: var(--r-md);
+  padding: var(--sp-4);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  transition:
+    border-color var(--t-fast),
+    color var(--t-fast);
+}
+
+.st-export:hover {
+  border-color: var(--fg-40);
+  color: var(--text-secondary);
+}
+
+/* Kikapcsolt kategória az értesítés-panelen — szürkített megjelenés */
+.notif-item--muted {
+  opacity: 0.5;
+}
+
+.notif-item--muted .notif-dot {
+  background: var(--fg-30);
+}
+
+/* Már látott értesítés: a sor marad, csak az újdonságot jelző pötty halkul el.
+   (Korábban a „mind olvasott" az egész listát eltüntette — a valódi
+   eseményekkel az azt jelentené, hogy a panel a tartalmát is elveszti.) */
+.notif-item--seen .notif-dot {
+  background: var(--fg-30);
+}
+
+/* ==========================================================================
+   18. Analitika — testsúly trend, heti összehasonlítás, PR lista
+   ========================================================================== */
+
+/* ---- Testsúly trend (Regeneráció oldal) ----
+   A rögzítő űrlap megszűnt: a napi testsúlyt a check-in kérdi, ez a kártya
+   csak a trendet és az utolsó mérést mutatja. */
+/* A kártya flex-gapje adja a térközöket, ezért a chart alap margója itt nem
+   kell (.chart { margin-bottom }). */
+.rc-weight-chart {
+  margin: 0;
+}
+
+/* A testsúly-diagram annyi oszlopot rajzol, ahány mérés van (legfeljebb 12).
+   A rugalmas oszlopok az első pár mérésnél az egész sávot kitöltenék — egy
+   ekkora tömb már nem oszlopdiagram. A maximum szélesség megtartja az oszlop-
+   formát, és a hézag magától mutatja, hogy még kevés mérés van. */
+.rc-weight-chart .chart-bars span {
+  max-width: 40px;
+}
+
+.rc-weight-last {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ---- Heti volumen-összehasonlítás (workout) ---- */
+.wk-compare {
+  margin-top: var(--sp-12);
+}
+
+.wk-compare-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-5);
+}
+
+.wk-compare-head .wk-progress-title {
+  margin: 0;
+}
+
+/* A szegmentált váltó közös komponens: a workout heti összehasonlítása
+   (wk-toggle) és az Edző oldal nézetváltója (co-toggle) is ezt használja. */
+/* A formát mindkettőnek a .ds-seg adja (osztályként fel van téve): 1px-es
+   rés hajszálvonal-háttéren, az aktív szegmens accent. A korábbi chip-sávot
+   (surface-input felület, 2px-es rés, paper-aktív) ez váltja ki.
+
+   A .wk-toggle az Edzés oldal időszak-váltója, a .co-toggle az Edző oldal
+   nézetváltója — a stílusukat eddig is EGY blokk adta, mert ugyanaz a
+   döntés: melyik szegmens él. Ezért állnak át együtt.
+
+   Itt már csak az marad, amit a primitív nem tud: a .wk-toggle nem feszül ki
+   a lap szélességére (a .wk-compare fejlécében a cím mellett ül), ezért a
+   gombjai nem nyúlnak. */
+.wk-toggle {
+  flex: 0 0 auto;
+}
+
+.wk-toggle .ds-seg-btn {
+  flex: 0 0 auto;
+}
+
+.wk-toggle-btn:hover,
+.co-toggle-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.wk-compare .chart {
+  margin-bottom: var(--sp-3);
+}
+
+/* Napcímkék a 7 oszlop alatt — a chart oszlopaival azonos flex-elosztás */
+.wk-compare-days {
+  display: flex;
+  gap: var(--sp-1);
+  padding-right: 44px; /* a chart tengely-helyét követi */
+  margin-bottom: var(--sp-4);
+}
+
+.wk-compare-days span {
+  flex: 1;
+  text-align: center;
+  font-size: var(--fs-2xs);
+  color: var(--text-faint);
+}
+
+.wk-compare-note {
+  font-size: var(--fs-sm);
+  color: var(--fg-70);
+  margin: 0;
+}
+
+/* ---- Korábbi rekordok (PR) listája ---- */
+.wk-prs {
+  margin-top: var(--sp-12);
+}
+
+.wk-pr-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.wk-pr-item + .wk-pr-item {
+  border-top: 1px solid var(--hair-soft);
+}
+
+.wk-pr-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-5) 0;
+  cursor: pointer;
+  transition: background var(--t-fast);
+  animation: note-in 0.25s ease backwards;
+  animation-delay: calc(var(--i, 0) * 30ms);
+}
+
+.wk-pr-item:hover,
+.wk-pr-item:focus-visible {
+  background: var(--surface-hover);
+}
+
+.wk-pr-item .wk-pr {
+  flex-shrink: 0;
+}
+
+.wk-pr-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wk-pr-exercise {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.wk-pr-detail {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.wk-pr-date {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* ---- Rekord-előzmény modál (pr-modal-*) — egy gyakorlat korábbi
+   rekordjai időrendben, a "Korábbi rekordok" listaelemre kattintva ---- */
+.pr-modal-exercise {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.pr-modal-history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pr-history-item + .pr-history-item {
+  border-top: 1px solid var(--hair-soft);
+}
+
+.pr-history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  padding: var(--sp-5) 0;
+  animation: note-in 0.25s ease backwards;
+  animation-delay: calc(var(--i, 0) * 30ms);
+}
+
+/* ==========================================================================
+   19. Sportoló részletnézet (co-detail-*, co-modal-*, co-action, co-msg)
+   ========================================================================== */
+.co-modal-ident {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+  min-width: 0;
+}
+
+/* Mini tier-jelvény — a kártyák pajzs-formájának kicsinyített változata */
+.co-modal-badge {
+  width: 54px;
+  height: 62px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  background: linear-gradient(170deg, var(--tier-soft), transparent 70%), var(--surface-input);
+  border: 1px solid var(--tier-border);
+  border-radius: var(--r-lg) var(--r-lg) 50% 50% / var(--r-lg) var(--r-lg) 22% 22%;
+}
+
+.co-modal-rating {
+  font-size: var(--fs-3xl);
+  font-weight: 800;
+  line-height: 1;
+  color: var(--tier);
+}
+
+.co-modal-tag {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.co-modal-titles {
+  min-width: 0;
+}
+
+.co-modal-tier {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.co-modal-alert {
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--fg-75);
+  background: rgba(224, 67, 90, 0.09); /* --c-alert, halványítva */
+  border-left: 2px solid var(--c-alert);
+  border-radius: 0 var(--r-md) var(--r-md) 0;
+  padding: var(--sp-4) var(--sp-5);
+  margin: 0 0 var(--sp-7);
+}
+
+.co-modal-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-5) var(--sp-6);
+  margin: 0 0 var(--sp-8);
+}
+
+.co-modal-stat {
+  min-width: 0;
+}
+
+/* ---- A részletnézet kerete ----
+   A sportoló-lista HELYÉN áll a .co-main bal oszlopában; a KPI-sor és a
+   jobb sáv közben a helyén marad. Saját konténer, hogy a stat-rács a
+   tényleges oszlopszélességhez igazodjon, ne a nézetablakhoz. */
+.co-detail {
+  container: co-detail / inline-size;
+  min-width: 0;
+  animation: co-detail-in var(--t-base) both;
+}
+
+.co-detail:focus {
+  outline: none;
+}
+
+@keyframes co-detail-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .co-detail {
+    animation: none;
+  }
+}
+
+.co-detail-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 44px;
+  padding: 0;
+  margin-bottom: var(--sp-4);
+  background: none;
+  border: 0;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
+  transition: color var(--t-fast);
+}
+
+.co-detail-back:hover {
+  color: var(--text-primary);
+}
+
+.co-detail-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-6);
+  padding-bottom: var(--sp-8);
+  margin-bottom: var(--sp-8);
+  border-bottom: 1px solid var(--hair);
+}
+
+.co-detail-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+/* A bontás a fejléc jobb szélén, keretezve — elkülönül a fülek tartalmától.
+   A fejléc-előtag kell: a később álló .co-action (flex: 1, háttér) különben
+   felülírná, és a gomb a teljes maradék szélességre nyúlna. */
+.co-detail-head .co-detail-unlink {
+  flex: 0 0 auto;
+  min-width: 0;
+  border: 1px solid var(--fg-20);
+  background: none;
+}
+
+.co-detail-stats {
+  padding-bottom: var(--sp-8);
+  margin-bottom: var(--sp-8);
+  border-bottom: 1px solid var(--hair);
+}
+
+/* A fülsor a szűrők szegmens-nyelvén; az aktív fület az aria-selected jelzi */
+.co-detail-tabs {
+  margin-bottom: var(--sp-9);
+}
+
+.co-detail-tabs .co-filter[aria-selected='true'] {
+  background: var(--c-accent);
+  color: var(--on-accent);
+}
+
+.co-detail-panel > section + section {
+  margin-top: var(--sp-9);
+}
+
+/* A fülön belül a blokkok maguk állnak — a modálbeli elválasztók nem kellenek */
+.co-detail-panel .co-msg,
+.co-detail-panel .co-assign {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.co-detail-panel .co-msg-feed {
+  max-height: min(60vh, 520px);
+  min-height: 180px;
+}
+
+.co-detail-panel .co-assign-form {
+  max-width: 520px;
+}
+
+.co-detail-panel .co-assign-form button[type='submit'] {
+  align-self: flex-start;
+  min-width: 180px;
+}
+
+@container co-detail (min-width: 600px) {
+  .co-detail-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .co-detail-title {
+    font-size: 28px;
+  }
+}
