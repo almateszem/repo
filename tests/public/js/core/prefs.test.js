@@ -93,3 +93,23 @@ test('prefs: privát módban (dobó localStorage) sem hibázik', async () => {
   assert.equal(prefs.get('displayName', 'alap'), 'alap');
   assert.doesNotThrow(() => prefs.unbind());
 });
+
+test('prefs: forget() a fióktörléskor a saját kulcsot viszi, a többiét nem', async () => {
+  const storage = memoryStorage({ 'podium:prefs:bela': JSON.stringify({ displayName: 'Béla' }) });
+  const prefs = await freshPrefs(storage);
+  prefs.bind('anna');
+  prefs.set('displayName', 'Anna');
+  prefs.forget();
+  assert.ok(!storage.data.has('podium:prefs:anna'), 'a törölt fiók kulcsa eltűnt');
+  assert.ok(storage.data.has('podium:prefs:bela'), 'a másik fiók kulcsa marad');
+  // Egy azonos nevű új fiók tiszta lappal indul
+  prefs.bind('anna');
+  assert.equal(prefs.get('displayName', null), null);
+});
+
+test('prefs: forget() megkötés nélkül és privát módban sem hibázik', async () => {
+  const prefs = await freshPrefs(brokenStorage());
+  assert.doesNotThrow(() => prefs.forget());
+  prefs.bind('anna');
+  assert.doesNotThrow(() => prefs.forget());
+});

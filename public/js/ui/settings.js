@@ -259,6 +259,7 @@ async function setupSettingsModal({ onNotifCatsChange, confirmAction } = {}) {
       if (!confirmed) return;
 
       await api.deleteAccount(password);
+      prefs.forget(); // a törölt fiók beállításai se maradjanak a böngészőben
       window.location.reload(); // a belépő képernyőre esünk vissza
     } catch (err) {
       showFormError(accountForms.delete.error, err.message || 'A fiókot nem sikerült törölni');

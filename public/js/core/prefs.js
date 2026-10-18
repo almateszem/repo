@@ -48,6 +48,18 @@ const prefs = {
     boundKey = null;
     unboundPrefs = {};
   },
+  /** Fióktörléskor: a fiók kulcsa is törlődik — egy azonos nevű új fiók
+      különben megörökölné a nevet, az olvasott-időt és a nézetet. */
+  forget() {
+    if (boundKey) {
+      try {
+        localStorage.removeItem(boundKey);
+      } catch {
+        /* privát mód — nincs mit törölni */
+      }
+    }
+    this.unbind();
+  },
   read() {
     if (!boundKey) return unboundPrefs;
     try {
