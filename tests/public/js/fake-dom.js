@@ -63,6 +63,10 @@ class FakeElement {
     this.children.push(...children);
   }
 
+  before() {}
+
+  insertAdjacentHTML() {}
+
   replaceChildren(...children) {
     this.children = children;
   }

@@ -182,6 +182,8 @@ function enhanceSelect(select) {
         event.preventDefault();
         open();
       } else if (key.length === 1 && !event.ctrlKey && !event.metaKey) {
+        // A gépelt betű a listáé: a gyorsbillentyű-őr (shortcuts.js) ebből tudja
+        event.preventDefault();
         typeahead(key);
       }
       return;
@@ -208,6 +210,7 @@ function enhanceSelect(select) {
     } else if (key === 'Tab') {
       close();
     } else if (key.length === 1 && !event.ctrlKey && !event.metaKey) {
+      event.preventDefault();
       typeahead(key);
     }
   });

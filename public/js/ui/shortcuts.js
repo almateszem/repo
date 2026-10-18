@@ -13,11 +13,18 @@ const isModalOpen = () => Boolean($(OPEN_MODAL_SELECTOR));
 
 function setupShortcuts() {
   document.addEventListener('keydown', (event) => {
+    // Egy vezérlő már elfogyasztotta a billentyűt (pl. a lenyíló typeahead-je)
+    if (event.defaultPrevented) return;
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     if (isModalOpen()) return;
+    /* A gépelő mezők ÉS a saját vezérlők (lenyíló, lista): a custom-select
+       gombja nem select, ezért a régi őr nem ismerte fel — a terv-lenyílóban
+       az „5" a Tervekre váltott. A szerep szerinti őr minden jövőbeli saját
+       vezérlőt is véd. */
     if (
       event.target instanceof Element &&
-      event.target.matches('input, textarea, select, [contenteditable]')
+      (event.target.matches('input, textarea, select, [contenteditable]') ||
+        event.target.closest('[role="combobox"], [role="listbox"], [aria-haspopup]'))
     )
       return;
     // A check-in varázslóban az 1–5 a VÁLASZ, nem oldalváltás: a skálák és a
