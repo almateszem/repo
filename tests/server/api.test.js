@@ -1513,6 +1513,23 @@ test('a víznapló törlése is visszaírja a folyadék-mezőt, idegen sorra ped
   assert.equal(rossz.status, 400, 'egy korty felső határa is van');
 });
 
+test('a változatlanul visszaküldött folyadék NEM vonja össze a kortyokat', async () => {
+  /* A check-in a víznapló összegét mutatja; ha a felhasználó nem írta át, és
+     ugyanazt küldi vissza, a 250 + 500 + 250 nem lehet egyetlen 1000 ml-es
+     bejegyzés — a bontás (és vele a kortyonkénti visszavonás) megmarad. */
+  for (const ml of [250, 500, 250]) {
+    await request('POST', '/api/water', { cookie: vizCookie, body: { ml } });
+  }
+  const mentes = await request('PUT', '/api/checkin', {
+    cookie: vizCookie,
+    body: { sleepHours: 7, hydration: 1 },
+  });
+  assert.equal(mentes.status, 200);
+  const nap = (await request('GET', '/api/water', { cookie: vizCookie })).json;
+  assert.equal(nap.totalMl, 1000);
+  assert.equal(nap.entries.length, 3, 'a három korty megmaradt');
+});
+
 test('a check-in újramentése frissíti a sort, nem hoz létre újat', async () => {
   const mai = (await request('GET', '/api/checkin', { cookie: annaCookie })).json;
   assert.equal(mai.sleepHours, 8, 'a legutóbbi mentés értéke látszik');

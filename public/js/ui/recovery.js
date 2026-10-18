@@ -155,11 +155,15 @@ async function setupRecovery() {
   /** Egy skála a mező-neve alapján. */
   const scaleFor = (name) => $(`.rc-scale[data-field="${name}"]`, page);
 
+  /** A folyadék-mező betöltéskori értéke (szövegként) — ehhez képest küldjük. */
+  let loadedHydration = '';
+
   /** Az űrlap kitöltése a szerverről kapott check-inből (vagy ürítése). */
   const fillForm = (checkin) => {
     const numberOrEmpty = (value) => (value === null || value === undefined ? '' : String(value));
     sleepInput.value = numberOrEmpty(checkin?.sleepHours);
     hydrationInput.value = numberOrEmpty(checkin?.hydration);
+    loadedHydration = hydrationInput.value; // a readForm ehhez méri, átírta-e
     // A testsúly nem a check-in sorból, hanem a testsúly-naplóból jön: ha ma
     // már mértél (itt vagy a varázslóban), azt az értéket szerkeszted tovább
     // — naponta egy bejegyzés van, a mentés felülír.
@@ -196,11 +200,14 @@ async function setupRecovery() {
     const numberOrNull = (input) => (input.value.trim() === '' ? null : Number(input.value));
     const body = {
       sleepHours: numberOrNull(sleepInput),
-      hydration: numberOrNull(hydrationInput),
       weightKg: numberOrNull(weightInput),
       soreness: { ...sorenessValues },
       pain: { ...painValues },
     };
+    /* A folyadék csak akkor megy, ha a felhasználó átírta a betöltött értéket:
+       a szerver a beküldött értékkel a nap víznaplóját cseréli le, a
+       változatlanul visszaküldött összeg a kortyok bontását vinné el. */
+    if (hydrationInput.value !== loadedHydration) body.hydration = numberOrNull(hydrationInput);
     [...CHECKIN_SCALES, MOOD_SCALE].forEach(([name]) => {
       body[name] = readScale(scaleFor(name));
     });

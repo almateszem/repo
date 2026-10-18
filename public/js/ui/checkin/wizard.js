@@ -148,7 +148,9 @@ async function setupCheckinWizard() {
         ...(carried.painGeneral !== null ? { general: carried.painGeneral } : {}),
       },
       mood: carried.mood, // nem kérdezzük — vissza, különben NULL lesz
-      hydration: carried.hydration, // ugyanígy
+      /* A folyadékot NEM küldjük: nem kérdezzük, és a szerver a hiányzó mezőnél
+         a víznaplót érintetlenül hagyja — visszaküldve a nap kortyait egy
+         bejegyzésre cserélné. (A carried.hydration csak az összegzőhöz kell.) */
       // A testsúly nem a check-in sorba megy: a szerver a weight_log-ba
       // írja, naponta egy bejegyzésbe (felülír, nem duplikál). A null azt
       // jelenti, hogy ma nem mértél — ilyenkor a napló érintetlen marad.

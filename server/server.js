@@ -1886,9 +1886,12 @@ app.put('/api/checkin', (req, res) => {
      ezért az űrlapon megadott érték lecseréli a nap víznaplóját — a felhasználó
      ott az összegről nyilatkozik, nem egy kortyról. A mezőt üresen hagyva a
      napló érintetlen marad, hogy a gyors check-in ne törölje a napközben
-     rögzített kortyokat. */
+     rögzített kortyokat. Ha a beküldött érték ml-re kerekítve megegyezik a
+     nap összegével (változatlanul visszaküldött mező), a napló marad: a
+     kortyok bontása nem vész el, és egy másik eszköz kortyait sem írja felül. */
   if (fields.hydration !== null) {
-    replaceWaterDay(userId, req.today, Math.round(fields.hydration * 1000));
+    const ml = Math.round(fields.hydration * 1000);
+    if (ml !== getWaterDay(userId, req.today).totalMl) replaceWaterDay(userId, req.today, ml);
   }
 
   const checkin = saveCheckin(userId, req.today, fields);
