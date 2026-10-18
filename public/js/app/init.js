@@ -24,7 +24,7 @@ import { setupConnectivity } from '../ui/connectivity.js';
 import { setupCustomFood } from '../ui/custom-food.js';
 import { enhanceSelects } from '../ui/custom-select.js';
 import { setupDashboard } from '../ui/dashboard.js';
-import { loadIntensityLevels } from '../render/sets.js';
+import { loadIntensityLevels } from '../ui/workout/set-controls.js';
 import { loadWeightConventions } from '../core/weight-conventions.js';
 import { setupExercisePicker } from '../ui/exercise-picker.js';
 import { setupFoodDetail } from '../ui/food-detail.js';

@@ -15,7 +15,7 @@ import { hooks, shared } from '../../core/page-hooks.js';
 import { showToast } from '../../core/toast.js';
 import { onPageShow, setOnboardingLock } from '../../nav/router.js';
 import { renderDashboard } from '../../render/dashboard.js';
-import { handleStepClick } from '../../render/sets.js';
+import { handleStepClick } from '../workout/set-controls.js';
 import { ciPickPositive } from './helpers.js';
 import { ci, ciCountedSteps, ciStepOrder, clearSession, resetSession } from './session.js';
 import { mergeWeightEntry, refreshWeightLog, todayWeightEntry } from '../weight.js';

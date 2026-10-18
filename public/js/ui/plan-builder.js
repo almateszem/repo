@@ -7,6 +7,7 @@ import { dayAdjective, dayLetter, dayRound, dayTitle } from '../core/plan-week.j
 import { showToast } from '../core/toast.js';
 import { navigate } from '../nav/router.js';
 import { renderPlans } from '../render/plans.js';
+import { readSetRow, renderExercise } from '../render/sets.js';
 import {
   clampRpeInput,
   enableExtraMenu,
@@ -15,9 +16,7 @@ import {
   handleAddSetClick,
   handleRemoveSetClick,
   handleStepClick,
-  readSetRow,
-  renderExercise,
-} from '../render/sets.js';
+} from './workout/set-controls.js';
 
 /** A terv hosszának határai (napban) — a szerver (server/plan-week.js) is
     ezeket fogadja el. */

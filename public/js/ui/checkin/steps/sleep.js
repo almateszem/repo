@@ -2,7 +2,7 @@
 
 import { $, $$, cloneTemplate, readNumberInput } from '../../../core/dom.js';
 import { formatNumber } from '../../../core/format.js';
-import { handleStepClick } from '../../../render/sets.js';
+import { handleStepClick } from '../../workout/set-controls.js';
 import {
   CI_PRESET_ADVANCE_MS,
   CI_SLEEP_MAX,

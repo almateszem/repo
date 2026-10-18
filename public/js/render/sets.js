@@ -6,11 +6,8 @@
  * ezért állnak külön a lapok vezérlőitől.
  */
 
-import { api } from '../core/api.js';
 import { $, $$, cloneTemplate } from '../core/dom.js';
-import { bindPopupMenu } from '../core/popup-menu.js';
-import { formatInputNumber, formatNumber } from '../core/format.js';
-import { showToast } from '../core/toast.js';
+import { formatNumber } from '../core/format.js';
 import { isAddedWeight, isPerHand } from '../core/weight-conventions.js';
 
 /* ---- Kezenkénti súly ----
@@ -88,12 +85,14 @@ function numericValue(raw) {
 /* A fokozatok CÍMKÉI a szervertől jönnek, hogy a mentett kulcs és a felirat ne
    sodródhasson szét — ugyanaz az elv, mint a mérési helyeknél. Modul-szintű
    másolat, mert a sor rajzolása szinkron: a lista egyszer, az app indulásakor
-   töltődik be (app/init.js), és onnantól minden rajzolás készen találja. */
+   töltődik be (app/init.js → loadIntensityLevels), és onnantól minden
+   rajzolás készen találja. */
 let intensityLevels = [];
 
-async function loadIntensityLevels() {
-  intensityLevels = await api.getCardioIntensities();
-  return intensityLevels;
+/** A fokozat-lista beállítása (a lekérés: ui/workout/set-controls.js →
+    loadIntensityLevels). */
+function setIntensityLevels(levels) {
+  intensityLevels = levels;
 }
 
 /** A skála KÖZEPE jár ismeretlen vagy hiányzó értékre — ugyanaz, amit a szerver
@@ -330,46 +329,6 @@ function renderSetRow(set, index) {
   return row;
 }
 
-/** Léptetőgomb (−/+): a lépésközt az input `step` attribútuma adja
-    (1 ismétlés, 2.5 kg = a legkisebb tárcsapár). Az érték a min/max közé
-    szorul, és `input` eseményt váltunk ki, hogy az arra kötött automatikus
-    mentés is lefusson. Igazzal tér vissza, ha ő kezelte a kattintást. */
-function handleStepClick(event) {
-  const stepBtn = event.target.closest('.wk-num-step');
-  if (!stepBtn) return false;
-
-  const input = $('.wk-num-input', stepBtn.parentElement);
-  const step = Number(input.step) || 1;
-  const min = input.min === '' ? -Infinity : Number(input.min);
-  const max = input.max === '' ? Infinity : Number(input.max);
-  const current = Number(input.value);
-  const next = (Number.isFinite(current) ? current : 0) + Number(stepBtn.dataset.dir) * step;
-
-  input.value = formatInputNumber(Math.min(Math.max(next, min), max));
-  input.dispatchEvent(new Event('input', { bubbles: true }));
-  return true;
-}
-
-/** Az RPE-mező kézzel beírt értékének 1–10 közé (fél fokozatokra) szorítása.
-    A léptetőgombok betartják a min/max-ot, a billentyűzet viszont bármit
-    beenged („0", „55", „8.3"), a recovery-motor pedig erre a skálára épül.
-    Az üres mező üres marad — az RPE nem kötelező. Csak fókusz elhagyásakor
-    (change) fut, hogy gépelés közben ne írjuk át a félkész számot. Igazzal
-    tér vissza, ha módosított (a hívó ilyenkor ment). */
-function clampRpeInput(target) {
-  const input = target.closest?.('.wk-set-rpe');
-  if (!input || input.value.trim() === '') return false;
-
-  const value = Number(input.value);
-  const clamped = Number.isFinite(value)
-    ? formatInputNumber(Math.min(Math.max(Math.round(value * 2) / 2, 1), 10))
-    : '';
-  if (clamped === input.value) return false;
-
-  input.value = clamped;
-  return true;
-}
-
 /** Egy gyakorlat alap-szettje: a szerveré, de kézisúlyzósnál és saját
     testsúlyosnál 0 kg-mal. A szerver 60 kg-ja rúdra van szabva: húzódzkodásnál
     „+60 kg" ráadás, kézisúlyzónál 60 kg/kéz volna — és ha a sort így pipálja
@@ -378,65 +337,6 @@ function defaultSetFor(name, defaultSet) {
   return isPerHand(name) || isAddedWeight(name)
     ? { ...defaultSet, weight: '0' }
     : { ...defaultSet };
-}
-
-/** Az új szett értékei: az adott gyakorlat utolsó szettje (így ismétlődő
-    szetteknél nem kell újragépelni), üres listánál a gyakorlat alap-szettje. */
-function nextSetValues(setList, defaultSet) {
-  const last = setList.lastElementChild;
-  const name = $('.wk-exercise-name', setList.closest('.wk-exercise'))?.textContent.trim();
-  const values = last
-    ? { ...readSetRow(last), done: false }
-    : { ...defaultSetFor(name, defaultSet), done: false };
-  // A típus nem öröklődik: az új szett a pozíciója szerinti alapot kapja
-  // (a renderSetRow adja), különben egy bemelegítő sor után a következő is
-  // bemelegítő lenne.
-  delete values.type;
-  return values;
-}
-
-/** „+ Szett hozzáadása" delegált kezelése. Igazzal tér vissza, ha a
-    kattintás ehhez a gombhoz tartozott (a hívó ilyenkor ne fusson tovább). */
-function handleAddSetClick(event, defaultSet, onChange) {
-  const addBtn = event.target.closest('.wk-add-set');
-  if (!addBtn) return false;
-  const setList = $('.wk-set-list', addBtn.closest('.wk-exercise'));
-  setList.appendChild(renderSetRow(nextSetValues(setList, defaultSet), setList.children.length));
-  renumberSets(setList); // az új sor száma a lista drop setjeitől is függ
-  onChange();
-  return true;
-}
-
-/** Szett törlése (✕) delegált kezelése. Az utolsó szettet nem engedi
-    törölni: gyakorlatot a gyakorlat-választóból lehet kivenni. */
-function handleRemoveSetClick(event, onChange) {
-  const removeBtn = event.target.closest('.wk-set-remove');
-  if (!removeBtn) return false;
-  const row = removeBtn.closest('.wk-set-row');
-  const setList = row.parentElement;
-  if (setList.children.length <= 1) {
-    showToast(
-      'Az utolsó szett nem törölhető — a gyakorlatot a fejlécében lévő ✕-szel veheted ki',
-      'error',
-    );
-    return true;
-  }
-  const wasFirst = row === setList.firstElementChild;
-  row.remove();
-  if (wasFirst) promoteFirstSetToWarmup(setList);
-  renumberSets(setList);
-  onChange();
-  return true;
-}
-
-/** Az első szett törlése után az utána következő sor lép a helyére — az
-    pedig az alapszabály szerint bemelegítés. A `work` típust azért léptetjük
-    elő, mert az a nem első sorok alapértéke, tehát nem tudható, hogy a
-    felhasználó választotta-e. A `drop` pedig azért, mert a lista élén
-    értelmét veszti: nincs előtte szett, aminek a dropja lenne. */
-function promoteFirstSetToWarmup(setList) {
-  const first = setList.firstElementChild;
-  if (first && first.dataset.setType !== 'warmup') applySetType(first, defaultSetType(0));
 }
 
 function renderExercise(
@@ -647,121 +547,16 @@ function refreshExerciseList(list) {
   renumberOrderSelects(list, refreshSupersetGroups(list));
 }
 
-/** A gyakorlatok sorrendjének átrendezése a saját (nem natív) sorszám-
-    lenyílóval: a kiválasztott szám az új pozíció, a köztük lévő
-    gyakorlatok ehhez igazodva csúsznak arrébb (nem csere, hanem
-    "áthelyezés"). Az `onReorder` minden sikeres átrendezés után lefut
-    (pl. autosave). A natív <select> helyett azért saját felépítésű ez a
-    lenyíló, mert a natív opciólista stílusozása böngészőnként/OS-enként
-    megbízhatatlan és a projekt sötét témájával nem volt összhangban. A
-    nyitás, a zárás és a billentyűzet a közös bindPopupMenu-é. */
-function enableOrderSelect(list, onReorder) {
-  bindPopupMenu(list, {
-    trigger: '.wk-order-trigger',
-    menu: '.wk-order-menu',
-    option: '.wk-order-option',
-    onChoose: (option) => {
-      const card = option.closest('.wk-exercise');
-      const cards = $$('.wk-exercise', list);
-      const fromIndex = cards.indexOf(card);
-      const toIndex = Number(option.dataset.index);
-      if (fromIndex === -1 || toIndex === fromIndex) return;
-
-      if (toIndex < fromIndex) {
-        list.insertBefore(card, cards[toIndex]);
-      } else {
-        list.insertBefore(card, cards[toIndex].nextSibling);
-      }
-      // A szuperszett-kapcsolatok szomszédság-alapúak, ezért a mozgatás után
-      // a csoportokat is újra kell számolni (nem csak a sorszámokat).
-      refreshExerciseList(list);
-      onReorder();
-    },
-  });
-}
-
-/** A szett típusának (bemelegítő / munkasorozat / drop set) választása a
-    sorszám-gombra kötött lenyílóval — ugyanaz a minta, mint a gyakorlatok
-    sorrendjénél (enableOrderSelect). A típus csak címke: a sor pozícióját
-    nem befolyásolja. Az `onChange` minden tényleges váltás után lefut
-    (pl. autosave). */
-function enableSetTypeSelect(list, onChange) {
-  bindPopupMenu(list, {
-    trigger: '.wk-set-num',
-    menu: '.wk-set-type-menu',
-    option: '.wk-set-type-option',
-    onOpen: (trigger, menu) => {
-      const row = trigger.closest('.wk-set-row');
-      // A drop set az ELŐZŐ szettről csökkent le: az első sorban nincs mihez,
-      // bemelegítőről pedig nem csökkentenek le. Fordítva ugyanez a szabály:
-      // egy szett nem válhat bemelegítővé, ha drop set kapcsolódik hozzá.
-      // Rejtés helyett tiltás, hogy látszódjon: az opció létezik, csak itt
-      // nem érvényes. A sor szomszédjai változhatnak (törlés, típusváltás),
-      // ezért nyitáskor döntjük el, nem a menü felépítésekor.
-      const prevType = row.previousElementSibling?.dataset.setType;
-      $('.wk-set-type-option[data-type="drop"]', menu).disabled =
-        !prevType || prevType === 'warmup';
-      $('.wk-set-type-option[data-type="warmup"]', menu).disabled =
-        row.nextElementSibling?.dataset.setType === 'drop';
-    },
-    onChoose: (option) => {
-      const row = option.closest('.wk-set-row');
-      if (row.dataset.setType === option.dataset.type) return;
-      applySetType(row, option.dataset.type);
-      renumberSets(row.parentElement); // a gomb aria-label-je a típust is mondja
-      onChange();
-    },
-  });
-}
-
-/** Az intenzitás-fokozat választása az időalapú sorokon. Ugyanaz a saját
-    lenyíló minta, mint a szett-típusnál — a natív <select> listája
-    böngészőnként másképp (és ebben a témában csúnyán) rajzolódik ki.
-    Az `onChange` minden tényleges váltás után lefut (pl. autosave). */
-function enableIntensitySelect(list, onChange) {
-  bindPopupMenu(list, {
-    trigger: '.wk-intensity-trigger',
-    menu: '.wk-intensity-menu',
-    option: '.wk-intensity-option',
-    onChoose: (option) => {
-      const row = option.closest('.wk-set-row');
-      if (row.dataset.intensity === option.dataset.intensity) return;
-      applyIntensity(row, option.dataset.intensity);
-      onChange();
-    },
-  });
-}
-
-/** A plusz súly menüje az időalapú sorokon. Csak nyit és zár: az ÉRTÉKET a
-    benne lévő szám-mező írja, azt pedig a napló meglévő `.wk-num-input`
-    figyelője menti — nem hívunk rá külön mentést, hogy egy gépelés ne
-    keletkezzen kétszer. A gomb feliratát viszont itt kell frissíteni, mert a
-    terv-építőnek nincs ilyen figyelője. */
-function enableExtraMenu(list) {
-  bindPopupMenu(list, {
-    trigger: '.wk-extra-trigger',
-    menu: '.wk-extra-menu',
-    afterOpen: (trigger, menu) => $('.wk-set-weight', menu).focus(),
-  });
-
-  list.addEventListener('input', (event) => {
-    if (!event.target.matches('.wk-extra-menu .wk-set-weight')) return;
-    syncExtraWeight(event.target.closest('.wk-set-row'));
-  });
-}
-
 export {
-  clampRpeInput,
+  applyIntensity,
+  applySetType,
   defaultSetFor,
-  enableExtraMenu,
-  enableIntensitySelect,
-  enableOrderSelect,
-  enableSetTypeSelect,
-  handleAddSetClick,
-  handleRemoveSetClick,
-  handleStepClick,
-  loadIntensityLevels,
+  defaultSetType,
   readSetRow,
   refreshExerciseList,
   renderExercise,
+  renderSetRow,
+  renumberSets,
+  setIntensityLevels,
+  syncExtraWeight,
 };

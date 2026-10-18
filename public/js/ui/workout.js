@@ -10,6 +10,7 @@ import { baseLoadFor, refreshWeightConventions } from '../core/weight-convention
 import { navigate } from '../nav/router.js';
 import { renderDashboard } from '../render/dashboard.js';
 import { renderPrs } from '../render/prs.js';
+import { readSetRow, refreshExerciseList } from '../render/sets.js';
 import {
   clampRpeInput,
   enableExtraMenu,
@@ -19,9 +20,7 @@ import {
   handleAddSetClick,
   handleRemoveSetClick,
   handleStepClick,
-  readSetRow,
-  refreshExerciseList,
-} from '../render/sets.js';
+} from './workout/set-controls.js';
 import {
   WORKOUT_START_KEY,
   markWorkoutStarted,

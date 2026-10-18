@@ -17,7 +17,7 @@ import {
   renderRecovery,
   writeScale,
 } from '../render/recovery.js';
-import { handleStepClick } from '../render/sets.js';
+import { handleStepClick } from './workout/set-controls.js';
 import { createBodyMap } from './bodymap/index.js';
 import { CI_MAP_MODES, CI_PAIN_BLOCK } from './checkin/constants.js';
 import { ciMuscleLabel } from './checkin/helpers.js';
