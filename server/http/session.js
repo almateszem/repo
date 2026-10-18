@@ -7,7 +7,7 @@
  */
 import { createSessionToken, hashToken, parseCookies, serializeCookie } from '../auth.js';
 import { dayKey, daysBetween, formatDate, parseDate } from '../dates.js';
-import { createSession, getSessionUser } from '../db.js';
+import { createSession, getSessionUser, getWorkouts } from '../db.js';
 import { createRateLimiter } from '../ratelimit.js';
 
 const SESSION_COOKIE = 'podium_session';
@@ -161,6 +161,12 @@ export function register(app) {
     // A kérés napja (a kliens naptára szerint) — minden végpont ezt használja,
     // hogy egy kérésen belül biztosan ugyanaz a nap szerepeljen mindenhol.
     req.today = requestDate(req);
+    /* A teljes edzésnapló kérésenként legfeljebb EGYSZER: lusta, az első hívás
+       olvas, a többi ugyanazt a listát kapja (az olvasó végpontokon több
+       fogyasztó is kéri — a riport, a terv-haladás, a diagram). Edzést ÍRÓ
+       végpont az írás után ne ezt használja: az a beolvasáskori állapot. */
+    let workouts = null;
+    req.workouts = () => (workouts ??= getWorkouts(user.id));
     next();
   });
 

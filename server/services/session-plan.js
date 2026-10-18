@@ -61,11 +61,16 @@ export function workoutTemplate(userId, today) {
 
 /** A mai edzésre vonatkozó javaslat (session-advice.js). A készenlétet csak
     akkor számolja, ha a mai naplóban van mit átnézni. */
-export function adviceFor(userId, todayDate, template = workoutTemplate(userId, todayDate)) {
+export function adviceFor(
+  userId,
+  todayDate,
+  template = workoutTemplate(userId, todayDate),
+  loadWorkouts = undefined,
+) {
   const empty = !template || !Array.isArray(template.exercises) || template.exercises.length === 0;
   return sessionAdvice(
     template,
-    empty ? null : readinessReport(userId, todayDate),
+    empty ? null : readinessReport(userId, todayDate, loadWorkouts?.()),
     getCollection('exerciseCatalog') || [],
   );
 }
@@ -75,9 +80,9 @@ export function adviceFor(userId, todayDate, template = workoutTemplate(userId, 
     A javaslatokat ÚJRASZÁMOLJUK — a kliens listáját nem fogadjuk el
     bemenetként. Enélkül egy hamisított kérés tetszőleges gyakorlatot
     törölhetne a naplóból. */
-export function applySessionAdvice(userId, todayDate, token) {
+export function applySessionAdvice(userId, todayDate, token, loadWorkouts = undefined) {
   const template = workoutTemplate(userId, todayDate);
-  const { items, token: current } = adviceFor(userId, todayDate, template);
+  const { items, token: current } = adviceFor(userId, todayDate, template, loadWorkouts);
   if (items.length === 0) return { applied: 0 };
   if (token !== current) return { applied: 0, stale: true };
 

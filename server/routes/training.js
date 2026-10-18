@@ -218,10 +218,10 @@ export function register(app, { catalogSearch }) {
     // (csak olvasható, akár megosztott) objektumára íródnak.
     const dashboard = { ...(getCollection('dashboard') || {}) };
     const totals = getNutritionTotals(userId, req.today);
-    // A mentett edzéseket egyszer olvassuk be, és mindkét fogyasztónak átadjuk:
-    // korábban a streak és a készenléti riport külön-külön beolvasta és
-    // JSON-ből visszafejtette a TELJES workouts táblát.
-    const workouts = getWorkouts(userId);
+    // A mentett edzéseket egyszer olvassuk be (req.workouts, http/session.js), és
+    // mindkét fogyasztónak átadjuk: korábban a streak és a készenléti riport
+    // külön-külön beolvasta és JSON-ből visszafejtette a TELJES workouts táblát.
+    const workouts = req.workouts();
     const readiness = readinessReport(userId, req.today, workouts);
 
     dashboard.streak = trainingStreak(workouts, req.today);
@@ -295,7 +295,7 @@ export function register(app, { catalogSearch }) {
   app.get('/api/exercise-suggestions', (req, res) => {
     const userId = req.user.id;
     const title = typeof req.query.title === 'string' ? req.query.title : '';
-    const workouts = getWorkouts(userId);
+    const workouts = req.workouts();
     const report =
       req.query.readiness === '1' ? readinessReport(userId, req.today, workouts) : null;
     const result = suggestExercises({
@@ -319,11 +319,18 @@ export function register(app, { catalogSearch }) {
     });
   });
 
-  app.get('/api/readiness/advice', (req, res) => res.json(adviceFor(req.user.id, req.today)));
+  app.get('/api/readiness/advice', (req, res) =>
+    res.json(adviceFor(req.user.id, req.today, undefined, req.workouts)),
+  );
 
   /** Elfogadás. A válasz a friss napló, hogy a felület egy körből frissüljön. */
   app.post('/api/readiness/advice/apply', (req, res) => {
-    const { stale, ...result } = applySessionAdvice(req.user.id, req.today, req.body?.token);
+    const { stale, ...result } = applySessionAdvice(
+      req.user.id,
+      req.today,
+      req.body?.token,
+      req.workouts,
+    );
     const template = workoutTemplate(req.user.id, req.today);
     if (stale) {
       return res.status(409).json({
@@ -405,7 +412,7 @@ export function register(app, { catalogSearch }) {
     const userId = req.user.id;
     const todayDate = req.today;
     const draft = getWorkoutDraft(userId);
-    const workoutsToday = getWorkouts(userId).filter((w) => w.date === todayDate);
+    const workoutsToday = req.workouts().filter((w) => w.date === todayDate);
     // Azonosító szerint párosítunk, névre csak a plan_id oszlop előtt mentett
     // (régi) edzéseknél esünk vissza — két azonos nevű terv így nem osztozik
     // egymás haladásán.
@@ -432,7 +439,7 @@ export function register(app, { catalogSearch }) {
     const plans = getUserPlans(userId);
     const safetyOf = plans.length
       ? planSafetyChecker(
-          readinessReport(userId, todayDate),
+          readinessReport(userId, todayDate, req.workouts()),
           getCollection('exerciseCatalog') || [],
         )
       : () => null;
@@ -608,7 +615,7 @@ export function register(app, { catalogSearch }) {
   // Chartok — a seed-görbék mellé a szerver számolja a heti volumen-
   // összehasonlítást a mentett edzésekből.
   app.get('/api/charts', (req, res) =>
-    res.json({ ...getCollection('charts'), ...volumeCharts(getWorkouts(req.user.id), req.today) }),
+    res.json({ ...getCollection('charts'), ...volumeCharts(req.workouts(), req.today) }),
   );
 
   // Testsúly-napló — a valódi weight_log táblából
