@@ -8,15 +8,17 @@ const DAY_LABELS = ['H', 'K', 'Sze', 'Cs', 'P', 'Szo', 'V'];
 const DAY_NAMES = ['hétfő', 'kedd', 'szerda', 'csütörtök', 'péntek', 'szombat', 'vasárnap'];
 
 /** Értesítés-kategóriák a beállítások modal kapcsolóihoz (notification.cat).
-    A lista pontosan azt a hármat sorolja, amit a szerver valóban KÜLDENI tud
-    (server/notifications.js) — a korábbi hat kategória a demo-listával együtt
-    kikerült, mert négyükhöz (terv kiosztva/módosítva, edzői megjegyzés, heti
-    riport) nem tartozott és ma sem tartozik valódi esemény. */
+    A lista pontosan azt az ötöt sorolja, amit a szerver valóban KÜLDENI tud
+    (server/notifications.js → NOTIF_CATEGORY), ugyanabban a sorrendben — egy
+    szerződés-teszt veti össze a kettőt. A korábbi demo-kategóriák (terv
+    módosítva, edzői megjegyzés, heti riport) mögött nem volt valódi esemény;
+    a „feedback" viszont kimaradt, így az edzői visszajelzés nem volt némítható. */
 const NOTIF_CATEGORIES = [
   { key: 'message', label: 'Új üzenet' },
   { key: 'coach', label: 'Edző-kapcsolat' },
   { key: 'plan', label: 'Terv kiosztva' },
   { key: 'pr', label: 'Egyéni csúcs' },
+  { key: 'feedback', label: 'Edzés-visszajelzés' },
 ];
 
 /** Az oldalak, a nav gyűrű irányai és a gyorsbillentyűk megfeleltetése.

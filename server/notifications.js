@@ -24,6 +24,18 @@
  * bemenetet (server.js).
  */
 
+/** Az értesítés-kategóriák (a sorok `cat` mezője). Exportált, mert a
+    beállítások némító-kapcsolói (public/js/core/constants.js →
+    NOTIF_CATEGORIES) PONTOSAN ezeket ismerik — egy szerződés-teszt veti össze
+    a kettőt (tests/public/js/core/notif-categories.test.js). */
+export const NOTIF_CATEGORY = Object.freeze({
+  message: 'message',
+  coach: 'coach',
+  plan: 'plan',
+  pr: 'pr',
+  feedback: 'feedback',
+});
+
 /** Ennyi karakter után vágjuk az idézett üzenetet a panelen. */
 const PREVIEW_MAX = 60;
 
@@ -68,7 +80,7 @@ export function buildNotifications({
   for (const thread of unreadThreads) {
     items.push({
       id: `message:${thread.linkId}`,
-      cat: 'message',
+      cat: NOTIF_CATEGORY.message,
       text:
         thread.unread === 1
           ? `Új üzenet — ${thread.partner}: „${preview(thread.lastText)}”`
@@ -80,7 +92,7 @@ export function buildNotifications({
   for (const invite of incomingInvites) {
     items.push({
       id: `invite:${invite.linkId}`,
-      cat: 'coach',
+      cat: NOTIF_CATEGORY.coach,
       text: `${invite.coach} edzőnek hívott meg`,
       at: invite.at,
     });
@@ -89,7 +101,7 @@ export function buildNotifications({
   for (const link of acceptedLinks) {
     items.push({
       id: `accepted:${link.linkId}`,
-      cat: 'coach',
+      cat: NOTIF_CATEGORY.coach,
       text: `${link.athlete} elfogadta a meghívódat`,
       at: link.at,
     });
@@ -98,7 +110,7 @@ export function buildNotifications({
   for (const offer of planOffers) {
     items.push({
       id: `plan-offer:${offer.id}`,
-      cat: 'plan',
+      cat: NOTIF_CATEGORY.plan,
       text: `${offer.coach} kiosztotta a „${offer.plan}” tervet`,
       at: offer.at,
     });
@@ -109,7 +121,7 @@ export function buildNotifications({
   for (const answer of answeredPlans) {
     items.push({
       id: `plan-answer:${answer.id}`,
-      cat: 'plan',
+      cat: NOTIF_CATEGORY.plan,
       text: `${answer.athlete} ${answer.accepted ? 'elfogadta' : 'elutasította'} a „${answer.plan}” tervet`,
       at: answer.at,
     });
@@ -118,7 +130,7 @@ export function buildNotifications({
   for (const pr of recentPrs) {
     items.push({
       id: `pr:${pr.exercise}`,
-      cat: 'pr',
+      cat: NOTIF_CATEGORY.pr,
       // A tárolt érték becsült 1RM (Epley), ezért „becsült" — nem az a súly,
       // amit ténylegesen megemelt, és ezt nem mossuk el.
       text: `Új egyéni csúcs: ${pr.exercise} — ${Math.round(pr.max1rm)} kg (becsült 1RM)`,
@@ -135,7 +147,7 @@ export function buildNotifications({
         : ` (nehézség ${feedback.difficulty}/5)`;
     items.push({
       id: `feedback:${feedback.id}`,
-      cat: 'feedback',
+      cat: NOTIF_CATEGORY.feedback,
       text: `${feedback.athlete} visszajelzést küldött: „${feedback.workout}"${nehezseg}`,
       at: feedback.at,
     });
