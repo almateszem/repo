@@ -25,7 +25,8 @@
  *   - ÖSSZPONTSZÁM (rating): a készenlét és a terv-követés átlaga; terv nélkül
  *     maga a készenlét. Ebből jön a kártya szintje (arany/ezüst/bronz).
  */
-import { dayKey, daysBetween, formatDecimal, shiftDayKey } from './recovery.js';
+import { dayKey, daysBetween, shiftDayKey } from './dates.js';
+import { formatDecimal } from './numbers.js';
 import { cycleDayAt, dayEntry } from './plan-week.js';
 import { bestCompletedSet, weightOnDate } from './records.js';
 import { effectiveLoad } from './data/bodyweight-load.js';

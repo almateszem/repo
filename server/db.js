@@ -594,7 +594,7 @@ ensureColumn('exercise_maxes', 'declared_date', 'declared_date TEXT');
    szövegként mentett értékeket (".5" → "5", "1e2" → "1", "8-12" → "8"). */
 
 /* Séma-verziók (PRAGMA user_version) az egyszer lefutó adat-migrációkhoz.
-     1 — az 1RM-képlet egységesítése (recovery.js → estimate1RM): az
+     1 — az 1RM-képlet egységesítése (one-rm.js → estimate1RM): az
          egyismétléses szett becslése a súly maga, nem +3,3%. Az újraszámolás
          a 3-as lépéssel egy körben fut (lent).
      2 — 9 → 12 izomcsoport: a check-inek izomláz- és fájdalom-térképében a
@@ -2860,7 +2860,7 @@ export function getWorkouts(userId) {
  * Miért van külön a teljes lekérdezéstől: az edzések ára szinte teljes
  * egészében a gyakorlat-lista JSON.parse-a, és a készenlét-motor amúgy is
  * eldob mindent, ami CHRONIC_WINDOW_DAYS-nél (28 nap) régebbi
- * (recovery.js -> summarizeWorkouts). Egy éves naplónál ez ~183 sor helyett
+ * (training-load.js -> summarizeWorkouts). Egy éves naplónál ez ~183 sor helyett
  * ~12-t jelent — az edzői panelen SPORTOLÓNKÉNT.
  *
  * A dátum "ÉÉÉÉ.HH.NN" alakú, tehát a szöveges összehasonlítás időrendi is.

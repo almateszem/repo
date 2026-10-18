@@ -163,17 +163,11 @@ import {
   verifyAgainstDummy,
 } from './auth.js';
 // A készenlét-motor és a közös dátum-segédek. A dátumkezelés szándékosan egy
-// helyen (recovery.js) lakik, hogy a szerver és a motor sose csússzon el.
-import {
-  computeReadiness,
-  parseDate,
-  dayKey,
-  daysBetween,
-  formatDecimal,
-  shiftDayKey,
-  hydrationTarget,
-  reduceWeight,
-} from './recovery.js';
+// helyen (dates.js) lakik, hogy a szerver és a motor sose csússzon el.
+import { computeReadiness, hydrationTarget } from './recovery.js';
+import { parseDate, dayKey, daysBetween, shiftDayKey } from './dates.js';
+import { formatDecimal } from './numbers.js';
+import { reduceWeight } from './exercise-advice.js';
 // Az edzői panel sportoló-összegzője. Szintén tiszta számítás: a végpont
 // gyűjti az adatot, a modul számol belőle (server/coaching.js).
 import { buildAthleteCard, streakFromDates } from './coaching.js';
@@ -923,7 +917,7 @@ function exerciseNotes(userId, workouts, viewerId) {
 function athleteCard(athlete, today, viewerId, unread = 0) {
   /* Az edzés-napló ABLAKOZVA jön be. A kártya minden számítása belefér a
      CARD_READINESS_WINDOW_DAYS ablakba: a készenlét-motor az újdonság-szorzóhoz
-     63 napot néz (recovery.js -> buildNoveltyIndex), a terv-követés ablaka 28
+     63 napot néz (training-load.js -> buildNoveltyIndex), a terv-követés ablaka 28
      nap, a heti állás egy hét, a „legutóbbi aktivitás" pedig négy elem.
      Ami ezen kívülre nyúlik — a sorozat hossza és az utolsó edzés napja —, azt
      a NAPOK listája adja: az a teljes előzményt látja, de gyakorlat-listát nem
@@ -1582,7 +1576,7 @@ app.get('/api/exercise-suggestions', (req, res) => {
     pedig pont ilyenkor kell visszavenni.
     (Ha a modellnek NINCS adata a csoportról, a bejelentett érzet önmagában
     adja a pontszámot — ott az 5/5 már 0-t ad.)
-    A 70 egyben a recovery.js recommend() létrájának ugyanazon foka, ahol az
+    A 70 egyben a exercise-advice.js recommend() létrájának ugyanazon foka, ahol az
     „normál súly, −1 szett"-re vált. */
 const LOW_MUSCLE_READINESS = 70;
 /** Egy gyakorlatot akkor tekintünk az izomcsoport terhelőjének, ha a terhelés
@@ -3490,7 +3484,7 @@ app.post('/api/athletes/:linkId/comments', (req, res) => {
 
 /* ---- Erőfelmérés (fresh start) ----
    A friss fiók ma hetekig „vakon" használja az appot: a gyakorlat-ajánlások
-   három naplózott alkalmat kérnek (recovery.js → MIN_SESSIONS), a három fő
+   három naplózott alkalmat kérnek (exercise-advice.js → MIN_SESSIONS), a három fő
    emelés kivételével. Az erőfelmérésen a felhasználó BEMONDJA, mit tud —
    ebből a motor azonnal tud ajánlani.
 

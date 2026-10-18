@@ -1,9 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { estimate1RM } from '../../../../public/js/core/one-rm.js';
-// A recovery.js tiszta modul (a db.js importja adatbázist nyitna); a db.js
+// A server/one-rm.js tiszta modul (a db.js importja adatbázist nyitna); a db.js
 // calculateEpley1RM-je ezt hívja, azt a server/prs.test.js fedi.
-import { estimate1RM as serverEstimate1RM } from '../../../../server/recovery.js';
+import { estimate1RM as serverEstimate1RM } from '../../../../server/one-rm.js';
 
 test('a kliens PR-jelzője ugyanazt az 1RM-et számolja, mint a szerver', () => {
   for (const weight of [2.5, 40, 100, 142.5]) {

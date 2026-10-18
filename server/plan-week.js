@@ -21,7 +21,7 @@
  * dolgozik, és külön tesztelhetők (plan-week.test.js). A kliens a feloldást
  * (dayEntry, dayWorkoutName, cycleDay) a public/js/core/plan-week.js-ben tükrözi.
  */
-import { dayKey, daysBetween, parseDate, shiftDayKey } from './recovery.js';
+import { dayKey, daysBetween, parseDate, shiftDayKey } from './dates.js';
 
 /** A terv hosszának határai (napban). */
 export const MIN_DAYS = 1;

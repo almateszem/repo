@@ -54,7 +54,7 @@ export const DEFAULT_LOG_MODE = 'reps';
  *
  * A `cr10` a fokozat értéke Foster módosított Borg CR-10 skáláján (2026-09-17,
  * kalibrálva). Ebből számol a Recovery Engine szesszió-RPE terhelést: perc ×
- * cr10 (lásd recovery.js → cardioSetLoad). Az értékek a skála SZÓBELI
+ * cr10 (lásd training-load.js → cardioSetLoad). Az értékek a skála SZÓBELI
  * horgonyai (Foster 2001): 1 „nagyon-nagyon könnyű", 2 „könnyű", 3 „közepes",
  * 5 „nehéz"; a 7 „nagyon nehéz", a 10 „maximális". A Maximális fokozat 8, nem
  * 10 — ez DÖNTÉS, nem mért érték: a szesszió-RPE az EGÉSZ edzésre szól, és egy

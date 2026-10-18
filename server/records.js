@@ -7,9 +7,9 @@
  * is innen veszi — így mindenhol UGYANAZ a szett számít rekordnak.
  */
 
-import { estimate1RM } from './recovery.js';
+import { estimate1RM } from './one-rm.js';
 
-/** A becsült 1RM a PR-követéshez: az app közös Epley-képlete (recovery.js →
+/** A becsült 1RM a PR-követéshez: az app közös Epley-képlete (one-rm.js →
     estimate1RM, egy ismétlésnél maga a súly). A szett mezői szövegként is
     jöhetnek; nem számolható értékre 0. */
 export function calculateEpley1RM(weight, reps) {

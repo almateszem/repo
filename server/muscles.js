@@ -147,7 +147,7 @@ const KEYWORD_MAP = [
 
 /** Ékezet- és kisbetű-független alak a név-összevetéshez és a kulcsszó-
     illesztéshez („Fekvenyomás" → „fekvenyomas"). Azért kell exportálni, mert
-    a recovery.js is ezzel párosítja a fő emeléseket — így az ékezet nélkül
+    az exercise-advice.js is ezzel párosítja a fő emeléseket — így az ékezet nélkül
     beírt „guggolas" is felismerhető marad. */
 export const normalizeName = (name) =>
   String(name ?? '')
