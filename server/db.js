@@ -535,55 +535,11 @@ ensureColumn('workout_draft', 'workout_id', 'workout_id INTEGER');
 ensureColumn('exercise_maxes', 'declared_1rm', 'declared_1rm REAL');
 ensureColumn('exercise_maxes', 'declared_date', 'declared_date TEXT');
 
-/* A szett-értékek korábban mértékegységgel együtt, szabad szövegként voltak
-   tárolva („12 rep", „60% TM", „–"). A felület már szám-mezőkkel szerkeszti
-   őket, ezért a meglévő sorokból kinyerjük a puszta számot. A művelet
-   idempotens (számból ugyanaz a szám lesz), és csak a ténylegesen változó
-   sorokat írja vissza, így minden induláskor nyugodtan lefuthat. */
-const firstNumber = (raw) => {
-  const match = String(raw ?? '')
-    .replace(',', '.')
-    .match(/\d+(\.\d+)?/);
-  return match ? match[0] : '';
-};
-
-function migrateSetValuesToNumbers(table, key) {
-  const rows = db.prepare(`SELECT ${key} AS id, exercises FROM ${table}`).all();
-  const update = db.prepare(`UPDATE ${table} SET exercises = ? WHERE ${key} = ?`);
-  for (const row of rows) {
-    let exercises;
-    try {
-      exercises = JSON.parse(row.exercises);
-    } catch {
-      continue;
-    }
-    if (!Array.isArray(exercises)) continue;
-
-    let changed = false;
-    for (const exercise of exercises) {
-      for (const set of exercise?.sets ?? []) {
-        /* Az IDŐALAPÚ sorokat kihagyjuk. Nincs bennük ismétlés és RPE, tehát a
-           ciklus üres sztringgel töltené fel őket, és minden ilyen edzés sorát
-           egyszer feleslegesen újraírná — ráadásul olyan mezőkkel, amiket sem
-           a felület, sem a motor nem olvas. Az időtartam-mező a felismerhető jegy:
-           szett-alapú soron sosem szerepel. */
-        if (set?.duration !== undefined) continue;
-        for (const key of ['reps', 'weight', 'rpe']) {
-          const next = firstNumber(set[key]);
-          if (set[key] !== next) {
-            set[key] = next;
-            changed = true;
-          }
-        }
-      }
-    }
-    if (changed) update.run(JSON.stringify(exercises), row.id);
-  }
-}
-migrateSetValuesToNumbers('plans', 'id');
-migrateSetValuesToNumbers('workouts', 'id');
-// A piszkozatnak már nincs id oszlopa — felhasználónként azonosít.
-migrateSetValuesToNumbers('workout_draft', 'user_id');
+/* A szett-értékek számalakját a MENTÉS állítja elő (server.js →
+   nonNegativeField). Az induláskori átírás (migrateSetValuesToNumbers) kikerült:
+   minden ma létező adatbázis már átment rajta, a nagyon régieket a baseline-őr
+   fogja meg — közben pedig minden indításkor csonkította a szándékosan
+   szövegként mentett értékeket (".5" → "5", "1e2" → "1", "8-12" → "8"). */
 
 /* Az `exercise_maxes` táblát az addWorkout tölti, edzés mentésekor. Aki viszont
    a PR-követés BEVEZETÉSE ELŐTT naplózott, annak az egész előzménye kimaradt

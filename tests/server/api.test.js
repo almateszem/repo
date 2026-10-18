@@ -3259,3 +3259,28 @@ test('a terv-lista visszaadja a horgonyt és a (2.) címkéket', async () => {
   assert.equal(elem.date, today());
   assert.equal(elem.week.length, 9);
 });
+
+test('a szett-értékek mentése a kanonikus számalakot tárolja (".5" → "0.5", "1e2" → "100")', async () => {
+  const res = await request('POST', '/api/workouts', {
+    cookie: belaCookie,
+    body: {
+      name: 'Számalakok',
+      exercises: [
+        {
+          name: 'Számalak-próba',
+          sets: [{ reps: '1e1', weight: '.5', rpe: '8', type: 'work', done: true }],
+        },
+        {
+          name: 'Számalak-próba 2',
+          sets: [{ reps: '5', weight: '1e2', rpe: '', type: 'work', done: true }],
+        },
+      ],
+    },
+  });
+  assert.equal(res.status, 201);
+  const [elso, masodik] = res.json.exercises;
+  assert.equal(elso.sets[0].weight, '0.5');
+  assert.equal(elso.sets[0].reps, '10');
+  assert.equal(masodik.sets[0].weight, '100');
+  assert.equal(masodik.sets[0].rpe, '', 'az üres mező üres marad');
+});

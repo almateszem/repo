@@ -3202,12 +3202,16 @@ const normalizeSetType = (raw, index, prevType) => {
     („12 rep", „60% TM") nem bántjuk. Ami viszont számként olvasható, az nem
     lehet negatív: a negatív súly negatív tonnatömeget adna, és a Recovery
     Engine fáradtság-modelljében LEVONÓDNA — egy hamis sorral felfelé lehetne
-    tolni a saját készenléti pontszámot. */
+    tolni a saját készenléti pontszámot. A véges szám a kanonikus alakjában
+    tárolódik (".5" → "0.5", "1e2" → "100"): ezt korábban egy induláskori
+    migráció próbálta utólag, és közben csonkított. */
 function nonNegativeField(value) {
   const text = String(value ?? '').slice(0, 20);
+  if (text.trim() === '') return text; // az üres mező üres marad (nem 0)
   const parsed = Number(text);
-  if (Number.isFinite(parsed) && parsed < 0) return '0';
-  return text;
+  if (!Number.isFinite(parsed)) return text; // nem szám: a mai módon, szövegként
+  // Véges szám: a kanonikus alak (".5" → "0.5", "1e2" → "100"), negatív → 0
+  return parsed < 0 ? '0' : String(parsed);
 }
 
 /* A mentett szerkezet felső korlátja. Enélkül egy 100 KB-os törzs (üres
