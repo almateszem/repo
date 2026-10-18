@@ -19,7 +19,12 @@ import {
   formatDecimal,
   BASE_WEIGHTS,
 } from '../../server/recovery.js';
-import { resolveExerciseLoad, isAxialLift, MUSCLE_KEYS } from '../../server/muscles.js';
+import {
+  resolveExerciseLoad,
+  isAxialLift,
+  MUSCLE_KEYS,
+  normalizeName,
+} from '../../server/muscles.js';
 
 /* ---- Segédek a teszt-adatokhoz ---- */
 
@@ -1342,4 +1347,24 @@ test('testsúlyos: a tisztán testsúlyos nap valódi edzésnapnak számít a re
       ],
     }).cns.readiness;
   assert.ok(cnsWith(6) < cnsWith(0), `${cnsWith(0)} → ${cnsWith(6)}`);
+});
+
+/* ---- Gyakorlat-kulcs: kis-/nagybetű és ékezet nem bontja szét ---- */
+
+test('„Fekvenyomás" és „fekvenyomas" egy ajánlás, összeadott alkalmakkal', () => {
+  const bench = (ago, name) => workout(ago, 'Mell', [exercise(name, [set(5, 80, 8)])]);
+  const workouts = [bench(6, 'fekvenyomas'), bench(4, 'Fekvenyomás'), bench(2, 'FEKVENYOMÁS ')];
+  const named = (report) => report.exercises.filter((e) => normalizeName(e.name) === 'fekvenyomas');
+
+  // Katalógus nélkül az első látott alak a név
+  const plain = named(run({ checkins: [fullCheckin()], workouts }));
+  assert.equal(plain.length, 1, plain.map((e) => e.name).join(', '));
+  assert.equal(plain[0].sessions, 3);
+  assert.equal(plain[0].name, 'fekvenyomas');
+
+  // Katalógussal a katalógusbeli alak
+  const catalog = [{ name: 'Fekvenyomás', load: { chest: 0.7, triceps: 0.2, shoulders: 0.1 } }];
+  const [fromCatalog] = named(run({ checkins: [fullCheckin()], workouts, catalog }));
+  assert.equal(fromCatalog.name, 'Fekvenyomás');
+  assert.equal(fromCatalog.sessions, 3);
 });

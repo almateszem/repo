@@ -534,7 +534,16 @@ export function epley1RM(reps, weight, rpe) {
  */
 function summarizeWorkouts(workouts, todayKey, catalog, bodyWeight, novelty = new Map()) {
   const byDay = new Map(); // daysAgo → { load, cns, muscles, slow, unusual }
-  const exercises = new Map(); // név → { name, sessions: [{ daysAgo, best1RM, sets }] }
+  /* normalizált név → { name, sessions: [{ daysAgo, best1RM, sets }] }. A kulcs
+     ékezet- és kisbetű-független (normalizeName), mint a bemondott csúcsok
+     összefésülése: a „Fekvenyomás" és a „fekvenyomas" egy ajánlás. A
+     megjelenített név a katalógusbeli alak, ennek híján az első látott. */
+  const exercises = new Map();
+  const catalogNames = new Map(
+    (Array.isArray(catalog) ? catalog : [])
+      .filter((item) => item?.name)
+      .map((item) => [normalizeName(item.name), item.name]),
+  );
 
   // muscles: a gyors tároló, slow: a lassú tároló (mindkettő szett-egység);
   // unusual: volt-e aznap újdonság-szorzós terhelés a csoporton.
@@ -653,8 +662,10 @@ function summarizeWorkouts(workouts, todayKey, catalog, bodyWeight, novelty = ne
       }
 
       if (doneSets > 0) {
-        const key = exercise.name.trim();
-        if (!exercises.has(key)) exercises.set(key, { name: key, sessions: [] });
+        const key = normalizeName(exercise.name);
+        if (!exercises.has(key)) {
+          exercises.set(key, { name: catalogNames.get(key) ?? exercise.name.trim(), sessions: [] });
+        }
         exercises
           .get(key)
           .sessions.push({ daysAgo: ago, best1RM, load: exerciseLoad, sets: doneSets });
