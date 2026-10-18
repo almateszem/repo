@@ -10,7 +10,7 @@
 import { getCoachLink, getPlanAssignment } from '../db.js';
 
 /** Egy útvonal-paraméter pozitív egész azonosítóként, vagy null. */
-export function parseIdParam(raw) {
+function parseIdParam(raw) {
   const id = Number(raw);
   return Number.isInteger(id) && id > 0 ? id : null;
 }

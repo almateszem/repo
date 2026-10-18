@@ -6,7 +6,7 @@
  * is innen importál, hogy egyetlen implementáció legyen.
  */
 
-export const DAY_MS = 24 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** "ÉÉÉÉ.HH.NN" → helyi Date. */
 export const parseDate = (str) => {

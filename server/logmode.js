@@ -37,7 +37,7 @@ import { normalizeName } from './muscles.js';
 /** A két naplózási mód. A 'reps' az alapértelmezés MINDENHOL: hiányzó vagy
     ismeretlen érték esetén is ez érvényes, mert az app egész eddigi
     előzménye ilyen. */
-export const LOG_MODES = ['reps', 'duration'];
+const LOG_MODES = ['reps', 'duration'];
 
 export const DEFAULT_LOG_MODE = 'reps';
 
@@ -70,14 +70,14 @@ export const INTENSITY_LEVELS = {
   max: { label: 'Maximális', cr10: 8 },
 };
 
-export const INTENSITY_KEYS = Object.keys(INTENSITY_LEVELS);
+const INTENSITY_KEYS = Object.keys(INTENSITY_LEVELS);
 
 /** Az alapértelmezett fokozat: a skála közepe. */
 export const DEFAULT_INTENSITY = 'moderate';
 
 /** Egy időalapú sor felső időkorlátja másodpercben (24 óra). Nem valós edzés-
     hossz, hanem elgépelés-korlát: a tárolt érték maradjon értelmezhető szám. */
-export const MAX_DURATION_SECONDS = 24 * 60 * 60;
+const MAX_DURATION_SECONDS = 24 * 60 * 60;
 
 /* A Kardió csoporton belüli, névre illesztett minták. Ékezet nélküli, kisbetűs
    alakon futnak (lásd normalizeName), ezért ékezetes betű nem szerepelhet

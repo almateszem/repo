@@ -56,7 +56,7 @@ import { exerciseReadiness } from './exercise-advice.js';
 /* Átmeneti újraexportok: a motor részei saját modulba kerültek (dates.js,
    numbers.js, one-rm.js, training-load.js, exercise-advice.js). A szerver már
    közvetlenül onnan importál; a régi útvonal a tesztek kedvéért él még. */
-export { DAY_MS, parseDate, dayKey, shiftDayKey, daysBetween } from './dates.js';
+export { parseDate, dayKey, shiftDayKey, daysBetween } from './dates.js';
 export { formatDecimal } from './numbers.js';
 export { estimate1RM, epley1RM } from './one-rm.js';
 export { failureWeight, buildNoveltyIndex } from './training-load.js';

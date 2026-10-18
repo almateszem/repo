@@ -427,4 +427,4 @@ const api = {
   deleteAccount: (password) => postJson('/api/auth/delete-account', { password }),
 };
 
-export { SESSION_LOST, api, clientDate, del, requestHeaders };
+export { SESSION_LOST, api, clientDate, requestHeaders };

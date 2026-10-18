@@ -2,7 +2,8 @@
 
 import { $, $$, cloneTemplate } from '../../../core/dom.js';
 import { formatInputNumber, formatNumber } from '../../../core/format.js';
-import { formatDelta, latestWeightEntry, todayWeightEntry } from '../../weight.js';
+import { formatDelta } from '../../../core/format.js';
+import { latestWeightEntry, todayWeightEntry } from '../../weight.js';
 import {
   CI_PRESET_ADVANCE_MS,
   CI_WEIGHT_FALLBACK,
@@ -123,4 +124,4 @@ function renderWeight(nav) {
   return step;
 }
 
-export { ciWeightReference, renderWeight };
+export { renderWeight };

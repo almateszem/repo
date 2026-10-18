@@ -2,7 +2,7 @@
 
 import { api } from '../core/api.js';
 import { $ } from '../core/dom.js';
-import { animateNumber, formatNumber } from '../core/format.js';
+import { animateNumber, formatDelta, formatNumber } from '../core/format.js';
 import { showToast } from '../core/toast.js';
 import { refreshWeightConventions } from '../core/weight-conventions.js';
 import { renderChart } from '../render/dashboard.js';
@@ -21,9 +21,6 @@ import { dayKeyOf } from './measurements.js';
 const WEIGHT_CHART_BARS = 12; // legfeljebb ennyi oszlop látszik
 
 const WEIGHT_CHART_MIN_SPAN = 2; // kg — ekkora sávot mindenképp lefed a skála
-
-/** A testsúly Δ előjelesen olvasható (+1.2 / -0.8), a 0 előjel nélkül. */
-const formatDelta = (value) => (value > 0 ? '+' : '') + formatNumber(value);
 
 /** Diagram-adat a testsúly-bejegyzésekből: a skála alja/teteje a tényleges
     minimum/maximum köré feszül (kis ráhagyással), a tengelyfeliratok pedig
@@ -212,4 +209,4 @@ function mergeWeightEntry(entry) {
   refreshWeightConventions();
 }
 
-export { formatDelta, latestWeightEntry, mergeWeightEntry, refreshWeightLog, todayWeightEntry };
+export { latestWeightEntry, mergeWeightEntry, refreshWeightLog, todayWeightEntry };

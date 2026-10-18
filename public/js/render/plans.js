@@ -97,12 +97,10 @@ function planCardEl(plan) {
   deleteBtn.setAttribute('aria-label', `${plan.name} törlése`);
 
   const editBtn = $('.pl-card-edit', card);
-  if (plan.own) {
-    editBtn.hidden = false;
-    editBtn.dataset.planId = plan.id;
-    editBtn.title = 'Terv szerkesztése';
-    editBtn.setAttribute('aria-label', `${plan.name} szerkesztése`);
-  }
+  editBtn.hidden = false;
+  editBtn.dataset.planId = plan.id;
+  editBtn.title = 'Terv szerkesztése';
+  editBtn.setAttribute('aria-label', `${plan.name} szerkesztése`);
 
   const openBtn = $('.pl-card-open', card);
   openBtn.dataset.plan = plan.name;

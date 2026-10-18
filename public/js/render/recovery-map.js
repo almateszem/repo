@@ -54,7 +54,7 @@ const HELD_BACK_VERDICTS = ['reduce', 'skip', 'avoid'];
 
 /** Az idegrendszeri készenlét ez alatt „enyhén terhelt" (lásd a CNS-kártya
     szövege): a nehéz, maximum-közeli munkát nem javasoljuk. */
-export const CNS_FRESH_MIN = 80;
+const CNS_FRESH_MIN = 80;
 
 /** Az Áttekintő ítélet-mondatában a részletekre utaló szövegrész — a
     kirajzolás (render/dashboard.js) ezt a részt a Regenerációra linkeli. */

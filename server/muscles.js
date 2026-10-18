@@ -270,7 +270,7 @@ export const emptyMuscleMap = () => Object.fromEntries(MUSCLE_KEYS.map((key) => 
 
 /** A 9 → 12 csoportos váltásnál felbontott régi kulcsok és az utódaik. A
     `back` a saját utódja is: a széles hát kulcsa megmaradt. */
-export const LEGACY_SPLIT = {
+const LEGACY_SPLIT = {
   arms: ['biceps', 'triceps'],
   back: ['back', 'traps', 'lowerBack'],
 };

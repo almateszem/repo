@@ -42,4 +42,37 @@ function animateNumber(el, to, { from = null, duration = 800, format = formatNum
   runningNumberAnimations.set(el, requestAnimationFrame(tick));
 }
 
-export { animateNumber, formatInputNumber, formatNumber, formatWhole };
+/** Relatív idő az üzenet ISO-8601 időbélyegéből. Az üzenetek percre pontos
+    ideje nem érdekes, a „mikor" viszont igen — a hét fölött ezért dátumra
+    vált. (A szerver UTC-t küld, a Date a böngésző zónájában értelmezi.) */
+function relativeTime(iso) {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return '';
+  const minutes = Math.round((Date.now() - at.getTime()) / 60000);
+  if (minutes < 1) return 'most';
+  if (minutes < 60) return `${minutes} perce`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} órája`;
+  const days = Math.round(hours / 24);
+  if (days === 1) return 'tegnap';
+  if (days < 7) return `${days} napja`;
+  return at.toLocaleDateString('hu-HU');
+}
+
+/** "ÉÉÉÉ.HH.NN" → rendezhető szám. A dátum szöveges összehasonlítása is
+    időrendi volna, de a számot a diagram is használja. */
+const dayKeyOf = (dateStr) => Number(String(dateStr).replace(/\./g, ''));
+
+/** A változás előjelesen olvasható (+1.2 / -0.8), a 0 előjel nélkül — a
+    testsúly Δ-jához. */
+const formatDelta = (value) => (value > 0 ? '+' : '') + formatNumber(value);
+
+export {
+  animateNumber,
+  dayKeyOf,
+  formatDelta,
+  formatInputNumber,
+  formatNumber,
+  formatWhole,
+  relativeTime,
+};

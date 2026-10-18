@@ -138,7 +138,7 @@ export function getDeclaredMaxes(userId) {
 
 /** Egy gyakorlat maximum 1RM-jének frissítése, ha az új érték nagyobb.
     Visszaadja az objektumot { max1rm, date, isPr } formában (isPr = true ha PR-t ütöttünk). */
-export function updateExerciseMax(userId, exerciseName, new1rm, currentDate) {
+function updateExerciseMax(userId, exerciseName, new1rm, currentDate) {
   const existing = getExerciseMax(userId, exerciseName);
   const isPr = !existing || new1rm > existing.max1rm;
   /* A bemondással egyenlő mért érték lesz a csúcs (a mérés erősebb

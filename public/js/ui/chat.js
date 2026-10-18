@@ -2,25 +2,9 @@
 
 import { api } from '../core/api.js';
 import { $, withBusy } from '../core/dom.js';
+import { relativeTime } from '../core/format.js';
 import { showToast } from '../core/toast.js';
 import { createCoachNote } from '../render/coach.js';
-
-/** Relatív idő az üzenet ISO-8601 időbélyegéből. Az üzenetek percre pontos
-    ideje nem érdekes, a „mikor" viszont igen — a hét fölött ezért dátumra
-    vált. (A szerver UTC-t küld, a Date a böngésző zónájában értelmezi.) */
-function relativeTime(iso) {
-  const at = new Date(iso);
-  if (Number.isNaN(at.getTime())) return '';
-  const minutes = Math.round((Date.now() - at.getTime()) / 60000);
-  if (minutes < 1) return 'most';
-  if (minutes < 60) return `${minutes} perce`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours} órája`;
-  const days = Math.round(hours / 24);
-  if (days === 1) return 'tegnap';
-  if (days < 7) return `${days} napja`;
-  return at.toLocaleDateString('hu-HU');
-}
 
 /** Egy üzenet buborékja a szerver által küldött alakból. A `mine` dönti el,
     hogy saját (jobbra igazított) üzenet-e — a szerver a NÉZŐ szemszögéből
@@ -200,4 +184,4 @@ function createChatController({ feed, form, input, getLinkId, isVisible = () => 
   return { load, reset };
 }
 
-export { createChatController, relativeTime };
+export { createChatController };

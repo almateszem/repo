@@ -4,7 +4,7 @@
     nem két külön lista. */
 
 import { showToast } from '../core/toast.js';
-import { relativeTime } from './chat.js';
+import { relativeTime } from '../core/format.js';
 
 /**
  * @param {object} note  a szerver megjegyzés-sora (exercise, workout, date, mine, …)

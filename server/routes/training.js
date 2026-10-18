@@ -454,7 +454,6 @@ export function register(app, { catalogSearch }) {
           name: plan.name,
           meta: `${plan.assignmentId ? 'Edzői terv' : 'Saját terv'} · ${plan.days.length} edzésnap${daysLabel}`,
           progress: progressFor(plan),
-          own: true,
           active: plan.active,
           /* Mi kockázatos MA ebben a tervben, és miért — a hét összes edzésnapjára
            együtt. A terv NEM íródik át — csak megjelöljük; az átírás elrejtené

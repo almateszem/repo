@@ -18,9 +18,9 @@
 import { normalizeName } from './muscles.js';
 
 export const DEFAULT_LIMIT = 40;
-export const MAX_LIMIT = 100;
-export const MAX_QUERY_LENGTH = 100;
-export const MAX_NAMES = 50;
+const MAX_LIMIT = 100;
+const MAX_QUERY_LENGTH = 100;
+const MAX_NAMES = 50;
 
 /** A gyakorlat kártya-alakja. A `load` és a `loadSource` a Recovery Engine
     belső adata, az `extId` a külső dataset azonosítója — a felület egyiket

@@ -2,12 +2,8 @@
 
 import { api } from '../core/api.js';
 import { $ } from '../core/dom.js';
-import { formatNumber } from '../core/format.js';
+import { dayKeyOf, formatNumber } from '../core/format.js';
 import { showToast } from '../core/toast.js';
-
-/** "ÉÉÉÉ.HH.NN" → rendezhető szám. A dátum szöveges összehasonlítása is
-    időrendi volna, de a számot a diagram is használja. */
-const dayKeyOf = (dateStr) => Number(String(dateStr).replace(/\./g, ''));
 
 /* ---- Testösszetétel ----
    A testsúly egyetlen szám: nem mondja meg, MI épült és mi fogyott. A
@@ -128,4 +124,4 @@ async function refreshMeasurements() {
   renderMeasurements();
 }
 
-export { dayKeyOf, refreshMeasurements, renderMeasurements, setMeasurements };
+export { refreshMeasurements, renderMeasurements, setMeasurements };

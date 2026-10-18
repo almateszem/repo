@@ -34,7 +34,7 @@ const LEGACY_DAYS = 7;
 export const DAY_NAMES = ['Hétfő', 'Kedd', 'Szerda', 'Csütörtök', 'Péntek', 'Szombat', 'Vasárnap'];
 
 /** A kártya-leíráshoz: a napok rövid címkéje. */
-export const DAY_LABELS = ['H', 'K', 'Sze', 'Cs', 'P', 'Szo', 'V'];
+const DAY_LABELS = ['H', 'K', 'Sze', 'Cs', 'P', 'Szo', 'V'];
 
 /** A második kör (8.–14. nap) utótagja. */
 const roundSuffix = (day) => (day >= DAY_NAMES.length ? ' (2.)' : '');
@@ -55,7 +55,7 @@ const FALLBACK_MONDAY = '1970.01.05';
 
 /** A ciklus horgonya (nap-kulcs): az aktiválás hetének hétfője; aktiválás
     nélkül a létrehozásé; dátum nélkül egy rögzített hétfő. */
-export const cycleAnchor = (plan) => mondayOf(plan?.activeSince || plan?.date || FALLBACK_MONDAY);
+const cycleAnchor = (plan) => mondayOf(plan?.activeSince || plan?.date || FALLBACK_MONDAY);
 
 /** A ciklus napja egy nap-kulcson (`dayKey`): 0 … hossz−1. Naptári
     napokban számol (a daysBetween az óraátállítás ±1 óráját elnyeli), és a
@@ -70,7 +70,7 @@ export function cycleDayAt(plan, key) {
 export const cycleDay = (plan, dateStr) => cycleDayAt(plan, dayKey(dateStr));
 
 /** Egy edzésnap nevének felső korlátja. */
-export const DAY_NAME_MAX = 40;
+const DAY_NAME_MAX = 40;
 
 const REST = Object.freeze({ type: 'rest' });
 

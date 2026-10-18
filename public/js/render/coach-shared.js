@@ -117,7 +117,7 @@ export function kpi(label, value, unit, sub, modifier) {
 }
 
 /** A hét napról napra: „H: Push · Sze: Pull · P: = H" — a pihenőnap kimarad. */
-export const weekText = (offer) =>
+const weekText = (offer) =>
   (offer.days ?? []).map((day) => `${dayLabel(day)}: ${dayStatus(offer.week, day)}`).join(' · ');
 
 /** Egy terv-ajánlat info-blokkja: név, a `meta` sor, a hét napról napra és

@@ -78,6 +78,3 @@ export function securityHeaders(isSecure) {
     next();
   };
 }
-
-export const CSP_VALUE = CSP;
-export const HSTS_VALUE = HSTS;

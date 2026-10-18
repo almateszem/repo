@@ -63,4 +63,4 @@ function applyIntroActions(step, nav) {
   return step;
 }
 
-export { applyIntroActions, applyOnboardingIntro, renderIntro };
+export { renderIntro };
