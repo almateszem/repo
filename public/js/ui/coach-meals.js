@@ -3,7 +3,7 @@
     (core/meals.js), a mentett érték a szerveré. */
 
 import { api } from '../core/api.js';
-import { $, $$, cloneTemplate } from '../core/dom.js';
+import { $, $$, cloneTemplate, withBusy } from '../core/dom.js';
 import { formatNumber } from '../core/format.js';
 import { scaleFood, sumMacros } from '../core/meals.js';
 import { SEARCH_DELAY_MS, debounce } from '../core/paged-list.js';
@@ -174,11 +174,17 @@ function setupCoachMeals(root, { getCurrent, onGoalChange, confirmAction }) {
     updateSum();
   });
 
-  form.addEventListener('submit', async (event) => {
+  /* A védelem a név-ellenőrzés (resolveNames) ELŐTT indul, nem csak a
+     mentés előtt: begépelt névvel a dupla Enter különben kétszer jutott el a
+     mentésig, és duplikált étkezés lett belőle. */
+  form.addEventListener('submit', (event) => {
     event.preventDefault();
     const athlete = getCurrent();
     if (!athlete) return;
+    withBusy(saveBtn, () => saveMeal(athlete));
+  });
 
+  async function saveMeal(athlete) {
     const items = $$('.co-meal-item', itemsEl).map((row) => ({
       name: $('[data-item-food]', row).value.trim(),
       grams: Number($('[data-item-grams]', row).value),
@@ -199,7 +205,6 @@ function setupCoachMeals(root, { getCurrent, onGoalChange, confirmAction }) {
     }
 
     const meal = { name: nameInput.value.trim(), items };
-    saveBtn.disabled = true;
     try {
       athlete.meals =
         editingId === null
@@ -211,10 +216,8 @@ function setupCoachMeals(root, { getCurrent, onGoalChange, confirmAction }) {
     } catch (err) {
       console.error(err);
       showToast(err.message || 'Az étkezést nem sikerült menteni', 'error');
-    } finally {
-      saveBtn.disabled = false;
     }
-  });
+  }
 
   /* ---- Lista ---- */
 

@@ -1,7 +1,7 @@
 /** Edző oldal: edzői panel (KPI-k, sportoló-lista), sportoló-részletnézet, meghívók. */
 
 import { api } from '../core/api.js';
-import { $, $$ } from '../core/dom.js';
+import { $, $$, withBusy } from '../core/dom.js';
 import { formatNumber } from '../core/format.js';
 import { shared } from '../core/page-hooks.js';
 import { prefs } from '../core/prefs.js';
@@ -536,22 +536,29 @@ async function setupCoachPage(athleteDetail, confirmAction) {
 
   // Meghívás felhasználónévvel — a hibát (nincs ilyen fiók, már kapcsolatban
   // vagytok) a szerver üzenete mondja meg, azt írjuk ki.
-  inviteForm.addEventListener('submit', async (event) => {
+  /* A meghívó, a meghívó-gombok és a terv-ajánlat dupla beküldés elleni
+     védelme (withBusy): dupla Enterre / kattintásra ellentmondó toastok
+     jöttek („elküldve", majd „már kapcsolatban vagytok"). */
+  const inviteBtn = $('button[type="submit"]', inviteForm);
+  inviteForm.addEventListener('submit', (event) => {
     event.preventDefault();
     const username = inviteInput.value.trim();
     if (!username) return;
-    try {
-      const invite = await api.inviteAthlete(username);
-      inviteForm.reset();
-      await refresh();
-      showToast(`Meghívó elküldve — ${invite.name} elfogadására vár`);
-    } catch (err) {
-      showToast(err.message || 'A meghívó nem ment el', 'error');
-    }
-    inviteInput.focus();
+    withBusy(inviteBtn, async () => {
+      try {
+        const invite = await api.inviteAthlete(username);
+        inviteForm.reset();
+        await refresh();
+        showToast(`Meghívó elküldve — ${invite.name} elfogadására vár`);
+      } catch (err) {
+        showToast(err.message || 'A meghívó nem ment el', 'error');
+      }
+      inviteInput.focus();
+    });
   });
 
-  $('[data-action="leave-coach"]', page).addEventListener('click', async () => {
+  const leaveBtn = $('[data-action="leave-coach"]', page);
+  leaveBtn.addEventListener('click', async () => {
     const coach = coachData.coach;
     if (!coach) return;
     const confirmed = await confirmAction(
@@ -559,13 +566,15 @@ async function setupCoachPage(athleteDetail, confirmAction) {
       { title: 'Leválás az edzőről', confirmLabel: 'Leválás' },
     );
     if (!confirmed) return;
-    try {
-      await api.leaveCoach();
-      await refresh();
-      showToast('Leváltál az edződről');
-    } catch (err) {
-      showToast(err.message || 'A leválás nem sikerült', 'error');
-    }
+    withBusy(leaveBtn, async () => {
+      try {
+        await api.leaveCoach();
+        await refresh();
+        showToast('Leváltál az edződről');
+      } catch (err) {
+        showToast(err.message || 'A leválás nem sikerült', 'error');
+      }
+    });
   });
 
   /* Egyetlen delegált kattintás-kezelő: a meghívó-gombok és a sportoló-
@@ -579,19 +588,26 @@ async function setupCoachPage(athleteDetail, confirmAction) {
       return;
     }
 
-    const inviteBtn = event.target.closest('[data-invite-action]');
-    if (inviteBtn) {
-      const linkId = Number(inviteBtn.dataset.linkId);
-      const action = inviteBtn.dataset.inviteAction;
-      try {
-        if (action === 'accept-invite') await api.acceptCoachInvite(linkId);
-        else if (action === 'decline-invite') await api.declineCoachInvite(linkId);
-        else if (action === 'cancel-invite') await api.removeAthlete(linkId);
-        await refresh();
-        if (action === 'accept-invite') showToast('Meghívó elfogadva');
-      } catch (err) {
-        showToast(err.message || 'A művelet nem sikerült', 'error');
-      }
+    const inviteActionBtn = event.target.closest('[data-invite-action]');
+    if (inviteActionBtn) {
+      const linkId = Number(inviteActionBtn.dataset.linkId);
+      const action = inviteActionBtn.dataset.inviteAction;
+      // A sorok minden frissítéskor újraszületnek — ezért a kulcs, nem a gomb véd
+      await withBusy(
+        inviteActionBtn,
+        async () => {
+          try {
+            if (action === 'accept-invite') await api.acceptCoachInvite(linkId);
+            else if (action === 'decline-invite') await api.declineCoachInvite(linkId);
+            else if (action === 'cancel-invite') await api.removeAthlete(linkId);
+            await refresh();
+            if (action === 'accept-invite') showToast('Meghívó elfogadva');
+          } catch (err) {
+            showToast(err.message || 'A művelet nem sikerült', 'error');
+          }
+        },
+        `invite:${linkId}:${action}`,
+      );
       return;
     }
 
@@ -601,19 +617,26 @@ async function setupCoachPage(athleteDetail, confirmAction) {
     if (offerBtn) {
       const offerId = Number(offerBtn.dataset.offerId);
       const accepting = offerBtn.dataset.offerAction === 'accept-offer';
-      try {
-        if (accepting) {
-          const plan = await api.acceptPlanOffer(offerId);
-          showToast(`„${plan.name}” mostantól az aktív terved`);
-          // A Tervek oldal listája ettől elavult — frissen húzzuk le
-          await renderPlans();
-        } else {
-          await api.declinePlanOffer(offerId);
-        }
-        await refresh();
-      } catch (err) {
-        showToast(err.message || 'A művelet nem sikerült', 'error');
-      }
+      // Egy ajánlatra egyszerre egy művelet: az elfogadás és az elutasítás is
+      await withBusy(
+        offerBtn,
+        async () => {
+          try {
+            if (accepting) {
+              const plan = await api.acceptPlanOffer(offerId);
+              showToast(`„${plan.name}” mostantól az aktív terved`);
+              // A Tervek oldal listája ettől elavult — frissen húzzuk le
+              await renderPlans();
+            } else {
+              await api.declinePlanOffer(offerId);
+            }
+            await refresh();
+          } catch (err) {
+            showToast(err.message || 'A művelet nem sikerült', 'error');
+          }
+        },
+        `offer:${offerId}`,
+      );
       return;
     }
 

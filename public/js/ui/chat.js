@@ -1,7 +1,7 @@
 /** Közös chat-vezérlő az edző–sportoló üzenetváltáshoz. */
 
 import { api } from '../core/api.js';
-import { $ } from '../core/dom.js';
+import { $, withBusy } from '../core/dom.js';
 import { showToast } from '../core/toast.js';
 import { createCoachNote } from '../render/coach.js';
 
@@ -155,29 +155,37 @@ function createChatController({ feed, form, input, getLinkId, isVisible = () => 
     }
   }
 
-  form.addEventListener('submit', async (event) => {
+  // A küldés gombja és a „már fut" jelző: dupla Enterre egy üzenet megy ki.
+  const sendBtn = $('button[type="submit"]', form);
+  form.addEventListener('submit', (event) => {
     event.preventDefault();
     const linkId = getLinkId();
     const text = input.value.trim();
     if (!linkId || !text) return;
 
-    try {
-      const message = await api.sendMessage(linkId, text);
-      form.reset();
-      if (getLinkId() !== linkId) return;
-      $('.co-msg-empty', feed)?.remove();
-      feed.appendChild(messageNote(message));
-      /* Az ujjlenyomatot is vezetjük: enélkül a következő halk frissítés
-         „változásnak" látná a saját, már kint lévő üzenetünket, és a teljes
-         újrarajzolással a hírfolyam aljára rántaná az olvasót. */
-      if (lastSignature !== null) {
-        lastSignature = [lastSignature, String(message.id)].filter(Boolean).join(',');
-      }
-      scrollFeedToEnd();
-    } catch (err) {
-      showToast(err.message || 'Az üzenetet nem sikerült elküldeni', 'error');
-    }
-    input.focus();
+    withBusy(
+      sendBtn,
+      async () => {
+        try {
+          const message = await api.sendMessage(linkId, text);
+          form.reset();
+          if (getLinkId() !== linkId) return;
+          $('.co-msg-empty', feed)?.remove();
+          feed.appendChild(messageNote(message));
+          /* Az ujjlenyomatot is vezetjük: enélkül a következő halk frissítés
+             „változásnak" látná a saját, már kint lévő üzenetünket, és a teljes
+             újrarajzolással a hírfolyam aljára rántaná az olvasót. */
+          if (lastSignature !== null) {
+            lastSignature = [lastSignature, String(message.id)].filter(Boolean).join(',');
+          }
+          scrollFeedToEnd();
+        } catch (err) {
+          showToast(err.message || 'Az üzenetet nem sikerült elküldeni', 'error');
+        }
+        input.focus();
+      },
+      form,
+    );
   });
 
   /* Halk frissítés: amíg a hírfolyam látszik, időnként lekérjük a szálat —

@@ -22,6 +22,35 @@ const readNumberInput = (input) => {
   return Number.isFinite(value) ? value : null;
 };
 
+/** A még futó `withBusy` műveletek kulcsai. */
+const busyOperations = new Set();
+
+/** Dupla beküldés elleni védelem. A gomb(ok) az első await ELŐTT tiltottak,
+    és amíg a művelet fut, ugyanannak a kulcsnak a második indítása NEM fut le
+    (az Enter-beküldést a tiltott gomb nem állítja meg — ezért kell a jelző
+    is). A kulcs alapból az első gomb; delegált gomboknál (pl. meghívó-sor) a
+    hívó adja meg. A végén minden visszaáll; a `fn` eredménye vagy hibája a
+    hívóhoz jut, a ki nem futott hívás `undefined`-ot ad. */
+function withBusy(buttons, fn, key) {
+  const list = (Array.isArray(buttons) ? buttons : [buttons]).filter(Boolean);
+  const busyKey = key ?? list[0];
+  if (busyOperations.has(busyKey)) return Promise.resolve(undefined);
+  busyOperations.add(busyKey);
+  list.forEach((button) => {
+    button.disabled = true;
+  });
+  return (async () => {
+    try {
+      return await fn();
+    } finally {
+      busyOperations.delete(busyKey);
+      list.forEach((button) => {
+        button.disabled = false;
+      });
+    }
+  })();
+}
+
 /** Template klónozása — a template-eknek egyetlen gyökérelemük van. */
 const cloneTemplate = (id) => $('#' + id).content.firstElementChild.cloneNode(true);
 
@@ -52,4 +81,4 @@ function loadScript(src) {
   return loadedScripts.get(src);
 }
 
-export { $, $$, cloneTemplate, loadScript, prefersReducedMotion, readNumberInput };
+export { $, $$, cloneTemplate, loadScript, prefersReducedMotion, readNumberInput, withBusy };
