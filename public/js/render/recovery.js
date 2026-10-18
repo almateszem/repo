@@ -62,7 +62,7 @@ const CONFIDENCE_LABELS = { high: 'Megbízható', medium: 'Közepes', low: 'Táj
  * A `null` érték érvényes: azt jelenti, hogy a felhasználó nem adta meg —
  * a motor ilyenkor újraosztja a súlyt.
  */
-function buildScale({ name, label, min, max, hint }) {
+function renderScale({ name, label, min, max, hint }) {
   const scale = cloneTemplate('tpl-scale');
   scale.dataset.field = name;
   $('.rc-scale-label', scale).textContent = label;
@@ -78,13 +78,6 @@ function buildScale({ name, label, min, max, hint }) {
     chip.dataset.value = String(value);
     chip.setAttribute('aria-pressed', 'false');
     chip.setAttribute('aria-label', `${label}: ${value}`);
-    chip.addEventListener('click', () => {
-      // Az aktív chip újbóli megnyomása törli a választást — így egy
-      // véletlen kattintás visszavonható „nem adtam meg" állapotra.
-      const active = chip.getAttribute('aria-pressed') === 'true';
-      $$('.rc-chip', chips).forEach((c) => c.setAttribute('aria-pressed', 'false'));
-      chip.setAttribute('aria-pressed', String(!active));
-    });
     chips.appendChild(chip);
   }
   return scale;
@@ -543,7 +536,7 @@ export {
   CONFIDENCE_LABELS,
   MOOD_SCALE,
   MUSCLE_GROUPS,
-  buildScale,
+  renderScale,
   hasReadiness,
   readScale,
   readinessTone,

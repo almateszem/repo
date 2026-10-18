@@ -1,6 +1,5 @@
 /** A mentett edzések listája (előzmények). */
 
-import { api } from '../core/api.js';
 import { $, cloneTemplate } from '../core/dom.js';
 
 /** Egy „Korábbi edzések" sor ({ id, date, detail, rpe }) <li>-vé építve.
@@ -39,11 +38,11 @@ const syncHistoryEmpty = () => {
   $('[data-history-empty]').hidden = $('[data-list="history"]').children.length > 0;
 };
 
-/** A „Korábbi edzések" lista a mentett edzésekből (legújabb elöl).
-    Az edzésnapló tartalmát nem ez tölti: azt a setupWorkout kéri le
-    (aznapi piszkozat vagy a mára ütemezett terv). */
-async function renderWorkout() {
-  const savedWorkouts = await api.getWorkouts();
+/** A „Korábbi edzések" lista a kapott mentett edzésekből (legújabb elöl; a
+    lekérés: ui/workout/history.js → renderWorkout). Az edzésnapló tartalmát
+    nem ez tölti: azt a setupWorkout kéri le (aznapi piszkozat vagy a mára
+    ütemezett terv). */
+function paintHistory(savedWorkouts) {
   const history = $('[data-list="history"]');
   history.replaceChildren();
   savedWorkouts.forEach((workout) =>
@@ -52,4 +51,4 @@ async function renderWorkout() {
   syncHistoryEmpty();
 }
 
-export { historyEntryEl, renderWorkout, syncHistoryEmpty, workoutHistoryEntry };
+export { historyEntryEl, paintHistory, syncHistoryEmpty, workoutHistoryEntry };

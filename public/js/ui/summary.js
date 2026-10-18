@@ -7,7 +7,8 @@ import { hooks, shared } from '../core/page-hooks.js';
 import { showToast } from '../core/toast.js';
 import { navigate, onPageShow } from '../nav/router.js';
 import { renderChart, renderVolumeTrend } from '../render/dashboard.js';
-import { buildScale, readScale, writeScale } from '../render/recovery.js';
+import { readScale, writeScale } from '../render/recovery.js';
+import { buildScale } from './scale.js';
 import { renderSummary } from '../render/summary.js';
 import { lastSummary, summarizeWorkout } from './workout/summary-data.js';
 

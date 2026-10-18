@@ -11,12 +11,12 @@ import { renderDashboard } from './dashboard-data.js';
 import {
   CHECKIN_SCALES,
   MOOD_SCALE,
-  buildScale,
   readScale,
   renderMuscleMapView,
   renderRecovery,
   writeScale,
 } from '../render/recovery.js';
+import { buildScale } from './scale.js';
 import { handleStepClick } from './workout/set-controls.js';
 import { createBodyMap } from './bodymap/index.js';
 import { CI_MAP_MODES, CI_PAIN_BLOCK } from './checkin/constants.js';

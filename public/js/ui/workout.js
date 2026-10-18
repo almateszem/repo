@@ -9,7 +9,7 @@ import { showToast } from '../core/toast.js';
 import { baseLoadFor, refreshWeightConventions } from '../core/weight-conventions.js';
 import { navigate } from '../nav/router.js';
 import { renderDashboard } from './dashboard-data.js';
-import { renderPrs } from '../render/prs.js';
+import { renderPrs } from './workout/history.js';
 import { readSetRow, refreshExerciseList } from '../render/sets.js';
 import {
   clampRpeInput,

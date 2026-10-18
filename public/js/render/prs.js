@@ -1,14 +1,12 @@
 /** A személyes rekordok (PR) listája. */
 
-import { api } from '../core/api.js';
 import { $, cloneTemplate } from '../core/dom.js';
 import { formatNumber } from '../core/format.js';
 
 /** Korábbi rekordok (PR) listája a workout oldalon — a mentett edzések
-    PR-jelölt gyakorlataiból (a szerver állítja össze). Újrahívható:
-    edzés-mentés után frissen húzza le a listát. */
-async function renderPrs() {
-  const prs = await api.getPrs();
+    PR-jelölt gyakorlataiból (a szerver állítja össze; a lekérés:
+    ui/workout/history.js → renderPrs). */
+function paintPrs(prs) {
   const list = $('[data-list="prs"]');
   list.replaceChildren();
   prs.forEach((pr, index) => {
@@ -35,4 +33,4 @@ async function renderPrs() {
    óta eltelt idő. Mély-linkkel (#summary) is működik: ilyenkor az aktuális
    naplóállapotot összegzi. */
 
-export { renderPrs };
+export { paintPrs };

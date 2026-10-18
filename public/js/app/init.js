@@ -11,8 +11,7 @@ import { dirToPage, navigate, onPageShow, setOnboardingLock, setupRouter } from 
 import { renderChromeDate } from '../render/dashboard.js';
 import { renderCharts, renderDashboard, renderUserName } from '../ui/dashboard-data.js';
 import { renderPlans } from '../ui/plans-data.js';
-import { renderPrs } from '../render/prs.js';
-import { renderWorkout } from '../render/workout.js';
+import { renderPrs, renderWorkout } from '../ui/workout/history.js';
 import { setupCheckinWizard } from '../ui/checkin/wizard.js';
 import { setupChromeHeight } from '../ui/chrome.js';
 import { setupAthleteDetail, setupCoachPage } from '../ui/coach.js';
