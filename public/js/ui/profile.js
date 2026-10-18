@@ -2,13 +2,12 @@
 
 import { api } from '../core/api.js';
 import { $, $$, cloneTemplate } from '../core/dom.js';
-import { animateNumber, formatNumber, formatWhole } from '../core/format.js';
+import { animateNumber, formatDelta, formatNumber, formatWhole } from '../core/format.js';
 import { hooks } from '../core/page-hooks.js';
 import { SEARCH_DELAY_MS, debounce } from '../core/paged-list.js';
 import { prefs } from '../core/prefs.js';
 import { showToast } from '../core/toast.js';
 import { navigate, onPageShow } from '../nav/router.js';
-import { formatDelta } from './weight.js';
 
 /* ---- Rekord-érmek ----
    KÉT mérce van, és a kártya mindig kiírja, melyik szólt.

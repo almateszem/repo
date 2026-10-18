@@ -2,12 +2,11 @@
 
 import { api } from '../core/api.js';
 import { $ } from '../core/dom.js';
-import { animateNumber, formatDelta, formatNumber } from '../core/format.js';
+import { animateNumber, dayKeyOf, formatDelta, formatNumber } from '../core/format.js';
 import { showToast } from '../core/toast.js';
 import { refreshWeightConventions } from '../core/weight-conventions.js';
 import { renderChart } from '../render/dashboard.js';
 import { refreshDailyStats } from './dashboard-data.js';
-import { dayKeyOf } from './measurements.js';
 
 /* ---- Testsúly-napló ----
    A bejegyzéseket a napi check-in írja (PUT /api/checkin → weight_log,

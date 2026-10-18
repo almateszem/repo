@@ -4,7 +4,7 @@ import { api } from '../core/api.js';
 import { $, prefersReducedMotion } from '../core/dom.js';
 import { prefs } from '../core/prefs.js';
 import { showToast } from '../core/toast.js';
-import { relativeTime } from './chat.js';
+import { relativeTime } from '../core/format.js';
 
 /**
  * Értesítés-panel: az avatarra nyílik. A tartalma VALÓDI eseményekből jön
