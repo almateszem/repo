@@ -1640,9 +1640,8 @@ export function resolvePlanAssignment(id, status) {
 
    CSAK ez a két kulcs cache-elhető, és ez szándékos: a hívó ugyanazt az
    objektumot kapja meg minden kérésnél, tehát MÓDOSÍTANIA TILOS. A 'dashboard'
-   épp ezért nem szerepel itt — a /api/dashboard végpont a lekért objektumra
-   írja rá a streaket és a készenlétet, cache-elve ezek kérésről kérésre
-   egymásra rakódnának.
+   sem szerepel itt: a /api/dashboard végpont a streaket és a készenlétet egy
+   MÁSOLATRA írja (server.js) — a cache nélküli kulcs csak második védvonal.
 
    Nyereség: az exerciseCatalog 365 KB-os JSON.parse-a kérésenként 3,6-4,4 ms
    volt, és minden readiness-számítás lekérte. */
@@ -1650,8 +1649,9 @@ const CACHED_COLLECTIONS = new Set(['exerciseCatalog', 'foods']);
 const collectionCache = new Map();
 
 /** Egy olvasható kollekció (foods, charts, …) JSON-ből visszafejtve.
-    A CACHED_COLLECTIONS kulcsainál a visszaadott érték MEGOSZTOTT — olvasásra
-    való, módosítani nem szabad. */
+    A visszaadott objektumot csak OLVASNI szabad: a CACHED_COLLECTIONS
+    kulcsainál MEGOSZTOTT, és egy kulcs később bármikor bekerülhet oda. Aki
+    módosítaná, előbb másolatot készítsen (pl. a /api/dashboard). */
 export function getCollection(key) {
   if (collectionCache.has(key)) return collectionCache.get(key);
 

@@ -1450,7 +1450,9 @@ const parseRowId = (raw) => (Number.isInteger(raw) && raw > 0 ? raw : null);
 // az edzésnapló induló tartalmából (vagy null).
 app.get('/api/dashboard', (req, res) => {
   const userId = req.user.id;
-  const dashboard = getCollection('dashboard') || {};
+  // Saját másolat: a felhasználó-specifikus mezők nem a getCollection
+  // (csak olvasható, akár megosztott) objektumára íródnak.
+  const dashboard = { ...(getCollection('dashboard') || {}) };
   const totals = getNutritionTotals(userId, req.today);
   // A mentett edzéseket egyszer olvassuk be, és mindkét fogyasztónak átadjuk:
   // korábban a streak és a készenléti riport külön-külön beolvasta és
