@@ -2674,15 +2674,21 @@ export function setDeclaredMax(userId, exerciseName, max1rm, date) {
 
 /** A BEMONDOTT csúcsok. A készenlét-motor ezekből tudja, hogy a felhasználó
     egy gyakorlatot ismer és nagyjából milyen szinten — akkor is, ha még
-    egyetlen edzést sem naplózott ide. */
+    egyetlen edzést sem naplózott ide. A bemondott oszlopokból olvas (mint a
+    recomputeExerciseMaxes), nem a csúcs forrásából: a mért csúcs alatti
+    bemondás is megvan, és a profil-lista meg a motor is ezt látja. */
 export function getDeclaredMaxes(userId) {
   return db
     .prepare(
-      `SELECT exercise_name, max_1rm, date FROM exercise_maxes
-                     WHERE user_id = ? AND source = 'declared'`,
+      `SELECT exercise_name, declared_1rm, declared_date FROM exercise_maxes
+                     WHERE user_id = ? AND declared_1rm IS NOT NULL`,
     )
     .all(userId)
-    .map((row) => ({ name: row.exercise_name, max1rm: row.max_1rm, date: row.date }));
+    .map((row) => ({
+      name: row.exercise_name,
+      max1rm: row.declared_1rm,
+      date: row.declared_date,
+    }));
 }
 
 /** Egy gyakorlat maximum 1RM-jének frissítése, ha az új érték nagyobb.

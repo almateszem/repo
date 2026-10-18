@@ -105,3 +105,15 @@ test('mentéskor is: a bemondással egyenlő mért szett lesz a csúcs, de nem P
     source: 'measured',
   });
 });
+
+test('a mért csúcs alatti bemondás is látszik a bemondott csúcsok között', () => {
+  /* A getDeclaredMaxes a bemondott oszlopokból olvas (declared_1rm), nem a
+     csúcs forrásából: a profil-lista és a készenlét-motor is ezt kapja. */
+  const userId = newUser();
+  db.addWorkout(userId, 'Mellnap', '2026.10.02', bench(120, 1));
+  db.setDeclaredMax(userId, 'Fekvenyomás', 80, '2026.10.03');
+  assert.equal(db.getExerciseMax(userId, 'Fekvenyomás').source, 'measured', 'a csúcs a mért');
+  assert.deepEqual(db.getDeclaredMaxes(userId), [
+    { name: 'Fekvenyomás', max1rm: 80, date: '2026.10.03' },
+  ]);
+});
