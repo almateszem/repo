@@ -17,7 +17,7 @@ import { prefs } from '../../core/prefs.js';
 import { showToast } from '../../core/toast.js';
 import { navigate } from '../../nav/router.js';
 import { refreshExerciseList, renderExercise } from '../../render/sets.js';
-import { WORKOUT_START_KEY } from '../../render/summary.js';
+import { WORKOUT_START_KEY } from './summary-data.js';
 
 export function createContentLoader({
   page,

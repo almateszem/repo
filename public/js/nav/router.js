@@ -21,7 +21,6 @@ import { prefs } from '../core/prefs.js';
 import { dashboardData, refreshDashboardIfStale, renderChromeDate } from '../render/dashboard.js';
 import { renderPlans } from '../render/plans.js';
 import { hasReadiness } from '../render/recovery.js';
-import { renderSummary } from '../render/summary.js';
 
 /* ---- Oldal-megnyitás: onPageShow ----
    Ami „az oldal megnyílt" pillanatban fut (friss adat, számláló-animáció),
@@ -64,9 +63,6 @@ onPageShow('dashboard', () => {
       });
     })
     .catch((err) => console.error('Áttekintő frissítési hiba:', err));
-});
-onPageShow('summary', () => {
-  renderSummary(); // az edzésnapló élő DOM-állapotából számol + felpörgeti a számokat
 });
 onPageShow('plans', () => {
   // A terv-kártyák progress-e a mai pipált szetteket követi — megnyitáskor frissül

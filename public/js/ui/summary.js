@@ -5,10 +5,11 @@ import { $, $$ } from '../core/dom.js';
 import { animateNumber, formatNumber } from '../core/format.js';
 import { hooks, shared } from '../core/page-hooks.js';
 import { showToast } from '../core/toast.js';
-import { navigate } from '../nav/router.js';
+import { navigate, onPageShow } from '../nav/router.js';
 import { renderChart, renderVolumeTrend } from '../render/dashboard.js';
 import { buildScale, readScale, writeScale } from '../render/recovery.js';
-import { lastSummary } from '../render/summary.js';
+import { renderSummary } from '../render/summary.js';
+import { lastSummary, summarizeWorkout } from './workout/summary-data.js';
 
 /** Az edzés utáni visszajelzés két skálája: [mező, címke, [1-es, 5-ös vég]].
     A buildScale ugyanaz a chip-primitív, amit a check-in használ — így a
@@ -19,6 +20,10 @@ const FEEDBACK_SCALES = [
 ];
 
 function setupSummary() {
+  /* Megnyitáskor: lezárás után a rögzített pillanatkép, egyébként az
+     edzésnapló élő DOM-állapota; a kirajzolás felpörgeti a számokat. */
+  onPageShow('summary', () => renderSummary(lastSummary ?? summarizeWorkout()));
+
   $('[data-action="summary-dashboard"]').addEventListener('click', () => navigate('dashboard'));
 
   const section = $('[data-su-feedback]');

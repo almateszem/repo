@@ -26,7 +26,7 @@ import {
   markWorkoutStarted,
   setLastSummary,
   summarizeWorkout,
-} from '../render/summary.js';
+} from './workout/summary-data.js';
 import { historyEntryEl, syncHistoryEmpty, workoutHistoryEntry } from '../render/workout.js';
 import { createDraftAutosave } from './workout/autosave.js';
 import { createPrIndicators } from './workout/pr-indicator.js';
