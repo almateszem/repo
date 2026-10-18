@@ -24,7 +24,7 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { data as seed } from './data.js';
 import { buildExerciseCatalog, buildFoodCatalog } from './data/catalog.js';
-import { estimate1RM } from './recovery.js';
+import { bestCompletedSet, calculateEpley1RM, weightOnDate } from './records.js';
 import { splitLegacyMuscleMap } from './muscles.js';
 import { dayEntry, dayWorkoutName, weekFromLegacy, workoutDays } from './plan-week.js';
 import { effectiveLoad, isBodyweightExercise } from './data/bodyweight-load.js';
@@ -2507,15 +2507,7 @@ export function saveCheckin(userId, date, fields) {
     A ciklusban hívó a `log`-ot egyszer olvassa be és adja át — különben minden
     edzés minden gyakorlata újra lekérdezné a teljes testsúly-naplót. */
 export function weightForDate(userId, date, log = getWeightLog(userId)) {
-  let best = null;
-  let earliest = null;
-  for (const entry of log) {
-    if (entry.date <= date && (!best || entry.date >= best.date)) best = entry;
-    // A tartalék a legkorábbi DÁTUMÚ bejegyzés, nem a legelőször rögzített:
-    // egy utólag bepótolt régi mérés is lehet a legkorábbi.
-    if (!earliest || entry.date < earliest.date) earliest = entry;
-  }
-  return (best ?? earliest)?.kg ?? 0;
+  return weightOnDate(log, date);
 }
 
 /** Az edzések a rekord-csempék kiindulópontjához: DÁTUM szerint (azon belül
@@ -2533,55 +2525,10 @@ export function getWorkoutsForRecords(userId) {
     }));
 }
 
-/** A becsült 1RM a PR-követéshez: az app közös Epley-képlete (recovery.js →
-    estimate1RM, egy ismétlésnél maga a súly). A szett mezői szövegként is
-    jöhetnek; nem számolható értékre 0. */
-export function calculateEpley1RM(weight, reps) {
-  const w = Number(weight);
-  const r = Number(reps);
-  if (!Number.isFinite(w) || !Number.isFinite(r)) return 0;
-  return estimate1RM(w, r) ?? 0;
-}
-
-/**
- * A gyakorlat REKORDOT HOZÓ szettje: a teljesítettek közül a legmagasabb
- * becsült 1RM-ű. Ha egy sor sincs bepipálva, nincs ilyen szett (null) — egy
- * előre kitöltött, el nem végzett sor nem lehet rekord. A `fallbackToFirst`
- * a pipák előtti naplónak szól (workouts.pr_rule = 0): ott pipa híján az
- * első sor számított, és ezeknek a soroknak a csúcsai nem veszhetnek el.
- *
- * Ez az egyetlen hely, ahol ez a szabály ki van mondva, és ennek oka van. A
- * szabály eddig kétszer, két ágon élt: az addWorkout a legjobb szettből
- * döntött PR-ről, a /api/prs listája viszont az ELSŐ teljesítettet írta ki.
- * Amíg minden szett egyforma volt, ez ritkán tért el; a szett-típusok óta
- * viszont az első sor alapból BEMELEGÍTŐ, tehát a lista rendszeresen egy
- * könnyű bemelegítést hirdetett rekordnak (10 × 40 kg a 5 × 100 helyett),
- * miközben a mellette álló csúcs a valódi értéket mutatta.
- *
- * A `baseLoad` a saját testsúlyos gyakorlatoké: ott a beírt kilogramm csak a
- * RÁADÁS, a terhelés zöme a testsúly. Enélkül a rangsor is hibás volna — nulla
- * súllyal minden szett 1RM-je 0, tehát a „legjobb" mindig az ELSŐ pipált sor
- * lenne, nem a legtöbb ismétléses.
- *
- * @param {Array<object>} sets egy gyakorlat szettjei
- * @param {{ fallbackToFirst?: boolean, baseLoad?: number }} [options]
- *        fallbackToFirst: pipa híján az első sor legyen-e a rekord;
- *        baseLoad: minden szett súlyához hozzáadandó alapterhelés (kg)
- * @returns {object|null} a rekordot hozó szett, vagy null
- */
-export function bestCompletedSet(sets = [], { fallbackToFirst = false, baseLoad = 0 } = {}) {
-  let best = null;
-  let best1rm = 0;
-  for (const set of sets) {
-    if (!set?.done) continue;
-    const oneRM = calculateEpley1RM(Number(set.weight || 0) + baseLoad, set.reps);
-    if (best === null || oneRM > best1rm) {
-      best = set;
-      best1rm = oneRM;
-    }
-  }
-  return best ?? (fallbackToFirst ? (sets[0] ?? null) : null);
-}
+/* A rekord-szabály (calculateEpley1RM, bestCompletedSet) a server/records.js
+   tiszta moduljában él — a coaching.js adatbázis nélkül importálja. Innen
+   tovább-exportáljuk, hogy a meglévő hívók változatlanok maradjanak. */
+export { bestCompletedSet, calculateEpley1RM } from './records.js';
 
 /** A felhasználó jelenlegi maximális 1RM-je egy gyakorlatban, vagy null ha még nincs. */
 export function getExerciseMax(userId, exerciseName) {

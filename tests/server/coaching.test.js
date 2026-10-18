@@ -468,8 +468,8 @@ test('a legutóbbi aktivitás a naplókból fésülődik össze, legújabb elöl
   const withPr = workout(daysAgo(1), 'Erőnap');
   withPr.exercises[0].pr = true;
   withPr.exercises[0].sets = [
-    { done: true, type: 'work', weight: '100' },
-    { done: true, type: 'work', weight: '140' },
+    { done: true, type: 'work', weight: '100', reps: '5' },
+    { done: true, type: 'work', weight: '140', reps: '3' },
   ];
 
   const list = recentActivity({
@@ -481,8 +481,8 @@ test('a legutóbbi aktivitás a naplókból fésülődik össze, legújabb elöl
 
   assert.equal(list[0], 'Regenerációs check-in kitöltve — ma');
   assert.ok(
-    list.some((entry) => entry === 'Új PR: Guggolás 140 kg — tegnap'),
-    'a PR a legnehezebb szettel',
+    list.some((entry) => entry === 'Új PR: Guggolás 140 kg × 3 — tegnap'),
+    'a PR a rekordot hozó szettel',
   );
   assert.ok(list.some((entry) => entry === 'Erőnap · 2 munkasorozat — tegnap'));
   assert.ok(list.some((entry) => entry === 'Testsúly rögzítve: 82,4 kg — 3 napja'));
@@ -727,4 +727,42 @@ test('a régen készült, de a héten aktivált terv csak az aktiválástól hag
   ];
   // Péntek: a hétfő és a kedd még nem volt ennek a tervnek a napja
   assert.equal(weekProgress({ workouts: [], plans, today: '2026.10.16' }).missed, 2);
+});
+
+test('a PR-sor a rekord-szabály szettjét írja ki (legnagyobb becsült 1RM)', () => {
+  // 100 × 8 (becsült 126,7) a rekord, nem a nyersen nehezebb 105 × 1
+  const bench = workout(daysAgo(1), 'Mellnap', [
+    { done: true, type: 'work', weight: '105', reps: '1' },
+    { done: true, type: 'work', weight: '100', reps: '8' },
+  ]);
+  bench.exercises[0].name = 'Fekvenyomás';
+  bench.exercises[0].pr = true;
+  const list = recentActivity({ workouts: [bench], checkins: [], weightLog: [], today: TODAY });
+  assert.ok(list.includes('Új PR: Fekvenyomás 100 kg × 8 — tegnap'), list.join(' | '));
+});
+
+test('a testsúlyos PR-sor a testsúllyal számol és így is írja ki', () => {
+  const pullups = workout(daysAgo(1), 'Hátnap', [
+    { done: true, type: 'work', weight: '', reps: '12' },
+    { done: true, type: 'work', weight: '10', reps: '8' },
+  ]);
+  pullups.exercises[0].name = 'Húzódzkodás';
+  pullups.exercises[0].pr = true;
+  // 80 kg-mal: 80 × 12 → 112, 90 × 8 → 114 — a ráakasztott súlyos a rekord
+  const list = recentActivity({
+    workouts: [pullups],
+    checkins: [],
+    weightLog: [{ kg: 80, date: daysAgo(5) }],
+    today: TODAY,
+  });
+  assert.ok(list.includes('Új PR: Húzódzkodás testsúly +10 kg × 8 — tegnap'), list.join(' | '));
+
+  pullups.exercises[0].sets[1].done = false; // csak a ráakasztás nélküli marad
+  const plain = recentActivity({
+    workouts: [pullups],
+    checkins: [],
+    weightLog: [{ kg: 80, date: daysAgo(5) }],
+    today: TODAY,
+  });
+  assert.ok(plain.includes('Új PR: Húzódzkodás testsúly × 12 — tegnap'), plain.join(' | '));
 });

@@ -27,6 +27,8 @@
  */
 import { dayKey, daysBetween, formatDecimal, shiftDayKey } from './recovery.js';
 import { cycleDayAt, dayEntry } from './plan-week.js';
+import { bestCompletedSet, weightOnDate } from './records.js';
+import { effectiveLoad } from './data/bodyweight-load.js';
 
 /** A terv-követés ablaka: 4 teljes hét, a MAI napot nem beleszámítva — a ma
     még hátralévő edzés nem számítható elmaradásnak. */
@@ -405,6 +407,17 @@ export function athleteAlert({
   return reasons.length ? reasons.slice(0, 2).join(' · ') : null;
 }
 
+/** A rekord-szett kiírása: „100 kg × 8", saját testsúlyosnál „testsúly +10 kg
+    × 8" (ráakasztás nélkül „testsúly × 12"). */
+function recordText(set, baseLoad) {
+  const added = Number(set.weight) || 0;
+  const reps = set.reps ? ` × ${set.reps}` : '';
+  if (baseLoad > 0) {
+    return `testsúly${added > 0 ? ` +${formatDecimal(added)} kg` : ''}${reps}`;
+  }
+  return `${formatDecimal(added)} kg${reps}`;
+}
+
 /**
  * A „Legutóbbi aktivitás" lista: a sportoló naplóiból összefésült események,
  * legújabb elöl. Szándékosan összegző mondatok — az edző a haladást nézi,
@@ -430,12 +443,15 @@ export function recentActivity({ workouts, checkins, weightLog, today }) {
     add(workout.date, [workout.name, ...parts].join(' · '));
     for (const exercise of workout.exercises) {
       if (!exercise.pr) continue;
-      const best = (exercise.sets ?? [])
-        .filter((set) => set.done)
-        .reduce((a, b) => (Number(b.weight) > Number(a?.weight ?? -Infinity) ? b : a), null);
+      /* Ugyanaz a szett, amit a rekord-szabály választ (records.js): a
+         legnagyobb becsült 1RM-ű, saját testsúlyosnál az edzés napi
+         testsúlyával. Korábban a nyersen legnehezebb szett jött ki („105 kg" a
+         100 × 8 rekord helyett, „Húzódzkodás 0 kg"). */
+      const baseLoad = effectiveLoad(exercise.name, 0, weightOnDate(weightLog, workout.date));
+      const record = bestCompletedSet(exercise.sets ?? [], { baseLoad });
       add(
         workout.date,
-        `Új PR: ${exercise.name}${best ? ` ${formatDecimal(best.weight)} kg` : ''}`,
+        `Új PR: ${exercise.name}${record ? ` ${recordText(record, baseLoad)}` : ''}`,
       );
     }
   }
