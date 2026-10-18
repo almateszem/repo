@@ -167,6 +167,18 @@
       </div>
     </div>
 
+    <!-- Induláskori kapcsolat-hiba (a belépő képernyő helyén, ugyanabban a
+       megjelenésben). A main.js nyitja, ha a szerver nem érhető el, és
+       magától újrapróbálja (app/startup.js). Alapból REJTETT. -->
+    <div class="au-screen" id="startupError" aria-hidden="true" hidden>
+      <div class="au-card" role="alertdialog" aria-modal="true" aria-labelledby="startupErrorTitle">
+        <div class="au-brand ds-eyebrow">Podium</div>
+        <h2 class="au-title ds-display" id="startupErrorTitle">Nem érjük el a szervert</h2>
+        <p class="au-lead" data-startup-error-text role="status"></p>
+        <button class="au-submit ds-cta" type="button" data-action="startup-retry">Újra</button>
+      </div>
+    </div>
+
     <!-- Desktop side navigation (mobile/tablet uses the nav ring instead — see CSS breakpoints) -->
     <nav class="side-nav" aria-label="Fő navigáció">
       <div class="side-nav-brand">Podium</div>
