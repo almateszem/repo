@@ -8,6 +8,7 @@
 
 import { api } from '../core/api.js';
 import { $, $$, cloneTemplate } from '../core/dom.js';
+import { bindPopupMenu } from '../core/popup-menu.js';
 import { formatInputNumber, formatNumber } from '../core/format.js';
 import { showToast } from '../core/toast.js';
 import { isAddedWeight, isPerHand } from '../core/weight-conventions.js';
@@ -646,72 +647,37 @@ function refreshExerciseList(list) {
   renumberOrderSelects(list, refreshSupersetGroups(list));
 }
 
-/** Az összes nyitott sorszám-lenyíló bezárása (kívülre kattintás, Escape,
-    vagy egy opció kiválasztása után). */
-function closeAllOrderMenus(list) {
-  $$('.wk-order-menu', list).forEach((menu) => {
-    menu.hidden = true;
-  });
-  $$('.wk-order-trigger', list).forEach((trigger) =>
-    trigger.setAttribute('aria-expanded', 'false'),
-  );
-}
-
 /** A gyakorlatok sorrendjének átrendezése a saját (nem natív) sorszám-
     lenyílóval: a kiválasztott szám az új pozíció, a köztük lévő
     gyakorlatok ehhez igazodva csúsznak arrébb (nem csere, hanem
     "áthelyezés"). Az `onReorder` minden sikeres átrendezés után lefut
     (pl. autosave). A natív <select> helyett azért saját felépítésű ez a
     lenyíló, mert a natív opciólista stílusozása böngészőnként/OS-enként
-    megbízhatatlan és a projekt sötét témájával nem volt összhangban. */
+    megbízhatatlan és a projekt sötét témájával nem volt összhangban. A
+    nyitás, a zárás és a billentyűzet a közös bindPopupMenu-é. */
 function enableOrderSelect(list, onReorder) {
-  list.addEventListener('click', (event) => {
-    const trigger = event.target.closest('.wk-order-trigger');
-    if (trigger) {
-      const menu = $('.wk-order-menu', trigger.closest('.wk-order-select'));
-      const willOpen = menu.hidden;
-      closeAllOrderMenus(list);
-      menu.hidden = !willOpen;
-      trigger.setAttribute('aria-expanded', String(willOpen));
-      return;
-    }
+  bindPopupMenu(list, {
+    trigger: '.wk-order-trigger',
+    menu: '.wk-order-menu',
+    option: '.wk-order-option',
+    onChoose: (option) => {
+      const card = option.closest('.wk-exercise');
+      const cards = $$('.wk-exercise', list);
+      const fromIndex = cards.indexOf(card);
+      const toIndex = Number(option.dataset.index);
+      if (fromIndex === -1 || toIndex === fromIndex) return;
 
-    const option = event.target.closest('.wk-order-option');
-    if (!option) return;
-    const card = option.closest('.wk-exercise');
-    const cards = $$('.wk-exercise', list);
-    const fromIndex = cards.indexOf(card);
-    const toIndex = Number(option.dataset.index);
-    closeAllOrderMenus(list);
-    if (fromIndex === -1 || toIndex === fromIndex) return;
-
-    if (toIndex < fromIndex) {
-      list.insertBefore(card, cards[toIndex]);
-    } else {
-      list.insertBefore(card, cards[toIndex].nextSibling);
-    }
-    // A szuperszett-kapcsolatok szomszédság-alapúak, ezért a mozgatás után
-    // a csoportokat is újra kell számolni (nem csak a sorszámokat).
-    refreshExerciseList(list);
-    onReorder();
+      if (toIndex < fromIndex) {
+        list.insertBefore(card, cards[toIndex]);
+      } else {
+        list.insertBefore(card, cards[toIndex].nextSibling);
+      }
+      // A szuperszett-kapcsolatok szomszédság-alapúak, ezért a mozgatás után
+      // a csoportokat is újra kell számolni (nem csak a sorszámokat).
+      refreshExerciseList(list);
+      onReorder();
+    },
   });
-
-  // Kattintás a lenyílókon kívülre / Escape → zárás (ugyanaz a minta, mint
-  // az értesítés-panelnél).
-  document.addEventListener('pointerdown', (event) => {
-    if (!event.target.closest('.wk-order-select')) closeAllOrderMenus(list);
-  });
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') closeAllOrderMenus(list);
-  });
-}
-
-/** Az összes nyitott szett-típus lenyíló bezárása. */
-function closeAllSetTypeMenus(list) {
-  $$('.wk-set-type-menu', list).forEach((menu) => {
-    menu.hidden = true;
-  });
-  $$('.wk-set-num', list).forEach((trigger) => trigger.setAttribute('aria-expanded', 'false'));
 }
 
 /** A szett típusának (bemelegítő / munkasorozat / drop set) választása a
@@ -720,11 +686,12 @@ function closeAllSetTypeMenus(list) {
     nem befolyásolja. Az `onChange` minden tényleges váltás után lefut
     (pl. autosave). */
 function enableSetTypeSelect(list, onChange) {
-  list.addEventListener('click', (event) => {
-    const trigger = event.target.closest('.wk-set-num');
-    if (trigger) {
+  bindPopupMenu(list, {
+    trigger: '.wk-set-num',
+    menu: '.wk-set-type-menu',
+    option: '.wk-set-type-option',
+    onOpen: (trigger, menu) => {
       const row = trigger.closest('.wk-set-row');
-      const menu = $('.wk-set-type-menu', trigger.parentElement);
       // A drop set az ELŐZŐ szettről csökkent le: az első sorban nincs mihez,
       // bemelegítőről pedig nem csökkentenek le. Fordítva ugyanez a szabály:
       // egy szett nem válhat bemelegítővé, ha drop set kapcsolódik hozzá.
@@ -736,38 +703,15 @@ function enableSetTypeSelect(list, onChange) {
         !prevType || prevType === 'warmup';
       $('.wk-set-type-option[data-type="warmup"]', menu).disabled =
         row.nextElementSibling?.dataset.setType === 'drop';
-      const willOpen = menu.hidden;
-      closeAllSetTypeMenus(list);
-      menu.hidden = !willOpen;
-      trigger.setAttribute('aria-expanded', String(willOpen));
-      return;
-    }
-
-    const option = event.target.closest('.wk-set-type-option');
-    if (!option) return;
-    const row = option.closest('.wk-set-row');
-    closeAllSetTypeMenus(list);
-    if (row.dataset.setType === option.dataset.type) return;
-
-    applySetType(row, option.dataset.type);
-    renumberSets(row.parentElement); // a gomb aria-label-je a típust is mondja
-    onChange();
+    },
+    onChoose: (option) => {
+      const row = option.closest('.wk-set-row');
+      if (row.dataset.setType === option.dataset.type) return;
+      applySetType(row, option.dataset.type);
+      renumberSets(row.parentElement); // a gomb aria-label-je a típust is mondja
+      onChange();
+    },
   });
-
-  document.addEventListener('pointerdown', (event) => {
-    if (!event.target.closest('.wk-set-type')) closeAllSetTypeMenus(list);
-  });
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') closeAllSetTypeMenus(list);
-  });
-}
-
-/** Az összes nyitott intenzitás-lenyíló bezárása. */
-function closeAllIntensityMenus(list) {
-  $$('.wk-intensity-menu', list).forEach((menu) => {
-    menu.hidden = true;
-  });
-  $$('.wk-intensity-trigger', list).forEach((t) => t.setAttribute('aria-expanded', 'false'));
 }
 
 /** Az intenzitás-fokozat választása az időalapú sorokon. Ugyanaz a saját
@@ -775,41 +719,17 @@ function closeAllIntensityMenus(list) {
     böngészőnként másképp (és ebben a témában csúnyán) rajzolódik ki.
     Az `onChange` minden tényleges váltás után lefut (pl. autosave). */
 function enableIntensitySelect(list, onChange) {
-  list.addEventListener('click', (event) => {
-    const trigger = event.target.closest('.wk-intensity-trigger');
-    if (trigger) {
-      const menu = $('.wk-intensity-menu', trigger.parentElement);
-      const willOpen = menu.hidden;
-      closeAllIntensityMenus(list);
-      menu.hidden = !willOpen;
-      trigger.setAttribute('aria-expanded', String(willOpen));
-      return;
-    }
-
-    const option = event.target.closest('.wk-intensity-option');
-    if (!option) return;
-    const row = option.closest('.wk-set-row');
-    closeAllIntensityMenus(list);
-    if (row.dataset.intensity === option.dataset.intensity) return;
-
-    applyIntensity(row, option.dataset.intensity);
-    onChange();
+  bindPopupMenu(list, {
+    trigger: '.wk-intensity-trigger',
+    menu: '.wk-intensity-menu',
+    option: '.wk-intensity-option',
+    onChoose: (option) => {
+      const row = option.closest('.wk-set-row');
+      if (row.dataset.intensity === option.dataset.intensity) return;
+      applyIntensity(row, option.dataset.intensity);
+      onChange();
+    },
   });
-
-  document.addEventListener('pointerdown', (event) => {
-    if (!event.target.closest('.wk-intensity')) closeAllIntensityMenus(list);
-  });
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') closeAllIntensityMenus(list);
-  });
-}
-
-/** Az összes nyitott plusz-súly menü bezárása. */
-function closeAllExtraMenus(list) {
-  $$('.wk-extra-menu', list).forEach((menu) => {
-    menu.hidden = true;
-  });
-  $$('.wk-extra-trigger', list).forEach((t) => t.setAttribute('aria-expanded', 'false'));
 }
 
 /** A plusz súly menüje az időalapú sorokon. Csak nyit és zár: az ÉRTÉKET a
@@ -818,27 +738,15 @@ function closeAllExtraMenus(list) {
     keletkezzen kétszer. A gomb feliratát viszont itt kell frissíteni, mert a
     terv-építőnek nincs ilyen figyelője. */
 function enableExtraMenu(list) {
-  list.addEventListener('click', (event) => {
-    const trigger = event.target.closest('.wk-extra-trigger');
-    if (!trigger) return;
-    const menu = $('.wk-extra-menu', trigger.parentElement);
-    const willOpen = menu.hidden;
-    closeAllExtraMenus(list);
-    menu.hidden = !willOpen;
-    trigger.setAttribute('aria-expanded', String(willOpen));
-    if (willOpen) $('.wk-set-weight', menu).focus();
+  bindPopupMenu(list, {
+    trigger: '.wk-extra-trigger',
+    menu: '.wk-extra-menu',
+    afterOpen: (trigger, menu) => $('.wk-set-weight', menu).focus(),
   });
 
   list.addEventListener('input', (event) => {
     if (!event.target.matches('.wk-extra-menu .wk-set-weight')) return;
     syncExtraWeight(event.target.closest('.wk-set-row'));
-  });
-
-  document.addEventListener('pointerdown', (event) => {
-    if (!event.target.closest('.wk-extra')) closeAllExtraMenus(list);
-  });
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') closeAllExtraMenus(list);
   });
 }
 
