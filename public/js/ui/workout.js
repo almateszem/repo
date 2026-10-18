@@ -21,16 +21,14 @@ import {
   handleRemoveSetClick,
   handleStepClick,
 } from './workout/set-controls.js';
-import {
-  WORKOUT_START_KEY,
-  markWorkoutStarted,
-  setLastSummary,
-  summarizeWorkout,
-} from './workout/summary-data.js';
-import { historyEntryEl, syncHistoryEmpty, workoutHistoryEntry } from '../render/workout.js';
+import { WORKOUT_START_KEY, markWorkoutStarted, setLastSummary } from './workout/summary-data.js';
 import { createDraftAutosave } from './workout/autosave.js';
 import { createPrIndicators } from './workout/pr-indicator.js';
 import { createContentLoader } from './workout/loading.js';
+import { countDoneSets, confirmRemoveExercise } from './workout/exercise-card.js';
+import { bindFinish } from './workout/finish.js';
+import { bindHistoryActions } from './workout/history.js';
+import { createPlanUndo } from './workout/plan-undo.js';
 
 async function setupWorkout(videoModal, prModal, picker, confirmAction) {
   const page = $('[data-page="workout"]');
@@ -176,37 +174,21 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
   });
   const { applyTemplate, reopenWorkout, doneSetCount } = loader;
 
-  /* ---- A terv-betöltés visszavonása ----
-     A Tervek oldalon egy koppintás azonnal a naplóba tölti a tervet (és a
-     piszkozat mentődik). Véletlen koppintásnál a „← Vissza" a betöltés ELŐTTI
-     állapotot állítja vissza — az üres naplót, vagy a korábbi, megkezdett
-     edzést a pipáival együtt —, és visszavisz a Tervek oldalra. A pillanatkép
-     csak memóriában él: amint a visszavonás értelmét veszti (befejezés,
-     javításra nyitás, napváltás), eldobjuk. */
-  const undoBar = $('[data-plan-undo]');
-  let undoSnapshot = null;
-
-  const setUndo = (snapshot) => {
-    undoSnapshot = snapshot;
-    undoBar.hidden = snapshot === null;
-  };
-
-  const snapshotEditor = () => ({
-    name: titleInput.value,
-    exercises: readCurrentWorkout(),
-    planId: editing.planId,
-    workoutId: editing.workoutId,
-    date: editing.date,
-    start: prefs.get(WORKOUT_START_KEY),
+  /* ---- A terv-betöltés visszavonása (workout/plan-undo.js) ---- */
+  const planUndo = createPlanUndo({
+    titleInput,
+    editing,
+    readCurrentWorkout,
+    loader,
+    applyTemplate,
+    syncEditingState,
+    syncEmpty,
+    autosave,
+    clearEditor: () => clearEditor(),
+    doneSetCount,
+    confirmAction,
   });
-
-  /** A Tervek oldal ezt hívja: a betöltés előtt rögzíti a napló állapotát. */
-  const loadPlan = async (plan) => {
-    const before = snapshotEditor();
-    const loaded = await loader.loadPlan(plan);
-    if (loaded) setUndo(before);
-    return loaded;
-  };
+  const { setUndo, loadPlan } = planUndo;
 
   // Az induló tartalom a szervertől: aznapi piszkozat, vagy — új napon —
   // a mai hétnapra ütemezett terv. Ha nincs egyik sem, a napló üres, és az
@@ -222,10 +204,7 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
      nem írjuk felül a félkész edzést — csak jelezzük, mi a teendő. Enélkül
      a napokon át nyitva hagyott app a tegnapi edzést mutatta tovább. */
   onDayChange(async () => {
-    const hasProgress = $$('.wk-set-check', page).some(
-      (check) => check.getAttribute('aria-pressed') === 'true',
-    );
-    if (hasProgress) {
+    if (countDoneSets(page) > 0) {
       showToast('Új nap kezdődött — zárd le az edzést, hogy a mai terv betölthesse magát');
       return;
     }
@@ -258,16 +237,7 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
       az üres listát is elfogadja, a napló pedig az üres állapotra vált. */
   const removeExercise = async (card) => {
     const name = $('.wk-exercise-name', card).textContent.trim();
-    const doneSets = $$('.wk-set-check', card).filter(
-      (check) => check.getAttribute('aria-pressed') === 'true',
-    ).length;
-    if (doneSets > 0) {
-      const ok = await confirmAction(
-        `A(z) „${name}” gyakorlaton ${doneSets} teljesített szett van. Az eltávolítással ezek elvesznek.`,
-        { title: 'Eltávolítod a gyakorlatot?', confirmLabel: 'Eltávolítás' },
-      );
-      if (!ok) return;
-    }
+    if (!(await confirmRemoveExercise(card, name, confirmAction))) return;
     card.remove();
     syncEmpty();
     // A sorszámok és a szuperszett-csoportok a maradék listára igazodnak
@@ -381,17 +351,6 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
     autosave();
   });
 
-  /** Közös név-validáció: a mentés és a befejezés is megköveteli az edzésnevet.
-      Toast nincs: a mező alatti hiba és a fókusz ugyanazt mondja (a
-      képernyőolvasónak az aria-describedby), a kettő együtt duplán szólt. */
-  const validateWorkoutName = () => {
-    if (titleInput.value.trim()) return true;
-    titleInput.classList.add('has-error');
-    titleError.hidden = false;
-    titleInput.focus();
-    return false;
-  };
-
   /** A napló kiürítése és a piszkozat elengedése — az edzés lezárása és a
       javítás is ezzel zárul, ugyanabban a sorrendben (előbb a függő mentést
       állítjuk le, különben visszaírná a most törölt piszkozatot). */
@@ -425,159 +384,29 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
     hooks.refreshRecovery?.().catch(console.error);
   };
 
-  /** A javítás mentése: a MEGLÉVŐ edzés felülírása a saját dátumán. A lista
-      sorát a helyén cseréljük — a lista elejére szúrás azt hazudná, hogy ez
-      a legfrissebb edzés. */
-  const finishEdit = async () => {
-    const updated = await api.updateWorkout(
-      editing.workoutId,
-      titleInput.value.trim(),
-      readCurrentWorkout(),
-    );
-    const row = $(`[data-list="history"] [data-workout-id="${updated.id}"]`);
-    row?.replaceWith(historyEntryEl(workoutHistoryEntry(updated)));
-
-    await clearEditor();
-    await refreshAfterWorkoutChange();
-    showToast('Az edzés módosításai mentve');
-  };
-
-  /* Edzés befejezése — az edzés LEZÁRÁSA: naplózás után a piszkozat törlődik
-     és a napló kiürül, így ugyanaznap új edzés kezdhető, a lezárt edzés pedig
-     nem naplózható másodszor is (korábban egy apró módosítás után az újbóli
-     befejezés duplikált bejegyzést hozott létre). Amit a felhasználó csinált,
-     azt az összegző és a „Korábbi edzések" őrzi meg. */
-  const finishBtn = $('[data-action="finish-workout"]');
-  finishBtn.addEventListener('click', async () => {
-    if (finishBtn.disabled) return;
-    // Előbb a tartalom: üres edzésnél a „nevezd el" kérés félrevezető lenne.
-    if (list.children.length === 0) {
-      showToast('Adj legalább egy gyakorlatot az edzéshez', 'error');
-      return;
-    }
-    if (!validateWorkoutName()) return;
-
-    /* Kipipált szett nélkül a naplóba egy „0/9 szett" edzés kerülne — ez
-       szinte mindig véletlen koppintás. Csak új edzésnél kérdezünk: egy régi
-       edzés javítását nem akasztjuk meg. */
-    if (editing.workoutId === null && doneSetCount() === 0) {
-      const ok = await confirmAction(
-        'Egyetlen szett sincs kipipálva — a naplóba egy üres edzés kerülne. Biztosan befejezed?',
-        { title: 'Befejezed kipipált szett nélkül?', confirmLabel: 'Naplózom' },
-      );
-      if (!ok) return;
-    }
-
-    finishBtn.disabled = true;
-    try {
-      /* Előbb a futó piszkozat-mentés: ha a végleges mentés (ami a piszkozatot
-         törli) után érne célba, a lezárt edzés piszkozatát írná vissza. */
-      await cancelAutosave();
-      /* Javítás alatt álló edzésnél NEM új sor keletkezik: a meglévőt írjuk
-         felül, a saját dátumán. Az összegző ilyenkor kimarad — az egy most
-         befejezett edzést ünnepelne, közben egy régit javítottunk. */
-      if (editing.workoutId !== null) {
-        await finishEdit();
-        return;
-      }
-
-      // Az összegző értékeit még a kiürítés előtt rögzítjük
-      const summary = summarizeWorkout();
-      const saved = await api.saveWorkout(
-        titleInput.value.trim(),
-        readCurrentWorkout(),
-        editing.planId,
-      );
-
-      // A függő automatikus mentés leállítása (különben visszaírná a most
-      // törölt piszkozatot) és a napló kiürítése — programozott változás,
-      // tehát nem indít újabb automatikus mentést.
-      await clearEditor();
-      /* A mentett edzés AZONOSÍTÓJA is bekerül: az összegző visszajelzés-
-         blokkja erre az edzésre küld. Enélkül nem tudná, mire hivatkozzon. */
-      setLastSummary({
-        ...summary,
-        workoutId: saved.id,
-        feedbackSent: false,
-        /* A gyakorlatnevek a MENTETT sorrendben: a megjegyzés a tömbön
-           belüli INDEXRE hivatkozik, ezért a kettőnek együtt kell járnia. */
-        exercises: saved.exercises.map((exercise) => exercise.name),
-      });
-
-      // A naplózott edzés azonnal megjelenik a „Korábbi edzések" tetején,
-      // a PR-lista, a heti volumen és az áttekintő számai is frissülnek.
-      // A friss edzés a készenlét-becslésbe is azonnal beépül (izomcsoportok,
-      // CNS, gyakorlat-ajánlások) — nem kell megvárni a következő betöltést.
-      const history = $('[data-list="history"]');
-      history.insertBefore(historyEntryEl(workoutHistoryEntry(saved)), history.firstChild);
-      syncHistoryEmpty();
-      await refreshAfterWorkoutChange();
-      showToast('Edzés befejezve és naplózva');
-      navigate('summary');
-    } catch (err) {
-      console.error(err);
-      showToast(err.message || 'Nem sikerült menteni az edzést', 'error');
-      // A napló marad — a fent leállított piszkozat-mentés újra induljon
-      draft.schedule();
-    } finally {
-      finishBtn.disabled = false;
-    }
+  /* ---- Befejezés és a „Korábbi edzések" sorai (workout/finish.js,
+     workout/history.js) ---- */
+  bindFinish({
+    list,
+    titleInput,
+    titleError,
+    editing,
+    draft,
+    cancelAutosave,
+    doneSetCount,
+    readCurrentWorkout,
+    clearEditor,
+    refreshAfterWorkoutChange,
+    confirmAction,
   });
-
-  /* A „Korábbi edzések" sorainak műveletei. Delegálva, a táplálkozás-napló
-     mintájára: a lista teljesen újrarajzolódik, egyedi kezelők nem élnék túl. */
-  $('[data-list="history"]').addEventListener('click', async (event) => {
-    const btn = event.target.closest('[data-action]');
-    if (!btn) return;
-    const row = btn.closest('[data-workout-id]');
-    const id = Number(row?.dataset.workoutId);
-    if (!Number.isInteger(id)) return;
-
-    /* A teljes lista lekérése egy kattintásra: a szerkesztőnek a gyakorlat-
-       lista is kell (a sorban csak a szett-szám látszik), és így egyben
-       friss is — ha az edzést közben egy másik lapon törölték, azt itt
-       tudjuk meg, nem a mentésnél. */
-    const workout = (await api.getWorkouts()).find((entry) => entry.id === id);
-    if (!workout) {
-      row.remove();
-      syncHistoryEmpty();
-      showToast('Ez az edzés már nem létezik', 'error');
-      return;
-    }
-
-    if (btn.dataset.action === 'reopen-workout') {
-      await reopenWorkout(workout);
-      // A javítás új szál: a terv-betöltés előtti állapot visszaállítása
-      // innentől egy RÉGI edzést írna felül
-      setUndo(null);
-      return;
-    }
-
-    const ok = await confirmAction(
-      `A(z) ${workout.date} napi „${workout.name}” edzés véglegesen törlődik. Ha egyéni csúcsot hozott, a rekord a következő legjobb edzésedre áll vissza.`,
-      { title: 'Törlöd az edzést?', confirmLabel: 'Törlés' },
-    );
-    if (!ok) return;
-
-    try {
-      await api.deleteWorkout(id);
-      row.remove();
-      syncHistoryEmpty();
-      /* Ha épp ezt az edzést javítottuk, a javítás tárgytalan — a szerver a
-         piszkozat hivatkozását is elengedte, tehát a szerkesztő tartalma
-         marad, de innentől új edzésként mentődik. */
-      if (editing.workoutId === id) {
-        editing.workoutId = null;
-        editing.date = '';
-        syncEditingState();
-        autosave();
-      }
-      await refreshAfterWorkoutChange();
-      showToast('Edzés törölve');
-    } catch (err) {
-      console.error(err);
-      showToast(err.message || 'Nem sikerült törölni az edzést', 'error');
-    }
+  bindHistoryActions({
+    editing,
+    reopenWorkout,
+    setUndo,
+    syncEditingState,
+    autosave,
+    refreshAfterWorkoutChange,
+    confirmAction,
   });
 
   /* A javítás megszakítása. Az EREDETI edzés érintetlen marad — csak a
@@ -586,42 +415,6 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
   $('[data-action="cancel-workout-edit"]').addEventListener('click', async () => {
     await clearEditor();
     showToast('Szerkesztés megszakítva — az edzés változatlan');
-  });
-
-  /* „← Vissza": a terv-betöltés visszavonása. Ha a betöltött edzésben már
-     van kipipált szett, rákérdezünk — az a munka elvész. */
-  $('[data-action="undo-plan-load"]').addEventListener('click', async () => {
-    const snapshot = undoSnapshot;
-    if (!snapshot) return;
-    const doneSets = doneSetCount();
-    if (doneSets > 0) {
-      const ok = await confirmAction(
-        `A betöltött edzésben ${doneSets} kipipált szett van — ezek elvesznek.`,
-        { title: 'Visszavonod a betöltést?', confirmLabel: 'Visszavonom' },
-      );
-      if (!ok) return;
-    }
-
-    if (snapshot.exercises.length === 0 && !snapshot.name.trim()) {
-      // Üres volt a napló: a terv piszkozatát is töröljük — nem marad semmi
-      await clearEditor();
-    } else {
-      // A korábbi edzés vissza, a pipáival és az edzés-órájával együtt
-      applyTemplate({
-        name: snapshot.name,
-        exercises: snapshot.exercises,
-        planId: snapshot.planId,
-        workoutId: snapshot.workoutId,
-      });
-      editing.date = snapshot.date;
-      syncEditingState();
-      syncEmpty();
-      prefs.set(WORKOUT_START_KEY, snapshot.start ?? null);
-      autosave();
-      setUndo(null);
-    }
-    navigate('plans');
-    showToast('Betöltés visszavonva — semmi nem került a naplóba');
   });
 
   /** A szerver átírta a piszkozatot (a készenlét-javaslat elfogadása): a
@@ -637,61 +430,4 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
   return { loadPlan, replaceFromServer };
 }
 
-/**
- * A gyakorlat-kártya illusztrációja. A katalógus nagyobbik fele a külső
- * datasetből jön, ahol minden gyakorlathoz tartozik egy álló thumbnail és
- * egy animált gif (© Gym visual) — a kézzel kurált gyakorlatokhoz viszont
- * nincs média, ezért a kép ilyenkor rejtve marad.
- *
- * Alapban a thumbnail látszik, és csak rámutatásra / fókuszra vált gifre.
- * Ez szándékos: 1200+ egyszerre animáló gif a listában értelmetlenül
- * pörgetné a CPU-t, a mozgás pedig zavaró. A csere csak akkor indul, ha a
- * gif már betöltött, hogy ne villanjon üresre a kártya.
- *
- * Ha a média nincs letöltve (npm run exdb:media), a kép betöltése elhasal —
- * ilyenkor elrejtjük, és a lista pontosan úgy néz ki, mint korábban.
- */
-function setupThumb(img, entry) {
-  if (!img || !entry.image) return;
-  img.src = `/exercises/${entry.image}`;
-  img.hidden = false;
-  img.addEventListener(
-    'error',
-    () => {
-      img.hidden = true;
-    },
-    { once: true },
-  );
-  if (!entry.gif) return;
-
-  const still = img.src;
-  const animated = `/exercises/${entry.gif}`;
-  let preloaded = false;
-  const play = () => {
-    if (preloaded) {
-      img.src = animated;
-      return;
-    }
-    const probe = new Image();
-    probe.addEventListener(
-      'load',
-      () => {
-        preloaded = true;
-        img.src = animated;
-      },
-      { once: true },
-    );
-    probe.src = animated;
-  };
-  const stop = () => {
-    img.src = still;
-  };
-
-  const card = img.closest('.ep-item');
-  card.addEventListener('pointerenter', play);
-  card.addEventListener('pointerleave', stop);
-  card.addEventListener('focusin', play);
-  card.addEventListener('focusout', stop);
-}
-
-export { setupThumb, setupWorkout };
+export { setupWorkout };

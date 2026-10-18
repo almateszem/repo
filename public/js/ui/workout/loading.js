@@ -12,12 +12,12 @@
  */
 
 import { api } from '../../core/api.js';
-import { $$ } from '../../core/dom.js';
 import { prefs } from '../../core/prefs.js';
 import { showToast } from '../../core/toast.js';
 import { navigate } from '../../nav/router.js';
 import { refreshExerciseList, renderExercise } from '../../render/sets.js';
 import { WORKOUT_START_KEY } from './summary-data.js';
+import { countDoneSets } from './exercise-card.js';
 
 export function createContentLoader({
   page,
@@ -34,9 +34,7 @@ export function createContentLoader({
 }) {
   /** Hány teljesített szett van most a naplóban — a felülíró műveletek
       (terv betöltése, edzés visszanyitása) ez alapján kérdeznek rá. */
-  const doneSetCount = () =>
-    $$('.wk-set-check', page).filter((check) => check.getAttribute('aria-pressed') === 'true')
-      .length;
+  const doneSetCount = () => countDoneSets(page);
 
   /** A napló tartalmának cseréje. Pontosan ezt csinálja mind a három betöltő —
       csak az előtte/utána következő lépésekben különböznek. */

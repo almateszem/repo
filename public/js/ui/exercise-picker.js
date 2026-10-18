@@ -7,7 +7,7 @@ import { SEARCH_DELAY_MS, createPagedList, debounce } from '../core/paged-list.j
 import { showToast } from '../core/toast.js';
 import { navigate, onPageShow } from '../nav/router.js';
 import { defaultSetFor, renderExercise } from '../render/sets.js';
-import { setupThumb } from './workout.js';
+import { confirmRemoveExercise } from './workout/exercise-card.js';
 
 /** A gyakorlat-választó flow-oldal: a katalógus a szerverről jön, lapozva
     (server/catalog-search.js), kereső + izomcsoport chipek, a → gomb a
@@ -256,16 +256,7 @@ async function setupExercisePicker(confirmAction) {
       // Az edzésnaplóban a gyakorlattal együtt a már kipipált szettek is
       // elvesznének — ilyenkor rákérdezünk. Frissen hozzáadott (még nem
       // teljesített) gyakorlatnál marad az azonnali eltávolítás.
-      const doneSets = $$('.wk-set-check', existing).filter(
-        (check) => check.getAttribute('aria-pressed') === 'true',
-      ).length;
-      if (doneSets > 0) {
-        const ok = await confirmAction(
-          `A(z) „${name}” gyakorlaton ${doneSets} teljesített szett van. Az eltávolítással ezek elvesznek.`,
-          { title: 'Eltávolítod a gyakorlatot?', confirmLabel: 'Eltávolítás' },
-        );
-        if (!ok) return;
-      }
+      if (!(await confirmRemoveExercise(existing, name, confirmAction))) return;
       existing.remove();
       showToast(`${name} eltávolítva`);
     } else {
@@ -316,6 +307,63 @@ async function setupExercisePicker(confirmAction) {
   hooks.useExercisePicker = use;
 
   return { use };
+}
+
+/**
+ * A gyakorlat-kártya illusztrációja. A katalógus nagyobbik fele a külső
+ * datasetből jön, ahol minden gyakorlathoz tartozik egy álló thumbnail és
+ * egy animált gif (© Gym visual) — a kézzel kurált gyakorlatokhoz viszont
+ * nincs média, ezért a kép ilyenkor rejtve marad.
+ *
+ * Alapban a thumbnail látszik, és csak rámutatásra / fókuszra vált gifre.
+ * Ez szándékos: 1200+ egyszerre animáló gif a listában értelmetlenül
+ * pörgetné a CPU-t, a mozgás pedig zavaró. A csere csak akkor indul, ha a
+ * gif már betöltött, hogy ne villanjon üresre a kártya.
+ *
+ * Ha a média nincs letöltve (npm run exdb:media), a kép betöltése elhasal —
+ * ilyenkor elrejtjük, és a lista pontosan úgy néz ki, mint korábban.
+ */
+function setupThumb(img, entry) {
+  if (!img || !entry.image) return;
+  img.src = `/exercises/${entry.image}`;
+  img.hidden = false;
+  img.addEventListener(
+    'error',
+    () => {
+      img.hidden = true;
+    },
+    { once: true },
+  );
+  if (!entry.gif) return;
+
+  const still = img.src;
+  const animated = `/exercises/${entry.gif}`;
+  let preloaded = false;
+  const play = () => {
+    if (preloaded) {
+      img.src = animated;
+      return;
+    }
+    const probe = new Image();
+    probe.addEventListener(
+      'load',
+      () => {
+        preloaded = true;
+        img.src = animated;
+      },
+      { once: true },
+    );
+    probe.src = animated;
+  };
+  const stop = () => {
+    img.src = still;
+  };
+
+  const card = img.closest('.ep-item');
+  card.addEventListener('pointerenter', play);
+  card.addEventListener('pointerleave', stop);
+  card.addEventListener('focusin', play);
+  card.addEventListener('focusout', stop);
 }
 
 export { setupExercisePicker };
