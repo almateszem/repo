@@ -1,7 +1,11 @@
 /** Az áttekintő oldal interakciói. */
 
 import { $, $$ } from '../core/dom.js';
-import { navigate } from '../nav/router.js';
+import { animateNumber, formatWhole } from '../core/format.js';
+import { navigate, onPageShow } from '../nav/router.js';
+import { renderChromeDate } from '../render/dashboard.js';
+import { hasReadiness } from '../render/recovery.js';
+import { dashboardData, refreshDashboardIfStale } from './dashboard-data.js';
 
 function setupDashboard(settingsModal) {
   /* MINDEN beállítás-gomb, nem csak az első: a fogaskerék az áttekintőn és a
@@ -15,6 +19,27 @@ function setupDashboard(settingsModal) {
   // Az avatar+név gomb: korábban az értesítés-panelt nyitotta, most a profil
   // oldalra visz (az értesítéseknek saját harang gombjuk van mellette).
   $('[data-action="profile"]').addEventListener('click', () => navigate('profile'));
+
+  onPageShow('dashboard', () => {
+    /* Megnyitáskor friss adat — mint a többi oldalon: terv-aktiválás után az
+       új „mai edzés", éjfél után a mai streak és készenlét. Az induláskori
+       render után (2 mp-en belül) nem kér újra, egy futó renderhez csatlakozik
+       (refreshDashboardIfStale). A szám a MEGÉRKEZETT adatból pörög fel, így
+       nincs régi → új villanás. */
+    renderChromeDate();
+    refreshDashboardIfStale()
+      .then(() => {
+        if (!dashboardData || !hasReadiness(dashboardData.readiness)) return;
+        // formatWhole: a lap legnagyobb számánál egyetlen tizedesvessző is
+        // megtörné az elrendezést minden képkockán.
+        animateNumber($('.db-percent-num'), dashboardData.readiness, {
+          from: 0,
+          duration: 900,
+          format: formatWhole,
+        });
+      })
+      .catch((err) => console.error('Áttekintő frissítési hiba:', err));
+  });
 }
 
 /* ---- Profiloldal (pf-*) ----

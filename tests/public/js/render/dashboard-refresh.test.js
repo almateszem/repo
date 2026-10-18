@@ -26,7 +26,7 @@ globalThis.fetch = async () => {
   });
 };
 
-const dashboard = await import('../../../../public/js/render/dashboard.js');
+const dashboard = await import('../../../../public/js/ui/dashboard-data.js');
 const { renderDashboard, refreshDashboardIfStale } = dashboard;
 
 let now = 1_000_000;

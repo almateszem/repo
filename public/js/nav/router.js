@@ -18,8 +18,6 @@ import { $, $$, prefersReducedMotion } from '../core/dom.js';
 import { animateNumber, formatWhole } from '../core/format.js';
 import { shared } from '../core/page-hooks.js';
 import { prefs } from '../core/prefs.js';
-import { dashboardData, refreshDashboardIfStale, renderChromeDate } from '../render/dashboard.js';
-import { hasReadiness } from '../render/recovery.js';
 
 /* ---- Oldal-megnyitás: onPageShow ----
    Ami „az oldal megnyílt" pillanatban fut (friss adat, számláló-animáció),
@@ -42,27 +40,6 @@ function onPageShow(name, fn, { catchUp = true } = {}) {
   pageShowHandlers.get(name).push(fn);
   return catchUp && shownPage === name ? fn() : undefined;
 }
-
-onPageShow('dashboard', () => {
-  /* Megnyitáskor friss adat — mint a többi oldalon: terv-aktiválás után az
-     új „mai edzés", éjfél után a mai streak és készenlét. Az induláskori
-     render után (2 mp-en belül) nem kér újra, egy futó renderhez csatlakozik
-     (refreshDashboardIfStale). A szám a MEGÉRKEZETT adatból pörög fel, így
-     nincs régi → új villanás. */
-  renderChromeDate();
-  refreshDashboardIfStale()
-    .then(() => {
-      if (!dashboardData || !hasReadiness(dashboardData.readiness)) return;
-      // formatWhole: a lap legnagyobb számánál egyetlen tizedesvessző is
-      // megtörné az elrendezést minden képkockán.
-      animateNumber($('.db-percent-num'), dashboardData.readiness, {
-        from: 0,
-        duration: 900,
-        format: formatWhole,
-      });
-    })
-    .catch((err) => console.error('Áttekintő frissítési hiba:', err));
-});
 
 /** A sportoló-sorok pontszámainak felpörgetése (oldal- és nézetváltáskor). */
 function animateCoachRatings() {

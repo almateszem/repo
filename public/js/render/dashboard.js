@@ -1,14 +1,10 @@
 /** Az áttekintő oldal kirajzolása: diagramok, napi statisztika, készenlét. */
 
-import { api, clientDate } from '../core/api.js';
+import { clientDate } from '../core/api.js';
 import { $, $$ } from '../core/dom.js';
 import { prefs } from '../core/prefs.js';
 import { hasReadiness } from './recovery.js';
 import { DETAILS_ON_RECOVERY, dashboardQuote } from './recovery-map.js';
-
-/** Az áttekintő adatai (renderDashboard tölti fel; a router megnyitási feladata innen veszi
-    a készenlét-értéket az animációhoz). */
-let dashboardData = null;
 
 /** Egy chart konténer (újra)feltöltése — a --i a lépcsőzetes animációhoz kell.
     Újrarendereléskor a bar-in animáció is újraindul (reduced motion mellett nem). */
@@ -49,9 +45,8 @@ function renderChart(container, data) {
   });
 }
 
-/** Minden data-chart konténert feltölt a lekért adatokból. */
-async function renderCharts() {
-  const charts = await api.getCharts();
+/** Minden data-chart konténert feltölt a kapott (/api/charts) adatokból. */
+function paintCharts(charts) {
   $$('[data-chart]').forEach((container) => {
     const data = charts[container.dataset.chart];
     if (data) renderChart(container, data);
@@ -118,55 +113,10 @@ function syncCheckinCta(checkinPresent) {
   cta.hidden = Boolean(checkinPresent);
 }
 
-/** Csak az áttekintő élő értékeinek újralekérése — étel-naplózás és napváltás
-    után, hogy a napi statok és a check-in emlékeztető a friss szerver-állapotot
-    mutassák a többi dashboard-elem (pl. az edzésnév-mező) újrarenderelése
-    nélkül. Éjfél után ez hozza vissza az emlékeztetőt: a szerver az új napra
-    számol, amire még nincs check-in. */
-async function refreshDailyStats() {
-  const { dailyStats, checkinPresent } = await api.getDashboard();
-  if (dashboardData) {
-    dashboardData.dailyStats = dailyStats;
-    dashboardData.checkinPresent = checkinPresent;
-  }
-  renderDailyStats(dailyStats);
-  syncCheckinCta(checkinPresent);
-}
-
-/** Ennyi ideig számít frissnek egy lefutott renderDashboard: az Áttekintő
-    megnyitása (router → onPageShow) ezen belül nem kér újra — pl. az induláskori
-    render után nem megy ki második /api/dashboard kérés. */
-const DASHBOARD_FRESH_MS = 2000;
-let lastRenderAt = -Infinity;
-let renderInFlight = null;
-
-/** Az áttekintő (dashboard) DB-vezérelt feltöltése: sorozat, regeneráció,
-    napi statok, aktuális edzésnév, és a Regenerációval közös
-    készenléti ítélet (a statikus motivációs szöveg helyett).
-    Mindig friss adatot kér: a hívók (edzés, check-in mentése) a saját
-    változásuk utáni állapotot várják. */
-async function renderDashboard() {
-  const run = drawDashboard();
-  renderInFlight = run;
-  try {
-    await run;
-    lastRenderAt = Date.now();
-  } finally {
-    if (renderInFlight === run) renderInFlight = null;
-  }
-}
-
-/** Az Áttekintő megnyitásakor: ha épp fut egy render, ahhoz csatlakozik; ha
-    az utolsó DASHBOARD_FRESH_MS-on belül futott, nem kér újra; különben friss
-    adatot kér. A visszaadott ígéret a `dashboardData` frissülése után teljesül. */
-function refreshDashboardIfStale() {
-  if (renderInFlight) return renderInFlight;
-  if (Date.now() - lastRenderAt < DASHBOARD_FRESH_MS) return Promise.resolve();
-  return renderDashboard();
-}
-
-async function drawDashboard() {
-  dashboardData = await api.getDashboard();
+/** Az áttekintő kirajzolása a kapott (/api/dashboard) adatokból: sorozat,
+    regeneráció, napi statok, aktuális edzésnév és a Regenerációval közös
+    készenléti ítélet. A lekérés a ui/dashboard-data.js-é. */
+function paintDashboard(dashboardData) {
   const { readiness, streak, recovery, dailyStats, workoutName } = dashboardData;
 
   const setText = (selector, value) => {
@@ -191,8 +141,8 @@ async function drawDashboard() {
   setText('[data-recovery="fatigue"]', recovery.fatigue);
   setText('[data-recovery="soreness"]', recovery.soreness);
 
-  // Készenlét: a gyűrű kitöltését és feliratát itt, a szám animálását a
-  // router megnyitási feladata végzi (a --readiness változót a CSS stroke-dashoffset használja).
+  // Készenlét: a gyűrű kitöltését és feliratát itt, a szám animálását az
+  // Áttekintő megnyitási feladata (ui/dashboard.js) végzi (a --readiness változót a CSS stroke-dashoffset használja).
   // A szelektor szándékosan a kártyára szűkít: a Regeneráció oldalon is van
   // egy .db-ring, azt a renderRecovery kezeli.
   const ring = $('.db-readiness .db-ring');
@@ -204,7 +154,7 @@ async function drawDashboard() {
       readinessKnown ? `${readiness} százalék készenlét` : 'Készenlét: nincs elég adat',
     );
   }
-  // A szám animálását a router megnyitási feladata végzi — ha nincs adat, ott sincs mit
+  // A szám animálását az Áttekintő megnyitási feladata végzi — ha nincs adat, ott sincs mit
   // felpörgetni, ezért a helyőrzőt itt írjuk ki.
   if (!readinessKnown) {
     const num = $('.db-percent-num');
@@ -288,16 +238,6 @@ async function drawDashboard() {
   }
 }
 
-/** A megjelenített felhasználónév: a saját (localStorage) név, különben a
-    szerveré. Külön renderelő, mert korábban csak a beállítások modal
-    felépítése írta ki — ha az a lépés elhasalt, a név helye üresen maradt. */
-async function renderUserName() {
-  const el = $('.db-username');
-  if (!el) return;
-  const user = await api.getUser();
-  el.textContent = prefs.get('displayName', user.name);
-}
-
 /** A fejléc-sáv dátuma. Ugyanabból a clientDate()-ből, amit minden kérés visz —
     így a sávon látott nap mindig az, amelyikre a szerver ír. */
 function renderChromeDate() {
@@ -307,14 +247,21 @@ function renderChromeDate() {
   el.textContent = `${month}.${day}.`;
 }
 
+/** A megjelenített felhasználónév: a saját (localStorage) név, különben a
+    szerveré (a lekérés: ui/dashboard-data.js → renderUserName). */
+function paintUserName(user) {
+  const el = $('.db-username');
+  if (!el) return;
+  el.textContent = prefs.get('displayName', user.name);
+}
+
 export {
-  dashboardData,
-  refreshDailyStats,
-  refreshDashboardIfStale,
+  paintCharts,
+  paintDashboard,
+  paintUserName,
   renderChart,
-  renderCharts,
   renderChromeDate,
-  renderDashboard,
-  renderUserName,
+  renderDailyStats,
   renderVolumeTrend,
+  syncCheckinCta,
 };

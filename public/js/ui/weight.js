@@ -5,7 +5,8 @@ import { $ } from '../core/dom.js';
 import { animateNumber, formatNumber } from '../core/format.js';
 import { showToast } from '../core/toast.js';
 import { refreshWeightConventions } from '../core/weight-conventions.js';
-import { refreshDailyStats, renderChart } from '../render/dashboard.js';
+import { renderChart } from '../render/dashboard.js';
+import { refreshDailyStats } from './dashboard-data.js';
 import { dayKeyOf } from './measurements.js';
 
 /* ---- Testsúly-napló ----

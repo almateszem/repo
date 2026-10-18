@@ -8,7 +8,7 @@ import { hooks } from '../core/page-hooks.js';
 import { SEARCH_DELAY_MS, createPagedList, debounce } from '../core/paged-list.js';
 import { showToast } from '../core/toast.js';
 import { onPageShow } from '../nav/router.js';
-import { refreshDailyStats } from '../render/dashboard.js';
+import { refreshDailyStats } from './dashboard-data.js';
 import { renderFoodItem } from '../render/foods.js';
 
 async function setupNutrition(foodDetail) {

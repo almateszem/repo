@@ -8,12 +8,8 @@ import { prefs } from '../core/prefs.js';
 import { showToast } from '../core/toast.js';
 import { setupNavRing } from '../nav/navring.js';
 import { dirToPage, navigate, onPageShow, setOnboardingLock, setupRouter } from '../nav/router.js';
-import {
-  renderCharts,
-  renderChromeDate,
-  renderDashboard,
-  renderUserName,
-} from '../render/dashboard.js';
+import { renderChromeDate } from '../render/dashboard.js';
+import { renderCharts, renderDashboard, renderUserName } from '../ui/dashboard-data.js';
 import { renderPlans } from '../ui/plans-data.js';
 import { renderPrs } from '../render/prs.js';
 import { renderWorkout } from '../render/workout.js';

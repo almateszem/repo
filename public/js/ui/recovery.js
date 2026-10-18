@@ -7,7 +7,7 @@ import { createLatestOnly } from '../core/latest-only.js';
 import { hooks } from '../core/page-hooks.js';
 import { showToast } from '../core/toast.js';
 import { onPageShow } from '../nav/router.js';
-import { renderDashboard } from '../render/dashboard.js';
+import { renderDashboard } from './dashboard-data.js';
 import {
   CHECKIN_SCALES,
   MOOD_SCALE,
