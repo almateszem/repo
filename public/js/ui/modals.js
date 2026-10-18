@@ -5,40 +5,115 @@ import { $, $$, cloneTemplate, prefersReducedMotion } from '../core/dom.js';
 import { formatNumber } from '../core/format.js';
 import { showToast } from '../core/toast.js';
 
+/* ---- Modál-verem ----
+   A nyitott modálok sorrendben (a legfelső a végén). Egymásra nyíló ablakoknál
+   (megerősítés a beállítások fölött, szkenner → saját étel → étel-modál) az
+   Escape és a Tab-csapda CSAK a legfelsőre hat, és a záró ablak csak akkor ad
+   vissza fókuszt, ha alatta nincs nyitott. Korábban minden modál saját
+   figyelőt tartott: az Escape egyszerre zárta mindet, a 190 ms-os hide() pedig
+   a már nyitott új modál MÖGÉ rántotta a fókuszt. */
+const modalStack = []; // [{ modal, close }]
+
+const topEntry = () => modalStack[modalStack.length - 1] ?? null;
+
+/** A modál-e a legfelső nyitott ablak (a szkenner saját Escape-figyelője ezt nézi). */
+const isTopModal = (modal) => topEntry()?.modal === modal;
+
+const removeFromStack = (modal) => {
+  const index = modalStack.findIndex((entry) => entry.modal === modal);
+  if (index !== -1) modalStack.splice(index, 1);
+};
+
+/* EGYETLEN közös figyelő a modulban: a legfelső modál Escape-je és
+   fókusz-csapdája. */
+document.addEventListener('keydown', (event) => {
+  const top = topEntry();
+  if (!top) return;
+
+  if (event.key === 'Escape') {
+    top.close();
+    return;
+  }
+
+  // Fókusz-csapda: Tab-bal nem lehet a háttérbe lépni, amíg a modal nyitva van.
+  // A [tabindex="0"] is kell: az étel-modál gramm-választója nem gomb, de
+  // billentyűzettel kezelhető — enélkül a csapda átugraná.
+  if (event.key === 'Tab') {
+    const focusables = $$(
+      'button, [href], input, select, textarea, [tabindex="0"]',
+      top.modal,
+    ).filter((el) => !el.disabled && !el.closest('[hidden]'));
+    if (focusables.length === 0) return;
+
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+});
+
 /** Közös modal-vezérlő: backdrop/gomb zárás, Escape, fókusz-csapda,
     fókusz-visszaállítás, reduced-motion. A videó- és a beállítások
-    modal is erre épül. */
+    modal is erre épül. A `close()` ígéretet ad, ami a tényleges elrejtéskor
+    teljesül — egy következő modál ezt várja meg, nem egy képkockát. */
 function createModalController(modal) {
   const CLOSE_ANIM_MS = 190;
   let lastFocused = null;
   let hideTimer = null;
+  let closing = null; // a futó zárás ígérete (a kiúszó animáció alatt)
+  let finishClosing = null;
 
   const open = () => {
     clearTimeout(hideTimer);
+    finishClosing?.(); // egy félbehagyott zárás ígérete se maradjon függőben
+    closing = null;
+    finishClosing = null;
     lastFocused = document.activeElement;
     modal.classList.remove('is-closing');
     modal.classList.add('is-open');
     modal.setAttribute('aria-hidden', 'false');
+    removeFromStack(modal);
+    modalStack.push({ modal, close });
     $('button[data-close-modal]', modal).focus();
   };
 
   const hide = () => {
     modal.classList.remove('is-open', 'is-closing');
     modal.setAttribute('aria-hidden', 'true');
-    if (lastFocused) lastFocused.focus();
+    removeFromStack(modal);
+    /* Fókusz vissza — de nem egy nyitott modál MÖGÉ: ha alatta (vagy a kiúszás
+       közben) másik modál nyitva van, csak akkor, ha a kiváltó elem abban van
+       (pl. a beállítások törlés-gombja a megerősítés után). Egy közben nyílt
+       új modál (átadás) így megtartja a fókuszt. */
+    const top = topEntry();
+    if (lastFocused && (!top || top.modal.contains(lastFocused))) lastFocused.focus();
+    finishClosing?.();
+    closing = null;
+    finishClosing = null;
   };
 
   const close = () => {
     // A második feltétel teszi ismételhetővé: a kiúszó animáció alatt az
     // ablak még `is-open`, így egy közben érkező zárás (pl. gombnyomás ÉS
-    // oldalváltás együtt) egy második, árva időzítőt indítana.
-    if (!modal.classList.contains('is-open') || modal.classList.contains('is-closing')) return;
+    // oldalváltás együtt) egy második, árva időzítőt indítana — ilyenkor a
+    // futó zárás ígéretét adjuk vissza.
+    if (closing) return closing;
+    if (!modal.classList.contains('is-open')) return Promise.resolve();
     if (prefersReducedMotion) {
       hide();
-      return;
+      return Promise.resolve();
     }
+    closing = new Promise((resolve) => {
+      finishClosing = resolve;
+    });
     modal.classList.add('is-closing'); // a kiúszó animáció alatt még látszik
     hideTimer = setTimeout(hide, CLOSE_ANIM_MS);
+    return closing;
   };
 
   $$('[data-close-modal]', modal).forEach((el) => el.addEventListener('click', close));
@@ -48,36 +123,6 @@ function createModalController(modal) {
      a felhasználó egy másik képernyőn találta magát egy odanem illő
      ablakkal. Az értesítés-panel ugyanezt csinálja már. */
   window.addEventListener('hashchange', close);
-
-  document.addEventListener('keydown', (event) => {
-    if (!modal.classList.contains('is-open')) return;
-
-    if (event.key === 'Escape') {
-      close();
-      return;
-    }
-
-    // Fókusz-csapda: Tab-bal nem lehet a háttérbe lépni, amíg a modal nyitva van.
-    // A [tabindex="0"] is kell: az étel-modál gramm-választója nem gomb, de
-    // billentyűzettel kezelhető — enélkül a csapda átugraná.
-    if (event.key === 'Tab') {
-      const focusables = $$(
-        'button, [href], input, select, textarea, [tabindex="0"]',
-        modal,
-      ).filter((el) => !el.disabled && !el.closest('[hidden]'));
-      if (focusables.length === 0) return;
-
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    }
-  });
 
   return { open, close };
 }
@@ -277,6 +322,7 @@ function setupPrModal() {
 
 export {
   createModalController,
+  isTopModal,
   setupAdviceModal,
   setupConfirmDialog,
   setupPrModal,

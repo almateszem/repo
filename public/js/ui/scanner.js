@@ -1,7 +1,7 @@
 /** Vonalkód-olvasó: kamera, ZXing, a talált termék átadása. */
 
 import { $, $$, loadScript } from '../core/dom.js';
-import { createModalController } from './modals.js';
+import { createModalController, isTopModal } from './modals.js';
 
 /* ======================================================================
    Vonalkód-olvasó (sc-*)
@@ -111,17 +111,30 @@ function setupScanner() {
     stopCamera();
     const resolve = pending;
     pending = null;
-    controller.close();
-    if (resolve) resolve(code ?? null);
+    /* Az eredmény a modál tényleges elrejtése UTÁN megy tovább: a szkenner →
+       saját étel / étel-modál átadásnál a következő ablak így már nem a még
+       kiúszó szkenner mögé nyílik (lásd modals.js → modál-verem). */
+    const closed = controller.close();
+    if (resolve) closed.then(() => resolve(code ?? null));
   };
 
   // A modál saját záró-útjai (✕, háttér, Escape, hashchange) a controllerben
   // vannak; azok a `close`-t hívják, nem a settle-t — ezért itt is figyelünk,
   // különben a scan() ígérete örökre függőben maradna.
   $$('[data-close-modal]', modal).forEach((el) => el.addEventListener('click', () => settle(null)));
-  document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && modal.classList.contains('is-open')) settle(null);
-  });
+  /* Csak ha a szkenner a legfelső modál. Elfogó fázisban fut, a modals.js
+     közös figyelője ELŐTT: lezár, és megállítja az eseményt, hogy a közös
+     figyelő ne zárja be az alatta lévő ablakot is (reduced motionnél a
+     szkenner addigra már lekerülne a veremről). */
+  document.addEventListener(
+    'keydown',
+    (event) => {
+      if (event.key !== 'Escape' || !isTopModal(modal)) return;
+      event.stopPropagation();
+      settle(null);
+    },
+    true,
+  );
   window.addEventListener('hashchange', () => {
     if (pending) settle(null);
   });

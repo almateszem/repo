@@ -234,11 +234,12 @@ async function setupCustomFood({ scanner, confirmAction, onSaved, onLog } = {}) 
         source: prefillSource,
       });
       await onSaved?.(saved);
-      controller.close();
+      const closed = controller.close();
       showToast(`${saved.name} felvéve a saját ételeid közé`);
-      // Az adagválasztó CSAK a záró animáció után nyíljon, különben egy
-      // pillanatra két modál látszana egymáson.
-      if (thenLog) requestAnimationFrame(() => onLog?.(saved));
+      // Az adagválasztó CSAK a záró animáció után nyíljon (a close() ígérete
+      // a tényleges elrejtéskor teljesül), különben egy pillanatra két modál
+      // látszana egymáson.
+      if (thenLog) closed.then(() => onLog?.(saved));
     } catch (err) {
       // A szerver üzenete (409 duplikátum, 400 validálás) magyarul, az
       // űrlapon marad — a bevitt adat NEM vész el.
