@@ -56,6 +56,10 @@ const HELD_BACK_VERDICTS = ['reduce', 'skip', 'avoid'];
     szövege): a nehéz, maximum-közeli munkát nem javasoljuk. */
 export const CNS_FRESH_MIN = 80;
 
+/** Az Áttekintő ítélet-mondatában a részletekre utaló szövegrész — a
+    kirajzolás (render/dashboard.js) ezt a részt a Regenerációra linkeli. */
+export const DETAILS_ON_RECOVERY = 'részletek a Regeneráción';
+
 /** Az összpontszám melletti egymondatos ítélet; null, ha nincs összpontszám
     (a hívó ilyenkor a „nincs adat" szöveget írja ki).
 
@@ -63,8 +67,11 @@ export const CNS_FRESH_MIN = 80;
     „ma mehet a nehezebb edzés" akkor is kijöhetett (92), amikor lejjebb az
     idegrendszer 78%-on állt, és egy gyakorlat csökkentett terhelést kért. Az
     ítélet ezért a lejjebb látható jelzéseket is figyelembe veszi, hogy a lap
-    ne mondjon ellent önmagának. */
-export function verdictText(report) {
+    ne mondjon ellent önmagának.
+
+    A `details` mondja meg, hol vannak a részletek: a Regeneráción „lent"
+    ('below'), az Áttekintőn a Regeneráció oldalon ('recovery'). */
+export function verdictText(report, { details = 'below' } = {}) {
   const overall = report?.overall;
   if (overall === null || overall === undefined) return null;
 
@@ -73,15 +80,16 @@ export function verdictText(report) {
     HELD_BACK_VERDICTS.includes(lift.verdict),
   );
   const cnsTired = cns !== null && cns !== undefined && cns < CNS_FRESH_MIN;
+  const where = details === 'recovery' ? DETAILS_ON_RECOVERY : 'részletek lent';
 
   if (overall >= 85) {
     return heldBack || cnsTired
-      ? 'Jó állapotban vagy — de a nehéz munkát korlátozd, részletek lent.'
+      ? `Jó állapotban vagy — de a nehéz munkát korlátozd, ${where}.`
       : 'Készen állsz — ma mehet a nehezebb edzés.';
   }
   if (overall >= 70) {
     return heldBack
-      ? 'Rendben vagy — egyes gyakorlatoknál vissza kell venni, részletek lent.'
+      ? `Rendben vagy — egyes gyakorlatoknál vissza kell venni, ${where}.`
       : 'Rendben vagy — tartsd a tervezett terhelést.';
   }
   return overall >= 55
@@ -93,7 +101,10 @@ export function verdictText(report) {
     (verdictText), a gondolatjel után megtörve. A dashboard válaszában a
     pontszám neve `readiness`, nem `overall`. */
 export function dashboardQuote(dashboard) {
-  const text = verdictText({ ...dashboard, overall: dashboard?.readiness });
+  const text = verdictText(
+    { ...dashboard, overall: dashboard?.readiness },
+    { details: 'recovery' }, // az Áttekintőn nincsenek „lent" részletek
+  );
   if (text === null) return ['Még nincs elég adat a készenléthez —', 'töltsd ki a napi check-int.'];
   const cut = text.indexOf('— ') + 1;
   return [text.slice(0, cut), text.slice(cut + 1)];

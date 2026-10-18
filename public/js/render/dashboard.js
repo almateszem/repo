@@ -4,7 +4,7 @@ import { api, clientDate } from '../core/api.js';
 import { $, $$ } from '../core/dom.js';
 import { prefs } from '../core/prefs.js';
 import { hasReadiness } from './recovery.js';
-import { dashboardQuote } from './recovery-map.js';
+import { DETAILS_ON_RECOVERY, dashboardQuote } from './recovery-map.js';
 
 /** Az áttekintő adatai (renderDashboard tölti fel; a pageEffects innen veszi
     a készenlét-értéket az animációhoz). */
@@ -65,6 +65,21 @@ async function renderCharts() {
 function renderVolumeTrend(charts) {
   const container = $('[data-chart="volumeTrend"]');
   if (container && charts?.volumeTrend) renderChart(container, charts.volumeTrend);
+}
+
+/** Az idézet sora, benne a „részletek a Regeneráción" rész a Regenerációra
+    linkelve (csak ez a szövegrész kattintható, nem az egész mondat). */
+function linkDetails(line) {
+  const at = line.indexOf(DETAILS_ON_RECOVERY);
+  if (at === -1) return [document.createTextNode(line)];
+  const link = document.createElement('a');
+  link.href = '#recovery';
+  link.textContent = DETAILS_ON_RECOVERY;
+  return [
+    document.createTextNode(line.slice(0, at)),
+    link,
+    document.createTextNode(line.slice(at + DETAILS_ON_RECOVERY.length)),
+  ];
 }
 
 /** Az áttekintő napi statjainak (kalória/fehérje) kiírása. */
@@ -268,7 +283,7 @@ async function drawDashboard() {
     quoteEl.replaceChildren(
       document.createTextNode(first),
       document.createElement('br'),
-      document.createTextNode(second),
+      ...linkDetails(second),
     );
   }
 }

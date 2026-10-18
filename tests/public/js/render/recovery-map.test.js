@@ -11,6 +11,7 @@ import {
   MAP_RINGS,
   MOBILE_COLUMNS,
   RC_SPARE_BELOW,
+  DETAILS_ON_RECOVERY,
   componentSummary,
   dashboardQuote,
   muscleNote,
@@ -236,7 +237,8 @@ const dash = (readiness, { cns = null, verdicts = [], streak = 5 } = {}) => ({
 test('dashboardQuote: a Regeneráció verdictText-jét mondja, két sorba törve', () => {
   // 92 + CNS 78: a régi lánc „ma mehet a nehezebb edzés"-t mondott
   const [first, second] = dashboardQuote(dash(92, { cns: 78 }));
-  assert.equal(`${first} ${second}`, verdictText(report(92, { cns: 78 })));
+  // Ugyanaz az ítélet, csak a részletek helye más (az Áttekintőn nincs „lent")
+  assert.equal(`${first} ${second}`, verdictText(report(92, { cns: 78 }), { details: 'recovery' }));
   assert.match(second, /korlátozd/);
   assert.match(first, /—$/);
   // 67: a régi lánc „tartsd a lendületet"-et mondott, a Regeneráció „Fáradt vagy"-ot
@@ -252,4 +254,23 @@ test('dashboardQuote: adat nélkül a check-inre hív', () => {
     'Még nincs elég adat a készenléthez —',
     'töltsd ki a napi check-int.',
   ]);
+});
+
+test('verdictText: a részletek helye megadható — az Áttekintőn a Regeneráció', () => {
+  const tired = report(92, { cns: 78 });
+  assert.match(verdictText(tired), /részletek lent/, 'alapból (a Regeneráción) lent');
+  const elsewhere = verdictText(tired, { details: 'recovery' });
+  assert.ok(elsewhere.includes(DETAILS_ON_RECOVERY), elsewhere);
+  assert.doesNotMatch(elsewhere, /lent/);
+  assert.ok(
+    verdictText(report(75, { verdicts: ['reduce'] }), { details: 'recovery' }).includes(
+      DETAILS_ON_RECOVERY,
+    ),
+  );
+});
+
+test('dashboardQuote: az Áttekintő a Regenerációra utal, nem „lent"-re', () => {
+  const lines = dashboardQuote(dash(92, { cns: 78 })).join(' ');
+  assert.ok(lines.includes(DETAILS_ON_RECOVERY), lines);
+  assert.doesNotMatch(lines, /lent/);
 });
