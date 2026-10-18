@@ -113,7 +113,7 @@ const scheduledOn = (plans, key) =>
   );
 
 /** Munkasorozatok egy gyakorlat-listában. A bemelegítő nem az, és az időalapú
-    (kardió) sor sem — ugyanaz a szabály, mint a server.js isWorkSet-jében. */
+    (kardió) sor sem — ugyanaz a szabály, mint a charts.js isWorkSet-jében. */
 const workSets = (exercises) =>
   (exercises ?? [])
     .flatMap((exercise) => exercise.sets ?? [])
