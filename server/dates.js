@@ -37,5 +37,22 @@ export const shiftDayKey = (key, days) => {
     ±1 óráját nyeli el (a 25 órás nap is egy nap). */
 export const daysBetween = (fromKey, toKey) => Math.round((toKey - fromKey) / DAY_MS);
 
+/** Egy Date → "ÉÉÉÉ.HH.NN", HELYI idő szerint (pl. "2026.07.26"). Nem
+    toISOString: az UTC-t adna, és éjfél után előző napi dátumot könyvelne. */
+export const formatDate = (date) => {
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}.${pad(date.getMonth() + 1)}.${pad(date.getDate())}`;
+};
+
+/** Egy "ÉÉÉÉ.HH.NN" dátum eltolása napokkal (negatív = visszafelé). */
+export const shiftDate = (dateStr, days) => {
+  const date = parseDate(dateStr);
+  date.setDate(date.getDate() + days);
+  return formatDate(date);
+};
+
+/** Egy nap-kulcs hétnapja hétfőtől számolva (0 = hétfő … 6 = vasárnap). */
+export const weekdayOf = (key) => (new Date(key).getDay() + 6) % 7;
+
 /** Hány nappal ezelőtt volt `date` a `todayKey` naphoz képest (negatív = jövő). */
 export const daysAgo = (date, todayKey) => daysBetween(dayKey(date), todayKey);

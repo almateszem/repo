@@ -165,7 +165,7 @@ import {
 // A készenlét-motor és a közös dátum-segédek. A dátumkezelés szándékosan egy
 // helyen (dates.js) lakik, hogy a szerver és a motor sose csússzon el.
 import { computeReadiness, hydrationTarget } from './recovery.js';
-import { parseDate, dayKey, daysBetween, shiftDayKey } from './dates.js';
+import { parseDate, dayKey, daysBetween, formatDate, shiftDate, shiftDayKey } from './dates.js';
 import { formatDecimal } from './numbers.js';
 import { reduceWeight } from './exercise-advice.js';
 // Az edzői panel sportoló-összegzője. Szintén tiszta számítás: a végpont
@@ -524,14 +524,6 @@ setInterval(
   24 * 60 * 60 * 1000,
 ).unref();
 
-/** A mai dátum HELYI idő szerint, a frontend által várt formátumban
-    (pl. "2026.07.26"). Nem toISOString: az UTC-t adna, és éjfél után
-    előző napi dátumot könyvelne. */
-const formatDate = (date) => {
-  const pad = (n) => String(n).padStart(2, '0');
-  return `${date.getFullYear()}.${pad(date.getMonth() + 1)}.${pad(date.getDate())}`;
-};
-
 /** A szerver saját helyi napja — tartalék, ha a kliens nem mond dátumot. */
 const serverToday = () => formatDate(new Date());
 
@@ -564,13 +556,6 @@ function requestDate(req) {
   // szomszédos nap különben „túl messzinek" látszott.
   return Math.abs(daysBetween(dayKey(server), dayKey(raw))) <= 1 ? raw : server;
 }
-
-/** Egy "ÉÉÉÉ.HH.NN" dátum eltolása napokkal (negatív = visszafelé). */
-const shiftDate = (dateStr, days) => {
-  const date = parseDate(dateStr);
-  date.setDate(date.getDate() + days);
-  return formatDate(date);
-};
 
 /** A beküldött hétnap-lista normalizálása: egyedi, rendezett 0–6 indexek. */
 const normalizeDays = (raw) =>

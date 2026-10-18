@@ -25,7 +25,7 @@
  *   - ÖSSZPONTSZÁM (rating): a készenlét és a terv-követés átlaga; terv nélkül
  *     maga a készenlét. Ebből jön a kártya szintje (arany/ezüst/bronz).
  */
-import { dayKey, daysBetween, shiftDayKey } from './dates.js';
+import { dayKey, daysBetween, shiftDayKey, weekdayOf } from './dates.js';
 import { formatDecimal } from './numbers.js';
 import { cycleDayAt, dayEntry } from './plan-week.js';
 import { bestCompletedSet, weightOnDate } from './records.js';
@@ -78,9 +78,6 @@ export function streakFromDates(dates, today) {
   }
   return streak;
 }
-
-/** Egy nap-kulcs hétnapja hétfőtől számolva (0 = hétfő … 6 = vasárnap). */
-const weekdayOf = (key) => (new Date(key).getDay() + 6) % 7;
 
 /** Azok a naptári napok (éjfélre normalizált timestamp), amikor volt edzés. */
 const trainingDayKeys = (workouts) => new Set(workouts.map((w) => dayKey(w.date)));
