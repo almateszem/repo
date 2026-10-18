@@ -270,13 +270,17 @@ function setupAthleteDetail({ confirmAction, onUnlink, onRead, onAssign } = {}) 
 
   /** A víz-cél mentése vagy elvetése — a válasz a sportoló friss célja. */
   async function updateWater(work, message) {
-    if (!current) return;
+    /* A mentéskor nyitott sportoló: ha közben bezárják a nézetet (current =
+       null) vagy másikat nyitnak, a válasz akkor is az övé, és a siker-toast
+       marad — csak rajzolni nem rajzolunk. */
+    const athlete = current;
+    if (!athlete) return;
     const submit = $('button[type="submit"]', waterForm);
     submit.disabled = true;
     waterResetBtn.disabled = true;
     try {
-      current.nutritionGoal = await work(current.linkId);
-      renderAthleteWater(current);
+      athlete.nutritionGoal = await work(athlete.linkId);
+      if (current === athlete) renderAthleteWater(athlete);
       showToast(message);
     } catch (err) {
       console.error(err);
@@ -302,17 +306,20 @@ function setupAthleteDetail({ confirmAction, onUnlink, onRead, onAssign } = {}) 
 
   goalForm.addEventListener('submit', async (event) => {
     event.preventDefault();
-    if (!current) return;
+    const athlete = current; // ugyanazért, mint az updateWater-ben
+    if (!athlete) return;
     const submit = $('button[type="submit"]', goalForm);
     submit.disabled = true;
     try {
-      current.nutritionGoal = await api.setAthleteNutritionGoal(
-        current.linkId,
+      athlete.nutritionGoal = await api.setAthleteNutritionGoal(
+        athlete.linkId,
         Number(goalCaloriesInput.value),
         Number(goalProteinInput.value),
       );
-      renderAthleteGoal(current);
-      meals.renderTotal();
+      if (current === athlete) {
+        renderAthleteGoal(athlete);
+        meals.renderTotal();
+      }
       showToast('Napi cél kitűzve');
     } catch (err) {
       console.error(err);

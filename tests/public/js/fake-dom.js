@@ -69,6 +69,8 @@ class FakeElement {
 
   focus() {}
 
+  scrollIntoView() {}
+
   remove() {}
 
   contains() {
