@@ -437,6 +437,15 @@
   }
 }
 
+.wk-set-row--head {
+  color: var(--text-faint);
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--border-card);
+  padding-bottom: var(--sp-3);
+}
+
 /* ---- Keskeny kijelző: a léptetők kiesnek, hogy az ÉRTÉK férjen ki ----
    360px-es telefonon a hat oszlop és a két léptetőgomb-pár után az ismétlés-
    és a súlymezőre 20-20px maradt — egy „102.5" bele sem fért. A léptetők
@@ -459,15 +468,6 @@
   .wk-set-row--head {
     letter-spacing: 0.02em;
   }
-}
-
-.wk-set-row--head {
-  color: var(--text-faint);
-  font-size: var(--fs-2xs);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  border-bottom: 1px solid var(--border-card);
-  padding-bottom: var(--sp-3);
 }
 
 /* ---- Szett-típus választó (bemelegítő / munkasorozat / drop set) ----
