@@ -977,7 +977,6 @@
 }
 
 .rc-chip {
-  min-width: 34px;
   padding: var(--sp-2) var(--sp-3);
   border-radius: var(--r-md);
   border: 1px solid var(--border-card);

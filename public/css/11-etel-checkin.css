@@ -97,7 +97,6 @@
 
 .fd-macro-unit {
   font-size: 0.5em;
-  font-weight: 600;
   color: var(--text-muted);
   margin-left: 3px;
 }
@@ -177,7 +176,6 @@
   display: block;
   font-size: var(--fs-2xs);
   letter-spacing: 0.09em;
-  text-transform: uppercase;
   color: var(--text-faint);
   margin-bottom: var(--sp-5);
 }

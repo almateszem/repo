@@ -423,7 +423,6 @@ input.wk-chip:focus-visible {
 
 /* Szekciócímek: ugyanaz a nyelv, valamivel szűkebb ritkítással, mert
    hosszabbak — a „TESTÖSSZETÉTEL" .16em-mel már kifutna a keskeny kártyából. */
-.rc-section-title,
 .pf-section-title,
 /* A profil rács-címkéi és a rekord-kártyák gyakorlatnevei ugyanezt a receptet
    kérik, nem a fenti .db-label-csoportét: rövid, erősen ritkított feliratok
@@ -445,8 +444,6 @@ input.wk-chip:focus-visible {
 .toast,
 .video-modal-head h3,
 .settings-modal-head h3,
-.food-modal-head h3,
-.confirm-modal-head h3,
 .custom-food-modal-head h3,
 .scanner-modal-head h3,
 .pr-modal-head h3 {
@@ -458,8 +455,6 @@ input.wk-chip:focus-visible {
 
 /* Mérőszámok: sűrítve és táblázatos számokkal, hogy a másodpercenként
    frissülő értékek (stopper, kalória) ne ugráltassák a sort. */
-.db-percent,
-.db-stat-value,
 .nu-summary-value,
 .nu-macro-value,
 /* A .pf-stat-value szándékosan hiányzik: a profil összesítői a .ds-display
@@ -834,8 +829,6 @@ input.wk-chip:focus-visible {
 /* ---- Ahol a valódi méret növelhető, ott azt növeljük (chipek, szegmentált
        váltók, listasorok): pszeudoelemmel átfednének a szomszédaikkal. ---- */
 .rc-chip,
-.pb-day,
-.ep-chip,
 .wk-toggle-btn,
 .co-toggle-btn,
 .co-action,

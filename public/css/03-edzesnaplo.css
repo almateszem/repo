@@ -991,7 +991,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 
 .wk-progress-title {
   font-size: var(--fs-base);
-  font-weight: 700;
   margin: 0 0 var(--sp-5);
 }
 
