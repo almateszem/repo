@@ -2801,6 +2801,11 @@ export function getWorkoutDraft(userId) {
     : null;
 }
 
+/** Az edzés oszlopai a toWorkout-hoz — egy helyen, hogy minden olvasó
+    ugyanazt az alakot adja (a visszajelzéssel együtt). */
+const WORKOUT_COLUMNS = `id, name, date, exercises, plan_id,
+  feedback_difficulty, feedback_mood, feedback_note, feedback_at`;
+
 /** Egy edzés-sor → a hívók által várt alak (a gyakorlatok JSON-ból vissza). */
 const toWorkout = (row) => ({
   id: row.id,
@@ -2823,10 +2828,7 @@ const toWorkout = (row) => ({
 /** A mentett edzések, legújabb elöl (a gyakorlatok JSON-ból visszafejtve). */
 export function getWorkouts(userId) {
   return db
-    .prepare(
-      `SELECT id, name, date, exercises, plan_id,
-          feedback_difficulty, feedback_mood, feedback_note, feedback_at FROM workouts WHERE user_id = ? ORDER BY id DESC`,
-    )
+    .prepare(`SELECT ${WORKOUT_COLUMNS} FROM workouts WHERE user_id = ? ORDER BY id DESC`)
     .all(userId)
     .map(toWorkout);
 }
@@ -2846,8 +2848,7 @@ export function getWorkoutsSince(userId, sinceDate) {
   return db
     .prepare(
       `
-    SELECT id, name, date, exercises, plan_id,
-           feedback_difficulty, feedback_mood, feedback_note, feedback_at
+    SELECT ${WORKOUT_COLUMNS}
     FROM workouts
     WHERE user_id = ? AND date >= ? ORDER BY id DESC
   `,
@@ -3177,7 +3178,7 @@ function insertWorkoutOnce(userId, name, date, exercises, planId) {
     const stored = JSON.parse(row.exercises);
     if ((row.plan_id ?? null) !== planId) continue;
     if (workoutFingerprint(stored) !== wanted) continue;
-    return { id: row.id, name, date, exercises: stored, planId, feedback: null };
+    return getWorkout(userId, row.id);
   }
 
   // PR-eket számítunk az Epley-képlettel: 1RM = weight × (1 + reps/30)
@@ -3222,16 +3223,9 @@ function insertWorkoutOnce(userId, name, date, exercises, planId) {
       'INSERT INTO workouts (user_id, name, date, exercises, plan_id, pr_rule) VALUES (?, ?, ?, ?, ?, 1)',
     )
     .run(userId, name, date, JSON.stringify(processedExercises), planId);
-  // A friss edzésen még nincs visszajelzés — a mező alakja mégis azonos a
-  // getWorkouts sorával, hogy a felületnek ne kelljen két esetre készülnie.
-  return {
-    id: Number(lastInsertRowid),
-    name,
-    date,
-    exercises: processedExercises,
-    planId,
-    feedback: null,
-  };
+  // Ugyanaz a leképezés, mint a getWorkouts soráé (toWorkout), hogy a
+  // felületnek ne kelljen két alakra készülnie
+  return getWorkout(userId, Number(lastInsertRowid));
 }
 
 /**
@@ -3305,13 +3299,11 @@ export function getAthleteFeedbackSince(coachId, sinceDate) {
     }));
 }
 
-/* Modulon belüli segéd — a saveWorkoutFeedback ezen adja vissza a friss sort. */
+/* Modulon belüli segéd — a mentés, a javítás és a visszajelzés ezen adja
+   vissza a friss sort. */
 function getWorkout(userId, workoutId) {
   const row = db
-    .prepare(
-      `SELECT id, name, date, exercises, plan_id,
-          feedback_difficulty, feedback_mood, feedback_note, feedback_at FROM workouts WHERE id = ? AND user_id = ?`,
-    )
+    .prepare(`SELECT ${WORKOUT_COLUMNS} FROM workouts WHERE id = ? AND user_id = ?`)
     .get(workoutId, userId);
   return row ? toWorkout(row) : null;
 }
@@ -3387,11 +3379,9 @@ export function updateWorkout(userId, id, name, exercises) {
     }
     retargetExerciseComments(userId, id, JSON.parse(before.exercises), exercises);
     recomputeExerciseMaxes(userId);
-    const row = db
-      .prepare('SELECT id, name, date, exercises, plan_id FROM workouts WHERE id = ?')
-      .get(id);
+    const saved = getWorkout(userId, id);
     db.exec('COMMIT');
-    return toWorkout(row);
+    return saved;
   } catch (err) {
     db.exec('ROLLBACK');
     throw err;

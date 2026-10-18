@@ -1378,6 +1378,16 @@ test('az újraküldés FELÜLÍR, és a HIÁNYZÓ mező null marad — nem nulla
   assert.equal(res.json.feedback.note, null, 'az üres szöveg nem üres string, hanem null');
 });
 
+test('a visszajelzéses edzés javításának válaszában a feedback megmarad', async () => {
+  const res = await request('PUT', `/api/workouts/${fbWorkoutId}`, {
+    cookie: fbClient.cookie,
+    body: { name: 'Lábnap (javítva)', exercises: [gyakorlat('Guggolás', 105)] },
+  });
+  assert.equal(res.status, 200);
+  assert.equal(res.json.name, 'Lábnap (javítva)');
+  assert.equal(res.json.feedback?.mood, 5, 'a javítás nem „felejti el" a visszajelzést');
+});
+
 test('a visszajelzés validál: tartományon kívüli érték, túl hosszú megjegyzés', async () => {
   const rossz = [
     [{ difficulty: 0 }, 'nehézség a tartomány alatt'],
