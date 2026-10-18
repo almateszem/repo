@@ -25,7 +25,7 @@ import { fileURLToPath } from 'node:url';
 import { data as seed } from './data.js';
 import { buildExerciseCatalog, buildFoodCatalog } from './data/catalog.js';
 import { bestCompletedSet, calculateEpley1RM, weightOnDate } from './records.js';
-import { splitLegacyMuscleMap } from './muscles.js';
+import { normalizeName, splitLegacyMuscleMap } from './muscles.js';
 import { dayEntry, dayWorkoutName, weekFromLegacy, workoutDays } from './plan-week.js';
 import { effectiveLoad, isBodyweightExercise } from './data/bodyweight-load.js';
 
@@ -3491,9 +3491,49 @@ export function saveWorkoutFeedback(userId, workoutId, { difficulty, mood, note 
   return changed ? getWorkout(userId, workoutId) : null;
 }
 
+/** A gyakorlat-megjegyzések célja ("edzésId:index") az edzés javítása után is
+    a saját gyakorlatára mutasson. A régi és az új lista név szerint párosul
+    (normalizeName; azonos névnél sorrendben); a megjegyzés az új indexre kerül.
+    A törölt gyakorlat megjegyzése ÁRVA lesz ("edzésId:x<régi index>"): egyetlen
+    gyakorlatra sem mutat, tehát a régi indexen sem csúszik át egy másikra. A
+    sorokat azonosító szerint írjuk át, így a csere (0 ↔ 1) sem fésül össze
+    két megjegyzést. A hívó tranzakciójában fut. */
+function retargetExerciseComments(userId, workoutId, oldExercises, newExercises) {
+  const freeByName = new Map(); // normalizált név → az új lista szabad indexei
+  (Array.isArray(newExercises) ? newExercises : []).forEach((exercise, index) => {
+    const key = normalizeName(exercise?.name);
+    if (!freeByName.has(key)) freeByName.set(key, []);
+    freeByName.get(key).push(index);
+  });
+  const newIndexOf = new Map(); // régi index → új index (vagy hiányzik: törölve)
+  (Array.isArray(oldExercises) ? oldExercises : []).forEach((exercise, index) => {
+    const free = freeByName.get(normalizeName(exercise?.name));
+    if (free?.length) newIndexOf.set(index, free.shift());
+  });
+
+  const prefix = `${workoutId}:`;
+  const rows = db
+    .prepare(
+      `SELECT id, target_id FROM comments
+        WHERE subject_id = ? AND target_type = 'exercise' AND target_id LIKE ?`,
+    )
+    .all(userId, `${prefix}%`);
+  const retarget = db.prepare('UPDATE comments SET target_id = ? WHERE id = ?');
+  for (const row of rows) {
+    const rest = row.target_id.slice(prefix.length);
+    if (!/^\d+$/.test(rest)) continue; // már árva
+    const oldIndex = Number(rest);
+    const next = newIndexOf.has(oldIndex) ? String(newIndexOf.get(oldIndex)) : `x${oldIndex}`;
+    if (next !== rest) retarget.run(prefix + next, row.id);
+  }
+}
+
 export function updateWorkout(userId, id, name, exercises) {
   db.exec('BEGIN IMMEDIATE');
   try {
+    const before = db
+      .prepare('SELECT exercises FROM workouts WHERE id = ? AND user_id = ?')
+      .get(id, userId);
     // A most újramentett edzés már az új PR-szabály alá kerül (pr_rule = 1).
     const { changes } = db
       .prepare(
@@ -3504,6 +3544,7 @@ export function updateWorkout(userId, id, name, exercises) {
       db.exec('COMMIT');
       return null;
     }
+    retargetExerciseComments(userId, id, JSON.parse(before.exercises), exercises);
     recomputeExerciseMaxes(userId);
     const row = db
       .prepare('SELECT id, name, date, exercises, plan_id FROM workouts WHERE id = ?')
