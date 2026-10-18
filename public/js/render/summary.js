@@ -31,6 +31,4 @@ function renderSummary(summary) {
   hooks.refreshSummaryFeedback?.();
 }
 
-/* ---- Regeneráció (Recovery Engine) ---- */
-
 export { renderSummary };

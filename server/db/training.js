@@ -554,9 +554,6 @@ export function clearWorkoutDraft(userId) {
   db.prepare('DELETE FROM workout_draft WHERE user_id = ?').run(userId);
 }
 
-/** Edzés mentése; automatikusan kiszámítja a PR-eket az Epley-képlet alapján.
-    A rekordok a MENTŐ FELHASZNÁLÓ saját csúcsaihoz mérődnek.
-    Visszaadja a létrejött { id, name, date, exercises, planId } sort. */
 /* Ennyi másodpercen belül számít ugyanaz a mentés ISMÉTLÉSNEK (ld. lent). Két
    percnél a hálózati újrapróbálás és a „mindkét fülön rányomtam" is bőven
    belefér, egy szándékosan megismételt edzés viszont soha. */
@@ -569,6 +566,9 @@ const DUPLICATE_WINDOW_SECONDS = 120;
 const workoutFingerprint = (list) =>
   JSON.stringify((list ?? []).map(({ pr: _pr, ...rest }) => rest));
 
+/** Edzés mentése; automatikusan kiszámítja a PR-eket az Epley-képlet alapján.
+    A rekordok a MENTŐ FELHASZNÁLÓ saját csúcsaihoz mérődnek. Visszaadja a
+    létrejött (ismétlésnél a meglévő) edzést, a getWorkout alakjában. */
 export function addWorkout(userId, name, date, exercises, planId = null) {
   /* EGY TRANZAKCIÓ az egész: a duplikátum-keresés, a PR-feldolgozás, a
      beszúrás és a piszkozat törlése. A PR-maximumot (updateExerciseMax) a
@@ -703,8 +703,9 @@ export function deleteWorkout(userId, id) {
   }
 }
 
-/* Modulon belüli segéd — a mentés, a javítás és a visszajelzés ezen adja
-   vissza a friss sort. */
+/** Egy edzés a saját naplóból, vagy null. A user_id feltétel nem elhagyható:
+    enélkül idegen edzés id-jével is lehetne dolgozni. Modulon belüli segéd —
+    a mentés, a javítás és a visszajelzés ezen adja vissza a friss sort. */
 function getWorkout(userId, workoutId) {
   const row = db
     .prepare(`SELECT ${WORKOUT_COLUMNS} FROM workouts WHERE id = ? AND user_id = ?`)
@@ -765,6 +766,15 @@ function retargetExerciseComments(userId, workoutId, oldExercises, newExercises)
   }
 }
 
+/**
+ * Mentett edzés felülírása (név + gyakorlatok). A DÁTUMA és a plan_id-je
+ * MARAD: a javítás nem helyezi át az edzést a mai napra — különben elcsúszna
+ * a sorozat, a heti volumen és a készenlét 28 napos ablaka.
+ *
+ * A frissített sort adja vissza, vagy null-t, ha nincs ilyen id — MÁS
+ * felhasználó edzését sem lehet átírni. A sort a csúcsok újraszámolása UTÁN
+ * olvassuk vissza, tehát a válasz már a friss `pr` jelzőket viszi.
+ */
 export function updateWorkout(userId, id, name, exercises) {
   db.exec('BEGIN IMMEDIATE');
   try {

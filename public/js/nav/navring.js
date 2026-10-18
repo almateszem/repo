@@ -2,9 +2,6 @@
 
 import { prefersReducedMotion } from '../core/dom.js';
 
-/* ======================================================================
-   5. Nav ring — húzható navigációs gomb (pointer + billentyűzet)
-   ====================================================================== */
 const RING_RADIUS = 44; // px, a gomb maximális kitérése
 
 const DIR_THRESHOLD = 26; // px, ekkora elmozdulástól számít iránynak; ez alatt a húzás koppintás (home)
@@ -116,9 +113,5 @@ function setupNavRing(knob, onNavigate) {
   knob.addEventListener('pointercancel', onCancel);
   knob.addEventListener('keydown', onKeyDown);
 }
-
-/* ======================================================================
-   6. Renderelők — az api-tól lekért adatok DOM-ba töltése
-   ====================================================================== */
 
 export { setupNavRing };

@@ -2,9 +2,6 @@
 
 import { $ } from './dom.js';
 
-/* ======================================================================
-   3. Toast értesítések
-   ====================================================================== */
 const TOAST_VISIBLE_MS = 2400;
 
 /** A hiba tovább látszik: 2,4 mp alatt egy „nem sikerült menteni" el sem
@@ -48,11 +45,5 @@ function showToast(message, variant = 'default') {
     variant === 'error' ? TOAST_ERROR_VISIBLE_MS : TOAST_VISIBLE_MS,
   );
 }
-
-/* ======================================================================
-   4. Router — hash-alapú oldalváltás
-   A cím (#workout, #coach…) tükrözi az aktív oldalt, így a vissza gomb és
-   a link-megosztás is működik; az utolsó oldal localStorage-ból áll vissza.
-   ====================================================================== */
 
 export { showToast };

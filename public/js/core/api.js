@@ -202,7 +202,8 @@ const api = {
   saveSex: (sex) => putJson('/api/user', { sex }),
   // Ugyanezért külön: a születési év (null = törlés).
   saveBirthYear: (birthYear) => putJson('/api/user', { birthYear }),
-  // Nem cache-elt: a profiloldal összesítői minden edzés-mentés után változnak
+  // A mérési helyek listája (címke, mértékegység, tartomány) referencia-adat:
+  // egyszer töltjük le
   getMeasurementSites: () => getJsonCached('/api/measurements/sites'),
   getMeasurements: () => getJson('/api/measurements'),
   saveMeasurements: (values) => putJson('/api/measurements', { values }),

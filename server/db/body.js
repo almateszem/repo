@@ -178,12 +178,6 @@ export function weightForDate(userId, date, log = getWeightLog(userId)) {
 
 /* ---- Írás ---- */
 
-/** A nap testsúly-bejegyzése; visszaadja a { id, kg, date } sort.
-    FELHASZNÁLÓNKÉNT ÉS NAPONTA EGY SOR: ha az adott fióknak arra a napra már
-    van bejegyzése, azt írjuk felül.
-    A testsúlyt a napi check-in kérdi (Regeneráció → check-in varázsló), amit
-    a nap folyamán bármikor újra lehet menteni — sima INSERT-tel minden mentés
-    új oszlopot rakott volna a trend-diagramra ugyanarról a napról. */
 /** Egy testsúly-bejegyzés javítása. CSAK az értéket — a dátumot nem: a
     javítás nem áthelyezés (ugyanaz az elv, mint a mentett edzésnél). Idegen
     sorra nem talál semmit. Visszaadja a frissített sort, vagy null-t. */
@@ -223,6 +217,12 @@ function recomputeAfterWeightChange(userId) {
   if (hasBodyweight) recomputeExerciseMaxes(userId);
 }
 
+/** A nap testsúly-bejegyzése; visszaadja a { id, kg, date } sort.
+    FELHASZNÁLÓNKÉNT ÉS NAPONTA EGY SOR: ha az adott fióknak arra a napra már
+    van bejegyzése, azt írjuk felül.
+    A testsúlyt a napi check-in kérdi (Regeneráció → check-in varázsló), amit
+    a nap folyamán bármikor újra lehet menteni — sima INSERT-tel minden mentés
+    új oszlopot rakott volna a trend-diagramra ugyanarról a napról. */
 export function addWeightEntry(userId, kg, date) {
   const existing = db
     .prepare('SELECT id FROM weight_log WHERE user_id = ? AND date = ? ORDER BY id DESC')

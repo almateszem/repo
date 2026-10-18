@@ -527,10 +527,6 @@ function renderRecovery(report) {
   renderMuscleMap(report.muscles, page.dataset.rcView ?? 'front');
 }
 
-/* ======================================================================
-   7. Interakciók
-   ====================================================================== */
-
 export {
   CHECKIN_SCALES,
   CONFIDENCE_LABELS,

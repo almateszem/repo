@@ -504,17 +504,6 @@ export function deleteComment(commentId, authorId) {
   );
 }
 
-/**
- * Mentett edzés felülírása (név + gyakorlatok). A DÁTUMA és a plan_id-je
- * MARAD: a javítás nem helyezi át az edzést a mai napra — különben elcsúszna
- * a sorozat, a heti volumen és a készenlét 28 napos ablaka.
- *
- * A frissített sort adja vissza, vagy null-t, ha nincs ilyen id — MÁS
- * felhasználó edzését sem lehet átírni. A sort a csúcsok újraszámolása UTÁN
- * olvassuk vissza, tehát a válasz már a friss `pr` jelzőket viszi.
- */
-/** Egy edzés a saját naplóból, vagy null. A user_id feltétel nem elhagyható:
-    enélkül idegen edzés id-jével is lehetne dolgozni. */
 /** Az edző sportolóinak friss edzés-visszajelzései (a `sinceDate` óta).
     Ez az edzői oldal egyik értesítés-forrása: hogy a sportoló hogyan ÉLTE MEG
     az edzést, a naplóból nem számolható ki — csak tőle tudható meg.

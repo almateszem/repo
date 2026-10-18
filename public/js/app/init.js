@@ -120,7 +120,8 @@ async function init() {
   /* A kezenkénti-súly konvenció listája a katalógusból, MINDEN gyakorlat-
      kártya kirajzolása ELŐTT: a renderExercise szinkron, menet közben nem
      várhat rá, és félig feltöltött halmazzal két egyforma kártya más feliratot
-     kapna. A katalógus-válasz cache-elt, tehát ez nem plusz kérés. */
+     kapna. Ez egy saját kérés (/api/weight-conventions, nem cache-elt: a mai
+     testsúly is benne van, és az élő PR-jelző abból számol). */
   await safe(loadWeightConventions);
 
   setupRouter();

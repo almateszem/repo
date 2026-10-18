@@ -326,11 +326,4 @@ async function setupRecovery() {
   await hooks.refreshRecovery();
 }
 
-/* ======================================================================
-   6b. Napi check-in varázsló (#checkin)
-   Egy kérdés / egy képernyő. Ugyanabba a check-in sorba ír, mint a
-   Regeneráció oldal részletes űrlapja — a kettő közti szerződést lásd a
-   `carried` mezőnél.
-   ====================================================================== */
-
 export { setupRecovery };

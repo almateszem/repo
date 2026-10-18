@@ -158,8 +158,8 @@ const LIVE_COACH_GOAL = `
               WHERE l.coach_id = g.set_by AND l.athlete_id = g.user_id
                 AND l.status = 'active')`;
 
-/** Egy fiók cél-sora forrás szerint ('own' vagy 'coach'), vagy null. */
-/* Modulon belüli segéd — kifelé a getNutritionGoal ad teljes képet. */
+/** Egy fiók cél-sora forrás szerint ('own' vagy 'coach'), vagy null. Modulon
+    belüli segéd — kifelé a getNutritionGoal ad teljes képet. */
 function getNutritionGoalRow(userId, source) {
   const live = source === 'coach' ? LIVE_COACH_GOAL : '';
   return db
@@ -413,9 +413,6 @@ export function logCoachMeal(userId, mealId, date) {
     összege, valamint az érvényes napi cél (a felület a célhoz méri a
     bevitelt). */
 
-/** A napi táplálkozási összesítő egy adott napra: az AZNAP naplózott ételek
-    összege, valamint az edző által kitűzött napi cél (a felület a célhoz
-    méri a bevitelt). */
 export function getNutritionTotals(userId, date) {
   const sum = db
     .prepare(
@@ -666,10 +663,6 @@ function insertNutritionEntry(userId, food, date, grams) {
     .get(Number(lastInsertRowid));
 }
 
-/** Egy naplóbejegyzés törlése (a Táplálkozás oldal ✕ gombja). Csak a MAI
-    bejegyzés törölhető: a korábbi napok összesítői már beépültek a
-    készenlét-számításba, azokat visszamenőleg nem írjuk át. Ismeretlen, nem
-    aznapi vagy MÁS FELHASZNÁLÓ id-jére null-t ad — a hívó ebből 404-et képez. */
 /** Egy naplóbejegyzés adagjának javítása.
  *
  * A makrókat ARÁNYOSAN számoljuk át a tárolt értékekből, nem az étel-
@@ -717,8 +710,10 @@ export function updateNutritionEntry(userId, id, grams) {
   return { date: row.date, totals: getNutritionTotals(userId, row.date) };
 }
 
-/** Naplóbejegyzés törlése. A dátumot a hívó adja meg — a mai napló
-    visszavonásához ez elég, és a régebbi napokat véletlenül nem bántja. */
+/** Egy naplóbejegyzés törlése (a Táplálkozás oldal ✕ gombja). A dátumot a
+    hívó adja meg (a mai napot): a korábbi napok összesítői már beépültek a
+    készenlét-számításba, azokat visszamenőleg nem írjuk át. Ismeretlen, más
+    napi vagy MÁS FELHASZNÁLÓ id-jére null-t ad — a hívó ebből 404-et képez. */
 export function deleteNutritionEntry(userId, id, date) {
   const { changes } = db
     .prepare('DELETE FROM nutrition_log WHERE id = ? AND user_id = ? AND date = ?')

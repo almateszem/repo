@@ -27,10 +27,4 @@ function paintPrs(prs) {
   $('[data-prs-empty]').hidden = prs.length > 0;
 }
 
-/* ---- Edzés-összegző (summary) ----
-   Az értékek az edzésnapló élő DOM-állapotából jönnek (pipált szettek);
-   az időtartam az edzés tényleges kezdete (az első aznap kipipált szett)
-   óta eltelt idő. Mély-linkkel (#summary) is működik: ilyenkor az aktuális
-   naplóállapotot összegzi. */
-
 export { paintPrs };
