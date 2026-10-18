@@ -1557,6 +1557,24 @@ export function getNutritionLogForDate(userId, date) {
     .all(userId, date);
 }
 
+/** Az étel tápértéke az adagra vetítve. Egy helyen él: a naplózás, az adag
+    javítása, az edzői étrend tétele és a „Legutóbbiak" sor is ezt hívja, hogy
+    ugyanarra a bemenetre ugyanazt adják (a (kcal × g) / 100 és a
+    kcal × (g / 100) néha másra kerekít). A `base` a `baseGrams` grammra
+    vonatkozik — alapesetben 100 g, az alapérték nélküli régi naplósornál a
+    saját adagja. A kalória egész, a makrók egy tizedesre: így a napi összeg
+    sem gyűjt lebegőpontos szemetet (pl. 0.30000000000000004 g zsír). */
+function scaleMacros(base, grams, baseGrams = 100) {
+  const factor = grams / baseGrams;
+  const round1 = (value) => Math.round(value * factor * 10) / 10;
+  return {
+    kcal: Math.round(base.kcal * factor),
+    protein: round1(base.protein),
+    carbs: round1(base.carbs),
+    fat: round1(base.fat),
+  };
+}
+
 /** A legutóbb naplózott, egymástól KÜLÖNBÖZŐ ételek (legújabb elöl), mindegyik
     a legutóbbi adagjával. A Táplálkozás oldal „Legutóbbiak" sora ebből épül:
     ugyanazt az ételt újra naplózni a leggyakoribb művelet.
@@ -1586,7 +1604,7 @@ export function getRecentFoods(userId, limit = 8) {
       name: row.name,
       grams: row.grams,
       unit: food.unit || 'g',
-      kcal: Math.round((food.kcal * row.grams) / 100),
+      kcal: scaleMacros(food, row.grams).kcal,
     });
     if (recent.length === limit) break;
   }
@@ -1868,19 +1886,22 @@ export function clearOwnNutritionGoal(userId) {
    Az edző állítja össze, a sportoló látja és egy gombbal naplózza. A napi
    céltól FÜGGETLEN: az étrend összege csak viszonyítás, a cél külön szám. */
 
-/** Egy tétel makrói az adagra — ugyanaz a kerekítés, mint az
-    addNutritionEntry-ben (kcal egész, makrók egy tizedes), hogy a naplózott
-    bejegyzés pontosan azt adja, amit az étrend ígért. */
+/** Egy tétel makrói az adagra — ugyanaz a vetítés (scaleMacros), mint a
+    naplózásé, hogy a naplózott bejegyzés pontosan azt adja, amit az étrend
+    ígért. */
 function scaleMealItem(item) {
-  const factor = item.grams / 100;
-  const round1 = (value) => Math.round(value * factor * 10) / 10;
   return {
     name: item.name,
     grams: item.grams,
-    kcal: Math.round(item.base_kcal * factor),
-    protein: round1(item.base_protein),
-    carbs: round1(item.base_carbs),
-    fat: round1(item.base_fat),
+    ...scaleMacros(
+      {
+        kcal: item.base_kcal,
+        protein: item.base_protein,
+        carbs: item.base_carbs,
+        fat: item.base_fat,
+      },
+      item.grams,
+    ),
   };
 }
 
@@ -2983,10 +3004,7 @@ export function addNutritionEntry(userId, food, date, grams = 100) {
 /** Egy naplósor beszúrása összesítő nélkül — a több tételt egyszerre író
     hívó (logCoachMeal) a végén EGYSZER számol összesítőt. */
 function insertNutritionEntry(userId, food, date, grams) {
-  const factor = grams / 100;
-  // A kalória egész, a makrók egy tizedesre — így a napi összeg sem gyűjt
-  // lebegőpontos szemetet (pl. 0.30000000000000004 g zsír).
-  const round1 = (value) => Math.round(value * factor * 10) / 10;
+  const scaled = scaleMacros(food, grams);
 
   const { lastInsertRowid } = db
     .prepare(
@@ -2998,10 +3016,10 @@ function insertNutritionEntry(userId, food, date, grams) {
       userId,
       food.name,
       grams,
-      Math.round(food.kcal * factor),
-      round1(food.protein),
-      round1(food.carbs),
-      round1(food.fat),
+      scaled.kcal,
+      scaled.protein,
+      scaled.carbs,
+      scaled.fat,
       date,
       food.kcal,
       food.protein,
@@ -3041,7 +3059,6 @@ export function updateNutritionEntry(userId, id, grams) {
     .get(id, userId);
   if (!row || !(row.grams > 0)) return null;
 
-  const round1 = (value) => Math.round(value * 10) / 10;
   /* Ha a sor tárolja a KEREKÍTETLEN 100 g-os alapértéket, abból számolunk —
      ugyanúgy, mint a naplózáskor. A régi (alapérték nélküli) soroknál marad
      az arányosítás a tárolt, adagra vetített értékből. */
@@ -3049,33 +3066,21 @@ export function updateNutritionEntry(userId, id, grams) {
     (value) => value !== null,
   );
   const scaled = hasBase
-    ? {
-        factor: grams / 100,
-        kcal: row.base_kcal,
-        protein: row.base_protein,
-        carbs: row.base_carbs,
-        fat: row.base_fat,
-      }
-    : {
-        factor: grams / row.grams,
-        kcal: row.kcal,
-        protein: row.protein,
-        carbs: row.carbs,
-        fat: row.fat,
-      };
+    ? scaleMacros(
+        {
+          kcal: row.base_kcal,
+          protein: row.base_protein,
+          carbs: row.base_carbs,
+          fat: row.base_fat,
+        },
+        grams,
+      )
+    : scaleMacros(row, grams, row.grams);
   db.prepare(
     `UPDATE nutrition_log
                  SET grams = ?, kcal = ?, protein = ?, carbs = ?, fat = ?
                WHERE id = ? AND user_id = ?`,
-  ).run(
-    grams,
-    Math.round(scaled.kcal * scaled.factor),
-    round1(scaled.protein * scaled.factor),
-    round1(scaled.carbs * scaled.factor),
-    round1(scaled.fat * scaled.factor),
-    id,
-    userId,
-  );
+  ).run(grams, scaled.kcal, scaled.protein, scaled.carbs, scaled.fat, id, userId);
 
   return { date: row.date, totals: getNutritionTotals(userId, row.date) };
 }
