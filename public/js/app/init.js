@@ -202,6 +202,11 @@ async function init() {
   // (A táplálkozás-oldali frissítő a setupNutrition-ben iratkozik fel.)
   onDayChange(() => {
     renderChromeDate();
+    /* A /api/charts cache-elt, de a NAPTÓL függ (vasárnapról hétfőre az „ez a
+       hét" sáv a lezárult hetet mutatná): a frissítő eldobja a cache-t, és
+       az Edzés oldali összehasonlítót meg az Áttekintő diagramját is
+       újrarajzolja. */
+    hooks.refreshVolumeChart?.().catch((err) => console.error('Diagram-frissítési hiba:', err));
     return renderDashboard();
   });
   startDayWatcher();
