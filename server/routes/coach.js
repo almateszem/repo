@@ -36,7 +36,6 @@ import {
   getPendingCoachInvites,
   getPendingPlanOffers,
   getPlan,
-  getPlanAssignment,
   getRecentExerciseMaxes,
   getUnreadCounts,
   getUser,
@@ -53,7 +52,12 @@ import {
 import { buildNotifications } from '../notifications.js';
 import { computeReadiness } from '../recovery.js';
 import { goalTag } from './auth.js';
-import { activeLinkAsCoach } from './nutrition.js';
+import { linkFor, pendingOfferFor } from '../http/access.js';
+
+/** A meghívó: a sportoló oldaláról, FÜGGŐ kapcsolat. */
+const INVITE = { as: 'athlete', status: 'pending', notFound: 'Nincs ilyen meghívó.' };
+/** Az üzenet-szál: bármelyik oldalról, ÉLŐ kapcsolat. */
+const THREAD = { notFound: 'Nincs ilyen beszélgetés.' };
 import { messageLimiter, tooManyRequests } from '../http/session.js';
 import { nutritionInput } from '../services/session-plan.js';
 
@@ -228,15 +232,6 @@ const coachPayload = (coach, userId) =>
 
 /* ---- Üzenetek (a kapcsolat mindkét oldala ugyanazt a szálat használja) ---- */
 
-/** A kapcsolat, ha ÉL és a hívó tényleg az egyik oldala — különben null.
-    Ez az egyetlen hely, ahol az üzenet-szálhoz való hozzáférés eldől. */
-function activeLinkFor(user, rawLinkId) {
-  const link = getCoachLink(Number(rawLinkId));
-  if (!link || link.status !== 'active') return null;
-  if (link.coachId !== user.id && link.athleteId !== user.id) return null;
-  return link;
-}
-
 /** A szál másik oldalán álló fél (a válasz fejlécéhez). */
 function partnerOf(link, user) {
   const isCoach = link.coachId === user.id;
@@ -292,15 +287,6 @@ const offerPayload = (offer, from) => ({
   ...from,
 });
 
-/** A hozzám érkezett ajánlat, ha tényleg az enyém és még függő — különben null. */
-function pendingOfferFor(userId, rawId) {
-  const offer = getPlanAssignment(Number(rawId));
-  if (!offer || offer.status !== 'pending') return null;
-  const link = getCoachLink(offer.linkId);
-  if (!link || link.status !== 'active' || link.athleteId !== userId) return null;
-  return offer;
-}
-
 /* ======================================================================
    Értesítések
    ----------------------------------------------------------------------
@@ -342,14 +328,6 @@ function parseCommentBody(body) {
   const target = String(body?.targetId ?? '');
   if (!COMMENT_TARGET_RE.test(target)) return { error: 'Érvénytelen megjegyzés-cél.' };
   return { text, target };
-}
-
-/** A kapcsolat sportolójának azonosítója, ha a hívó az EDZŐ oldala és a
-    kapcsolat él — különben null (a válasz ilyenkor 404). */
-function athleteOfLink(user, rawLinkId) {
-  const link = getCoachLink(Number(rawLinkId));
-  if (!link || link.coachId !== user.id || link.status !== 'active') return null;
-  return link.athleteId;
 }
 
 /** Az útvonalak bekötése. Ugyanarra az app-ra, amit a server.js épít — NEM
@@ -414,10 +392,10 @@ export function register(app) {
   /** A kapcsolat bontása az EDZŐ oldaláról: függő meghívó visszavonása vagy
       élő kapcsolat lezárása. Az üzenetváltás is törlődik vele (CASCADE). */
   app.delete('/api/athletes/:linkId', (req, res) => {
-    const link = getCoachLink(Number(req.params.linkId));
-    if (!link || link.coachId !== req.user.id) {
-      return res.status(404).json({ error: 'Nincs ilyen kapcsolat.' });
-    }
+    // Függő meghívó és élő kapcsolat is bontható — az állapot itt mindegy
+    const access = linkFor(req.user, req.params.linkId, { as: 'coach', status: null });
+    if (!access.link) return res.status(access.code).json({ error: access.error });
+    const { link } = access;
     deleteCoachLink(link.id);
     res.status(204).end();
   });
@@ -466,10 +444,9 @@ export function register(app) {
   /** Meghívó elfogadása. Egyszerre EGY edző lehet — előbb le kell válni a
       régiről, különben nem lenne eldönthető, kinek a felülete a „kliens nézet". */
   app.post('/api/coach/invites/:linkId/accept', (req, res) => {
-    const link = getCoachLink(Number(req.params.linkId));
-    if (!link || link.athleteId !== req.user.id || link.status !== 'pending') {
-      return res.status(404).json({ error: 'Nincs ilyen meghívó.' });
-    }
+    const access = linkFor(req.user, req.params.linkId, INVITE);
+    if (!access.link) return res.status(access.code).json({ error: access.error });
+    const { link } = access;
     if (getActiveCoach(req.user.id)) {
       return res.status(409).json({ error: 'Már van edződ — előbb válj le róla.' });
     }
@@ -485,10 +462,9 @@ export function register(app) {
 
   /** Meghívó elutasítása (a sportoló oldaláról). */
   app.delete('/api/coach/invites/:linkId', (req, res) => {
-    const link = getCoachLink(Number(req.params.linkId));
-    if (!link || link.athleteId !== req.user.id || link.status !== 'pending') {
-      return res.status(404).json({ error: 'Nincs ilyen meghívó.' });
-    }
+    const access = linkFor(req.user, req.params.linkId, INVITE);
+    if (!access.link) return res.status(access.code).json({ error: access.error });
+    const { link } = access;
     deleteCoachLink(link.id);
     res.status(204).end();
   });
@@ -505,8 +481,9 @@ export function register(app) {
       nyugtázza (POST .../read), amikor a hírfolyam tényleg látszik — a 20
       másodpercenkénti halk frissítés önmagában nem jelenti, hogy el is olvasták. */
   app.get('/api/messages/:linkId', (req, res) => {
-    const link = activeLinkFor(req.user, req.params.linkId);
-    if (!link) return res.status(404).json({ error: 'Nincs ilyen beszélgetés.' });
+    const access = linkFor(req.user, req.params.linkId, THREAD);
+    if (!access.link) return res.status(access.code).json({ error: access.error });
+    const { link } = access;
     const messages = getMessages(link.id).map((message) => messagePayload(message, req.user.id));
     res.json({
       linkId: link.id,
@@ -517,8 +494,9 @@ export function register(app) {
   });
 
   app.post('/api/messages/:linkId', (req, res) => {
-    const link = activeLinkFor(req.user, req.params.linkId);
-    if (!link) return res.status(404).json({ error: 'Nincs ilyen beszélgetés.' });
+    const access = linkFor(req.user, req.params.linkId, THREAD);
+    if (!access.link) return res.status(access.code).json({ error: access.error });
+    const { link } = access;
 
     /* Az általános írás-korláton FELÜL: a szemetet itt egy másik ember nézi
        végig, nem csak a szerver nyeli le. Percenként 20 üzenet a leggyorsabb
@@ -539,8 +517,9 @@ export function register(app) {
   /** A szál nyugtázása: a másik fél üzenetei olvasottá válnak. Idempotens —
       hátralék nélkül is 200-at ad, `read: 0`-val. */
   app.post('/api/messages/:linkId/read', (req, res) => {
-    const link = activeLinkFor(req.user, req.params.linkId);
-    if (!link) return res.status(404).json({ error: 'Nincs ilyen beszélgetés.' });
+    const access = linkFor(req.user, req.params.linkId, THREAD);
+    if (!access.link) return res.status(access.code).json({ error: access.error });
+    const { link } = access;
     res.json({ read: markMessagesRead(link.id, req.user.id) });
   });
 
@@ -548,8 +527,9 @@ export function register(app) {
       A terv az EDZŐ saját tervei közül való — a végpont nem terv-szerkesztő. */
   app.post('/api/athletes/:linkId/plan', (req, res) => {
     // Csak az edző oldala oszthat ki, és csak ÉLŐ kapcsolatba
-    const link = activeLinkAsCoach(req);
-    if (!link) return res.status(404).json({ error: 'Nincs ilyen kapcsolat.' });
+    const access = linkFor(req.user, req.params.linkId, { as: 'coach' });
+    if (!access.link) return res.status(access.code).json({ error: access.error });
+    const { link } = access;
 
     const planId = Number(req.body?.planId);
     if (!Number.isInteger(planId)) {
@@ -572,8 +552,9 @@ export function register(app) {
       edző pedig 0%-os követést látna. A meglévő tervek megmaradnak, csak
       kikapcsolnak; a Tervek oldalon vissza lehet váltani. */
   app.post('/api/plan-offers/:id/accept', (req, res) => {
-    const offer = pendingOfferFor(req.user.id, req.params.id);
-    if (!offer) return res.status(404).json({ error: 'Nincs ilyen terv-ajánlat.' });
+    const access = pendingOfferFor(req.user, req.params.id);
+    if (!access.offer) return res.status(access.code).json({ error: access.error });
+    const { offer } = access;
 
     // A lezárás, a másolat és az aktiválás egy lépés: félúton nem marad
     // elfogadott ajánlat terv nélkül
@@ -589,8 +570,9 @@ export function register(app) {
   /** Ajánlat elutasítása. A sor megmarad (lezárt állapotban), hogy az edző
       lássa a választ — de a sportolónál nem lóg ott tovább. */
   app.delete('/api/plan-offers/:id', (req, res) => {
-    const offer = pendingOfferFor(req.user.id, req.params.id);
-    if (!offer) return res.status(404).json({ error: 'Nincs ilyen terv-ajánlat.' });
+    const access = pendingOfferFor(req.user, req.params.id);
+    if (!access.offer) return res.status(access.code).json({ error: access.error });
+    const { offer } = access;
     resolvePlanAssignment(offer.id, 'declined');
     res.status(204).end();
   });
@@ -690,8 +672,10 @@ export function register(app) {
   /* ---- A sportolóm megjegyzései (az EDZŐ oldala) ---- */
 
   app.get('/api/athletes/:linkId/comments', (req, res) => {
-    const athleteId = athleteOfLink(req.user, req.params.linkId);
-    if (athleteId === null) return res.status(404).json({ error: 'Nincs ilyen kapcsolat.' });
+    const access = linkFor(req.user, req.params.linkId, { as: 'coach' });
+    if (!access.link) return res.status(access.code).json({ error: access.error });
+    const { link } = access;
+    const athleteId = link.athleteId;
     const target = String(req.query.target ?? '');
     res.json(getComments(athleteId, COMMENT_TYPE, target, req.user.id));
   });
@@ -699,8 +683,10 @@ export function register(app) {
   /** Az edzői megjegyzés UGYANABBA a szálba megy, csak más szerzővel — ettől
       lesz egy beszélgetés a gyakorlatról, nem két külön lista. */
   app.post('/api/athletes/:linkId/comments', (req, res) => {
-    const athleteId = athleteOfLink(req.user, req.params.linkId);
-    if (athleteId === null) return res.status(404).json({ error: 'Nincs ilyen kapcsolat.' });
+    const access = linkFor(req.user, req.params.linkId, { as: 'coach' });
+    if (!access.link) return res.status(access.code).json({ error: access.error });
+    const { link } = access;
+    const athleteId = link.athleteId;
     const { text, target, error } = parseCommentBody(req.body);
     if (error) return res.status(400).json({ error });
     res.status(201).json(addComment(req.user.id, athleteId, COMMENT_TYPE, target, text));

@@ -19,7 +19,6 @@ import {
   deleteNutritionEntry,
   deleteWaterEntry,
   findFoodForUser,
-  getCoachLink,
   getCoachMeals,
   getCollection,
   getCustomFoodByBarcode,
@@ -43,6 +42,7 @@ import { fetchProduct, normalizeBarcode } from '../openfoodfacts.js';
 import { hydrationTarget } from '../recovery.js';
 import { barcodeLookupLimiter, tooManyRequests } from '../http/session.js';
 import { readOptionalNumber } from './training.js';
+import { linkFor } from '../http/access.js';
 
 /* ---- Víznapló ----
    A napi folyadékbevitel a Recovery Engine bemenete (nutritionScore). A
@@ -150,13 +150,6 @@ function parseMealBody(coachId, body) {
   return { meal: { name, items } };
 }
 
-/** Az edző ÉLŐ kapcsolata a sportolóval — ugyanaz a kapu, mint a napi
-    célnál és a terv-kiosztásnál. Nincs ilyen → null (a hívó 404-et ad). */
-export function activeLinkAsCoach(req) {
-  const link = getCoachLink(Number(req.params.linkId));
-  return link && link.coachId === req.user.id && link.status === 'active' ? link : null;
-}
-
 /** Az útvonalak bekötése. Ugyanarra az app-ra, amit a server.js épít — NEM
     express.Router és NEM al-alkalmazás: a guardAsyncRoutes csak az app
     metódusait foltozza (errors.js), egy Router async kezelőjének hibájára
@@ -233,8 +226,9 @@ export function register(app, { catalogSearch }) {
   app.delete('/api/nutrition/goal', (req, res) => res.json(clearOwnNutritionGoal(req.user.id)));
 
   app.put('/api/athletes/:linkId/water-goal', (req, res) => {
-    const link = activeLinkAsCoach(req);
-    if (!link) return res.status(404).json({ error: 'Nincs ilyen kapcsolat.' });
+    const access = linkFor(req.user, req.params.linkId, { as: 'coach' });
+    if (!access.link) return res.status(access.code).json({ error: access.error });
+    const { link } = access;
     const liters = Number(req.body?.liters);
     if (
       !Number.isFinite(liters) ||
@@ -249,14 +243,16 @@ export function register(app, { catalogSearch }) {
   });
 
   app.delete('/api/athletes/:linkId/water-goal', (req, res) => {
-    const link = activeLinkAsCoach(req);
-    if (!link) return res.status(404).json({ error: 'Nincs ilyen kapcsolat.' });
+    const access = linkFor(req.user, req.params.linkId, { as: 'coach' });
+    if (!access.link) return res.status(access.code).json({ error: access.error });
+    const { link } = access;
     res.json(clearWaterGoal(link.athleteId));
   });
 
   app.put('/api/athletes/:linkId/nutrition-goal', (req, res) => {
-    const link = activeLinkAsCoach(req);
-    if (!link) return res.status(404).json({ error: 'Nincs ilyen kapcsolat.' });
+    const access = linkFor(req.user, req.params.linkId, { as: 'coach' });
+    if (!access.link) return res.status(access.code).json({ error: access.error });
+    const { link } = access;
     const { goal, error } = parseGoalBody(req.body);
     if (error) return res.status(400).json({ error });
     res.json(saveNutritionGoal(link.athleteId, 'coach', goal, req.user.id));
@@ -298,8 +294,9 @@ export function register(app, { catalogSearch }) {
   });
 
   app.post('/api/athletes/:linkId/meals', (req, res) => {
-    const link = activeLinkAsCoach(req);
-    if (!link) return res.status(404).json({ error: 'Nincs ilyen kapcsolat.' });
+    const access = linkFor(req.user, req.params.linkId, { as: 'coach' });
+    if (!access.link) return res.status(access.code).json({ error: access.error });
+    const { link } = access;
     const { meal, error } = parseMealBody(req.user.id, req.body);
     if (error) return res.status(400).json({ error });
     if (countCoachMeals(link.athleteId) >= MEAL_LIMITS.mealsMax) {
@@ -311,8 +308,9 @@ export function register(app, { catalogSearch }) {
   });
 
   app.put('/api/athletes/:linkId/meals/:mealId', (req, res) => {
-    const link = activeLinkAsCoach(req);
-    if (!link) return res.status(404).json({ error: 'Nincs ilyen kapcsolat.' });
+    const access = linkFor(req.user, req.params.linkId, { as: 'coach' });
+    if (!access.link) return res.status(access.code).json({ error: access.error });
+    const { link } = access;
     const { meal, error } = parseMealBody(req.user.id, req.body);
     if (error) return res.status(400).json({ error });
     const meals = updateCoachMeal(
@@ -327,8 +325,9 @@ export function register(app, { catalogSearch }) {
   });
 
   app.delete('/api/athletes/:linkId/meals/:mealId', (req, res) => {
-    const link = activeLinkAsCoach(req);
-    if (!link) return res.status(404).json({ error: 'Nincs ilyen kapcsolat.' });
+    const access = linkFor(req.user, req.params.linkId, { as: 'coach' });
+    if (!access.link) return res.status(access.code).json({ error: access.error });
+    const { link } = access;
     const meals = deleteCoachMeal(link.athleteId, Number(req.params.mealId), req.today);
     if (!meals) return res.status(404).json({ error: 'Nincs ilyen étkezés.' });
     res.json(meals);

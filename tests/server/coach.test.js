@@ -292,9 +292,10 @@ test('a kívülálló továbbra sem lát semmit', async () => {
   });
   assert.equal(send.status, 404, 'idegen nem írhat a szálba');
 
-  // Értelmezhetetlen azonosítóra sem hibázhat a szerver (a szám-konverzió NaN-t ad)
+  // Értelmezhetetlen azonosítóra sem hibázhat a szerver: 400, nem 500 (és nem 404 —
+  // az a nem létező vagy nem saját kapcsolaté, ld. http/access.js)
   const bogus = await request('GET', '/api/messages/abc', { cookie: coach.cookie });
-  assert.equal(bogus.status, 404);
+  assert.equal(bogus.status, 400);
 
   const read = await request('POST', `/api/messages/${linkId}/read`, { cookie: outsider.cookie });
   assert.equal(read.status, 404, 'idegen nem nyugtázhatja más szálát');
@@ -1578,4 +1579,37 @@ test('a kapcsolat bontása után a volt edző nem éri el a megjegyzéseket', as
     cookie: mgClient.cookie,
   });
   assert.equal(sajat.status, 200);
+});
+
+/* ======================================================================
+   Kapcsolat- és ajánlat-azonosítók: 400 a nem szám id-re, 404 a nem létező
+   vagy nem saját kapcsolatra — minden végponton ugyanígy (server/http/
+   access.js → linkFor, parseIdParam).
+   ====================================================================== */
+
+test('a kapcsolat-végpontok egységesen: 400 a nem szám id-re, 404 a nem létezőre', async () => {
+  const cookie = await register('id-param', 'Azonosító Anna');
+  const endpoints = [
+    ['DELETE', '/api/athletes/:id'],
+    ['POST', '/api/coach/invites/:id/accept'],
+    ['DELETE', '/api/coach/invites/:id'],
+    ['GET', '/api/messages/:id'],
+    ['POST', '/api/messages/:id', { text: 'szia' }],
+    ['POST', '/api/messages/:id/read'],
+    ['POST', '/api/athletes/:id/plan', { planId: 1 }],
+    ['GET', '/api/athletes/:id/comments'],
+    ['POST', '/api/athletes/:id/comments', { text: 'jó', target: '1:0' }],
+    ['PUT', '/api/athletes/:id/water-goal', { liters: 3 }],
+    ['DELETE', '/api/athletes/:id/water-goal'],
+    ['PUT', '/api/athletes/:id/nutrition-goal', { kcal: 2000 }],
+    ['POST', '/api/athletes/:id/meals', { name: 'Ebéd', items: [] }],
+    ['POST', '/api/plan-offers/:id/accept'],
+    ['DELETE', '/api/plan-offers/:id'],
+  ];
+  for (const [method, pattern, body] of endpoints) {
+    const bad = await request(method, pattern.replace(':id', 'abc'), { cookie, body });
+    assert.equal(bad.status, 400, `${method} ${pattern} — nem szám id`);
+    const missing = await request(method, pattern.replace(':id', '987654'), { cookie, body });
+    assert.equal(missing.status, 404, `${method} ${pattern} — nem létező id`);
+  }
 });
