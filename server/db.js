@@ -659,14 +659,19 @@ if (!plansHadAssignment) {
    kijelölt napok alakú tervek és kiosztások hetet kapnak — az első kijelölt
    nap az edzés, a többi kijelölt nap „ugyanaz, mint az első", a többi
    pihenő. A régi oszlopok maradnak (a fenti visszakötés pontos egyezéssel
-   olvassa őket). A `week IS NULL` feltétel miatt idempotens. */
-for (const table of ['plans', 'plan_assignments']) {
-  const legacy = db.prepare(`SELECT id, exercises, days FROM ${table} WHERE week IS NULL`).all();
-  const fill = db.prepare(`UPDATE ${table} SET week = ? WHERE id = ?`);
-  for (const row of legacy) {
-    const exercises = JSON.parse(row.exercises);
-    const week = weekFromLegacy(Array.isArray(exercises) ? exercises : [], JSON.parse(row.days));
-    fill.run(JSON.stringify(week), row.id);
+   olvassa őket). Verziózott lépés: az 5-ös verzióig minden indításkor
+   lefutott, és minden író (addPlan, updatePlan, assignPlan) kitölti a hetet —
+   egy 5-ös adatbázisban tehát nincs NULL week, ezért az olvasók (toPlan,
+   toAssignment, getAssignedPlanTargets) a régi oszlopokhoz már nem nyúlnak. */
+if (schemaVersion < 5) {
+  for (const table of ['plans', 'plan_assignments']) {
+    const legacy = db.prepare(`SELECT id, exercises, days FROM ${table} WHERE week IS NULL`).all();
+    const fill = db.prepare(`UPDATE ${table} SET week = ? WHERE id = ?`);
+    for (const row of legacy) {
+      const exercises = JSON.parse(row.exercises);
+      const week = weekFromLegacy(Array.isArray(exercises) ? exercises : [], JSON.parse(row.days));
+      fill.run(JSON.stringify(week), row.id);
+    }
   }
 }
 
@@ -1320,9 +1325,7 @@ export function getUnreadCounts(userId) {
 /** Egy kiosztás-sor → a felület által látott alak. A hét a terv-építőé
     (plan-week.js); a `days` belőle számolt. */
 const toAssignment = (row) => {
-  const week = row.week
-    ? JSON.parse(row.week)
-    : weekFromLegacy(JSON.parse(row.exercises), JSON.parse(row.days));
+  const week = JSON.parse(row.week);
   return {
     id: row.id,
     linkId: row.link_id,
@@ -1344,8 +1347,6 @@ const ASSIGNMENT_FIELDS = [
   'link_id',
   'name',
   'week',
-  'exercises',
-  'days',
   'note',
   'status',
   'created_at',
@@ -2659,14 +2660,12 @@ export function recomputeExerciseMaxes(userId) {
 
 /* ---- Tervek (heti bontás: plan-week.js) ---- */
 
-const PLAN_COLUMNS = 'id, name, date, week, exercises, days, active, active_since, assignment_id';
+const PLAN_COLUMNS = 'id, name, date, week, active, active_since, assignment_id';
 
 /** Egy terv-sor → a hívók által látott alak. A `days` SZÁMOLT érték (a nem
     pihenő napok); a régi `exercises`/`days` oszlop csak a migráció forrása. */
 const toPlan = (row) => {
-  const week = row.week
-    ? JSON.parse(row.week)
-    : weekFromLegacy(JSON.parse(row.exercises), JSON.parse(row.days));
+  const week = JSON.parse(row.week);
   return {
     id: row.id,
     name: row.name,
@@ -2717,7 +2716,7 @@ export function getAssignedPlanTargets(userId, linkId) {
   return db
     .prepare(
       `
-    SELECT p.id, p.date, p.active_since, a.week, a.exercises, a.days
+    SELECT p.id, p.date, p.active_since, a.week
     FROM plans p JOIN plan_assignments a ON a.id = p.assignment_id
     WHERE p.user_id = ? AND a.link_id = ?
     ORDER BY p.id DESC LIMIT 1
@@ -2729,9 +2728,7 @@ export function getAssignedPlanTargets(userId, linkId) {
       date: row.date,
       // A ciklus horgonya a sportoló tervéé — ő aktiválta
       activeSince: row.active_since ?? null,
-      week: row.week
-        ? JSON.parse(row.week)
-        : weekFromLegacy(JSON.parse(row.exercises), JSON.parse(row.days)),
+      week: JSON.parse(row.week),
     }));
 }
 
