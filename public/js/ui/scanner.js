@@ -60,6 +60,12 @@ function setupScanner() {
   const manualInput = $('#sc-manual-code', modal);
 
   let pending = null; // a futó scan() feloldója
+  /* Munkamenet-token: a scan() és a settle() is lépteti. A start() minden
+     await után ellenőrzi, hogy még a sajátja-e — ha közben bezárták a modált
+     (✕, Escape, kézi kód) vagy újranyitották, a későn megérkező streamet
+     leállítja, és csendben kilép. Enélkül az engedélykérés alatti bezárás
+     után a kamera-LED égve maradt, és a rAF-ciklus tovább pörgött. */
+  let session = 0;
   let stream = null;
   let rafId = 0;
   let canvas = null;
@@ -101,6 +107,7 @@ function setupScanner() {
 
   /** Az ígéret lezárása EGYSZER, minden kilépési úton — előbb a kamera áll le. */
   const settle = (code) => {
+    session += 1;
     stopCamera();
     const resolve = pending;
     pending = null;
@@ -213,6 +220,15 @@ function setupScanner() {
   };
 
   const start = async () => {
+    const mine = session;
+    const stale = () => mine !== session;
+    /* Elavult munkamenetben csak a SAJÁT streamünket állítjuk le: a modul
+       `stream`-je addigra már egy újranyitott szkennelésé lehet. */
+    const abandon = (own) => {
+      own?.getTracks().forEach((track) => track.stop());
+      if (own && stream === own) stream = null;
+    };
+
     setError('');
     setStatus('Kamera indítása…');
 
@@ -229,8 +245,9 @@ function setupScanner() {
       return;
     }
 
+    let own;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({
+      own = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: 'environment' },
           width: { ideal: 1280 },
@@ -239,12 +256,18 @@ function setupScanner() {
         audio: false,
       });
     } catch (err) {
+      if (stale()) return; // már nem ennek a munkamenetnek szól a hiba
       setStatus('');
       setError(
         CAMERA_ERRORS[err.name] || 'A kamerát nem sikerült elindítani — írd be a kódot kézzel.',
       );
       return;
     }
+    if (stale()) {
+      abandon(own);
+      return;
+    }
+    stream = own;
 
     video.srcObject = stream;
     stage.hidden = false;
@@ -254,6 +277,10 @@ function setupScanner() {
       // Az autoplay-tiltás ritka némított videónál, de nem végzetes: a
       // képkockák a detektáló ciklusban akkor is elérhetők lehetnek.
     }
+    if (stale()) {
+      abandon(own);
+      return;
+    }
     setupTorch(stream.getVideoTracks()[0]);
 
     let detect;
@@ -261,9 +288,17 @@ function setupScanner() {
       setStatus('Dekóder betöltése…');
       detect = await createDetector();
     } catch {
+      if (stale()) {
+        abandon(own);
+        return;
+      }
       stopCamera();
       setStatus('');
       setError('A vonalkód-dekódert nem sikerült betölteni — írd be a kódot kézzel.');
+      return;
+    }
+    if (stale()) {
+      abandon(own);
       return;
     }
     setStatus('Irányítsd a kamerát a vonalkódra.');
@@ -275,12 +310,14 @@ function setupScanner() {
     let busy = false;
     let lastCode = null;
     const tick = async (now) => {
+      if (stale()) return; // lezárt munkamenet: nem kér újabb képkockát
       rafId = requestAnimationFrame(tick);
       if (!stream || busy || now - lastRun < SCAN_INTERVAL_MS) return;
       lastRun = now;
       busy = true;
       try {
         const code = await detect(video);
+        if (stale()) return;
         /* KÉT egymás utáni azonos leolvasás kell. Egyetlen képkocka
            félreolvasása így nem visz be rossz terméket — a mod-10 ellenőrző-
            szám sem fog ki minden hibán, és egy rossz étel csendben elrontaná
@@ -313,6 +350,7 @@ function setupScanner() {
         // Ha valamiért már fut egy szkennelés, azt megszakítjuk — két
         // párhuzamos kamera-stream sosem lenne jó.
         if (pending) settle(null);
+        session += 1; // új munkamenet — a még függő régi start ebből tudja, hogy elavult
         pending = resolve;
         manualInput.value = '';
         setError('');
