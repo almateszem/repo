@@ -1368,3 +1368,34 @@ test('„Fekvenyomás" és „fekvenyomas" egy ajánlás, összeadott alkalmakka
   assert.equal(fromCatalog.name, 'Fekvenyomás');
   assert.equal(fromCatalog.sessions, 3);
 });
+
+/* ---- Közepes megbízhatóság: okonként külön mondat, „0" sosem ---- */
+
+const benchDays = (n) =>
+  Array.from({ length: n }, (_, i) =>
+    workout(i * 2 + 1, 'Edzés', [exercise('Fekvenyomás', [set(8, 80), set(8, 80)])]),
+  );
+const checkinDays = (n) => Array.from({ length: n }, (_, i) => fullCheckin({ date: dateAgo(i) }));
+
+test('megbízhatóság: kevés edzésnap → „még N edzésnap kell", check-in-mondat nélkül', () => {
+  const report = run({ checkins: checkinDays(10), workouts: benchDays(3) });
+  assert.equal(report.confidence, 'medium');
+  assert.match(report.confidenceNote, /még 3 edzésnap kell/);
+  assert.doesNotMatch(report.confidenceNote, /check-in kell/);
+});
+
+test('megbízhatóság: kevés check-in → „még N napi check-in kell", nem „0 nap"', () => {
+  // Régi hiba: 14+ nap előzmény, de kevés check-in → „még 0 nap edzés-előzmény kell"
+  const workouts = [...benchDays(8), workout(20, 'Régi', [exercise('Guggolás', [set(5, 100)])])];
+  const report = run({ checkins: checkinDays(2), workouts });
+  assert.equal(report.confidence, 'medium');
+  assert.match(report.confidenceNote, /még 5 napi check-in kell/);
+  assert.doesNotMatch(report.confidenceNote, /edzésnap kell|\b0 nap/);
+});
+
+test('megbízhatóság: mindkettő kevés → mindkét mondat', () => {
+  const report = run({ checkins: checkinDays(2), workouts: benchDays(3) });
+  assert.equal(report.confidence, 'medium');
+  assert.match(report.confidenceNote, /még 3 edzésnap kell/);
+  assert.match(report.confidenceNote, /még 5 napi check-in kell/);
+});

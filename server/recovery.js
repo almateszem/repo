@@ -171,10 +171,11 @@ const LOAD_WINDOW_DAYS = 14; // ennyi nap terhelését összegezzük
 const CHRONIC_WINDOW_DAYS = 28; // ennyiből képezzük a személyes referenciát (0…27. nap)
 const MUSCLE_WINDOW_DAYS = 7; // az izomkárosodás ennél régebbről már elhanyagolható
 
-/** Ennyi nap előzmény után mondja a megbízhatósági szöveg, hogy személyre
-    szabott a becslés. (A referenciák súlyát már nem ez, hanem a valódi
-    edzésnapok száma adja — lásd PERSONAL_REF_MIN_TRAINING_DAYS.) */
-const PERSONAL_REF_MIN_DAYS = 14;
+/** A megbízhatóság küszöbei: „magas"-hoz ennyi check-in kell a 28 napos
+    ablakban (és PERSONAL_REF_MIN_TRAINING_DAYS edzésnap), „közepes"-hez
+    legalább ennyi valódi edzésnap (a korábbi „5 nap előzmény" párja). */
+const CONFIDENT_CHECKINS = 7;
+const MEDIUM_CONFIDENCE_TRAINING_DAYS = 2;
 
 /** Ennyi valódi edzésnap (terhelést hordozó nap a 28 napos ablakban) után a
     személyes referencia teljes súllyal számít; addig folytonosan keveredik az
@@ -817,11 +818,18 @@ function muscleDamage(byDay, group) {
     terhelés nélküli edzés napja nem számít. Egy helyen számolva, mert a CNS-,
     a fáradtság- és az izom-referencia is ezzel keveredik. */
 function personalRefWeight(byDay) {
+  return clamp01(trainingDayCount(byDay) / PERSONAL_REF_MIN_TRAINING_DAYS);
+}
+
+/** A valódi edzésnapok száma a 28 napos ablakban (terhelést hordozó nap). A
+    referencia-súly és a megbízhatóság is ebből számol, hogy a kettő ne
+    mondjon ellent egymásnak. */
+function trainingDayCount(byDay) {
   let trainingDays = 0;
   for (const [ago, bucket] of byDay) {
     if (ago < CHRONIC_WINDOW_DAYS && bucket.load > 0) trainingDays += 1;
   }
-  return clamp01(trainingDays / PERSONAL_REF_MIN_TRAINING_DAYS);
+  return trainingDays;
 }
 
 /** Az általános és a személyes referencia keveréke a súly szerint. Korábban a
@@ -1262,8 +1270,8 @@ export function computeReadiness({
     firstWorkoutDate ? dayKey(firstWorkoutDate) : null,
   );
   const { byDay, exercises } = summarizeWorkouts(workouts, todayKey, catalog, bodyWeight, novelty);
-  // A legrégebbi edzés kora csak a megbízhatósági szöveghez kell; a
-  // referenciák súlyát a valódi edzésnapok száma adja.
+  // A legrégebbi edzés kora már csak tájékoztató (meta); a referenciák súlyát
+  // és a megbízhatóságot a valódi edzésnapok száma adja.
   const historyDays = byDay.size ? Math.max(...[...byDay.keys()]) + 1 : 0;
   const refWeight = personalRefWeight(byDay);
 
@@ -1400,14 +1408,29 @@ export function computeReadiness({
 
   // — Megbízhatóság: mennyire van mire alapozni
   const checkinCount = normalized.filter((entry) => entry.daysAgo < CHRONIC_WINDOW_DAYS).length;
+  /* A megbízhatóság ugyanabból a bizonyítékból számol, mint a referenciák
+     súlya (valódi edzésnapok, D-011), nem a legrégebbi edzés korából — a
+     kettő korábban eltérhetett. „Közepes"-nél okonként külön mondat, így nem
+     jöhet ki „még 0 nap", ha valójában a check-in kevés. */
+  const trainingDays = trainingDayCount(byDay);
+  const missingTrainingDays = PERSONAL_REF_MIN_TRAINING_DAYS - trainingDays;
+  const missingCheckins = CONFIDENT_CHECKINS - checkinCount;
   let confidence;
   let confidenceNote;
-  if (checkin && historyDays >= PERSONAL_REF_MIN_DAYS && checkinCount >= 7) {
+  if (checkin && missingTrainingDays <= 0 && missingCheckins <= 0) {
     confidence = 'high';
     confidenceNote = 'A saját előzményedhez mérve — megbízható becslés.';
-  } else if (checkin && historyDays >= 5) {
+  } else if (checkin && trainingDays >= MEDIUM_CONFIDENCE_TRAINING_DAYS) {
     confidence = 'medium';
-    confidenceNote = `Részben általános referenciával — még ${Math.max(0, PERSONAL_REF_MIN_DAYS - historyDays)} nap edzés-előzmény kell a személyre szabott becsléshez.`;
+    confidenceNote = [
+      'Részben általános referenciával —',
+      missingTrainingDays > 0 ? `még ${missingTrainingDays} edzésnap kell` : null,
+      missingTrainingDays > 0 && missingCheckins > 0 ? 'és' : null,
+      missingCheckins > 0 ? `még ${missingCheckins} napi check-in kell` : null,
+      'a személyre szabott becsléshez.',
+    ]
+      .filter(Boolean)
+      .join(' ');
   } else if (checkin) {
     confidence = 'low';
     confidenceNote = 'Kevés edzés-előzmény — a terhelés-becslés általános referenciával fut.';
