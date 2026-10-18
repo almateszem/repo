@@ -6,7 +6,7 @@ import { copyExercises, inlineSameDays } from '../core/plan-sources.js';
 import { dayAdjective, dayLetter, dayRound, dayTitle } from '../core/plan-week.js';
 import { showToast } from '../core/toast.js';
 import { navigate } from '../nav/router.js';
-import { renderPlans } from '../render/plans.js';
+import { renderPlans } from './plans-data.js';
 import { readSetRow, renderExercise } from '../render/sets.js';
 import {
   clampRpeInput,

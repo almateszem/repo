@@ -4,12 +4,17 @@ import { api } from '../core/api.js';
 import { $ } from '../core/dom.js';
 import { dayEntry, dayWorkoutName, todayIndex } from '../core/plan-week.js';
 import { showToast } from '../core/toast.js';
-import { navigate } from '../nav/router.js';
-import { plansData, renderPlans } from '../render/plans.js';
+import { navigate, onPageShow } from '../nav/router.js';
+import { plansData, renderPlans } from './plans-data.js';
 
 /** A Tervek oldal interakciói. A planBuilder és a workout a megfelelő setup
     függvények vezérlői — hiba esetén (safe-ből null) a gombok nem visznek át. */
 function setupPlans(planBuilder, workout, confirmAction) {
+  // A terv-kártyák progress-e a mai pipált szetteket követi — megnyitáskor frissül
+  onPageShow('plans', () =>
+    renderPlans().catch((err) => console.error('Tervek frissítési hiba:', err)),
+  );
+
   /** Terv törlése a listából, megerősítéssel. A visszavonhatatlanságot ki is
       mondjuk: az edzőtől kapott tervet újra kérni kell, ha kell. */
   async function deletePlanFromList(id, name, button) {

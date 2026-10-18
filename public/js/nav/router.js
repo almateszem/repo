@@ -19,7 +19,6 @@ import { animateNumber, formatWhole } from '../core/format.js';
 import { shared } from '../core/page-hooks.js';
 import { prefs } from '../core/prefs.js';
 import { dashboardData, refreshDashboardIfStale, renderChromeDate } from '../render/dashboard.js';
-import { renderPlans } from '../render/plans.js';
 import { hasReadiness } from '../render/recovery.js';
 
 /* ---- Oldal-megnyitás: onPageShow ----
@@ -63,10 +62,6 @@ onPageShow('dashboard', () => {
       });
     })
     .catch((err) => console.error('Áttekintő frissítési hiba:', err));
-});
-onPageShow('plans', () => {
-  // A terv-kártyák progress-e a mai pipált szetteket követi — megnyitáskor frissül
-  renderPlans().catch((err) => console.error('Tervek frissítési hiba:', err));
 });
 
 /** A sportoló-sorok pontszámainak felpörgetése (oldal- és nézetváltáskor). */

@@ -14,7 +14,7 @@ import {
   renderDashboard,
   renderUserName,
 } from '../render/dashboard.js';
-import { renderPlans } from '../render/plans.js';
+import { renderPlans } from '../ui/plans-data.js';
 import { renderPrs } from '../render/prs.js';
 import { renderWorkout } from '../render/workout.js';
 import { setupCheckinWizard } from '../ui/checkin/wizard.js';

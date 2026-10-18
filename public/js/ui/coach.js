@@ -13,7 +13,7 @@ import {
   renderCoachPanel,
   renderStatList,
 } from '../render/coach.js';
-import { renderPlans } from '../render/plans.js';
+import { renderPlans } from './plans-data.js';
 import { createChatController } from './chat.js';
 import { exerciseNoteRow } from './exercise-notes.js';
 import { setupClientView } from './coach-client.js';

@@ -1,6 +1,5 @@
 /** Terv-kártyák és a Tervek oldal listája. */
 
-import { api } from '../core/api.js';
 import { $, cloneTemplate } from '../core/dom.js';
 import {
   dayEntry,
@@ -112,23 +111,17 @@ function planCardEl(plan) {
   return card;
 }
 
-/** A legutóbb lekért tervlista — a nyíl- és a szerkesztés gomb ebből veszi
-    a terv adatait (a kártyák dataset.planIndex-e ide mutat). */
-let plansData = [];
-
-/** Újrahívható: mentés/szerkesztés után és a Tervek oldal megnyitásakor
-    frissen húzza le és építi újra a listát (a progress a mai teljesítést
-    követi, ezért minden megjelenéskor érdemes újrakérni). */
-async function renderPlans() {
-  plansData = await api.getPlans();
+/** A Tervek oldal listája a kapott tervekből. A kártyák dataset.planIndex-e
+    a lista indexe — a lekérés és a lista a ui/plans-data.js-é. */
+function renderPlanList(plans) {
   const list = $('[data-list="plans"]');
   list.replaceChildren();
-  plansData.forEach((plan, index) => {
+  plans.forEach((plan, index) => {
     const card = planCardEl(plan);
     card.dataset.planIndex = index;
     list.appendChild(card);
   });
-  $('[data-plans-empty]').hidden = plansData.length > 0;
+  $('[data-plans-empty]').hidden = plans.length > 0;
 }
 
-export { plansData, renderPlans };
+export { renderPlanList };
