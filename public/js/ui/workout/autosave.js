@@ -60,6 +60,12 @@ export function createDraftAutosave({ buildBody }) {
     sorrendje nem garantált, és egy későn beérkező válasz elavult állapotot
     rögzítene a lastSentBody-ba — utána a valódi változás maradna ki. */
   let inFlight = false;
+  /** A cancelAutosave lépteti: egy előtte indult mentés válasza már nem ír
+      állapotot és nem indít újrapróbát (különben a lezárt edzés után 3 s-mal
+      üres piszkozatot írt volna a mai napra). */
+  let generation = 0;
+  /** A futó mentés lezárultának ígérete (siker vagy hiba) — a cancel ezt adja. */
+  let flight = null;
 
   const flush = async () => {
     autosaveTimer = null;
@@ -84,13 +90,25 @@ export function createDraftAutosave({ buildBody }) {
 
     setStatus('saving', 'Mentés…');
     inFlight = true;
+    const mine = generation;
+    const request = api.saveWorkoutDraft(body.name, body.exercises, body.planId, body.workoutId);
+    const settled = request.then(
+      () => {},
+      () => {},
+    );
+    flight = settled;
+    settled.then(() => {
+      if (flight === settled) flight = null;
+    });
     try {
-      await api.saveWorkoutDraft(body.name, body.exercises, body.planId, body.workoutId);
+      await request;
+      if (mine !== generation) return; // közben leállították (az edzés lezárult)
       lastSentBody = serialized;
       retryStep = 0;
       setStatus('saved', `Mentve · ${clockNow()}`);
     } catch (err) {
       console.error('Automatikus mentés sikertelen:', err);
+      if (mine !== generation) return; // a lezárt edzésre nem próbálkozunk újra
       const wait = AUTOSAVE_RETRY_MS[retryStep];
       if (wait === undefined) {
         setStatus(
@@ -107,7 +125,8 @@ export function createDraftAutosave({ buildBody }) {
       clearTimeout(retryTimer);
       retryTimer = setTimeout(flush, wait);
     } finally {
-      inFlight = false;
+      // A cancel már nullázta — egy azóta indult mentés jelzőjét nem írjuk felül
+      if (mine === generation) inFlight = false;
     }
   };
 
@@ -126,8 +145,12 @@ export function createDraftAutosave({ buildBody }) {
   };
 
   /** A függő mentés leállítása (az edzés lezárása hívja: a piszkozat törlése
-    után egy késleltetett mentés visszaírná a most lezárt edzést). */
+    után egy késleltetett mentés visszaírná a most lezárt edzést). A folyamatban
+    lévő mentést is érvényteleníti (generation), és ígéretet ad a lezárultára:
+    a befejezés ezt megvárja a végleges mentés előtt, különben egy későn célba
+    érő PUT a lezárt edzés piszkozatát írná vissza. */
   const cancelAutosave = () => {
+    generation += 1;
     clearTimeout(autosaveTimer);
     clearTimeout(retryTimer);
     autosaveTimer = null;
@@ -140,6 +163,7 @@ export function createDraftAutosave({ buildBody }) {
     // ha véletlenül pont ugyanaz a szerkezet.
     lastSentBody = null;
     setStatus('idle', IDLE_TEXT);
+    return flight ?? Promise.resolve();
   };
   document.addEventListener('visibilitychange', () => {
     // Függő mentés VAGY függő újrapróbálkozás esetén is küldünk: a

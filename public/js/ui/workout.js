@@ -481,6 +481,9 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
 
     finishBtn.disabled = true;
     try {
+      /* Előbb a futó piszkozat-mentés: ha a végleges mentés (ami a piszkozatot
+         törli) után érne célba, a lezárt edzés piszkozatát írná vissza. */
+      await cancelAutosave();
       /* Javítás alatt álló edzésnél NEM új sor keletkezik: a meglévőt írjuk
          felül, a saját dátumán. Az összegző ilyenkor kimarad — az egy most
          befejezett edzést ünnepelne, közben egy régit javítottunk. */
@@ -525,6 +528,8 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
     } catch (err) {
       console.error(err);
       showToast(err.message || 'Nem sikerült menteni az edzést', 'error');
+      // A napló marad — a fent leállított piszkozat-mentés újra induljon
+      draft.schedule();
     } finally {
       finishBtn.disabled = false;
     }
