@@ -422,7 +422,7 @@ app.post('/api/auth/register', async (req, res) => {
   if (!created) return res.status(409).json({ error: 'Ez a felhasználónév már foglalt.' });
 
   startSession(req, res, created.user.id);
-  res.status(201).json({ ...withOnboarding(created.user), adoptedLegacy: created.adoptedLegacy });
+  res.status(201).json(withOnboarding(created.user));
 });
 
 /** Belépés. A hibaüzenet szándékosan nem árulja el, a név vagy a jelszó

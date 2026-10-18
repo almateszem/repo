@@ -262,7 +262,6 @@ test('a második fiók is létrejön, és NEM örököl a másiktól', async () 
     body: { username: 'bela', displayName: 'Nagy Béla', password: 'jelszo456' },
   });
   assert.equal(res.status, 201);
-  assert.equal(res.json.adoptedLegacy, false, 'nincs mit örökölnie — nem ő az első fiók');
   belaCookie = cookieFrom(res);
 });
 

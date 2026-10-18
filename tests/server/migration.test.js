@@ -1,203 +1,92 @@
 /**
- * Podium — a fiókok bevezetése előtti adatbázis migrációja
- * ---------------------------------------------------------------
- * A legkockázatosabb lépés az egész átálláson: aki eddig helyben használta az
- * appot, annak a naplója már a régi, felhasználó nélküli sémában van. Ez a
- * teszt felépít egy ilyen RÉGI adatbázist, ráindítja az adatréteget, és
- * ellenőrzi, hogy
- *   1. egyetlen sor sem vész el,
- *   2. az adat egy archív fiókhoz kerül, amivel BELÉPNI NEM LEHET,
- *   3. az ELSŐ regisztráció megörökli az egészet,
- *   4. a második regisztráló viszont már nem lát belőle semmit.
+ * Podium — régi (de már többfelhasználós) adatbázis induláskori átalakításai
+ * ------------------------------------------------------------------------
+ * Az egyfelhasználós → többfelhasználós migráció kikerült (a baseline-őr a túl
+ * régi sémát elutasítja, lásd old-db-guard.test.js). A többfelhasználós korszak
+ * későbbi átalakításai maradnak, és ezek ellenőrzése is:
+ *   1. a PR-követés előtti edzésekből visszatöltődnek az egyéni csúcsok,
+ *   2. a pipák előtti, bepipálatlan edzés is ad csúcsot (pr_rule = 0),
+ *   3. a heti bontás előtti terv heti alakot kap, és aktív lesz.
+ *
+ * A teszt egy MAI sémájú adatbázist készít külön folyamatban (a db.js
+ * importkor migrál), visszaállítja rajta a régi állapotot, majd betölti rá az
+ * adatréteget.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { DatabaseSync } from 'node:sqlite';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const workDir = mkdtempSync(path.join(tmpdir(), 'podium-migr-'));
-const DB_PATH = path.join(workDir, 'legacy.db');
+const DB_PATH = path.join(workDir, 'regi.db');
 
-/* ---- A RÉGI séma felépítése (szó szerint a fiókok előtti alak) ---- */
-const legacyExercises = JSON.stringify([
-  { name: 'Guggolás', pr: true, sets: [{ reps: '5', weight: '120', rpe: '8', done: true }] },
-]);
+/* 1. Mai séma egy fiókkal és két edzéssel — külön folyamatban. */
+execFileSync(
+  process.execPath,
+  [
+    '--disable-warning=ExperimentalWarning',
+    '--input-type=module',
+    '-e',
+    `
+    const db = await import(${JSON.stringify(pathToFileURL(path.join(__dirname, '..', '..', 'server', 'db.js')).href)});
+    const { user } = db.createUser('david', 'Németh Dávid', 'x');
+    db.addWorkout(user.id, 'Régi edzés', '2026.08.14', [
+      { name: 'Guggolás', pr: true,
+        sets: [{ reps: '5', weight: '120', rpe: '8', type: 'work', done: true }] },
+    ]);
+    /* Egy edzés, amiben EGYETLEN szett sincs bepipálva — aki a naplót előre
+       kitölti és menet közben nem pipálgat, ilyen sorokat hagy maga után. */
+    db.addWorkout(user.id, 'Előre kitöltött edzés', '2026.08.13', [
+      { name: 'Vállnyomás', pr: false,
+        sets: [{ reps: '8', weight: '40', rpe: '7', type: 'work', done: false }] },
+    ]);
+    db.closeDatabase();
+    `,
+  ],
+  { env: { ...process.env, PODIUM_DB: DB_PATH }, stdio: 'pipe' },
+);
 
-/* Egy edzés, amiben EGYETLEN szett sincs bepipálva. Ez nem elméleti eset: aki
-   a naplót előre kitölti és menet közben nem pipálgat, ilyen sorokat hagy maga
-   után. A pipák előtti naplóban (workouts.pr_rule = 0) az ilyen gyakorlatnál az
-   ELSŐ szett számított, tehát a visszatöltésnek ebből is csúcsot kell rögzítenie.
-   Az új edzéseknél ez már nem így van: ott csak a pipált szett számít. */
-const legacyPipalatlan = JSON.stringify([
-  { name: 'Vállnyomás', pr: false, sets: [{ reps: '8', weight: '40', rpe: '7', done: false }] },
-]);
-
+/* 2. A régi állapot: a PR-követés és a pipa-szabály előtti napló (üres
+      csúcs-tábla, pr_rule = 0), és egy heti bontás előtti terv (week nélkül,
+      az aktiválás oszlopai nélkül). */
 {
-  const old = new DatabaseSync(DB_PATH);
-  old.exec(`
-    CREATE TABLE collections (key TEXT PRIMARY KEY, value TEXT NOT NULL);
-    CREATE TABLE weight_log (
-      id INTEGER PRIMARY KEY AUTOINCREMENT, kg REAL NOT NULL, date TEXT NOT NULL,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')));
-    CREATE TABLE nutrition_log (
-      id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, grams REAL NOT NULL DEFAULT 100,
-      kcal REAL NOT NULL, protein REAL NOT NULL, carbs REAL NOT NULL, fat REAL NOT NULL,
-      date TEXT NOT NULL, created_at TEXT NOT NULL DEFAULT (datetime('now')));
-    CREATE TABLE workouts (
-      id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, date TEXT NOT NULL,
-      exercises TEXT NOT NULL, plan_id INTEGER,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')));
-    CREATE TABLE plans (
-      id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, date TEXT NOT NULL,
-      exercises TEXT NOT NULL, days TEXT NOT NULL DEFAULT '[]',
-      created_at TEXT NOT NULL DEFAULT (datetime('now')));
-    -- A régi piszkozat: az EGÉSZ adatbázisban egyetlen sor
-    CREATE TABLE workout_draft (
-      id INTEGER PRIMARY KEY CHECK (id = 1), name TEXT NOT NULL, exercises TEXT NOT NULL,
-      date TEXT NOT NULL DEFAULT '', plan_id INTEGER,
-      updated_at TEXT NOT NULL DEFAULT (datetime('now')));
-    -- A régi check-in: a dátum volt az elsődleges kulcs
-    CREATE TABLE checkins (
-      date TEXT PRIMARY KEY, sleep_hours REAL, sleep_quality INTEGER, energy INTEGER,
-      stress INTEGER, mood INTEGER, hydration REAL,
-      soreness TEXT NOT NULL DEFAULT '{}', pain TEXT NOT NULL DEFAULT '{}',
-      updated_at TEXT NOT NULL DEFAULT (datetime('now')));
-  `);
-
-  old.prepare('INSERT INTO weight_log (kg, date) VALUES (?, ?)').run(84.2, '2026.08.14');
-  old.prepare('INSERT INTO weight_log (kg, date) VALUES (?, ?)').run(83.9, '2026.08.15');
-  old
+  const raw = new DatabaseSync(DB_PATH);
+  const userId = raw.prepare("SELECT id FROM users WHERE username = 'david'").get().id;
+  raw.exec('DELETE FROM exercise_maxes; UPDATE workouts SET pr_rule = 0;');
+  raw.exec('ALTER TABLE plans DROP COLUMN active; ALTER TABLE plans DROP COLUMN active_since;');
+  raw
     .prepare(
-      'INSERT INTO nutrition_log (name, grams, kcal, protein, carbs, fat, date) VALUES (?,?,?,?,?,?,?)',
+      `INSERT INTO plans (user_id, name, date, exercises, days, week)
+       VALUES (?, 'Régi terv', '2026.08.10', ?, '[0,3]', NULL)`,
     )
-    .run('Csirkemell', 150, 165, 31, 0, 3.6, '2026.08.15');
-  old
-    .prepare('INSERT INTO workouts (name, date, exercises) VALUES (?, ?, ?)')
-    .run('Régi edzés', '2026.08.14', legacyExercises);
-  old
-    .prepare('INSERT INTO workouts (name, date, exercises) VALUES (?, ?, ?)')
-    .run('Előre kitöltött edzés', '2026.08.13', legacyPipalatlan);
-  old
-    .prepare('INSERT INTO plans (name, date, exercises, days) VALUES (?, ?, ?, ?)')
-    .run('Régi terv', '2026.08.10', legacyExercises, '[0,3]');
-  old
-    .prepare('INSERT INTO workout_draft (id, name, exercises, date) VALUES (1, ?, ?, ?)')
-    .run('Régi piszkozat', legacyExercises, '2026.08.15');
-  old
-    .prepare('INSERT INTO checkins (date, sleep_hours, energy) VALUES (?, ?, ?)')
-    .run('2026.08.15', 7.5, 4);
-  old.close();
+    .run(
+      userId,
+      JSON.stringify([
+        { name: 'Guggolás', sets: [{ reps: '5', weight: '100', rpe: '8', type: 'work' }] },
+      ]),
+    );
+  raw.close();
 }
 
-/* Az adatréteg importáláskor migrál — ezért a felépítés UTÁN töltjük be. */
+/* 3. Az adatréteg betöltése — itt futnak az átalakítások. */
 process.env.PODIUM_DB = DB_PATH;
 const db = await import('../../server/db.js');
-
-/* Takarítás előtt zárjuk az adatréteg kapcsolatát — Windowson a nyitott fájlt
-   tartó könyvtár törlése EPERM-mel elszáll (ld. db.js → closeDatabase). */
 process.on('exit', () => {
   db.closeDatabase();
   rmSync(workDir, { recursive: true, force: true });
 });
-
-test('a migráció egyetlen sort sem veszít el', () => {
-  const raw = new DatabaseSync(DB_PATH);
-  const count = (table) => raw.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n;
-
-  assert.equal(count('weight_log'), 2);
-  assert.equal(count('nutrition_log'), 1);
-  assert.equal(count('workouts'), 2);
-  assert.equal(count('plans'), 1);
-  assert.equal(count('workout_draft'), 1);
-  assert.equal(count('checkins'), 1);
-
-  // A séma viszont már az új: minden sor gazdához van kötve
-  for (const table of [
-    'weight_log',
-    'nutrition_log',
-    'workouts',
-    'plans',
-    'workout_draft',
-    'checkins',
-  ]) {
-    const columns = raw
-      .prepare(`PRAGMA table_info(${table})`)
-      .all()
-      .map((c) => c.name);
-    assert.ok(columns.includes('user_id'), `${table}: van user_id oszlopa`);
-    assert.equal(
-      raw.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE user_id IS NULL`).get().n,
-      0,
-      `${table}: nem maradt gazdátlan sor`,
-    );
-  }
-  raw.close();
-});
-
-test('az archív fiók létrejön, de belépni nem lehet vele', () => {
-  const raw = new DatabaseSync(DB_PATH);
-  const users = raw.prepare('SELECT username, password_hash FROM users').all();
-  raw.close();
-
-  assert.equal(users.length, 1);
-  assert.equal(users[0].username, '__archiv__');
-  assert.equal(users[0].password_hash, '', 'üres hash → a verifyPassword mindig hamis');
-
-  // A felület szempontjából ez NEM létező fiók: a regisztrációt kell kínálni.
-  assert.equal(db.hasAnyUser(), false, 'az archív fiók nem számít valódi fióknak');
-});
-
-test('az ELSŐ regisztráció megörökli a régi adatot', () => {
-  const { user, adoptedLegacy } = db.createUser('david', 'Németh Dávid', 'scrypt$16384$8$1$aa$bb');
-  assert.equal(adoptedLegacy, true, 'a válasz jelzi az örökölést');
-
-  assert.deepEqual(
-    db.getWeightLog(user.id).map((w) => w.kg),
-    [84.2, 83.9],
-  );
-  assert.deepEqual(
-    db.getWorkouts(user.id).map((w) => w.name),
-    ['Előre kitöltött edzés', 'Régi edzés'],
-  );
-  assert.deepEqual(
-    db.getUserPlans(user.id).map((p) => p.name),
-    ['Régi terv'],
-  );
-  assert.equal(db.getWorkoutDraft(user.id).name, 'Régi piszkozat');
-  assert.equal(db.getCheckin(user.id, '2026.08.15').sleepHours, 7.5);
-  assert.equal(db.getNutritionTotals(user.id, '2026.08.15').intake, 165);
-
-  /* A régi terv hétnap-ütemezése is megmaradt — heti alakban: az első
-     kijelölt nap (hétfő) az edzés, a csütörtök „ugyanaz, mint hétfő", és az
-     egyetlen terv lett az aktív. */
-  const [regi] = db.getUserPlans(user.id);
-  assert.equal(regi.active, true);
-  assert.deepEqual(regi.days, [0, 3]);
-  assert.deepEqual(regi.week[3], { type: 'same', of: 0 });
-  assert.equal(db.getPlanForDay(user.id, 3)?.name, 'Régi terv – Csütörtök');
-  assert.equal(db.getPlanForDay(user.id, 1), null, 'a kedd pihenőnap');
-
-  // Az archív fiók eltűnt, helyette a valódi fiók van
-  const raw = new DatabaseSync(DB_PATH);
-  assert.deepEqual(
-    raw
-      .prepare('SELECT username FROM users')
-      .all()
-      .map((u) => u.username),
-    ['david'],
-  );
-  raw.close();
-  assert.ok(db.hasAnyUser());
-});
+const user = db.getUserWithHash('david');
 
 test('a PR-követés előtti edzésekből visszatöltődnek az egyéni csúcsok', () => {
   // Az exercise_maxes táblát az addWorkout tölti, mentéskor. Ez az adatbázis
-  // korábbi: a naplója tele van, a tábla viszont üres lenne. Enélkül a
-  // legközelebbi edzés MINDEN gyakorlata hamis PR-t ütne, mert nincs mihez
-  // mérni — és a rekord egy gyengébb értéken ragadna.
-  const [user] = [db.getUserWithHash('david')];
+  // korábbi: a naplója tele van, a tábla viszont üres. Enélkül a legközelebbi
+  // edzés MINDEN gyakorlata hamis PR-t ütne, mert nincs mihez mérni — és a
+  // rekord egy gyengébb értéken ragadna.
   const max = db.getExerciseMax(user.id, 'Guggolás');
   assert.ok(max, 'a régi edzés gyakorlatához van csúcs');
   assert.equal(max.max1rm, db.calculateEpley1RM(120, 5), 'a napló legjobb teljesített szettjéből');
@@ -212,13 +101,10 @@ test('a PR-követés előtti edzésekből visszatöltődnek az egyéni csúcsok'
 
 test('a visszatöltés a pipák előtti, bepipálatlan edzést is figyelembe veszi', () => {
   /* A pipák előtti sorokon (workouts.pr_rule = 0) a visszatöltés a régi
-     szabályt követi: teljesített szett híján az első sor számít (server/db.js
-     → bestCompletedSet, fallbackToFirst). Egyszer már elcsúszott: a
-     visszatöltés csak a bepipált szetteket nézte, a mentés viszont az első
-     sorra esett vissza. Következmény: akinek a régi edzéseiben nem volt pipa,
-     annál a visszatöltés üresen maradt — és a következő edzés hamis PR-t
-     ütött, vagyis pont az történt, aminek a megelőzésére a visszatöltés való. */
-  const user = db.getUserWithHash('david');
+     szabályt követi: teljesített szett híján az első sor számít (records.js →
+     bestCompletedSet, fallbackToFirst). Enélkül akinek a régi edzéseiben nem
+     volt pipa, annál a visszatöltés üresen maradt — és a következő edzés
+     hamis PR-t ütött. */
   const max = db.getExerciseMax(user.id, 'Vállnyomás');
   assert.ok(max, 'a bepipálatlan edzés gyakorlatához is van csúcs');
   assert.equal(
@@ -235,28 +121,14 @@ test('a visszatöltés a pipák előtti, bepipálatlan edzést is figyelembe ves
   assert.equal(gyengebb.exercises[0].pr, false, 'nem hamis PR — van mihez mérni');
 });
 
-test('a MÁSODIK regisztráló nem örököl semmit', () => {
-  const { user, adoptedLegacy } = db.createUser('masodik', 'Második', 'scrypt$16384$8$1$cc$dd');
-  assert.equal(adoptedLegacy, false);
-
-  assert.deepEqual(db.getWeightLog(user.id), []);
-  assert.deepEqual(db.getWorkouts(user.id), []);
-  assert.deepEqual(db.getUserPlans(user.id), []);
-  assert.equal(db.getWorkoutDraft(user.id), null);
-  assert.equal(db.getCheckin(user.id, '2026.08.15'), null);
-});
-
-test('a migráció idempotens — újraindításkor nem fut le megint', () => {
-  // A db.js egy folyamatban egyszer töltődik be, ezért itt a séma-jeleket
-  // nézzük: nem maradt átmeneti tábla, és nem jött létre új archív fiók.
-  const raw = new DatabaseSync(DB_PATH);
-  const tables = raw
-    .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
-    .all()
-    .map((t) => t.name);
-  raw.close();
-
-  assert.ok(!tables.includes('workout_draft_new'), 'nem maradt ott az átmeneti tábla');
-  assert.ok(!tables.includes('checkins_new'), 'nem maradt ott az átmeneti tábla');
-  assert.equal(db.hasAnyUser(), true);
+test('a heti bontás előtti terv heti alakot kap, és ő lesz az aktív', () => {
+  /* Az első kijelölt nap (hétfő) az edzés, a csütörtök „ugyanaz, mint hétfő",
+     és az egyetlen ütemezett terv lett az aktív. */
+  const [regi] = db.getUserPlans(user.id);
+  assert.equal(regi.name, 'Régi terv');
+  assert.equal(regi.active, true);
+  assert.deepEqual(regi.days, [0, 3]);
+  assert.deepEqual(regi.week[3], { type: 'same', of: 0 });
+  assert.equal(db.getPlanForDay(user.id, 3)?.name, 'Régi terv – Csütörtök');
+  assert.equal(db.getPlanForDay(user.id, 1), null, 'a kedd pihenőnap');
 });

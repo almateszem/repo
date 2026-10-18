@@ -52,6 +52,46 @@ const dbExisted = existsSync(DB_PATH);
 
 const db = new DatabaseSync(DB_PATH);
 
+/* ---- Baseline-őr: túl régi (egyfelhasználós) adatbázis ----
+   A fiókok bevezetése előtti séma (nincs users tábla, vagy egy felhasználói
+   adat-táblának nincs user_id oszlopa) migrációja kikerült: nem volt
+   idempotens, és régi adatbázison élesen hibázott (első indításkor elszállt, a
+   másodikon csendben kimaradt egy lépés). Az ilyen fájlhoz NEM nyúlunk — a
+   szerver egyértelmű hibával áll le, mielőtt bármit írna. */
+{
+  const tables = new Set(
+    db
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
+      .all()
+      .map((row) => row.name),
+  );
+  const hasUserId = (table) =>
+    db
+      .prepare(`PRAGMA table_info(${table})`)
+      .all()
+      .some((column) => column.name === 'user_id');
+  const userTables = [
+    'weight_log',
+    'nutrition_log',
+    'workouts',
+    'plans',
+    'workout_draft',
+    'checkins',
+    'exercise_maxes',
+  ];
+  const tooOld =
+    tables.size > 0 &&
+    (!tables.has('users') || userTables.some((table) => tables.has(table) && !hasUserId(table)));
+  if (tooOld) {
+    db.close();
+    throw new Error(
+      `Túl régi adatbázis (${DB_PATH}): a fiókok előtti, egyfelhasználós séma. Előbb a ` +
+        'c429b9f (vagy korábbi) verzióval indítsd el egyszer — az még átalakítja —, ' +
+        'utána ezzel a verzióval.',
+    );
+  }
+}
+
 /* ---- Naplózási mód ----
    WAL: az olvasók nem blokkolják az írót és fordítva — a piszkozat-autosave
    így nem akad össze a dashboard olvasásaival. A synchronous = NORMAL a WAL
@@ -414,7 +454,7 @@ ensureColumn('plans', 'days', "days TEXT NOT NULL DEFAULT '[]'");
 /* Melyik edzői kiosztás elfogadásából született a terv (NULL = saját terv).
    A terv-követés ebből tudja, hogy a terv az edzőé, és hogy az edző EREDETI
    példányához mérjen — a sportoló által később átírt tervhez nem. A meglévő
-   tervek visszakötése lentebb, a user_id-migráció UTÁN fut. */
+   tervek visszakötése lentebb, a migrációk között fut. */
 const plansHadAssignment = hasColumn('plans', 'assignment_id');
 ensureColumn('plans', 'assignment_id', 'assignment_id INTEGER');
 /* A heti bontás (plan-week.js): a terv és a kiosztás hete JSON-ban, és
@@ -472,21 +512,10 @@ ensureColumn('exercise_maxes', 'source', "source TEXT NOT NULL DEFAULT 'measured
 // szálat, egy lépésben olvasottá teszi a régi hátralékot is.
 ensureColumn('messages', 'read_at', 'read_at TEXT');
 
-/* ---- Migráció: egyfelhasználós → többfelhasználós ----
-
-   A korábbi verziókban nem volt fiók: egyetlen közös adathalmaz létezett.
-   Ezt az adatot NEM dobjuk el. Ha találunk ilyen sorokat, létrehozunk egy
-   ARCHÍV felhasználót (üres jelszó-hash → belépni vele nem lehet), és minden
-   gazdátlan sort hozzá rendelünk. Az ELSŐ valódi regisztráció aztán átveszi
-   ezt az adatot (ld. createUser → adoptLegacyData), és az archív fiók eltűnik.
-
-   Így aki eddig helyben használta az appot, a regisztráció után ugyanazt az
-   előzményt látja, mint korábban. */
-
 /* A FELHASZNÁLÓI adatot tartó táblák — mindegyik sorát a `user_id` köti a
-   fiókhoz. Egy helyen felsorolva, mert két művelet is végigmegy rajtuk: az
-   első regisztráció adat-öröklése és a fiók törlése. Ha új ilyen tábla
-   születik, ITT kell felvenni. */
+   fiókhoz. Egy helyen felsorolva: a fiók törlése ezeken megy végig. Ha új
+   ilyen tábla születik, ITT kell felvenni. (Az egyfelhasználós → többfelhasználós
+   migráció kikerült, lásd a baseline-őrt fent.) */
 const USER_DATA_TABLES = [
   'weight_log',
   'nutrition_log',
@@ -497,154 +526,12 @@ const USER_DATA_TABLES = [
   'exercise_maxes',
 ];
 
-const LEGACY_USERNAME = '__archiv__';
-
-/** Az archív felhasználó azonosítója, létrehozva, ha még nincs. */
-function ensureLegacyUser() {
-  const existing = db.prepare('SELECT id FROM users WHERE username = ?').get(LEGACY_USERNAME);
-  if (existing) return existing.id;
-  const { lastInsertRowid } = db
-    .prepare(
-      "INSERT INTO users (username, display_name, password_hash) VALUES (?, 'Korábbi adatok', '')",
-    )
-    .run(LEGACY_USERNAME);
-  return Number(lastInsertRowid);
-}
-
-/* A négy egyszerű tábla: elég egy új oszlop, a meglévő sorok az archív
-   felhasználóhoz kerülnek. (Az ALTER TABLE nem tud NOT NULL-t adni default
-   nélkül, ezért az oszlop a DB szintjén nullázható marad a régi fájlokon; az
-   adatréteg minden írásnál kitölti. Új adatbázison a séma NOT NULL.) */
-for (const table of ['weight_log', 'nutrition_log', 'workouts', 'plans']) {
-  if (hasColumn(table, 'user_id')) continue;
-  db.exec(`ALTER TABLE ${table} ADD COLUMN user_id INTEGER`);
-  const orphans = db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n;
-  if (orphans > 0) {
-    db.prepare(`UPDATE ${table} SET user_id = ? WHERE user_id IS NULL`).run(ensureLegacyUser());
-  }
-}
-
-/* A workout_draft és a checkins ELSŐDLEGES KULCSA változott (id = 1 →
-   user_id; date → (user_id, date)), ezt az SQLite nem tudja ALTER TABLE-lel.
-   Ilyenkor a bevett minta: új tábla + átmásolás + csere. */
-
-function rebuildWorkoutDraft() {
-  if (hasColumn('workout_draft', 'user_id')) return;
-  const legacy = db
-    .prepare('SELECT name, exercises, date, plan_id FROM workout_draft WHERE id = 1')
-    .get();
-
-  db.exec(`
-    CREATE TABLE workout_draft_new (
-      user_id    INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
-      name       TEXT NOT NULL,
-      exercises  TEXT NOT NULL,
-      date       TEXT NOT NULL DEFAULT '',
-      plan_id    INTEGER,
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-  `);
-  if (legacy) {
-    db.prepare(
-      `INSERT INTO workout_draft_new (user_id, name, exercises, date, plan_id)
-                VALUES (?, ?, ?, ?, ?)`,
-    ).run(ensureLegacyUser(), legacy.name, legacy.exercises, legacy.date, legacy.plan_id);
-  }
-  db.exec('DROP TABLE workout_draft; ALTER TABLE workout_draft_new RENAME TO workout_draft;');
-}
-
-function rebuildCheckins() {
-  if (hasColumn('checkins', 'user_id')) return;
-  const legacy = db
-    .prepare(
-      `SELECT date, sleep_hours, sleep_quality, energy, stress, mood,
-                                    hydration, soreness, pain FROM checkins`,
-    )
-    .all();
-
-  db.exec(`
-    CREATE TABLE checkins_new (
-      user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      date          TEXT NOT NULL,
-      sleep_hours   REAL,
-      sleep_quality INTEGER,
-      energy        INTEGER,
-      stress        INTEGER,
-      mood          INTEGER,
-      hydration     REAL,
-      soreness      TEXT NOT NULL DEFAULT '{}',
-      pain          TEXT NOT NULL DEFAULT '{}',
-      updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
-      PRIMARY KEY (user_id, date)
-    );
-  `);
-  if (legacy.length) {
-    const userId = ensureLegacyUser();
-    const insert = db.prepare(`INSERT INTO checkins_new
-      (user_id, date, sleep_hours, sleep_quality, energy, stress, mood, hydration, soreness, pain)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-    for (const row of legacy) {
-      insert.run(
-        userId,
-        row.date,
-        row.sleep_hours,
-        row.sleep_quality,
-        row.energy,
-        row.stress,
-        row.mood,
-        row.hydration,
-        row.soreness,
-        row.pain,
-      );
-    }
-  }
-  db.exec('DROP TABLE checkins; ALTER TABLE checkins_new RENAME TO checkins;');
-}
-
-/* Az egyéni csúcsok kulcsa is változott (exercise_name → (user_id,
-   exercise_name)) — ugyanaz az újraépítő minta. A korábbi rekordok az archív
-   felhasználóhoz kerülnek, így az első regisztráló megörökli őket. */
-function rebuildExerciseMaxes() {
-  if (hasColumn('exercise_maxes', 'user_id')) return;
-  const legacy = db.prepare('SELECT exercise_name, max_1rm, date FROM exercise_maxes').all();
-
-  db.exec(`
-    CREATE TABLE exercise_maxes_new (
-      user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      exercise_name TEXT NOT NULL,
-      max_1rm       REAL NOT NULL,
-      date          TEXT NOT NULL,
-      updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
-      PRIMARY KEY (user_id, exercise_name)
-    );
-  `);
-  if (legacy.length) {
-    const userId = ensureLegacyUser();
-    const insert =
-      db.prepare(`INSERT INTO exercise_maxes_new (user_id, exercise_name, max_1rm, date)
-                               VALUES (?, ?, ?, ?)`);
-    for (const row of legacy) insert.run(userId, row.exercise_name, row.max_1rm, row.date);
-  }
-  db.exec('DROP TABLE exercise_maxes; ALTER TABLE exercise_maxes_new RENAME TO exercise_maxes;');
-}
-
-/* A tábla-csere idejére kikapcsoljuk az idegenkulcs-ellenőrzést: a DROP+RENAME
-   közben a hivatkozások átmenetileg nem állnak össze. */
-db.exec('PRAGMA foreign_keys = OFF');
-rebuildWorkoutDraft();
-rebuildCheckins();
-rebuildExerciseMaxes();
-db.exec('PRAGMA foreign_keys = ON');
-
-/* Ez az ensureColumn KÉSŐBB fut, mint a többi — szándékosan. A
-   rebuildWorkoutDraft ÚJRAÉPÍTI a táblát (a régi id = 1 kulcs miatt), tehát a
-   fölötte hozzáadott oszlopot menet közben eldobná. Aki ide új oszlopot vesz
-   fel a workout_draft-hoz, az ide vegye fel, ne a többi közé. */
+// A visszanyitott (javítás alatt álló) edzés azonosítója a piszkozaton.
 ensureColumn('workout_draft', 'workout_id', 'workout_id INTEGER');
-/* A bemondott csúcs (erőfelmérés) a mért mellett, külön oszlopokban — ugyanazért
-   itt, a rebuildExerciseMaxes UTÁN. Korábban a bemondás csak `source =
-   'declared'` sorként élt, és az első mért szett felülírta: egy elgépelt, majd
-   javított edzés után a csúcs a bemondás nélkül épült újra. */
+/* A bemondott csúcs (erőfelmérés) a mért mellett, külön oszlopokban. Korábban
+   a bemondás csak `source = 'declared'` sorként élt, és az első mért szett
+   felülírta: egy elgépelt, majd javított edzés után a csúcs a bemondás nélkül
+   épült újra. */
 ensureColumn('exercise_maxes', 'declared_1rm', 'declared_1rm REAL');
 ensureColumn('exercise_maxes', 'declared_date', 'declared_date TEXT');
 
@@ -1055,49 +942,24 @@ export function setUserBirthYear(id, year) {
 }
 
 /** Felhasználó keresése a (már kisbetűsített) felhasználónév alapján — a
-    meghíváshoz. Az archív fiók SOSEM találat: az nem egy valódi ember, és a
-    hozzárendelt adat az első regisztrálóé lesz. */
+    meghíváshoz. */
 export function findUserByUsername(username) {
   const row = db
-    .prepare(
-      'SELECT id, username, display_name, goal FROM users WHERE username = ? AND username != ?',
-    )
-    .get(username, LEGACY_USERNAME);
+    .prepare('SELECT id, username, display_name, goal FROM users WHERE username = ?')
+    .get(username);
   return row ? { id: row.id, ...toPublicUser(row) } : null;
 }
 
-/** Van-e már valódi (nem archív) fiók? A felület ebből tudja, hogy az első
-    regisztráció következik-e. */
+/** Van-e már fiók? A felület ebből tudja, hogy az első regisztráció
+    következik-e. */
 export function hasAnyUser() {
-  return (
-    db.prepare('SELECT COUNT(*) AS n FROM users WHERE username != ?').get(LEGACY_USERNAME).n > 0
-  );
-}
-
-/* A migráció során félretett, gazdátlan adat átadása az első valódi fióknak.
-   Csak akkor fut, ha az imént létrejött fiók az ELSŐ valódi fiók — a második
-   regisztráló már nem örökölheti meg más előzményét. */
-function adoptLegacyData(newUserId) {
-  const legacy = db.prepare('SELECT id FROM users WHERE username = ?').get(LEGACY_USERNAME);
-  if (!legacy) return false;
-
-  const realUsers = db
-    .prepare('SELECT COUNT(*) AS n FROM users WHERE username != ?')
-    .get(LEGACY_USERNAME).n;
-  if (realUsers !== 1) return false; // nem az első regisztráció — nem nyúlunk hozzá
-
-  for (const table of USER_DATA_TABLES) {
-    db.prepare(`UPDATE ${table} SET user_id = ? WHERE user_id = ?`).run(newUserId, legacy.id);
-  }
-  db.prepare('DELETE FROM users WHERE id = ?').run(legacy.id);
-  return true;
+  return db.prepare('SELECT COUNT(*) AS n FROM users').get().n > 0;
 }
 
 /**
  * Új fiók. A hívó adja a MÁR kisbetűsített felhasználónevet és a MÁR
  * elkészített jelszó-hasht (a hashelés a server/auth.js dolga).
- * Visszaadja: { user, adoptedLegacy } — utóbbi jelzi, ha a fiók megörökölte a
- * fiókok bevezetése előtti adatokat. Foglalt névre null-t ad.
+ * Visszaadja: { user }. Foglalt névre null-t ad.
  */
 export function createUser(username, displayName, passwordHash) {
   if (db.prepare('SELECT 1 FROM users WHERE username = ?').get(username)) return null;
@@ -1107,7 +969,7 @@ export function createUser(username, displayName, passwordHash) {
     .run(username, displayName, passwordHash);
   const id = Number(lastInsertRowid);
 
-  return { user: getUser(id), adoptedLegacy: adoptLegacyData(id) };
+  return { user: getUser(id) };
 }
 
 /** A fiók jelszó-hashének cseréje (a hashelés a hívó dolga, ld. auth.js). */
