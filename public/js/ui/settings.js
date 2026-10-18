@@ -104,8 +104,15 @@ async function setupSettingsModal({ onNotifCatsChange, confirmAction } = {}) {
 
   /* Születési év: a nem mintáját követi, de szövegmező, ezért nem minden
      leütésre ment, hanem a `change`-re (elhagyáskor / Enterre). Az üres mező
-     a törlés. A tartományt a szerver ellenőrzi — a hibaüzenete megy ki. */
-  birthYearInput.max = String(new Date().getFullYear() - 13);
+     a törlés. A tartományt a szerver ellenőrzi — a hibaüzenete megy ki; a
+     mező min/max-a ugyanazt a szabályt követi (thisYear−100 … thisYear−13),
+     a modál megnyitásakor számolva, hogy évfordulón se maradjon el. */
+  const syncBirthYearRange = () => {
+    const thisYear = new Date().getFullYear();
+    birthYearInput.min = String(thisYear - 100);
+    birthYearInput.max = String(thisYear - 13);
+  };
+  syncBirthYearRange();
   birthYearInput.value = user.birthYear ?? '';
   birthYearInput.addEventListener('change', async () => {
     const raw = birthYearInput.value.trim();
@@ -285,6 +292,7 @@ async function setupSettingsModal({ onNotifCatsChange, confirmAction } = {}) {
       goalSelect.value = user.goal ?? '';
       sexSelect.value = user.sex ?? '';
       birthYearInput.value = user.birthYear ?? '';
+      syncBirthYearRange();
       controller.open();
     },
   };

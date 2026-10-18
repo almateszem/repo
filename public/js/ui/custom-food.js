@@ -98,11 +98,16 @@ async function setupCustomFood({ scanner, confirmAction, onSaved, onLog } = {}) 
     MACRO_FIELDS.forEach(([input]) => input.removeAttribute('aria-invalid'));
   };
 
+  /** A makró a mentéssel azonos kerekítéssel (a szerver macroValue-ja tizedre
+      kerekít, és abból számolja a kalóriát) — enélkül az előnézet 49-et
+      mutathatott a mentett 50 helyett. */
+  const savedMacro = (input) => Math.round(numberOf(input) * 10) / 10;
+
   const computeKcal = () =>
     Math.round(
-      numberOf(proteinInput) * ATWATER.protein +
-        numberOf(carbsInput) * ATWATER.carbs +
-        numberOf(fatInput) * ATWATER.fat,
+      savedMacro(proteinInput) * ATWATER.protein +
+        savedMacro(carbsInput) * ATWATER.carbs +
+        savedMacro(fatInput) * ATWATER.fat,
     );
 
   /** A kalória-mező és az állapotszöveg összehangolása a jelenlegi móddal. */

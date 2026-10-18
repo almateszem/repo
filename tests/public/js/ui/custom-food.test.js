@@ -68,3 +68,13 @@ test('saját étel: a beírt 0 érvényes, a mentés elmegy', async () => {
   assert.equal(posts[0].body.fat, 8.5);
   assert.equal(elementFor('#cf-protein').getAttribute('aria-invalid'), null, 'a jelölés lekerül');
 });
+
+test('saját étel: a kcal-előnézet a mentéssel azonos kerekítésű makrókból számol', () => {
+  /* A szerver a makrókat tizedre kerekíti (macroValue), és abból számol:
+     5,46 g zsír → 5,5 g → 49,5 → 50 kcal. A kerekítetlen előnézet 49-et mutatott. */
+  elementFor('#cf-protein').value = '0';
+  elementFor('#cf-carbs').value = '0';
+  elementFor('#cf-fat').value = '5.46';
+  elementFor('#cf-fat').dispatch('input');
+  assert.equal(elementFor('#cf-kcal').value, '50');
+});

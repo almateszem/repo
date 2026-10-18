@@ -1872,10 +1872,11 @@ app.put('/api/checkin', (req, res) => {
   let weightEntry = null;
   if (body.weightKg !== null && body.weightKg !== undefined && body.weightKg !== '') {
     const kg = Number(body.weightKg);
-    if (!Number.isFinite(kg) || kg < 30 || kg > 300) {
-      return res
-        .status(400)
-        .json({ error: 'Érvénytelen testsúly — 30 és 300 kg között adható meg.' });
+    // Ugyanaz a tartomány, mint a /api/weight-log végponton (WEIGHT_RANGE)
+    if (!Number.isFinite(kg) || kg < WEIGHT_RANGE.min || kg > WEIGHT_RANGE.max) {
+      return res.status(400).json({
+        error: `Érvénytelen testsúly — ${WEIGHT_RANGE.min} és ${WEIGHT_RANGE.max} kg között adható meg.`,
+      });
     }
     weightEntry = addWeightEntry(userId, kg, req.today);
   }
