@@ -747,6 +747,41 @@ test('a PR-lista a rekordot hozó szettet írja ki, nem a bemelegítőt', async 
   assert.equal(guggolas.oneRM, Math.round(120 * (1 + 3 / 30) * 10) / 10);
 });
 
+test('a tört súly a PR-listában és a mai edzésben is tizedes vesszővel jelenik meg', async () => {
+  await request('POST', '/api/workouts', {
+    cookie: belaCookie,
+    body: {
+      name: 'Vállnap',
+      exercises: [
+        {
+          name: 'Vállból nyomás',
+          sets: [{ reps: '5', weight: '82.5', rpe: '8', type: 'work', done: true }],
+        },
+      ],
+    },
+  });
+  const prs = (await request('GET', '/api/prs', { cookie: belaCookie })).json;
+  assert.equal(prs.find((p) => p.exercise === 'Vállból nyomás').detail, '5 ism. @ 82,5 kg');
+
+  // A mai edzés (aznapi piszkozat) előnézete az Áttekintőn
+  await request('PUT', '/api/workout-draft', {
+    cookie: belaCookie,
+    body: {
+      name: 'Vállnap 2',
+      exercises: [
+        {
+          name: 'Vállból nyomás',
+          sets: [{ reps: '5', weight: '82.5', rpe: '8', type: 'work', done: false }],
+        },
+      ],
+    },
+  });
+  const dash = (await request('GET', '/api/dashboard', { cookie: belaCookie })).json;
+  const row = dash.workoutPlan.exercises.find((e) => e.name === 'Vállból nyomás');
+  assert.equal(row.detail, '1 × 5 · 82,5 kg');
+  await request('DELETE', '/api/workout-draft', { cookie: belaCookie });
+});
+
 test('a PR-előzmény a kért gyakorlatra szűr', async () => {
   const elozmeny = (
     await request('GET', '/api/prs/history?exercise=Guggol%C3%A1s', {

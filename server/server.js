@@ -1504,7 +1504,10 @@ app.get('/api/dashboard', (req, res) => {
           const weight = Number(first?.weight) || 0;
           return {
             name: exercise.name,
-            detail: [count && reps ? `${count} × ${reps}` : null, weight ? `${weight} kg` : null]
+            detail: [
+              count && reps ? `${count} × ${reps}` : null,
+              weight ? `${formatDecimal(weight)} kg` : null,
+            ]
               .filter(Boolean)
               .join(' · '),
           };
@@ -2072,8 +2075,8 @@ function prEntryFor(userId, workout, exercise, weightLog = getWeightLog(userId))
        szám a RÁADÁS, a terhelés a test. A jelölés ezt mondja ki. */
     detail: set
       ? baseLoad > 0
-        ? `${set.reps} ism. @ testsúly${Number(set.weight) > 0 ? ` +${set.weight} kg` : ''}`
-        : `${set.reps} ism. @ ${set.weight} kg`
+        ? `${set.reps} ism. @ testsúly${Number(set.weight) > 0 ? ` +${formatDecimal(set.weight)} kg` : ''}`
+        : `${set.reps} ism. @ ${formatDecimal(set.weight)} kg`
       : workout.name,
     oneRM: oneRM > 0 ? rounded(oneRM) : null, // 1 tizedesjegy pontosság
     maxOneRM: maxRecord ? rounded(maxRecord.max1rm) : rounded(oneRM),
@@ -2682,7 +2685,7 @@ app.put('/api/athletes/:linkId/water-goal', (req, res) => {
     liters > WATER_GOAL_LITERS.max
   ) {
     return res.status(400).json({
-      error: `A napi víz-cél ${WATER_GOAL_LITERS.min} és ${WATER_GOAL_LITERS.max} liter között adható meg.`,
+      error: `A napi víz-cél ${formatDecimal(WATER_GOAL_LITERS.min)} és ${formatDecimal(WATER_GOAL_LITERS.max)} liter között adható meg.`,
     });
   }
   res.json(saveWaterGoal(link.athleteId, Math.round(liters * 1000), req.user.id));

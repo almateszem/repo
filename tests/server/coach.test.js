@@ -1240,6 +1240,8 @@ test('a víz-célt csak az edző írhatja, validál, és visszaállítható auto
       body: { liters },
     });
     assert.equal(res.status, 400, `érvénytelen: ${liters}`);
+    // A határ tizedes vesszővel, mint a felület többi száma
+    assert.match(res.json.error, /0,5 és 10 liter/, res.json.error);
   }
 
   const torles = await request('DELETE', `/api/athletes/${celLink}/water-goal`, {
