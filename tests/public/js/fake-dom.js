@@ -71,6 +71,10 @@ class FakeElement {
 
   remove() {}
 
+  contains() {
+    return false;
+  }
+
   closest() {
     return null;
   }

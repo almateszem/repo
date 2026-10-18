@@ -237,8 +237,9 @@ function setupClientView({ page, view, onChange }) {
 
     unreadEl.hidden = coach.unread === 0;
     unreadEl.textContent = coach.unread > 0 ? String(coach.unread) : '';
-
-    if (isChatVisible()) chat.load();
+    /* A szálat itt NEM töltjük: a frissítés (coach.js → refresh) végén a
+       shown() tölti, amikor a nézet már a helyén van. Korábban mindkettő
+       lekérte, és olvasatlannál kétszer is nyugtázott. */
   }
 
   return {
