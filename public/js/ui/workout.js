@@ -6,6 +6,7 @@ import { $, $$ } from '../core/dom.js';
 import { hooks } from '../core/page-hooks.js';
 import { prefs } from '../core/prefs.js';
 import { showToast } from '../core/toast.js';
+import { baseLoadFor, refreshWeightConventions } from '../core/weight-conventions.js';
 import { navigate } from '../nav/router.js';
 import { renderDashboard } from '../render/dashboard.js';
 import { renderPrs } from '../render/prs.js';
@@ -51,16 +52,8 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
   let exerciseMaxes = await api.getExerciseMaxes();
   /* A saját testsúlyos gyakorlatok csúcsa a testsúllyal együtt tárolódik
      (server/data/bodyweight-load.js) — az élő PR-jelzőnek is azzal kell
-     számolnia, különben a húzódzkodás jelzője sosem gyulladna ki. */
-  let weightConventions = await api
-    .getWeightConventions()
-    .catch(() => ({ bodyweightFactors: {}, bodyweightKg: 0 }));
-  const baseLoadFor = (name) => {
-    const { bodyweightFactors, bodyweightKg } = weightConventions;
-    return Object.hasOwn(bodyweightFactors, name) && bodyweightKg > 0
-      ? bodyweightFactors[name] * bodyweightKg
-      : 0;
-  };
+     számolnia, különben a húzódzkodás jelzője sosem gyulladna ki. Az
+     alapterhelés a közös core/weight-conventions.js-ből (baseLoadFor). */
 
   // A napló kártyái: kapcsolható PR-jelvény, „+ Szett" gomb és sorszám-
   // választó (a sorrend átrendezéséhez — lásd enableOrderSelect)
@@ -425,10 +418,7 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
       élő PR-jelzése ebből a térképből dolgozik. Elavult másolattal a
       következő edzésnél hamis (vagy elmaradt) PR-jelvényt mutatna. */
   const refreshAfterWorkoutChange = async () => {
-    [exerciseMaxes, weightConventions] = await Promise.all([
-      api.getExerciseMaxes(),
-      api.getWeightConventions().catch(() => weightConventions),
-    ]);
+    [exerciseMaxes] = await Promise.all([api.getExerciseMaxes(), refreshWeightConventions()]);
     refreshAllPrIndicators();
     renderPrs().catch(console.error);
     hooks.refreshVolumeChart?.().catch(console.error);

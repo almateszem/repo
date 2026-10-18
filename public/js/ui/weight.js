@@ -4,6 +4,7 @@ import { api } from '../core/api.js';
 import { $ } from '../core/dom.js';
 import { animateNumber, formatNumber } from '../core/format.js';
 import { showToast } from '../core/toast.js';
+import { refreshWeightConventions } from '../core/weight-conventions.js';
 import { refreshDailyStats, renderChart } from '../render/dashboard.js';
 import { dayKeyOf } from './measurements.js';
 
@@ -170,6 +171,7 @@ function renderWeightList() {
           await api.deleteWeightEntry(entry.id);
           weightLog = weightLog.filter((item) => item.id !== entry.id);
           syncWeightViews({ animateDelta: true });
+          refreshWeightConventions(); // az élő PR-jelző a friss testsúllyal számoljon
           renderWeightList();
           refreshDailyStats().catch(console.error);
           showToast('Bejegyzés törölve');
@@ -203,6 +205,10 @@ function mergeWeightEntry(entry) {
   weightLog =
     index >= 0 ? weightLog.map((item, i) => (i === index ? entry : item)) : [...weightLog, entry];
   syncWeightViews({ animateDelta: true });
+  /* A testsúly a saját testsúlyos gyakorlatok alapterhelése is: a közös
+     konvenciók (és vele az élő PR-jelző) a friss értékkel számoljon. Minden
+     mentési út (testsúly-lista, check-in, varázsló) ide fut be. */
+  refreshWeightConventions();
 }
 
 export { formatDelta, latestWeightEntry, mergeWeightEntry, refreshWeightLog, todayWeightEntry };

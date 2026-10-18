@@ -10,6 +10,7 @@ import { api } from '../core/api.js';
 import { $, $$, cloneTemplate } from '../core/dom.js';
 import { formatInputNumber, formatNumber } from '../core/format.js';
 import { showToast } from '../core/toast.js';
+import { isAddedWeight, isPerHand } from '../core/weight-conventions.js';
 
 /* ---- Kezenkénti súly ----
    A ház szabálya: kézisúlyzós gyakorlatnál a beírt szám EGY kézisúlyzóé, nem a
@@ -17,28 +18,13 @@ import { showToast } from '../core/toast.js';
    mondott konvenciót senki nem tud követni, és a kétszeres eltérés az
    erőszint-érmen két elhibázott fokozatot jelent.
 
-   A halmazt a szerver adja (/api/weight-conventions), és INDULÁSKOR töltjük
-   fel: a renderExercise szinkron, menet közben nem várhat egy kérésre. Ha a
-   töltés elhasal, a felirat marad a semleges „Súly·kg" — rosszabb
-   konvenciót nem írunk ki, mint amit tudunk. */
-const perHandExercises = new Set();
-
-/* Saját testsúlyos gyakorlatok: ott a beírt kilogramm a RÁADÁS (öv, mellény),
-   nem a terhelés — a terhelés a test maga. A szerver mondja meg, melyek ezek
-   (data/bodyweight-load.js): a katalógus `felszerelés` mezője erre nem
-   megbízható, és egy téves besorolás a terhelést a testsúlyoddal tolná el. */
-const addedWeightExercises = new Set();
-
-async function primePerHandExercises() {
-  try {
-    // Egy forrásból a profillal: a szerver mondja meg mindkét listát
-    const { perHand, bodyweightFactors } = await api.getWeightConventions();
-    for (const name of perHand) perHandExercises.add(name);
-    for (const name of Object.keys(bodyweightFactors)) addedWeightExercises.add(name);
-  } catch (err) {
-    console.error('A súly-konvenciók listája nem töltődött be:', err);
-  }
-}
+   A listát a szerver adja (/api/weight-conventions); INDULÁSKOR egyszer töltődik
+   a közös core/weight-conventions.js-be: a renderExercise szinkron, menet
+   közben nem várhat egy kérésre. Ha a töltés elhasal, a felirat marad a
+   semleges „Súly·kg" — rosszabb konvenciót nem írunk ki, mint amit tudunk.
+   Ugyanonnan jönnek a saját testsúlyos gyakorlatok (isAddedWeight): ott a
+   beírt kilogramm a RÁADÁS (öv, mellény), nem a terhelés — a terhelés a test
+   maga. */
 
 /* ---- Szett-sorok ----
    Az ism./súly/RPE szám-mező: az ismétlés és a súly léptetőgombokkal, az
@@ -388,7 +374,7 @@ function clampRpeInput(target) {
     „+60 kg" ráadás, kézisúlyzónál 60 kg/kéz volna — és ha a sort így pipálja
     ki, ezzel a súllyal is mentődne. */
 function defaultSetFor(name, defaultSet) {
-  return perHandExercises.has(name) || addedWeightExercises.has(name)
+  return isPerHand(name) || isAddedWeight(name)
     ? { ...defaultSet, weight: '0' }
     : { ...defaultSet };
 }
@@ -507,9 +493,9 @@ function renderExercise(
      kártyákra vonatkozik. */
   if (!cardio) {
     const weightCell = $$('.wk-set-row--head > span', card)[2];
-    if (weightCell && perHandExercises.has(exercise.name)) {
+    if (weightCell && isPerHand(exercise.name)) {
       weightCell.textContent = 'Súly·kg/kéz';
-    } else if (weightCell && addedWeightExercises.has(exercise.name)) {
+    } else if (weightCell && isAddedWeight(exercise.name)) {
       // A „+" jelzi, hogy ide a testsúlyon FELÜLI súly megy — üresen hagyva a
       // sor tiszta saját testsúlyos, nem „nulla terhelésű".
       weightCell.textContent = 'Plusz·kg';
@@ -867,7 +853,6 @@ export {
   handleRemoveSetClick,
   handleStepClick,
   loadIntensityLevels,
-  primePerHandExercises,
   readSetRow,
   refreshExerciseList,
   renderExercise,
