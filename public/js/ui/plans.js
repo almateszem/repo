@@ -21,13 +21,20 @@ function setupPlans(planBuilder, workout, confirmAction) {
     button.disabled = true;
     try {
       await api.deletePlan(id);
-      await renderPlans();
-      showToast(`„${name}" törölve`);
     } catch (err) {
       console.error(err);
       button.disabled = false;
       showToast(err.message || 'Nem sikerült törölni a tervet', 'error');
+      return;
     }
+    /* A törlés sikerült: a kártya helyben kikerül, a gomb nem áll vissza. A
+       lista újratöltése külön ág — ha az bukik el, az nem íráshiba. */
+    button.closest('.pl-card')?.remove();
+    showToast(`„${name}" törölve`);
+    renderPlans().catch((err) => {
+      console.error(err);
+      showToast('A lista frissítése nem sikerült', 'error');
+    });
   }
 
   $('[data-list="plans"]').addEventListener('click', (event) => {

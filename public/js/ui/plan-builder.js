@@ -407,17 +407,23 @@ async function setupPlanBuilder(picker, workoutPicker, confirmAction) {
       const week = readWeek();
       if (editingId) await api.updatePlan(editingId, name, week);
       else await api.savePlan(name, week);
-      await renderPlans(); // friss lista a szerverről (saját tervek elöl)
-
-      showToast(editingId ? 'Terv frissítve' : 'Terv elmentve');
-      startNew();
-      navigate('plans');
     } catch (err) {
       console.error(err);
       showToast(err.message || 'Nem sikerült menteni a tervet', 'error');
+      return;
     } finally {
       saveBtn.disabled = false;
     }
+    /* A mentés sikerült: azonnal vissza a listára. A lista újratöltése külön
+       ág — ha AZ bukik el, az nem íráshiba (korábban „Nem sikerült menteni"
+       jött, és az újramentés duplikálta a tervet). */
+    showToast(editingId ? 'Terv frissítve' : 'Terv elmentve');
+    startNew();
+    navigate('plans');
+    renderPlans().catch((err) => {
+      console.error(err);
+      showToast('A lista frissítése nem sikerült', 'error');
+    });
   });
 
   return { startNew, loadPlan };
