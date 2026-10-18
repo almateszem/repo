@@ -3152,6 +3152,8 @@ app.get('/api/foods/barcode/:code', async (req, res) => {
   const result = await fetchProduct(barcode);
   if (!result.ok) {
     // Hálózati hiba: NEM cache-eljük — holnap (vagy egy perc múlva) sikerülhet.
+    // Az okát naplózzuk, hogy egy tartós hiba ne maradjon néma.
+    console.warn(`Open Food Facts (${barcode}): ${result.reason}`);
     return res.status(502).json({
       error: 'Az Open Food Facts most nem elérhető — próbáld később, vagy vidd fel kézzel.',
     });

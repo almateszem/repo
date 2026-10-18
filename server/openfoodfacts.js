@@ -265,6 +265,10 @@ async function fetchFollowingSafeRedirects(url) {
  */
 export async function fetchProduct(barcode) {
   const url = `${BASE_URL}/api/v2/product/${barcode}.json?fields=${FIELDS}`;
+  /* A try CSAK a külső részt fogja (hálózat, a válasz beolvasása — a hibás
+     JSON is külső adathiba). A saját kód (mapProduct) kívül fut: egy
+     programhiba így 500-ként, naplózva jön ki, nem néma „nem elérhető"-ként. */
+  let body;
   try {
     const res = await fetchFollowingSafeRedirects(url);
     if (typeof res === 'string') return { ok: false, reason: res };
@@ -272,12 +276,11 @@ export async function fetchProduct(barcode) {
     // ugyanazt jelenti, és mindkettő cache-elhető.
     if (res.status === 404) return { ok: true, product: null };
     if (!res.ok) return { ok: false, reason: `HTTP ${res.status}` };
-
-    const body = await readJsonCapped(res);
-    if (body === TOO_LARGE) return { ok: false, reason: 'túl nagy válasz' };
-    if (body?.status === 0 || !body?.product) return { ok: true, product: null };
-    return { ok: true, product: mapProduct(body.product, barcode) };
+    body = await readJsonCapped(res);
   } catch (err) {
     return { ok: false, reason: err.name === 'TimeoutError' ? 'timeout' : err.message };
   }
+  if (body === TOO_LARGE) return { ok: false, reason: 'túl nagy válasz' };
+  if (body?.status === 0 || !body?.product) return { ok: true, product: null };
+  return { ok: true, product: mapProduct(body.product, barcode) };
 }

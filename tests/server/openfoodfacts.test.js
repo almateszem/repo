@@ -9,7 +9,12 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeBarcode, mapProduct, fetchProduct, isAllowedRedirect } from '../../server/openfoodfacts.js';
+import {
+  normalizeBarcode,
+  mapProduct,
+  fetchProduct,
+  isAllowedRedirect,
+} from '../../server/openfoodfacts.js';
 
 /* ======================================================================
    normalizeBarcode
@@ -314,4 +319,44 @@ test('fetchProduct: az átirányítás-lánc korlátos', async () => {
   assert.equal(result.ok, false);
   assert.match(result.reason, /átirányítás/);
   assert.ok(calls.length <= 4, `megállt (${calls.length} kérés)`);
+});
+
+/* ---- Csak a hálózati hiba lesz „nem elérhető" ---- */
+
+test('fetchProduct: hálózati hiba és hibás JSON-válasz → ok:false', async () => {
+  const network = await withFetch(
+    [
+      () => {
+        throw new TypeError('fetch failed');
+      },
+    ],
+    () => fetchProduct('5998200310010'),
+  );
+  assert.equal(network.result.ok, false);
+
+  const broken = await withFetch([new Response('<html>nem JSON</html>', { status: 200 })], () =>
+    fetchProduct('5998200310010'),
+  );
+  assert.equal(broken.result.ok, false, 'a külső adat hibája nem programhiba');
+});
+
+test('fetchProduct: a saját kód (mapProduct) hibája NEM néma 502 — továbbmegy', async () => {
+  /* Programhiba szimulálása: egy dobó getter a prototípuson, ami csak a
+     nutriments nélküli terméknél fut le (a mapProduct raw.nutriments-et olvas). */
+  Object.defineProperty(Object.prototype, 'nutriments', {
+    configurable: true,
+    get() {
+      throw new Error('programhiba');
+    },
+  });
+  try {
+    await assert.rejects(
+      withFetch([new Response(JSON.stringify({ status: 1, product: { product_name: 'X' } }))], () =>
+        fetchProduct('5998200310010'),
+      ),
+      /programhiba/,
+    );
+  } finally {
+    delete Object.prototype.nutriments;
+  }
 });
