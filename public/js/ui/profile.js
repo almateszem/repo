@@ -7,7 +7,7 @@ import { hooks } from '../core/page-hooks.js';
 import { SEARCH_DELAY_MS, debounce } from '../core/paged-list.js';
 import { prefs } from '../core/prefs.js';
 import { showToast } from '../core/toast.js';
-import { currentPage, navigate } from '../nav/router.js';
+import { navigate, onPageShow } from '../nav/router.js';
 import { formatDelta } from './weight.js';
 
 /* ---- Rekord-érmek ----
@@ -373,12 +373,13 @@ async function setupProfile() {
     emptyEl.hidden = anyFact;
   };
 
-  /* A setupRouter MÁR lefutott, amikor ide érünk. Ha az app épp a
-     profiloldalon nyílt (a lastPage visszaállította), a pageEffects akkor
-     még null refreshProfile-t talált — az oldal üres számokkal maradt volna
-     az első oldalváltásig. Minden más induláskor nincs kérés: az oldal a
-     megnyitásakor tölt. */
-  if (currentPage() === 'profile') await hooks.refreshProfile();
+  /* Az összesítők minden edzés-mentéssel változnak, ezért megnyitáskor
+     mindig a szervertől kérjük őket — nincs külön értesítési lánc. Ha az app
+     épp a profiloldalon nyílt, a regisztráció azonnal betölt; minden más
+     induláskor nincs kérés: az oldal a megnyitásakor tölt. */
+  await onPageShow('profile', () =>
+    hooks.refreshProfile().catch((err) => console.error('Profil frissítési hiba:', err)),
+  );
 }
 
 export { setupProfile };

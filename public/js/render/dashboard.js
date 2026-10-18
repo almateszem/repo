@@ -6,7 +6,7 @@ import { prefs } from '../core/prefs.js';
 import { hasReadiness } from './recovery.js';
 import { DETAILS_ON_RECOVERY, dashboardQuote } from './recovery-map.js';
 
-/** Az áttekintő adatai (renderDashboard tölti fel; a pageEffects innen veszi
+/** Az áttekintő adatai (renderDashboard tölti fel; a router megnyitási feladata innen veszi
     a készenlét-értéket az animációhoz). */
 let dashboardData = null;
 
@@ -134,7 +134,7 @@ async function refreshDailyStats() {
 }
 
 /** Ennyi ideig számít frissnek egy lefutott renderDashboard: az Áttekintő
-    megnyitása (pageEffects) ezen belül nem kér újra — pl. az induláskori
+    megnyitása (router → onPageShow) ezen belül nem kér újra — pl. az induláskori
     render után nem megy ki második /api/dashboard kérés. */
 const DASHBOARD_FRESH_MS = 2000;
 let lastRenderAt = -Infinity;
@@ -192,7 +192,7 @@ async function drawDashboard() {
   setText('[data-recovery="soreness"]', recovery.soreness);
 
   // Készenlét: a gyűrű kitöltését és feliratát itt, a szám animálását a
-  // pageEffects végzi (a --readiness változót a CSS stroke-dashoffset használja).
+  // router megnyitási feladata végzi (a --readiness változót a CSS stroke-dashoffset használja).
   // A szelektor szándékosan a kártyára szűkít: a Regeneráció oldalon is van
   // egy .db-ring, azt a renderRecovery kezeli.
   const ring = $('.db-readiness .db-ring');
@@ -204,7 +204,7 @@ async function drawDashboard() {
       readinessKnown ? `${readiness} százalék készenlét` : 'Készenlét: nincs elég adat',
     );
   }
-  // A szám animálását a pageEffects végzi — ha nincs adat, ott sincs mit
+  // A szám animálását a router megnyitási feladata végzi — ha nincs adat, ott sincs mit
   // felpörgetni, ezért a helyőrzőt itt írjuk ki.
   if (!readinessKnown) {
     const num = $('.db-percent-num');

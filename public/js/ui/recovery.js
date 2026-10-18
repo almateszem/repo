@@ -6,6 +6,7 @@ import { formatNumber } from '../core/format.js';
 import { createLatestOnly } from '../core/latest-only.js';
 import { hooks } from '../core/page-hooks.js';
 import { showToast } from '../core/toast.js';
+import { onPageShow } from '../nav/router.js';
 import { renderDashboard } from '../render/dashboard.js';
 import {
   CHECKIN_SCALES,
@@ -291,8 +292,8 @@ async function setupRecovery() {
     hooks.adviceModal?.maybeShow();
   };
 
-  /** Friss riport + check-in a szerverről. A pageEffects és az edzés
-      lezárása is ezt hívja. */
+  /** Friss riport + check-in a szerverről. Az oldal megnyitása (onPageShow)
+      és az edzés lezárása is ezt hívja. */
   hooks.refreshRecovery = async () => {
     const request = refreshes.begin();
     // A testsúly-napló is ide tartozik: a trend-kártya ezen az oldalon van,
@@ -311,6 +312,16 @@ async function setupRecovery() {
     if (!formDirty) fillForm(checkin);
     renderRecovery(report);
   };
+
+  /* A készenlét az edzés naplózásával is változik, ezért minden
+     megnyitáskor újraszámoltatjuk a szerverrel. Pótlás nem kell: a setup
+     maga is betölt (lent). */
+  onPageShow(
+    'recovery',
+    () =>
+      hooks.refreshRecovery().catch((err) => console.error('Regeneráció frissítési hiba:', err)),
+    { catchUp: false },
+  );
 
   await hooks.refreshRecovery();
 }

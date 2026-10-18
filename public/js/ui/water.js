@@ -13,7 +13,7 @@
 import { api } from '../core/api.js';
 import { $ } from '../core/dom.js';
 import { formatNumber } from '../core/format.js';
-import { hooks } from '../core/page-hooks.js';
+import { onPageShow } from '../nav/router.js';
 import { showToast } from '../core/toast.js';
 
 /** Egy koppintás mennyisége. A szerver 1–3000 ml között fogad el egy tételt;
@@ -82,10 +82,18 @@ async function setupWaterMeter() {
     guard(undoBtn, () => api.deleteWaterEntry(day.entries[0].id)),
   );
 
-  hooks.refreshWater = async () => {
+  const refreshWater = async () => {
     apply(await api.getWater());
   };
-  await hooks.refreshWater();
+  /* A folyadék a check-in űrlapjáról is átírható, ezért a Táplálkozás oldal
+     megnyitásakor a szervertől kérjük — különben a mérő a saját, elavult
+     másolatát mutatná. Pótlás nem kell: a setup maga is betölt (lent). */
+  onPageShow(
+    'nutrition',
+    () => refreshWater().catch((err) => console.error('Vízmérő frissítési hiba:', err)),
+    { catchUp: false },
+  );
+  await refreshWater();
 }
 
 export { setupWaterMeter };

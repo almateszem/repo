@@ -3,8 +3,8 @@
  *
  * A cím (#workout, #coach…) tükrözi az aktív oldalt, így a vissza gomb és a
  * link-megosztás is működik; az utolsó oldal localStorage-ból áll vissza.
- * Az oldal-megjelenéskor futó effektek a core/page-hooks.js horgain át érik
- * el a lapok vezérlőit — így a router nem függ a ui/ modulaktól.
+ * Az oldal-megjelenéskor futó feladatokat a lapok vezérlői regisztrálják
+ * (onPageShow) — így a router nem függ a ui/ modulaktól.
  */
 
 import {
@@ -16,84 +16,62 @@ import {
 } from '../core/constants.js';
 import { $, $$, prefersReducedMotion } from '../core/dom.js';
 import { animateNumber, formatWhole } from '../core/format.js';
-import { hooks, shared } from '../core/page-hooks.js';
+import { shared } from '../core/page-hooks.js';
 import { prefs } from '../core/prefs.js';
 import { dashboardData, refreshDashboardIfStale, renderChromeDate } from '../render/dashboard.js';
 import { renderPlans } from '../render/plans.js';
 import { hasReadiness } from '../render/recovery.js';
 import { renderSummary } from '../render/summary.js';
 
-/** Oldal-megjelenéskor futó effektek (számláló-animációk stb.). */
-const pageEffects = {
-  dashboard() {
-    /* Megnyitáskor friss adat — mint a többi oldalon: terv-aktiválás után az
-       új „mai edzés", éjfél után a mai streak és készenlét. Az induláskori
-       render után (2 mp-en belül) nem kér újra, egy futó renderhez csatlakozik
-       (refreshDashboardIfStale). A szám a MEGÉRKEZETT adatból pörög fel, így
-       nincs régi → új villanás. */
-    renderChromeDate();
-    refreshDashboardIfStale()
-      .then(() => {
-        if (!dashboardData || !hasReadiness(dashboardData.readiness)) return;
-        // formatWhole: a lap legnagyobb számánál egyetlen tizedesvessző is
-        // megtörné az elrendezést minden képkockán.
-        animateNumber($('.db-percent-num'), dashboardData.readiness, {
-          from: 0,
-          duration: 900,
-          format: formatWhole,
-        });
-      })
-      .catch((err) => console.error('Áttekintő frissítési hiba:', err));
-  },
-  coach() {
-    /* Az Edző oldal MÁSIK EMBER adatát mutatja (a sportolóid állapotát, az
-       edződ üzeneteit), ami a saját gépeléseinktől függetlenül változik —
-       ezért minden megnyitáskor friss adatot kérünk. A frissítő rajzolja ki
-       a sportoló-sorokat is, és az ő végén pörögnek fel a pontszámok. */
-    if (hooks.refreshCoachPage) hooks.refreshCoachPage();
-    else {
-      const manager = $('[data-page="coach"] [data-view="manager"]');
-      if (manager && !manager.hidden) animateCoachRatings();
-    }
-  },
-  summary() {
-    renderSummary(); // az edzésnapló élő DOM-állapotából számol + felpörgeti a számokat
-  },
-  plans() {
-    // A terv-kártyák progress-e a mai pipált szetteket követi — megnyitáskor frissül
-    renderPlans().catch((err) => console.error('Tervek frissítési hiba:', err));
-  },
-  recovery() {
-    // A készenlét az edzés naplózásával is változik, ezért minden
-    // megnyitáskor újraszámoltatjuk a szerverrel.
-    hooks.refreshRecovery?.().catch((err) => console.error('Regeneráció frissítési hiba:', err));
-  },
-  'exercise-picker'() {
-    // A setupExercisePicker tölti fel; megjelenéskor frissíti a cél nevét
-    // és a hozzáadás-gombok állapotát az aktuális cél-lista szerint.
-    hooks.refreshExercisePicker?.();
-  },
-  checkin() {
-    // Friss riport (készenlét + a mai check-in értékei) minden megnyitáskor.
-    // A lépés-pozíció csak új munkamenetnél áll vissza — lásd
-    // refreshCheckinWizard.
-    hooks.refreshCheckinWizard?.().catch((err) => console.error('Check-in frissítési hiba:', err));
-  },
-  profile() {
-    // Az összesítők minden edzés-mentéssel változnak, ezért megnyitáskor
-    // mindig a szervertől kérjük őket — nincs külön értesítési lánc.
-    hooks.refreshProfile?.().catch((err) => console.error('Profil frissítési hiba:', err));
-  },
-  nutrition() {
-    // A folyadék a check-in űrlapjáról is átírható, ezért megnyitáskor a
-    // szervertől kérjük — különben a mérő a saját, elavult másolatát mutatná.
-    hooks.refreshWater?.().catch((err) => console.error('Vízmérő frissítési hiba:', err));
-    // Az étrendet az edző írja — a mi másolatunk bármikor elavulhat.
-    hooks.refreshCoachMeals?.().catch((err) => console.error('Étrend frissítési hiba:', err));
-    // Az étel-lista az első megnyitáskor töltődik (js/ui/nutrition.js)
-    hooks.startFoodList?.();
-  },
-};
+/* ---- Oldal-megnyitás: onPageShow ----
+   Ami „az oldal megnyílt" pillanatban fut (friss adat, számláló-animáció),
+   az ide iratkozik fel, oldalanként akárhány feladattal. A lapok vezérlői a
+   saját setupjukban regisztrálnak; a router csak a nevet ismeri, a ui/-t nem. */
+
+/** oldalnév → a megnyitáskor futó feladatok, a regisztrálás sorrendjében. */
+const pageShowHandlers = new Map();
+
+/** A legutóbb megjelenített oldal — az első showPage előtt null. */
+let shownPage = null;
+
+/** Feladat az oldal minden megnyitására. Ha az oldal MÁR látszik (az app a
+    vezérlő felépülése előtt nyílt meg rajta), a feladat azonnal le is fut,
+    és a visszatérési értékét (pl. az ígéretét) adja vissza — így nem kell
+    kézzel pótolni az induláskor elmaradt megnyitást. `catchUp: false`, ha a
+    vezérlő a setupjában amúgy is betölt, és a pótlás kétszer kérne. */
+function onPageShow(name, fn, { catchUp = true } = {}) {
+  if (!pageShowHandlers.has(name)) pageShowHandlers.set(name, []);
+  pageShowHandlers.get(name).push(fn);
+  return catchUp && shownPage === name ? fn() : undefined;
+}
+
+onPageShow('dashboard', () => {
+  /* Megnyitáskor friss adat — mint a többi oldalon: terv-aktiválás után az
+     új „mai edzés", éjfél után a mai streak és készenlét. Az induláskori
+     render után (2 mp-en belül) nem kér újra, egy futó renderhez csatlakozik
+     (refreshDashboardIfStale). A szám a MEGÉRKEZETT adatból pörög fel, így
+     nincs régi → új villanás. */
+  renderChromeDate();
+  refreshDashboardIfStale()
+    .then(() => {
+      if (!dashboardData || !hasReadiness(dashboardData.readiness)) return;
+      // formatWhole: a lap legnagyobb számánál egyetlen tizedesvessző is
+      // megtörné az elrendezést minden képkockán.
+      animateNumber($('.db-percent-num'), dashboardData.readiness, {
+        from: 0,
+        duration: 900,
+        format: formatWhole,
+      });
+    })
+    .catch((err) => console.error('Áttekintő frissítési hiba:', err));
+});
+onPageShow('summary', () => {
+  renderSummary(); // az edzésnapló élő DOM-állapotából számol + felpörgeti a számokat
+});
+onPageShow('plans', () => {
+  // A terv-kártyák progress-e a mai pipált szetteket követi — megnyitáskor frissül
+  renderPlans().catch((err) => console.error('Tervek frissítési hiba:', err));
+});
 
 /** A sportoló-sorok pontszámainak felpörgetése (oldal- és nézetváltáskor). */
 function animateCoachRatings() {
@@ -262,7 +240,8 @@ function showPage(name) {
 
   // A flow-oldalak nem számítanak "utolsó oldalnak" — friss megnyitáskor nem állnak vissza
   if (!FLOW_PAGES.includes(name)) prefs.set('lastPage', name);
-  pageEffects[name]?.();
+  shownPage = name;
+  (pageShowHandlers.get(name) ?? []).forEach((fn) => fn());
 }
 
 function navigate(name) {
@@ -328,6 +307,7 @@ export {
   currentPage,
   dirToPage,
   navigate,
+  onPageShow,
   refreshNavRing,
   setOnboardingLock,
   setupRouter,

@@ -7,7 +7,7 @@ import { animateNumber, formatNumber } from '../core/format.js';
 import { hooks } from '../core/page-hooks.js';
 import { SEARCH_DELAY_MS, createPagedList, debounce } from '../core/paged-list.js';
 import { showToast } from '../core/toast.js';
-import { currentPage } from '../nav/router.js';
+import { onPageShow } from '../nav/router.js';
 import { refreshDailyStats } from '../render/dashboard.js';
 import { renderFoodItem } from '../render/foods.js';
 
@@ -368,8 +368,8 @@ async function setupNutrition(foodDetail) {
   });
 
   /* ---- Étel-lista: szerveroldali keresés, 40-es lapok ----
-     A lista az oldal ELSŐ megnyitásakor töltődik (a router nutrition()
-     hatása hívja a hooks.startFoodList-et), nem az app indulásakor. A nyíl
+     A lista az oldal ELSŐ megnyitásakor töltődik (onPageShow → startFoods,
+     lent), nem az app indulásakor. A nyíl
      kattintásakor az ételt a betöltött lapokból épülő név → étel táblából
      vesszük; új keresésnél a tábla kiürül. */
   const foodList = $('[data-list="foods"]');
@@ -435,7 +435,13 @@ async function setupNutrition(foodDetail) {
     runFoodQuery();
     refreshRecent();
   };
-  hooks.startFoodList = startFoods;
+  /* Az étrendet az edző írja — a mi másolatunk bármikor elavulhat. Pótlás
+     nem kell: induláskor a setup tölti az összesítőt. */
+  onPageShow(
+    'nutrition',
+    () => hooks.refreshCoachMeals().catch((err) => console.error('Étrend frissítési hiba:', err)),
+    { catchUp: false },
+  );
 
   /* Saját étel felvitele/törlése után: a lista a MOSTANI kereséssel indul
      elölről, így az új saját étel (a szerver elöl adja) azonnal látszik, a
@@ -556,10 +562,9 @@ async function setupNutrition(foodDetail) {
     }
   });
 
-  /* Közvetlen nyitás a Táplálkozás oldalon (újratöltés #nutrition-ön): a
-     router már a setup ELŐTT lefuttatta az oldal hatását, amikor a
-     hooks.startFoodList még nem létezett — itt pótoljuk. */
-  if (currentPage() === 'nutrition') startFoods();
+  /* Az étel-lista az első megnyitáskor töltődik. Ha az app épp a Táplálkozás
+     oldalon nyílt (újratöltés #nutrition-ön), a regisztráció azonnal pótolja. */
+  onPageShow('nutrition', startFoods);
 
   return { logFood, refreshFoods, openFoodDetail };
 }

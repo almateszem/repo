@@ -13,7 +13,7 @@ import { onDayChange } from '../../core/day.js';
 import { $, prefersReducedMotion } from '../../core/dom.js';
 import { hooks, shared } from '../../core/page-hooks.js';
 import { showToast } from '../../core/toast.js';
-import { setOnboardingLock } from '../../nav/router.js';
+import { onPageShow, setOnboardingLock } from '../../nav/router.js';
 import { renderDashboard } from '../../render/dashboard.js';
 import { handleStepClick } from '../../render/sets.js';
 import { ciPickPositive } from './helpers.js';
@@ -242,7 +242,7 @@ async function setupCheckinWizard() {
     be (ide tartozik a setup-időben előre rajzolt intro is), ha közben napot
     váltottunk, vagy ha az előzőt már elmentettük. Egyébként megőrzi a
     félbehagyott kitöltés helyét, és csak a hordozott mezőket frissíti. */
-  hooks.refreshCheckinWizard = async () => {
+  const refreshWizard = async () => {
     const today = new Date().toDateString();
     const fresh = !ci.loaded || ci.sessionDate !== today || ci.saved;
     if (fresh) resetSession(today);
@@ -259,7 +259,7 @@ async function setupCheckinWizard() {
     if (event.target.closest('[data-action="checkin-back"]')) goBack();
   });
 
-  // Az intro már setup-időben felkerül: a showPage a pageEffects ELŐTT
+  // Az intro már setup-időben felkerül: a showPage a megnyitási feladatok ELŐTT
   // fókuszálja a lap első h2-jét, tehát az első megnyitáskor már kell lennie
   // renderelt lépésnek.
   resetSession(new Date().toDateString());
@@ -267,6 +267,13 @@ async function setupCheckinWizard() {
 
   // Napváltáskor a következő megnyitás tiszta lappal indul.
   onDayChange(clearSession);
+
+  /* Friss riport (készenlét + a mai check-in értékei) minden megnyitáskor; a
+     lépés-pozíció csak új munkamenetnél áll vissza (refreshWizard). Ha az
+     onboarding már a check-inre navigált, a regisztráció azonnal pótolja. */
+  await onPageShow('checkin', () =>
+    refreshWizard().catch((err) => console.error('Check-in frissítési hiba:', err)),
+  );
 }
 
 export { setupCheckinWizard };

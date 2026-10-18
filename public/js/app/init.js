@@ -3,11 +3,11 @@
 import { api } from '../core/api.js';
 import { onDayChange, startDayWatcher } from '../core/day.js';
 import { $, $$ } from '../core/dom.js';
-import { hooks, shared } from '../core/page-hooks.js';
+import { hooks } from '../core/page-hooks.js';
 import { prefs } from '../core/prefs.js';
 import { showToast } from '../core/toast.js';
 import { setupNavRing } from '../nav/navring.js';
-import { dirToPage, navigate, setOnboardingLock, setupRouter } from '../nav/router.js';
+import { dirToPage, navigate, onPageShow, setOnboardingLock, setupRouter } from '../nav/router.js';
 import {
   renderCharts,
   renderChromeDate,
@@ -109,13 +109,18 @@ async function init() {
     }),
   );
   coachPage = await safe(() => setupCoachPage(athleteDetail, confirmAction));
-  /* Az oldalra lépéskor futó frissítés hibáját itt nyeljük el: a korábbi
-     tartalom marad a képernyőn, és a következő megnyitás újrapróbálja —
-     egy pillanatnyi hálózati hiba miatt nem üresedhet ki az oldal. */
-  hooks.refreshCoachPage = () =>
+  /* Az Edző oldal MÁSIK EMBER adatát mutatja (a sportolóid állapotát, az
+     edződ üzeneteit), ami a saját gépeléseinktől függetlenül változik —
+     ezért minden megnyitáskor friss adatot kérünk. A frissítő rajzolja ki a
+     sportoló-sorokat is, és az ő végén pörögnek fel a pontszámok. A hibát
+     itt nyeljük el: a korábbi tartalom marad a képernyőn, és a következő
+     megnyitás újrapróbálja — egy pillanatnyi hálózati hiba miatt nem
+     üresedhet ki az oldal. */
+  onPageShow('coach', () =>
     coachPage
       ?.refresh({ animate: true })
-      .catch((err) => console.error('Edző oldal frissítési hiba:', err));
+      .catch((err) => console.error('Edző oldal frissítési hiba:', err)),
+  );
 
   /* A kezenkénti-súly konvenció listája a katalógusból, MINDEN gyakorlat-
      kártya kirajzolása ELŐTT: a renderExercise szinkron, menet közben nem
@@ -137,7 +142,7 @@ async function init() {
   setupDashboard(settingsModal);
   // A setupDashboard UTÁN: a profiloldal „Beállítások" gombját is az köti be
   // (minden [data-action="settings"] elemre), a tartalmat pedig a
-  // pageEffects tölti fel az oldal első megnyitásakor.
+  // megnyitási feladata (onPageShow) tölti fel az első megnyitáskor.
   await safe(setupProfile);
   // A testsúly-napló a Regeneráció oldal trend-kártyáját és az áttekintő Δ
   // statját tölti — a setupRecovery ELŐTT, mert az a mai bejegyzésből tölti
@@ -147,10 +152,6 @@ async function init() {
   // A setupRecovery UTÁN: a varázsló mentése az ott beállított
   // applyCheckinSaved-en keresztül frissíti a Regeneráció oldalt.
   await safe(setupCheckinWizard);
-  /* Onboarding: a setupRouter (ami ELŐBB fut) már a check-inre navigált, de
-     a `pageEffects.checkin` akkor még egy null frissítőt talált — a lap a
-     setup-időben rajzolt introt mutatja, szerver-állapot nélkül. Itt pótoljuk. */
-  if (shared.onboardingLock) await safe(hooks.refreshCheckinWizard);
   // A közös gyakorlat-választó — az edzésnapló és a terv-építő is ezt célozza át
   const picker = await safe(() => setupExercisePicker(confirmAction));
   const workout = await safe(() => setupWorkout(videoModal, prModal, picker, confirmAction));

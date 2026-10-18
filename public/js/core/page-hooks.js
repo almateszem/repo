@@ -1,10 +1,11 @@
 /**
  * Késleltetett kötés a router és az oldalak vezérlői között.
  *
- * A router megnyitáskor frissíteni akarja az oldalt, de nem ismerheti a lapok
- * vezérlőit: azok később, az init során épülnek fel, és többük egymásra is
- * épül. A vezérlők ezért ide iratkoznak fel, a router pedig innen hív —
- * így a nav/ nem függ a ui/-tól, és nem keletkezik kör a modulgráfban.
+ * A lapok vezérlői később, az init során épülnek fel, és többük egymásra is
+ * épül. Amit egy MÁSIK modul hív (a router, az api réteg, egy másik vezérlő),
+ * az ide iratkozik fel — így nem keletkezik kör a modulgráfban. Az oldal-
+ * megnyitáskor futó feladatok NEM itt élnek: azokat a vezérlők a routerben
+ * regisztrálják (nav/router.js → onPageShow).
  *
  * A slotok az első hívásig `null`-ok, ezért a hívó oldalon mindig `?.()` áll.
  */
@@ -14,10 +15,6 @@ export const hooks = {
   /** Munkamenet-vesztés menet közben (lejárt süti, másik eszközről kiléptetés).
       A setupAuthGate tölti fel; az api réteg hívja 401-re. */
   onSessionLost: null,
-
-  /** A gyakorlat-választó frissítője — a setupExercisePicker állítja be.
-      Megjelenéskor frissíti a cél nevét és a hozzáadás-gombok állapotát. */
-  refreshExercisePicker: null,
 
   /** A gyakorlat-választó CÉLJÁNAK átállítása — a setupExercisePicker állítja
       be. Az edzésnapló és a terv-építő paraméterben kapja a választót, de a
@@ -36,33 +33,19 @@ export const hooks = {
       állítja be; az összegző kirajzolása hívja. */
   refreshSummaryFeedback: null,
 
-  /** A check-in varázsló frissítője — a setupCheckinWizard állítja be. Friss
-      riportot kér minden megnyitáskor; a lépés-pozíció csak új munkamenetnél
-      áll vissza. */
-  refreshCheckinWizard: null,
-
   /** A profiloldal frissítője — a setupProfile állítja be. Az oldal minden
-      megnyitása hívja (a pageEffects-en át). */
+      megnyitása (onPageShow) és a beállítások mentése hívja. */
   refreshProfile: null,
-
-  /** Az Edző oldal frissítője — a setupCoachPage állítja be. Az oldal minden
-      megnyitása hívja: a kapcsolatok, a sportolók állapota és az üzenetek a
-      másik fél lépéseitől is változnak. */
-  refreshCoachPage: null,
 
   /** A mentett check-in kirajzolása a Regeneráció oldalra — a setupRecovery
       állítja be. A hosszú űrlap ÉS a varázsló is ezt hívja mentés után, így a
       két írási út nem sodródhat szét. */
   applyCheckinSaved: null,
 
-  /** A vízmérő frissítője — a setupWaterMeter állítja be. A Táplálkozás oldal
-      megnyitása hívja: ugyanaz a szám a check-in űrlapjáról is átírható,
-      tehát a lokális másolat elavulhat, amíg máshol jársz. */
-  refreshWater: null,
-
   /** Az edződ étrendjének frissítője — a setupNutrition állítja be. A
-      Táplálkozás oldal megnyitása hívja: az étrendet az EDZŐ írja, tehát
-      bármikor változhat, amíg máshol jársz. */
+      Táplálkozás oldal megnyitása (onPageShow) és az edzői kapcsolat változása
+      hívja: az étrendet az EDZŐ írja, tehát bármikor változhat, amíg máshol
+      jársz. */
   refreshCoachMeals: null,
 
   /** A készenlét-javaslat ablaka — az init állítja be. A check-in mentése után

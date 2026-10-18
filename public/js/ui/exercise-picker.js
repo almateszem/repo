@@ -5,7 +5,7 @@ import { $, $$, cloneTemplate } from '../core/dom.js';
 import { hooks } from '../core/page-hooks.js';
 import { SEARCH_DELAY_MS, createPagedList, debounce } from '../core/paged-list.js';
 import { showToast } from '../core/toast.js';
-import { navigate } from '../nav/router.js';
+import { navigate, onPageShow } from '../nav/router.js';
 import { defaultSetFor, renderExercise } from '../render/sets.js';
 import { setupThumb } from './workout.js';
 
@@ -295,7 +295,9 @@ async function setupExercisePicker(confirmAction) {
 
   backBtn.addEventListener('click', () => navigate(context?.backPage || 'plans'));
 
-  hooks.refreshExercisePicker = refresh;
+  // Megjelenéskor a cél neve és a hozzáadás-gombok állapota az aktuális
+  // cél-lista szerint.
+  onPageShow('exercise-picker', refresh);
 
   /** A cél átállítása — a hívó ezt hívja, mielőtt a választóra navigál. Az
       első hívás indítja a katalógust is. */
