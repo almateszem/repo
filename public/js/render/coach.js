@@ -1,8 +1,8 @@
 /** Az edzői panel elemei: KPI-sor, sportoló-lista, állapot, üzenetek, meghívók, terv-ajánlatok. */
 
 import { $, cloneTemplate } from '../core/dom.js';
-import { dayLabel, dayStatus } from '../core/plan-week.js';
-import { CONFIDENCE_LABELS, hasReadiness } from './recovery.js';
+import { hasReadiness } from './recovery.js';
+import { ATHLETE_CARD_STATS, athleteTier, kpi, orDash, planInfoEl } from './coach-shared.js';
 
 /** Egy üzenet-buborék. A `me` a saját üzeneteket tolja jobbra — a szerver a
     néző szemszögéből jelöli meg őket (ld. messageNote). */
@@ -12,91 +12,6 @@ function createCoachNote({ meta, text, me = false }) {
   $('.co-note-meta', article).textContent = meta;
   $('.co-note-text', article).textContent = text;
   return article;
-}
-
-/* ---- Edzői panel: sportoló-sorok ----
-   A sorok VALÓDI sportolók valódi adatából épülnek (GET /api/athletes):
-   az összpontszámot a szerver számolja (server/coaching.js) a készenlét és a
-   terv-követés átlagaként, terv híján magából a készenlétből. A szint (arany
-   ≥ 85, ezüst ≥ 70, alatta bronz) ebből jön.
-   A sor azonosítója a KAPCSOLAT azonosítója: a sportoló belső id-jét a
-   szerver nem is adja ki. */
-const athleteTier = (rating, confidence = null) =>
-  rating === null || rating === undefined
-    ? // Nincs mérhető jel (se készenlét, se terv-követés) — ez nem „bronz"
-      { key: 'none', label: 'Még nincs pontszám', short: 'Nincs pont' }
-    : confidence === 'low'
-      ? /* Kevés napló: a motor általános referenciával számol, a magas szám
-           így nem „arany" teljesítmény, hanem adathiány. A pontszám marad,
-           de szint nem jár hozzá. */
-        { key: 'none', label: 'Kevés adat', short: 'Kevés adat' }
-      : rating >= 85
-        ? { key: 'gold', label: 'Arany szint', short: 'Arany' }
-        : rating >= 70
-          ? { key: 'silver', label: 'Ezüst szint', short: 'Ezüst' }
-          : { key: 'bronze', label: 'Bronz szint', short: 'Bronz' };
-
-/** Hiányzó érték helyén gondolatjel. A „még nincs adat" NEM nulla: terv
-    nélkül nincs terv-követés, edzés nélkül nincs utolsó edzés. */
-const orDash = (value) => (value === null || value === undefined ? '—' : value);
-
-/** A trend csak akkor kerül a szám mellé, ha érdemi: pár pontos ingadozás
-    zaj, attól nem kell nyilat rajzolni. */
-const TREND_MIN = 10;
-
-/** „75%", érdemi változásnál „75% ↓20" — az irány az utolsó két hét az
-    előző kettőhöz mérve (a szerver számolja). */
-const adherenceText = (a) => {
-  if (a.adherence === null) return '—';
-  const trend = a.adherenceTrend ?? 0;
-  if (Math.abs(trend) < TREND_MIN) return `${a.adherence}%`;
-  return `${a.adherence}% ${trend > 0 ? '↑' : '↓'}${Math.abs(trend)}`;
-};
-
-/** A kártyán megjelenő statok (címke + érték-képző) — a részletnézet bővebb listát mutat. */
-const ATHLETE_CARD_STATS = [
-  ['Készenlét', (a) => (hasReadiness(a.readiness) ? `${a.readiness}%` : '—')],
-  ['Terv-követés', adherenceText],
-  ['Sorozat', (a) => `${a.streak} nap`],
-  ['Utolsó edzés', (a) => orDash(a.lastWorkout)],
-];
-
-/** A részletnézet bővebb stat-listája (a kártya statjai + extra mezők). A
-    sportolói panel oldalsávja UGYANEZT mutatja — a sportoló pontosan azt
-    látja magáról, amit az edzője.
-    A megbízhatóság szándékosan itt van: napló nélküli fiókra a motor 100%
-    készenlétet ad (nincs mit levonni), és enélkül az edző „arany szintnek"
-    olvasná azt, ami valójában adathiány. */
-const percentOrDash = (value) => (value == null ? '—' : `${value}%`);
-
-const ATHLETE_DETAIL_STATS = [
-  ...ATHLETE_CARD_STATS,
-  ['Heti edzések', (a) => a.weekly],
-  ['Aktív terv', (a) => orDash(a.plan)],
-  // Az elmúlt 4 hét edzéseiből hány indult tervből — a többi szabad edzés
-  ['Terv szerinti edzés', (a) => orDash(a.planWorkouts)],
-  // A terv-követés bontása (csak az edző kiosztott tervére): hány ütemezett
-  // napon edzett a kijelölt napon, és azokon mennyi szett / mennyire talált az RPE
-  ['Jó napon elvégezve', (a) => orDash(a.adherenceDetail?.onDay)],
-  ['Szett-teljesítés', (a) => percentOrDash(a.adherenceDetail?.sets)],
-  ['RPE-egyezés', (a) => percentOrDash(a.adherenceDetail?.rpe)],
-  ['Készenlét alapja', (a) => CONFIDENCE_LABELS[a.confidence] ?? '—'],
-];
-
-/** Egy stat-lista (`dl`) feltöltése — a részletnézet és a sportolói panel közös rajzolója. */
-function renderStatList(dl, athlete, stats = ATHLETE_DETAIL_STATS) {
-  dl.replaceChildren(
-    ...stats.map(([label, getValue]) => {
-      const stat = document.createElement('div');
-      stat.className = 'co-modal-stat';
-      const dt = document.createElement('dt');
-      dt.textContent = label;
-      const dd = document.createElement('dd');
-      dd.textContent = getValue(athlete);
-      stat.append(dt, dd);
-      return stat;
-    }),
-  );
 }
 
 /** A sorban sávval is megjelenő százalékos statok. 50 alatt pirosak: ott már
@@ -229,32 +144,10 @@ function renderPlanOffer(offer) {
   const li = document.createElement('li');
   li.className = 'co-invite';
 
-  const info = document.createElement('div');
-  info.className = 'co-invite-info';
-  const nameEl = document.createElement('span');
-  nameEl.className = 'co-invite-name';
-  nameEl.textContent = offer.name;
-
-  const metaEl = document.createElement('span');
-  metaEl.className = 'co-invite-meta';
-  const days = offer.days ?? [];
-  metaEl.textContent = [offer.from, `${days.length} edzésnap`].filter(Boolean).join(' · ');
-
-  // A hét napról napra: „H: Push · Sze: Pull · P: = H" — a pihenőnap kimarad
-  const weekEl = document.createElement('span');
-  weekEl.className = 'co-invite-meta';
-  weekEl.textContent = days
-    .map((day) => `${dayLabel(day)}: ${dayStatus(offer.week, day)}`)
-    .join(' · ');
-  info.append(nameEl, metaEl, weekEl);
-
-  // Az edző kísérő sora, ha írt ilyet — külön sorban, idézve
-  if (offer.note) {
-    const noteEl = document.createElement('span');
-    noteEl.className = 'co-invite-note';
-    noteEl.textContent = `„${offer.note}”`;
-    info.appendChild(noteEl);
-  }
+  const info = planInfoEl(
+    offer,
+    [offer.from, `${(offer.days ?? []).length} edzésnap`].filter(Boolean).join(' · '),
+  );
 
   const buttons = document.createElement('div');
   buttons.className = 'co-invite-actions';
@@ -290,28 +183,6 @@ const ATHLETE_FILTERS = [
   ['alert', 'Figyelj rá', (a) => Boolean(a.alert)],
   ['ok', 'Rendben', (a) => !a.alert && a.rating !== null && a.rating !== undefined],
 ];
-
-function kpi(label, value, unit, sub, modifier) {
-  const el = document.createElement('div');
-  el.className = 'co-kpi';
-  const labelEl = document.createElement('p');
-  labelEl.className = 'ds-eyebrow';
-  labelEl.textContent = label;
-  const valueEl = document.createElement('p');
-  valueEl.className = 'co-kpi-value';
-  const num = document.createElement('span');
-  num.className = `co-kpi-num${modifier ? ` ${modifier}` : ''}`;
-  num.textContent = value;
-  const unitEl = document.createElement('span');
-  unitEl.className = 'co-kpi-unit';
-  unitEl.textContent = unit;
-  valueEl.append(num, unitEl);
-  const subEl = document.createElement('p');
-  subEl.className = 'co-kpi-sub';
-  subEl.textContent = sub;
-  el.append(labelEl, valueEl, subEl);
-  return el;
-}
 
 function renderCoachKpis(athletes) {
   const unread = athletes.reduce((sum, a) => sum + a.unread, 0);
@@ -523,16 +394,4 @@ function renderCoachPanel({ athletes, invites }, view = {}) {
   );
 }
 
-export {
-  ATHLETE_CARD_STATS,
-  ATHLETE_DETAIL_STATS,
-  athleteTier,
-  createCoachNote,
-  kpi,
-  orDash,
-  renderAthleteList,
-  renderCoachPanel,
-  renderInviteRow,
-  renderPlanOffer,
-  renderStatList,
-};
+export { createCoachNote, renderAthleteList, renderCoachPanel, renderInviteRow, renderPlanOffer };

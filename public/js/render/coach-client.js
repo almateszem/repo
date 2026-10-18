@@ -5,19 +5,27 @@
 
 import { $ } from '../core/dom.js';
 import { formatNumber } from '../core/format.js';
-import { dayLabel, dayStatus } from '../core/plan-week.js';
-import { ATHLETE_DETAIL_STATS, athleteTier, kpi, orDash, renderStatList } from './coach.js';
+import {
+  ATHLETE_DETAIL_STATS,
+  TREND_MIN,
+  athleteTier,
+  kpi,
+  orDash,
+  planInfoEl,
+  renderStatList,
+} from './coach-shared.js';
 import { CONFIDENCE_LABELS, hasReadiness } from './recovery.js';
 
-/** A terv-követés alsora. Érdemi változásnál (legalább 10 pont) a trendet
-    mondja ki — ugyanaz a küszöb, amitől az edző kártyáján nyíl jelenik meg. */
+/** A terv-követés alsora. Érdemi változásnál (legalább TREND_MIN pont) a
+    trendet mondja ki — ugyanaz a küszöb, amitől az edző kártyáján nyíl jelenik
+    meg (coach-shared.js). */
 function adherenceSub(me, hasCoachPlan) {
   if (me.adherence === null) {
     // Elfogadott terv mellett a hiány azt jelenti: még nem volt ütemezett nap
     return hasCoachPlan ? 'még nem volt ütemezett edzésnap' : 'még nincs elfogadott edzői terv';
   }
   const trend = me.adherenceTrend ?? 0;
-  if (Math.abs(trend) < 10) return 'az edződ tervéhez mérve · 4 hét';
+  if (Math.abs(trend) < TREND_MIN) return 'az edződ tervéhez mérve · 4 hét';
   return `${trend > 0 ? '↑' : '↓'}${Math.abs(trend)} pont az előző két héthez képest`;
 }
 
@@ -200,10 +208,6 @@ function renderClientMeals(list, meals) {
   );
 }
 
-/** A hét napról napra: „H: Push · Sze: Pull" — a pihenőnap kimarad. */
-const weekText = (offer) =>
-  (offer.days ?? []).map((day) => `${dayLabel(day)}: ${dayStatus(offer.week, day)}`).join(' · ');
-
 /** Az aktív edzői terv: a legutóbb ELFOGADOTT ajánlat — a terv-követés is ehhez mér. */
 function renderActivePlan(el, history) {
   const active = history.find((offer) => offer.status === 'accepted');
@@ -216,24 +220,10 @@ function renderActivePlan(el, history) {
   }
   const box = document.createElement('div');
   box.className = 'co-invite co-client-plan';
-  const info = document.createElement('div');
-  info.className = 'co-invite-info';
-  const name = document.createElement('span');
-  name.className = 'co-invite-name';
-  name.textContent = active.name;
-  const meta = document.createElement('span');
-  meta.className = 'co-invite-meta';
-  meta.textContent = `${(active.days ?? []).length} edzésnap · elfogadva ${formatDay(active.respondedAt)}`;
-  const week = document.createElement('span');
-  week.className = 'co-invite-meta';
-  week.textContent = weekText(active);
-  info.append(name, meta, week);
-  if (active.note) {
-    const note = document.createElement('span');
-    note.className = 'co-invite-note';
-    note.textContent = `„${active.note}”`;
-    info.appendChild(note);
-  }
+  const info = planInfoEl(
+    active,
+    `${(active.days ?? []).length} edzésnap · elfogadva ${formatDay(active.respondedAt)}`,
+  );
   const link = document.createElement('a');
   link.className = 'co-ghost-btn';
   link.href = '#plans';

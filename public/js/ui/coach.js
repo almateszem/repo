@@ -7,12 +7,8 @@ import { shared } from '../core/page-hooks.js';
 import { prefs } from '../core/prefs.js';
 import { showToast } from '../core/toast.js';
 import { animateCoachRatings, refreshNavRing } from '../nav/router.js';
-import {
-  athleteTier,
-  renderAthleteList,
-  renderCoachPanel,
-  renderStatList,
-} from '../render/coach.js';
+import { renderAthleteList, renderCoachPanel } from '../render/coach.js';
+import { athleteTier, renderStatList } from '../render/coach-shared.js';
 import { renderPlans } from './plans-data.js';
 import { createChatController } from './chat.js';
 import { exerciseNoteRow } from './exercise-notes.js';
