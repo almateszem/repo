@@ -104,8 +104,10 @@ db.exec('PRAGMA synchronous = NORMAL');
 db.exec('PRAGMA foreign_keys = ON');
 
 /* ---- Séma ----
-   Új adatbázison ez már a végleges alak; a régi (felhasználó nélküli)
-   fájlokat a lentebbi migrációk hozzák ide. */
+   Új adatbázison ez a teljes, végleges alak: minden oszlop itt születik. A
+   többfelhasználós, de régebbi fájlokon a később bevezetett oszlopokat a
+   lentebbi ensureColumn-lépés pótolja, azonos DDL-lel; a felhasználó
+   nélküli fájlokat a baseline-őr (fent) elutasítja. */
 db.exec(`
   CREATE TABLE IF NOT EXISTS collections (
     key   TEXT PRIMARY KEY,
@@ -119,7 +121,9 @@ db.exec(`
     display_name  TEXT NOT NULL,
     password_hash TEXT NOT NULL,   -- scrypt (server/auth.js); üres = nem lehet belépni
     goal          TEXT,            -- edzés-cél kulcsa (data.js → goals), lehet NULL
-    created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+    sex           TEXT,            -- 'male' | 'female' | NULL (erőszint-érme)
+    birth_year    INTEGER          -- születési év (erőszint életkori korrekció), lehet NULL
   );
   -- Munkamenetek. A süti tokenjének CSAK a SHA-256 lenyomata kerül ide.
   CREATE TABLE IF NOT EXISTS sessions (
@@ -146,7 +150,12 @@ db.exec(`
     carbs      REAL NOT NULL,
     fat        REAL NOT NULL,
     date       TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    -- az étel 100 g-ra vonatkozó, kerekítetlen tápértéke a naplózáskor (régi sorokon NULL)
+    base_kcal    REAL,
+    base_protein REAL,
+    base_carbs   REAL,
+    base_fat     REAL
   );
   -- Saját (a felhasználó által felvitt) ételek. A beépített katalógus a
   -- collections['foods'] kulcsban él és MINDENKINEK közös; ez viszont
@@ -320,7 +329,13 @@ db.exec(`
     -- a szuperszett-csoportokat így a tömbsorrend adja ki, nem külön azonosító.
     exercises  TEXT NOT NULL,
     plan_id    INTEGER,                -- melyik tervből indult (NULL, ha szabad edzés)
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    -- edzés utáni visszajelzés (mind NULL-ozható: „nem küldött" ≠ „rosszat jelzett")
+    feedback_difficulty INTEGER,
+    feedback_mood       INTEGER,
+    feedback_note       TEXT,
+    feedback_at         TEXT,
+    pr_rule    INTEGER NOT NULL DEFAULT 0  -- 0 = pipák előtti napló, 1 = csak a pipált szett számít
   );
   CREATE TABLE IF NOT EXISTS plans (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -329,7 +344,11 @@ db.exec(`
     date       TEXT NOT NULL,
     exercises  TEXT NOT NULL,          -- JSON, a workouts.exercises-szel azonos alak
     days       TEXT NOT NULL DEFAULT '[]',  -- JSON: hétnap-indexek (0 = hétfő), amikor a terv az Edzés oldalra töltődik
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    assignment_id INTEGER,             -- melyik edzői kiosztásból született (NULL = saját terv)
+    week       TEXT,                   -- JSON: a heti bontás (plan-week.js)
+    active     INTEGER NOT NULL DEFAULT 0,  -- felhasználónként egy aktív terv
+    active_since TEXT                  -- az aktiválás napja, a ciklus horgonya
   );
   -- Az épp szerkesztett edzés — FELHASZNÁLÓNKÉNT egyetlen sor. (Korábban az
   -- egész adatbázisban volt egy sor, id = 1: két ember felülírta egymást.)
@@ -409,7 +428,8 @@ db.exec(`
     note         TEXT,                           -- az edző kísérő sora (nem kötelező)
     status       TEXT NOT NULL DEFAULT 'pending',-- pending | accepted | declined
     created_at   TEXT NOT NULL DEFAULT (datetime('now')),
-    responded_at TEXT
+    responded_at TEXT,
+    week         TEXT                            -- JSON: a heti bontás (plan-week.js)
   );
   -- Gyakorlatonkénti egyéni csúcs (becsült 1RM). A PR MINDIG a saját korábbi
   -- teljesítményhez képest az, ezért a rekordok felhasználónként állnak — a
@@ -422,6 +442,7 @@ db.exec(`
     updated_at    TEXT NOT NULL DEFAULT (datetime('now')),
     declared_1rm  REAL,                -- az erőfelmérésen BEMONDOTT csúcs (vagy NULL)
     declared_date TEXT,                -- a bemondás napja
+    source        TEXT NOT NULL DEFAULT 'measured',  -- a csúcs forrása: 'measured' | 'declared'
     PRIMARY KEY (user_id, exercise_name)
   );
 `);
@@ -439,8 +460,22 @@ const columnsOf = (table) =>
     .map((c) => c.name);
 const hasColumn = (table, column) => columnsOf(table).includes(column);
 
+/* Séma-verzió (PRAGMA user_version) — a lépések listája lentebb, a
+   migrációknál. */
+const schemaVersion = db.prepare('PRAGMA user_version').get().user_version;
+
+/** A többfelhasználós séma után bevezetett oszlopok pótlása a régi fájlokon.
+    Friss adatbázison már a CREATE TABLE hozza létre őket, azonos DDL-lel (a
+    schema-parity.test.js veti össze a kettőt). Verziózott lépés: minden itt
+    pótolt oszlop az 5-ös verzió előtt született, egy 5-ös adatbázisban tehát
+    már mind megvan. Új oszlop a CREATE TABLE-be és egy új verziólépésbe kerül.
+    A lista a tesztnek kell. */
+export const ENSURED_COLUMNS = [];
+
 function ensureColumn(table, column, ddl) {
-  if (!hasColumn(table, column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+  const added = schemaVersion < 5 && !hasColumn(table, column);
+  if (added) db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
+  ENSURED_COLUMNS.push({ table, column, added });
 }
 /* A fiók neme — 'male' | 'female' | NULL. Elhagyható, és az is marad: a
    profil erőszint-érméhez kell (a küszöbök nemenként lényegesen eltérnek,
@@ -587,8 +622,8 @@ backfillExerciseMaxes();
      5 — a bemondott csúcsok átmásolása a declared_1rm / declared_date
          oszlopokba. Ez az ELSŐ lépés, nem az utolsó: az 1-es és a 3-as
          újraszámolás már ezekből az oszlopokból indul, üresen a bemondás
-         elveszne. A másolás idempotens; a verziószámot a sor végén írjuk. */
-const schemaVersion = db.prepare('PRAGMA user_version').get().user_version;
+         elveszne. A másolás idempotens; a verziószámot a sor végén írjuk.
+   (A schemaVersion-t fent, az ensureColumn előtt olvassuk ki.) */
 if (schemaVersion < 5) {
   db.exec(`
     UPDATE exercise_maxes SET declared_1rm = max_1rm, declared_date = date

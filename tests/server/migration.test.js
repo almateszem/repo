@@ -59,6 +59,7 @@ execFileSync(
   const userId = raw.prepare("SELECT id FROM users WHERE username = 'david'").get().id;
   raw.exec('DELETE FROM exercise_maxes; UPDATE workouts SET pr_rule = 0;');
   raw.exec('ALTER TABLE plans DROP COLUMN active; ALTER TABLE plans DROP COLUMN active_since;');
+  raw.exec('PRAGMA user_version = 4'); // az oszlopok a pótlásuk (ensureColumn, < 5) előtt hiányoztak
   raw
     .prepare(
       `INSERT INTO plans (user_id, name, date, exercises, days, week)

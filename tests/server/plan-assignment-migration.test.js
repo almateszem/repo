@@ -60,6 +60,7 @@ const ex = (kg) =>
     raw.exec(`ALTER TABLE plans DROP COLUMN ${column}`);
   }
   raw.exec('ALTER TABLE plan_assignments DROP COLUMN week');
+  raw.exec('PRAGMA user_version = 4'); // az oszlopok a pótlásuk (ensureColumn, < 5) előtt hiányoztak
   const offer = raw.prepare(
     "INSERT INTO plan_assignments (link_id, name, exercises, days, status) VALUES (1, ?, ?, ?, 'accepted')",
   );
