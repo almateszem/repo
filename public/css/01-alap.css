@@ -742,6 +742,40 @@ input.wk-chip:focus-visible {
   color: var(--on-accent);
 }
 
+/* Lenyíló doboz (ds-menu): a sor alá vagy fölé úszó panel — a napló négy
+   lenyílója és a saját <select> listája. A HELYE (top/left/right) és a
+   szélessége a komponensé; a .ds-menu--list oszlopba rendezi az opciókat.
+   A kiválasztott opció egységesen akcentus — kivéve a szett-típus listát
+   (.ds-menu--neutral): ott az opciók a típus színkódját viselik, és az
+   akcentus-háttér azt elnyomná. */
+.ds-menu {
+  position: absolute;
+  z-index: var(--z-popover);
+  padding: var(--sp-2);
+  background: var(--c-bg-raised);
+  border: 1px solid var(--fg-10);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-modal);
+  animation: modal-in var(--t-base) both;
+}
+
+.ds-menu--list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ds-menu > [aria-selected='true'] {
+  background: var(--c-accent);
+  color: var(--on-accent);
+}
+
+/* A színt szándékosan nem írja felül: a típus színkódja marad. */
+.ds-menu--neutral > [aria-selected='true'] {
+  background: var(--surface-strong);
+  font-weight: 600;
+}
+
 /* ==========================================================================
    3. Akadálymentességi segédosztályok
    ========================================================================== */

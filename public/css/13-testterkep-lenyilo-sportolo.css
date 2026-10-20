@@ -220,25 +220,14 @@
 }
 
 .ds-select-menu {
-  position: absolute;
   top: calc(100% + var(--sp-2));
   left: 0;
   right: 0;
-  z-index: var(--z-popover);
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
   max-height: 260px;
   overflow-y: auto;
   margin: 0;
-  padding: var(--sp-2);
   list-style: none;
-  background: var(--c-bg-raised);
-  border: 1px solid var(--fg-10);
-  border-radius: var(--r-md);
-  box-shadow: var(--shadow-modal);
   outline: none;
-  animation: modal-in var(--t-base) both;
 }
 
 /* Alul nincs elég hely: a lista a mező fölé nyílik. */

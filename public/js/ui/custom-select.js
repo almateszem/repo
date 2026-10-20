@@ -60,7 +60,7 @@ function enhanceSelect(select) {
   }
 
   const menu = document.createElement('ul');
-  menu.className = 'ds-select-menu';
+  menu.className = 'ds-select-menu ds-menu ds-menu--list';
   menu.id = `${uid}-list`;
   menu.setAttribute('role', 'listbox');
   menu.tabIndex = -1;
