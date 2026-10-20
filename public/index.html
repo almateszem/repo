@@ -2549,20 +2549,20 @@
     <!-- ================================================================
        Technique Video Log modal
        ================================================================ -->
-    <div class="video-modal" id="videoModal" aria-hidden="true">
-      <div class="video-modal-backdrop" data-close-modal></div>
+    <div class="video-modal modal" id="videoModal" aria-hidden="true">
+      <div class="video-modal-backdrop modal-backdrop" data-close-modal></div>
       <div
-        class="video-modal-card"
+        class="video-modal-card modal-card"
         role="dialog"
         aria-modal="true"
         aria-labelledby="videoModalTitle"
       >
-        <div class="video-modal-head">
-          <h3 id="videoModalTitle">
+        <div class="video-modal-head modal-head">
+          <h3 class="modal-title" id="videoModalTitle">
             Technika videó — <span class="video-modal-exercise">Fekvenyomás</span>
           </h3>
           <button
-            class="video-modal-close tap-target"
+            class="video-modal-close tap-target modal-close"
             type="button"
             data-close-modal
             aria-label="Bezárás"
@@ -2583,15 +2583,15 @@
        Gyakorlat rekord-előzmény modal (a "Korábbi rekordok" listaelemre
        kattintva nyílik, a tartalmát a frontend tölti fel)
        ================================================================ -->
-    <div class="pr-modal" id="prModal" aria-hidden="true">
-      <div class="pr-modal-backdrop" data-close-modal></div>
-      <div class="pr-modal-card" role="dialog" aria-modal="true" aria-labelledby="prModalTitle">
-        <div class="pr-modal-head">
-          <h3 id="prModalTitle">
+    <div class="pr-modal modal" id="prModal" aria-hidden="true">
+      <div class="pr-modal-backdrop modal-backdrop" data-close-modal></div>
+      <div class="pr-modal-card modal-card" role="dialog" aria-modal="true" aria-labelledby="prModalTitle">
+        <div class="pr-modal-head modal-head">
+          <h3 class="modal-title" id="prModalTitle">
             Rekord-előzmény — <span class="pr-modal-exercise">Fekvenyomás</span>
           </h3>
           <button
-            class="pr-modal-close tap-target"
+            class="pr-modal-close tap-target modal-close"
             type="button"
             data-close-modal
             aria-label="Bezárás"
@@ -2606,18 +2606,18 @@
     <!-- ================================================================
        Beállítások modal (a dashboard fogaskerék ikonja nyitja)
        ================================================================ -->
-    <div class="settings-modal" id="settingsModal" aria-hidden="true">
-      <div class="settings-modal-backdrop" data-close-modal></div>
+    <div class="settings-modal modal" id="settingsModal" aria-hidden="true">
+      <div class="settings-modal-backdrop modal-backdrop" data-close-modal></div>
       <div
-        class="settings-modal-card"
+        class="settings-modal-card modal-card"
         role="dialog"
         aria-modal="true"
         aria-labelledby="settingsModalTitle"
       >
-        <div class="settings-modal-head">
-          <h3 id="settingsModalTitle">Beállítások</h3>
+        <div class="settings-modal-head modal-head">
+          <h3 class="modal-title" id="settingsModalTitle">Beállítások</h3>
           <button
-            class="settings-modal-close tap-target"
+            class="settings-modal-close tap-target modal-close"
             type="button"
             data-close-modal
             aria-label="Bezárás"
@@ -2795,18 +2795,18 @@
        A DOM-ban a #foodModal ELŐTT áll: a „Mentés és naplózás" az
        adagválasztót nyitja meg, aminek azonos z-index mellett fölé kell kerülnie.
        ================================================================ -->
-    <div class="custom-food-modal" id="customFoodModal" aria-hidden="true">
-      <div class="custom-food-modal-backdrop" data-close-modal></div>
+    <div class="custom-food-modal modal" id="customFoodModal" aria-hidden="true">
+      <div class="custom-food-modal-backdrop modal-backdrop" data-close-modal></div>
       <div
-        class="custom-food-modal-card"
+        class="custom-food-modal-card modal-card"
         role="dialog"
         aria-modal="true"
         aria-labelledby="customFoodModalTitle"
       >
-        <div class="custom-food-modal-head">
-          <h3 id="customFoodModalTitle">Saját étel</h3>
+        <div class="custom-food-modal-head modal-head">
+          <h3 class="modal-title" id="customFoodModalTitle">Saját étel</h3>
           <button
-            class="custom-food-modal-close tap-target"
+            class="custom-food-modal-close tap-target modal-close"
             type="button"
             data-close-modal
             aria-label="Bezárás"
@@ -2978,18 +2978,18 @@
          3. kézi beírás — ez MINDIG látszik, mert a kamera hiányozhat, és
             sima http-n (a gép LAN-IP-jén) a böngésző oda sem adja.
        ================================================================ -->
-    <div class="scanner-modal" id="scannerModal" aria-hidden="true">
-      <div class="scanner-modal-backdrop" data-close-modal></div>
+    <div class="scanner-modal modal" id="scannerModal" aria-hidden="true">
+      <div class="scanner-modal-backdrop modal-backdrop" data-close-modal></div>
       <div
-        class="scanner-modal-card"
+        class="scanner-modal-card modal-card"
         role="dialog"
         aria-modal="true"
         aria-labelledby="scannerModalTitle"
       >
-        <div class="scanner-modal-head">
-          <h3 id="scannerModalTitle">Vonalkód beolvasása</h3>
+        <div class="scanner-modal-head modal-head">
+          <h3 class="modal-title" id="scannerModalTitle">Vonalkód beolvasása</h3>
           <button
-            class="scanner-modal-close tap-target"
+            class="scanner-modal-close tap-target modal-close"
             type="button"
             data-close-modal
             aria-label="Bezárás"
@@ -3048,16 +3048,16 @@
        + gyorsgombok), a makrók és a napi célhoz mért hatás élőben követi.
        A tartalmát a frontend tölti fel a kiválasztott ételből.
        ================================================================ -->
-    <div class="food-modal" id="foodModal" aria-hidden="true">
-      <div class="food-modal-backdrop" data-close-modal></div>
-      <div class="food-modal-card" role="dialog" aria-modal="true" aria-labelledby="foodModalTitle">
-        <div class="food-modal-head">
+    <div class="food-modal modal" id="foodModal" aria-hidden="true">
+      <div class="food-modal-backdrop modal-backdrop" data-close-modal></div>
+      <div class="food-modal-card modal-card" role="dialog" aria-modal="true" aria-labelledby="foodModalTitle">
+        <div class="food-modal-head modal-head modal-head--sentence">
           <div class="fd-ident">
             <h3 id="foodModalTitle" data-fd-name>Étel</h3>
             <span class="fd-tag" data-fd-tag hidden></span>
           </div>
           <button
-            class="food-modal-close tap-target"
+            class="food-modal-close tap-target modal-close"
             type="button"
             data-close-modal
             aria-label="Bezárás"
@@ -3185,19 +3185,19 @@
        javasolni. A megerősítő ablak vázára épül, de saját tartalommal:
        tételes lista + Elfogadom / Most nem.
        ================================================================ -->
-    <div class="confirm-modal advice-modal" id="adviceModal" aria-hidden="true">
-      <div class="confirm-modal-backdrop" data-close-modal></div>
+    <div class="confirm-modal advice-modal modal" id="adviceModal" aria-hidden="true">
+      <div class="confirm-modal-backdrop modal-backdrop" data-close-modal></div>
       <div
-        class="confirm-modal-card"
+        class="confirm-modal-card modal-card"
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="adviceModalTitle"
         aria-describedby="adviceModalText"
       >
-        <div class="confirm-modal-head">
+        <div class="confirm-modal-head modal-head modal-head--sentence">
           <h3 id="adviceModalTitle">A mai készenléted alapján</h3>
           <button
-            class="confirm-modal-close tap-target"
+            class="confirm-modal-close tap-target modal-close"
             type="button"
             data-close-modal
             aria-label="Bezárás"
@@ -3223,19 +3223,19 @@
        A natív window.confirm helyett: az app saját design-nyelvén szólal
        meg, és a fókuszkezelése a többi modáléval azonos.
        ================================================================ -->
-    <div class="confirm-modal" id="confirmModal" aria-hidden="true">
-      <div class="confirm-modal-backdrop" data-close-modal></div>
+    <div class="confirm-modal modal" id="confirmModal" aria-hidden="true">
+      <div class="confirm-modal-backdrop modal-backdrop" data-close-modal></div>
       <div
-        class="confirm-modal-card"
+        class="confirm-modal-card modal-card"
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="confirmModalTitle"
         aria-describedby="confirmModalText"
       >
-        <div class="confirm-modal-head">
+        <div class="confirm-modal-head modal-head modal-head--sentence">
           <h3 id="confirmModalTitle">Biztosan folytatod?</h3>
           <button
-            class="confirm-modal-close tap-target"
+            class="confirm-modal-close tap-target modal-close"
             type="button"
             data-close-modal
             aria-label="Mégse"

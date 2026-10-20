@@ -21,17 +21,13 @@
   min-width: 0;
 }
 
-/* Az étel-modál címe maga az étel NEVE — tulajdonnév, nem rovatnév. A közös
-   fejléc-recept (mono, nagybetűs, halvány) itt teljes egészében vissza van
-   vonva, nem csak a mérete: a betűcsalád, a ritkítás, a nagybetűsítés és a
-   halvány szín mind átütne rá. */
+/* Az étel-modál címe maga az étel NEVE — tulajdonnév, nem rovatnév: a feje
+   mondat-stílusú (.modal-head--sentence), a címke-receptet meg sem kapja; itt
+   csak a nagyobb méret és a szorosabb ritkítás áll. */
 .food-modal-head h3 {
-  font-family: var(--font-base);
   font-size: var(--fs-3xl);
   font-weight: 800;
   letter-spacing: -0.01em;
-  text-transform: none;
-  color: var(--text-primary);
 }
 
 .fd-tag {

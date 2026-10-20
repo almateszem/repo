@@ -235,13 +235,7 @@ body:is([data-page='checkin'], [data-page='plan-builder'], [data-page='exercise-
 /* ==========================================================================
    13. Modálok — közös alap (technika videó + beállítások + étel + megerősítés)
    ========================================================================== */
-.video-modal,
-.settings-modal,
-.food-modal,
-.confirm-modal,
-.custom-food-modal,
-.scanner-modal,
-.pr-modal {
+.modal {
   position: fixed;
   inset: 0;
   z-index: var(--z-modal);
@@ -251,23 +245,11 @@ body:is([data-page='checkin'], [data-page='plan-builder'], [data-page='exercise-
   padding: var(--sp-9);
 }
 
-.video-modal.is-open,
-.settings-modal.is-open,
-.food-modal.is-open,
-.confirm-modal.is-open,
-.custom-food-modal.is-open,
-.scanner-modal.is-open,
-.pr-modal.is-open {
+.modal.is-open {
   display: flex;
 }
 
-.video-modal-backdrop,
-.settings-modal-backdrop,
-.food-modal-backdrop,
-.confirm-modal-backdrop,
-.custom-food-modal-backdrop,
-.scanner-modal-backdrop,
-.pr-modal-backdrop {
+.modal-backdrop {
   position: absolute;
   inset: 0;
   background: var(--scrim-modal);
@@ -276,13 +258,7 @@ body:is([data-page='checkin'], [data-page='plan-builder'], [data-page='exercise-
   animation: fade-in var(--t-base) both;
 }
 
-.video-modal-card,
-.settings-modal-card,
-.food-modal-card,
-.confirm-modal-card,
-.custom-food-modal-card,
-.scanner-modal-card,
-.pr-modal-card {
+.modal-card {
   position: relative;
   width: 100%;
   max-width: 420px;
@@ -313,13 +289,7 @@ body:is([data-page='checkin'], [data-page='plan-builder'], [data-page='exercise-
   }
 }
 
-.video-modal-head,
-.settings-modal-head,
-.food-modal-head,
-.confirm-modal-head,
-.custom-food-modal-head,
-.scanner-modal-head,
-.pr-modal-head {
+.modal-head {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -329,44 +299,27 @@ body:is([data-page='checkin'], [data-page='plan-builder'], [data-page='exercise-
   border-bottom: 1px solid var(--hair);
 }
 
-.video-modal-head h3,
-.settings-modal-head h3,
-.food-modal-head h3,
-.confirm-modal-head h3,
-.custom-food-modal-head h3,
-.scanner-modal-head h3,
-.pr-modal-head h3 {
-  /* A tipográfiát a 2b. szakasz szekciócím-gyűjtője adja (a hét szelektor
-     ott is fel van sorolva) — itt csak a méret, a sormagasság és a szín áll.
-     Osztályt azért nem kapnak, mert a JS több helyen a h3 SZÖVEGÉT írja
-     (modals.js), és a className-hez nem nyúl.
-
-     A megerősítő ablakok kivételt kapnak lent: ott a cím MONDAT, nem címke. */
+.modal-head h3 {
+  /* A címke-stílusú címek (.modal-title) tipográfiáját a 2b. szakasz
+     szekciócím-gyűjtője adja — itt csak a méret, a sormagasság és a szín áll.
+     A mondat-stílusú címek (.modal-head--sentence) a címke-receptet meg sem
+     kapják, tehát nincs mit visszavonniuk. */
   margin: 0;
   font-size: var(--fs-2xs);
   line-height: 1.3;
   color: var(--text-muted);
 }
 
-/* A két megerősítő ablak címe kérdés vagy állítás („Biztosan folytatod?"),
-   nem rovatnév — mondat-szedéssel marad. Ugyanez az étel-részlet modálé: ott
-   a cím maga az étel NEVE, tulajdonnév. */
-.confirm-modal-head h3 {
-  font-family: var(--font-base);
+/* Mondat-stílusú cím (.modal-head--sentence): a megerősítő és a javaslat-
+   ablak címe kérdés vagy állítás („Biztosan folytatod?"), nem rovatnév; az
+   étel-részlet modálé maga az étel NEVE (a méretét a saját szabálya adja). */
+.modal-head--sentence h3 {
   font-size: var(--fs-lg);
   font-weight: 700;
-  letter-spacing: normal;
-  text-transform: none;
   color: var(--text-primary);
 }
 
-.video-modal-close,
-.settings-modal-close,
-.food-modal-close,
-.confirm-modal-close,
-.custom-food-modal-close,
-.scanner-modal-close,
-.pr-modal-close {
+.modal-close {
   background: none;
   border: none;
   color: var(--fg-60);
@@ -375,13 +328,7 @@ body:is([data-page='checkin'], [data-page='plan-builder'], [data-page='exercise-
   transition: color var(--t-fast);
 }
 
-.video-modal-close:hover,
-.settings-modal-close:hover,
-.food-modal-close:hover,
-.confirm-modal-close:hover,
-.custom-food-modal-close:hover,
-.scanner-modal-close:hover,
-.pr-modal-close:hover {
+.modal-close:hover {
   color: var(--fg-100);
 }
 

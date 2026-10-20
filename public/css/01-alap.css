@@ -442,11 +442,7 @@ input.wk-chip:focus-visible {
 .ep-item-tag,
 .nu-summary-goal,
 .toast,
-.video-modal-head h3,
-.settings-modal-head h3,
-.custom-food-modal-head h3,
-.scanner-modal-head h3,
-.pr-modal-head h3 {
+.modal-title {
   font-family: var(--font-mono);
   text-transform: uppercase;
   letter-spacing: var(--ls-label-tight);

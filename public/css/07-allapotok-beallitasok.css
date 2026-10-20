@@ -260,33 +260,15 @@
 }
 
 /* ---- Modal finom zárás ---- */
-.video-modal.is-closing,
-.settings-modal.is-closing,
-.food-modal.is-closing,
-.confirm-modal.is-closing,
-.custom-food-modal.is-closing,
-.scanner-modal.is-closing,
-.pr-modal.is-closing {
+.modal.is-closing {
   display: flex;
 }
 
-.video-modal.is-closing .video-modal-card,
-.settings-modal.is-closing .settings-modal-card,
-.food-modal.is-closing .food-modal-card,
-.confirm-modal.is-closing .confirm-modal-card,
-.custom-food-modal.is-closing .custom-food-modal-card,
-.scanner-modal.is-closing .scanner-modal-card,
-.pr-modal.is-closing .pr-modal-card {
+.modal.is-closing .modal-card {
   animation: modal-out 0.18s ease both;
 }
 
-.video-modal.is-closing .video-modal-backdrop,
-.settings-modal.is-closing .settings-modal-backdrop,
-.food-modal.is-closing .food-modal-backdrop,
-.confirm-modal.is-closing .confirm-modal-backdrop,
-.custom-food-modal.is-closing .custom-food-modal-backdrop,
-.scanner-modal.is-closing .scanner-modal-backdrop,
-.pr-modal.is-closing .pr-modal-backdrop {
+.modal.is-closing .modal-backdrop {
   animation: fade-out 0.18s ease both;
 }
 
