@@ -653,12 +653,12 @@ body:is([data-page='checkin'], [data-page='plan-builder'], [data-page='exercise-
 
 /* ---- ≥1280px: a dashboard többkártyás griddé bővül ---- */
 @media (min-width: 1280px) {
-  /* A check-in varázsló kimarad: szándékosan fix 460px-es, egy-kérdés-egy-
-     képernyő oszlop marad minden méreten (lásd 25. szakasz). A Regeneráció
-     lap is kimarad: a saját, szélesebb lapszélessége (lásd 22. szakasz,
-     .app-page.rc-page) különben itt visszaszűkülne 760px-re, és a
-     kétsávos asztali elrendezés @container-küszöbe (1040px) sosem érne el. */
-  .app-page:not(.dashboard):not(.ci-page):not(.rc-page):not(.co-page):not(.pg-two):not(.pg-wide) {
+  /* A saját lapszélességű oldalak (check-in: .app-page.ci-page, Regeneráció:
+     .app-page.rc-page, Edző: .app-page.co-page, a két- és a széles hasábos
+     .app-page.pg-two / .pg-wide) ezt kizárás nélkül is felülírják: az ő
+     szabályuk (0,2,0) erősebb ennél (0,1,0). Az Áttekintő .dashboard-ja
+     ugyanebben a blokkban, később áll, így az is nyer. */
+  .app-page {
     max-width: var(--page-max-wide);
   }
 

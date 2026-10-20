@@ -425,8 +425,8 @@
    .wk-toggle-btn és a .rc-chip volt rá újrahasználva — ez már nem igaz.
    ========================================================================== */
 
-/* A .app-page.ci-page (0-2-0) szándékos: a ≥1025px-es .app-page szabállyal
-   azonos specificitású, de később jön, így nem szélesedik ki. */
+/* A .app-page.ci-page (0-2-0) szándékos: erősebb a ≥1025 és ≥1280 px-es
+   .app-page szabálynál (0-1-0), így a varázsló nem szélesedik ki. */
 .app-page.ci-page {
   max-width: 460px;
   min-height: 100dvh;
