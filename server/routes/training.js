@@ -250,6 +250,16 @@ export function register(app, { catalogSearch }) {
        szettekből állnak, és a felület itt előnézetet ad, nem naplót. */
     const template = workoutTemplate(userId, req.today);
     dashboard.workoutName = template?.name?.trim() || null;
+    /* A mai TERV már kész, ha ma mentett edzés hivatkozik rá (régi, planId
+       nélküli edzésnél a név dönt — ugyanaz a párosítás, mint a /api/plans
+       haladásáé). Piszkozatnál nem: az egy épp folyó edzés. */
+    dashboard.todayDone =
+      template?.source === 'plan' &&
+      workouts.some(
+        (w) =>
+          w.date === req.today &&
+          (w.planId != null ? w.planId === template.planId : w.name === template.name),
+      );
     /* Az aktív terv szerint ma pihenőnap van (és nincs megkezdett edzés): a
        felület ezt írja ki a „Kezdj új edzést" helyett. Külön jelző, nem edzésnév —
        a név az edzésnapló címének is az alapértéke lenne. */

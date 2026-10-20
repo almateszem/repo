@@ -3308,3 +3308,41 @@ test('az öt, felület nélküli végpont megszűnt: bejelentkezve 404', async (
     assert.equal(res.status, 404, `${method} ${urlPath}`);
   }
 });
+
+/* ======================================================================
+   13. Az Áttekintő tudja, hogy a mai terv már kész
+   ====================================================================== */
+
+test('a dashboard todayDone-t ad, ha a mai tervből ma már mentett edzés van', async () => {
+  // Meglévő fiók: a regisztráció óránkénti kerete a fájl végére elfogy.
+  // A piszkozat törlése után a mai sablon a TERVBŐL jön.
+  const cookie = annaCookie;
+  await request('DELETE', '/api/workout-draft', { cookie });
+  const maiNap = (new Date().getDay() + 6) % 7;
+  const terv = await request('POST', '/api/plans', {
+    cookie,
+    body: { name: 'Kész terv', exercises: [gyakorlat('Guggolás', 80)], days: [maiNap] },
+  });
+  await request('POST', `/api/plans/${terv.json.id}/active`, { cookie, body: { active: true } });
+
+  const elotte = (await request('GET', '/api/dashboard', { cookie })).json;
+  assert.equal(elotte.todayDone, false, 'a mai terv még hátravan');
+
+  // Egy MÁSIK (szabad) edzés nem teszi késszé a mai tervet
+  await request('POST', '/api/workouts', {
+    cookie,
+    body: { name: 'Szabad edzés', exercises: [gyakorlat('Evezés', 40)] },
+  });
+  assert.equal((await request('GET', '/api/dashboard', { cookie })).json.todayDone, false);
+
+  await request('POST', '/api/workouts', {
+    cookie,
+    body: {
+      name: elotte.workoutName,
+      exercises: [gyakorlat('Guggolás', 80)],
+      planId: terv.json.id,
+    },
+  });
+  const utana = (await request('GET', '/api/dashboard', { cookie })).json;
+  assert.equal(utana.todayDone, true, 'a mai tervből ma már mentett edzés van');
+});
