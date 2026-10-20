@@ -121,7 +121,6 @@ test('bejelentkezés nélkül MINDEN /api végpont 401-et ad', async () => {
     ['GET', '/api/nutrition/log'],
     ['GET', '/api/nutrition/recent'],
     ['GET', '/api/workouts'],
-    ['GET', '/api/workout-draft'],
     ['GET', '/api/workout-template'],
     ['GET', '/api/plans'],
     ['GET', '/api/prs'],
@@ -139,7 +138,6 @@ test('bejelentkezés nélkül MINDEN /api végpont 401-et ad', async () => {
     ['GET', '/api/goals'],
     ['GET', '/api/coach'],
     ['GET', '/api/messages/1'],
-    ['POST', '/api/weight-log'],
     ['POST', '/api/nutrition/log'],
     ['POST', '/api/workouts'],
     ['POST', '/api/plans'],
@@ -153,14 +151,11 @@ test('bejelentkezés nélkül MINDEN /api végpont 401-et ad', async () => {
     ['GET', `/api/foods/barcode/${OFF_KNOWN}`],
     ['POST', '/api/foods/custom'],
     ['DELETE', '/api/foods/custom/1'],
-    ['GET', '/api/comments'],
     ['GET', '/api/comments/by-target'],
     ['POST', '/api/comments'],
     ['DELETE', '/api/comments/1'],
-    ['GET', '/api/athletes/1/comments'],
     ['POST', '/api/athletes/1/comments'],
     ['PUT', '/api/workouts/1/feedback'],
-    ['GET', '/api/nutrition/goal'],
     ['PUT', '/api/nutrition/goal'],
     ['DELETE', '/api/nutrition/goal'],
     ['PUT', '/api/athletes/1/nutrition-goal'],
@@ -396,13 +391,17 @@ test('az export CSAK a hívó saját adatát tartalmazza', async () => {
    ====================================================================== */
 
 test('a testsúly csak 30 és 300 kg között fogadható el', async () => {
-  for (const kg of [29, 301, 0, -5, 'nyolcvan', null]) {
-    const res = await request('POST', '/api/weight-log', { cookie: annaCookie, body: { kg } });
+  // A testsúly a check-inen át íródik (az üres mező = ma nincs mérés, nem hiba)
+  for (const kg of [29, 301, 0, -5, 'nyolcvan']) {
+    const res = await request('PUT', '/api/checkin', {
+      cookie: annaCookie,
+      body: { weightKg: kg },
+    });
     assert.equal(res.status, 400, `${kg} kg-ot vissza kell utasítani`);
   }
-  const jo = await request('POST', '/api/weight-log', { cookie: annaCookie, body: { kg: 83.5 } });
+  const jo = await request('PUT', '/api/checkin', { cookie: annaCookie, body: { weightKg: 83.5 } });
   assert.equal(jo.status, 200);
-  assert.equal(jo.json.kg, 83.5);
+  assert.equal(jo.json.weightEntry.kg, 83.5);
 });
 
 test('csak a katalógusban szereplő étel naplózható, érvényes adaggal', async () => {
@@ -896,7 +895,7 @@ test('az erőszint-érem a NEMHEZ tartozó küszöböt használja', async () => 
      legalább 6%-ra. A testsúly SZÁNDÉKOSAN nem a küszöb környékére esik: egy
      hajszálnyi eltérés a táblában nem billenthet át egy tesztet, különben nem
      a szabályt méri, hanem a kerekítést. */
-  await request('POST', '/api/weight-log', { cookie, body: { kg: 106 } });
+  await request('PUT', '/api/checkin', { cookie, body: { weightKg: 106 } });
 
   const szint = async () =>
     (await request('GET', '/api/exercise-records', { cookie })).json.find(
@@ -945,7 +944,7 @@ test('a rekord megmondja, MI hiányzik az érméhez', async () => {
   });
   assert.equal((await rekord('Fekvenyomás')).needs, 'bodyweight', 'testsúly nélkül nincs arány');
 
-  await request('POST', '/api/weight-log', { cookie, body: { kg: 70 } });
+  await request('PUT', '/api/checkin', { cookie, body: { weightKg: 70 } });
   assert.equal(
     (await rekord('Fekvenyomás')).needs,
     'sex',
@@ -975,7 +974,7 @@ test('kézisúlyzósnál a KEZENKÉNTI súly közvetlenül a küszöbhöz mérő
   });
   const cookie = cookieFrom(reg);
 
-  await request('POST', '/api/weight-log', { cookie, body: { kg: 80 } });
+  await request('PUT', '/api/checkin', { cookie, body: { weightKg: 80 } });
   await request('PUT', '/api/user', { cookie, body: { sex: 'male' } });
   await request('POST', '/api/workouts', {
     cookie,
@@ -1013,7 +1012,7 @@ test('a tapasztalt újonc az ELSŐ rekordjánál a valós szintjét kapja — g�
   });
   const cookie = cookieFrom(reg);
 
-  await request('POST', '/api/weight-log', { cookie, body: { kg: 85 } });
+  await request('PUT', '/api/checkin', { cookie, body: { weightKg: 85 } });
   await request('PUT', '/api/user', { cookie, body: { sex: 'male' } });
   // 1RM = 85 × (1 + 5/30) ≈ 99,2 kg; 85 kg-on a középhaladó sáv ~92 … 126 kg.
   await request('POST', '/api/workouts', {
@@ -1040,7 +1039,7 @@ test('az életkor a KÜSZÖBÖT viszi lejjebb, a rekordot nem', async () => {
   });
   const cookie = cookieFrom(reg);
 
-  await request('POST', '/api/weight-log', { cookie, body: { kg: 80 } });
+  await request('PUT', '/api/checkin', { cookie, body: { weightKg: 80 } });
   await request('PUT', '/api/user', { cookie, body: { sex: 'male' } });
   await request('POST', '/api/workouts', {
     cookie,
@@ -1081,7 +1080,7 @@ test('saját testsúlyos gyakorlat a TESTSÚLLYAL kap rekordot, nem nullával', 
     body: { username: 'sajatsuly', displayName: 'Saját Sára', password: 'jelszo123' },
   });
   const cookie = cookieFrom(reg);
-  await request('POST', '/api/weight-log', { cookie, body: { kg: 70 } });
+  await request('PUT', '/api/checkin', { cookie, body: { weightKg: 70 } });
 
   await request('POST', '/api/workouts', {
     cookie,
@@ -1152,7 +1151,7 @@ test('két edzés EGY napon is két adatpont — a fejlődés elindul', async ()
     body: { username: 'ketedzes', displayName: 'Két Edzés', password: 'jelszo123' },
   });
   const cookie = cookieFrom(reg);
-  await request('POST', '/api/weight-log', { cookie, body: { kg: 80 } });
+  await request('PUT', '/api/checkin', { cookie, body: { weightKg: 80 } });
 
   const rekord = async () =>
     (await request('GET', '/api/exercise-records', { cookie })).json.find(
@@ -1193,7 +1192,7 @@ test('a gyémánt fokozat a versenyzői sávban jár, és nemenként máshol kez
     cookie,
     body: { name: 'Erős nap', exercises: [gyakorlat('Fekvenyomás', 120, 5)] },
   });
-  await request('POST', '/api/weight-log', { cookie, body: { kg: 65 } });
+  await request('PUT', '/api/checkin', { cookie, body: { weightKg: 65 } });
 
   const szint = async () =>
     (await request('GET', '/api/exercise-records', { cookie })).json.find(
@@ -1205,7 +1204,7 @@ test('a gyémánt fokozat a versenyzői sávban jár, és nemenként máshol kez
 
   /* 110 kg-os testsúlyon ugyanez a rekord középhaladó (~130 / 159 kg) →
      ezüst. A fokozat tehát a TESTSÚLYTÓL függ, nem a nyers kilogrammtól. */
-  await request('POST', '/api/weight-log', { cookie, body: { kg: 110 } });
+  await request('PUT', '/api/checkin', { cookie, body: { weightKg: 110 } });
   assert.equal((await szint()).tier, 'silver', 'nagyobb testsúlyon ugyanaz a súly kevesebbet ér');
 });
 
@@ -1239,7 +1238,10 @@ test('a piszkozat visszatöltődik, és törlés után eltűnik', async () => {
   assert.equal(sablon.name, 'Félbehagyott edzés');
 
   assert.equal((await request('DELETE', '/api/workout-draft', { cookie: belaCookie })).status, 204);
-  assert.equal((await request('GET', '/api/workout-draft', { cookie: belaCookie })).json, null);
+  assert.equal(
+    (await request('GET', '/api/export', { cookie: belaCookie })).json.workoutDraft,
+    null,
+  );
 });
 
 test('az üres gyakorlatlistájú piszkozat érvényes, a hibás szerkezet nem', async () => {
@@ -2043,7 +2045,7 @@ test('a piszkozat megjegyzi a visszanyitott edzést, a törlés pedig elengedi',
     body: { name: 'Visszanyitandó', exercises: [gyakorlat('Húzódzkodás', 12, 8)], workoutId: id },
   });
 
-  const piszkozat = (await request('GET', '/api/workout-draft', { cookie: belaCookie })).json;
+  const piszkozat = (await request('GET', '/api/export', { cookie: belaCookie })).json.workoutDraft;
   assert.equal(piszkozat.workoutId, id, 'a javítás ténye újratöltés után is megmarad');
 
   const sablon = (await request('GET', '/api/workout-template', { cookie: belaCookie })).json;
@@ -2055,7 +2057,7 @@ test('a piszkozat megjegyzi a visszanyitott edzést, a törlés pedig elengedi',
     (await request('DELETE', `/api/workouts/${id}`, { cookie: belaCookie })).status,
     204,
   );
-  const utana = (await request('GET', '/api/workout-draft', { cookie: belaCookie })).json;
+  const utana = (await request('GET', '/api/export', { cookie: belaCookie })).json.workoutDraft;
   assert.equal(utana.workoutId, null, 'a törlés elengedte a hivatkozást');
   assert.equal(utana.exercises.length, 1, 'a piszkozat tartalma viszont megmaradt');
 });
@@ -2653,12 +2655,12 @@ test('a tervet ki lehet törölni — a lista eddig csak nőni tudott', async ()
 });
 
 test('a testsúly-bejegyzés javítható és törölhető — a dátuma nem mozdul', async () => {
-  const felvitel = await request('POST', '/api/weight-log', {
+  const felvitel = await request('PUT', '/api/checkin', {
     cookie: fixCookie,
-    body: { kg: 188 },
+    body: { weightKg: 188 },
   });
   assert.equal(felvitel.status, 200);
-  const { id, date } = felvitel.json;
+  const { id, date } = felvitel.json.weightEntry;
 
   const javitas = await request('PUT', `/api/weight-log/${id}`, {
     cookie: fixCookie,
@@ -2718,12 +2720,13 @@ test('a javító végpontok idegen sorra 404-et adnak', async () => {
     cookie: fixCookie,
     body: { name: 'Enyém', days: [], exercises: [gyakorlat('Guggolás', 100)] },
   });
-  const suly = await request('POST', '/api/weight-log', { cookie: fixCookie, body: { kg: 80 } });
+  const suly = (await request('PUT', '/api/checkin', { cookie: fixCookie, body: { weightKg: 80 } }))
+    .json.weightEntry;
 
   const probak = [
     ['DELETE', `/api/plans/${terv.json.id}`, undefined],
-    ['PUT', `/api/weight-log/${suly.json.id}`, { kg: 90 }],
-    ['DELETE', `/api/weight-log/${suly.json.id}`, undefined],
+    ['PUT', `/api/weight-log/${suly.id}`, { kg: 90 }],
+    ['DELETE', `/api/weight-log/${suly.id}`, undefined],
     ['PUT', '/api/nutrition/log/1', { grams: 50 }],
   ];
   for (const [method, urlPath, body] of probak) {
@@ -3283,4 +3286,25 @@ test('a szett-értékek mentése a kanonikus számalakot tárolja (".5" → "0.5
   assert.equal(elso.sets[0].reps, '10');
   assert.equal(masodik.sets[0].weight, '100');
   assert.equal(masodik.sets[0].rpe, '', 'az üres mező üres marad');
+});
+
+/* ======================================================================
+   12. Megszűnt végpontok — a felület sosem hívta őket
+   ====================================================================== */
+
+test('az öt, felület nélküli végpont megszűnt: bejelentkezve 404', async () => {
+  /* Az adatuk a megmaradó végpontokon át érhető el: a megjegyzések a
+     /api/comments/by-target-en és az edzői részletnézeten, a cél a
+     /api/nutrition-ön, a piszkozat az exporton, a testsúly a check-inen. */
+  for (const [method, urlPath] of [
+    ['GET', '/api/comments?target=1:0'],
+    ['GET', '/api/athletes/1/comments?target=1:0'],
+    ['GET', '/api/nutrition/goal'],
+    ['GET', '/api/workout-draft'],
+    ['POST', '/api/weight-log'],
+  ]) {
+    const body = method === 'GET' ? undefined : { kg: 80 };
+    const res = await request(method, urlPath, { cookie: annaCookie, body });
+    assert.equal(res.status, 404, `${method} ${urlPath}`);
+  }
 });

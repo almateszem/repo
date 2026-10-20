@@ -452,20 +452,6 @@ const COMMENT_SELECT = `
          u.display_name AS author_name
   FROM comments c JOIN users u ON u.id = c.author_id`;
 
-/** Egy cél megjegyzései, időrendben (a legrégebbi elöl — így olvasható).
-    A `viewerId` az, AKI olvassa (a `mine` jelzőhöz) — nem feltétlenül a
-    `subjectId`: az edző a sportolója megjegyzéseit kéri le. */
-export function getComments(subjectId, targetType, targetId, viewerId) {
-  return db
-    .prepare(
-      `${COMMENT_SELECT}
-    WHERE c.subject_id = ? AND c.target_type = ? AND c.target_id = ?
-    ORDER BY c.id ASC`,
-    )
-    .all(subjectId, targetType, String(targetId))
-    .map((row) => toComment(row, viewerId));
-}
-
 /** Egy típus ÖSSZES megjegyzése célonként csoportosítva. Az összegző oldal így
     egyetlen kérésből tudja, melyik gyakorlathoz tartozik megjegyzés. */
 export function getCommentsByTarget(subjectId, targetType, viewerId) {

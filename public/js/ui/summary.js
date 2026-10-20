@@ -8,6 +8,7 @@ import { showToast } from '../core/toast.js';
 import { navigate, onPageShow } from '../nav/router.js';
 import { renderChart, renderVolumeTrend } from '../render/dashboard.js';
 import { readScale, writeScale } from '../render/recovery.js';
+import { noteDeleteButton } from './exercise-notes.js';
 import { buildScale } from './scale.js';
 import { renderSummary } from '../render/summary.js';
 import { lastSummary, summarizeWorkout } from './workout/summary-data.js';
@@ -72,6 +73,7 @@ function setupSummary() {
         const who = document.createElement('b');
         who.textContent = name;
         li.append(who, document.createTextNode(` — ${comment.text}`));
+        if (comment.mine) li.append(noteDeleteButton(comment, li));
         return li;
       }),
     );

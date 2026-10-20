@@ -208,6 +208,7 @@ async function setupNutrition(foodDetail) {
   const goalSourceEl = $('[data-nu-goal-source]', goalSection);
   const goalForm = $('[data-form="nutrition-goal"]', goalSection);
   const goalEditBtn = $('[data-action="edit-goal"]', goalSection);
+  const goalRevertBtn = $('[data-action="revert-goal"]', goalSection);
   const goalCaloriesInput = $('#nu-goal-calories');
   const goalProteinInput = $('#nu-goal-protein');
   const goalSaveBtn = $('.nu-goal-save', goalSection);
@@ -228,6 +229,8 @@ async function setupNutrition(foodDetail) {
     // Az edzői cél zárolt: nincs mit szerkeszteni, a nyitott űrlap is bezárul
     goalEditBtn.hidden = Boolean(goal.locked);
     if (goal.locked) setGoalFormOpen(false);
+    // Visszaállítani csak a saját célt lehet (az edzőét ő maga vonja vissza)
+    goalRevertBtn.hidden = goal.source !== 'own';
 
     // A szerkesztő mezői mindig az ÉRVÉNYES célról indulnak.
     goalCaloriesInput.value = Math.round(goal.calories);
@@ -267,6 +270,26 @@ async function setupNutrition(foodDetail) {
       }
     } finally {
       goalSaveBtn.disabled = false;
+    }
+  });
+
+  /* A saját cél elvetése: az alapértelmezett cél lép érvénybe. A szám a
+     napi összesítőt is átírja, ezért azt is újra lekérjük. */
+  goalRevertBtn.addEventListener('click', async () => {
+    goalRevertBtn.disabled = true;
+    try {
+      renderGoal(await api.clearNutritionGoal());
+      setGoalFormOpen(false);
+      applyTotals(await api.getNutrition());
+      refreshDailyStats().catch(console.error);
+      showToast('Napi cél visszaállítva');
+    } catch (err) {
+      if (err.code !== SESSION_LOST) {
+        console.error(err);
+        showToast(err.message || 'A célt nem sikerült visszaállítani', 'error');
+      }
+    } finally {
+      goalRevertBtn.disabled = false;
     }
   });
 

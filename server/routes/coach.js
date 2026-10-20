@@ -27,7 +27,6 @@ import {
   getCoachLink,
   getCoachMeals,
   getCollection,
-  getComments,
   getCommentsByTarget,
   getLastMessage,
   getLatestWeight,
@@ -643,11 +642,6 @@ export function register(app) {
 
   /* ---- A saját megjegyzéseim ---- */
 
-  app.get('/api/comments', (req, res) => {
-    const target = String(req.query.target ?? '');
-    res.json(getComments(req.user.id, COMMENT_TYPE, target, req.user.id));
-  });
-
   app.get('/api/comments/by-target', (req, res) => {
     res.json(getCommentsByTarget(req.user.id, COMMENT_TYPE, req.user.id));
   });
@@ -669,16 +663,8 @@ export function register(app) {
     res.status(204).end();
   });
 
-  /* ---- A sportolóm megjegyzései (az EDZŐ oldala) ---- */
-
-  app.get('/api/athletes/:linkId/comments', (req, res) => {
-    const access = linkFor(req.user, req.params.linkId, { as: 'coach' });
-    if (!access.link) return res.status(access.code).json({ error: access.error });
-    const { link } = access;
-    const athleteId = link.athleteId;
-    const target = String(req.query.target ?? '');
-    res.json(getComments(athleteId, COMMENT_TYPE, target, req.user.id));
-  });
+  /* ---- A sportolóm megjegyzései (az EDZŐ oldala) ----
+     Olvasni a részletnézet exerciseNotes mezőjéből lehet (athleteCard). */
 
   /** Az edzői megjegyzés UGYANABBA a szálba megy, csak más szerzővel — ettől
       lesz egy beszélgetés a gyakorlatról, nem két külön lista. */

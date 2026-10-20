@@ -311,6 +311,8 @@ const api = {
      Két forrás lehet (edzői / saját); a válasz megmondja, honnan jön a szám,
      és hogy zárolt-e (`locked`: az edzőé, a sportoló nem módosíthatja). */
   saveNutritionGoal: (calories, protein) => putJson('/api/nutrition/goal', { calories, protein }),
+  // A saját cél elvetése; a válasz az ezután érvényes cél (alapértelmezett).
+  clearNutritionGoal: () => sendJson('DELETE', '/api/nutrition/goal'),
   setAthleteNutritionGoal: (linkId, calories, protein) =>
     putJson(`/api/athletes/${linkId}/nutrition-goal`, { calories, protein }),
   // Az edző víz-célja literben; a DELETE visszaáll a testsúlyból számoltra.
@@ -356,6 +358,8 @@ const api = {
      sportolódét a KAPCSOLAT azonosítójával — a belső user-id nem kerül ki. */
   getMyCommentsByTarget: () => getJson('/api/comments/by-target'),
   addMyComment: (targetId, text) => postJson('/api/comments', { targetId, text }),
+  // Csak a SAJÁT megjegyzés törölhető — edzőként és sportolóként is.
+  deleteMyComment: (commentId) => del(`/api/comments/${commentId}`),
   addAthleteComment: (linkId, targetId, text) =>
     postJson(`/api/athletes/${linkId}/comments`, { targetId, text }),
   saveWorkoutFeedback: (workoutId, feedback) =>

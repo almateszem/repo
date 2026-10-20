@@ -65,6 +65,8 @@ class FakeElement {
 
   before() {}
 
+  after() {}
+
   insertAdjacentHTML() {}
 
   replaceChildren(...children) {

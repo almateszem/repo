@@ -1084,6 +1084,10 @@
 }
 
 .co-note-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
   font-size: var(--fs-2xs);
   color: var(--text-muted);
 }

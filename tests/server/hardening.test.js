@@ -79,6 +79,9 @@ function validBarcode(seed) {
   return body + String((10 - (sum % 10)) % 10);
 }
 
+/** A rám érvényes napi cél — a napi összesítőn át, ahonnan a felület is olvassa. */
+const goalOf = async (cookie) => (await request('GET', '/api/nutrition', { cookie })).json.goal;
+
 /* ======================================================================
    1. HTTP biztonsági fejlécek
    ====================================================================== */
@@ -191,8 +194,9 @@ test('a mentés eltakarítja a piszkozatot — nem a kliensre bízzuk', async ()
     body: { name: 'Félkész', exercises: [gyakorlat('Húzódzkodás', 0)] },
   });
 
-  const draft = await request('GET', '/api/workout-draft', { cookie });
-  const exercises = draft.json?.exercises ?? [];
+  // A piszkozat nyers tartalma az exportban látszik (a felület a sablonból tölt)
+  const draft = (await request('GET', '/api/export', { cookie })).json.workoutDraft;
+  const exercises = draft?.exercises ?? [];
   assert.equal(exercises.length, 0, 'a piszkozat üres — a szerver zárta a kört');
 });
 
@@ -219,9 +223,10 @@ test('a megjegyzés `mine` jelzőt ad, belső azonosítót nem', async () => {
   );
   assert.equal(uj.json.mine, true, 'a saját megjegyzésem az enyém');
 
-  const lista = await request('GET', `/api/comments?target=${workout.json.id}:0`, { cookie });
-  assert.equal(lista.json[0].mine, true);
-  assert.equal('authorId' in lista.json[0], false, 'a belső user-id sehol');
+  const lista = await request('GET', '/api/comments/by-target', { cookie });
+  const [sajat] = lista.json[`${workout.json.id}:0`];
+  assert.equal(sajat.mine, true);
+  assert.equal('authorId' in sajat, false, 'a belső user-id sehol');
 });
 
 /* ======================================================================
@@ -248,16 +253,16 @@ test('a kapcsolat bontásával a volt edző tápcélja is megszűnik', async () 
   });
   assert.equal(kitüzve.status, 200, `az edző kitűzi a célt (${kitüzve.json?.error ?? ''})`);
 
-  const elotte = await request('GET', '/api/nutrition/goal', { cookie: sportolo });
-  assert.equal(elotte.json.source, 'coach');
-  assert.equal(elotte.json.calories, 3000);
+  const elotte = await goalOf(sportolo);
+  assert.equal(elotte.source, 'coach');
+  assert.equal(elotte.calories, 3000);
 
   assert.equal((await request('DELETE', `/api/athletes/${linkId}`, { cookie: edzo })).status, 204);
 
-  const utana = await request('GET', '/api/nutrition/goal', { cookie: sportolo });
-  assert.notEqual(utana.json.source, 'coach');
-  assert.equal(utana.json.locked, false, 'nem maradt élő edzői cél');
-  assert.notEqual(utana.json.calories, 3000, 'a volt edző száma nem hajtja tovább a napi célt');
+  const utana = await goalOf(sportolo);
+  assert.notEqual(utana.source, 'coach');
+  assert.equal(utana.locked, false, 'nem maradt élő edzői cél');
+  assert.notEqual(utana.calories, 3000, 'a volt edző száma nem hajtja tovább a napi célt');
 });
 
 /* ======================================================================

@@ -3,8 +3,33 @@
     (azonos cél), csak más szerzővel: ettől lesz egy beszélgetés a gyakorlatról,
     nem két külön lista. */
 
+import { api } from '../core/api.js';
 import { showToast } from '../core/toast.js';
 import { relativeTime } from '../core/format.js';
+
+/** Törlőgomb a NÉZŐ saját megjegyzésére: törlés után a `row` kikerül.
+    A szerver is csak a szerzőnek enged (DELETE /api/comments/:id). */
+export function noteDeleteButton(comment, row) {
+  const del = document.createElement('button');
+  del.className = 'co-note-del ds-icon-del ds-icon-del--inline';
+  del.type = 'button';
+  del.textContent = '✕';
+  del.title = 'Megjegyzés törlése';
+  del.setAttribute('aria-label', 'Saját megjegyzés törlése');
+  del.addEventListener('click', async () => {
+    del.disabled = true;
+    try {
+      await api.deleteMyComment(comment.id);
+      row.remove();
+      showToast('Megjegyzés törölve');
+    } catch (err) {
+      console.error(err);
+      del.disabled = false;
+      showToast(err.message || 'Nem sikerült törölni a megjegyzést', 'error');
+    }
+  });
+  return del;
+}
 
 /**
  * @param {object} note  a szerver megjegyzés-sora (exercise, workout, date, mine, …)
@@ -59,6 +84,8 @@ export function exerciseNoteRow(note, send) {
       button.disabled = false;
     }
   });
+
+  if (note.mine) head.append(noteDeleteButton(note, item));
 
   item.append(head, body, form);
   return item;

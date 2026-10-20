@@ -364,12 +364,12 @@ export function register(app, { catalogSearch }) {
     fields.pain = normalizeMuscleMap(body.pain, 10, true);
 
     // Opcionális testsúly — a weight_log táblába, ugyanazzal a validálással,
-    // mint a /api/weight-log végponton. Üres/hiányzó mező = ma nincs mérés,
+    // mint a testsúly-javításnál (PUT /api/weight-log/:id). Üres/hiányzó mező = ma nincs mérés,
     // ilyenkor a korábbi bejegyzések érintetlenül maradnak.
     let weightKg = null;
     if (body.weightKg !== null && body.weightKg !== undefined && body.weightKg !== '') {
       const kg = Number(body.weightKg);
-      // Ugyanaz a tartomány, mint a /api/weight-log végponton (WEIGHT_RANGE)
+      // Ugyanaz a tartomány, mint a testsúly-javításnál (WEIGHT_RANGE)
       if (!Number.isFinite(kg) || kg < WEIGHT_RANGE.min || kg > WEIGHT_RANGE.max) {
         return res.status(400).json({
           error: `Érvénytelen testsúly — ${WEIGHT_RANGE.min} és ${WEIGHT_RANGE.max} kg között adható meg.`,
@@ -687,20 +687,6 @@ export function register(app, { catalogSearch }) {
 
   // Mentett edzések (legújabb elöl)
   app.get('/api/workouts', (req, res) => res.json(getWorkouts(req.user.id)));
-
-  // Az épp szerkesztett edzés piszkozata ({ name, exercises }) vagy null
-  app.get('/api/workout-draft', (req, res) => res.json(getWorkoutDraft(req.user.id)));
-
-  app.post('/api/weight-log', (req, res) => {
-    const kg = Number(req.body?.kg);
-    if (!Number.isFinite(kg) || kg < WEIGHT_RANGE.min || kg > WEIGHT_RANGE.max) {
-      return res.status(400).json({
-        error: `Érvénytelen testsúly — ${WEIGHT_RANGE.min} és ${WEIGHT_RANGE.max} kg között adható meg.`,
-      });
-    }
-    // 200, nem 201: a mentés a nap meglévő bejegyzését is felülírhatja.
-    res.json(addWeightEntry(req.user.id, kg, req.today));
-  });
 
   /** Testsúly-bejegyzés javítása. CSAK az érték — a dátum nem adható meg: a
       javítás nem áthelyezés (ugyanaz az elv, mint a mentett edzésnél). */

@@ -207,9 +207,6 @@ export function register(app, { catalogSearch }) {
   // Napi táplálkozási összesítő (alap + a MAI naplózott ételek)
   app.get('/api/nutrition', (req, res) => res.json(getNutritionTotals(req.user.id, req.today)));
 
-  /** A rám érvényes cél, a származásával együtt. */
-  app.get('/api/nutrition/goal', (req, res) => res.json(getNutritionGoal(req.user.id)));
-
   /** A SAJÁT cél beállítása — csak akkor, ha nincs érvényben edzői cél. */
   app.put('/api/nutrition/goal', (req, res) => {
     // Az edző által kitűzött cél zárol — csak az edző módosíthatja

@@ -38,7 +38,7 @@ const NO_STANDARD = 'Gépi hátsó vállemelés';
 
 test('a súly-konvenciók egy forrásból jönnek, a mai testsúllyal', async () => {
   const cookie = await register();
-  await request('POST', '/api/weight-log', { cookie, body: { kg: 72 } });
+  await request('PUT', '/api/checkin', { cookie, body: { weightKg: 72 } });
 
   const res = await request('GET', '/api/weight-conventions', { cookie });
   assert.equal(res.status, 200);
@@ -60,7 +60,7 @@ test('a testsúly utólagos rögzítése a húzódzkodás csúcsát is kiszámol
     'testsúly nélkül nincs mihez mérni',
   );
 
-  await request('POST', '/api/weight-log', { cookie, body: { kg: 75 } });
+  await request('PUT', '/api/checkin', { cookie, body: { weightKg: 75 } });
   const rekord = await recordOf(cookie, 'Húzódzkodás');
   assert.ok(rekord, 'a testsúly felvétele újraszámolta a csúcsot');
   // 75 kg × (1 + 10/30) = 100
@@ -69,7 +69,7 @@ test('a testsúly utólagos rögzítése a húzódzkodás csúcsát is kiszámol
 
 test('a kiindulópont a legkorábbi DÁTUMÚ edzés, nem az elsőként rögzített', async () => {
   const cookie = await register();
-  await request('POST', '/api/weight-log', { cookie, body: { kg: 80 } });
+  await request('PUT', '/api/checkin', { cookie, body: { weightKg: 80 } });
 
   // Előbb a mai, aztán a tegnapi edzést rögzíti (utólag pótolja)
   await request('POST', '/api/workouts', {
@@ -89,7 +89,7 @@ test('a kiindulópont a legkorábbi DÁTUMÚ edzés, nem az elsőként rögzíte
 
 test('a fejlődés a csúcs NAPJÁNAK testsúlyával számol, nem a maival', async () => {
   const cookie = await register();
-  await request('POST', '/api/weight-log', { cookie, headers: asYesterday, body: { kg: 80 } });
+  await request('PUT', '/api/checkin', { cookie, headers: asYesterday, body: { weightKg: 80 } });
   for (const kg of [50, 60]) {
     await request('POST', '/api/workouts', {
       cookie,
@@ -98,7 +98,7 @@ test('a fejlődés a csúcs NAPJÁNAK testsúlyával számol, nem a maival', asy
     });
   }
   // Ma sokkal nehezebb lett — ez a tegnapi csúcs arányán nem változtat
-  await request('POST', '/api/weight-log', { cookie, body: { kg: 100 } });
+  await request('PUT', '/api/checkin', { cookie, body: { weightKg: 100 } });
 
   const rekord = await recordOf(cookie, NO_STANDARD);
   assert.equal(rekord.progress.percent, 20, '60/80 a 50/80-hoz képest, nem 60/100');
@@ -106,7 +106,7 @@ test('a fejlődés a csúcs NAPJÁNAK testsúlyával számol, nem a maival', asy
 
 test('a kipipálatlan, előre kitöltött sor nem kiindulópont', async () => {
   const cookie = await register();
-  await request('POST', '/api/weight-log', { cookie, body: { kg: 80 } });
+  await request('PUT', '/api/checkin', { cookie, body: { weightKg: 80 } });
   const kitoltott = gyakorlat(NO_STANDARD, 100, 5);
   kitoltott.sets[0].done = false;
   await request('POST', '/api/workouts', {
@@ -125,7 +125,7 @@ test('a kipipálatlan, előre kitöltött sor nem kiindulópont', async () => {
 
 test('a bemondott csúcs saját testsúlyosnál a testsúllyal számol, és nem „fejlődés"', async () => {
   const cookie = await register();
-  await request('POST', '/api/weight-log', { cookie, body: { kg: 80 } });
+  await request('PUT', '/api/checkin', { cookie, body: { weightKg: 80 } });
 
   const res = await request('POST', '/api/strength-assessment', {
     cookie,
@@ -142,7 +142,7 @@ test('a bemondott csúcs saját testsúlyosnál a testsúllyal számol, és nem 
 
 test('örökölt objektum-kulcs gyakorlatnévként nem rontja el a számolást', async () => {
   const cookie = await register();
-  await request('POST', '/api/weight-log', { cookie, body: { kg: 80 } });
+  await request('PUT', '/api/checkin', { cookie, body: { weightKg: 80 } });
   await request('POST', '/api/workouts', {
     cookie,
     body: { name: 'Furcsa', exercises: [gyakorlat('constructor', 50, 5)] },

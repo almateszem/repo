@@ -37,6 +37,22 @@ const outsider = { cookie: await register('idegen', 'Idegen Ilona') };
 
 let linkId = 0;
 
+/** A rám érvényes napi cél — a napi összesítőn át, ahonnan a felület is olvassa. */
+/** A sportoló saját szála a gyakorlathoz — a csoportosított lekérésből,
+    ahogy a felület is olvassa. */
+const threadOf = async (cookie) =>
+  (await request('GET', '/api/comments/by-target', { cookie })).json[`${mgWorkoutId}:0`] ?? [];
+
+/** Az edző szemszöge: a sportoló-kártya megjegyzései erre a gyakorlatra
+    (null, ha a sportoló nincs a listáján). */
+async function coachNotesOf(cookie) {
+  const { athletes = [] } = (await request('GET', '/api/athletes', { cookie })).json ?? {};
+  const kartya = athletes.find((a) => a.name === 'Megj Mária');
+  return kartya ? kartya.exerciseNotes.filter((n) => n.target === `${mgWorkoutId}:0`) : null;
+}
+
+const goalOf = async (cookie) => (await request('GET', '/api/nutrition', { cookie })).json.goal;
+
 /* ======================================================================
    1. Hozzáférés-védelem
    ====================================================================== */
@@ -55,14 +71,11 @@ test('bejelentkezés nélkül a kapcsolat- és üzenet-végpontok is 401-et adna
     ['POST', '/api/messages/1/read'],
     ['GET', '/api/goals'],
     ['PUT', '/api/user'],
-    ['GET', '/api/comments'],
     ['GET', '/api/comments/by-target'],
     ['POST', '/api/comments'],
     ['DELETE', '/api/comments/1'],
-    ['GET', '/api/athletes/1/comments'],
     ['POST', '/api/athletes/1/comments'],
     ['PUT', '/api/workouts/1/feedback'],
-    ['GET', '/api/nutrition/goal'],
     ['PUT', '/api/nutrition/goal'],
     ['DELETE', '/api/nutrition/goal'],
     ['PUT', '/api/athletes/1/nutrition-goal'],
@@ -910,11 +923,10 @@ let celTrainer = null;
 let celClient = null;
 
 test('cél nélkül a közös alapérték szól, és látszik, hogy alapérték', async () => {
-  const res = await request('GET', '/api/nutrition/goal', { cookie: outsider.cookie });
-  assert.equal(res.status, 200);
-  assert.equal(res.json.source, 'default', 'még senki nem állított be semmit');
-  assert.equal(res.json.locked, false, 'alapértéket bárki módosíthat');
-  assert.ok(res.json.calories > 0, 'a seed alapérték jön');
+  const res = await goalOf(outsider.cookie);
+  assert.equal(res.source, 'default', 'még senki nem állított be semmit');
+  assert.equal(res.locked, false, 'alapértéket bárki módosíthat');
+  assert.ok(res.calories > 0, 'a seed alapérték jön');
 });
 
 test('a saját cél felülírja az alapértéket — fiókonként külön', async () => {
@@ -939,8 +951,8 @@ test('a saját cél felülírja az alapértéket — fiókonként külön', asyn
   assert.equal(res.json.source, 'own');
 
   // Az edző célja ettől nem változik — a cél nem közös többé.
-  const edzoe = await request('GET', '/api/nutrition/goal', { cookie: trainer.cookie });
-  assert.equal(edzoe.json.source, 'default');
+  const edzoe = await goalOf(trainer.cookie);
+  assert.equal(edzoe.source, 'default');
 
   // A napi összesítő ugyanezt a célt hozza (a felület ahhoz méri a bevitelt).
   const totals = await request('GET', '/api/nutrition', { cookie: client.cookie });
@@ -958,11 +970,11 @@ test('az edzői cél felülírja a sportoló sajátját, és látszik, KI tűzte
   });
   assert.equal(kituzes.status, 200);
 
-  const celja = await request('GET', '/api/nutrition/goal', { cookie: celClient.cookie });
-  assert.equal(celja.json.calories, 2900, 'az EDZŐ célja az érvényes');
-  assert.equal(celja.json.source, 'coach');
-  assert.equal(celja.json.setBy, 'Cél Csaba', 'és látszik, KI tűzte ki');
-  assert.equal(celja.json.locked, true, 'zárolva a sportoló elől');
+  const celja = await goalOf(celClient.cookie);
+  assert.equal(celja.calories, 2900, 'az EDZŐ célja az érvényes');
+  assert.equal(celja.source, 'coach');
+  assert.equal(celja.setBy, 'Cél Csaba', 'és látszik, KI tűzte ki');
+  assert.equal(celja.locked, true, 'zárolva a sportoló elől');
 
   // Az edző a sportoló-kártyáján is látja, hogy az ő célja él.
   const kartyak = await request('GET', '/api/athletes', { cookie: celTrainer.cookie });
@@ -978,8 +990,8 @@ test('az edzői célt a sportoló nem módosíthatja', async () => {
   assert.equal(res.status, 403);
   assert.ok(res.json.error, 'beszédes hibaüzenet');
 
-  const celja = await request('GET', '/api/nutrition/goal', { cookie: celClient.cookie });
-  assert.equal(celja.json.calories, 2900, 'a zárolt cél érintetlen');
+  const celja = await goalOf(celClient.cookie);
+  assert.equal(celja.calories, 2900, 'a zárolt cél érintetlen');
 });
 
 test('csak az EDZŐ oldala tűzhet ki célt, és csak élő kapcsolatba', async () => {
@@ -997,8 +1009,8 @@ test('csak az EDZŐ oldala tűzhet ki célt, és csak élő kapcsolatba', async 
   assert.equal(kivulallo.status, 404);
 
   // A cél érintetlen.
-  const celja = await request('GET', '/api/nutrition/goal', { cookie: celClient.cookie });
-  assert.equal(celja.json.calories, 2900);
+  const celja = await goalOf(celClient.cookie);
+  assert.equal(celja.calories, 2900);
 });
 
 test('a cél validál: hiányzó mező, tartományon kívüli érték', async () => {
@@ -1265,11 +1277,11 @@ test('leválás után a régi edző célja már nem zárol — a saját cél sz�
   const levalas = await request('DELETE', '/api/coach', { cookie: celClient.cookie });
   assert.ok(levalas.status < 300, levalas.text);
 
-  const celja = await request('GET', '/api/nutrition/goal', { cookie: celClient.cookie });
-  assert.equal(celja.json.source, 'own');
-  assert.equal(celja.json.calories, 2400);
-  assert.equal(celja.json.locked, false);
-  assert.equal(celja.json.waterMl, null, 'a régi edző víz-célja sem él tovább');
+  const celja = await goalOf(celClient.cookie);
+  assert.equal(celja.source, 'own');
+  assert.equal(celja.calories, 2400);
+  assert.equal(celja.locked, false);
+  assert.equal(celja.waterMl, null, 'a régi edző víz-célja sem él tovább');
 
   const sajat = await request('PUT', '/api/nutrition/goal', {
     cookie: celClient.cookie,
@@ -1443,16 +1455,9 @@ test('a sportoló megjegyzést fűz a saját gyakorlatához, és az edzője LÁT
   assert.equal(created.json.authorName, 'Megj Mária', 'a szerző a bejelentkezett fiók');
   assert.ok(created.json.at, 'ISO időbélyeggel — a relatív időt a kliens képzi');
 
-  const edzoiNezet = await request(
-    'GET',
-    `/api/athletes/${mgLink}/comments?target=${mgWorkoutId}:0`,
-    {
-      cookie: mgTrainer.cookie,
-    },
-  );
-  assert.equal(edzoiNezet.status, 200);
-  assert.equal(edzoiNezet.json.length, 1);
-  assert.equal(edzoiNezet.json[0].text, 'Fájt a vállam a 3. szettnél.');
+  const edzoiNezet = await coachNotesOf(mgTrainer.cookie);
+  assert.equal(edzoiNezet.length, 1);
+  assert.equal(edzoiNezet[0].text, 'Fájt a vállam a 3. szettnél.');
 });
 
 test('az edzői megjegyzés UGYANABBA a szálba kerül, más szerzővel', async () => {
@@ -1462,12 +1467,10 @@ test('az edzői megjegyzés UGYANABBA a szálba kerül, más szerzővel', async 
   });
   assert.equal(created.status, 201);
 
-  const szal = await request('GET', `/api/comments?target=${mgWorkoutId}:0`, {
-    cookie: mgClient.cookie,
-  });
-  assert.equal(szal.json.length, 2, 'egy szál, két szerző');
+  const szal = await threadOf(mgClient.cookie);
+  assert.equal(szal.length, 2, 'egy szál, két szerző');
   assert.deepEqual(
-    szal.json.map((c) => c.authorName),
+    szal.map((c) => c.authorName),
     ['Megj Mária', 'Megj Miklós'],
     'időrendben, a legrégebbi elöl',
   );
@@ -1514,26 +1517,15 @@ test('a KÍVÜLÁLLÓ és a sportoló sem írhat a kapcsolat edzői oldalán', a
   });
   assert.equal(sajat.status, 404, 'nem 403 — a kapcsolat létezése sem derülhet ki');
 
-  const kivulallo = await request(
-    'GET',
-    `/api/athletes/${mgLink}/comments?target=${mgWorkoutId}:0`,
-    {
-      cookie: outsider.cookie,
-    },
-  );
-  assert.equal(kivulallo.status, 404);
+  assert.equal(await coachNotesOf(outsider.cookie), null, 'a kívülálló nem látja a sportolót');
 
-  const szal = await request('GET', `/api/comments?target=${mgWorkoutId}:0`, {
-    cookie: mgClient.cookie,
-  });
-  assert.equal(szal.json.length, 2, 'nem került be semmi');
+  const szal = await threadOf(mgClient.cookie);
+  assert.equal(szal.length, 2, 'nem került be semmi');
 });
 
 test('megjegyzést CSAK a szerzője törölhet', async () => {
-  const szal = await request('GET', `/api/comments?target=${mgWorkoutId}:0`, {
-    cookie: mgClient.cookie,
-  });
-  const edzoie = szal.json.find((c) => c.authorName === 'Megj Miklós');
+  const szal = await threadOf(mgClient.cookie);
+  const edzoie = szal.find((c) => c.authorName === 'Megj Miklós');
 
   // A sportoló a SAJÁT adatán van, mégsem törölheti az edző megjegyzését.
   const sportoloTorol = await request('DELETE', `/api/comments/${edzoie.id}`, {
@@ -1541,16 +1533,14 @@ test('megjegyzést CSAK a szerzője törölhet', async () => {
   });
   assert.equal(sportoloTorol.status, 404, 'nem a szerzője — nem talál sort');
 
-  const sajatja = szal.json.find((c) => c.authorName === 'Megj Mária');
+  const sajatja = szal.find((c) => c.authorName === 'Megj Mária');
   const torles = await request('DELETE', `/api/comments/${sajatja.id}`, {
     cookie: mgClient.cookie,
   });
   assert.equal(torles.status, 204);
 
-  const utana = await request('GET', `/api/comments?target=${mgWorkoutId}:0`, {
-    cookie: mgClient.cookie,
-  });
-  assert.equal(utana.json.length, 1);
+  const utana = await threadOf(mgClient.cookie);
+  assert.equal(utana.length, 1);
 });
 
 test('a megjegyzés validál: üres és túl hosszú szöveg', async () => {
@@ -1569,16 +1559,10 @@ test('a megjegyzés validál: üres és túl hosszú szöveg', async () => {
 
 test('a kapcsolat bontása után a volt edző nem éri el a megjegyzéseket', async () => {
   await request('DELETE', `/api/athletes/${mgLink}`, { cookie: mgTrainer.cookie });
-  const res = await request('GET', `/api/athletes/${mgLink}/comments?target=${mgWorkoutId}:0`, {
-    cookie: mgTrainer.cookie,
-  });
-  assert.equal(res.status, 404);
+  assert.equal(await coachNotesOf(mgTrainer.cookie), null, 'a volt sportoló kikerült a listáról');
 
   // A sportoló viszont továbbra is látja a SAJÁT adatát.
-  const sajat = await request('GET', `/api/comments?target=${mgWorkoutId}:0`, {
-    cookie: mgClient.cookie,
-  });
-  assert.equal(sajat.status, 200);
+  assert.equal((await threadOf(mgClient.cookie)).length, 1);
 });
 
 /* ======================================================================
@@ -1597,7 +1581,6 @@ test('a kapcsolat-végpontok egységesen: 400 a nem szám id-re, 404 a nem léte
     ['POST', '/api/messages/:id', { text: 'szia' }],
     ['POST', '/api/messages/:id/read'],
     ['POST', '/api/athletes/:id/plan', { planId: 1 }],
-    ['GET', '/api/athletes/:id/comments'],
     ['POST', '/api/athletes/:id/comments', { text: 'jó', target: '1:0' }],
     ['PUT', '/api/athletes/:id/water-goal', { liters: 3 }],
     ['DELETE', '/api/athletes/:id/water-goal'],
