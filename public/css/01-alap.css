@@ -126,7 +126,6 @@
   --fg-50: rgba(255, 255, 255, 0.5);
   --fg-45: rgba(255, 255, 255, 0.45);
   --fg-40: rgba(255, 255, 255, 0.4);
-  --fg-35: rgba(255, 255, 255, 0.35);
   --fg-30: rgba(255, 255, 255, 0.3);
   --fg-25: rgba(255, 255, 255, 0.25);
   --fg-20: rgba(255, 255, 255, 0.2);
@@ -139,7 +138,6 @@
      nem illett a szürke alaphoz és a piros kiemelőszínhez. */
   --fg-05: rgba(200, 16, 46, 0.13);
   --fg-04: rgba(255, 255, 255, 0.04);
-  --fg-03: rgba(255, 255, 255, 0.03);
 
   /* Szín — szemantikus aliasok */
   --surface-card: var(--fg-04);
@@ -183,8 +181,6 @@
   --fs-5xl: 28px;
   --fs-display: clamp(40px, 12vw, 56px);
   --fs-quote: clamp(20px, 5.5vw, 26px);
-  --fs-metric: clamp(14px, 4vw, 19px);
-  --fs-summary: clamp(28px, 8vw, 40px);
 
   /* Térköz-skála: 4 / 6 / 8 / 10 / 12 / 14 / 16 / 18 / 20 / 22 / 24 / 28 / 32 / 40 / 48 / 56 */
   --sp-1: 4px;
@@ -248,7 +244,6 @@
   --page-max: 480px;
   --page-max-desktop: 640px;
   --page-max-wide: 760px;
-  --dashboard-max-wide: 980px;
   --sidebar-width: 240px;
   /* Alsó hely a fix nav gyűrűnek mobil nézetben. 200px volt — egy 667px magas
      telefonon a nézetablak 30%-a. A gyűrű lejjebb és laposabban ül (lásd 11.

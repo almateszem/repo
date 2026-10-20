@@ -477,8 +477,6 @@ body:is([data-page='checkin'], [data-page='plan-builder'], [data-page='exercise-
     --fs-4xl: 28px;
     --fs-5xl: 34px;
     --fs-quote: 30px;
-    --fs-metric: 22px;
-    --fs-summary: 48px;
     --fs-input: 17px;
   }
 

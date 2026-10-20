@@ -525,8 +525,8 @@
   gap: 1px;
   max-height: 50vh;
   overflow-y: auto;
-  background: rgba(224, 67, 90, 0.38); /* --c-alert: a rések adják a vonalat */
-  border: 1px solid rgba(224, 67, 90, 0.38);
+  background: var(--c-alert-line); /* a rések adják a vonalat */
+  border: 1px solid var(--c-alert-line);
 }
 
 .co-alerts-head {
