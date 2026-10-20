@@ -629,6 +629,7 @@
                 <div class="pf-assess-field pf-assess-field--wide">
                   <label for="pf-assess-exercise">Gyakorlat</label>
                   <input
+                    class="ds-input"
                     id="pf-assess-exercise"
                     list="pf-assess-options"
                     type="text"
@@ -641,6 +642,7 @@
                 <div class="pf-assess-field">
                   <label for="pf-assess-weight">Súly (kg)</label>
                   <input
+                    class="ds-input"
                     id="pf-assess-weight"
                     type="number"
                     inputmode="decimal"
@@ -654,6 +656,7 @@
                 <div class="pf-assess-field">
                   <label for="pf-assess-reps">Ismétlés</label>
                   <input
+                    class="ds-input"
                     id="pf-assess-reps"
                     type="number"
                     inputmode="numeric"
@@ -1140,6 +1143,7 @@
               <div class="nu-goal-field">
                 <label for="nu-goal-calories">Kalória</label>
                 <input
+                  class="ds-input"
                   id="nu-goal-calories"
                   type="number"
                   inputmode="numeric"
@@ -1153,6 +1157,7 @@
               <div class="nu-goal-field">
                 <label for="nu-goal-protein">Fehérje (g)</label>
                 <input
+                  class="ds-input"
                   id="nu-goal-protein"
                   type="number"
                   inputmode="numeric"
@@ -1798,6 +1803,7 @@
                       <div class="nu-goal-field">
                         <label for="co-goal-calories">Kalória (kcal)</label>
                         <input
+                          class="ds-input"
                           id="co-goal-calories"
                           type="number"
                           inputmode="numeric"
@@ -1811,6 +1817,7 @@
                       <div class="nu-goal-field">
                         <label for="co-goal-protein">Fehérje (g)</label>
                         <input
+                          class="ds-input"
                           id="co-goal-protein"
                           type="number"
                           inputmode="numeric"
@@ -1835,6 +1842,7 @@
                       <div class="nu-goal-field">
                         <label for="co-water-liters">Víz (liter)</label>
                         <input
+                          class="ds-input"
                           id="co-water-liters"
                           type="number"
                           inputmode="decimal"
@@ -1905,6 +1913,7 @@
                       <div class="nu-goal-field">
                         <label for="co-meal-name">Étkezés neve</label>
                         <input
+                          class="ds-input"
                           id="co-meal-name"
                           type="text"
                           maxlength="40"
@@ -2126,10 +2135,10 @@
             <h3 class="su-feedback-title" id="su-note-title">Megjegyzés egy gyakorlathoz</h3>
             <form class="su-note-form" data-form="exercise-note">
               <label class="sr-only" for="su-note-exercise">Melyik gyakorlathoz?</label>
-              <select class="su-note-select" id="su-note-exercise"></select>
+              <select class="su-note-select ds-input" id="su-note-exercise"></select>
               <label class="sr-only" for="su-note-text">A megjegyzés szövege</label>
               <input
-                class="su-note-text"
+                class="su-note-text ds-input"
                 id="su-note-text"
                 type="text"
                 maxlength="1000"
@@ -3323,7 +3332,13 @@
              gyakorlat-választó ✓/→ gombja volt út — edzés közben oda-vissza
              navigálni egy félrenyomott gyakorlat miatt fölösleges kerülő.
              A szett-sorok ✕-ével azonos jelölés, de a kártya fejlécében. -->
-          <button class="wk-exercise-remove tap-target" type="button" hidden>✕</button>
+          <button
+            class="wk-exercise-remove ds-icon-del ds-icon-del--box tap-target"
+            type="button"
+            hidden
+          >
+            ✕
+          </button>
         </header>
         <div class="wk-set-row wk-set-row--head" aria-hidden="true">
           <span>Szett</span><span>Ism.</span><span>Súly·kg</span><span>RPE</span><span></span
@@ -3409,7 +3424,7 @@
           aria-label="Szett teljesítve"
         ></button>
         <button
-          class="wk-set-remove tap-target"
+          class="wk-set-remove ds-icon-del ds-icon-del--box tap-target"
           type="button"
           title="Szett törlése"
           aria-label="Szett törlése"
@@ -3612,11 +3627,19 @@
       <li class="co-meal-item">
         <div class="nu-goal-field co-meal-food">
           <label>Étel</label>
-          <input type="text" list="co-meal-foods" required autocomplete="off" data-item-food />
+          <input
+            class="ds-input"
+            type="text"
+            list="co-meal-foods"
+            required
+            autocomplete="off"
+            data-item-food
+          />
         </div>
         <div class="nu-goal-field co-meal-grams">
           <label>Gramm</label>
           <input
+            class="ds-input"
             type="number"
             inputmode="numeric"
             min="1"
@@ -3629,7 +3652,7 @@
         </div>
         <span class="co-meal-item-macros" data-item-macros></span>
         <button
-          class="nu-log-remove tap-target"
+          class="nu-log-remove ds-icon-del ds-icon-del--box tap-target"
           type="button"
           data-action="remove-meal-item"
           aria-label="Tétel törlése"
@@ -3657,7 +3680,9 @@
         >
           ✎
         </button>
-        <button class="nu-log-remove tap-target" type="button">✕</button>
+        <button class="nu-log-remove ds-icon-del ds-icon-del--box tap-target" type="button">
+          ✕
+        </button>
       </li>
     </template>
 
@@ -3670,7 +3695,9 @@
         <!-- A jelvény és a törlés csak a SAJÁT ételeken látszik — a renderFoodItem
            veszi le róluk a hidden-t, ha a food.custom igaz. -->
         <span class="nu-food-badge" hidden>saját</span>
-        <button class="nu-food-remove tap-target" type="button" hidden>✕</button>
+        <button class="nu-food-remove ds-icon-del ds-icon-del--box tap-target" type="button" hidden>
+          ✕
+        </button>
         <button class="nu-food-add tap-target" type="button">→</button>
       </li>
     </template>
@@ -3712,7 +3739,7 @@
         </button>
         <!-- Törlés — a terv-lista eddig kizárólag nőni tudott -->
         <button
-          class="pl-card-delete tap-target"
+          class="pl-card-delete ds-icon-del ds-icon-del--inline tap-target"
           type="button"
           aria-label="Terv törlése"
           title="Terv törlése"

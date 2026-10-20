@@ -234,23 +234,9 @@
    visszavonhatatlan művelete, nem szabad a fejléc fő gombjának látszania.
    A hover viszi akcentusra, ahogy a szett-sorok ✕-énél is. */
 .wk-exercise-remove {
-  background: none;
-  border: none;
   width: 30px;
   height: 30px;
-  padding: 0;
-  color: var(--text-muted);
   font-size: var(--fs-xs);
-  line-height: 1;
-  flex-shrink: 0;
-  transition:
-    color var(--t-fast),
-    background var(--t-fast);
-}
-
-.wk-exercise-remove:hover {
-  color: var(--c-alert);
-  background: var(--surface-hover);
 }
 
 .wk-video-btn:hover {
@@ -832,24 +818,10 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .wk-set-remove {
   width: 24px;
   height: 24px;
-  padding: 0;
-  border: none;
-  background: none;
-  color: var(--text-muted);
-  font-size: var(--fs-2xs);
-  line-height: 1;
   justify-self: center;
   /* Szűkebb célterület, mint a szomszédos pipáé: a két találati felület nem
      fedhet át, mert a törlés visszavonhatatlan, a pipázás nem. */
   --tap: 36px;
-  transition:
-    color var(--t-fast),
-    background var(--t-fast);
-}
-
-.wk-set-remove:hover {
-  color: var(--c-alert);
-  background: var(--surface-hover);
 }
 
 /* A napló legtöbbet nyomott gombja. Vizuálisan 24px (a sor sűrű marad), a

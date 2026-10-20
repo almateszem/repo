@@ -771,6 +771,61 @@ input.wk-chip:focus-visible {
   font-weight: 600;
 }
 
+/* Űrlapmező (ds-input): vékony keretes, átlátszó mező a beállító kártyákon —
+   napi cél, erőfelmérés, testméret, edzésjegyzet. A belső margót és a
+   betűméretet a komponens felülírhatja (16px alatt az iOS Safari fókuszkor
+   ráközelít, ezért ahol a mező a lap fő bevitele, ott --fs-input jár). */
+.ds-input {
+  width: 100%;
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--hair);
+  background: none;
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.ds-input:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+
+/* Törlőgomb (ds-icon-del): halk ✕ a sor végén, rámutatásra riasztásszín.
+   A --box változat a sűrű listák fix négyzete (alapból 26px, a komponens
+   átméretezheti) halvány rámutatás-háttérrel; az --inline a környezet
+   betűjét viszi, a kattintófelületét a belső margó adja. */
+.ds-icon-del {
+  border: none;
+  background: none;
+  color: var(--text-muted);
+}
+
+.ds-icon-del:hover {
+  color: var(--c-alert);
+}
+
+.ds-icon-del--box {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  font-size: var(--fs-2xs);
+  line-height: 1;
+  transition:
+    color var(--t-fast),
+    background var(--t-fast);
+}
+
+.ds-icon-del--box:hover {
+  background: var(--surface-hover);
+}
+
+.ds-icon-del--inline {
+  padding: var(--sp-2);
+  border-radius: var(--r-md);
+  font: inherit;
+}
+
 /* ==========================================================================
    3. Akadálymentességi segédosztályok
    ========================================================================== */

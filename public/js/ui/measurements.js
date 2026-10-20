@@ -45,6 +45,7 @@ function renderMeasurements() {
       label.textContent = `${site.label} (${site.unit})`;
 
       const input = document.createElement('input');
+      input.className = 'ds-input';
       input.id = `rc-body-${site.key}`;
       input.type = 'number';
       input.inputMode = 'decimal';
@@ -91,7 +92,7 @@ function renderMeasurements() {
         diff === null ? '' : `${diff > 0 ? '+' : ''}${formatNumber(diff)} ${site.unit}`;
 
       const del = document.createElement('button');
-      del.className = 'rc-body-del';
+      del.className = 'rc-body-del ds-icon-del ds-icon-del--inline';
       del.type = 'button';
       del.textContent = '✕';
       del.title = 'A legutóbbi mérés törlése';
