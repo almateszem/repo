@@ -59,6 +59,7 @@ import { requestDate } from '../http/session.js';
 import {
   adviceFor,
   applySessionAdvice,
+  belongsToPlan,
   readinessReport,
   trainingStreak,
   workoutTemplate,
@@ -250,15 +251,14 @@ export function register(app, { catalogSearch }) {
        szettekből állnak, és a felület itt előnézetet ad, nem naplót. */
     const template = workoutTemplate(userId, req.today);
     dashboard.workoutName = template?.name?.trim() || null;
-    /* A mai TERV már kész, ha ma mentett edzés hivatkozik rá (régi, planId
-       nélküli edzésnél a név dönt — ugyanaz a párosítás, mint a /api/plans
-       haladásáé). Piszkozatnál nem: az egy épp folyó edzés. */
+    /* A mai TERV már kész, ha ma mentett edzés tartozik hozzá (ugyanaz a
+       párosítás, mint a /api/plans haladásáé). Piszkozatnál nem: az egy épp
+       folyó edzés. */
     dashboard.todayDone =
       template?.source === 'plan' &&
       workouts.some(
         (w) =>
-          w.date === req.today &&
-          (w.planId != null ? w.planId === template.planId : w.name === template.name),
+          w.date === req.today && belongsToPlan(w, { id: template.planId, name: template.name }),
       );
     /* Az aktív terv szerint ma pihenőnap van (és nincs megkezdett edzés): a
        felület ezt írja ki a „Kezdj új edzést" helyett. Külön jelző, nem edzésnév —
@@ -423,20 +423,10 @@ export function register(app, { catalogSearch }) {
     const todayDate = req.today;
     const draft = getWorkoutDraft(userId);
     const workoutsToday = req.workouts().filter((w) => w.date === todayDate);
-    // Azonosító szerint párosítunk, névre csak a plan_id oszlop előtt mentett
-    // (régi) edzéseknél esünk vissza — két azonos nevű terv így nem osztozik
-    // egymás haladásán.
-    const savedPlanIds = new Set(workoutsToday.map((w) => w.planId).filter((id) => id != null));
-    const savedLegacyNames = new Set(
-      workoutsToday.filter((w) => w.planId == null).map((w) => w.name),
-    );
-    const draftMatches = (plan) =>
-      draft &&
-      draft.date === todayDate &&
-      (draft.planId != null ? draft.planId === plan.id : draft.name === plan.name);
+    const draftMatches = (plan) => draft && draft.date === todayDate && belongsToPlan(draft, plan);
 
     const progressFor = (plan) => {
-      if (savedPlanIds.has(plan.id) || savedLegacyNames.has(plan.name)) return 100;
+      if (workoutsToday.some((w) => belongsToPlan(w, plan))) return 100;
       if (draftMatches(plan)) {
         const sets = draft.exercises.flatMap((exercise) => exercise.sets);
         const done = sets.filter((set) => set.done).length;

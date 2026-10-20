@@ -117,7 +117,8 @@ function syncCheckinCta(checkinPresent) {
     regeneráció, napi statok, aktuális edzésnév és a Regenerációval közös
     készenléti ítélet. A lekérés a ui/dashboard-data.js-é. */
 function paintDashboard(dashboardData) {
-  const { readiness, streak, recovery, dailyStats, workoutName, todayDone } = dashboardData;
+  const { readiness, streak, recovery, dailyStats, workoutName, restDay, todayDone } =
+    dashboardData;
 
   const setText = (selector, value) => {
     const el = $(selector);
@@ -158,15 +159,13 @@ function paintDashboard(dashboardData) {
   // címéhez NEM nyúlunk: azt induláskor az applyTemplate állítja be — ez a
   // render edzés befejezése és check-in mentése után is lefut, és a terv nevét
   // írta volna az üres (vagy kézzel elnevezett) naplóba.
-  // Az aktív terv szerinti pihenőnapon ezt mondjuk ki — az edzés persze így is indítható
-  // Ha a mai tervből ma már mentett edzés van (todayDone), nem kínáljuk újra,
-  // mintha hátra lenne: a gomb ilyenkor új edzést indít.
-  setText(
-    '[data-workout-name]',
-    todayDone
-      ? 'Mai edzés kész ✓'
-      : workoutName || (dashboardData.restDay ? 'Pihenőnap' : 'Kezdj új edzést'),
-  );
+  // Az aktív terv szerinti pihenőnapon ezt mondjuk ki — az edzés persze így is
+  // indítható. Ha a mai tervből ma már mentett edzés van (todayDone), nem
+  // kínáljuk újra, mintha hátra lenne: a gomb ilyenkor új edzést indít.
+  const title = todayDone
+    ? 'Mai edzés kész ✓'
+    : workoutName || (restDay ? 'Pihenőnap' : 'Kezdj új edzést');
+  setText('[data-workout-name]', title);
   setText('[data-cta-label]', todayDone ? 'Új edzés' : 'Edzés indítása');
 
   /* A jobb hasáb gyakorlat-előnézete. A lista a szervertől készen jön

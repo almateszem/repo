@@ -5,26 +5,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const fakeElement = () =>
-  new Proxy(
-    { dataset: {}, style: { setProperty() {} }, value: '', textContent: '', hidden: false },
-    { get: (target, prop) => (prop in target ? target[prop] : () => fakeElement()) },
-  );
-const elements = new Map();
-const elementFor = (selector) => {
-  if (!elements.has(selector)) elements.set(selector, fakeElement());
-  return elements.get(selector);
-};
+import { elementFor, installFakeDom } from '../fake-dom.js';
 
-globalThis.window = { matchMedia: () => ({ matches: false }) };
-globalThis.localStorage = { getItem: () => null, setItem() {} };
-globalThis.document = {
-  querySelector: elementFor,
-  querySelectorAll: () => [],
-  createElement: () => fakeElement(),
-  createTextNode: (text) => text,
-};
-
+installFakeDom();
 const { paintDashboard } = await import('../../../../public/js/render/dashboard.js');
 
 const DATA = {

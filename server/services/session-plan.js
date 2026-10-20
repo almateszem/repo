@@ -24,6 +24,14 @@ import { cycleDay } from '../plan-week.js';
 import { computeReadiness } from '../recovery.js';
 import { applyAdvice, sessionAdvice } from '../session-advice.js';
 
+/** Egy mentett edzés vagy piszkozat ehhez a tervhez tartozik-e. Azonosító
+    szerint párosítunk, névre csak a plan_id oszlop előtt mentett (régi)
+    bejegyzéseknél esünk vissza — két azonos nevű terv így nem osztozik
+    egymás haladásán. */
+export function belongsToPlan(entry, plan) {
+  return entry.planId != null ? entry.planId === plan.id : entry.name === plan.name;
+}
+
 /** Az Edzés oldal induló tartalma, prioritás szerint: aznapi piszkozat →
     a mai hétnapra ütemezett terv → korábbi (nem mai) piszkozat → null
     (ilyenkor a kliens üres edzésnaplót mutat). Így éjfél után a napra
