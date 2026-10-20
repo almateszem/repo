@@ -478,21 +478,6 @@ input.wk-chip:focus-visible {
   background: var(--hair);
 }
 
-/* HASZNÁLATLAN. A .ds-grid--column, a .ds-row-value--accent és a
-   .ds-step-value a primitív-készlet része, de a 20. task záró átvizsgálásán
-   egyik sem talált call-site-ot: az oszlop-irányú rácsokat a lapok saját
-   flex-oszlopa adja, az accent-értékű sort sehol nem kértük, a léptető
-   értékmezőjét pedig mindkét használó (.wk-num-input, .ci-num-input) saját
-   szabállyal viszi.
-
-   SZÁNDÉKOSAN bent maradnak: a .ds-step-value a .ds-step dokumentált
-   receptjének a fele (nélküle a primitív csonka lenne), a másik kettő pedig
-   egysoros variáns. Ha a következő olvasó helyet keres, itt kezdje. */
-.ds-grid--column {
-  flex-direction: column;
-  flex-wrap: nowrap;
-}
-
 /* Szekció: nincs háttér, nincs keret, csak felső elválasztó.
 
    A vonalat SZÁNDÉKOSAN a szomszéd-szelektor adja, nem egy
@@ -585,10 +570,6 @@ input.wk-chip:focus-visible {
   font-weight: 800;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
-}
-
-.ds-row-value--accent {
-  color: var(--c-accent);
 }
 
 /* CTA-sáv: a lap fő művelete. Teljes szélességű, nagybetűs, jobbra nyíllal.
@@ -694,17 +675,6 @@ input.wk-chip:focus-visible {
 
 .ds-step-btn:hover {
   background: var(--surface-hover);
-}
-
-.ds-step-value {
-  min-width: 88px;
-  padding: 0 var(--sp-5);
-  background: var(--c-bg);
-  font-size: var(--fs-2xl);
-  font-weight: 800;
-  line-height: var(--tap-min);
-  text-align: center;
-  font-variant-numeric: tabular-nums;
 }
 
 /* Szegmens-választó: összeérő gombok, az aktív accent hátterű. */

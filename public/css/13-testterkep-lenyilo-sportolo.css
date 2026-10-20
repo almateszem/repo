@@ -387,13 +387,6 @@ a.co-ghost-btn {
   color: var(--fg-70);
 }
 
-.co-client-privacy-no {
-  margin: 0 0 var(--sp-4);
-  font-size: var(--fs-sm);
-  line-height: 1.5;
-  color: var(--text-secondary);
-}
-
 /* Keskeny oszlopban a négy fül 2×2-es rácsba áll — görgetés nélkül is
    mind látszik. Az edzői részletnézetben ugyanígy: ott is négy fül van. */
 @container co-detail (max-width: 479px) {

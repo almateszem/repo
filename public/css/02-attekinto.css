@@ -177,39 +177,6 @@
 
 /* A kártya egésze link a Regeneráció oldalra — a szövegszín öröklődik, hogy
    a link-alapértelmezés ne írja felül a tipográfiát. */
-/* ---- Készenléti gyűrű (megosztott primitív) ----
-   Az Áttekintésen a dizájn szerint NINCS gyűrű: ott a nagy szám a
-   mutató. A Regeneráció oldal viszont megtartja, mert ott a
-   komponens-bontás mellett a körkijelző valódi többletet ad. */
-.db-ring {
-  width: clamp(84px, 22vw, 116px);
-  height: clamp(84px, 22vw, 116px);
-  flex-shrink: 0;
-}
-
-.db-ring svg {
-  width: 100%;
-  height: 100%;
-  transform: rotate(-90deg); /* a kitöltés 12 óránál induljon */
-}
-
-.db-ring-bg {
-  fill: none;
-  stroke: var(--fg-15);
-  stroke-width: 8;
-}
-
-.db-ring-fg {
-  fill: none;
-  stroke: var(--fg-100);
-  stroke-width: 8;
-  stroke-linecap: round;
-  /* 264 ≈ a 42-es sugarú kör kerülete; a --readiness értéket (0–100)
-     a script.js állítja be a szerver adatából */
-  stroke-dasharray: 264;
-  stroke-dashoffset: calc(264 - (264 * var(--readiness, 0) / 100));
-}
-
 /* Minden műszerfal-címke ezt az osztályt kapja: a szedést a 2b. szakasz
    központi blokkja adja, itt csak a méret és a szín áll. Egy osztály, mert
    a dizajnban minden címke ugyanaz — nem blokkonként újratárgyalt méret. */

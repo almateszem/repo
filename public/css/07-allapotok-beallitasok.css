@@ -18,16 +18,6 @@
   }
 }
 
-.db-ring-fg {
-  animation: ring-fill 1.1s ease 0.1s backwards;
-}
-
-@keyframes ring-fill {
-  from {
-    stroke-dashoffset: 264;
-  } /* üres gyűrűből tölt fel a készenléti értékre */
-}
-
 .pl-progress-fill {
   transform-origin: left;
   animation: grow-x 0.7s ease 0.15s backwards;

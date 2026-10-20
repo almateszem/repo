@@ -141,19 +141,7 @@ function paintDashboard(dashboardData) {
   setText('[data-recovery="fatigue"]', recovery.fatigue);
   setText('[data-recovery="soreness"]', recovery.soreness);
 
-  // Készenlét: a gyűrű kitöltését és feliratát itt, a szám animálását az
-  // Áttekintő megnyitási feladata (ui/dashboard.js) végzi (a --readiness változót a CSS stroke-dashoffset használja).
-  // A szelektor szándékosan a kártyára szűkít: a Regeneráció oldalon is van
-  // egy .db-ring, azt a renderRecovery kezeli.
-  const ring = $('.db-readiness .db-ring');
   const readinessKnown = hasReadiness(readiness);
-  if (ring) {
-    ring.style.setProperty('--readiness', readinessKnown ? readiness : 0);
-    ring.setAttribute(
-      'aria-label',
-      readinessKnown ? `${readiness} százalék készenlét` : 'Készenlét: nincs elég adat',
-    );
-  }
   // A szám animálását az Áttekintő megnyitási feladata végzi — ha nincs adat, ott sincs mit
   // felpörgetni, ezért a helyőrzőt itt írjuk ki.
   if (!readinessKnown) {

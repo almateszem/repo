@@ -358,7 +358,7 @@
 }
 
 /* A gap 0: a sorokat a .ds-row szomszéd-szelektora választja el. */
-/* A .ds-grid--column rés-receptje, nem a .ds-row szomszéd-szelektora: a
+/* A .ds-grid rés-receptje (oszlopban), nem a .ds-row szomszéd-szelektora: a
    katalógus szűréskor `hidden`-nel rejt, a `+` kombinátor pedig a DOM-ban
    néz vissza, nem a képernyőn. Rejtett elemek után az első TALÁLAT is felső
    vonalat kapott — a szűrt lista tetején lógó elválasztót. A rés ezzel
