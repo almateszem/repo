@@ -28,9 +28,10 @@ function countControllerCalls() {
 
 /** A modál-gyökerek és a közvetlenül utánuk következő két nyitó tag
     (fátyol, kártya) az index.html-ből. Az attribútumok közt bármilyen
-    whitespace állhat: a Prettier a hosszú tageket több sorra tördeli. */
+    whitespace állhat: a Prettier a hosszú tageket több sorra tördeli. A
+    saját osztály mellett a közös (.modal-backdrop, .modal-card) is ott áll. */
 const MODAL_ROOT =
-  /<div\s+class="([\w-]+-modal)\b[^"]*"\s+id="(\w+)"\s+aria-hidden="true"\s*>\s*<div\s+class="\1-backdrop"[^>]*><\/div>\s*<div\s([^>]*)>/g;
+  /<div\s+class="([\w-]+-modal)\b[^"]*"\s+id="(\w+)"\s+aria-hidden="true"\s*>\s*<div\s+class="\1-backdrop\b[^"]*"[^>]*><\/div>\s*<div\s([^>]*)>/g;
 const roots = [...html.matchAll(MODAL_ROOT)].map(([, cls, id, cardAttrs]) => ({
   cls,
   id,
@@ -54,7 +55,7 @@ test('minden modál-gyökér közvetlen kártyája aria-modal párbeszédablak',
   for (const { id, cls, cardAttrs } of roots) {
     assert.match(
       cardAttrs,
-      new RegExp(`class="${cls}-card"`),
+      new RegExp(`class="${cls}-card\\b`),
       `#${id}: nem a kártya a fátyol utáni elem`,
     );
     assert.match(cardAttrs, /role="(alert)?dialog"/, `#${id}: a kártyán nincs dialog szerep`);
