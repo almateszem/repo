@@ -15,7 +15,7 @@ let measurements = [];
 
 /** A mérések listájának cseréje. Azért függvény, és nem közvetlen értékadás:
     egy importált kötésre nem lehet kívülről értéket adni, a mentés viszont a
-    Regeneráció oldalról fut (ui/recovery.js). */
+    Regeneráció oldalról fut (recovery/recovery.js). */
 function setMeasurements(list) {
   measurements = list;
 }

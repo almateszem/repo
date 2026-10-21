@@ -37,11 +37,11 @@ import { setupWaterMeter } from '../ui/water.js';
 import { setupPlanBuilder } from '../plans/plan-builder.js';
 import { renderPlans, setupPlans } from '../plans/plans.js';
 import { setupProfile } from '../ui/profile.js';
-import { setupRecovery } from '../ui/recovery.js';
+import { setupRecovery } from '../recovery/recovery.js';
 import { setupScanner } from '../ui/scanner.js';
 import { setupSettingsModal } from '../ui/settings.js';
 import { setupSummary, setupWeeklyCompare } from '../ui/summary.js';
-import { refreshWeightLog } from '../ui/weight.js';
+import { refreshWeightLog } from '../recovery/weight.js';
 import { setupWorkout } from '../ui/workout.js';
 import { setupWorkoutPicker } from '../ui/workout-picker.js';
 

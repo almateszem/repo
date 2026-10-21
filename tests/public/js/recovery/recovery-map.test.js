@@ -20,7 +20,7 @@ import {
   spareList,
   verdictText,
   unusualNote,
-} from '../../../../public/js/render/recovery-map.js';
+} from '../../../../public/js/recovery/recovery-map.js';
 
 const m = (key, readiness, extra = {}) => ({
   key,

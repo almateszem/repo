@@ -3,7 +3,7 @@
 import { $, $$, cloneTemplate } from '../../../shared/dom.js';
 import { formatInputNumber, formatNumber } from '../../../shared/format.js';
 import { formatDelta } from '../../../shared/format.js';
-import { latestWeightEntry, todayWeightEntry } from '../../weight.js';
+import { latestWeightEntry, todayWeightEntry } from '../../../recovery/weight.js';
 import {
   CI_PRESET_ADVANCE_MS,
   CI_WEIGHT_FALLBACK,

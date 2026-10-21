@@ -6,7 +6,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
-const read = (name) => readFileSync(new URL(`../../../../public/img/${name}`, import.meta.url), 'utf8');
+const read = (name) =>
+  readFileSync(new URL(`../../../../public/img/${name}`, import.meta.url), 'utf8');
 
 for (const [name, viewBox] of [
   ['body-front.svg', '0 0 975 1625'],

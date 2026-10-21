@@ -5,8 +5,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { MUSCLE_KEYS } from '../../../../../server/muscles.js';
-import { BODY_HEAD, BODY_REGIONS, BODY_SILHOUETTE, BODY_VIEW_BOX } from '../../../../../public/js/ui/bodymap/paths.js';
+import { MUSCLE_KEYS } from '../../../../server/muscles.js';
+import {
+  BODY_HEAD,
+  BODY_REGIONS,
+  BODY_SILHOUETTE,
+  BODY_VIEW_BOX,
+} from '../../../../public/js/recovery/bodymap-paths.js';
 
 const VIEWS = ['front', 'back'];
 

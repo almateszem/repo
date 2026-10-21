@@ -11,8 +11,8 @@
    váltja (asztali ≥ 1040, tablet 600–1039, mobil < 600 px), nem a viewport.
 
    Csak a :root meglévő tokenjeit használja (+ --c-pain). A küszöbök
-   (80%+ kész, 40% alatt kíméld) a render/recovery-map.js-ben élnek, a
-   kirajzolás a render/recovery.js-ben, a vezérlés a ui/recovery.js-ben.
+   (80%+ kész, 40% alatt kíméld) a recovery/recovery-map.js-ben élnek, a
+   kirajzolás a recovery/recovery-view.js-ben, a vezérlés a recovery/recovery.js-ben.
    ========================================================================== */
 
 /* ---- A lap szélessége: a felső rész kétsávos asztalon, ezért szélesebb,

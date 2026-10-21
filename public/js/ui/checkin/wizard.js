@@ -18,7 +18,7 @@ import { renderDashboard } from '../../dashboard/dashboard.js';
 import { handleStepClick } from '../../shared/stepper.js';
 import { ciPickPositive } from './helpers.js';
 import { ci, ciCountedSteps, ciStepOrder, clearSession, resetSession } from './session.js';
-import { mergeWeightEntry, refreshWeightLog, todayWeightEntry } from '../weight.js';
+import { mergeWeightEntry, refreshWeightLog, todayWeightEntry } from '../../recovery/weight.js';
 import { renderIntro } from './steps/intro.js';
 import { renderSleep } from './steps/sleep.js';
 import { renderScale } from './steps/scale.js';

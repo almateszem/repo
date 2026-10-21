@@ -1,7 +1,7 @@
 /**
  * A Regeneráció oldal felső részének tiszta logikája — DOM nélkül.
  *
- * A kirajzolás (render/recovery.js) csak fogyasztja: ami itt dől el, az
+ * A kirajzolás (recovery-view.js) csak fogyasztja: ami itt dől el, az
  * egységtesztből ellenőrizhető (recovery-map.test.js). A szám mindig a
  * szerver riportjából jön (server/recovery.js computeReadiness); itt csak
  * válogatás, sorrend és geometria van.

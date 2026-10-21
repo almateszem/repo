@@ -13,7 +13,7 @@ import { prefs } from '../shared/prefs.js';
 import { renderChart } from '../shared/chart.js';
 import { hasReadiness } from '../shared/readiness.js';
 import { navigate, onPageShow } from '../app/router.js';
-import { DETAILS_ON_RECOVERY, dashboardQuote } from '../render/recovery-map.js';
+import { DETAILS_ON_RECOVERY, dashboardQuote } from '../recovery/recovery-map.js';
 
 /* ======================================================================
    Kirajzolás
