@@ -442,13 +442,10 @@
   --ci-fs-number: clamp(46px, 17vw, 72px);
 }
 
-/* ---- Napi táplálkozási cél (nu-goal-*) ----
-   A cél két forrásból jöhet (edzői / saját), ezért nem elég egy szám: a
-   származást és az esetleges eltérést is ki kell írni. */
-/* ---- Vízmérő ----
-   A napi cél nem beégetett 3 liter: a szerver a Recovery Engine képletéből
-   adja (~33 ml/testsúlykg), és a felület csak kiírja. */
-
+/* A .nu-goal-field (a táplálkozási cél mezője, ld. 04) SZÁNDÉKOSAN itt áll,
+   a sportolói étkezés-űrlap .co-meal-food / .co-meal-grams szabálya (05)
+   MÖGÖTT: ugyanazon az elemen ülnek, és ma ennek a flex-értéke győz.
+   Áthelyezve a mezők aránya megváltozna. */
 .nu-goal-field {
   display: flex;
   flex-direction: column;
@@ -457,7 +454,7 @@
   flex: 1 1 110px;
 }
 
-/* ---- Készenlét-javaslat (ad-*) + terv-kártya biztonsági jelzése ---- */
+/* ---- Készenlét-javaslat (ad-*) — a terv-kártya párja: 04, .pl-card-safety ---- */
 .ad-list {
   list-style: none;
   margin: var(--sp-5) 0 0;

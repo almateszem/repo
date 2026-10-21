@@ -889,6 +889,12 @@ input.wk-chip:focus-visible {
   cursor: default;
 }
 
+/* Alul nincs elég hely: a lista a mező fölé nyílik. */
+.ds-select.opens-up .ds-select-menu {
+  top: auto;
+  bottom: calc(100% + var(--sp-2));
+}
+
 /* ==========================================================================
    3. Akadálymentességi segédosztályok
    ========================================================================== */

@@ -733,6 +733,9 @@
   color: var(--text-primary);
 }
 
+/* ---- Vízmérő ----
+   A napi cél nem beégetett 3 liter: a szerver a Recovery Engine képletéből
+   adja (~33 ml/testsúlykg), és a felület csak kiírja. */
 .nu-water {
   margin-bottom: var(--sp-9);
   background: var(--surface-card);
@@ -855,6 +858,9 @@
   background: var(--c-accent);
 }
 
+/* ---- Napi táplálkozási cél (nu-goal-*) ----
+   A cél két forrásból jöhet (edzői / saját), ezért nem elég egy szám: a
+   származást és az esetleges eltérést is ki kell írni. */
 .nu-goal {
   margin-bottom: var(--sp-9);
   background: var(--surface-card);
@@ -992,6 +998,7 @@
   cursor: default;
 }
 
+/* ---- Terv-kártya biztonsági jelzése (a készenlét-javaslat párja: 11, ad-*) ---- */
 .pl-card-safety {
   display: block;
   margin-top: var(--sp-2);

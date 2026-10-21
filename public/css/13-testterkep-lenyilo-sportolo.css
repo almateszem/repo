@@ -140,18 +140,3 @@
   text-transform: uppercase;
   color: var(--c-alert);
 }
-
-/* ==========================================================================
-   Saját lenyíló (ds-select) — a natív <select> helyett, az egész appban
-   (public/js/ui/custom-select.js). A natív opciólistát a böngésző/OS rajzolja,
-   és a sötét témában rosszul: Windowson fehér lista, olvashatatlan szöveggel.
-   A gomb a select SAJÁT osztályait örökli (keret, térköz, szélesség), ezért
-   itt csak a belső elrendezés áll; a lista az edzésnapló lenyílóinak nyelvén
-   (.wk-order-menu) szól.
-   ========================================================================== */
-
-/* Alul nincs elég hely: a lista a mező fölé nyílik. */
-.ds-select.opens-up .ds-select-menu {
-  top: auto;
-  bottom: calc(100% + var(--sp-2));
-}
