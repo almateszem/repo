@@ -582,3 +582,82 @@
   color: var(--text-primary);
   border-color: var(--fg-40);
 }
+
+/* ==========================================================================
+   Áttekintő — desktop-elrendezés és mikro-animációk (a 06-ból és a 07-ből ide gyűjtve)
+   ========================================================================== */
+
+@media (min-width: 1025px) {
+  /* Keskeny hasáb: a márkajel a nav tetején már ott van, itt csak a dátum
+     kell. A név és az ikonpár egy sorban fér el alatta. */
+  .chrome-brand-name {
+    display: none;
+  }
+
+  .chrome-brand {
+    order: 2;
+    margin-right: 0;
+  }
+
+  .db-profile {
+    order: 1;
+    flex: 1 0 100%;
+    min-width: 0;
+  }
+
+  .db-username {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .chrome-actions {
+    order: 3;
+    margin-left: auto;
+  }
+}
+
+@media (min-width: 1280px) {
+  .db-main {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Az első blokknak nincs felső vonala: a lap tetején az elválasztó semmit
+     nem választana el. */
+  .db-readiness-row {
+    padding-top: var(--sp-13);
+  }
+
+  /* A jobb hasáb teljes magasságú, hogy a műveletek (margin-top: auto) a lap
+     aljára kerüljenek, ne a gyakorlatlista alá tapadva. */
+  .db-side {
+    align-self: stretch;
+    padding: var(--sp-13) 0 0 clamp(24px, 2.6vw, 48px);
+    border-top: none;
+    border-left: 1px solid var(--border-card);
+  }
+
+  .db-side-title {
+    font-size: 32px;
+  }
+}
+
+.db-cta-arrow {
+  transition: transform var(--t-fast);
+}
+
+.db-cta:hover .db-cta-arrow {
+  transform: translateX(3px);
+}
+
+.db-badge.is-pop {
+  animation: badge-pop 0.3s ease;
+}
+
+@keyframes badge-pop {
+  50% {
+    transform: scale(1.3);
+  }
+}

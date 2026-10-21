@@ -53,14 +53,6 @@
   }
 }
 
-.db-cta-arrow {
-  transition: transform var(--t-fast);
-}
-
-.db-cta:hover .db-cta-arrow {
-  transform: translateX(3px);
-}
-
 /* ---- Értesítés-panel ---- */
 /* A panel a harang alá lóg le — az a fejléc JOBB szélén van, ezért jobbra
    horgonyzunk (korábban az avatar volt a nyitógomb, és balra igazodott). */
@@ -147,16 +139,6 @@
   text-align: center;
   padding: var(--sp-8) 0;
   margin: 0;
-}
-
-.db-badge.is-pop {
-  animation: badge-pop 0.3s ease;
-}
-
-@keyframes badge-pop {
-  50% {
-    transform: scale(1.3);
-  }
 }
 
 /* ---- Edzői chat: saját üzenet, beúszás, „gépel…" jelző ---- */
