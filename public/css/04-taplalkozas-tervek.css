@@ -978,6 +978,17 @@
   margin-top: var(--sp-2);
 }
 
+/* A mező alapmérete (flex: 1 1 110px). Az edzői étkezés-űrlap .co-meal-food /
+   .co-meal-grams mezői is ezt a receptet viselik, de a saját arányuk (3:1) a
+   05-ben, EZUTÁN áll — így az ő flex-értékük győz. */
+.nu-goal-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+  flex: 1 1 110px;
+}
+
 .nu-goal-field label {
   font-size: var(--fs-2xs);
   color: var(--text-muted);

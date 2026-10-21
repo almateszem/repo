@@ -442,18 +442,6 @@
   --ci-fs-number: clamp(46px, 17vw, 72px);
 }
 
-/* A .nu-goal-field (a táplálkozási cél mezője, ld. 04) SZÁNDÉKOSAN itt áll,
-   a sportolói étkezés-űrlap .co-meal-food / .co-meal-grams szabálya (05)
-   MÖGÖTT: ugyanazon az elemen ülnek, és ma ennek a flex-értéke győz.
-   Áthelyezve a mezők aránya megváltozna. */
-.nu-goal-field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-2);
-  min-width: 0;
-  flex: 1 1 110px;
-}
-
 /* ---- Készenlét-javaslat (ad-*) — a terv-kártya párja: 04, .pl-card-safety ---- */
 .ad-list {
   list-style: none;
