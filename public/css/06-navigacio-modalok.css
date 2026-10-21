@@ -681,11 +681,6 @@ body:is([data-page='checkin'], [data-page='plan-builder'], [data-page='exercise-
     min-width: 0;
   }
 
-  /* Az edzésnapló szett-sorainak mezői szélesebb oszlopot kérnek. */
-  .wk-page {
-    --pg-cols: minmax(0, 1.35fr) minmax(0, 1fr);
-  }
-
   /* Egymás mellett a két oszlop felső széle közös. */
   .pf-page .pg-col--side > .pf-section:first-child {
     margin-top: 0;

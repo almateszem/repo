@@ -366,24 +366,6 @@
    21. Edzés-összegző oldal (su-*) + kapcsolódó belépési pontok
    ========================================================================== */
 
-/* ---- Edzés befejezése gomb (workout oldal, elsődleges lezáró művelet) ----
-   A formát a .ds-cta adja (osztályként fel van téve): teljes szélesség, 64px,
-   nagybetűs felirat, keskeny nézetben accent háttér, szélesben panel. Itt csak
-   a lap-specifikus margó marad — a saját méret- és színszabályok törölve, hogy
-   a lap fő művelete pontosan úgy nézzen ki, mint a többi lapé. */
-.wk-finish {
-  margin: 0 0 var(--sp-12);
-}
-
-.wk-finish-arrow {
-  font-size: var(--fs-2xl);
-  transition: transform var(--t-fast);
-}
-
-.wk-finish:hover .wk-finish-arrow {
-  transform: translateX(3px);
-}
-
 /* ---- Az összegző oldal maga ---- */
 /* A középre igazítás a fejlécre és a hősre szűkült. Lap-szinten nem
    maradhatott: a .ds-row space-between elrendezésében a bal oldali név és a
