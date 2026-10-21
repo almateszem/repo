@@ -1670,3 +1670,13 @@
     transform: translateY(6px);
   }
 }
+
+/* Keskeny oszlopban a négy fül 2×2-es rácsba áll — görgetés nélkül is
+   mind látszik. Az edzői részletnézetben ugyanígy: ott is négy fül van. */
+@container co-detail (max-width: 479px) {
+  .co-detail-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    overflow: visible;
+  }
+}
