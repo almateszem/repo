@@ -1,4 +1,4 @@
-/* Podium — 8–9: Táplálkozás (nu-*), Tervek (pl-*). (A sorrend a css/01-alap.css tartalomjegyzékében.) */
+/* Podium — 8–9b: Táplálkozás (nu-*), Tervek (pl-*). (A sorrend a css/01-alap.css tartalomjegyzékében.) */
 
 /* ==========================================================================
    8. Nutrition tracker
@@ -678,7 +678,8 @@
 }
 
 /* ==========================================================================
-   Táplálkozás és Tervek — víz, napi cél, étkezések, naplósor-műveletek, terv-biztonság, desktop-rács (a 06-ból, a 07-ből és a 11-ből ide gyűjtve)
+   9b. Táplálkozás és Tervek — víz, napi cél, étkezések, naplósor-műveletek,
+   terv-biztonság, desktop-rács
    ========================================================================== */
 
 @media (min-width: 1280px) {

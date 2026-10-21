@@ -1,4 +1,4 @@
-/* Podium — 6: Áttekintő (db-*). (A sorrend a css/01-alap.css tartalomjegyzékében.) */
+/* Podium — 6–6b: Áttekintő (db-*, chrome-*). (A sorrend a css/01-alap.css tartalomjegyzékében.) */
 
 /* ==========================================================================
    6. Dashboard
@@ -584,7 +584,7 @@
 }
 
 /* ==========================================================================
-   Áttekintő — desktop-elrendezés és mikro-animációk (a 06-ból és a 07-ből ide gyűjtve)
+   6b. Áttekintő — desktop-elrendezés és mikro-animációk
    ========================================================================== */
 
 @media (min-width: 1025px) {

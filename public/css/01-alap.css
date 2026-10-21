@@ -3,56 +3,66 @@
    --------------------------------------------------------------------------
    Tartalomjegyzék — a szakaszok a fájlokban, a betöltés (index.html <link>)
    sorrendjében. A kaszkád ezen a sorrenden múlik: a fájlok sorrendje nem
-   cserélhető fel.
+   cserélhető fel. Minden prefix egy fájlban él; a kivételeknél (az 01 közös
+   receptjei, oldal-kontextusú felülírások) a szabály mellett komment áll.
      css/01-alap.css
        1.  Design tokenek (:root)
        2.  Base és reset
        2b. Műszerfal-tipográfia — címkék és mérőszámok
        2c. Dizájn-primitívek — a prototípus újrahasznált építőelemei (ds-*)
+       2d. Saját lenyíló (ds-select) — a natív <select> helyett
        3.  Akadálymentességi segédosztályok (+ .tap-target: érintési célterület)
        4.  App layout és oldalváltás
-       5.  Oszlopdiagram (megosztott komponens)
+       5.  Oszlopdiagram (megosztott komponens, chart-*) + beúszás
      css/02-attekinto.css
-       6.  Dashboard (db-*)
+       6.  Dashboard (db-*, chrome-*)
+       6b. Áttekintő — desktop-elrendezés és mikro-animációk
      css/03-edzesnaplo.css
        7.  Workout logger (wk-*)
+       7b. Automatikus mentés, heti összevetés, PR-lista és -modál (pr-*),
+           befejezés-gomb (wk-finish)
      css/04-taplalkozas-tervek.css
        8.  Nutrition tracker (nu-*)
        9.  Tervek (pl-*)
+       9b. Víz, napi cél, étkezések, naplósor-műveletek, terv-biztonság,
+           desktop-rács
      css/05-edzoi-panel.css
       10.  Edzői panel — állapot-sáv, sportoló-kártyák, üzenet-buborékok (co-*)
+      19.  Sportoló részletnézet (co-detail-*, co-modal-*, co-action, co-msg,
+           co-note-*, co-meal*, co-total-*, co-goal-*, co-feedback-*)
      css/06-navigacio-modalok.css
       11.  Nav ring — mobil/tablet navigáció (nav-*, nl)
       12.  Side nav — desktop navigáció (side-nav-*)
       13.  Modálok — közös alap: technika videó + beállítások (video-modal-*, settings-modal-*)
       13b. Megerősítő ablak — adatvesztéssel járó műveletekhez (confirm-modal-*)
-      14.  Toast értesítések (toast-*)
-      15.  Breakpointok: ≥1025px (sidebar), ≥1280px (széles dashboard grid)
-     css/07-allapotok-beallitasok.css
-      16.  Demo polish — mikro-animációk, értesítés-panel, állapotok
+      14.  Toast értesítések (toast-*) + modál finom zárása
+      15.  Breakpointok: ≥1025px (sidebar), ≥1280px (oldal-szélességek, kétoszlopos lapok)
+     css/07-ertesitesek-beallitasok.css
+      16.  Kártya-hoverek és értesítés-panel (notif-*)
       17.  Beállítások modal tartalma (st-*)
-      18.  Analitika — testsúly trend, heti összehasonlítás, PR lista
-      19.  Sportoló részletnézet (co-detail-*, co-modal-*, co-action, co-msg)
+      17b. Beállítások — fiók, szakasz-tipp; értesítés-panel desktopon
      css/08-flow-oldalak.css
       22b. Terv-építő flow-oldal (pb-*)
       23.  Gyakorlat-választó flow-oldal (ep-*)
      css/09-edzo-nezetek-osszegzo.css
       20.  Edző oldal — a két nézet: nézetváltó, kliens chat, meghívók, üres állapotok
            (co-toggle, co-view, co-coach-*, co-invite-*, co-client-feed, co-empty)
-      21.  Edzés-összegző oldal (su-*) + edzés-befejezés gomb (wk-finish)
+      20b. Edző oldal — sportolói nézet (co-client-*)
+      21.  Edzés-összegző oldal (su-*)
+      21b. Edzés-összegző — saját jegyzet és visszajelzés az edzőnek
      css/10-regeneracio.css
       22.  Regeneráció — Recovery Engine oldal (rc-*)
+      22b. Testsúly-grafikon, testmérés-űrlap és -lista, súlynapló
      css/11-etel-checkin.css
       24.  Étel részlet-modál (fd-*)
-      25.  Napi check-in varázsló (ci-*)
+      25.  Napi check-in varázsló (ci-*) + készenlét-javaslat (ad-*)
      css/12-belepo-profil-sajat-etel.css
       26.  Belépő képernyő (au-*)
       27.  Profiloldal (pf-*)
+      27b. Profil — kétoszlopos elrendezés és edzői felmérés (pf-assess-*)
       28.  Saját étel modál (cf-*) + vonalkód-olvasó (sc-*)
-     css/13-testterkep-lenyilo-sportolo.css
+     css/13-testterkep.css
       29.  Testtérkép (bm-*) — a check-in és a Regeneráció közös emberkéje
-           Saját lenyíló (ds-select) — a natív <select> helyett
-      30.  Edző oldal — sportolói nézet (co-client-*)
    ========================================================================== */
 
 /* ==========================================================================
@@ -775,7 +785,7 @@ input.wk-chip:focus-visible {
 }
 
 /* ==========================================================================
-   Saját lenyíló (ds-select) — a natív <select> helyett, az egész appban
+   2d. Saját lenyíló (ds-select) — a natív <select> helyett, az egész appban
    (public/js/ui/custom-select.js). A natív opciólistát a böngésző/OS rajzolja,
    és a sötét témában rosszul: Windowson fehér lista, olvashatatlan szöveggel.
    A gomb a select SAJÁT osztályait örökli (keret, térköz, szélesség), ezért

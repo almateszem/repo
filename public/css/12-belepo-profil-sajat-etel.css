@@ -1,4 +1,4 @@
-/* Podium — 26–28: belépő (au-*), profil (pf-*), saját étel (cf-*) + vonalkód (sc-*). (A sorrend a css/01-alap.css tartalomjegyzékében.) */
+/* Podium — 26–28: belépő (au-*), profil (pf-*) + felmérés, saját étel (cf-*) + vonalkód (sc-*). (A sorrend a css/01-alap.css tartalomjegyzékében.) */
 
 /* ==========================================================================
    26. Belépő képernyő (au-*)
@@ -1015,7 +1015,7 @@ a.pf-action {
 }
 
 /* ==========================================================================
-   Profil — kétoszlopos elrendezés és edzői felmérés (pf-assess-*) (a 06-ból és a 11-ből ide gyűjtve)
+   27b. Profil — kétoszlopos elrendezés és edzői felmérés (pf-assess-*)
    ========================================================================== */
 
 /* A .pf-section + .pf-section margója nem lépi át a burkolót: a jobb oszlop

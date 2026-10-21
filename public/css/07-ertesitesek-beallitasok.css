@@ -1,7 +1,7 @@
-/* Podium — 16–19: demo polish, beállítások (st-*), analitika, sportoló részletnézet. (A sorrend a css/01-alap.css tartalomjegyzékében.) */
+/* Podium — 16–17b: kártya-hoverek, értesítés-panel (notif-*), beállítások (st-*). (A sorrend a css/01-alap.css tartalomjegyzékében.) */
 
 /* ==========================================================================
-   16. Demo polish — mikro-animációk, értesítés-panel, állapotok
+   16. Kártya-hoverek és értesítés-panel (notif-*)
    ========================================================================== */
 
 /* ---- Kártya-hoverek (csak hoverképes eszközön, hogy touch-on ne ragadjon be) ----
@@ -308,8 +308,8 @@
 }
 
 /* ==========================================================================
-   Beállítások — fiók (kijelentkezés, jelszócsere, fióktörlés), szakasz-tipp;
-   értesítés-panel desktopon (a 06-ból, a 09-ből és a 12-ből ide gyűjtve)
+   17b. Beállítások — fiók (kijelentkezés, jelszócsere, fióktörlés), szakasz-tipp;
+   értesítés-panel desktopon
    ========================================================================== */
 
 @media (min-width: 1025px) {

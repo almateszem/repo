@@ -1,4 +1,4 @@
-/* Podium — 20–21: Edző oldal két nézete, edzés-összegző (su-*). (A sorrend a css/01-alap.css tartalomjegyzékében.) */
+/* Podium — 20–21b: Edző oldal két nézete, sportolói nézet (co-client-*), edzés-összegző (su-*). (A sorrend a css/01-alap.css tartalomjegyzékében.) */
 
 /* ==========================================================================
    20. Edző oldal — a két nézet
@@ -356,7 +356,7 @@
 }
 
 /* ==========================================================================
-   30. Edző oldal — sportolói nézet (co-client-*)
+   20b. Edző oldal — sportolói nézet (co-client-*)
    ==========================================================================
    Az edzői panel tükörképe a sportoló szemszögéből. A váz (co-kpis,
    co-main, co-aside, co-detail-panel) a manager nézeté; itt csak a
@@ -616,12 +616,12 @@ a.co-ghost-btn {
 }
 
 /* ==========================================================================
-   Edzés-összegző — saját jegyzet és visszajelzés az edzőnek (a 11-ből ide gyűjtve)
+   21b. Edzés-összegző — saját jegyzet és visszajelzés az edzőnek
    ========================================================================== */
 
 /* ---- Gyakorlat-megjegyzések (su-note-*) ----
    Itt korábban négy co-note szabály is állt: a .co-note-meta, a .co-note-text
-   és a .co-note--me SZÓ SZERINTI másolata a 10. és a 16. szakaszban lévőknek,
+   és a .co-note--me SZÓ SZERINTI másolata a 10. és a 19. szakaszban lévőknek,
    plusz egy .co-note--plan, amit sem a markup, sem a JS nem tesz fel senkire.
 
    A három másolat nem volt ártalmatlan: mivel később álltak a fájlban, ŐK

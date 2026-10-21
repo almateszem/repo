@@ -1,4 +1,4 @@
-/* Podium — 22: Regeneráció (rc-*). (A sorrend a css/01-alap.css tartalomjegyzékében.) */
+/* Podium — 22–22b: Regeneráció (rc-*). (A sorrend a css/01-alap.css tartalomjegyzékében.) */
 
 /* ==========================================================================
    22. Regeneráció — Recovery Engine oldal (rc-*)
@@ -1151,7 +1151,7 @@ details[open] > .rc-details-summary::before {
 }
 
 /* ==========================================================================
-   Regeneráció — testsúly-grafikon, testmérés-űrlap és -lista, súlynapló (a 07-ből és a 11-ből ide gyűjtve)
+   22b. Regeneráció — testsúly-grafikon, testmérés-űrlap és -lista, súlynapló
    ========================================================================== */
 
 /* ---- Testsúly trend (Regeneráció oldal) ----

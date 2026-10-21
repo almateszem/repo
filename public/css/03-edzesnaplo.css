@@ -1,4 +1,4 @@
-/* Podium — 7: Edzésnapló (wk-*). (A sorrend a css/01-alap.css tartalomjegyzékében.) */
+/* Podium — 7–7b: Edzésnapló (wk-*), PR-modál (pr-*). (A sorrend a css/01-alap.css tartalomjegyzékében.) */
 
 /* ==========================================================================
    7. Workout logger
@@ -1054,7 +1054,8 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 /* ==========================================================================
-   Edzésnapló — automatikus mentés, heti összevetés, PR-lista és -modál, befejezés-gomb (a 06-ból, a 07-ből és a 09-ből ide gyűjtve)
+   7b. Edzésnapló — automatikus mentés, heti összevetés, PR-lista és -modál,
+   befejezés-gomb
    ========================================================================== */
 
 @media (min-width: 1280px) {

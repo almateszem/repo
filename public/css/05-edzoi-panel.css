@@ -1,4 +1,4 @@
-/* Podium — 10: Edzői panel (co-*). (A sorrend a css/01-alap.css tartalomjegyzékében.) */
+/* Podium — 10, 19: Edzői panel (co-*), sportoló részletnézet. (A sorrend a css/01-alap.css tartalomjegyzékében.) */
 
 /* ==========================================================================
    10. Edzői panel — állapot-sáv, sportoló-kártyák, üzenet-buborékok
@@ -929,7 +929,7 @@
 }
 
 /* ==========================================================================
-   Sportoló részletnézet — fejléc, statisztika, fülek, műveletek, üzenetek,
+   19. Sportoló részletnézet — fejléc, statisztika, fülek, műveletek, üzenetek,
    megjegyzések, étkezés-terv, napi cél, visszajelzés (co-detail-*, co-modal-*…)
    ========================================================================== */
 
