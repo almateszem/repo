@@ -8,7 +8,7 @@ import { prefs } from '../shared/prefs.js';
 import { showToast } from '../shared/toast.js';
 import { baseLoadFor, refreshWeightConventions } from '../shared/weight-conventions.js';
 import { navigate } from '../app/router.js';
-import { renderDashboard } from './dashboard-data.js';
+import { renderDashboard } from '../dashboard/dashboard.js';
 import { renderPrs } from './workout/history.js';
 import { readSetRow, refreshExerciseList } from '../render/sets.js';
 import {

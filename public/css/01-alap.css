@@ -1082,7 +1082,7 @@ input.wk-chip:focus-visible {
   height: var(--h);
   min-width: 3px;
   background: var(--fg-85);
-  /* Oldalmegjelenéskor beúszik; a lépcsőzéshez a --i-t a render/dashboard.js
+  /* Oldalmegjelenéskor beúszik; a lépcsőzéshez a --i-t a js/shared/chart.js
      állítja be oszloponként. */
   transform-origin: bottom;
   animation: bar-in 0.45s ease backwards;

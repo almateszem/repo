@@ -8,7 +8,7 @@ import test from 'node:test';
 import { elementFor, installFakeDom } from '../fake-dom.js';
 
 installFakeDom();
-const { paintDashboard } = await import('../../../../public/js/render/dashboard.js');
+const { paintDashboard } = await import('../../../../public/js/dashboard/dashboard.js');
 
 const DATA = {
   readiness: 70,

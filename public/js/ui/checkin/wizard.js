@@ -14,7 +14,7 @@ import { $, prefersReducedMotion } from '../../shared/dom.js';
 import { hooks, shared } from '../../shared/page-hooks.js';
 import { showToast } from '../../shared/toast.js';
 import { onPageShow, setOnboardingLock } from '../../app/router.js';
-import { renderDashboard } from '../dashboard-data.js';
+import { renderDashboard } from '../../dashboard/dashboard.js';
 import { handleStepClick } from '../../shared/stepper.js';
 import { ciPickPositive } from './helpers.js';
 import { ci, ciCountedSteps, ciStepOrder, clearSession, resetSession } from './session.js';

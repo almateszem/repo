@@ -6,7 +6,7 @@ import { animateNumber, formatNumber } from '../shared/format.js';
 import { hooks, shared } from '../shared/page-hooks.js';
 import { showToast } from '../shared/toast.js';
 import { navigate, onPageShow } from '../app/router.js';
-import { renderVolumeTrend } from '../render/dashboard.js';
+import { renderVolumeTrend } from '../dashboard/dashboard.js';
 import { renderChart } from '../shared/chart.js';
 import { noteDeleteButton } from './exercise-notes.js';
 import { buildScale, readScale, writeScale } from '../shared/readiness.js';

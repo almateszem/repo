@@ -40,7 +40,7 @@ globalThis.fetch = () =>
     }),
   );
 
-const { renderDashboard } = await import('../../../../public/js/ui/dashboard-data.js');
+const { renderDashboard } = await import('../../../../public/js/dashboard/dashboard.js');
 
 test('a renderDashboard nem írja át az edzésnapló címét', async () => {
   /* Edzés befejezése után a clearEditor kiüríti a naplót, majd a dashboard-

@@ -1,11 +1,23 @@
-/** Az áttekintő oldal kirajzolása: diagramok, napi statisztika, készenlét. */
+/**
+ * Podium — az Áttekintő
+ * ------------------------------------------------------------------------
+ * A kirajzolás (diagramok, napi statisztika, készenlét, mai edzés), az
+ * adatok (/api/dashboard, /api/charts, /api/user lekérése és a legutóbbi
+ * áttekintő-adat) és az oldal vezérlője egy fájlban.
+ */
 
-import { clientDate } from '../shared/api.js';
+import { api, clientDate } from '../shared/api.js';
 import { $, $$ } from '../shared/dom.js';
+import { animateNumber, formatWhole } from '../shared/format.js';
 import { prefs } from '../shared/prefs.js';
 import { renderChart } from '../shared/chart.js';
 import { hasReadiness } from '../shared/readiness.js';
-import { DETAILS_ON_RECOVERY, dashboardQuote } from './recovery-map.js';
+import { navigate, onPageShow } from '../app/router.js';
+import { DETAILS_ON_RECOVERY, dashboardQuote } from '../render/recovery-map.js';
+
+/* ======================================================================
+   Kirajzolás
+   ====================================================================== */
 
 /** Minden data-chart konténert feltölt a kapott (/api/charts) adatokból. */
 function paintCharts(charts) {
@@ -77,7 +89,7 @@ function syncCheckinCta(checkinPresent) {
 
 /** Az áttekintő kirajzolása a kapott (/api/dashboard) adatokból: sorozat,
     regeneráció, napi statok, aktuális edzésnév és a Regenerációval közös
-    készenléti ítélet. A lekérés a ui/dashboard-data.js-é. */
+    készenléti ítélet. A lekérés lent, a renderDashboard-é. */
 function paintDashboard(dashboardData) {
   const { readiness, streak, recovery, dailyStats, workoutName, restDay, todayDone } =
     dashboardData;
@@ -202,19 +214,132 @@ function renderChromeDate() {
 }
 
 /** A megjelenített felhasználónév: a saját (localStorage) név, különben a
-    szerveré (a lekérés: ui/dashboard-data.js → renderUserName). */
+    szerveré (a lekérés lent, a renderUserName-é). */
 function paintUserName(user) {
   const el = $('.db-username');
   if (!el) return;
   el.textContent = prefs.get('displayName', user.name);
 }
 
+/* ======================================================================
+   Adatok
+   ====================================================================== */
+
+/** Az áttekintő adatai (renderDashboard tölti fel; az Áttekintő megnyitási feladata innen veszi
+    a készenlét-értéket az animációhoz). */
+let dashboardData = null;
+
+/** Minden diagram a szerver friss adataiból. */
+async function renderCharts() {
+  paintCharts(await api.getCharts());
+}
+
+/** Csak az áttekintő élő értékeinek újralekérése — étel-naplózás és napváltás
+    után, hogy a napi statok és a check-in emlékeztető a friss szerver-állapotot
+    mutassák a többi dashboard-elem (pl. az edzésnév-mező) újrarenderelése
+    nélkül. Éjfél után ez hozza vissza az emlékeztetőt: a szerver az új napra
+    számol, amire még nincs check-in. */
+async function refreshDailyStats() {
+  const { dailyStats, checkinPresent } = await api.getDashboard();
+  if (dashboardData) {
+    dashboardData.dailyStats = dailyStats;
+    dashboardData.checkinPresent = checkinPresent;
+  }
+  renderDailyStats(dailyStats);
+  syncCheckinCta(checkinPresent);
+}
+
+/** Ennyi ideig számít frissnek egy lefutott renderDashboard: az Áttekintő
+    megnyitása (router → onPageShow) ezen belül nem kér újra — pl. az induláskori
+    render után nem megy ki második /api/dashboard kérés. */
+const DASHBOARD_FRESH_MS = 2000;
+let lastRenderAt = -Infinity;
+let renderInFlight = null;
+
+/** Az áttekintő (dashboard) DB-vezérelt feltöltése: sorozat, regeneráció,
+    napi statok, aktuális edzésnév, és a Regenerációval közös
+    készenléti ítélet (a statikus motivációs szöveg helyett).
+    Mindig friss adatot kér: a hívók (edzés, check-in mentése) a saját
+    változásuk utáni állapotot várják. */
+async function renderDashboard() {
+  const run = api.getDashboard().then((data) => {
+    dashboardData = data;
+    paintDashboard(data);
+  });
+  renderInFlight = run;
+  try {
+    await run;
+    lastRenderAt = Date.now();
+  } finally {
+    if (renderInFlight === run) renderInFlight = null;
+  }
+}
+
+/** Az Áttekintő megnyitásakor: ha épp fut egy render, ahhoz csatlakozik; ha
+    az utolsó DASHBOARD_FRESH_MS-on belül futott, nem kér újra; különben friss
+    adatot kér. A visszaadott ígéret a `dashboardData` frissülése után teljesül. */
+function refreshDashboardIfStale() {
+  if (renderInFlight) return renderInFlight;
+  if (Date.now() - lastRenderAt < DASHBOARD_FRESH_MS) return Promise.resolve();
+  return renderDashboard();
+}
+
+/** A megjelenített felhasználónév: a saját (localStorage) név, különben a
+    szerveré. Külön renderelő, mert korábban csak a beállítások modal
+    felépítése írta ki — ha az a lépés elhasalt, a név helye üresen maradt. */
+async function renderUserName() {
+  if (!$('.db-username')) return;
+  paintUserName(await api.getUser());
+}
+
+/* ======================================================================
+   Vezérlő
+   ====================================================================== */
+
+function setupDashboard(settingsModal) {
+  /* MINDEN beállítás-gomb, nem csak az első: a fogaskerék az áttekintőn és a
+     „Beállítások" a profiloldalon is ide fut. A $ (első találat) itt némán
+     kihagyta volna a másikat.
+     A settingsModal null lehet, ha a betöltése hibázott — a gomb ilyenkor inaktív. */
+  $$('[data-action="settings"]').forEach((btn) => {
+    btn.addEventListener('click', () => settingsModal?.open());
+  });
+  $('[data-action="open-workout"]').addEventListener('click', () => navigate('workout'));
+  // Az avatar+név gomb: korábban az értesítés-panelt nyitotta, most a profil
+  // oldalra visz (az értesítéseknek saját harang gombjuk van mellette).
+  $('[data-action="profile"]').addEventListener('click', () => navigate('profile'));
+
+  onPageShow('dashboard', () => {
+    /* Megnyitáskor friss adat — mint a többi oldalon: terv-aktiválás után az
+       új „mai edzés", éjfél után a mai streak és készenlét. Az induláskori
+       render után (2 mp-en belül) nem kér újra, egy futó renderhez csatlakozik
+       (refreshDashboardIfStale). A szám a MEGÉRKEZETT adatból pörög fel, így
+       nincs régi → új villanás. */
+    renderChromeDate();
+    refreshDashboardIfStale()
+      .then(() => {
+        if (!dashboardData || !hasReadiness(dashboardData.readiness)) return;
+        // formatWhole: a lap legnagyobb számánál egyetlen tizedesvessző is
+        // megtörné az elrendezést minden képkockán.
+        animateNumber($('.db-percent-num'), dashboardData.readiness, {
+          from: 0,
+          duration: 900,
+          format: formatWhole,
+        });
+      })
+      .catch((err) => console.error('Áttekintő frissítési hiba:', err));
+  });
+}
+
 export {
-  paintCharts,
+  dashboardData,
   paintDashboard,
-  paintUserName,
+  refreshDashboardIfStale,
+  refreshDailyStats,
+  renderCharts,
   renderChromeDate,
-  renderDailyStats,
+  renderDashboard,
+  renderUserName,
   renderVolumeTrend,
-  syncCheckinCta,
+  setupDashboard,
 };

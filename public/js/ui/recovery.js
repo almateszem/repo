@@ -7,7 +7,7 @@ import { createLatestOnly } from '../shared/latest-only.js';
 import { hooks } from '../shared/page-hooks.js';
 import { showToast } from '../shared/toast.js';
 import { onPageShow } from '../app/router.js';
-import { renderDashboard } from './dashboard-data.js';
+import { renderDashboard } from '../dashboard/dashboard.js';
 import { MOOD_SCALE, renderMuscleMapView, renderRecovery } from '../render/recovery.js';
 import { CHECKIN_SCALES, buildScale, readScale, writeScale } from '../shared/readiness.js';
 import { handleStepClick } from '../shared/stepper.js';

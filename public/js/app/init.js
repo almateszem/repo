@@ -8,15 +8,19 @@ import { prefs } from '../shared/prefs.js';
 import { showToast } from '../shared/toast.js';
 import { setupNavRing } from './navring.js';
 import { dirToPage, navigate, onPageShow, setOnboardingLock, setupRouter } from './router.js';
-import { renderChromeDate } from '../render/dashboard.js';
-import { renderCharts, renderDashboard, renderUserName } from '../ui/dashboard-data.js';
+import {
+  renderCharts,
+  renderChromeDate,
+  renderDashboard,
+  renderUserName,
+  setupDashboard,
+} from '../dashboard/dashboard.js';
 import { renderPrs, renderWorkout } from '../ui/workout/history.js';
 import { setupCheckinWizard } from '../ui/checkin/wizard.js';
 import { setupChromeHeight, setupConnectivity, setupShortcuts } from './shell.js';
 import { setupAthleteDetail, setupCoachPage } from '../ui/coach.js';
 import { setupCustomFood } from '../ui/custom-food.js';
 import { enhanceSelects } from '../shared/custom-select.js';
-import { setupDashboard } from '../ui/dashboard.js';
 import { loadIntensityLevels } from '../ui/workout/set-controls.js';
 import { loadWeightConventions } from '../shared/weight-conventions.js';
 import { setupExercisePicker } from '../ui/exercise-picker.js';

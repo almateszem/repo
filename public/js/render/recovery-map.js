@@ -57,7 +57,7 @@ const HELD_BACK_VERDICTS = ['reduce', 'skip', 'avoid'];
 const CNS_FRESH_MIN = 80;
 
 /** Az Áttekintő ítélet-mondatában a részletekre utaló szövegrész — a
-    kirajzolás (render/dashboard.js) ezt a részt a Regenerációra linkeli. */
+    kirajzolás (dashboard/dashboard.js) ezt a részt a Regenerációra linkeli. */
 export const DETAILS_ON_RECOVERY = 'részletek a Regeneráción';
 
 /** Az összpontszám melletti egymondatos ítélet; null, ha nincs összpontszám

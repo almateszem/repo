@@ -6,7 +6,7 @@ import { animateNumber, dayKeyOf, formatDelta, formatNumber } from '../shared/fo
 import { showToast } from '../shared/toast.js';
 import { refreshWeightConventions } from '../shared/weight-conventions.js';
 import { renderChart } from '../shared/chart.js';
-import { refreshDailyStats } from './dashboard-data.js';
+import { refreshDailyStats } from '../dashboard/dashboard.js';
 
 /* ---- Testsúly-napló ----
    A bejegyzéseket a napi check-in írja (PUT /api/checkin → weight_log,
