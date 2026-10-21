@@ -661,12 +661,6 @@ body:is([data-page='checkin'], [data-page='plan-builder'], [data-page='exercise-
   display: contents;
 }
 
-/* A .pf-section + .pf-section margója nem lépi át a burkolót: a jobb oszlop
-   első szekciója ezt itt kapja meg. */
-.pf-page .pg-col--side > .pf-section:first-child {
-  margin-top: var(--sp-15);
-}
-
 @media (min-width: 1280px) {
   .app-page.pg-two {
     max-width: 1280px;
@@ -681,20 +675,9 @@ body:is([data-page='checkin'], [data-page='plan-builder'], [data-page='exercise-
     min-width: 0;
   }
 
-  /* Egymás mellett a két oszlop felső széle közös. */
-  .pf-page .pg-col--side > .pf-section:first-child {
-    margin-top: 0;
-  }
-
   /* Tervek: nincs két természetes oszlop, a tervsorok kerülnek kétoszlopos
      rácsba. A sor-elválasztó vonalak a cellákon belül maradnak. */
   .app-page.pg-wide {
     max-width: 1280px;
-  }
-
-  /* A bal oszlop (~520px) a négy összesítőt egy sorban nem bírja: a hosszú
-     feliratok („Teljesített munkasorozat") kilógnának, ezért 2×2. */
-  .pf-page .pf-stat-grid {
-    --pf-cols: 2;
   }
 }
