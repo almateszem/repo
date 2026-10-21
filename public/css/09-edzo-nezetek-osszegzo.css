@@ -621,3 +621,133 @@ a.co-ghost-btn {
   color: var(--text-primary);
   border-color: var(--fg-60);
 }
+
+/* ==========================================================================
+   Edzés-összegző — saját jegyzet és visszajelzés az edzőnek (a 11-ből ide gyűjtve)
+   ========================================================================== */
+
+/* ---- Gyakorlat-megjegyzések (su-note-*) ----
+   Itt korábban négy co-note szabály is állt: a .co-note-meta, a .co-note-text
+   és a .co-note--me SZÓ SZERINTI másolata a 10. és a 16. szakaszban lévőknek,
+   plusz egy .co-note--plan, amit sem a markup, sem a JS nem tesz fel senkire.
+
+   A három másolat nem volt ártalmatlan: mivel később álltak a fájlban, ŐK
+   nyertek — a 10. szakaszban átírt buborék-stílus némán hatástalan maradt
+   volna. Ezért törölve; a szabályok egyetlen helyen élnek tovább. */
+
+/* A két űrlap-blokk (visszajelzés és gyakorlat-megjegyzés) azonos szerepű és
+   azonos formájú: a .ds-section ritmusát viselik, kártya nélkül. A korábbi
+   `text-align: left` a lap-szintű középre igazítás szűkítése óta tárgytalan. */
+.su-note,
+.su-feedback {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  padding-top: var(--sp-11);
+  border-top: 1px solid var(--hair);
+  margin-top: var(--sp-11);
+}
+
+.su-note-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.su-note-select,
+.su-note-text {
+  padding: var(--sp-4) var(--sp-5);
+}
+
+.su-note-text::placeholder {
+  color: var(--text-muted);
+}
+
+.su-note-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  list-style: none;
+}
+
+.su-note-item {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.su-note-item b {
+  color: var(--fg-100);
+  font-weight: 600;
+}
+
+/* ---- Edzés utáni visszajelzés (su-feedback-*) + edzői megjelenítése ---- */
+.su-feedback-title {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+
+.su-feedback-lead {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.su-feedback-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+}
+
+.su-feedback-scales {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+}
+
+.su-feedback-note {
+  width: 100%;
+  resize: vertical;
+  min-height: 62px;
+  padding: var(--sp-5);
+  border: 1px solid var(--hair);
+  background: none;
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-sm);
+}
+
+.su-feedback-note::placeholder {
+  color: var(--text-muted);
+}
+
+.su-feedback-note:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}
+
+.su-feedback-send {
+  align-self: flex-start;
+  padding: var(--sp-4) var(--sp-8);
+  border: 0;
+  background: var(--c-accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity var(--t-base);
+}
+
+.su-feedback-send:hover {
+  opacity: 0.9;
+}
+
+.su-feedback-send:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.su-feedback-done {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--c-ok);
+}
