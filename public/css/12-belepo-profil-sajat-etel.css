@@ -271,11 +271,10 @@
   display: grid;
   grid-template-columns: repeat(var(--pf-cols), minmax(0, 1fr));
   gap: var(--pf-grid-gap);
-  /* A felső térközt és a hajszálvonalat a .pf-section-body burkoló adja;
-     itt csak a lista alap-margója és behúzása tűnik el. */
+  /* A felső térközt és a hajszálvonalat a .pf-section-body burkoló adja.
+     A <ul> alap-margóját a közös listanullázás (01) viszi el; a <dl>
+     változatét (.pf-fact-list) ez a sor. */
   margin: 0;
-  padding: 0;
-  list-style: none;
 }
 
 .pf-stat {
@@ -352,8 +351,6 @@
   /* Alul is kell térköz: enélkül a jelmagyarázat rátapad az első kártyasorra,
      és a rács részének látszik, nem a fölötte álló magyarázatnak. */
   margin: var(--sp-5) 0 var(--sp-3);
-  padding: 0;
-  list-style: none;
 }
 
 /* A „≈" jel magyarázata. A jelmagyarázat alá tartozik, ezért ez hordozza a
@@ -406,9 +403,6 @@
   gap: var(--pf-record-gap);
   /* A felső térközt és a hajszálvonalat a .pf-section-body burkoló adja;
      itt csak a lista alap-margója és behúzása tűnik el. */
-  margin: 0;
-  padding: 0;
-  list-style: none;
 }
 
 .pf-record-slot {
@@ -878,8 +872,6 @@ a.pf-action {
 
 .cf-save:disabled,
 .cf-save-log:disabled {
-  opacity: 0.5;
-  cursor: default;
   filter: none;
 }
 
@@ -1060,11 +1052,8 @@ a.pf-action {
   display: flex;
   flex-direction: column;
   gap: var(--sp-3);
-  list-style: none;
   /* A böngésző alap <ul>-margója és 40px-es behúzása — a többi lista (pl.
      .db-side-list) is maga nullázza, globális lista-reset nincs. */
-  margin: 0;
-  padding: 0;
 }
 
 .pf-assess-item {
@@ -1122,9 +1111,4 @@ a.pf-action {
   font-size: var(--fs-2xs);
   font-weight: 700;
   cursor: pointer;
-}
-
-.pf-assess-save:disabled {
-  opacity: 0.5;
-  cursor: default;
 }

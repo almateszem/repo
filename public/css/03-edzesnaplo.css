@@ -914,9 +914,7 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
    így a nagyobb mobil-tipográfiánál is pontosan 5 sor fér ki. */
 .wk-history {
   --wk-history-row: calc(var(--fs-sm) * 1.4 + var(--sp-5) * 2 + 1px);
-  list-style: none;
   margin: var(--sp-7) 0 0;
-  padding: 0;
   max-height: calc(var(--wk-history-row) * 5);
   overflow-y: auto;
   overscroll-behavior: contain; /* a lista végén ne a lap kezdjen görögni */
@@ -1198,12 +1196,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
   margin-top: var(--sp-12);
 }
 
-.wk-pr-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
 .wk-pr-item + .wk-pr-item {
   border-top: 1px solid var(--hair-soft);
 }
@@ -1258,12 +1250,6 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 .pr-modal-exercise {
   color: var(--text-muted);
   font-weight: 400;
-}
-
-.pr-modal-history {
-  list-style: none;
-  margin: 0;
-  padding: 0;
 }
 
 .pr-history-item + .pr-history-item {

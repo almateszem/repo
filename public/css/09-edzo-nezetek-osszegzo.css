@@ -112,11 +112,9 @@
 }
 
 .co-invite-list {
-  list-style: none;
   /* A margó a listáé, nem a következő elemé: üresen a lista display:none, és
      így a rés is vele tűnik el. */
   margin: 0 0 var(--sp-6);
-  padding: 0;
   display: flex;
   flex-direction: column;
   gap: var(--sp-3);
@@ -380,9 +378,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
 }
 
 .co-client-todo-item {
@@ -416,12 +411,6 @@ a.co-ghost-btn {
 }
 
 /* Terv-előzmény: név · dátum · állapot-címke */
-.co-client-history {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
 .co-client-history-item {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
@@ -475,6 +464,9 @@ a.co-ghost-btn {
   flex-direction: column;
   gap: var(--sp-3);
   margin: 0 0 var(--sp-5);
+  /* Ez a lista SZÁNDÉKOSAN felsorolás: a közös listanullázás (01) pöttyét
+     itt visszakapja, a behúzás a pöttynek ad helyet. */
+  list-style: disc;
   padding-left: var(--sp-7);
   font-size: var(--fs-sm);
   line-height: 1.5;
@@ -660,7 +652,6 @@ a.co-ghost-btn {
   display: flex;
   flex-direction: column;
   gap: var(--sp-3);
-  list-style: none;
 }
 
 .su-note-item {
@@ -730,13 +721,8 @@ a.co-ghost-btn {
   transition: opacity var(--t-base);
 }
 
-.su-feedback-send:hover {
+.su-feedback-send:hover:not(:disabled) {
   opacity: 0.9;
-}
-
-.su-feedback-send:disabled {
-  opacity: 0.5;
-  cursor: default;
 }
 
 .su-feedback-done {

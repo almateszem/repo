@@ -353,9 +353,22 @@ button {
   cursor: pointer;
 }
 
+/* Letiltott gomb: EGY áttetszőség az egész appban. A komponensek nem írják
+   felül — ha egy :hover az opacity-t állítja, :not(:disabled)-del teszi
+   (ld. .ds-cta), különben a letiltott gomb hoverre kivilágosodna. */
 button:disabled {
-  opacity: 0.55;
+  opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Az osztállyal ellátott listák a felületen sosem felsorolások, hanem
+   sorok, rácsok, menük: a böngésző pöttye és behúzása itt egyszer megy el,
+   nem listánként. A :where() nulla specificitású, így bármely komponens
+   felülírja (pl. .ad-list margója). */
+:where(ul[class], ol[class]) {
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
 /* Billentyűzetes fókusz — minden interaktív elemre egységesen */
@@ -614,7 +627,7 @@ input.wk-chip:focus-visible {
 
 /* A `:not(:disabled)` nem óvatoskodás: a terv-építő Mentés gombja az első
    letiltható .ds-cta (mentés közben `disabled`), és a globális
-   `button:disabled { opacity: .55 }` fölött a `.ds-cta:hover` specificitása
+   `button:disabled { opacity: .5 }` fölött a `.ds-cta:hover` specificitása
    nyer — letiltott gomb hoverre VILÁGOSABB lett volna, mint tiltás nélkül. */
 .ds-cta:hover:not(:disabled) {
   opacity: 0.9;
@@ -830,11 +843,6 @@ input.wk-chip:focus-visible {
   border-color: var(--fg-40);
 }
 
-.ds-select-trigger:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
 .ds-select-value {
   min-width: 0;
   overflow: hidden;
@@ -868,8 +876,6 @@ input.wk-chip:focus-visible {
   right: 0;
   max-height: 260px;
   overflow-y: auto;
-  margin: 0;
-  list-style: none;
   outline: none;
 }
 

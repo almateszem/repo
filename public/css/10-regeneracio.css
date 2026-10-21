@@ -111,8 +111,6 @@
   flex-direction: column;
   gap: var(--sp-2);
   margin: var(--sp-3) 0 0;
-  padding: 0;
-  list-style: none;
   font-size: var(--fs-md);
   color: var(--c-pain);
 }
@@ -162,8 +160,6 @@
 }
 .rc-spare-list {
   margin: var(--sp-6) 0 0;
-  padding: 0;
-  list-style: none;
   display: flex;
   flex-direction: column;
   gap: var(--sp-6);
@@ -228,9 +224,6 @@
 }
 
 .rc-legend-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
   display: flex;
   flex-wrap: wrap;
   gap: var(--sp-3) var(--sp-8);
@@ -346,11 +339,6 @@
 }
 .rc-comps-toggle[aria-expanded='false'] + .rc-comps-body {
   display: none;
-}
-.rc-comps-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
 }
 .rc-comp {
   padding: var(--sp-7) 0;
@@ -1054,11 +1042,6 @@ details[open] > .rc-details-summary::before {
   background: var(--c-paper-bright);
 }
 
-.rc-save:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-
 /* ---- CNS ---- */
 
 .rc-cns {
@@ -1222,16 +1205,10 @@ details[open] > .rc-details-summary::before {
   cursor: pointer;
 }
 
-.rc-body-save:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
 .rc-body-list {
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
-  list-style: none;
   margin-top: var(--sp-5);
 }
 
@@ -1261,7 +1238,6 @@ details[open] > .rc-details-summary::before {
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
-  list-style: none;
   margin-top: var(--sp-4);
 }
 

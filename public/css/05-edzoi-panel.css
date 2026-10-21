@@ -662,7 +662,6 @@
 /* A kiküldött meghívók az oldalsávban hajszálvonalas sorok, nem kártyák */
 .co-pending-list {
   gap: 0;
-  margin: 0;
 }
 
 .co-pending-list .co-invite {
@@ -1165,12 +1164,6 @@
   margin-bottom: var(--sp-8);
 }
 
-.co-modal-activity-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
 .co-modal-activity-list li + li {
   border-top: 1px solid var(--hair-soft);
 }
@@ -1311,25 +1304,12 @@
   border-color: var(--border-strong);
 }
 
-.co-ghost-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
 .co-meals-head {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-4);
-}
-
-.co-meal-list,
-.co-meal-lines,
-.co-meal-items {
-  list-style: none;
-  margin: 0;
-  padding: 0;
 }
 
 .co-meal-list {
@@ -1584,9 +1564,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--sp-4);
-  margin: 0;
-  padding: 0;
-  list-style: none;
 }
 
 .co-note-item {
@@ -1638,11 +1615,6 @@
   font-size: var(--fs-2xs);
   font-weight: 700;
   cursor: pointer;
-}
-
-.co-note-reply button:disabled {
-  opacity: 0.5;
-  cursor: default;
 }
 
 .co-modal-feedback {

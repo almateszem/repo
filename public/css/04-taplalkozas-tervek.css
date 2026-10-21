@@ -104,9 +104,6 @@
 .nu-log-list {
   --nu-log-text: calc(var(--fs-sm) * 1.25 + var(--sp-2) + var(--fs-2xs) * 1.3);
   --nu-log-row: calc(max(var(--tap-min), var(--nu-log-text)) + var(--sp-7) * 2 + 1px);
-  list-style: none;
-  margin: 0;
-  padding: 0;
   max-height: calc(var(--nu-log-row) * 5);
   overflow-y: auto;
   overscroll-behavior: contain; /* a lista végén ne a lap kezdjen görögni */
@@ -245,12 +242,6 @@
   color: var(--text-faint);
 }
 
-.nu-food-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
 /* A formát a .ds-row adja — háttér, keret és belső margó nélkül. */
 .nu-food {
   --ds-row-gap: var(--sp-5);
@@ -294,8 +285,6 @@
 }
 
 .nu-recent-list {
-  list-style: none;
-  margin: 0;
   padding: 0 0 var(--sp-2);
   display: flex;
   gap: var(--sp-4);
@@ -486,9 +475,6 @@
 
 /* A gap 0: a sorokat a .ds-row szomszéd-szelektora választja el. */
 .pl-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
   display: flex;
   flex-direction: column;
 }
@@ -817,11 +803,6 @@
   transition: opacity var(--t-fast);
 }
 
-.nu-water-add:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
 /* A visszavonás szándékosan halkabb: a gyakori művelet a hozzáadás. */
 .nu-water-undo {
   border: none;
@@ -883,13 +864,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--sp-3);
-}
-
-.nu-meal-list,
-.nu-meal-items {
-  list-style: none;
-  margin: 0;
-  padding: 0;
 }
 
 .nu-meal {
@@ -1003,11 +977,6 @@
   font-size: var(--fs-2xs);
   font-weight: 700;
   cursor: pointer;
-}
-
-.nu-goal-save:disabled {
-  opacity: 0.5;
-  cursor: default;
 }
 
 /* ---- Terv-kártya biztonsági jelzése (a készenlét-javaslat párja: 11, ad-*) ---- */
