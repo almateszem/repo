@@ -1082,6 +1082,11 @@ input.wk-chip:focus-visible {
   height: var(--h);
   min-width: 3px;
   background: var(--fg-85);
+  /* Oldalmegjelenéskor beúszik; a lépcsőzéshez a --i-t a render/dashboard.js
+     állítja be oszloponként. */
+  transform-origin: bottom;
+  animation: bar-in 0.45s ease backwards;
+  animation-delay: calc(var(--i, 0) * 22ms);
 }
 
 /* A mai oszlop. Csak ott kap kiemelést, ahol a szerver megmondja, melyik az
@@ -1151,14 +1156,6 @@ input.wk-chip:focus-visible {
   font-size: var(--fs-2xs);
   color: var(--text-muted);
   text-align: right;
-}
-
-/* ---- Adat-animációk: a diagramok, a gyűrű és a folyamatjelzők
-       minden oldalmegjelenéskor „beúsznak” ---- */
-.chart-bars span {
-  transform-origin: bottom;
-  animation: bar-in 0.45s ease backwards;
-  animation-delay: calc(var(--i, 0) * 22ms); /* --i-t a script.js állítja be */
 }
 
 @keyframes bar-in {

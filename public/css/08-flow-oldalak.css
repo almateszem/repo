@@ -374,18 +374,7 @@
    listát befedné. */
 .ep-item {
   background: var(--c-bg);
-}
-
-/* A formát a .ds-row adja; kártya-háttér, keret és belső margó nincs többé.
-   A 88px-es becslés érvényben marad: a sor magasságát továbbra is az 56px-es
-   thumbnail és a .ds-row függőleges margója adja ki, nagyjából ugyanannyit. */
-.ep-item + .ep-item {
-  border-top: 0;
-}
-
-.ep-item {
   --ds-row-gap: var(--sp-5);
-
   /* A katalógus 1400+ kártyából áll. A content-visibility a képernyőn kívüli
      kártyák kirajzolását (elrendezés, festés) elhalasztja, amíg oda nem
      görgetünk — a contain-intrinsic-size adja addig a becsült magasságot,
@@ -393,6 +382,13 @@
      a korábbi viselkedés marad. */
   content-visibility: auto;
   contain-intrinsic-size: auto 88px;
+}
+
+/* A formát a .ds-row adja; kártya-háttér, keret és belső margó nincs többé.
+   A 88px-es becslés érvényben marad: a sor magasságát továbbra is az 56px-es
+   thumbnail és a .ds-row függőleges margója adja ki, nagyjából ugyanannyit. */
+.ep-item + .ep-item {
+  border-top: 0;
 }
 
 /* Gyakorlat-illusztráció. Fix méret, hogy a lista ne ugráljon, amíg a képek

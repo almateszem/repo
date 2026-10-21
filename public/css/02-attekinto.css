@@ -550,6 +550,7 @@
 .db-cta-arrow {
   font-size: var(--fs-3xl);
   line-height: 1;
+  transition: transform var(--t-fast);
 }
 
 .db-side-link {
@@ -636,10 +637,6 @@
   .db-side-title {
     font-size: 32px;
   }
-}
-
-.db-cta-arrow {
-  transition: transform var(--t-fast);
 }
 
 .db-cta:hover .db-cta-arrow {

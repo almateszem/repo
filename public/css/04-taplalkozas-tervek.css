@@ -610,6 +610,8 @@
   height: 100%;
   background: var(--fg-100);
   border-radius: var(--r-2xs);
+  transform-origin: left;
+  animation: grow-x 0.7s ease 0.15s backwards;
 }
 
 /* A sor három művelete (szerkesztés, törlés, megnyitás) egy rendszer: azonos
@@ -681,11 +683,6 @@
   .pg-wide .pl-list > li:nth-child(2) {
     border-top: 0;
   }
-}
-
-.pl-progress-fill {
-  transform-origin: left;
-  animation: grow-x 0.7s ease 0.15s backwards;
 }
 
 /* A napló-adag beépített szerkesztője (a ház nem használ natív ablakot). */

@@ -782,6 +782,8 @@ input.wk-chip:focus {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   text-align: center;
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
 
 /* Natív number-nyilak elrejtése — a saját léptetők veszik át a szerepüket */
@@ -789,11 +791,6 @@ input.wk-chip:focus {
 .wk-num-input::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
-}
-
-.wk-num-input {
-  -moz-appearance: textfield;
-  appearance: textfield;
 }
 
 /* Az RPE mező chip marad (nincs léptetője), de a szám-mező alapokat örökli */

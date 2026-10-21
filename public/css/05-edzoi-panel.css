@@ -861,6 +861,7 @@
 .co-note {
   border: 1px solid var(--hair);
   padding: var(--sp-6);
+  animation: note-in 0.25s ease backwards;
 }
 
 .co-note-meta {
@@ -932,11 +933,7 @@
    megjegyzések, étkezés-terv, napi cél, visszajelzés (co-detail-*, co-modal-*…)
    ========================================================================== */
 
-/* ---- Edzői chat: saját üzenet, beúszás, „gépel…" jelző ---- */
-.co-note {
-  animation: note-in 0.25s ease backwards;
-}
-
+/* ---- Edzői chat: saját üzenet, „gépel…" jelző ---- */
 /* A saját üzenet accent KERETET kap, nem accent hátteret: tömör felületen egy
    hosszabb üzenet nagy vörös folt volna, és a szövege is elvesztené a saját
    kontrasztját. A behúzás marad — az mondja meg, ki beszél. */
