@@ -1,10 +1,10 @@
 /** Az áttekintő oldal interakciói. */
 
-import { $, $$ } from '../core/dom.js';
-import { animateNumber, formatWhole } from '../core/format.js';
-import { navigate, onPageShow } from '../nav/router.js';
+import { $, $$ } from '../shared/dom.js';
+import { animateNumber, formatWhole } from '../shared/format.js';
+import { navigate, onPageShow } from '../app/router.js';
 import { renderChromeDate } from '../render/dashboard.js';
-import { hasReadiness } from '../render/recovery.js';
+import { hasReadiness } from '../shared/readiness.js';
 import { dashboardData, refreshDashboardIfStale } from './dashboard-data.js';
 
 function setupDashboard(settingsModal) {

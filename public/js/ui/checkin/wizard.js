@@ -8,14 +8,14 @@
  * lépések markupját.
  */
 
-import { api } from '../../core/api.js';
-import { onDayChange } from '../../core/day.js';
-import { $, prefersReducedMotion } from '../../core/dom.js';
-import { hooks, shared } from '../../core/page-hooks.js';
-import { showToast } from '../../core/toast.js';
-import { onPageShow, setOnboardingLock } from '../../nav/router.js';
+import { api } from '../../shared/api.js';
+import { onDayChange } from '../../shared/day.js';
+import { $, prefersReducedMotion } from '../../shared/dom.js';
+import { hooks, shared } from '../../shared/page-hooks.js';
+import { showToast } from '../../shared/toast.js';
+import { onPageShow, setOnboardingLock } from '../../app/router.js';
 import { renderDashboard } from '../dashboard-data.js';
-import { handleStepClick } from '../workout/set-controls.js';
+import { handleStepClick } from '../../shared/stepper.js';
 import { ciPickPositive } from './helpers.js';
 import { ci, ciCountedSteps, ciStepOrder, clearSession, resetSession } from './session.js';
 import { mergeWeightEntry, refreshWeightLog, todayWeightEntry } from '../weight.js';

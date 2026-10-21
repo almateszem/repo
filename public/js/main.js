@@ -6,11 +6,11 @@
  * init, ami a lapok vezérlőit felépíti és összeköti.
  */
 
-import { api } from './core/api.js';
-import { $ } from './core/dom.js';
-import { hooks } from './core/page-hooks.js';
-import { prefs } from './core/prefs.js';
-import { setOnboardingLock } from './nav/router.js';
+import { api } from './shared/api.js';
+import { $ } from './shared/dom.js';
+import { hooks } from './shared/page-hooks.js';
+import { prefs } from './shared/prefs.js';
+import { setOnboardingLock } from './app/router.js';
 import { init, setupAuthGate } from './app/init.js';
 import { startWithRetry } from './app/startup.js';
 

@@ -9,7 +9,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
-import * as constants from '../../../../public/js/core/constants.js';
+import * as constants from '../../../../public/js/shared/constants.js';
 
 const PUBLIC_DIR = path.join(import.meta.dirname, '..', '..', '..', '..', 'public');
 const html = readFileSync(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
@@ -41,7 +41,7 @@ const roots = [...html.matchAll(MODAL_ROOT)].map(([, cls, id, cardAttrs]) => ({
 test('a gyorsbillentyű-őr a közös horgonyt használja, nem modál-listát', () => {
   assert.equal(constants.OPEN_MODAL_SELECTOR, '.is-open > [aria-modal="true"]');
   // A konstans önmagában kevés: az őrnek TÉNYLEG ebből kell kérdeznie.
-  const source = readFileSync(path.join(PUBLIC_DIR, 'js', 'ui', 'shortcuts.js'), 'utf8');
+  const source = readFileSync(path.join(PUBLIC_DIR, 'js', 'app', 'shell.js'), 'utf8');
   assert.match(source, /isModalOpen = \(\) => Boolean\(\$\(OPEN_MODAL_SELECTOR\)\)/);
   assert.doesNotMatch(source, /-modal\.is-open/, 'visszacsúszott a kézi modál-lista');
 });

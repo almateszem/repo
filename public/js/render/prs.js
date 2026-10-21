@@ -1,7 +1,7 @@
 /** A személyes rekordok (PR) listája. */
 
-import { $, cloneTemplate } from '../core/dom.js';
-import { formatNumber } from '../core/format.js';
+import { $, cloneTemplate } from '../shared/dom.js';
+import { formatNumber } from '../shared/format.js';
 
 /** Korábbi rekordok (PR) listája a workout oldalon — a mentett edzések
     PR-jelölt gyakorlataiból (a szerver állítja össze; a lekérés:

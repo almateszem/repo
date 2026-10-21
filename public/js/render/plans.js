@@ -1,6 +1,6 @@
 /** Terv-kártyák és a Tervek oldal listája. */
 
-import { $, cloneTemplate } from '../core/dom.js';
+import { $, cloneTemplate } from '../shared/dom.js';
 import {
   dayEntry,
   dayLetter,
@@ -9,7 +9,7 @@ import {
   dayTitle,
   dayWorkoutName,
   todayIndex,
-} from '../core/plan-week.js';
+} from '../shared/plan-week.js';
 
 /** A kártya sávja: a terv minden napja egy cella (a nap betűje, a második
     körben „2." jelölés, alatta az állapota). Az edzésnap gomb — azt a napot

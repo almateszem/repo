@@ -6,8 +6,8 @@
  * sportolói nézet (render/coach-client.js) UGYANEZT rajzolja — a sportoló
  * pontosan azt látja magáról, amit az edzője.
  */
-import { dayLabel, dayStatus } from '../core/plan-week.js';
-import { CONFIDENCE_LABELS, hasReadiness } from './recovery.js';
+import { dayLabel, dayStatus } from '../shared/plan-week.js';
+import { CONFIDENCE_LABELS, hasReadiness } from '../shared/readiness.js';
 
 /* ---- Edzői panel: sportoló-sorok ----
    A sorok VALÓDI sportolók valódi adatából épülnek (GET /api/athletes):

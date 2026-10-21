@@ -201,7 +201,7 @@
 
 /* Ragadós: görgetés közben a fejléc-sáv alatt megáll, így a hosszú listák
    (étel, gyakorlat, korábbi edzés) közepéről is lehet keresni. A --chrome-h-t
-   a js/ui/chrome.js méri (asztalon 0, ott a fejléc az oldalsávban ül). Az opak
+   a js/app/shell.js méri (asztalon 0, ott a fejléc az oldalsávban ül). Az opak
    háttér kell, különben az alatta elgördülő sorok átlátszanának. */
 .nu-search {
   position: sticky;

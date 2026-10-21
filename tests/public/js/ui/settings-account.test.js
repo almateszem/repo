@@ -35,7 +35,7 @@ globalThis.fetch = async (url, init = {}) => {
   return Response.json({ id: 1, name: 'Teszt', username: 'teszt' });
 };
 
-const { hooks } = await import('../../../../public/js/core/page-hooks.js');
+const { hooks } = await import('../../../../public/js/shared/page-hooks.js');
 let sessionLost = 0;
 hooks.onSessionLost = () => {
   sessionLost += 1;

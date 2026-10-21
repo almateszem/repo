@@ -1,23 +1,16 @@
 /** A Regeneráció oldal: hosszú check-in űrlap és a készenléti riport. */
 
-import { api } from '../core/api.js';
-import { $, $$ } from '../core/dom.js';
-import { formatNumber } from '../core/format.js';
-import { createLatestOnly } from '../core/latest-only.js';
-import { hooks } from '../core/page-hooks.js';
-import { showToast } from '../core/toast.js';
-import { onPageShow } from '../nav/router.js';
+import { api } from '../shared/api.js';
+import { $, $$ } from '../shared/dom.js';
+import { formatNumber } from '../shared/format.js';
+import { createLatestOnly } from '../shared/latest-only.js';
+import { hooks } from '../shared/page-hooks.js';
+import { showToast } from '../shared/toast.js';
+import { onPageShow } from '../app/router.js';
 import { renderDashboard } from './dashboard-data.js';
-import {
-  CHECKIN_SCALES,
-  MOOD_SCALE,
-  readScale,
-  renderMuscleMapView,
-  renderRecovery,
-  writeScale,
-} from '../render/recovery.js';
-import { buildScale } from './scale.js';
-import { handleStepClick } from './workout/set-controls.js';
+import { MOOD_SCALE, renderMuscleMapView, renderRecovery } from '../render/recovery.js';
+import { CHECKIN_SCALES, buildScale, readScale, writeScale } from '../shared/readiness.js';
+import { handleStepClick } from '../shared/stepper.js';
 import { createBodyMap } from './bodymap/index.js';
 import { CI_MAP_MODES, CI_PAIN_BLOCK } from './checkin/constants.js';
 import { ciMuscleLabel } from './checkin/helpers.js';

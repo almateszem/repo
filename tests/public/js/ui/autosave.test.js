@@ -24,7 +24,7 @@ globalThis.fetch = (url, init) => {
 };
 
 const { createDraftAutosave } = await import('../../../../public/js/ui/workout/autosave.js');
-const { clientDate } = await import('../../../../public/js/core/api.js');
+const { clientDate } = await import('../../../../public/js/shared/api.js');
 
 test('a keepalive piszkozat-mentés is viszi az X-Client-Date fejlécet', () => {
   /* Enélkül a szerver a SAJÁT napjával mentené a piszkozatot (UTC-s szerver,

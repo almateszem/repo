@@ -1,8 +1,8 @@
-/** Az étel-lista egy sora — a lapozott lista (js/core/paged-list.js) ebből
+/** Az étel-lista egy sora — a lapozott lista (js/shared/paged-list.js) ebből
     rajzolja a szerverről érkező lapokat. */
 
-import { $, cloneTemplate } from '../core/dom.js';
-import { formatNumber } from '../core/format.js';
+import { $, cloneTemplate } from '../shared/dom.js';
+import { formatNumber } from '../shared/format.js';
 
 /** A SAJÁT ételek a szervertől elöl jönnek, és jelvényt + törlés-gombot
     kapnak. */

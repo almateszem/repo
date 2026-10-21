@@ -3,8 +3,8 @@
     A bemenet a GET /api/coach válasza; a `me` UGYANAZ a kártya, amit az
     edződ a panelján rólad lát. */
 
-import { $ } from '../core/dom.js';
-import { formatNumber } from '../core/format.js';
+import { $ } from '../shared/dom.js';
+import { formatNumber } from '../shared/format.js';
 import {
   ATHLETE_DETAIL_STATS,
   TREND_MIN,
@@ -14,7 +14,7 @@ import {
   planInfoEl,
   renderStatList,
 } from './coach-shared.js';
-import { CONFIDENCE_LABELS, hasReadiness } from './recovery.js';
+import { CONFIDENCE_LABELS, hasReadiness } from '../shared/readiness.js';
 
 /** A terv-követés alsora. Érdemi változásnál (legalább TREND_MIN pont) a
     trendet mondja ki — ugyanaz a küszöb, amitől az edző kártyáján nyíl jelenik

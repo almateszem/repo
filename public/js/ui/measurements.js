@@ -1,9 +1,9 @@
 /** Testösszetétel: körfogat- és testzsír-mérések. */
 
-import { api } from '../core/api.js';
-import { $ } from '../core/dom.js';
-import { dayKeyOf, formatNumber } from '../core/format.js';
-import { showToast } from '../core/toast.js';
+import { api } from '../shared/api.js';
+import { $ } from '../shared/dom.js';
+import { dayKeyOf, formatNumber } from '../shared/format.js';
+import { showToast } from '../shared/toast.js';
 
 /* ---- Testösszetétel ----
    A testsúly egyetlen szám: nem mondja meg, MI épült és mi fogyott. A

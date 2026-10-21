@@ -66,7 +66,7 @@
         <path d="M12 5v14M5 12h14" />
       </symbol>
 
-      <!-- Oldal-ikonok a nav gyűrű gombjához (lásd js/nav/router.js → PAGE_ICONS).
+      <!-- Oldal-ikonok a nav gyűrű gombjához (lásd js/app/router.js → PAGE_ICONS).
          Az Edző oldal a fenti #icon-user-t használja, nincs külön szimbóluma. -->
       <symbol id="icon-page-dashboard" viewBox="0 0 24 24">
         <path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm10 0h8v8h-8v-8z" />
@@ -3932,7 +3932,7 @@
     </template>
 
     <!-- Alvás. A ± léptető a megosztott .wk-num primitív, hogy a min/max/step
-       kezelése egy helyen maradjon (handleStepClick — js/render/sets.js).
+       kezelése egy helyen maradjon (handleStepClick — js/shared/stepper.js).
        A .ci-num-* osztályok a nagy szám-beviteli lépések közös receptje —
        az alvás és a testsúly lépés is ezt használja. -->
     <template id="tpl-ci-sleep">

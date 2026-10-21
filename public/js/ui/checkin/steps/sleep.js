@@ -1,8 +1,8 @@
 /** Alvás-lépés: óraszám léptetővel és gyorsgombokkal. */
 
-import { $, $$, cloneTemplate, readNumberInput } from '../../../core/dom.js';
-import { formatNumber } from '../../../core/format.js';
-import { handleStepClick } from '../../workout/set-controls.js';
+import { $, $$, cloneTemplate, readNumberInput } from '../../../shared/dom.js';
+import { formatNumber } from '../../../shared/format.js';
+import { handleStepClick } from '../../../shared/stepper.js';
 import {
   CI_PRESET_ADVANCE_MS,
   CI_SLEEP_MAX,

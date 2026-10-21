@@ -1,8 +1,8 @@
 /** Összegzés és a mentés utáni készenléti kártya. */
 
-import { $, cloneTemplate } from '../../../core/dom.js';
-import { animateNumber, formatNumber, formatWhole } from '../../../core/format.js';
-import { readinessTone } from '../../../render/recovery.js';
+import { $, cloneTemplate } from '../../../shared/dom.js';
+import { animateNumber, formatNumber, formatWhole } from '../../../shared/format.js';
+import { readinessTone } from '../../../shared/readiness.js';
 import { CI_READINESS_VERDICTS } from '../constants.js';
 import { ciDateStr, ciMuscleLabel } from '../helpers.js';
 import { ci } from '../session.js';

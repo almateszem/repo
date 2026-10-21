@@ -144,9 +144,9 @@ Reverse proxy mögött a forrásra szóló korlátokhoz (belépés, regisztráci
 public/          statikus frontend (a szerver innen szolgálja ki)
   index.html     az összes oldal + a listaelemek <template> sablonjai
   js/            a frontend ES modulokban (belépési pont: js/main.js)
-    core/        api réteg, DOM- és formázó-segédek, preferenciák, toast
-    core/page-hooks.js  késleltetett kötés a router és az oldalak vezérlői közt
-    nav/         hash-router és a húzható nav gyűrű
+    shared/      api réteg, DOM- és formázó-segédek, preferenciák, toast, modálok, közös skálák
+    shared/page-hooks.js  késleltetett kötés a router és az oldalak vezérlői közt
+    app/         indulás, hash-router, húzható nav gyűrű, keret (fejléc, gyorsbillentyűk, harang)
     render/      adat → DOM: áttekintő, szettek, tervek, edzői panel, összegző
     ui/          oldalankénti interakciók (egy fájl egy felület)
     app/init.js  a vezérlők felépítése és összekötése
@@ -347,7 +347,7 @@ tartja ki a gráfból magát a vendorolt skillt (különben a saját dokumentác
   végére érve elölről kezdődik. A napok neve a hét napjait követi, a 8.
   naptól „(2.)” jelöléssel. A ciklus az aktiválás hetének hétfőjétől számít
   (`plans.active_since`, `cycleDay` a `server/plan-week.js`-ben és tükörként
-  a `public/js/core/plan-week.js`-ben) — a 7 napos terv mai napja így
+  a `public/js/shared/plan-week.js`-ben) — a 7 napos terv mai napja így
   mindig a mai hétnap. Minden nap saját edzés (opcionális névvel, pl. „Láb
   nap”) vagy pihenőnap. Egy edzésnapba a „Meglévő edzés betöltése” a terv
   másik napjának vagy egy naplózott edzésnek a másolatát tölti. A régi tervek

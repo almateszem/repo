@@ -1,7 +1,7 @@
 /** 1–5 skálák (alvásminőség, energia, stressz) — egy renderelő mindháromnak. */
 
-import { $, $$, cloneTemplate } from '../../../core/dom.js';
-import { CHECKIN_SCALES } from '../../../render/recovery.js';
+import { $, $$, cloneTemplate } from '../../../shared/dom.js';
+import { CHECKIN_SCALES } from '../../../shared/readiness.js';
 import { CI_ADVANCE_MS, CI_SCALE_STEPS } from '../constants.js';
 import { ci } from '../session.js';
 

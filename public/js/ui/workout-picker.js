@@ -1,11 +1,11 @@
 /** Edzés-választó: a terv-építő kijelölt napjába egy meglévő edzés MÁSOLATÁT
     tölti — a terv egy másik napjáét vagy egy naplózott edzését. */
 
-import { api } from '../core/api.js';
-import { $, cloneTemplate } from '../core/dom.js';
-import { matchesQuery } from '../core/plan-sources.js';
-import { showToast } from '../core/toast.js';
-import { navigate } from '../nav/router.js';
+import { api } from '../shared/api.js';
+import { $, cloneTemplate } from '../shared/dom.js';
+import { matchesQuery } from '../shared/plan-sources.js';
+import { showToast } from '../shared/toast.js';
+import { navigate } from '../app/router.js';
 
 /** A választó flow-oldal. A hívó (a terv-építő) `open(context)`-tel nyitja:
     { subtitle, dayTitle, planSources, currentCount, onPick }. A napló

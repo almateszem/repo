@@ -1,7 +1,7 @@
 /** Vonalkód-olvasó: kamera, ZXing, a talált termék átadása. */
 
-import { $, $$, loadScript } from '../core/dom.js';
-import { createModalController, isTopModal } from './modals.js';
+import { $, $$, loadScript } from '../shared/dom.js';
+import { createModalController, isTopModal } from '../shared/modals.js';
 
 /* ======================================================================
    Vonalkód-olvasó (sc-*)

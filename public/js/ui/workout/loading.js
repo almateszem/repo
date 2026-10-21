@@ -11,10 +11,10 @@
  * olvasható a napló többi részétől, de nem lesz belőle második gazda.
  */
 
-import { api } from '../../core/api.js';
-import { prefs } from '../../core/prefs.js';
-import { showToast } from '../../core/toast.js';
-import { navigate } from '../../nav/router.js';
+import { api } from '../../shared/api.js';
+import { prefs } from '../../shared/prefs.js';
+import { showToast } from '../../shared/toast.js';
+import { navigate } from '../../app/router.js';
 import { refreshExerciseList, renderExercise } from '../../render/sets.js';
 import { WORKOUT_START_KEY } from './summary-data.js';
 import { countDoneSets } from './exercise-card.js';

@@ -1,9 +1,9 @@
 /** Saját étel felvitele — makrók, Atwater-ellenőrzés. */
 
-import { SESSION_LOST, api } from '../core/api.js';
-import { $, readNumberInput } from '../core/dom.js';
-import { showToast } from '../core/toast.js';
-import { createModalController } from './modals.js';
+import { SESSION_LOST, api } from '../shared/api.js';
+import { $, readNumberInput } from '../shared/dom.js';
+import { showToast } from '../shared/toast.js';
+import { createModalController } from '../shared/modals.js';
 
 /* ======================================================================
    Saját étel modál (cf-*)

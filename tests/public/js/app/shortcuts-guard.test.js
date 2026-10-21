@@ -47,8 +47,8 @@ globalThis.document.createElement = (tag) => {
   return el;
 };
 
-const { setupShortcuts } = await import('../../../../public/js/ui/shortcuts.js');
-const { enhanceSelect } = await import('../../../../public/js/ui/custom-select.js');
+const { setupShortcuts } = await import('../../../../public/js/app/shell.js');
+const { enhanceSelect } = await import('../../../../public/js/shared/custom-select.js');
 setupShortcuts();
 
 /** Egy billentyű-esemény a document-figyelőkön, adott célelemmel. */

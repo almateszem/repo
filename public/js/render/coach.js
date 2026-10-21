@@ -1,7 +1,7 @@
 /** Az edzői panel elemei: KPI-sor, sportoló-lista, állapot, üzenetek, meghívók, terv-ajánlatok. */
 
-import { $, cloneTemplate } from '../core/dom.js';
-import { hasReadiness } from './recovery.js';
+import { $, cloneTemplate } from '../shared/dom.js';
+import { hasReadiness } from '../shared/readiness.js';
 import { ATHLETE_CARD_STATS, athleteTier, kpi, orDash, planInfoEl } from './coach-shared.js';
 
 /** Egy üzenet-buborék. A `me` a saját üzeneteket tolja jobbra — a szerver a

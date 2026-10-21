@@ -10,11 +10,11 @@
  * célt használja, mert két külön cél két külön „teljesítettem" érzést adna.
  */
 
-import { api } from '../core/api.js';
-import { $ } from '../core/dom.js';
-import { formatNumber } from '../core/format.js';
-import { onPageShow } from '../nav/router.js';
-import { showToast } from '../core/toast.js';
+import { api } from '../shared/api.js';
+import { $ } from '../shared/dom.js';
+import { formatNumber } from '../shared/format.js';
+import { onPageShow } from '../app/router.js';
+import { showToast } from '../shared/toast.js';
 
 /** Egy koppintás mennyisége. A szerver 1–3000 ml között fogad el egy tételt;
     ez a lépés a pohár/palack nagyságrendje. */

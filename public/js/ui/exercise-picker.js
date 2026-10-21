@@ -1,11 +1,11 @@
 /** Gyakorlat-választó: szerveroldali keresés, lapozott katalógus, szűrők. */
 
-import { api } from '../core/api.js';
-import { $, $$, cloneTemplate } from '../core/dom.js';
-import { hooks } from '../core/page-hooks.js';
-import { SEARCH_DELAY_MS, createPagedList, debounce } from '../core/paged-list.js';
-import { showToast } from '../core/toast.js';
-import { navigate, onPageShow } from '../nav/router.js';
+import { api } from '../shared/api.js';
+import { $, $$, cloneTemplate } from '../shared/dom.js';
+import { hooks } from '../shared/page-hooks.js';
+import { SEARCH_DELAY_MS, createPagedList, debounce } from '../shared/paged-list.js';
+import { showToast } from '../shared/toast.js';
+import { navigate, onPageShow } from '../app/router.js';
 import { defaultSetFor, renderExercise } from '../render/sets.js';
 import { confirmRemoveExercise } from './workout/exercise-card.js';
 

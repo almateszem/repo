@@ -13,11 +13,11 @@ import {
   NAV_UP_FALLBACK,
   PAGE_SECTION,
   PAGES,
-} from '../core/constants.js';
-import { $, $$, prefersReducedMotion } from '../core/dom.js';
-import { animateNumber, formatWhole } from '../core/format.js';
-import { shared } from '../core/page-hooks.js';
-import { prefs } from '../core/prefs.js';
+} from '../shared/constants.js';
+import { $, $$, prefersReducedMotion } from '../shared/dom.js';
+import { animateNumber, formatWhole } from '../shared/format.js';
+import { shared } from '../shared/page-hooks.js';
+import { prefs } from '../shared/prefs.js';
 
 /* ---- Oldal-megnyitás: onPageShow ----
    Ami „az oldal megnyílt" pillanatban fut (friss adat, számláló-animáció),

@@ -1,13 +1,13 @@
 /** Profiloldal: adatok, összesítők, fiókműveletek. */
 
-import { api } from '../core/api.js';
-import { $, $$, cloneTemplate } from '../core/dom.js';
-import { animateNumber, formatDelta, formatNumber, formatWhole } from '../core/format.js';
-import { hooks } from '../core/page-hooks.js';
-import { SEARCH_DELAY_MS, debounce } from '../core/paged-list.js';
-import { prefs } from '../core/prefs.js';
-import { showToast } from '../core/toast.js';
-import { navigate, onPageShow } from '../nav/router.js';
+import { api } from '../shared/api.js';
+import { $, $$, cloneTemplate } from '../shared/dom.js';
+import { animateNumber, formatDelta, formatNumber, formatWhole } from '../shared/format.js';
+import { hooks } from '../shared/page-hooks.js';
+import { SEARCH_DELAY_MS, debounce } from '../shared/paged-list.js';
+import { prefs } from '../shared/prefs.js';
+import { showToast } from '../shared/toast.js';
+import { navigate, onPageShow } from '../app/router.js';
 
 /* ---- Rekord-érmek ----
    KÉT mérce van, és a kártya mindig kiírja, melyik szólt.

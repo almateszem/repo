@@ -5,10 +5,10 @@
  * a betöltés ELŐTTI állapotot állítja vissza. A setupWorkout adja át a napló
  * vezérlőit (createPlanUndo).
  */
-import { $ } from '../../core/dom.js';
-import { prefs } from '../../core/prefs.js';
-import { showToast } from '../../core/toast.js';
-import { navigate } from '../../nav/router.js';
+import { $ } from '../../shared/dom.js';
+import { prefs } from '../../shared/prefs.js';
+import { showToast } from '../../shared/toast.js';
+import { navigate } from '../../app/router.js';
 import { WORKOUT_START_KEY } from './summary-data.js';
 
 export function createPlanUndo({

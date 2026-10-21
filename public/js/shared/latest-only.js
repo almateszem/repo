@@ -1,6 +1,6 @@
 /** Generációs őr („csak a legfrissebb"): egy lassú, régebbi kérés válasza ne
     írjon a felületre, ha közben újabb kérés indult, vagy egy mentés tette
-    elavulttá. Ugyanaz a minta, mint a lapozott listában (core/paged-list.js). */
+    elavulttá. Ugyanaz a minta, mint a lapozott listában (shared/paged-list.js). */
 
 function createLatestOnly() {
   let generation = 0;

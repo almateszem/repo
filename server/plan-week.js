@@ -19,7 +19,7 @@
  *
  * Tiszta függvények: a db.js, a server.js és a coaching.js is ezekből
  * dolgozik, és külön tesztelhetők (plan-week.test.js). A kliens a feloldást
- * (dayEntry, dayWorkoutName, cycleDay) a public/js/core/plan-week.js-ben tükrözi.
+ * (dayEntry, dayWorkoutName, cycleDay) a public/js/shared/plan-week.js-ben tükrözi.
  */
 import { dayKey, daysBetween, parseDate, shiftDayKey } from './dates.js';
 

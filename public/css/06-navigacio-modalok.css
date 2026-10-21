@@ -424,7 +424,7 @@ body:is([data-page='checkin'], [data-page='plan-builder'], [data-page='exercise-
    szögletes forma. A felirat mono nagybetűs — rövid, rendszer-szintű üzenet
    („Mentve", „Nincs kapcsolat"), nem olvasnivaló szöveg.
 
-   Az osztályt a js/core/toast.js írja className-nel, ezért ds-* osztályt nem
+   Az osztályt a js/shared/toast.js írja className-nel, ezért ds-* osztályt nem
    kaphat a markupból; a tipográfia itt áll explicit. */
 .toast {
   background: var(--surface-panel);
@@ -604,7 +604,7 @@ body:is([data-page='checkin'], [data-page='plan-builder'], [data-page='exercise-
   /* Az aktív oldal erősebb hátteret kap, hogy hover mellett is
      megkülönböztethető legyen, és egy accent ■ jelölőt a bal szélén.
 
-     A horgony az aria-current attribútum, nem osztály — a js/nav/router.js
+     A horgony az aria-current attribútum, nem osztály — a js/app/router.js
      setAttribute/removeAttribute-tal kezeli. A 'page' az oldal maga, a
      'true' a flow-oldal szülő-eleme (pl. Terv-építőnél a Tervek). */
   .side-nav-link[aria-current] {

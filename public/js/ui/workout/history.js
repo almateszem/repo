@@ -5,9 +5,9 @@
  * a „Korábbi edzések" sorainak műveletei (javításra nyitás, törlés). A
  * kirajzolás a render/prs.js és a render/workout.js dolga.
  */
-import { api } from '../../core/api.js';
-import { $ } from '../../core/dom.js';
-import { showToast } from '../../core/toast.js';
+import { api } from '../../shared/api.js';
+import { $ } from '../../shared/dom.js';
+import { showToast } from '../../shared/toast.js';
 import { paintPrs } from '../../render/prs.js';
 import { paintHistory, syncHistoryEmpty } from '../../render/workout.js';
 

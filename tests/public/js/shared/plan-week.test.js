@@ -1,5 +1,5 @@
 /**
- * Podium — a ciklusos terv kliens-oldali tükre (public/js/core/plan-week.js)
+ * Podium — a ciklusos terv kliens-oldali tükre (public/js/shared/plan-week.js)
  * --------------------------------------------------------------------------
  * Ugyanazokkal az esetekkel, mint a szerver plan-week.test.js-e: ha a kettő
  * elcsúszik, a kliens más napot tart „mának", mint a szerver.
@@ -14,7 +14,7 @@ import {
   dayRound,
   dayTitle,
   todayIndex,
-} from '../../../../public/js/core/plan-week.js';
+} from '../../../../public/js/shared/plan-week.js';
 
 const cyclePlan = (length, extra = {}) => ({
   week: Array.from({ length }, () => ({ type: 'rest' })),

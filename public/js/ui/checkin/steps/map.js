@@ -1,6 +1,6 @@
 /** Test-térkép lépés: a közös bodymap komponens beillesztése a varázslóba. */
 
-import { $, cloneTemplate } from '../../../core/dom.js';
+import { $, cloneTemplate } from '../../../shared/dom.js';
 import { createBodyMap } from '../../bodymap/index.js';
 import { CI_MAP_MODES, CI_PAIN_BLOCK } from '../constants.js';
 import { ciMuscleLabel } from '../helpers.js';

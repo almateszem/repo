@@ -1,16 +1,16 @@
 /**
  * Podium — a szett-sorok és a napló-lenyílók eseményei
  * ------------------------------------------------------------------------
- * Az edzésnapló és a terv-építő közös kezelői: léptetőgomb, RPE-szorítás,
+ * Az edzésnapló és a terv-építő közös kezelői: RPE-szorítás,
  * szett hozzáadása/törlése, és a sorszám-, szett-típus-, intenzitás- és
  * plusz-súly lenyíló. A sorok ÉPÍTÉSE a render/sets.js-é — az nem köt
  * eseményt és nem hív API-t.
  */
-import { api } from '../../core/api.js';
-import { $, $$ } from '../../core/dom.js';
-import { formatInputNumber } from '../../core/format.js';
-import { bindPopupMenu } from '../../core/popup-menu.js';
-import { showToast } from '../../core/toast.js';
+import { api } from '../../shared/api.js';
+import { $, $$ } from '../../shared/dom.js';
+import { formatInputNumber } from '../../shared/format.js';
+import { bindPopupMenu } from '../../shared/popup-menu.js';
+import { showToast } from '../../shared/toast.js';
 import {
   applyIntensity,
   applySetType,
@@ -30,26 +30,6 @@ async function loadIntensityLevels() {
   const levels = await api.getCardioIntensities();
   setIntensityLevels(levels);
   return levels;
-}
-
-/** Léptetőgomb (−/+): a lépésközt az input `step` attribútuma adja
-    (1 ismétlés, 2.5 kg = a legkisebb tárcsapár). Az érték a min/max közé
-    szorul, és `input` eseményt váltunk ki, hogy az arra kötött automatikus
-    mentés is lefusson. Igazzal tér vissza, ha ő kezelte a kattintást. */
-function handleStepClick(event) {
-  const stepBtn = event.target.closest('.wk-num-step');
-  if (!stepBtn) return false;
-
-  const input = $('.wk-num-input', stepBtn.parentElement);
-  const step = Number(input.step) || 1;
-  const min = input.min === '' ? -Infinity : Number(input.min);
-  const max = input.max === '' ? Infinity : Number(input.max);
-  const current = Number(input.value);
-  const next = (Number.isFinite(current) ? current : 0) + Number(stepBtn.dataset.dir) * step;
-
-  input.value = formatInputNumber(Math.min(Math.max(next, min), max));
-  input.dispatchEvent(new Event('input', { bubbles: true }));
-  return true;
 }
 
 /** Az RPE-mező kézzel beírt értékének 1–10 közé (fél fokozatokra) szorítása.
@@ -242,6 +222,5 @@ export {
   enableSetTypeSelect,
   handleAddSetClick,
   handleRemoveSetClick,
-  handleStepClick,
   loadIntensityLevels,
 };

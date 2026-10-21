@@ -3,9 +3,9 @@
     (azonos cél), csak más szerzővel: ettől lesz egy beszélgetés a gyakorlatról,
     nem két külön lista. */
 
-import { api } from '../core/api.js';
-import { showToast } from '../core/toast.js';
-import { relativeTime } from '../core/format.js';
+import { api } from '../shared/api.js';
+import { showToast } from '../shared/toast.js';
+import { relativeTime } from '../shared/format.js';
 
 /** Törlőgomb a NÉZŐ saját megjegyzésére: törlés után a `row` kikerül.
     A szerver is csak a szerzőnek enged (DELETE /api/comments/:id). */

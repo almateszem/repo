@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createLatestOnly } from '../../../../public/js/core/latest-only.js';
+import { createLatestOnly } from '../../../../public/js/shared/latest-only.js';
 
 test('latestOnly: csak a legutóbb indított kérés érvényes', () => {
   const guard = createLatestOnly();

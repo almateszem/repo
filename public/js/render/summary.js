@@ -1,8 +1,8 @@
 /** Az edzés-összegző: időtartam, volumen, izomtérkép, idézet. */
 
-import { $ } from '../core/dom.js';
-import { animateNumber } from '../core/format.js';
-import { hooks } from '../core/page-hooks.js';
+import { $ } from '../shared/dom.js';
+import { animateNumber } from '../shared/format.js';
+import { hooks } from '../shared/page-hooks.js';
 
 const SUMMARY_QUOTES = [
   'Erős voltál ma — a következő edzés még jobb lesz!',

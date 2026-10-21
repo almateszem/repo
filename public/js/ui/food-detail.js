@@ -1,9 +1,9 @@
 /** Étel-részletek: adagválasztó görgő és a naplózás. */
 
-import { $, $$, cloneTemplate, prefersReducedMotion } from '../core/dom.js';
-import { formatNumber } from '../core/format.js';
-import { showToast } from '../core/toast.js';
-import { createModalController } from './modals.js';
+import { $, $$, cloneTemplate, prefersReducedMotion } from '../shared/dom.js';
+import { formatNumber } from '../shared/format.js';
+import { showToast } from '../shared/toast.js';
+import { createModalController } from '../shared/modals.js';
 
 /* ---- Étel részlet-modál (adagválasztás) ----
    A táplálkozási napló korábban fix 100 g-os adagot rögzített, holott a

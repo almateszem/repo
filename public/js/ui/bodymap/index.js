@@ -14,7 +14,7 @@
  *      egy vezérlő, akkor is, ha két alakzat rajzolja.
  */
 
-import { $$ } from '../../core/dom.js';
+import { $$ } from '../../shared/dom.js';
 import { BODY_HEAD, BODY_REGIONS, BODY_SILHOUETTE, BODY_VIEW_BOX } from './paths.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';

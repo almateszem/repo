@@ -4,7 +4,7 @@
  * A tervlista lekérése és a legutóbbi másolata; a kirajzolás a
  * render/plans.js-é (renderPlanList).
  */
-import { api } from '../core/api.js';
+import { api } from '../shared/api.js';
 import { renderPlanList } from '../render/plans.js';
 
 /** A legutóbb lekért tervlista — a nyíl- és a szerkesztés gomb ebből veszi

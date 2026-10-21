@@ -1,13 +1,13 @@
 /** Az edzésnapló oldal vezérlője: gyakorlatok, szettek, automatikus mentés. */
 
-import { api } from '../core/api.js';
-import { onDayChange } from '../core/day.js';
-import { $, $$ } from '../core/dom.js';
-import { hooks } from '../core/page-hooks.js';
-import { prefs } from '../core/prefs.js';
-import { showToast } from '../core/toast.js';
-import { baseLoadFor, refreshWeightConventions } from '../core/weight-conventions.js';
-import { navigate } from '../nav/router.js';
+import { api } from '../shared/api.js';
+import { onDayChange } from '../shared/day.js';
+import { $, $$ } from '../shared/dom.js';
+import { hooks } from '../shared/page-hooks.js';
+import { prefs } from '../shared/prefs.js';
+import { showToast } from '../shared/toast.js';
+import { baseLoadFor, refreshWeightConventions } from '../shared/weight-conventions.js';
+import { navigate } from '../app/router.js';
 import { renderDashboard } from './dashboard-data.js';
 import { renderPrs } from './workout/history.js';
 import { readSetRow, refreshExerciseList } from '../render/sets.js';
@@ -19,8 +19,8 @@ import {
   enableSetTypeSelect,
   handleAddSetClick,
   handleRemoveSetClick,
-  handleStepClick,
 } from './workout/set-controls.js';
+import { handleStepClick } from '../shared/stepper.js';
 import { WORKOUT_START_KEY, markWorkoutStarted, setLastSummary } from './workout/summary-data.js';
 import { createDraftAutosave } from './workout/autosave.js';
 import { createPrIndicators } from './workout/pr-indicator.js';
@@ -50,7 +50,7 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
   /* A saját testsúlyos gyakorlatok csúcsa a testsúllyal együtt tárolódik
      (server/data/bodyweight-load.js) — az élő PR-jelzőnek is azzal kell
      számolnia, különben a húzódzkodás jelzője sosem gyulladna ki. Az
-     alapterhelés a közös core/weight-conventions.js-ből (baseLoadFor). */
+     alapterhelés a közös shared/weight-conventions.js-ből (baseLoadFor). */
 
   // A napló kártyái: kapcsolható PR-jelvény, „+ Szett" gomb és sorszám-
   // választó (a sorrend átrendezéséhez — lásd enableOrderSelect)

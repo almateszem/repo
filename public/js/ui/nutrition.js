@@ -1,13 +1,13 @@
 /** Táplálkozás oldal: keresés, naplózás, napi célok. */
 
-import { SESSION_LOST, api } from '../core/api.js';
-import { onDayChange } from '../core/day.js';
-import { $, cloneTemplate } from '../core/dom.js';
-import { animateNumber, formatNumber } from '../core/format.js';
-import { hooks } from '../core/page-hooks.js';
-import { SEARCH_DELAY_MS, createPagedList, debounce } from '../core/paged-list.js';
-import { showToast } from '../core/toast.js';
-import { onPageShow } from '../nav/router.js';
+import { SESSION_LOST, api } from '../shared/api.js';
+import { onDayChange } from '../shared/day.js';
+import { $, cloneTemplate } from '../shared/dom.js';
+import { animateNumber, formatNumber } from '../shared/format.js';
+import { hooks } from '../shared/page-hooks.js';
+import { SEARCH_DELAY_MS, createPagedList, debounce } from '../shared/paged-list.js';
+import { showToast } from '../shared/toast.js';
+import { onPageShow } from '../app/router.js';
 import { refreshDailyStats } from './dashboard-data.js';
 import { renderFoodItem } from '../render/foods.js';
 

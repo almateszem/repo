@@ -1,10 +1,10 @@
 /** Tervek oldal interakciói. */
 
-import { api } from '../core/api.js';
-import { $ } from '../core/dom.js';
-import { dayEntry, dayWorkoutName, todayIndex } from '../core/plan-week.js';
-import { showToast } from '../core/toast.js';
-import { navigate, onPageShow } from '../nav/router.js';
+import { api } from '../shared/api.js';
+import { $ } from '../shared/dom.js';
+import { dayEntry, dayWorkoutName, todayIndex } from '../shared/plan-week.js';
+import { showToast } from '../shared/toast.js';
+import { navigate, onPageShow } from '../app/router.js';
 import { plansData, renderPlans } from './plans-data.js';
 
 /** A Tervek oldal interakciói. A planBuilder és a workout a megfelelő setup

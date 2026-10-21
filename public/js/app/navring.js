@@ -1,6 +1,6 @@
 /** Nav ring — húzható navigációs gomb (pointer + billentyűzet). */
 
-import { prefersReducedMotion } from '../core/dom.js';
+import { prefersReducedMotion } from '../shared/dom.js';
 
 const RING_RADIUS = 44; // px, a gomb maximális kitérése
 

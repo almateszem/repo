@@ -476,7 +476,7 @@
   padding: var(--sp-9) 0;
 }
 
-/* A lapozott lista vége (js/core/paged-list.js): töltés közben „Betöltés…",
+/* A lapozott lista vége (js/shared/paged-list.js): töltés közben „Betöltés…",
    hibánál „Újra" gomb. Üresen is kell 1px magasság, különben az
    IntersectionObserver nem látná. */
 .paged-sentinel {

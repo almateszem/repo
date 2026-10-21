@@ -1,6 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { PAGE_SIZE, createPagedList, createPagedQuery, debounce } from '../../../../public/js/core/paged-list.js';
+import {
+  PAGE_SIZE,
+  createPagedList,
+  createPagedQuery,
+  debounce,
+} from '../../../../public/js/shared/paged-list.js';
 
 /** Kívülről feloldható ígéret — a kérések sorrendjét a teszt dönti el. */
 const deferred = () => {

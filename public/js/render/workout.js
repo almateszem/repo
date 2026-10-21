@@ -1,6 +1,6 @@
 /** A mentett edzések listája (előzmények). */
 
-import { $, cloneTemplate } from '../core/dom.js';
+import { $, cloneTemplate } from '../shared/dom.js';
 
 /** Egy „Korábbi edzések" sor ({ id, date, detail, rpe }) <li>-vé építve.
     Az id a sor gombjaira is rákerül: a javítás és a törlés ebből tudja,

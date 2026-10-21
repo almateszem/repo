@@ -1,15 +1,15 @@
 /** Edzés-összegző oldal és a heti összehasonlítás. */
 
-import { SESSION_LOST, api } from '../core/api.js';
-import { $, $$ } from '../core/dom.js';
-import { animateNumber, formatNumber } from '../core/format.js';
-import { hooks, shared } from '../core/page-hooks.js';
-import { showToast } from '../core/toast.js';
-import { navigate, onPageShow } from '../nav/router.js';
-import { renderChart, renderVolumeTrend } from '../render/dashboard.js';
-import { readScale, writeScale } from '../render/recovery.js';
+import { SESSION_LOST, api } from '../shared/api.js';
+import { $, $$ } from '../shared/dom.js';
+import { animateNumber, formatNumber } from '../shared/format.js';
+import { hooks, shared } from '../shared/page-hooks.js';
+import { showToast } from '../shared/toast.js';
+import { navigate, onPageShow } from '../app/router.js';
+import { renderVolumeTrend } from '../render/dashboard.js';
+import { renderChart } from '../shared/chart.js';
 import { noteDeleteButton } from './exercise-notes.js';
-import { buildScale } from './scale.js';
+import { buildScale, readScale, writeScale } from '../shared/readiness.js';
 import { renderSummary } from '../render/summary.js';
 import { lastSummary, summarizeWorkout } from './workout/summary-data.js';
 

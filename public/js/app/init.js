@@ -1,26 +1,25 @@
 /** Indítás: a vezérlők felépítése és összekötése, belépési kapu. */
 
-import { api } from '../core/api.js';
-import { onDayChange, startDayWatcher } from '../core/day.js';
-import { $, $$ } from '../core/dom.js';
-import { hooks } from '../core/page-hooks.js';
-import { prefs } from '../core/prefs.js';
-import { showToast } from '../core/toast.js';
-import { setupNavRing } from '../nav/navring.js';
-import { dirToPage, navigate, onPageShow, setOnboardingLock, setupRouter } from '../nav/router.js';
+import { api } from '../shared/api.js';
+import { onDayChange, startDayWatcher } from '../shared/day.js';
+import { $, $$ } from '../shared/dom.js';
+import { hooks } from '../shared/page-hooks.js';
+import { prefs } from '../shared/prefs.js';
+import { showToast } from '../shared/toast.js';
+import { setupNavRing } from './navring.js';
+import { dirToPage, navigate, onPageShow, setOnboardingLock, setupRouter } from './router.js';
 import { renderChromeDate } from '../render/dashboard.js';
 import { renderCharts, renderDashboard, renderUserName } from '../ui/dashboard-data.js';
 import { renderPlans } from '../ui/plans-data.js';
 import { renderPrs, renderWorkout } from '../ui/workout/history.js';
 import { setupCheckinWizard } from '../ui/checkin/wizard.js';
-import { setupChromeHeight } from '../ui/chrome.js';
+import { setupChromeHeight, setupConnectivity, setupShortcuts } from './shell.js';
 import { setupAthleteDetail, setupCoachPage } from '../ui/coach.js';
-import { setupConnectivity } from '../ui/connectivity.js';
 import { setupCustomFood } from '../ui/custom-food.js';
-import { enhanceSelects } from '../ui/custom-select.js';
+import { enhanceSelects } from '../shared/custom-select.js';
 import { setupDashboard } from '../ui/dashboard.js';
 import { loadIntensityLevels } from '../ui/workout/set-controls.js';
-import { loadWeightConventions } from '../core/weight-conventions.js';
+import { loadWeightConventions } from '../shared/weight-conventions.js';
 import { setupExercisePicker } from '../ui/exercise-picker.js';
 import { setupFoodDetail } from '../ui/food-detail.js';
 import {
@@ -28,8 +27,8 @@ import {
   setupConfirmDialog,
   setupPrModal,
   setupVideoModal,
-} from '../ui/modals.js';
-import { setupNotifications } from '../ui/notifications.js';
+} from '../shared/modals.js';
+import { setupNotifications } from './notifications.js';
 import { setupNutrition } from '../ui/nutrition.js';
 import { setupWaterMeter } from '../ui/water.js';
 import { setupPlanBuilder } from '../ui/plan-builder.js';
@@ -38,7 +37,6 @@ import { setupProfile } from '../ui/profile.js';
 import { setupRecovery } from '../ui/recovery.js';
 import { setupScanner } from '../ui/scanner.js';
 import { setupSettingsModal } from '../ui/settings.js';
-import { setupShortcuts } from '../ui/shortcuts.js';
 import { setupSummary, setupWeeklyCompare } from '../ui/summary.js';
 import { refreshWeightLog } from '../ui/weight.js';
 import { setupWorkout } from '../ui/workout.js';

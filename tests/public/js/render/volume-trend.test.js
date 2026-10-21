@@ -32,7 +32,7 @@ globalThis.fetch = async () => {
 
 const { renderVolumeTrend } = await import('../../../../public/js/render/dashboard.js');
 const { setupWeeklyCompare } = await import('../../../../public/js/ui/summary.js');
-const { hooks } = await import('../../../../public/js/core/page-hooks.js');
+const { hooks } = await import('../../../../public/js/shared/page-hooks.js');
 
 const reset = () => {
   looked.length = 0;

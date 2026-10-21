@@ -1,8 +1,8 @@
 /** Testsúly-lépés: mai mérés, viszonyítási ponttal és „ma nem mértem" kiúttal. */
 
-import { $, $$, cloneTemplate } from '../../../core/dom.js';
-import { formatInputNumber, formatNumber } from '../../../core/format.js';
-import { formatDelta } from '../../../core/format.js';
+import { $, $$, cloneTemplate } from '../../../shared/dom.js';
+import { formatInputNumber, formatNumber } from '../../../shared/format.js';
+import { formatDelta } from '../../../shared/format.js';
 import { latestWeightEntry, todayWeightEntry } from '../../weight.js';
 import {
   CI_PRESET_ADVANCE_MS,

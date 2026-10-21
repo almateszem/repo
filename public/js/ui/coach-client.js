@@ -2,10 +2,10 @@
     sportoló szemszögéből — KPI-k, jelzés, fülek (Áttekintés / Étrend / Terv /
     Üzenetek) és az oldalsáv, ami megmutatja, mit lát rólad az edződ. */
 
-import { api } from '../core/api.js';
-import { $, $$ } from '../core/dom.js';
-import { hooks } from '../core/page-hooks.js';
-import { showToast } from '../core/toast.js';
+import { api } from '../shared/api.js';
+import { $, $$ } from '../shared/dom.js';
+import { hooks } from '../shared/page-hooks.js';
+import { showToast } from '../shared/toast.js';
 import {
   renderActivePlan,
   renderClientKpis,

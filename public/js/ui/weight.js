@@ -1,11 +1,11 @@
 /** Testsúlynapló: bejegyzések, diagram, lista. */
 
-import { api } from '../core/api.js';
-import { $ } from '../core/dom.js';
-import { animateNumber, dayKeyOf, formatDelta, formatNumber } from '../core/format.js';
-import { showToast } from '../core/toast.js';
-import { refreshWeightConventions } from '../core/weight-conventions.js';
-import { renderChart } from '../render/dashboard.js';
+import { api } from '../shared/api.js';
+import { $ } from '../shared/dom.js';
+import { animateNumber, dayKeyOf, formatDelta, formatNumber } from '../shared/format.js';
+import { showToast } from '../shared/toast.js';
+import { refreshWeightConventions } from '../shared/weight-conventions.js';
+import { renderChart } from '../shared/chart.js';
 import { refreshDailyStats } from './dashboard-data.js';
 
 /* ---- Testsúly-napló ----

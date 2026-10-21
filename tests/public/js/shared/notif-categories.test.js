@@ -6,7 +6,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { NOTIF_CATEGORIES } from '../../../../public/js/core/constants.js';
+import { NOTIF_CATEGORIES } from '../../../../public/js/shared/constants.js';
 import { NOTIF_CATEGORY, buildNotifications } from '../../../../server/notifications.js';
 
 const at = '2026-10-18T07:00:00Z';

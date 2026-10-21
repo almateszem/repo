@@ -7,7 +7,10 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 
-const html = readFileSync(path.join(import.meta.dirname, '..', '..', '..', '..', 'public', 'index.html'), 'utf8');
+const html = readFileSync(
+  path.join(import.meta.dirname, '..', '..', '..', '..', 'public', 'index.html'),
+  'utf8',
+);
 
 test('minden <use href="#…"> létező szimbólumra mutat', () => {
   const symbols = new Set([...html.matchAll(/<symbol id="([\w-]+)"/g)].map(([, id]) => id));

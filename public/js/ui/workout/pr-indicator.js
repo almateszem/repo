@@ -8,7 +8,7 @@
  * mentett edzés után újratöltődnek a szerverről.
  */
 
-import { $, $$ } from '../../core/dom.js';
+import { $, $$ } from '../../shared/dom.js';
 import { readSetRow } from '../../render/sets.js';
 import { estimate1RM } from '../../core/one-rm.js';
 

@@ -4,8 +4,8 @@
  * Az /api/dashboard, /api/charts és /api/user lekérése és a legutóbbi
  * áttekintő-adat; a kirajzolás a render/dashboard.js-é.
  */
-import { api } from '../core/api.js';
-import { $ } from '../core/dom.js';
+import { api } from '../shared/api.js';
+import { $ } from '../shared/dom.js';
 import {
   paintCharts,
   paintDashboard,

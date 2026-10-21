@@ -1,9 +1,9 @@
 /** Közös chat-vezérlő az edző–sportoló üzenetváltáshoz. */
 
-import { api } from '../core/api.js';
-import { $, withBusy } from '../core/dom.js';
-import { relativeTime } from '../core/format.js';
-import { showToast } from '../core/toast.js';
+import { api } from '../shared/api.js';
+import { $, withBusy } from '../shared/dom.js';
+import { relativeTime } from '../shared/format.js';
+import { showToast } from '../shared/toast.js';
 import { createCoachNote } from '../render/coach.js';
 
 /** Egy üzenet buborékja a szerver által küldött alakból. A `mine` dönti el,

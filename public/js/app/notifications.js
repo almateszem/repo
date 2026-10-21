@@ -1,10 +1,10 @@
 /** Értesítés-panel. */
 
-import { api } from '../core/api.js';
-import { $, prefersReducedMotion } from '../core/dom.js';
-import { prefs } from '../core/prefs.js';
-import { showToast } from '../core/toast.js';
-import { relativeTime } from '../core/format.js';
+import { api } from '../shared/api.js';
+import { $, prefersReducedMotion } from '../shared/dom.js';
+import { prefs } from '../shared/prefs.js';
+import { showToast } from '../shared/toast.js';
+import { relativeTime } from '../shared/format.js';
 
 /**
  * Értesítés-panel: az avatarra nyílik. A tartalma VALÓDI eseményekből jön

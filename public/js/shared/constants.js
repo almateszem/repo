@@ -1,7 +1,7 @@
 /** Oldal- és naptár-konstansok. Több modul osztozik rajtuk, ezért állnak külön. */
 
 /** Hétnapok hétfőtől (0 = hétfő). A ciklusos terv napjainak neve ezt
-    ismétli (a 8. naptól „(2.)" utótaggal — core/plan-week.js → dayTitle,
+    ismétli (a 8. naptól „(2.)" utótaggal — shared/plan-week.js → dayTitle,
     dayLabel), a terv-építő és a felajánlott terv is innen kapja a feliratot. */
 const DAY_LABELS = ['H', 'K', 'Sze', 'Cs', 'P', 'Szo', 'V'];
 

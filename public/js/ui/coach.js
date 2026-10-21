@@ -1,12 +1,12 @@
 /** Edző oldal: edzői panel (KPI-k, sportoló-lista), sportoló-részletnézet, meghívók. */
 
-import { api } from '../core/api.js';
-import { $, $$, withBusy } from '../core/dom.js';
-import { formatNumber } from '../core/format.js';
-import { shared } from '../core/page-hooks.js';
-import { prefs } from '../core/prefs.js';
-import { showToast } from '../core/toast.js';
-import { animateCoachRatings, refreshNavRing } from '../nav/router.js';
+import { api } from '../shared/api.js';
+import { $, $$, withBusy } from '../shared/dom.js';
+import { formatNumber } from '../shared/format.js';
+import { shared } from '../shared/page-hooks.js';
+import { prefs } from '../shared/prefs.js';
+import { showToast } from '../shared/toast.js';
+import { animateCoachRatings, refreshNavRing } from '../app/router.js';
 import { renderAthleteList, renderCoachPanel } from '../render/coach.js';
 import { athleteTier, renderStatList } from '../render/coach-shared.js';
 import { renderPlans } from './plans-data.js';

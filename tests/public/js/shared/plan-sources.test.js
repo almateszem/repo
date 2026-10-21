@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { copyExercises, inlineSameDays, matchesQuery } from '../../../../public/js/core/plan-sources.js';
+import {
+  copyExercises,
+  inlineSameDays,
+  matchesQuery,
+} from '../../../../public/js/shared/plan-sources.js';
 
 const squat = { name: 'Guggolás', pr: true, sets: [{ reps: 5, weight: 100, done: true }] };
 

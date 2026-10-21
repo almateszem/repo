@@ -1,6 +1,6 @@
 /** Kapu-lépések: van-e izomláz / fájdalom. A válasz dönti el a következő lépést. */
 
-import { $, cloneTemplate } from '../../../core/dom.js';
+import { $, cloneTemplate } from '../../../shared/dom.js';
 import { CI_GATES } from '../constants.js';
 import { ci } from '../session.js';
 

@@ -8,7 +8,7 @@ import test from 'node:test';
 import { installFakeDom } from '../fake-dom.js';
 
 installFakeDom();
-const { withBusy } = await import('../../../../public/js/core/dom.js');
+const { withBusy } = await import('../../../../public/js/shared/dom.js');
 
 const button = () => ({ disabled: false });
 

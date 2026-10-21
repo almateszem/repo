@@ -44,9 +44,9 @@ Környezeti változók:
 Fájlok:
     public/index.html   minden oldal + a listaelemek <template> sablonjai
     public/js/          a frontend ES modulokban; belépési pont: js/main.js
-      core/             api réteg, DOM/formázó segédek, preferenciák, toast
-      core/page-hooks.js  a router és az oldalvezérlők közti késleltetett kötés
-      nav/              hash-router, nav gyűrű
+      shared/           api réteg, DOM/formázó segédek, preferenciák, toast, modálok
+      shared/page-hooks.js  a router és az oldalvezérlők közti késleltetett kötés
+      app/              indulás, hash-router, nav gyűrű, keret
       render/           adat → DOM (áttekintő, szettek, tervek, edzői panel…)
       ui/               oldalankénti interakciók
       app/init.js       a vezérlők felépítése és összekötése

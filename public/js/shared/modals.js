@@ -1,9 +1,9 @@
 /** Közös modális vezérlő és a rá épülő kis ablakok. */
 
-import { api } from '../core/api.js';
-import { $, $$, cloneTemplate, prefersReducedMotion } from '../core/dom.js';
-import { formatNumber } from '../core/format.js';
-import { showToast } from '../core/toast.js';
+import { api } from './api.js';
+import { $, $$, cloneTemplate, prefersReducedMotion } from './dom.js';
+import { formatNumber } from './format.js';
+import { showToast } from './toast.js';
 
 /* ---- Modál-verem ----
    A nyitott modálok sorrendben (a legfelső a végén). Egymásra nyíló ablakoknál

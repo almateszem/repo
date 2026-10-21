@@ -6,9 +6,9 @@
  * ezért állnak külön a lapok vezérlőitől.
  */
 
-import { $, $$, cloneTemplate } from '../core/dom.js';
-import { formatNumber } from '../core/format.js';
-import { isAddedWeight, isPerHand } from '../core/weight-conventions.js';
+import { $, $$, cloneTemplate } from '../shared/dom.js';
+import { formatNumber } from '../shared/format.js';
+import { isAddedWeight, isPerHand } from '../shared/weight-conventions.js';
 
 /* ---- Kezenkénti súly ----
    A ház szabálya: kézisúlyzós gyakorlatnál a beírt szám EGY kézisúlyzóé, nem a
@@ -17,7 +17,7 @@ import { isAddedWeight, isPerHand } from '../core/weight-conventions.js';
    erőszint-érmen két elhibázott fokozatot jelent.
 
    A listát a szerver adja (/api/weight-conventions); INDULÁSKOR egyszer töltődik
-   a közös core/weight-conventions.js-be: a renderExercise szinkron, menet
+   a közös shared/weight-conventions.js-be: a renderExercise szinkron, menet
    közben nem várhat egy kérésre. Ha a töltés elhasal, a felirat marad a
    semleges „Súly·kg" — rosszabb konvenciót nem írunk ki, mint amit tudunk.
    Ugyanonnan jönnek a saját testsúlyos gyakorlatok (isAddedWeight): ott a

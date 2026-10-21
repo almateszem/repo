@@ -5,8 +5,8 @@
  * és az utoljára lezárt edzés pillanatképe. A kirajzolás a
  * render/summary.js-é: az paraméterként kapja az összegzést.
  */
-import { $, $$ } from '../../core/dom.js';
-import { prefs } from '../../core/prefs.js';
+import { $, $$ } from '../../shared/dom.js';
+import { prefs } from '../../shared/prefs.js';
 
 /** Az edzés kezdetének rögzítése (prefs): az aznapi első szett-pipa indítja.
     Terv-betöltéskor nullázódik — onnan új edzés számít. */

@@ -1,12 +1,12 @@
 /** Beállítások ablak. */
 
-import { api } from '../core/api.js';
-import { NOTIF_CATEGORIES } from '../core/constants.js';
-import { $, $$, cloneTemplate } from '../core/dom.js';
-import { hooks } from '../core/page-hooks.js';
-import { prefs } from '../core/prefs.js';
-import { showToast } from '../core/toast.js';
-import { createModalController } from './modals.js';
+import { api } from '../shared/api.js';
+import { NOTIF_CATEGORIES } from '../shared/constants.js';
+import { $, $$, cloneTemplate } from '../shared/dom.js';
+import { hooks } from '../shared/page-hooks.js';
+import { prefs } from '../shared/prefs.js';
+import { showToast } from '../shared/toast.js';
+import { createModalController } from '../shared/modals.js';
 
 /** Beállítások modal: profilnév, értesítés-kapcsolók, edzés-cél, adat-export.
     A név és az értesítés-kapcsolók a prefs-be (localStorage) mentődnek; az

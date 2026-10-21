@@ -14,7 +14,7 @@
     értékadás (a `value`/`selectedIndex` példány-szintű felülírása) és az
     űrlap-visszaállítás. */
 
-import { $$ } from '../core/dom.js';
+import { $$ } from './dom.js';
 
 let seq = 0;
 /** Egyszerre egy nyitott lenyíló — a nyitott bezárója. */

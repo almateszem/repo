@@ -8,7 +8,7 @@
 
 /** Szám a felületen megjelenő SZÖVEGBE: max 1 tizedes, magyar
     tizedesvesszővel („82,5"). Ugyanaz a szabály, mint a kliens formatNumber-e
-    (public/js/core/format.js) — a szerver által összerakott mondatok (edzői
+    (public/js/shared/format.js) — a szerver által összerakott mondatok (edzői
     kártya, javaslatok) így nem írnak pontot a kliens vesszője mellé. */
 export const formatDecimal = (value) =>
   String(Math.round(Number(value) * 10) / 10).replace('.', ',');

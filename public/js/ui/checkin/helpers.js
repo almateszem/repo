@@ -1,6 +1,6 @@
 /** A check-in varázsló tiszta segédfüggvényei. */
 
-import { MUSCLE_GROUPS } from '../../render/recovery.js';
+import { MUSCLE_GROUPS } from '../../shared/readiness.js';
 
 const ciMuscleLabel = (key) => MUSCLE_GROUPS.find(([k]) => k === key)?.[1] ?? key;
 

@@ -1,9 +1,9 @@
 /** A varázsló nyitólépése — köszöntés és a kezdés gomb. */
 
-import { api } from '../../../core/api.js';
-import { $, cloneTemplate } from '../../../core/dom.js';
-import { shared } from '../../../core/page-hooks.js';
-import { navigate, setOnboardingLock } from '../../../nav/router.js';
+import { api } from '../../../shared/api.js';
+import { $, cloneTemplate } from '../../../shared/dom.js';
+import { shared } from '../../../shared/page-hooks.js';
+import { navigate, setOnboardingLock } from '../../../app/router.js';
 import { ciDateStr } from '../helpers.js';
 import { ci } from '../session.js';
 

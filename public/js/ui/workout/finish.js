@@ -6,10 +6,10 @@
  * napló kiürítése és a lezárás utáni frissítések a setupWorkout-éi, innen
  * csak hívódnak (bindFinish).
  */
-import { api } from '../../core/api.js';
-import { $ } from '../../core/dom.js';
-import { showToast } from '../../core/toast.js';
-import { navigate } from '../../nav/router.js';
+import { api } from '../../shared/api.js';
+import { $ } from '../../shared/dom.js';
+import { showToast } from '../../shared/toast.js';
+import { navigate } from '../../app/router.js';
 import { historyEntryEl, syncHistoryEmpty, workoutHistoryEntry } from '../../render/workout.js';
 import { setLastSummary, summarizeWorkout } from './summary-data.js';
 

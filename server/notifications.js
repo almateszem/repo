@@ -25,9 +25,9 @@
  */
 
 /** Az értesítés-kategóriák (a sorok `cat` mezője). Exportált, mert a
-    beállítások némító-kapcsolói (public/js/core/constants.js →
+    beállítások némító-kapcsolói (public/js/shared/constants.js →
     NOTIF_CATEGORIES) PONTOSAN ezeket ismerik — egy szerződés-teszt veti össze
-    a kettőt (tests/public/js/core/notif-categories.test.js). */
+    a kettőt (tests/public/js/shared/notif-categories.test.js). */
 export const NOTIF_CATEGORY = Object.freeze({
   message: 'message',
   coach: 'coach',

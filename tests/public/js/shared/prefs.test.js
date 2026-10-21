@@ -29,7 +29,7 @@ let instance = 0;
 const freshPrefs = async (storage) => {
   globalThis.localStorage = storage;
   instance += 1;
-  return (await import(`../../../../public/js/core/prefs.js?v=${instance}`)).prefs;
+  return (await import(`../../../../public/js/shared/prefs.js?v=${instance}`)).prefs;
 };
 
 test('prefs: két fiók egymástól elkülönítve', async () => {

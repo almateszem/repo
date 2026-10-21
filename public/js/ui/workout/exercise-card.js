@@ -4,7 +4,7 @@
  * A „kipipált szettek" számolása és az eltávolítás előtti megerősítés egy
  * helyen: korábban négy, illetve két helyen állt szó szerint ugyanígy.
  */
-import { $$ } from '../../core/dom.js';
+import { $$ } from '../../shared/dom.js';
 
 /** Hány teljesített (kipipált) szett van a gyökér alatt — egy kártyán vagy
     az egész naplóban. */

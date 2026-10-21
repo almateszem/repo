@@ -2,12 +2,12 @@
     fülén. Az edző ételt és grammot ad meg; az élő előnézet a kliensen számol
     (core/meals.js), a mentett érték a szerveré. */
 
-import { api } from '../core/api.js';
-import { $, $$, cloneTemplate, withBusy } from '../core/dom.js';
-import { formatNumber } from '../core/format.js';
+import { api } from '../shared/api.js';
+import { $, $$, cloneTemplate, withBusy } from '../shared/dom.js';
+import { formatNumber } from '../shared/format.js';
 import { scaleFood, sumMacros } from '../core/meals.js';
-import { SEARCH_DELAY_MS, debounce } from '../core/paged-list.js';
-import { showToast } from '../core/toast.js';
+import { SEARCH_DELAY_MS, debounce } from '../shared/paged-list.js';
+import { showToast } from '../shared/toast.js';
 
 /** A napi cél elfogadott tartománya — a szerver GOAL_RANGES-ével egyezik.
     Ezen kívül az „Átveszem napi célnak" gomb tiltva van, mert a szerver

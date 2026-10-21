@@ -5,7 +5,7 @@
  * épül. Amit egy MÁSIK modul hív (a router, az api réteg, egy másik vezérlő),
  * az ide iratkozik fel — így nem keletkezik kör a modulgráfban. Az oldal-
  * megnyitáskor futó feladatok NEM itt élnek: azokat a vezérlők a routerben
- * regisztrálják (nav/router.js → onPageShow).
+ * regisztrálják (app/router.js → onPageShow).
  *
  * A slotok az első hívásig `null`-ok, ezért a hívó oldalon mindig `?.()` áll.
  */
@@ -58,7 +58,7 @@ export const hooks = {
 /** A router és a vezérlők közös jelzői. */
 export const shared = {
   /** Az onboarding zárja: a kötelező első check-in alatt nincs navigáció.
-      A setOnboardingLock írja (nav/router.js). */
+      A setOnboardingLock írja (app/router.js). */
   onboardingLock: false,
 
   /** Van-e elfogadott edződ. Az edzés utáni visszajelzés blokkja ebből dől el:

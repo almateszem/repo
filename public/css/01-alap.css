@@ -799,7 +799,7 @@ input.wk-chip:focus-visible {
 
 /* ==========================================================================
    2d. Saját lenyíló (ds-select) — a natív <select> helyett, az egész appban
-   (public/js/ui/custom-select.js). A natív opciólistát a böngésző/OS rajzolja,
+   (public/js/shared/custom-select.js). A natív opciólistát a böngésző/OS rajzolja,
    és a sötét témában rosszul: Windowson fehér lista, olvashatatlan szöveggel.
    A gomb a select SAJÁT osztályait örökli (keret, térköz, szélesség), ezért
    itt csak a belső elrendezés áll; a lista az edzésnapló lenyílóinak nyelvén

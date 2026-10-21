@@ -57,7 +57,8 @@ const makeModal = (name) => {
   };
 };
 
-const { createModalController, isTopModal } = await import('../../../../public/js/ui/modals.js');
+const { createModalController, isTopModal } =
+  await import('../../../../public/js/shared/modals.js');
 
 const trigger = focusable('trigger');
 

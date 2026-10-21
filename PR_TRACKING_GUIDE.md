@@ -171,7 +171,7 @@ The `renderPrs()` function in `public/js/render/prs.js`:
 - Shows set details, appending ` • 1RM: … kg` when `oneRM` is available
 - Shows workout date
 
-Clicking a row opens the PR history modal (`setupPrModal`, `public/js/ui/modals.js`), which lists `/api/prs/history` for that exercise.
+Clicking a row opens the PR history modal (`setupPrModal`, `public/js/shared/modals.js`), which lists `/api/prs/history` for that exercise.
 
 ### Visual Indicators
 

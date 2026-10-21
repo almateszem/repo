@@ -1,4 +1,4 @@
-/** A súly-konvenciók EGY helyen élnek (core/weight-conventions.js): a napló
+/** A súly-konvenciók EGY helyen élnek (shared/weight-conventions.js): a napló
     felirata (kézisúlyzó / ráakasztott súly) és az élő PR-jelző alapterhelése
     ugyanabból olvas, és a testsúly változása után frissül. Korábban két
     másolat töltődött két kéréssel, és csak az egyik frissült. */
@@ -18,7 +18,7 @@ globalThis.fetch = async () => {
   return Response.json(response);
 };
 
-const conventions = await import('../../../../public/js/core/weight-conventions.js');
+const conventions = await import('../../../../public/js/shared/weight-conventions.js');
 
 test('betöltés után a getterek a szerver listáiból válaszolnak', async () => {
   await conventions.loadWeightConventions();

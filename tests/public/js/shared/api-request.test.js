@@ -7,8 +7,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-const { api, SESSION_LOST } = await import('../../../../public/js/core/api.js');
-const { hooks } = await import('../../../../public/js/core/page-hooks.js');
+const { api, SESSION_LOST } = await import('../../../../public/js/shared/api.js');
+const { hooks } = await import('../../../../public/js/shared/page-hooks.js');
 
 let sessionLost = 0;
 hooks.onSessionLost = () => {

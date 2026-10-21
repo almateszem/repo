@@ -6,7 +6,7 @@ import test from 'node:test';
 import { installFakeDom } from '../fake-dom.js';
 
 installFakeDom();
-const { readNumberInput } = await import('../../../../public/js/core/dom.js');
+const { readNumberInput } = await import('../../../../public/js/shared/dom.js');
 
 const field = (value) => ({ value });
 
