@@ -927,3 +927,746 @@
 .co-composer button:hover {
   opacity: 0.9;
 }
+
+/* ==========================================================================
+   Sportoló részletnézet — fejléc, statisztika, fülek, műveletek, üzenetek,
+   megjegyzések, étkezés-terv, napi cél, visszajelzés (co-detail-*, co-modal-*…)
+   ========================================================================== */
+
+/* ---- Edzői chat: saját üzenet, beúszás, „gépel…" jelző ---- */
+.co-note {
+  animation: note-in 0.25s ease backwards;
+}
+
+/* A saját üzenet accent KERETET kap, nem accent hátteret: tömör felületen egy
+   hosszabb üzenet nagy vörös folt volna, és a szövege is elvesztené a saját
+   kontrasztját. A behúzás marad — az mondja meg, ki beszél. */
+.co-note--me {
+  border-color: var(--c-accent);
+  margin-left: var(--sp-13); /* enyhén jobbra tolva, chat-szerűen */
+}
+
+.co-modal-ident {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+  min-width: 0;
+}
+
+/* Mini tier-jelvény — a kártyák pajzs-formájának kicsinyített változata */
+.co-modal-badge {
+  width: 54px;
+  height: 62px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  background: linear-gradient(170deg, var(--tier-soft), transparent 70%), var(--surface-input);
+  border: 1px solid var(--tier-border);
+  border-radius: var(--r-lg) var(--r-lg) 50% 50% / var(--r-lg) var(--r-lg) 22% 22%;
+}
+
+.co-modal-rating {
+  font-size: var(--fs-3xl);
+  font-weight: 800;
+  line-height: 1;
+  color: var(--tier);
+}
+
+.co-modal-tag {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.co-modal-titles {
+  min-width: 0;
+}
+
+.co-modal-tier {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.co-modal-alert {
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--fg-75);
+  background: rgba(224, 67, 90, 0.09); /* --c-alert, halványítva */
+  border-left: 2px solid var(--c-alert);
+  border-radius: 0 var(--r-md) var(--r-md) 0;
+  padding: var(--sp-4) var(--sp-5);
+  margin: 0 0 var(--sp-7);
+}
+
+.co-modal-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-5) var(--sp-6);
+  margin: 0 0 var(--sp-8);
+}
+
+.co-modal-stat {
+  min-width: 0;
+}
+
+/* ---- A részletnézet kerete ----
+   A sportoló-lista HELYÉN áll a .co-main bal oszlopában; a KPI-sor és a
+   jobb sáv közben a helyén marad. Saját konténer, hogy a stat-rács a
+   tényleges oszlopszélességhez igazodjon, ne a nézetablakhoz. */
+.co-detail {
+  container: co-detail / inline-size;
+  min-width: 0;
+  animation: co-detail-in var(--t-base) both;
+}
+
+.co-detail:focus {
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .co-detail {
+    animation: none;
+  }
+}
+
+.co-detail-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: 44px;
+  padding: 0;
+  margin-bottom: var(--sp-4);
+  background: none;
+  border: 0;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
+  transition: color var(--t-fast);
+}
+
+.co-detail-back:hover {
+  color: var(--text-primary);
+}
+
+.co-detail-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-6);
+  padding-bottom: var(--sp-8);
+  margin-bottom: var(--sp-8);
+  border-bottom: 1px solid var(--hair);
+}
+
+.co-detail-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+/* A bontás a fejléc jobb szélén, keretezve — elkülönül a fülek tartalmától.
+   A fejléc-előtag kell: a később álló .co-action (flex: 1, háttér) különben
+   felülírná, és a gomb a teljes maradék szélességre nyúlna. */
+.co-detail-head .co-detail-unlink {
+  flex: 0 0 auto;
+  min-width: 0;
+  border: 1px solid var(--fg-20);
+  background: none;
+}
+
+.co-detail-stats {
+  padding-bottom: var(--sp-8);
+  margin-bottom: var(--sp-8);
+  border-bottom: 1px solid var(--hair);
+}
+
+/* A fülsor a szűrők szegmens-nyelvén; az aktív fület az aria-selected jelzi */
+.co-detail-tabs {
+  margin-bottom: var(--sp-9);
+}
+
+.co-detail-tabs .co-filter[aria-selected='true'] {
+  background: var(--c-accent);
+  color: var(--on-accent);
+}
+
+.co-detail-panel > section + section {
+  margin-top: var(--sp-9);
+}
+
+/* A fülön belül a blokkok maguk állnak — a modálbeli elválasztók nem kellenek */
+.co-detail-panel .co-msg,
+.co-detail-panel .co-assign {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.co-detail-panel .co-msg-feed {
+  max-height: min(60vh, 520px);
+  min-height: 180px;
+}
+
+.co-detail-panel .co-assign-form {
+  max-width: 520px;
+}
+
+.co-detail-panel .co-assign-form button[type='submit'] {
+  align-self: flex-start;
+  min-width: 180px;
+}
+
+@container co-detail (min-width: 600px) {
+  .co-detail-stats {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .co-detail-title {
+    font-size: 28px;
+  }
+}
+
+.co-modal-stat dt {
+  font-size: var(--fs-2xs);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 2px;
+}
+
+.co-modal-stat dd {
+  margin: 0;
+  font-size: var(--fs-base);
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.co-modal-section-title {
+  margin: 0 0 var(--sp-4);
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+}
+
+.co-modal-activity {
+  margin-bottom: var(--sp-8);
+}
+
+.co-modal-activity-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.co-modal-activity-list li + li {
+  border-top: 1px solid var(--hair-soft);
+}
+
+.co-modal-activity-list li {
+  font-size: var(--fs-sm);
+  color: var(--fg-70);
+  padding: var(--sp-4) 0;
+  animation: note-in 0.25s ease backwards;
+  animation-delay: calc(var(--i, 0) * 30ms);
+}
+
+/* ---- Műveletgombok (kiosztás, bontás) ---- */
+.co-action {
+  flex: 1;
+  min-width: 130px;
+  background: var(--surface-panel);
+  border: 0;
+  color: var(--text-secondary);
+  padding: var(--sp-4) var(--sp-5);
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
+  transition:
+    background var(--t-fast),
+    color var(--t-fast);
+}
+
+.co-action:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.co-action:active {
+  transform: translateY(1px);
+}
+
+.co-action--primary {
+  background: var(--c-paper);
+  color: var(--c-ink);
+  border-color: transparent;
+}
+
+.co-action--primary:hover {
+  background: var(--c-paper-bright);
+  color: var(--c-ink);
+}
+
+/* Kapcsolat bontása — visszafordíthatatlan, ezért elkülönül a többitől */
+.co-action--danger {
+  border-color: var(--fg-20);
+  color: var(--text-muted);
+}
+
+.co-action--danger:hover {
+  border-color: var(--c-alert);
+  color: var(--c-alert);
+  background: none;
+}
+
+/* ---- Üzenetváltás (a részletnézet Üzenetek füle) ---- */
+.co-msg {
+  margin-top: var(--sp-7);
+  border-top: 1px solid var(--border-card);
+  padding-top: var(--sp-7);
+}
+
+.co-msg-feed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  max-height: 200px;
+  overflow-y: auto;
+  margin-bottom: var(--sp-5);
+}
+
+.co-msg-feed .co-note {
+  padding: var(--sp-4) var(--sp-5);
+}
+
+/* Célkitűzés a sportoló-részletnézet Táplálkozás fülén. A mezők a Táplálkozás oldal
+   .nu-goal-field primitívjét használják — egy űrlap-recept, két helyen. */
+.co-modal-goal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.co-goal-state {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.co-goal-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-4);
+}
+
+/* Víz-cél és étrend a Táplálkozás fülön: hajszálvonallal elválasztott
+   blokkok. A mezők és a gombok ugyanazt a .nu-goal-* receptet használják,
+   mint a napi cél. */
+.co-water-goal,
+.co-meals {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  margin-top: var(--sp-8);
+  padding-top: var(--sp-7);
+  border-top: 1px solid var(--hair);
+}
+
+/* Másodlagos, körvonalas gomb — a .nu-goal-save méretével, hogy mellette
+   egy vonalban üljön (Automatikus, + Új étkezés, Átveszem napi célnak). */
+.co-ghost-btn {
+  flex-shrink: 0;
+  border: 1px solid var(--hair);
+  padding: var(--sp-3) var(--sp-7);
+  background: none;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    color var(--t-fast),
+    background var(--t-fast),
+    border-color var(--t-fast);
+}
+
+.co-ghost-btn:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+
+.co-ghost-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.co-meals-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
+
+.co-meal-list,
+.co-meal-lines,
+.co-meal-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.co-meal-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+/* Étkezés-kártya — a sportoló oldali .nu-meals kártya-receptje. */
+.co-meal {
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-2xl);
+  padding: var(--sp-5) var(--sp-6);
+}
+
+.co-meal-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.co-meal-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.co-meal-name {
+  font-size: var(--fs-md);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.co-meal-macros {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.co-meal-kcal {
+  flex-shrink: 0;
+  margin-right: var(--sp-2);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.co-meal-eaten {
+  flex-shrink: 0;
+  padding: 2px var(--sp-3);
+  border: 1px solid rgba(74, 210, 149, 0.4); /* --c-ok halványan */
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  color: var(--c-ok);
+  white-space: nowrap;
+}
+
+/* Ikon-gomb a kártya fejében — a .ds-icon-del--box mintája. */
+.co-icon-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color var(--t-fast),
+    background var(--t-fast);
+}
+
+.co-icon-btn svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+.co-icon-btn:hover {
+  color: var(--text-primary);
+  background: var(--surface-hover);
+}
+
+.co-icon-btn--danger:hover {
+  color: var(--c-alert);
+}
+
+/* Tételek: étel | gramm | makrók, számok jobbra igazítva. */
+.co-meal-lines {
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--hair-soft);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.co-meal-lines li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: var(--sp-5);
+}
+
+.co-meal-lines li span:first-child {
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+
+.co-meal-lines li span:not(:first-child) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Összesítő kártya: kcal és fehérje a napi célhoz mérve. */
+.co-meals-total {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  background: var(--surface-soft);
+  border: 1px solid var(--hair);
+  border-radius: var(--r-2xl);
+  padding: var(--sp-6);
+}
+
+.co-meals-total-title {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.co-total-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.co-total-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-4);
+  font-size: var(--fs-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.co-total-label {
+  color: var(--text-muted);
+}
+
+.co-total-value {
+  flex: 1;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+
+.co-total-delta {
+  color: var(--text-muted);
+}
+
+.co-total-delta.is-over {
+  color: var(--c-alert);
+}
+
+/* A .nu-water-track receptje: a cél elérése kap csak akcentust. */
+.co-total-track {
+  height: 6px;
+  background: var(--fg-10);
+  overflow: hidden;
+}
+
+.co-total-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--fg-55);
+  transition:
+    width var(--t-slow),
+    background var(--t-base);
+}
+
+.co-total-track.is-full .co-total-fill {
+  background: var(--c-accent);
+}
+
+.co-meals-total .co-ghost-btn {
+  align-self: flex-end;
+}
+
+.co-meal-form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-4);
+}
+
+.co-meal-form > .nu-goal-field,
+.co-meal-items {
+  width: 100%;
+}
+
+.co-meal-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-4);
+  padding-bottom: var(--sp-4);
+}
+
+.co-meal-food {
+  flex: 3 1 200px;
+}
+
+.co-meal-grams {
+  flex: 1 1 90px;
+}
+
+.co-meal-item-macros {
+  flex: 1 1 160px;
+  align-self: center;
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.co-meal-sum {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+
+.co-meal-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+}
+
+.co-modal-notes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.co-note-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.co-note-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  background: var(--surface-strong);
+  border-radius: var(--r-lg);
+  padding: var(--sp-5);
+}
+
+.co-note-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.co-note-body {
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+.co-note-reply {
+  display: flex;
+  gap: var(--sp-3);
+}
+
+.co-note-reply input {
+  flex: 1;
+  min-width: 0;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-lg);
+  border: 1px solid var(--border-card);
+  background: var(--surface-card);
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-2xs);
+}
+
+.co-note-reply button {
+  border: 0;
+  padding: 0 var(--sp-6);
+  background: var(--c-accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.co-note-reply button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.co-modal-feedback {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  background: var(--surface-strong);
+  border-radius: var(--r-lg);
+  padding: var(--sp-6);
+}
+
+.co-feedback-meta {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.co-feedback-note {
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+}
+
+@keyframes co-detail-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
