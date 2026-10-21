@@ -775,6 +775,121 @@ input.wk-chip:focus-visible {
 }
 
 /* ==========================================================================
+   Saját lenyíló (ds-select) — a natív <select> helyett, az egész appban
+   (public/js/ui/custom-select.js). A natív opciólistát a böngésző/OS rajzolja,
+   és a sötét témában rosszul: Windowson fehér lista, olvashatatlan szöveggel.
+   A gomb a select SAJÁT osztályait örökli (keret, térköz, szélesség), ezért
+   itt csak a belső elrendezés áll; a lista az edzésnapló lenyílóinak nyelvén
+   (.wk-order-menu) szól.
+   ========================================================================== */
+.ds-select {
+  position: relative;
+  min-width: 0;
+}
+
+/* A nyitott lista a testvér-mezők fölé kerül (ugyanaz a gond, mint a
+   gyakorlat-kártyáknál: egy transform-os szülő saját stacking contextet nyit). */
+.ds-select:has(.ds-select-menu:not([hidden])) {
+  z-index: var(--z-popover);
+}
+
+/* A natív select a helyén marad (címke, űrlap, érték), de nem látszik és nem
+   kattintható — a fókuszát a JS a gombra tereli. */
+.ds-select-native {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ds-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  min-height: var(--tap-min);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ds-select-trigger:hover:not(:disabled),
+.ds-select-trigger[aria-expanded='true'] {
+  border-color: var(--fg-40);
+}
+
+.ds-select-trigger:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.ds-select-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ds-select-trigger.is-placeholder .ds-select-value {
+  color: var(--text-muted);
+}
+
+.ds-select-chevron {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  color: var(--text-muted);
+  transition: transform var(--t-fast);
+}
+
+.ds-select-trigger[aria-expanded='true'] .ds-select-chevron {
+  transform: rotate(180deg);
+  color: var(--text-primary);
+}
+
+.ds-select-menu {
+  top: calc(100% + var(--sp-2));
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  margin: 0;
+  list-style: none;
+  outline: none;
+}
+
+.ds-select-option {
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-xs);
+  font-size: var(--fs-sm);
+  color: var(--fg-70);
+  cursor: pointer;
+  transition:
+    background var(--t-fast),
+    color var(--t-fast);
+}
+
+.ds-select-option.is-active {
+  background: var(--fg-10);
+  color: var(--fg-100);
+}
+
+.ds-select-option[aria-selected='true'] {
+  background: var(--c-accent);
+  color: var(--on-accent);
+}
+
+.ds-select-option[aria-disabled='true'] {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* ==========================================================================
    3. Akadálymentességi segédosztályok
    ========================================================================== */
 .sr-only {
@@ -1014,4 +1129,18 @@ input.wk-chip:focus-visible {
   font-size: var(--fs-2xs);
   color: var(--text-muted);
   text-align: right;
+}
+
+/* ---- Adat-animációk: a diagramok, a gyűrű és a folyamatjelzők
+       minden oldalmegjelenéskor „beúsznak” ---- */
+.chart-bars span {
+  transform-origin: bottom;
+  animation: bar-in 0.45s ease backwards;
+  animation-delay: calc(var(--i, 0) * 22ms); /* --i-t a script.js állítja be */
+}
+
+@keyframes bar-in {
+  from {
+    transform: scaleY(0);
+  }
 }

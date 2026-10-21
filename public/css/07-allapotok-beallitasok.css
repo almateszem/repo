@@ -4,20 +4,6 @@
    16. Demo polish — mikro-animációk, értesítés-panel, állapotok
    ========================================================================== */
 
-/* ---- Adat-animációk: a diagramok, a gyűrű és a folyamatjelzők
-       minden oldalmegjelenéskor „beúsznak” ---- */
-.chart-bars span {
-  transform-origin: bottom;
-  animation: bar-in 0.45s ease backwards;
-  animation-delay: calc(var(--i, 0) * 22ms); /* --i-t a script.js állítja be */
-}
-
-@keyframes bar-in {
-  from {
-    transform: scaleY(0);
-  }
-}
-
 /* ---- Kártya-hoverek (csak hoverképes eszközön, hogy touch-on ne ragadjon be) ----
    A .wk-exercise és a .nu-food kikerült innen: mióta nem kártyák, egyik fele
    sem működik rajtuk. A `border-color` néma módon hatástalan — a sort elválasztó
