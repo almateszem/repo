@@ -986,7 +986,6 @@ a.pf-action {
 }
 
 .cf-save-log {
-  border: none;
   background: var(--c-accent);
   color: var(--on-accent);
 }

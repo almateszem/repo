@@ -630,28 +630,6 @@ input.wk-chip:focus-visible {
   }
 }
 
-.ds-cta-text {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--sp-2);
-  min-width: 0;
-}
-
-.ds-cta-sub {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: var(--ls-label-tight);
-  opacity: 0.72;
-  max-width: 100%;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
 /* Léptető: −/+ egy soron belül. A 44px a --tap-min, nem véletlen szám. */
 .ds-step {
   display: flex;
