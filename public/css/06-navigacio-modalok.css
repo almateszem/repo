@@ -456,6 +456,38 @@ body:is([data-page='checkin'], [data-page='plan-builder'], [data-page='exercise-
   }
 }
 
+/* ---- Toast változatok ---- */
+.toast--error {
+  border-color: var(--c-alert);
+  color: var(--c-alert);
+}
+
+/* ---- Modal finom zárás ---- */
+.modal.is-closing {
+  display: flex;
+}
+
+.modal.is-closing .modal-card {
+  animation: modal-out 0.18s ease both;
+}
+
+.modal.is-closing .modal-backdrop {
+  animation: fade-out 0.18s ease both;
+}
+
+@keyframes modal-out {
+  to {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+
+@keyframes fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
 /* ==========================================================================
    15. Breakpointok
    ========================================================================== */
