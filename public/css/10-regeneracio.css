@@ -1149,3 +1149,148 @@ details[open] > .rc-details-summary::before {
   font-weight: 500;
   color: var(--text-faint);
 }
+
+/* ==========================================================================
+   Regeneráció — testsúly-grafikon, testmérés-űrlap és -lista, súlynapló (a 07-ből és a 11-ből ide gyűjtve)
+   ========================================================================== */
+
+/* ---- Testsúly trend (Regeneráció oldal) ----
+   A rögzítő űrlap megszűnt: a napi testsúlyt a check-in kérdi, ez a kártya
+   csak a trendet és az utolsó mérést mutatja. */
+/* A kártya flex-gapje adja a térközöket, ezért a chart alap margója itt nem
+   kell (.chart { margin-bottom }). */
+.rc-weight-chart {
+  margin: 0;
+}
+
+/* A testsúly-diagram annyi oszlopot rajzol, ahány mérés van (legfeljebb 12).
+   A rugalmas oszlopok az első pár mérésnél az egész sávot kitöltenék — egy
+   ekkora tömb már nem oszlopdiagram. A maximum szélesség megtartja az oszlop-
+   formát, és a hézag magától mutatja, hogy még kevés mérés van. */
+.rc-weight-chart .chart-bars span {
+  max-width: 40px;
+}
+
+.rc-weight-last {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* Mire épül a gyakorlat-ajánlás — csak a bemondott felmérésnél látszik. */
+.rc-lift-basis {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin-top: var(--sp-2);
+}
+
+/* ---- Testösszetétel (rc-body-*) ---- */
+.rc-body-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+.rc-body-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+  gap: var(--sp-4);
+}
+
+.rc-body-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.rc-body-field label {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.rc-body-save {
+  align-self: flex-start;
+  border: 0;
+  padding: var(--sp-3) var(--sp-8);
+  background: var(--c-accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rc-body-save:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.rc-body-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  list-style: none;
+  margin-top: var(--sp-5);
+}
+
+.rc-body-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-4);
+  font-size: var(--fs-2xs);
+}
+
+.rc-body-row-label {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.rc-body-row-value {
+  font-weight: 600;
+}
+
+.rc-body-row-delta {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Testsúly-bejegyzések javítása (rc-weight-list) ---- */
+.rc-weight-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  list-style: none;
+  margin-top: var(--sp-4);
+}
+
+.rc-weight-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  font-size: var(--fs-2xs);
+}
+
+.rc-weight-date {
+  color: var(--text-muted);
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.rc-weight-input {
+  width: 72px;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  border: 1px solid var(--border-card);
+  background: var(--surface-strong);
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  text-align: right;
+}
+
+.rc-weight-input:focus-visible {
+  outline: 2px solid var(--c-accent);
+  outline-offset: 1px;
+}

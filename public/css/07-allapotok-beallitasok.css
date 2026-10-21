@@ -352,30 +352,3 @@
 .notif-item--seen .notif-dot {
   background: var(--fg-30);
 }
-
-/* ==========================================================================
-   18. Analitika — testsúly trend, heti összehasonlítás, PR lista
-   ========================================================================== */
-
-/* ---- Testsúly trend (Regeneráció oldal) ----
-   A rögzítő űrlap megszűnt: a napi testsúlyt a check-in kérdi, ez a kártya
-   csak a trendet és az utolsó mérést mutatja. */
-/* A kártya flex-gapje adja a térközöket, ezért a chart alap margója itt nem
-   kell (.chart { margin-bottom }). */
-.rc-weight-chart {
-  margin: 0;
-}
-
-/* A testsúly-diagram annyi oszlopot rajzol, ahány mérés van (legfeljebb 12).
-   A rugalmas oszlopok az első pár mérésnél az egész sávot kitöltenék — egy
-   ekkora tömb már nem oszlopdiagram. A maximum szélesség megtartja az oszlop-
-   formát, és a hézag magától mutatja, hogy még kevés mérés van. */
-.rc-weight-chart .chart-bars span {
-  max-width: 40px;
-}
-
-.rc-weight-last {
-  font-size: var(--fs-sm);
-  color: var(--text-muted);
-  margin: 0;
-}
