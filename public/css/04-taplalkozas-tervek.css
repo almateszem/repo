@@ -676,3 +676,337 @@
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+
+/* ==========================================================================
+   Táplálkozás és Tervek — víz, napi cél, étkezések, naplósor-műveletek, terv-biztonság, desktop-rács (a 06-ból, a 07-ből és a 11-ből ide gyűjtve)
+   ========================================================================== */
+
+@media (min-width: 1280px) {
+  .pg-wide .pl-list {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: clamp(40px, 4vw, 80px);
+    align-items: start;
+  }
+
+  /* A sorok közti vonalat a .ds-row + .ds-row adja; rácsban a második elem az
+     első sorba kerül, annak nincs mit elválasztania. */
+  .pg-wide .pl-list > li:nth-child(2) {
+    border-top: 0;
+  }
+}
+
+.pl-progress-fill {
+  transform-origin: left;
+  animation: grow-x 0.7s ease 0.15s backwards;
+}
+
+/* A napló-adag beépített szerkesztője (a ház nem használ natív ablakot). */
+.nu-log-grams {
+  width: 84px;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  border: 1px solid var(--c-accent);
+  background: var(--surface-strong);
+  color: var(--fg-100);
+  font: inherit;
+  font-size: var(--fs-2xs);
+}
+
+/* Terv törlése (.ds-icon-del--inline, tágabb margóval) és naplóadag-javítás
+   — a meglévő ikongombok testvérei. */
+.pl-card-delete {
+  padding: var(--sp-3);
+}
+
+.nu-log-edit {
+  border: 0;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+}
+
+.nu-log-edit:hover {
+  color: var(--text-primary);
+}
+
+.nu-water {
+  margin-bottom: var(--sp-9);
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-2xl);
+  padding: var(--sp-6) var(--sp-7);
+}
+
+.nu-water-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+
+.nu-water-title {
+  margin: 0;
+  font-size: var(--fs-base);
+  font-weight: 700;
+}
+
+.nu-water-goal {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  text-transform: uppercase;
+  letter-spacing: var(--ls-label-tight);
+  color: var(--text-muted);
+}
+
+.nu-water-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-5);
+  margin-bottom: var(--sp-5);
+}
+
+.nu-water-value {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  font-size: var(--fs-5xl);
+  font-weight: 800;
+  letter-spacing: var(--ls-display);
+  font-variant-numeric: tabular-nums;
+}
+
+.nu-water-unit {
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: var(--ls-label);
+  color: var(--text-muted);
+}
+
+.nu-water-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  flex-shrink: 0;
+}
+
+.nu-water-add {
+  border: 1px solid var(--c-accent);
+  border-radius: var(--r-md);
+  background: var(--c-accent);
+  color: var(--on-accent);
+  padding: var(--sp-4) var(--sp-7);
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: opacity var(--t-fast);
+}
+
+.nu-water-add:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* A visszavonás szándékosan halkabb: a gyakori művelet a hozzáadás. */
+.nu-water-undo {
+  border: none;
+  background: none;
+  padding: var(--sp-3);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition: color var(--t-fast);
+}
+
+.nu-water-undo:hover {
+  color: var(--text-primary);
+}
+
+.nu-water-track {
+  height: 6px;
+  background: var(--fg-10);
+  overflow: hidden;
+}
+
+.nu-water-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--fg-55);
+  transition:
+    width var(--t-slow),
+    background var(--t-base);
+}
+
+/* A cél elérése az EGYETLEN hely, ahol a sáv akcentust kap — így a kiemelés
+   valamit jelent, nem csak díszít. */
+.nu-water-track.is-full .nu-water-fill {
+  background: var(--c-accent);
+}
+
+.nu-goal {
+  margin-bottom: var(--sp-9);
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-2xl);
+  padding: var(--sp-6) var(--sp-7);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+/* Az edződ étrendje — ugyanaz a kártya-recept, mint a napi célé. */
+.nu-meals {
+  margin-bottom: var(--sp-9);
+  background: var(--surface-card);
+  border: 1px solid var(--border-card);
+  border-radius: var(--r-2xl);
+  padding: var(--sp-6) var(--sp-7);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.nu-meal-list,
+.nu-meal-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.nu-meal {
+  padding: var(--sp-4) 0;
+  border-top: 1px solid var(--hair);
+}
+
+.nu-meal-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+}
+
+.nu-meal-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.nu-meal-name {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+
+.nu-meal-macros,
+.nu-meal-items {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.nu-meal-kcal {
+  flex-shrink: 0;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.nu-meal-items {
+  margin-top: var(--sp-2);
+  line-height: 1.6;
+}
+
+.nu-goal-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
+
+.nu-goal-title {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+}
+
+.nu-goal-edit,
+.nu-goal-revert {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.nu-goal-value {
+  font-size: var(--fs-lg);
+  font-weight: 700;
+}
+
+.nu-goal-source {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.nu-goal-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--sp-4);
+  margin-top: var(--sp-2);
+}
+
+.nu-goal-field label {
+  font-size: var(--fs-2xs);
+  color: var(--text-muted);
+}
+
+.nu-goal-save {
+  border: 0;
+  padding: var(--sp-3) var(--sp-7);
+  background: var(--c-accent);
+  color: var(--on-accent);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.nu-goal-save:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.pl-card-safety {
+  display: block;
+  margin-top: var(--sp-2);
+  font-size: var(--fs-2xs);
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.pl-card-safety.is-blocked {
+  color: var(--c-alert);
+  font-weight: 600;
+}
+
+@keyframes grow-x {
+  from {
+    transform: scaleX(0);
+  }
+}

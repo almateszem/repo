@@ -692,19 +692,6 @@ body:is([data-page='checkin'], [data-page='plan-builder'], [data-page='exercise-
     max-width: 1280px;
   }
 
-  .pg-wide .pl-list {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: clamp(40px, 4vw, 80px);
-    align-items: start;
-  }
-
-  /* A sorok közti vonalat a .ds-row + .ds-row adja; rácsban a második elem az
-     első sorba kerül, annak nincs mit elválasztania. */
-  .pg-wide .pl-list > li:nth-child(2) {
-    border-top: 0;
-  }
-
   /* A bal oszlop (~520px) a négy összesítőt egy sorban nem bírja: a hosszú
      feliratok („Teljesített munkasorozat") kilógnának, ezért 2×2. */
   .pf-page .pf-stat-grid {

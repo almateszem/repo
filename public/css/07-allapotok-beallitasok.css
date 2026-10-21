@@ -18,17 +18,6 @@
   }
 }
 
-.pl-progress-fill {
-  transform-origin: left;
-  animation: grow-x 0.7s ease 0.15s backwards;
-}
-
-@keyframes grow-x {
-  from {
-    transform: scaleX(0);
-  }
-}
-
 /* ---- Kártya-hoverek (csak hoverképes eszközön, hogy touch-on ne ragadjon be) ----
    A .wk-exercise és a .nu-food kikerült innen: mióta nem kártyák, egyik fele
    sem működik rajtuk. A `border-color` néma módon hatástalan — a sort elválasztó
