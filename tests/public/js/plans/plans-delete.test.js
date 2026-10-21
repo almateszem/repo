@@ -25,7 +25,7 @@ globalThis.fetch = async (url, init = {}) => {
   return Response.json({ error: 'A szerver most nem érhető el.' }, { status: 503 });
 };
 
-const { setupPlans } = await import('../../../../public/js/ui/plans.js');
+const { setupPlans } = await import('../../../../public/js/plans/plans.js');
 setupPlans(null, null, async () => true);
 
 test('terv törlése: a frissítés hibája nem íráshiba, a kártya kikerül, a gomb tiltva marad', async () => {

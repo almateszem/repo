@@ -9,7 +9,7 @@ import { showToast } from '../shared/toast.js';
 import { animateCoachRatings, refreshNavRing } from '../app/router.js';
 import { renderAthleteList, renderCoachPanel } from '../render/coach.js';
 import { athleteTier, renderStatList } from '../render/coach-shared.js';
-import { renderPlans } from './plans-data.js';
+import { renderPlans } from '../plans/plans.js';
 import { createChatController } from './chat.js';
 import { exerciseNoteRow } from './exercise-notes.js';
 import { setupClientView } from './coach-client.js';

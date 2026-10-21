@@ -10,7 +10,6 @@ import { setupNavRing } from './navring.js';
 import { dirToPage, navigate, onPageShow, setOnboardingLock, setupRouter } from './router.js';
 import { renderChromeDate } from '../render/dashboard.js';
 import { renderCharts, renderDashboard, renderUserName } from '../ui/dashboard-data.js';
-import { renderPlans } from '../ui/plans-data.js';
 import { renderPrs, renderWorkout } from '../ui/workout/history.js';
 import { setupCheckinWizard } from '../ui/checkin/wizard.js';
 import { setupChromeHeight, setupConnectivity, setupShortcuts } from './shell.js';
@@ -31,8 +30,8 @@ import {
 import { setupNotifications } from './notifications.js';
 import { setupNutrition } from '../ui/nutrition.js';
 import { setupWaterMeter } from '../ui/water.js';
-import { setupPlanBuilder } from '../ui/plan-builder.js';
-import { setupPlans } from '../ui/plans.js';
+import { setupPlanBuilder } from '../plans/plan-builder.js';
+import { renderPlans, setupPlans } from '../plans/plans.js';
 import { setupProfile } from '../ui/profile.js';
 import { setupRecovery } from '../ui/recovery.js';
 import { setupScanner } from '../ui/scanner.js';

@@ -6,7 +6,7 @@ import { copyExercises, inlineSameDays } from '../shared/plan-sources.js';
 import { dayAdjective, dayLetter, dayRound, dayTitle } from '../shared/plan-week.js';
 import { showToast } from '../shared/toast.js';
 import { navigate } from '../app/router.js';
-import { renderPlans } from './plans-data.js';
+import { renderPlans } from './plans.js';
 import { readSetRow, renderExercise } from '../render/sets.js';
 import {
   clampRpeInput,
@@ -15,7 +15,7 @@ import {
   enableSetTypeSelect,
   handleAddSetClick,
   handleRemoveSetClick,
-} from './workout/set-controls.js';
+} from '../ui/workout/set-controls.js';
 import { handleStepClick } from '../shared/stepper.js';
 
 /** A terv hosszának határai (napban) — a szerver (server/plan-week.js) is
