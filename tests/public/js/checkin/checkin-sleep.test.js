@@ -6,8 +6,8 @@ import test from 'node:test';
 import { elementFor, installFakeDom } from '../fake-dom.js';
 
 installFakeDom();
-const { renderSleep } = await import('../../../../public/js/ui/checkin/steps/sleep.js');
-const { ci } = await import('../../../../public/js/ui/checkin/session.js');
+const { renderSleep } = await import('../../../../public/js/checkin/steps-input.js');
+const { ci } = await import('../../../../public/js/checkin/session.js');
 
 const nav = { cancelAdvance() {}, goNext() {}, advanceSoon() {} };
 

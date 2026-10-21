@@ -2,30 +2,39 @@
  * A napi check-in varázsló.
  *
  * Ez a modul a VÁZ: a lépések sorrendje, a fejléc, a mentés és a betöltés.
- * Maguk a lépések a steps/ alatt élnek, egy-egy fájlban — mindegyik egy DOM-
- * csomópontot ad vissza, és a navigációt egyetlen `nav` objektumon át éri el.
+ * Maguk a lépések a steps.js-ben (választós lépések) és a steps-input.js-ben
+ * (alvás, testsúly) élnek — mindegyik renderelő egy DOM-csomópontot ad
+ * vissza, és a navigációt egyetlen `nav` objektumon át éri el.
  * Így a lépés nem ismeri a varázsló belsejét, a varázsló pedig nem ismeri a
  * lépések markupját.
  */
 
-import { api } from '../../shared/api.js';
-import { onDayChange } from '../../shared/day.js';
-import { $, prefersReducedMotion } from '../../shared/dom.js';
-import { hooks, shared } from '../../shared/page-hooks.js';
-import { showToast } from '../../shared/toast.js';
-import { onPageShow, setOnboardingLock } from '../../app/router.js';
-import { renderDashboard } from '../../dashboard/dashboard.js';
-import { handleStepClick } from '../../shared/stepper.js';
-import { ciPickPositive } from './helpers.js';
-import { ci, ciCountedSteps, ciStepOrder, clearSession, resetSession } from './session.js';
-import { mergeWeightEntry, refreshWeightLog, todayWeightEntry } from '../../recovery/weight.js';
-import { renderIntro } from './steps/intro.js';
-import { renderSleep } from './steps/sleep.js';
-import { renderScale } from './steps/scale.js';
-import { renderWeight } from './steps/weight.js';
-import { renderGate } from './steps/gate.js';
-import { renderMap } from './steps/map.js';
-import { renderReadiness, renderSummary } from './steps/summary.js';
+import { api } from '../shared/api.js';
+import { onDayChange } from '../shared/day.js';
+import { $, prefersReducedMotion } from '../shared/dom.js';
+import { hooks, shared } from '../shared/page-hooks.js';
+import { showToast } from '../shared/toast.js';
+import { onPageShow, setOnboardingLock } from '../app/router.js';
+import { renderDashboard } from '../dashboard/dashboard.js';
+import { handleStepClick } from '../shared/stepper.js';
+import {
+  ci,
+  ciCountedSteps,
+  ciPickPositive,
+  ciStepOrder,
+  clearSession,
+  resetSession,
+} from './session.js';
+import { mergeWeightEntry, refreshWeightLog, todayWeightEntry } from '../recovery/weight.js';
+import {
+  renderGate,
+  renderIntro,
+  renderMap,
+  renderReadiness,
+  renderScale,
+  renderSummary,
+} from './steps.js';
+import { renderSleep, renderWeight } from './steps-input.js';
 
 async function setupCheckinWizard() {
   const page = $('.app-page[data-page="checkin"]');
@@ -112,7 +121,7 @@ async function setupCheckinWizard() {
      végigfűzni rajtuk. */
   const nav = { goNext, goBack, setStep, renderStep, advanceSoon, cancelAdvance, submit };
 
-  /** Lépésnév → renderelő. A renderelők a steps/ alatt élnek. */
+  /** Lépésnév → renderelő. A renderelők a steps.js-ben és a steps-input.js-ben élnek. */
   const RENDERERS = {
     intro: () => renderIntro(nav),
     sleep: () => renderSleep(nav),

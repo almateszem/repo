@@ -40,7 +40,7 @@ export const MUSCLE_KEYS = Object.keys(MUSCLE_GROUPS);
 /** 7/10 vagy afölötti fájdalom = tiltás: a csoport készenléte sapkát kap, az
     ajánlások és a tervek kihagyják, az összesített készenlét is korlátozott.
     Egy helyen kell igaznak lennie. A kliens párja: CI_PAIN_BLOCK
-    (public/js/ui/checkin/constants.js). */
+    (public/js/checkin/session.js). */
 export const PAIN_BLOCK = 7;
 
 /** Regenerációs időállandó (nap) izomcsoportonként — a csillapítási görbe

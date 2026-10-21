@@ -12,8 +12,7 @@ import { MOOD_SCALE, renderMuscleMapView, renderRecovery } from './recovery-view
 import { CHECKIN_SCALES, buildScale, readScale, writeScale } from '../shared/readiness.js';
 import { handleStepClick } from '../shared/stepper.js';
 import { createBodyMap } from './bodymap.js';
-import { CI_MAP_MODES, CI_PAIN_BLOCK } from '../ui/checkin/constants.js';
-import { ciMuscleLabel } from '../ui/checkin/helpers.js';
+import { CI_MAP_MODES, CI_PAIN_BLOCK, ciMuscleLabel } from '../checkin/session.js';
 import { refreshMeasurements, renderMeasurements, setMeasurements } from './measurements.js';
 import { mergeWeightEntry, refreshWeightLog, todayWeightEntry } from './weight.js';
 

@@ -848,7 +848,7 @@ body[data-onboarding] .app-page.ci-page {
 }
 
 /* .ds-grid-ként viselkedik (osztály fel van téve rá); a gomb maga JS-
-   generált (weight.js/sleep.js), ezért a gyerek saját szabállyal, nem
+   generált (checkin/steps-input.js), ezért a gyerek saját szabállyal, nem
    osztállyal követi a receptet — lásd .ci-preset lent. */
 .ci-presets {
   /* A sáv csak a gombok szélességéig tart, középre igazítva. Teljes
@@ -890,7 +890,7 @@ body[data-onboarding] .app-page.ci-page {
 
 /* A .ci-scale osztály maga a .ds-seg-et kapja (a sablonban) — itt nincs
    is rá szükség saját szabályra, a primitíva önmagában adja a hajszál-
-   vonalas hátteret. A gomb JS-generált (scale.js), saját szabállyal. */
+   vonalas hátteret. A gomb JS-generált (checkin/steps.js), saját szabállyal. */
 
 .ci-scale-btn {
   flex: 1;
@@ -929,7 +929,7 @@ body[data-onboarding] .app-page.ci-page {
 }
 
 /* ---- Kapuk: keret nélküli, hajszálvonallal elválasztott sorok a korábbi
-   két nagy választókártya helyett (a gomb JS-generált, gate.js). ---- */
+   két nagy választókártya helyett (a gomb JS-generált, checkin/steps.js). ---- */
 
 .ci-gates {
   gap: 0;
@@ -976,7 +976,7 @@ body[data-onboarding] .app-page.ci-page {
   font-weight: 800;
 }
 
-/* Mono, nagybetűs alcím — a .ds-row-sub receptje, de a gombot a gate.js
+/* Mono, nagybetűs alcím — a .ds-row-sub receptje, de a gombot a checkin/steps.js
    generálja, ezért osztály helyett közvetlenül itt írva. */
 .ci-gate-sub {
   font-family: var(--font-mono);

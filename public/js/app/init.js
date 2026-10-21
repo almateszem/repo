@@ -16,7 +16,7 @@ import {
   setupDashboard,
 } from '../dashboard/dashboard.js';
 import { renderPrs, renderWorkout } from '../ui/workout/history.js';
-import { setupCheckinWizard } from '../ui/checkin/wizard.js';
+import { setupCheckinWizard } from '../checkin/wizard.js';
 import { setupChromeHeight, setupConnectivity, setupShortcuts } from './shell.js';
 import { setupAthleteDetail, setupCoachPage } from '../ui/coach.js';
 import { setupCustomFood } from '../ui/custom-food.js';
