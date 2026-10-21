@@ -20,7 +20,7 @@ async function setupExercisePicker(confirmAction) {
     api.getDefaultSet(),
     api.getDefaultCardioSet(),
   ]);
-  const pickerPage = $('[data-page="exercise-picker"]');
+  const pickerPage = $('.app-page[data-page="exercise-picker"]');
   const list = $('[data-list="picker-catalog"]');
   const chipWrap = $('[data-list="picker-chips"]');
   const searchInput = $('#exercise-search');

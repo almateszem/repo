@@ -28,7 +28,7 @@ import { renderMap } from './steps/map.js';
 import { renderReadiness, renderSummary } from './steps/summary.js';
 
 async function setupCheckinWizard() {
-  const page = $('[data-page="checkin"]');
+  const page = $('.app-page[data-page="checkin"]');
   if (!page) return;
 
   const head = $('[data-ci-head]', page);

@@ -39,7 +39,7 @@ const freshDays = () =>
     hoz létre vagy a szerkesztettet írja felül, majd frissíti a Tervek listáját.
     Vezérlőt ad vissza: { startNew, loadPlan }. */
 async function setupPlanBuilder(picker, workoutPicker, confirmAction) {
-  const page = $('[data-page="plan-builder"]');
+  const page = $('.app-page[data-page="plan-builder"]');
   const nameInput = $('#plan-name');
   const nameError = $('#plan-name-error');
   const summaryLine = $('[data-pb-summary]');

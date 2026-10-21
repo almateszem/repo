@@ -41,7 +41,7 @@ export let lastSummary = null;
 /** Az edzésnapló pillanatnyi állapotának összegzése (a lezáráskor és a
     mély-linkkel megnyitott összegzőnél is ez számol). */
 export function summarizeWorkout() {
-  const workoutPage = $('[data-page="workout"]');
+  const workoutPage = $('.app-page[data-page="workout"]');
   const checks = $$('.wk-set-list .wk-set-check', workoutPage);
   const done = checks.filter((check) => check.getAttribute('aria-pressed') === 'true').length;
   return {

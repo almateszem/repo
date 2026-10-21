@@ -21,7 +21,7 @@ import { mergeWeightEntry, refreshWeightLog, todayWeightEntry } from './weight.j
     készenléti riport kirajzolása. A számítás teljes egészében a szerveren
     (server/recovery.js) fut — a kliens csak beküld és megjelenít. */
 async function setupRecovery() {
-  const page = $('[data-page="recovery"]');
+  const page = $('.app-page[data-page="recovery"]');
   /* Testösszetétel-mérés mentése. Az üresen hagyott mező NEM törlés, csak
      „most nem mértem" — a szerver is így kezeli. */
   const bodyForm = $('[data-form="measurements"]', page);

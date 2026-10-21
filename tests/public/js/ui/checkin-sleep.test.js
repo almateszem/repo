@@ -22,6 +22,22 @@ test('alvás-lépés: a kiürített mező → sleepHours null, nem 0', () => {
   assert.equal(ci.answers.sleepHours, null, 'továbblépéskor is');
 });
 
+test('alvás-lépés: a ± kattintást nem a lépés lépteti, csak a továbblépést állítja le', () => {
+  // A léptetés a varázsló delegált kezelőjéé (wizard.js) — ha a lépés is
+  // léptetne, egy kattintás kettőt lépne (7,5 → 8,5 a 0,5-ös lépésköz helyett).
+  let cancelled = 0;
+  renderSleep({ ...nav, cancelAdvance: () => cancelled++ });
+  const stepInput = elementFor('.wk-num-input');
+  Object.assign(stepInput, { value: '7.5', step: '0.5', min: '0', max: '24' });
+  stepInput.dispatchEvent = () => true;
+  const stepBtn = { dataset: { dir: '1' }, parentElement: elementFor('.wk-num') };
+  const target = { closest: (selector) => (selector === '.wk-num-step' ? stepBtn : null) };
+
+  elementFor('#tpl-ci-sleep').dispatch('click', { target });
+  assert.equal(stepInput.value, '7.5', 'a lépés nem léptetett');
+  assert.ok(cancelled > 0, 'az automatikus továbblépés leállt');
+});
+
 test('alvás-lépés: a beírt érték megmarad, a tartományon kívüli levágva', () => {
   renderSleep(nav);
   const input = elementFor('#ci-sleep');

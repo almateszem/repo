@@ -22,7 +22,7 @@ const DETAIL_TABS = ['overview', 'nutrition', 'plan', 'messages'];
     üzenetváltás és a kapcsolat bontása — belső fülekre bontva. Az `onUnlink`
     az Edző oldalt frissíti, miután a sportoló lekerült a panelről. */
 function setupAthleteDetail({ confirmAction, onUnlink, onRead, onAssign } = {}) {
-  const page = $('[data-page="coach"]');
+  const page = $('.app-page[data-page="coach"]');
   const managerView = $('[data-view="manager"]', page);
   const root = $('[data-athlete-detail]', page);
   const listEl = $('.co-list', managerView);
@@ -410,7 +410,7 @@ function setupAthleteDetail({ confirmAction, onUnlink, onRead, onAssign } = {}) 
    a felhasználó választását a prefs megjegyzi. */
 
 async function setupCoachPage(athleteDetail, confirmAction) {
-  const page = $('[data-page="coach"]');
+  const page = $('.app-page[data-page="coach"]');
   const toggle = $('[data-coach-toggle]', page);
   const views = {
     client: $('[data-view="client"]', page),

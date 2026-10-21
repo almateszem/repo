@@ -13,7 +13,7 @@ import { navigate } from '../app/router.js';
     látsszon). Választáskor nem üres napnál rákérdez, aztán az `onPick`
     cserél, és visszavisz a terv-építőbe. */
 function setupWorkoutPicker(confirmAction) {
-  const page = $('[data-page="workout-picker"]');
+  const page = $('.app-page[data-page="workout-picker"]');
   const subtitleEl = $('[data-wp-subtitle]', page);
   const searchInput = $('#workout-search');
   const planBlock = $('[data-wp-plan]', page);

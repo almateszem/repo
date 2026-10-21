@@ -31,7 +31,7 @@ import { bindHistoryActions } from './workout/history.js';
 import { createPlanUndo } from './workout/plan-undo.js';
 
 async function setupWorkout(videoModal, prModal, picker, confirmAction) {
-  const page = $('[data-page="workout"]');
+  const page = $('.app-page[data-page="workout"]');
   const titleInput = $('#workout-name');
   const titleError = $('#workout-name-error');
   const list = $('[data-list="exercises"]', page);

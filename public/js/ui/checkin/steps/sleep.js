@@ -2,7 +2,6 @@
 
 import { $, $$, cloneTemplate, readNumberInput } from '../../../shared/dom.js';
 import { formatNumber } from '../../../shared/format.js';
-import { handleStepClick } from '../../../shared/stepper.js';
 import {
   CI_PRESET_ADVANCE_MS,
   CI_SLEEP_MAX,
@@ -26,13 +25,13 @@ function renderSleep(nav) {
     });
   };
 
-  // A ± gombokat a megosztott handleStepClick lépteti (min/max/step onnan
-  // jön). A varázsló lépései cserélődnek, ezért a hívás ide kerül: a lapon
-  // nincs olyan delegált kezelő, ami elvégezné. A léptetés `input`
-  // eseményt vált ki, az alábbi listener menti és szinkronizálja a
-  // preseteket — itt már csak az automatikus továbblépést kell leállítani.
+  // A ± gombokat a varázsló delegált kezelője lépteti (wizard.js →
+  // handleStepClick) — ha itt is léptetnénk, egy kattintás kettőt lépne. A
+  // léptetés `input` eseményt vált ki, az alábbi listener menti és
+  // szinkronizálja a preseteket — itt csak az automatikus továbblépést kell
+  // leállítani (a testsúly-lépéssel azonos minta).
   step.addEventListener('click', (event) => {
-    if (!handleStepClick(event)) return;
+    if (!event.target.closest('.wk-num-step')) return;
     nav.cancelAdvance();
   });
   input.addEventListener('input', () => {

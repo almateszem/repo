@@ -43,7 +43,7 @@ function onPageShow(name, fn, { catchUp = true } = {}) {
 
 /** A sportoló-sorok pontszámainak felpörgetése (oldal- és nézetváltáskor). */
 function animateCoachRatings() {
-  $$('[data-page="coach"] .co-score-num').forEach((el) => {
+  $$('.app-page[data-page="coach"] .co-score-num').forEach((el) => {
     // Az értékelés egész pontszám — a tizedesek csak zajt vinnének a kártyákra.
     animateNumber(el, Number(el.dataset.rating) || 0, {
       from: 0,

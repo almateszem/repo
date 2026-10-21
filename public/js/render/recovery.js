@@ -316,7 +316,7 @@ function renderMuscleMapView(muscles, view) {
 
 /** A készenléti riport kirajzolása. A `report` a GET /api/readiness válasza. */
 function renderRecovery(report) {
-  const page = $('[data-page="recovery"]');
+  const page = $('.app-page[data-page="recovery"]');
   if (!page || !report) return;
   page.rcReport = report;
 

@@ -81,7 +81,7 @@ const MISSING_TEXT = {
 };
 
 async function setupProfile() {
-  const page = $('[data-page="profile"]');
+  const page = $('.app-page[data-page="profile"]');
   const factList = $('.pf-fact-list', page);
   const emptyEl = $('[data-pf-empty]', page);
 
