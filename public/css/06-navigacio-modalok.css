@@ -524,18 +524,6 @@ body:is([data-page='checkin'], [data-page='plan-builder'], [data-page='exercise-
     border-right: 1px solid var(--hair);
   }
 
-  /* Az értesítés-panel itt FELFELÉ nyílik: a sáv a képernyő alján ül, lefelé
-     nem férne el. Balra igazítva, mert a jobb széle a tartalom fölé lógna.
-     A szelektor szándékosan `.app-chrome .notif-panel`: a lenti alapszabály
-     később áll a fájlban, azonos specificitással felülírná ezt a blokkot —
-     a panel így a képernyő alá került. */
-  .app-chrome .notif-panel {
-    top: auto;
-    bottom: calc(100% + var(--sp-3));
-    right: auto;
-    left: var(--sp-5);
-  }
-
   /* A márkajel mono nagybetűs, erős ritkítással — a belépő .ds-eyebrow
      márkajelének nagyobb testvére. A .22em-hez nincs token: a fájl minden
      letter-spacingje nyers érték ezen a szinten, és ez az egyetlen hely, ahol

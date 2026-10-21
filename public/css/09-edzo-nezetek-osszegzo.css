@@ -355,13 +355,6 @@
   box-shadow: inset 3px 0 0 var(--c-accent);
 }
 
-/* ---- Beállítások: a szekciók magyarázó sora ---- */
-.st-section-hint {
-  margin: var(--sp-3) 0 0;
-  font-size: var(--fs-xs);
-  color: var(--text-faint);
-}
-
 /* ==========================================================================
    30. Edző oldal — sportolói nézet (co-client-*)
    ==========================================================================
