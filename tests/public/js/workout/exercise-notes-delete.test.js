@@ -15,7 +15,7 @@ globalThis.fetch = async (url, init = {}) => {
   return new Response(null, { status: 204 });
 };
 
-const { exerciseNoteRow } = await import('../../../../public/js/ui/exercise-notes.js');
+const { exerciseNoteRow } = await import('../../../../public/js/workout/exercise-notes.js');
 
 const NOTE = {
   id: 5,

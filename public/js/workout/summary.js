@@ -1,4 +1,9 @@
-/** Edzés-összegző oldal és a heti összehasonlítás. */
+/**
+ * Podium — az edzés-összegző
+ * ------------------------------------------------------------------------
+ * Az edzés befejezése utáni összegző oldal vezérlője és kirajzolása, valamint
+ * a heti volumen-összehasonlítás.
+ */
 
 import { SESSION_LOST, api } from '../shared/api.js';
 import { $, $$ } from '../shared/dom.js';
@@ -10,8 +15,13 @@ import { renderVolumeTrend } from '../dashboard/dashboard.js';
 import { renderChart } from '../shared/chart.js';
 import { noteDeleteButton } from './exercise-notes.js';
 import { buildScale, readScale, writeScale } from '../shared/readiness.js';
-import { renderSummary } from '../render/summary.js';
-import { lastSummary, summarizeWorkout } from './workout/summary-data.js';
+import { lastSummary, summarizeWorkout } from './summary-data.js';
+
+/* ======================================================================
+   Vezérlő
+   ====================================================================== */
+
+/** Edzés-összegző oldal és a heti összehasonlítás. */
 
 /** Az edzés utáni visszajelzés két skálája: [mező, címke, [1-es, 5-ös vég]].
     A buildScale ugyanaz a chip-primitív, amit a check-in használ — így a
@@ -232,4 +242,37 @@ async function setupWeeklyCompare() {
   };
 }
 
-export { setupSummary, setupWeeklyCompare };
+/* ======================================================================
+   Kirajzolás
+   ====================================================================== */
+
+/** Az edzés-összegző: időtartam, volumen, izomtérkép, idézet. */
+
+const SUMMARY_QUOTES = [
+  'Erős voltál ma — a következő edzés még jobb lesz!',
+  'Minden pipált szett egy lépés a célod felé.',
+  'A folyamatosság veri a tökéletességet — ma is jelen voltál.',
+  'Szép munka! A regeneráció most ugyanolyan fontos, mint a súly.',
+];
+
+let summaryQuoteIndex = Math.floor(Math.random() * SUMMARY_QUOTES.length);
+
+/** Az összegző kirajzolása. A `summary` a hívóé (fent, a vezérlő): lezárás
+    után a rögzített pillanatkép, egyébként az élő naplóállapot
+    (summary-data.js → summarizeWorkout). */
+function renderSummary(summary) {
+  $('[data-su-name]').textContent = summary.name;
+  $('[data-su-pr]').hidden = !summary.hasPr;
+  $('[data-su-sets-total]').textContent = String(summary.total);
+  $('[data-su-quote]').textContent = SUMMARY_QUOTES[summaryQuoteIndex % SUMMARY_QUOTES.length];
+  summaryQuoteIndex += 1; // minden megnyitásra másik motivációs sor jut
+
+  animateNumber($('[data-su-sets-done]'), summary.done, { from: 0, duration: 700 });
+  animateNumber($('[data-su-duration]'), summary.minutes, { from: 0, duration: 800 });
+
+  // A visszajelzés-blokk minden megnyitáskor újraszinkronizál (más edzés,
+  // vagy már elküldött visszajelzés).
+  hooks.refreshSummaryFeedback?.();
+}
+
+export { renderSummary, setupSummary, setupWeeklyCompare };

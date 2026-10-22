@@ -11,7 +11,7 @@ import { renderAthleteList, renderCoachPanel } from '../render/coach.js';
 import { athleteTier, renderStatList } from '../render/coach-shared.js';
 import { renderPlans } from '../plans/plans.js';
 import { createChatController } from './chat.js';
-import { exerciseNoteRow } from './exercise-notes.js';
+import { exerciseNoteRow } from '../workout/exercise-notes.js';
 import { setupClientView } from './coach-client.js';
 import { setupCoachMeals } from './coach-meals.js';
 

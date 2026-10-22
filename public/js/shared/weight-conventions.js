@@ -3,7 +3,7 @@
     A szerver mondja meg (/api/weight-conventions), mely gyakorlatoknál
     kezenként értendő a beírt súly (kézisúlyzó), és melyek saját testsúlyosak
     (ott a beírt kilogramm a RÁADÁS, a terhelés zöme a testsúly). A napló
-    feliratai (render/sets.js) és az élő PR-jelző alapterhelése (ui/workout.js)
+    feliratai (workout/sets-view.js) és az élő PR-jelző alapterhelése (workout/workout.js)
     is innen olvas. Korábban két másolat töltődött két kéréssel, és csak az
     egyik frissült — a testsúly mentése után a PR-jelző elavult testsúllyal
     számolt.

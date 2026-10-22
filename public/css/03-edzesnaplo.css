@@ -725,7 +725,7 @@ input.wk-chip:focus {
 
    A .ds-step osztály SZÁNDÉKOSAN nincs feltéve: ez az alapréteg a check-in
    varázslóé is (.ci-num-dial, 25. szakasz), és a JS a .wk-num-step szülőjéből
-   keresi a mezőt (js/render/sets.js) — az osztálycsere mindkettőt megbontaná.
+   keresi a mezőt (js/workout/sets-view.js) — az osztálycsere mindkettőt megbontaná.
    A natív number-nyilakat elrejtjük: a saját gombok nagyobbak és érintésre is
    jók. */
 /* Az 1px-es padding a keret: a hajszálvonal-háttér így a mező KÖRÜL is

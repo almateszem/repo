@@ -31,7 +31,7 @@ globalThis.fetch = async () => {
 };
 
 const { renderVolumeTrend } = await import('../../../../public/js/dashboard/dashboard.js');
-const { setupWeeklyCompare } = await import('../../../../public/js/ui/summary.js');
+const { setupWeeklyCompare } = await import('../../../../public/js/workout/summary.js');
 const { hooks } = await import('../../../../public/js/shared/page-hooks.js');
 
 const reset = () => {

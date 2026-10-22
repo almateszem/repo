@@ -89,7 +89,7 @@ function numericValue(raw) {
    rajzolás készen találja. */
 let intensityLevels = [];
 
-/** A fokozat-lista beállítása (a lekérés: ui/workout/set-controls.js →
+/** A fokozat-lista beállítása (a lekérés: set-controls.js →
     loadIntensityLevels). */
 function setIntensityLevels(levels) {
   intensityLevels = levels;

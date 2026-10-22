@@ -1,16 +1,16 @@
 /**
- * Podium — a szett-sorok és a napló-lenyílók eseményei
+ * Podium — a szett-sorok és a gyakorlat-kártya eseményei
  * ------------------------------------------------------------------------
- * Az edzésnapló és a terv-építő közös kezelői: RPE-szorítás,
- * szett hozzáadása/törlése, és a sorszám-, szett-típus-, intenzitás- és
- * plusz-súly lenyíló. A sorok ÉPÍTÉSE a render/sets.js-é — az nem köt
- * eseményt és nem hív API-t.
+ * Az edzésnapló és a terv-építő közös kezelői (RPE-szorítás, szett
+ * hozzáadása/törlése, a napló lenyílói) és a gyakorlat-kártya bekötése. A sorok
+ * ÉPÍTÉSE a sets-view.js-é.
  */
-import { api } from '../../shared/api.js';
-import { $, $$ } from '../../shared/dom.js';
-import { formatInputNumber } from '../../shared/format.js';
-import { bindPopupMenu } from '../../shared/popup-menu.js';
-import { showToast } from '../../shared/toast.js';
+
+import { api } from '../shared/api.js';
+import { $, $$ } from '../shared/dom.js';
+import { formatInputNumber } from '../shared/format.js';
+import { bindPopupMenu } from '../shared/popup-menu.js';
+import { showToast } from '../shared/toast.js';
 import {
   applyIntensity,
   applySetType,
@@ -22,7 +22,20 @@ import {
   renumberSets,
   setIntensityLevels,
   syncExtraWeight,
-} from '../../render/sets.js';
+} from './sets-view.js';
+
+/* ======================================================================
+   Szett-sorok és lenyílók
+   ====================================================================== */
+
+/**
+ * Podium — a szett-sorok és a napló-lenyílók eseményei
+ * ------------------------------------------------------------------------
+ * Az edzésnapló és a terv-építő közös kezelői: RPE-szorítás,
+ * szett hozzáadása/törlése, és a sorszám-, szett-típus-, intenzitás- és
+ * plusz-súly lenyíló. A sorok ÉPÍTÉSE a sets-view.js-é — az nem köt
+ * eseményt és nem hív API-t.
+ */
 
 /** A kardió-fokozatok listája a szervertől — egyszer, az app indulásakor
     (app/init.js); a sorok rajzolása onnantól készen találja. */
@@ -214,8 +227,38 @@ function enableExtraMenu(list) {
   });
 }
 
+/* ======================================================================
+   Gyakorlat-kártya
+   ====================================================================== */
+
+/**
+ * Podium — egy gyakorlat-kártya közös segédei (edzésnapló, gyakorlat-választó)
+ * ------------------------------------------------------------------------
+ * A „kipipált szettek" számolása és az eltávolítás előtti megerősítés egy
+ * helyen: korábban négy, illetve két helyen állt szó szerint ugyanígy.
+ */
+
+/** Hány teljesített (kipipált) szett van a gyökér alatt — egy kártyán vagy
+    az egész naplóban. */
+const countDoneSets = (root) =>
+  $$('.wk-set-check', root).filter((check) => check.getAttribute('aria-pressed') === 'true').length;
+
+/** Rákérdezés egy gyakorlat eltávolítása előtt, ha van rajta teljesített
+    szett: az elvesztésük visszavonhatatlan. Frissen hozzáadott (még nem
+    teljesített) gyakorlatnál nincs kérdés. Igaz, ha mehet az eltávolítás. */
+async function confirmRemoveExercise(card, name, confirmAction) {
+  const doneSets = countDoneSets(card);
+  if (doneSets === 0) return true;
+  return confirmAction(
+    `A(z) „${name}” gyakorlaton ${doneSets} teljesített szett van. Az eltávolítással ezek elvesznek.`,
+    { title: 'Eltávolítod a gyakorlatot?', confirmLabel: 'Eltávolítás' },
+  );
+}
+
 export {
   clampRpeInput,
+  confirmRemoveExercise,
+  countDoneSets,
   enableExtraMenu,
   enableIntensitySelect,
   enableOrderSelect,

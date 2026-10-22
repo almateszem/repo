@@ -9,26 +9,25 @@ import { showToast } from '../shared/toast.js';
 import { baseLoadFor, refreshWeightConventions } from '../shared/weight-conventions.js';
 import { navigate } from '../app/router.js';
 import { renderDashboard } from '../dashboard/dashboard.js';
-import { renderPrs } from './workout/history.js';
-import { readSetRow, refreshExerciseList } from '../render/sets.js';
+import { bindHistoryActions, renderPrs } from './history.js';
+import { readSetRow, refreshExerciseList } from './sets-view.js';
 import {
   clampRpeInput,
+  confirmRemoveExercise,
+  countDoneSets,
   enableExtraMenu,
   enableIntensitySelect,
   enableOrderSelect,
   enableSetTypeSelect,
   handleAddSetClick,
   handleRemoveSetClick,
-} from './workout/set-controls.js';
+} from './set-controls.js';
 import { handleStepClick } from '../shared/stepper.js';
-import { WORKOUT_START_KEY, markWorkoutStarted, setLastSummary } from './workout/summary-data.js';
-import { createDraftAutosave } from './workout/autosave.js';
-import { createPrIndicators } from './workout/pr-indicator.js';
-import { createContentLoader } from './workout/loading.js';
-import { countDoneSets, confirmRemoveExercise } from './workout/exercise-card.js';
-import { bindFinish } from './workout/finish.js';
-import { bindHistoryActions } from './workout/history.js';
-import { createPlanUndo } from './workout/plan-undo.js';
+import { WORKOUT_START_KEY, markWorkoutStarted, setLastSummary } from './summary-data.js';
+import { createDraftAutosave } from './autosave.js';
+import { createPrIndicators } from './pr-indicator.js';
+import { createContentLoader, createPlanUndo } from './loading.js';
+import { bindFinish } from './finish.js';
 
 async function setupWorkout(videoModal, prModal, picker, confirmAction) {
   const page = $('.app-page[data-page="workout"]');
@@ -174,7 +173,7 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
   });
   const { applyTemplate, reopenWorkout, doneSetCount } = loader;
 
-  /* ---- A terv-betöltés visszavonása (workout/plan-undo.js) ---- */
+  /* ---- A terv-betöltés visszavonása (loading.js) ---- */
   const planUndo = createPlanUndo({
     titleInput,
     editing,

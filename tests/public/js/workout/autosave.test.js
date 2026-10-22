@@ -23,7 +23,7 @@ globalThis.fetch = (url, init) => {
   return Promise.resolve(new Response('{}'));
 };
 
-const { createDraftAutosave } = await import('../../../../public/js/ui/workout/autosave.js');
+const { createDraftAutosave } = await import('../../../../public/js/workout/autosave.js');
 const { clientDate } = await import('../../../../public/js/shared/api.js');
 
 test('a keepalive piszkozat-mentés is viszi az X-Client-Date fejlécet', () => {

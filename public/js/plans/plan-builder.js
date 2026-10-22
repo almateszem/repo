@@ -7,7 +7,7 @@ import { dayAdjective, dayLetter, dayRound, dayTitle } from '../shared/plan-week
 import { showToast } from '../shared/toast.js';
 import { navigate } from '../app/router.js';
 import { renderPlans } from './plans.js';
-import { readSetRow, renderExercise } from '../render/sets.js';
+import { readSetRow, renderExercise } from '../workout/sets-view.js';
 import {
   clampRpeInput,
   enableExtraMenu,
@@ -15,7 +15,7 @@ import {
   enableSetTypeSelect,
   handleAddSetClick,
   handleRemoveSetClick,
-} from '../ui/workout/set-controls.js';
+} from '../workout/set-controls.js';
 import { handleStepClick } from '../shared/stepper.js';
 
 /** A terv hosszának határai (napban) — a szerver (server/plan-week.js) is

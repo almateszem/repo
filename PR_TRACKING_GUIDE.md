@@ -23,7 +23,7 @@ Where:
 - 1 rep @ 120 kg → 1RM = **120 kg** (a single is its own weight — the raw formula would add 3.3%)
 
 The same formula is shared by the PR tracking (`server/db.js`), the strength
-assessment, the live PR indicator (`public/js/core/one-rm.js`, tied to the server by a
+assessment, the live PR indicator (`public/js/workout/pr-indicator.js`, tied to the server by a
 test) and the Recovery Engine (`server/recovery.js` → `estimate1RM`, which adds the
 RIR estimated from RPE).
 
@@ -164,7 +164,7 @@ The user's tracked maximums as an `{ exerciseName: max1rm }` map. The workout ed
 
 ### PR List Display
 
-The `renderPrs()` function in `public/js/render/prs.js`:
+The `renderPrs()` function in `public/js/workout/history.js`:
 
 - Fetches PR data from `/api/prs`
 - Displays exercise name

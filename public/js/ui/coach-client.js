@@ -19,7 +19,7 @@ import {
 } from '../render/coach-client.js';
 import { renderInviteRow, renderPlanOffer } from '../render/coach.js';
 import { createChatController } from './chat.js';
-import { exerciseNoteRow } from './exercise-notes.js';
+import { exerciseNoteRow } from '../workout/exercise-notes.js';
 
 const CLIENT_TABS = ['overview', 'nutrition', 'plan', 'messages'];
 

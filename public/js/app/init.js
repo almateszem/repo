@@ -15,15 +15,15 @@ import {
   renderUserName,
   setupDashboard,
 } from '../dashboard/dashboard.js';
-import { renderPrs, renderWorkout } from '../ui/workout/history.js';
+import { renderPrs, renderWorkout } from '../workout/history.js';
 import { setupCheckinWizard } from '../checkin/wizard.js';
 import { setupChromeHeight, setupConnectivity, setupShortcuts } from './shell.js';
 import { setupAthleteDetail, setupCoachPage } from '../ui/coach.js';
 import { setupCustomFood } from '../ui/custom-food.js';
 import { enhanceSelects } from '../shared/custom-select.js';
-import { loadIntensityLevels } from '../ui/workout/set-controls.js';
+import { loadIntensityLevels } from '../workout/set-controls.js';
 import { loadWeightConventions } from '../shared/weight-conventions.js';
-import { setupExercisePicker } from '../ui/exercise-picker.js';
+import { setupExercisePicker } from '../workout/exercise-picker.js';
 import { setupFoodDetail } from '../ui/food-detail.js';
 import {
   setupAdviceModal,
@@ -40,10 +40,10 @@ import { setupProfile } from '../ui/profile.js';
 import { setupRecovery } from '../recovery/recovery.js';
 import { setupScanner } from '../ui/scanner.js';
 import { setupSettingsModal } from '../ui/settings.js';
-import { setupSummary, setupWeeklyCompare } from '../ui/summary.js';
+import { setupSummary, setupWeeklyCompare } from '../workout/summary.js';
 import { refreshWeightLog } from '../recovery/weight.js';
-import { setupWorkout } from '../ui/workout.js';
-import { setupWorkoutPicker } from '../ui/workout-picker.js';
+import { setupWorkout } from '../workout/workout.js';
+import { setupWorkoutPicker } from '../workout/workout-picker.js';
 
 /* ======================================================================
    8. Init

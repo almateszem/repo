@@ -11,8 +11,8 @@
  * edzés azonosítója). Így a motor nem ismeri a naplót, csak menteni tud.
  */
 
-import { api, requestHeaders } from '../../shared/api.js';
-import { $ } from '../../shared/dom.js';
+import { api, requestHeaders } from '../shared/api.js';
+import { $ } from '../shared/dom.js';
 
 export function createDraftAutosave({ buildBody }) {
   /* ---- Automatikus mentés ----

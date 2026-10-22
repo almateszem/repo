@@ -26,7 +26,7 @@ globalThis.fetch = (url, init = {}) =>
     resolve(Response.json({}));
   });
 
-const { createDraftAutosave } = await import('../../../../public/js/ui/workout/autosave.js');
+const { createDraftAutosave } = await import('../../../../public/js/workout/autosave.js');
 const flushMicrotasks = () => new Promise((resolve) => setImmediate(resolve));
 let edits = 0;
 const buildBody = () => ({ name: `Edzés ${edits}`, exercises: [], planId: null, workoutId: null });

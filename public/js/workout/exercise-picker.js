@@ -6,8 +6,8 @@ import { hooks } from '../shared/page-hooks.js';
 import { SEARCH_DELAY_MS, createPagedList, debounce } from '../shared/paged-list.js';
 import { showToast } from '../shared/toast.js';
 import { navigate, onPageShow } from '../app/router.js';
-import { defaultSetFor, renderExercise } from '../render/sets.js';
-import { confirmRemoveExercise } from './workout/exercise-card.js';
+import { defaultSetFor, renderExercise } from './sets-view.js';
+import { confirmRemoveExercise } from './set-controls.js';
 
 /** A gyakorlat-választó flow-oldal: a katalógus a szerverről jön, lapozva
     (server/catalog-search.js), kereső + izomcsoport chipek, a → gomb a

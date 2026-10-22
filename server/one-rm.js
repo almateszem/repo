@@ -8,7 +8,7 @@ import { clamp } from './numbers.js';
 
 /**
  * Az app EGYETLEN 1RM-képlete (Epley). A PR-követés (db.js), az erőfelmérés,
- * a naplóbeli PR-jelző (public/js/core/one-rm.js, teszttel összekötve) és a
+ * a naplóbeli PR-jelző (public/js/workout/pr-indicator.js, teszttel összekötve) és a
  * Recovery Engine is ezt használja.
  *
  *   1RM = súly × (1 + ismétlés / 30),   DE egy ismétlésnél maga a súly.

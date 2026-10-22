@@ -145,7 +145,7 @@ marad ki.
 
 ### 1.7 Mentett edzés megnyitása, javítása, törlése 🟡
 
-Ma a „Korábbi edzések" egy nem kattintható lista (`js/render/workout.js`,
+Ma a „Korábbi edzések" egy nem kattintható lista (`js/workout/history.js`,
 `historyEntryEl`): dátum, név, `3/12 szett`. Nincs részletnézet, nincs
 szerkesztés, nincs törlés. Ez MVP-szinten hiányzik, mert **az elrontott adat
 javíthatatlan** — és a rossz adat továbbgyűrűzik a készenlét-számításba és a
@@ -207,7 +207,7 @@ elrontott terv örökre ott marad.
   > gyakorlatonkénti csúcsok tehát már számolva vannak, csak nem a szett-sorban
   > jelennek meg.)
 
-- **Az edzés hossza mentődjön.** A `workoutMinutes()` (`js/render/summary.js`)
+- **Az edzés hossza mentődjön.** A `workoutMinutes()` (`js/workout/summary.js`)
   `localStorage`-ból számol, és **nem kerül bele a mentett edzésbe** — tehát a
   Korábbi edzésekben nincs időtartam, másik eszközön pedig 0 percet mutat.
   A kezdés időbélyege a piszkozat része kellene legyen.

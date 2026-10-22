@@ -495,7 +495,7 @@
   text-decoration: underline;
 }
 
-/* „Javasolt" blokk a katalógus fölött (js/ui/exercise-picker.js ->
+/* „Javasolt" blokk a katalógus fölött (js/workout/exercise-picker.js ->
    loadSuggestions). Ugyanazokból a sorokból áll, mint a lista, csak az
    indoklás-sor az új; a blokk alsó margója választja el a „Találatok"-tól. */
 .ep-suggest {

@@ -1,4 +1,42 @@
 /**
+ * Podium — az élő PR-jelző
+ * ------------------------------------------------------------------------
+ * A becsült 1RM (a szerver server/one-rm.js-ével azonos képlet, teszttel
+ * összekötve) és a naplóbeli PR-jelző, ami ebből dönti el, rekord-e a szett.
+ */
+
+import { $, $$ } from '../shared/dom.js';
+import { readSetRow } from './sets-view.js';
+
+/* ======================================================================
+   Becsült 1RM
+   ====================================================================== */
+
+/**
+ * A becsült 1RM a naplóbeli PR-jelzőhöz.
+ *
+ * UGYANAZ a képlet, mint a szerveren (server/recovery.js → estimate1RM, amit a
+ * PR-követés is használ): Epley, de egy ismétlésnél maga a súly. A kliens nem
+ * importálhat a server/ mappából, ezért itt másolat él — a one-rm.test.js a
+ * kettőt egymáshoz köti, hogy ne sodródhassanak szét. Ha a jelző más számot
+ * számolna, mint a mentés, a „PR" gomb világítana egy olyan szettre, amit a
+ * szerver nem fogad el rekordnak (vagy fordítva).
+ *
+ * @param {number} weight súly (kg)
+ * @param {number} reps   elvégzett ismétlés
+ * @returns {number} a becslés, vagy 0, ha nem számolható
+ */
+
+function estimate1RM(weight, reps) {
+  if (!Number.isFinite(weight) || !Number.isFinite(reps) || reps < 1 || weight <= 0) return 0;
+  return reps <= 1 ? weight : weight * (1 + reps / 30);
+}
+
+/* ======================================================================
+   PR-jelző
+   ====================================================================== */
+
+/**
  * PR-jelzők az edzésnapló gyakorlat-kártyáin.
  *
  * A „PR" gomb `aria-pressed` állapota az EGYETLEN, kizárólag képlet által
@@ -8,11 +46,7 @@
  * mentett edzés után újratöltődnek a szerverről.
  */
 
-import { $, $$ } from '../../shared/dom.js';
-import { readSetRow } from '../../render/sets.js';
-import { estimate1RM } from '../../core/one-rm.js';
-
-export function createPrIndicators({ page, getMaxes, getBaseLoad = () => 0 }) {
+function createPrIndicators({ page, getMaxes, getBaseLoad = () => 0 }) {
   /** Egy gyakorlat PR-jelzésének frissítése — kizárólag a teljesített
     (pipált) szettek 1RM-jét nézi; a nem pipált szettekbe írt számok nem
     számítanak, függetlenül attól, hogy van-e egyáltalán pipált szett.
@@ -31,7 +65,7 @@ export function createPrIndicators({ page, getMaxes, getBaseLoad = () => 0 }) {
        szerver is így tárolja a csúcsot (bodyweight-load.js). */
     const baseLoad = getBaseLoad(exerciseName);
 
-    // A szerverrel közös képlet (core/one-rm.js): Epley, egy ismétlésnél a súly
+    // A szerverrel közös képlet (fent, estimate1RM): Epley, egy ismétlésnél a súly
     for (const row of setRows) {
       const set = readSetRow(row);
       if (!set.done) continue;
@@ -55,3 +89,5 @@ export function createPrIndicators({ page, getMaxes, getBaseLoad = () => 0 }) {
 
   return { update: updateExercisePrIndicator, refreshAll: refreshAllPrIndicators };
 }
+
+export { createPrIndicators, estimate1RM };
