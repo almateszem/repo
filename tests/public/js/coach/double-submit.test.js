@@ -23,8 +23,8 @@ globalThis.fetch = async (url, init = {}) => {
   return Response.json([]);
 };
 
-const { createChatController } = await import('../../../../public/js/ui/chat.js');
-const { setupCoachMeals } = await import('../../../../public/js/ui/coach-meals.js');
+const { createChatController } = await import('../../../../public/js/coach/chat.js');
+const { setupCoachMeals } = await import('../../../../public/js/coach/meals.js');
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 30));
 

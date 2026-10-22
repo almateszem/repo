@@ -1326,7 +1326,7 @@
            végpontokból.)
            ================================================================ -->
         <section class="app-page co-page" data-page="coach" aria-labelledby="title-coach" hidden>
-          <!-- Oldalfejléc: a cím és a felkiáltó a nézethez igazodik (js/ui/coach.js) -->
+          <!-- Oldalfejléc: a cím és a felkiáltó a nézethez igazodik (js/coach/coach.js) -->
           <header class="co-head">
             <div class="co-head-text">
               <p class="ds-eyebrow" data-coach-eyebrow>Edző</p>
@@ -1361,7 +1361,7 @@
              fő oszlop fülekkel, oldalsáv), és ugyanazok a számok, amiket az
              edződ a panelján rólad lát — a szerver ugyanazzal a függvénnyel
              számolja mindkét oldalt (GET /api/coach → me). A tartalmat a
-             js/ui/coach-client.js tölti. -->
+             js/coach/client.js tölti. -->
           <div class="co-view" data-view="client" hidden>
             <section class="co-kpis" data-client-kpis aria-label="Az állapotod" hidden></section>
 
@@ -1610,7 +1610,7 @@
             </div>
           </div>
 
-          <!-- Edzői nézet: sportoló-menedzser (js/render/coach.js tölti fel) -->
+          <!-- Edzői nézet: sportoló-menedzser (js/coach/coach-view.js tölti fel) -->
           <div class="co-view" data-view="manager" hidden>
             <!-- KPI-sor: összesítés a sportolók adataiból -->
             <section class="co-kpis" data-kpis aria-label="Összesítés"></section>
@@ -1654,7 +1654,7 @@
               </section>
 
               <!-- Sportoló részletnézet: a lista HELYÉN nyílik, ha egy sorra
-                 kattintasz (js/ui/coach.js tölti fel). A KPI-sor és a jobb
+                 kattintasz (js/coach/coach.js tölti fel). A KPI-sor és a jobb
                  sáv közben a helyén marad. -->
               <section
                 class="co-detail"
@@ -2014,7 +2014,7 @@
               </section>
 
               <aside class="co-aside">
-                <!-- Állapot: riasztás-összegzés vagy „minden rendben" (js/render/coach.js tölti fel) -->
+                <!-- Állapot: riasztás-összegzés vagy „minden rendben" (js/coach/coach-view.js tölti fel) -->
                 <section
                   class="co-aside-block"
                   data-banner

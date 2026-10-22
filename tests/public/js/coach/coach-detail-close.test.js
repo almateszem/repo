@@ -55,7 +55,7 @@ const athlete = () => ({
   exerciseNotes: [],
 });
 
-const { setupAthleteDetail } = await import('../../../../public/js/ui/coach.js');
+const { setupAthleteDetail } = await import('../../../../public/js/coach/coach.js');
 const detail = setupAthleteDetail({ confirmAction: async () => true });
 const settle = () => new Promise((resolve) => setTimeout(resolve, 10));
 

@@ -1,13 +1,55 @@
-/** Edzői étrend: étkezések összeállítása a sportoló-részletnézet Táplálkozás
-    fülén. Az edző ételt és grammot ad meg; az élő előnézet a kliensen számol
-    (core/meals.js), a mentett érték a szerveré. */
+/**
+ * Podium — az edzői étrend
+ * ------------------------------------------------------------------------
+ * Az étrend-szerkesztő (étkezések összeállítása, élő előnézet, mentés) és az
+ * élő előnézet számolása — a kerekítés a szerverével azonos (server/db.js →
+ * scaleMealItem), teszttel összekötve.
+ */
 
 import { api } from '../shared/api.js';
 import { $, $$, cloneTemplate, withBusy } from '../shared/dom.js';
 import { formatNumber } from '../shared/format.js';
-import { scaleFood, sumMacros } from '../core/meals.js';
 import { SEARCH_DELAY_MS, debounce } from '../shared/paged-list.js';
 import { showToast } from '../shared/toast.js';
+
+/* ======================================================================
+   Étkezés-számolás
+   ====================================================================== */
+
+/**
+ * Étkezés-számolás az edzői étrend-szerkesztő élő előnézetéhez.
+ *
+ * UGYANAZ a kerekítés, mint a szerveren (server/db.js → scaleMealItem, ami az
+ * addNutritionEntry-ét követi): kcal egészre, makrók egy tizedesre, az
+ * étkezés összege egy tizedesre. A mentett szám a szerveré — ez csak azért
+ * egyezik vele, hogy az edző ne lásson mást gépelés közben, mint mentés után.
+ */
+
+/** Egy 100 g-os étel makrói a megadott adagra. */
+function scaleFood(food, grams) {
+  const factor = grams / 100;
+  const round1 = (value) => Math.round(value * factor * 10) / 10;
+  return {
+    kcal: Math.round(food.kcal * factor),
+    protein: round1(food.protein),
+    carbs: round1(food.carbs),
+    fat: round1(food.fat),
+  };
+}
+
+/** Tételek (már adagra számolt makrókkal) összege. */
+function sumMacros(items) {
+  const sum = (key) => Math.round(items.reduce((acc, item) => acc + item[key], 0) * 10) / 10;
+  return { kcal: sum('kcal'), protein: sum('protein'), carbs: sum('carbs'), fat: sum('fat') };
+}
+
+/* ======================================================================
+   Étrend-szerkesztő
+   ====================================================================== */
+
+/** Edzői étrend: étkezések összeállítása a sportoló-részletnézet Táplálkozás
+    fülén. Az edző ételt és grammot ad meg; az élő előnézet a kliensen számol
+    (fent, az Étkezés-számolás szakasz), a mentett érték a szerveré. */
 
 /** A napi cél elfogadott tartománya — a szerver GOAL_RANGES-ével egyezik.
     Ezen kívül az „Átveszem napi célnak" gomb tiltva van, mert a szerver
@@ -381,4 +423,4 @@ function setupCoachMeals(root, { getCurrent, onGoalChange, confirmAction }) {
   };
 }
 
-export { setupCoachMeals };
+export { scaleFood, setupCoachMeals, sumMacros };

@@ -1,6 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { scaleFood, sumMacros } from '../../../../public/js/core/meals.js';
+import { installFakeDom } from '../fake-dom.js';
+
+// A számolás az étrend-szerkesztővel egy modulban él, ami DOM-segédeket is
+// importál — ezért előbb a fake DOM, utána a dinamikus import.
+installFakeDom();
+const { scaleFood, sumMacros } = await import('../../../../public/js/coach/meals.js');
 
 const SULT_CSIRKE = { kcal: 165, protein: 31, carbs: 0, fat: 3.6 };
 

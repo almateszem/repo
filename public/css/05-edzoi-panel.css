@@ -255,7 +255,7 @@
 }
 
 /* A bal szélen a szint színe. Tartalék a hajszálvonalra: a --tier-t a
-   .co-tier--* osztály adja, amit a JS tesz fel (render/coach.js). */
+   .co-tier--* osztály adja, amit a JS tesz fel (coach/coach-view.js). */
 .co-row::before {
   content: '';
   position: absolute;

@@ -2,8 +2,8 @@
  * Podium — az edzői és a sportolói nézet közös építőkockái
  * ------------------------------------------------------------------------
  * A szint-jelvény, a stat-listák, a KPI-csempe, a trend-küszöb és a
- * terv-ajánlat info-blokkja: az edző panelja (render/coach.js) és a
- * sportolói nézet (render/coach-client.js) UGYANEZT rajzolja — a sportoló
+ * terv-ajánlat info-blokkja: az edző panelja (coach-view.js) és a
+ * sportolói nézet (client-view.js) UGYANEZT rajzolja — a sportoló
  * pontosan azt látja magáról, amit az edzője.
  */
 import { dayLabel, dayStatus } from '../shared/plan-week.js';

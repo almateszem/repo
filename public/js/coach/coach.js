@@ -7,13 +7,13 @@ import { shared } from '../shared/page-hooks.js';
 import { prefs } from '../shared/prefs.js';
 import { showToast } from '../shared/toast.js';
 import { animateCoachRatings, refreshNavRing } from '../app/router.js';
-import { renderAthleteList, renderCoachPanel } from '../render/coach.js';
-import { athleteTier, renderStatList } from '../render/coach-shared.js';
+import { renderAthleteList, renderCoachPanel } from './coach-view.js';
+import { athleteTier, renderStatList } from './coach-shared.js';
 import { renderPlans } from '../plans/plans.js';
 import { createChatController } from './chat.js';
 import { exerciseNoteRow } from '../workout/exercise-notes.js';
-import { setupClientView } from './coach-client.js';
-import { setupCoachMeals } from './coach-meals.js';
+import { setupClientView } from './client.js';
+import { setupCoachMeals } from './meals.js';
 
 const DETAIL_TABS = ['overview', 'nutrition', 'plan', 'messages'];
 

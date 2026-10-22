@@ -76,7 +76,7 @@ const COACH_DATA = {
   planOffers: [],
 };
 
-const { setupClientView } = await import('../../../../public/js/ui/coach-client.js');
+const { setupClientView } = await import('../../../../public/js/coach/client.js');
 const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
 
 test('egy frissítés → egy üzenet-lekérés és legfeljebb egy olvasottnak jelölés', async () => {

@@ -16,8 +16,8 @@ import {
   renderGoalText,
   renderPlanHistory,
   renderWaterText,
-} from '../render/coach-client.js';
-import { renderInviteRow, renderPlanOffer } from '../render/coach.js';
+} from './client-view.js';
+import { renderInviteRow, renderPlanOffer } from './coach-view.js';
 import { createChatController } from './chat.js';
 import { exerciseNoteRow } from '../workout/exercise-notes.js';
 

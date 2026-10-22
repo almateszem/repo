@@ -1,5 +1,5 @@
 /** A sportolói nézet („Edződ") elemei: KPI-sor, jelzés, pontszám, teendők,
-    étrend és terv-előzmény. Tiszta rajzolók — a vezérlő a js/ui/coach-client.js.
+    étrend és terv-előzmény. Tiszta rajzolók — a vezérlő a client.js.
     A bemenet a GET /api/coach válasza; a `me` UGYANAZ a kártya, amit az
     edződ a panelján rólad lát. */
 

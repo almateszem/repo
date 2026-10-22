@@ -147,7 +147,6 @@ public/          statikus frontend (a szerver innen szolgálja ki)
     shared/      api réteg, DOM- és formázó-segédek, preferenciák, toast, modálok, közös skálák
     shared/page-hooks.js  késleltetett kötés a router és az oldalak vezérlői közt
     app/         indulás, hash-router, húzható nav gyűrű, keret (fejléc, gyorsbillentyűk, harang)
-    render/      adat → DOM: áttekintő, szettek, tervek, edzői panel, összegző
     ui/          oldalankénti interakciók (egy fájl egy felület)
     app/init.js  a vezérlők felépítése és összekötése
   css/           a stíluslap 13 része (sorrendjük a kaszkád része: index.html <link>)

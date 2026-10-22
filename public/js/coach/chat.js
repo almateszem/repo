@@ -4,7 +4,7 @@ import { api } from '../shared/api.js';
 import { $, withBusy } from '../shared/dom.js';
 import { relativeTime } from '../shared/format.js';
 import { showToast } from '../shared/toast.js';
-import { createCoachNote } from '../render/coach.js';
+import { createCoachNote } from './coach-view.js';
 
 /** Egy üzenet buborékja a szerver által küldött alakból. A `mine` dönti el,
     hogy saját (jobbra igazított) üzenet-e — a szerver a NÉZŐ szemszögéből

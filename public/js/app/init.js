@@ -18,7 +18,7 @@ import {
 import { renderPrs, renderWorkout } from '../workout/history.js';
 import { setupCheckinWizard } from '../checkin/wizard.js';
 import { setupChromeHeight, setupConnectivity, setupShortcuts } from './shell.js';
-import { setupAthleteDetail, setupCoachPage } from '../ui/coach.js';
+import { setupAthleteDetail, setupCoachPage } from '../coach/coach.js';
 import { setupCustomFood } from '../nutrition/custom-food.js';
 import { enhanceSelects } from '../shared/custom-select.js';
 import { loadIntensityLevels } from '../workout/set-controls.js';
