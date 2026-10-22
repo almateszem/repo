@@ -47,7 +47,6 @@ Fájlok:
       shared/           api réteg, DOM/formázó segédek, preferenciák, toast, modálok
       shared/page-hooks.js  a router és az oldalvezérlők közti késleltetett kötés
       app/              indulás, hash-router, nav gyűrű, keret
-      ui/               oldalankénti interakciók
       app/init.js       a vezérlők felépítése és összekötése
     public/style.css    dizájn-tokenek és komponensstílusok
     server/server.js    Express: /api/* végpontok + a public/ kiszolgálása
@@ -843,5 +842,5 @@ Szándékos egyszerűsítések és nyitott tételek. A teljes lista a TEENDOK.tx
     openfoodfacts.test.js   a vonalkód-lekérdezés és a válasz leképezése
     cache.test.js           az adatréteg gyorsítótára
     migration.test.js       a fiókok előtti adatbázis migrációja
-    public/js/ui/shortcuts.test.js
+    public/js/app/shortcuts.test.js
                             a gyorsbillentyűk modál-őre (DOM nélkül)

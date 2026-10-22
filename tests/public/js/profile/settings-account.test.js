@@ -40,7 +40,7 @@ let sessionLost = 0;
 hooks.onSessionLost = () => {
   sessionLost += 1;
 };
-const { setupSettingsModal } = await import('../../../../public/js/ui/settings.js');
+const { setupSettingsModal } = await import('../../../../public/js/profile/settings.js');
 await setupSettingsModal({ confirmAction: async () => true });
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));

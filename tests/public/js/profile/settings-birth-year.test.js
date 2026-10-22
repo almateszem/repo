@@ -13,7 +13,7 @@ globalThis.fetch = async (url) =>
     ? Response.json([])
     : Response.json({ id: 1, name: 'Teszt', username: 'teszt', birthYear: null });
 
-const { setupSettingsModal } = await import('../../../../public/js/ui/settings.js');
+const { setupSettingsModal } = await import('../../../../public/js/profile/settings.js');
 const settings = await setupSettingsModal({ confirmAction: async () => true });
 
 test('születési év: a mező min/max-a a szerver szabálya szerint', () => {
