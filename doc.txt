@@ -44,10 +44,12 @@ Környezeti változók:
 Fájlok:
     public/index.html   minden oldal + a listaelemek <template> sablonjai
     public/js/          a frontend ES modulokban; belépési pont: js/main.js
-      shared/           api réteg, DOM/formázó segédek, preferenciák, toast, modálok
-      shared/page-hooks.js  a router és az oldalvezérlők közti késleltetett kötés
       app/              indulás, hash-router, nav gyűrű, keret
       app/init.js       a vezérlők felépítése és összekötése
+      shared/           több funkció közös eszközei (api, DOM, formázás, modálok…)
+      shared/page-hooks.js  a router és az oldalvezérlők közti késleltetett kötés
+      dashboard/, recovery/, checkin/, workout/, nutrition/, plans/, coach/,
+      profile/          egy-egy funkció (oldal) minden darabja egy mappában
     public/style.css    dizájn-tokenek és komponensstílusok
     server/server.js    Express: /api/* végpontok + a public/ kiszolgálása
     server/db.js        SQLite adatréteg — az EGYETLEN modul, ami a tárolást ismeri

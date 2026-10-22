@@ -144,10 +144,22 @@ Reverse proxy mögött a forrásra szóló korlátokhoz (belépés, regisztráci
 public/          statikus frontend (a szerver innen szolgálja ki)
   index.html     az összes oldal + a listaelemek <template> sablonjai
   js/            a frontend ES modulokban (belépési pont: js/main.js)
-    shared/      api réteg, DOM- és formázó-segédek, preferenciák, toast, modálok, közös skálák
-    shared/page-hooks.js  késleltetett kötés a router és az oldalak vezérlői közt
+                 Mappa = funkció (az app egy oldala vagy oldalcsoportja). Benne x.js a
+                 vezérlő, x-view.js a kirajzolás (adat → DOM) — ha együtt ≤ ~400 sor,
+                 egy fájl.
     app/         indulás, hash-router, húzható nav gyűrű, keret (fejléc, gyorsbillentyűk, harang)
     app/init.js  a vezérlők felépítése és összekötése
+    shared/      amit legalább két funkció használ, és egyiket sem ismeri: api réteg, DOM- és
+                 formázó-segédek, preferenciák, toast, modálok, ± léptető, diagram, készenlét-skálák
+    shared/page-hooks.js  késleltetett kötés a router és az oldalak vezérlői közt
+    dashboard/   Áttekintő
+    recovery/    Regeneráció: készenléti riport, izomtérkép, testsúly, körméretek
+    checkin/     napi check-in varázsló (állapot, lépések, számbeviteli lépések)
+    workout/     edzésnapló, gyakorlat- és edzés-választó, PR-jelző, összegző, előzmények
+    nutrition/   Táplálkozás: ételek, étel-részletek, saját étel, vonalkód, víz
+    plans/       Tervek és a tervszerkesztő
+    coach/       Edző oldal: edzői panel, sportolói nézet, chat, étrend
+    profile/     Profil és beállítások
   css/           a stíluslap 13 része (sorrendjük a kaszkád része: index.html <link>)
 server/
   server.js      Express: /api/* végpontok + a public/ kiszolgálása
