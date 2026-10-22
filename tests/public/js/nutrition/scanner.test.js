@@ -54,7 +54,7 @@ globalThis.requestAnimationFrame = (callback) => {
   return setTimeout(() => callback(performance.now() + frames * 1000), 0);
 };
 
-const { setupScanner } = await import('../../../../public/js/ui/scanner.js');
+const { setupScanner } = await import('../../../../public/js/nutrition/scanner.js');
 const scanner = setupScanner();
 
 const settle = () => new Promise((resolve) => setTimeout(resolve, 20));

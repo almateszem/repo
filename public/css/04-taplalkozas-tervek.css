@@ -35,7 +35,7 @@
 
 /* A haladássáv a vízmérőével azonos recept, csak szögletesen: ott a napi
    folyadék, itt a napi kalória tart a célja felé. A kitöltést a
-   js/ui/nutrition.js írja (applyTotals). */
+   js/nutrition/nutrition.js írja (applyTotals). */
 .nu-summary-track {
   height: 4px;
   background: var(--fg-10);
@@ -341,7 +341,7 @@
   }
 }
 
-/* Keresés nélkül csak az első 8 étel látszik — a számot a js/ui/nutrition.js
+/* Keresés nélkül csak az első 8 étel látszik — a számot a js/nutrition/nutrition.js
    COLLAPSED_FOODS konstansa is használja, a kettőnek egyeznie kell. */
 .nu-food-list.is-collapsed > li:nth-child(n + 9) {
   display: none;

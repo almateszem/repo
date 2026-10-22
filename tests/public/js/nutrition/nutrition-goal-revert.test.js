@@ -36,7 +36,7 @@ globalThis.fetch = async (url, init = {}) => {
 const revertBtn = elementFor('[data-action="revert-goal"]');
 revertBtn.hidden = true;
 
-const { setupNutrition } = await import('../../../../public/js/ui/nutrition.js');
+const { setupNutrition } = await import('../../../../public/js/nutrition/nutrition.js');
 await setupNutrition({ open() {} });
 
 test('saját célnál látszik a visszaállítás', () => {

@@ -9,7 +9,7 @@ import { SEARCH_DELAY_MS, createPagedList, debounce } from '../shared/paged-list
 import { showToast } from '../shared/toast.js';
 import { onPageShow } from '../app/router.js';
 import { refreshDailyStats } from '../dashboard/dashboard.js';
-import { renderFoodItem } from '../render/foods.js';
+import { renderFoodItem } from './nutrition-view.js';
 
 async function setupNutrition(foodDetail) {
   const searchInput = $('#food-search');
@@ -35,7 +35,7 @@ async function setupNutrition(foodDetail) {
     if (goalCalEl) goalCalEl.textContent = formatNumber(totals.goal.calories);
 
     /* A hős alatti sáv a cél felé vezető utat mutatja — ugyanaz a minta, mint
-       a vízmérőé (ui/water.js). 100%-nál megáll: a túlevés nem „több mint
+       a vízmérőé (water.js). 100%-nál megáll: a túlevés nem „több mint
        teli" sáv, azt a szám mondja meg, nem a rajz. A nulla cél ellen a
        védelem nem elméleti — a cél szerkeszthető, és a hányados NaN-ként
        érvénytelen CSS-szélességet adna. */

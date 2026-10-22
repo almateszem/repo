@@ -19,12 +19,12 @@ import { renderPrs, renderWorkout } from '../workout/history.js';
 import { setupCheckinWizard } from '../checkin/wizard.js';
 import { setupChromeHeight, setupConnectivity, setupShortcuts } from './shell.js';
 import { setupAthleteDetail, setupCoachPage } from '../ui/coach.js';
-import { setupCustomFood } from '../ui/custom-food.js';
+import { setupCustomFood } from '../nutrition/custom-food.js';
 import { enhanceSelects } from '../shared/custom-select.js';
 import { loadIntensityLevels } from '../workout/set-controls.js';
 import { loadWeightConventions } from '../shared/weight-conventions.js';
 import { setupExercisePicker } from '../workout/exercise-picker.js';
-import { setupFoodDetail } from '../ui/food-detail.js';
+import { setupFoodDetail } from '../nutrition/food-detail.js';
 import {
   setupAdviceModal,
   setupConfirmDialog,
@@ -32,13 +32,13 @@ import {
   setupVideoModal,
 } from '../shared/modals.js';
 import { setupNotifications } from './notifications.js';
-import { setupNutrition } from '../ui/nutrition.js';
-import { setupWaterMeter } from '../ui/water.js';
+import { setupNutrition } from '../nutrition/nutrition.js';
+import { setupWaterMeter } from '../nutrition/water.js';
 import { setupPlanBuilder } from '../plans/plan-builder.js';
 import { renderPlans, setupPlans } from '../plans/plans.js';
 import { setupProfile } from '../ui/profile.js';
 import { setupRecovery } from '../recovery/recovery.js';
-import { setupScanner } from '../ui/scanner.js';
+import { setupScanner } from '../nutrition/scanner.js';
 import { setupSettingsModal } from '../ui/settings.js';
 import { setupSummary, setupWeeklyCompare } from '../workout/summary.js';
 import { refreshWeightLog } from '../recovery/weight.js';

@@ -18,7 +18,7 @@ globalThis.fetch = async (url, init = {}) => {
   return Response.json([]); // a kategória-lista
 };
 
-const { setupCustomFood } = await import('../../../../public/js/ui/custom-food.js');
+const { setupCustomFood } = await import('../../../../public/js/nutrition/custom-food.js');
 await setupCustomFood({});
 
 const fill = ({ protein, carbs, fat }) => {
