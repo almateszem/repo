@@ -275,4 +275,4 @@ function renderSummary(summary) {
   hooks.refreshSummaryFeedback?.();
 }
 
-export { renderSummary, setupSummary, setupWeeklyCompare };
+export { setupSummary, setupWeeklyCompare };

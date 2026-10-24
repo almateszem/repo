@@ -27,8 +27,6 @@ import { latestWeightEntry, todayWeightEntry } from '../recovery/weight.js';
 
 /** Alvás-lépés: óraszám léptetővel és gyorsgombokkal. */
 
-/* ---- Alvás ---- */
-
 function renderSleep(nav) {
   const step = cloneTemplate('tpl-ci-sleep');
   const input = $('#ci-sleep', step);

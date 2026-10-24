@@ -4,7 +4,7 @@
  * A cím (#workout, #coach…) tükrözi az aktív oldalt, így a vissza gomb és a
  * link-megosztás is működik; az utolsó oldal localStorage-ból áll vissza.
  * Az oldal-megjelenéskor futó feladatokat a lapok vezérlői regisztrálják
- * (onPageShow) — így a router nem függ a ui/ modulaktól.
+ * (onPageShow) — így a router nem függ az oldalak vezérlőitől.
  */
 
 import {
@@ -22,7 +22,7 @@ import { prefs } from '../shared/prefs.js';
 /* ---- Oldal-megnyitás: onPageShow ----
    Ami „az oldal megnyílt" pillanatban fut (friss adat, számláló-animáció),
    az ide iratkozik fel, oldalanként akárhány feladattal. A lapok vezérlői a
-   saját setupjukban regisztrálnak; a router csak a nevet ismeri, a ui/-t nem. */
+   saját setupjukban regisztrálnak; a router csak a nevet ismeri, a vezérlőket nem. */
 
 /** oldalnév → a megnyitáskor futó feladatok, a regisztrálás sorrendjében. */
 const pageShowHandlers = new Map();

@@ -114,6 +114,5 @@ export {
   hasReadiness,
   readScale,
   readinessTone,
-  renderScale,
   writeScale,
 };

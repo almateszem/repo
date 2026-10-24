@@ -92,8 +92,6 @@ function applyIntroActions(step, nav) {
 
 /** Kapu-lépések: van-e izomláz / fájdalom. A válasz dönti el a következő lépést. */
 
-/* ---- Kapuk ---- */
-
 function renderGate(stepName, nav) {
   const gate = CI_GATES[stepName];
   const step = cloneTemplate('tpl-ci-gate');
@@ -143,8 +141,6 @@ function renderGate(stepName, nav) {
    ====================================================================== */
 
 /** 1–5 skálák (alvásminőség, energia, stressz) — egy renderelő mindháromnak. */
-
-/* ---- 1–5 skálák ---- */
 
 function renderScale(stepName, nav) {
   const field = CI_SCALE_STEPS[stepName];
@@ -240,8 +236,6 @@ function renderMap(stepName, nav) {
    ====================================================================== */
 
 /** Összegzés és a mentés utáni készenléti kártya. */
-
-/* ---- Összegzés ---- */
 
 function renderSummary(nav) {
   const step = cloneTemplate('tpl-ci-summary');

@@ -84,7 +84,7 @@ const KEY_TO_PAGE = {
     gyökérre, a kártya pedig közvetlen gyerekként `aria-modal`. Így minden
     modál benne van, a következő is — nincs kézzel bővítendő lista. A belépő
     képernyő szándékosan kimarad: az is aria-modal, de sosem kap `is-open`-t.
-    A szerkezetet a ui/shortcuts.test.js őrzi. */
+    A szerkezetet a tests/public/js/app/shortcuts.test.js őrzi. */
 const OPEN_MODAL_SELECTOR = '.is-open > [aria-modal="true"]';
 
 export {

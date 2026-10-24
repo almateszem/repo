@@ -15,7 +15,7 @@ import { readSetRow } from './sets-view.js';
 /**
  * A becsült 1RM a naplóbeli PR-jelzőhöz.
  *
- * UGYANAZ a képlet, mint a szerveren (server/recovery.js → estimate1RM, amit a
+ * UGYANAZ a képlet, mint a szerveren (server/one-rm.js → estimate1RM, amit a
  * PR-követés is használ): Epley, de egy ismétlésnél maga a súly. A kliens nem
  * importálhat a server/ mappából, ezért itt másolat él — a one-rm.test.js a
  * kettőt egymáshoz köti, hogy ne sodródhassanak szét. Ha a jelző más számot

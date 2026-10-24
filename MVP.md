@@ -207,7 +207,7 @@ elrontott terv örökre ott marad.
   > gyakorlatonkénti csúcsok tehát már számolva vannak, csak nem a szett-sorban
   > jelennek meg.)
 
-- **Az edzés hossza mentődjön.** A `workoutMinutes()` (`js/workout/summary.js`)
+- **Az edzés hossza mentődjön.** A `workoutMinutes()` (`js/workout/summary-data.js`)
   `localStorage`-ból számol, és **nem kerül bele a mentett edzésbe** — tehát a
   Korábbi edzésekben nincs időtartam, másik eszközön pedig 0 percet mutat.
   A kezdés időbélyege a piszkozat része kellene legyen.
