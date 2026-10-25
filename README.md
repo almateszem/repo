@@ -161,20 +161,18 @@ public/          statikus frontend (a szerver innen szolgálja ki)
     coach/       Edző oldal: edzői panel, sportolói nézet, chat, étrend
     profile/     Profil és beállítások
   css/           a stíluslap 13 része (sorrendjük a kaszkád része: index.html <link>)
-server/
-  server.js      Express: /api/* végpontok + a public/ kiszolgálása
-  auth.js        jelszó-hash (scrypt), munkamenet-tokenek, sütik — tiszta függvények
-  auth.test.js   a jelszó- és munkamenet-kezelés tesztjei (npm test)
-  users.test.js  a felhasználók közti adatizoláció tesztjei (npm test)
-  migration.test.js  a fiókok előtti adatbázis migrációjának tesztje (npm test)
-  errors.js      hibakezelő védőháló: kezelő-becsomagolás, JSON-hibaválasz, folyamat-őrök
-  errors.test.js a védőháló tesztjei (npm test)
-  ratelimit.js   kérés-korlátozás: rögzített ablakos számláló memóriában — tiszta függvények
-  ratelimit.test.js  a korlátozó unit-tesztjei (npm test)
-  db.js          SQLite adatréteg — az egyetlen modul, ami a tárolást ismeri
-  cache.test.js  a kollekció-cache szerződése: mi osztozik és mi nem (npm test)
-  messages.test.js  az üzenet-olvasottság migrációja és számlálója (npm test)
-  prs.test.js    az egyéni csúcsok fiókonkénti elkülönítése (npm test)
+server/          Express backend (belépési pont: server.js)
+  server.js      az app összeállítása: köztes rétegek, a route-modulok bekötése
+                 (register(app, deps)), a public/ kiszolgálása
+  routes/        a végpontok tartományonként: auth (belépés, fiók, profil, export),
+                 training (edzés, tervek, készenlét, check-in, test), nutrition, coach
+  http/          kérés-szintű kapuk: munkamenet és a kérés napja (session), az
+                 edző–sportoló hozzáférés ellenőrzése (access)
+  services/      több route-fájl közös szolgáltatása (a mai napló sablonja, készenlét)
+  validation/    a beküldött edzés- és terv-törzs ellenőrzése
+  db/            SQLite adatréteg (belépési pont: db/index.js — séma, migrációk,
+                 kapcsolat, és tartományonként: fiókok, test, edzés, táplálkozás, edzői)
+  db.js          átmeneti újraexport a db/index.js-re
   data.js        seed / referencia-adat (edzés-célok és egyéb vegyes seed)
   data/          a nagy referencia-katalógusok forrásai
     catalog.js   a gyakorlat- és étel-katalógus összeállítása a seed előtt
@@ -182,28 +180,24 @@ server/
     exercises.exdb.js  a külső datasetből GENERÁLT gyakorlatok (npm run exdb:build — kézzel ne szerkeszd)
     exdb.map.js, exdb.names.hu.js  a generálás leképezése és angol → magyar névszótára
     foods.hu.js  az étel-katalógus
-  openfoodfacts.js  vonalkód-ellenőrzés + Open Food Facts proxy (a kliens nem hívja közvetlenül)
-  openfoodfacts.test.js  a leképezés és a vonalkód-normalizálás tesztjei (npm test)
-  recovery.js    Recovery Engine — a készenlét-számítás (tiszta függvények, DB nélkül)
-  recovery.test.js  a motor unit-tesztjei (npm test)
-  coaching.js    az edzői panel sportoló-összegzője (tiszta függvények, DB nélkül)
-  coaching.test.js  az összegző unit-tesztjei (npm test)
-  coach.test.js  az edző–sportoló kapcsolat végponti tesztjei (npm test)
-  notifications.js  az értesítés-panel sorai valódi eseményekből — tiszta függvények
-  notifications.test.js  az értesítés-összeállítás tesztjei (npm test)
-  suggestions.js  ajánlott gyakorlatok a választóhoz: az edzés címéből és a regeneráltságból — tiszta függvények
-  suggestions.test.js  az ajánlás unit-tesztjei (npm test)
-  muscles.js     izomcsoport-taxonómia + gyakorlat → izom leképezés
-  logmode.js     a gyakorlatok naplózási módja (ismétlés + súly vagy időtartam)
-  test-harness.js  közös váz a végponti tesztekhez: izolált szerver saját ideiglenes adatbázissal
-  api.test.js    végponti (HTTP) tesztek a valódi szerveren (npm test)
-  account.test.js  jelszóváltoztatás és fióktörlés végponti tesztjei (npm test)
-  security.test.js  biztonsági végponti tesztek: belépési korlát, kizárás, méretkorlátok (npm test)
-  timezone.test.js  a kérés napja (X-Client-Date) végponti tesztjei (npm test)
-  podium.db    az adatbázisfájl (nem verziókövetett, a szerver hozza létre)
+    bodyweight-load.js, strength-standards.js  testsúlyos terhelés és erőszint-táblák
+  *.js           tiszta modulok (adatbázis nélkül): a Recovery Engine (recovery,
+                 training-load, exercise-advice, one-rm, numbers, records), az edzői
+                 összegző (coaching), értesítések, ajánlások, katalógus-keresés,
+                 diagramok, ciklusos terv, dátumok, izom-taxonómia, naplózási mód;
+                 jelszó/token/süti (auth), hibakezelő védőháló (errors), biztonsági
+                 fejlécek (headers), kérés-korlát (ratelimit); Open Food Facts proxy
+  podium.db      az adatbázisfájl (nem verziókövetett, a szerver hozza létre)
+tests/           npm test (node --test) — a forrás szerkezetét követi
+  server/        motor- és végponti tesztek; test-harness.js: izolált szerver saját
+                 ideiglenes adatbázissal
+  public/js/     a frontend tesztjei funkció-mappánként (fake-dom.js: közös DOM-utánzat)
+  import-names.test.js, unused-exports.test.js  őrök (scripts/check-imports.js, check-exports.js)
 scripts/
   build-exdb.js  a server/data/exercises.exdb.js generálása (npm run exdb:build)
   fetch-exdb-media.js  a hivatkozott gyakorlat-képek letöltése a public/exercises/ alá (npm run exdb:media)
+  check-imports.js  minden statikus import neve létezik-e a célmodulban
+  check-exports.js  a saját modulján kívül sehol nem használt exportok
 ```
 
 Az adat kétféle: a `collections` táblában a **csak olvasható** referencia-adat,
@@ -345,7 +339,7 @@ tartja ki a gráfból magát a vendorolt skillt (különben a saját dokumentác
   utazik, tehát újratöltés után is megmarad; a sáv a szerkesztő tetején végig
   kiírja, melyik napot javítod.
   **Mindkét művelet újraszámolja az egyéni csúcsokat** (`recomputeExerciseMaxes`,
-  `server/db.js`), és ez nem elhagyható: az `updateExerciseMax` csak felfelé
+  `server/db/training.js`), és ez nem elhagyható: az `updateExerciseMax` csak felfelé
   lép, tehát a megszűnt teljesítmény rekordja bent ragadna, és elzárná a
   jövőbeli valódi PR-t. A csúcs mellett a mentett edzésekben tárolt `pr`
   jelzők is újraépülnek — a PR-lista azokból dolgozik, nem a táblából —, így a
@@ -378,10 +372,10 @@ tartja ki a gráfból magát a vendorolt skillt (különben a saját dokumentác
 - **Egyéni csúcsok (PR).** A rekordot a gyakorlat **legjobb teljesített**
   szettje hozza, Epley-becsléssel — nem az első teljesített, ami a
   szett-típusok óta jellemzően a bemelegítés. A szabály egy helyen él
-  (`bestCompletedSet`, `server/db.js`), és ugyanaz jelöli meg a PR-t mentéskor,
+  (`bestCompletedSet`, `server/records.js`), és ugyanaz jelöli meg a PR-t mentéskor,
   mint ami a Korábbi rekordok listáját kiírja. A csúcsok fiókonként külön
   táblasorban állnak, tehát mindenki a saját korábbi teljesítményéhez mérődik.
-- **Migrációk.** A séma bővítései a `db.js` `ensureColumn` hívásaival futnak le a
+- **Migrációk.** A séma bővítései a `db/migrations.js` `ensureColumn` hívásaival futnak le a
   meglévő adatbázisfájlokon is, tehát nem kell törölni a `podium.db`-t. Aki a
   PR-követés bevezetése előtt naplózott, annak a csúcsait a szerver egyszer
   visszatölti a meglévő edzésekből — enélkül a következő edzés minden
@@ -407,7 +401,7 @@ A napi check-int két felület írja, **ugyanabba a sorba**:
 
 **A két út közti szerződés — ez a legfontosabb tudnivaló a check-in körül.**
 A `PUT /api/checkin` **teljes sort cserél**, nem merge-öl (`saveCheckin`,
-`server/db.js`): a törzsből hiányzó mezőt a szerver `null`-ként írja be. A
+`server/db/body.js`): a törzsből hiányzó mezőt a szerver `null`-ként írja be. A
 varázsló ezért megnyitáskor betölti a mai check-int, a nem kérdezett mezőket
 (`mood`, `hydration`, `pain.general`) eltárolja, és mentéskor **változatlanul
 visszaküldi** — enélkül némán felülírná, amit a részletes űrlapon adtál meg.
