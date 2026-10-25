@@ -415,7 +415,7 @@
    A .ci-back NEM az .ep-back listájában él többé: saját, 44px-es szabályt
    kapott lent (a 23. szakasz .ep-back-je 38px maradt, változatlanul).
    A testtérkép (Elöl/Hátul váltó, régiók, érték-chipek) NEM itt él: saját
-   komponens és saját szakasz (bm-*), lásd bodymap/index.js. Korábban a
+   komponens és saját szakasz (bm-*), lásd recovery/bodymap.js. Korábban a
    .wk-toggle-btn és a .rc-chip volt rá újrahasználva — ez már nem igaz.
    ========================================================================== */
 

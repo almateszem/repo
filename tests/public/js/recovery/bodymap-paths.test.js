@@ -84,7 +84,7 @@ test('a tükrözött régiók RAJZA is a bal félen van, nem csak a feliratuk', 
 /** Melyik izomcsoportot kell tükrözni, és melyiket tilos. Egyik irányban sem
     bukik ki magától a hiba: a középen ülőt tükrözve két találati felület
     kerül egymásra, az oldalsót NEM tükrözve pedig a figurának hiányzik a fél
-    végtagja. Ezért itt ki van írva, nem a `paths.js`-ből olvassuk vissza. */
+    végtagja. Ezért itt ki van írva, nem a `bodymap-paths.js`-ből olvassuk vissza. */
 const MIRRORING = {
   shoulders: true,
   biceps: true,

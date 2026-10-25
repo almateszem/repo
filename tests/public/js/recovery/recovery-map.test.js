@@ -1,6 +1,6 @@
 /** A Regeneráció oldal felső részének tiszta logikája: a kímélendő lista, a
     gyűrűk állapota, a komponens-összegzés és a térkép geometriája. DOM nélkül
-    tesztelhető — a kirajzolás (recovery.js) csak ezeket fogyasztja. */
+    tesztelhető — a kirajzolás (recovery-view.js) csak ezeket fogyasztja. */
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
