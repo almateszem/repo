@@ -22,3 +22,6 @@ public/exercises/
 
 # SDD munkaterület (ledger, briefek, review-csomagok) — nem szállítandó
 .superpowers/
+
+# A böngésző-automatizálás (Playwright MCP) munkakönyvtára: naplók, képek, eldobható szkriptek
+.playwright-mcp/

@@ -20,7 +20,8 @@ const GENERATED = [
 ];
 
 export default [
-  { ignores: ['node_modules/**', 'public/gyujto/**', ...GENERATED] },
+  // .playwright-mcp/: a böngésző-automatizálás munkakönyvtára (naplók, képek, eldobható szkriptek)
+  { ignores: ['node_modules/**', 'public/gyujto/**', '.playwright-mcp/**', ...GENERATED] },
 
   js.configs.recommended,
 
