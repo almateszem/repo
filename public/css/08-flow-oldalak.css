@@ -541,7 +541,7 @@
 }
 
 /* A sor gyakorlat-felsorolása hosszú lehet: egy sorban, kipontozva */
-[data-page='workout-picker'] .ep-item-muscles {
+.app-page[data-page='workout-picker'] .ep-item-muscles {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

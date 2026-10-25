@@ -23,3 +23,29 @@ test('az oldal-gyökér szelektora .app-page-re szűkít, nem találhatja el a b
   }
   assert.deepEqual(offenders, []);
 });
+
+const CSS_DIR = path.join(import.meta.dirname, '..', '..', '..', '..', 'public', 'css');
+
+/* A stíluslapban ugyanez a csapda: a puszta `[data-page='x'] .y` a body-n
+   keresztül az x oldalon MINDEN .y-ra hat, a rejtett oldalakéra is. Szabad:
+   `.app-page[data-page=…]` (az oldal-gyökér) és a body-ra SZÁNDÉKOSAN célzó
+   `body[data-page=…]` / `body:is([data-page=…], …)`. */
+test('a stíluslap [data-page] szelektora .app-page-re vagy szándékosan a body-ra szűkít', () => {
+  const offenders = [];
+  for (const entry of readdirSync(CSS_DIR)) {
+    if (!entry.endsWith('.css')) continue;
+    // A kommentek kiürítése (a sortörések maradnak, hogy a sorszám stimmeljen)
+    const source = readFileSync(path.join(CSS_DIR, entry), 'utf8').replace(
+      /\/\*[\s\S]*?\*\//g,
+      (c) => c.replace(/[^\n]/g, ''),
+    );
+    source.split('\n').forEach((line, index) => {
+      for (const match of line.matchAll(/\[data-page=/g)) {
+        const before = line.slice(0, match.index);
+        if (/(\.app-page|body)$/.test(before) || /body:is\([^)]*$/.test(before)) continue;
+        offenders.push(`${entry}:${index + 1}`);
+      }
+    });
+  }
+  assert.deepEqual(offenders, []);
+});
