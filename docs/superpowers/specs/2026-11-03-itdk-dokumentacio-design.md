@@ -12,6 +12,27 @@ szerinti hivatkozásokkal. A dokumentáció tartalma kész; most **csak a
 pluszok** kerülnek hozzá. Első lépésben egy Markdown-fájl készül, Word-be
 később tesszük át (az nem része ennek a munkának).
 
+## Olvasók
+
+A dolgozatot nem informatikusok olvassák, és valószínűleg keveset tudnak
+programozási nyelvekről és fejlesztői eszközökről. Ezért minden **új**
+szöveg (előlap utáni rezümé, 2. Célkitűzés, 3. Szakirodalmi áttekintés,
+4. fejezet bevezetője, 5.1–5.2) egyszerű, köznapi nyelven szól:
+
+- Rövid mondatok, a szakszavak helyett köznapi szavak, ahol lehet.
+- Ha egy szakszó vagy terméknév nem kerülhető el (Node.js, SQLite, REST API,
+  1RM, RPE), az első előfordulásnál egy köznapi tagmondat magyarázza, mit
+  csinál, és mire kellett nekünk (pl. „az SQLite, egy kis adatbázis-program,
+  amely a felhasználók adatait egyetlen fájlban tárolja”).
+- Az új szövegben nincs fájlnév, kódrészlet, függvény- vagy oszlopnév, és
+  nincs verziószám, kivéve az irodalomjegyzéket, ahol a minta előírja.
+- A tudományos módszereknél is először az kerül elő, hogy mit mér a
+  felhasználónak (pl. „mekkora súlyt tudna egyszer felemelni”), és csak
+  utána a módszer neve.
+
+A régi szöveg (a 4. fejezet alfejezetei) a felhasználó döntése szerint
+szó szerint marad, a szakmai nyelvezetével együtt.
+
 ## Célok
 
 1. Új fájl: `DOKUMENTACIO-ITDK.md` a repó gyökerében, ebben a sorrendben:

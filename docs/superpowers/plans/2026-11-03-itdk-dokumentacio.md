@@ -18,6 +18,7 @@
 - Hivatkozási minta (a felhasználóé, kötelező): szoftver `Szerző. (Év). Név (Version x.y.z) [Computer software]. URL`; MI-eszköz `Anthropic. (Év). Claude Code (Version x) [Large language model]. URL`; szövegközi `(OpenJS Foundation, 2026)` és `Az OpenJS Foundation (2026) …`.
 - Több szerzőnél szövegközben `és mtsai`, a jegyzékben az összes szerző (APA 7, legfeljebb 20). Azonos szerző és év esetén `2026a`, `2026b` …, a betűt a cím ábécérendje adja (saját döntés).
 - Kitalált adat nem kerülhet be. Minden tudományos forrás szerzőjét, évét, címét, folyóiratát, kötetét, oldalát és DOI-ját a forrásnál kell látni. Ami nem igazolható, az kimarad, és a felhasználónak jelezni kell.
+- **Laikus olvasó:** az olvasók nem informatikusok. Minden új szöveg rövid mondatokban, köznapi nyelven szól. Ha egy szakszó vagy terméknév nem kerülhető el, az első előfordulásnál egy köznapi tagmondat magyarázza (pl. „az SQLite, egy kis adatbázis-program, amely a felhasználók adatait egyetlen fájlban tárolja”). Az új szövegben nincs fájlnév, kód, függvénynév és verziószám, kivéve az irodalomjegyzéket. A régi szöveg ettől függetlenül szó szerint marad.
 - A git-commitokban nincs Claude-jelölés: se trailer, se Claude-szerző.
 - Munkafájlok (szkriptek): `C:\Users\user\AppData\Local\Temp\claude\807b2261c03f597d\eec918cc-8aa1-4563-893c-e5acf648cf14\scratchpad\itdk\` (a továbbiakban `$W`).
 
@@ -27,7 +28,8 @@
 2. **Escape-elt Markdown a régi szövegben** (`\.`, `\>`, `\-`, `\[`). A címfelismerés ezekkel is működjön, és a szó szerinti másolat bájtra azonos maradjon. → 1. feladat, `headings` és `verbatim`.
 3. **Táblázatsorban lévő hivatkozás** (régi 279. sor). A csere után a sor `|` elválasztói ugyanannyian maradnak. → 1. feladat, `crossrefs`.
 4. **Verziószámok, amelyek hivatkozásnak látszanak** („5.0 (engines)”, „^10.0.1”). Csak a 10 felsorolt sor változhat. → 1. feladat, `verbatim`.
-5. **Rezümé-hossz Markdown-jelölésekkel.** A `**` és a sortörés nem számít leütésnek, a szóköz igen. → 4. feladat, `rezume`.
+5. **Szakzsargon az új szövegben.** Egy laikus olvasónak minden szakszó első előfordulásánál ott kell lennie a köznapi magyarázatnak, és nem maradhat benne fájlnév vagy kód. → 5. feladat, 1. lépés (gépi keresés és átolvasás).
+6. **Rezümé-hossz Markdown-jelölésekkel.** A `**` és a sortörés nem számít leütésnek, a szóköz igen. → 4. feladat, `rezume`.
 
 ---
 
@@ -198,9 +200,10 @@ Témavezető: Fogarasi András, oktató, Kaposvári Informatika Ágazati Képző
 
 ### Task 5: Átadás
 
-- [ ] **Step 1: Ellenőrizd, hogy semmi más nem változott.**
+- [ ] **Step 1: Ellenőrizd a nyelvezetet.** Az új szövegrészekben (rezümé, 2., 3., a 4. bevezetője, 5.1, 5.2) keresd meg a `` ` `` jelet, a `.js`, `.md`, `/`, `()` mintákat és a verziószámokat (`\d+\.\d+\.\d+`). Expected: egy találat sem. Utána olvasd végig a szöveget laikus szemmel, és nézd meg, hogy minden szakszónak (pl. Node.js, Express, SQLite, API, adatbázis, 1RM, RPE, RIR, vonalkód-olvasó könyvtár, nagy nyelvi modell) van-e köznapi magyarázata az első előfordulásnál. Javítás után futtasd újra a `--final` ellenőrzést.
+- [ ] **Step 2: Ellenőrizd, hogy semmi más nem változott.**
   Run: `git status --short` és `git diff --stat DOKUMENTACIO.docx.md`. Expected: a régi fájl változatlan, az új fájl `??`.
-- [ ] **Step 2: Számolj be a felhasználónak.**
+- [ ] **Step 3: Számolj be a felhasználónak.**
   - A beszámolóban szerepeljen a fájl útvonala, a rezümé mért hossza, és az, hogy hány forrás került a jegyzékbe.
   - Sorold fel a nem igazolt és ezért kihagyott forrásokat.
   - Jelezd, hogy a 12 `KITÖLTENDŐ` jelölés megmaradt.
