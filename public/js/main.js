@@ -7,6 +7,7 @@
  */
 
 import { api } from './shared/api.js';
+import { mountBackgroundWaves } from './shared/bg-waves.js';
 import { $ } from './shared/dom.js';
 import { hooks } from './shared/page-hooks.js';
 import { prefs } from './shared/prefs.js';
@@ -15,6 +16,9 @@ import { init, setupAuthGate } from './app/init.js';
 import { startWithRetry } from './app/startup.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // A háttér az első: a belépő képernyő is már rajta ül (ld. css/01-alap.css 4.).
+  mountBackgroundWaves();
+
   const gate = setupAuthGate();
 
   /* Munkamenet-vesztés MENET KÖZBEN (lejárt süti, másik eszközről történt

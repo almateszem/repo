@@ -1024,6 +1024,35 @@ input.wk-chip:focus-visible {
 /* ==========================================================================
    4. App layout és oldalváltás
    ========================================================================== */
+
+/* Hullámos háttér (js/shared/bg-waves.js). A z-index: -1 a gyökér rétegrendjében
+   a body háttere FÖLÉ, de minden tartalom ALÁ teszi — a többi szabályhoz nem
+   kell nyúlni. A CSS-háttér a shader alapszíne: ez látszik, amíg a WebGL-
+   kontextus elveszett (a canvas ilyenkor átlátszó). Ha nincs WebGL2, a canvas
+   nem is kerül a lapra, és a body gradiense marad. */
+.bg-waves {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: #0b0c0e;
+  pointer-events: none;
+}
+
+/* A belépő és az induló hibaképernyő (.au-screen) átlátszatlan, teljes képernyős
+   réteg. Amíg valamelyik nyitva van, a canvas közvetlenül alá emelkedik — így
+   eltakarja a mögötte álló appot (munkamenet-vesztéskor az előző fiók adatait),
+   a képernyő pedig átlátszó lehet, és a háttér rajta is látszik. */
+body:has(> .au-screen:not([hidden])) > .bg-waves {
+  z-index: calc(var(--z-toast) - 1);
+}
+
+body:has(> .bg-waves) .au-screen {
+  background: transparent;
+}
+
 .app-page {
   max-width: var(--page-max);
   margin: 0 auto;
