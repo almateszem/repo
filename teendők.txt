@@ -1,0 +1,37 @@
+TEENDŐK
+=======
+
+1. A workoutTemplate nem tudja, hogy a mai terv már kész  (2026-10-20, a D-078 / 833c63d folytatása)
+--------------------------------------------------------------------------------------------------
+
+Probléma:
+  A server/services/session-plan.js workoutTemplate-je a ma már mentett tervet is
+  mai sablonként adja vissza. Ezért:
+  - az Edzés oldal az „Új edzés" gomb után, és közvetlenül a befejezés után is,
+    újra betölti a kész tervet („Mai terv betöltve" toast) — egy újabb befejezés
+    duplán menti;
+  - az adviceFor / applySessionAdvice a kész terven javasol;
+  - az Áttekintő a todayDone-t külön, a route-ban számolja (server/routes/training.js).
+  Lásd: KOD-KRITIKA.EREDMENYEK.md, D-078 „Észrevétel".
+
+Lehetőségek:
+  1. A workoutTemplate jelöli: done: true  (JAVASLAT)
+     A terv-ágban belongsToPlan-nel nézi, van-e ma mentett edzés ebből a tervből;
+     ha igen, a tervet done: true-val adja vissza. A kliens applyTemplate-je ilyenkor
+     üres naplót hagy (toast nélkül), az adviceFor üresnek veszi, az Áttekintő a
+     template.done-t olvassa a saját számolása helyett. Egy forrás, mindenhol
+     ugyanaz a válasz.
+     Alkérdés: az Áttekintő jobb hasábja továbbra is mutassa a kész terv
+     gyakorlatait? (javaslat: igen, összefoglalóként)
+  2. A workoutTemplate átugorja a kész tervet
+     Visszaesik a korábbi piszkozatra vagy null-ra; az Áttekintő továbbra is maga
+     számol. Hátrány: egy tegnapi félbehagyott piszkozat „mai"-ként előjöhet, és a
+     számolás két helyen marad.
+  3. Csak a /api/workout-template ad null-t kész tervnél (route-szintű különeset)
+     Kicsi, de a javaslat továbbra is a kész terven dolgozik, és a számolás egy
+     harmadik helyre is bekerül.
+  4. Csak kliensoldalon: az „Új edzés" egy jelzővel üresen nyitja az Edzés oldalt
+     A legszűkebb, de a befejezés utáni toast és az újratöltéskori dupla mentés
+     kockázata megmarad.
+
+Döntés: —

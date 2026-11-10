@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<title>Podium – OTIO poszter</title>
+<style>
+  :root {
+    --bg: #141518;
+    --bg-raised: #1c1d21;
+    --bg-deep: #0a0a0b;
+    --line: #2d2e34;
+    --line-strong: #44454c;
+    --fg: #f4f3f1;
+    --fg-2: #c9c8c6;
+    --fg-3: #8d8c8a;
+    --accent: #c8102e;
+    --accent-soft: #e0435a;
+    --ok: #4ad295;
+    --warn: #e8a33d;
+    --sans: 'Segoe UI', system-ui, sans-serif;
+    --mono: 'Cascadia Mono', 'Cascadia Code', Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 3508px; height: 4961px; }
+  body {
+    background:
+      radial-gradient(2000px 1500px at 0% 0%, rgba(200, 16, 46, .22), transparent 70%),
+      radial-gradient(1700px 1400px at 100% 55%, rgba(200, 16, 46, .10), transparent 70%),
+      var(--bg);
+    color: var(--fg);
+    font-family: var(--sans);
+    font-size: 32px;
+    line-height: 1.42;
+    overflow: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  .poster { position: relative; width: 3508px; height: 4961px; padding: 100px 130px 84px; display: flex; flex-direction: column; }
+
+  /* ---------- közös elemek ---------- */
+  .mono { font-family: var(--mono); letter-spacing: .18em; text-transform: uppercase; }
+  .label { font-family: var(--mono); font-size: 21px; letter-spacing: .2em; text-transform: uppercase; color: var(--fg-3); font-weight: 700; }
+  .sec-head { display: flex; align-items: baseline; gap: 20px; margin-bottom: 22px; }
+  .sec-num { font-family: var(--mono); font-weight: 700; font-size: 24px; color: var(--accent-soft); letter-spacing: .1em; }
+  .sec-title { font-weight: 900; font-size: 50px; letter-spacing: -.02em; line-height: 1.05; }
+  .sec-sub { font-family: var(--mono); font-size: 19px; letter-spacing: .16em; text-transform: uppercase; color: var(--fg-3); margin: -8px 0 22px; }
+  p + p { margin-top: 16px; }
+  strong { font-weight: 700; color: var(--fg); }
+  .muted { color: var(--fg-2); }
+  .card { background: var(--bg-raised); border: 1px solid var(--line); padding: 34px 36px; }
+  .rule { height: 1px; background: var(--line); }
+
+  /* ---------- fejléc ---------- */
+  .topbar { display: flex; justify-content: space-between; align-items: center; padding-bottom: 26px; border-bottom: 1px solid var(--line-strong); }
+  .topbar .mono { font-size: 22px; font-weight: 700; color: var(--fg-2); }
+  .topbar .cat { color: var(--fg); }
+  .topbar .cat b { color: var(--accent-soft); }
+  .title-row { display: grid; grid-template-columns: auto 1fr; gap: 90px; align-items: end; padding: 40px 0 38px; }
+  .wordmark { font-weight: 900; font-size: 330px; line-height: .8; letter-spacing: -.045em; display: flex; align-items: flex-end; }
+  .wordmark i { display: inline-block; width: 56px; height: 56px; background: var(--accent); margin: 0 0 18px 20px; }
+  .tagline { font-size: 64px; font-weight: 700; line-height: 1.1; letter-spacing: -.015em; max-width: 1700px; padding-bottom: 6px; }
+  .tagline em { font-style: normal; color: var(--accent-soft); }
+  .meta { display: grid; grid-template-columns: 1.6fr 1.5fr 1fr 1fr; border-top: 1px solid var(--line-strong); border-bottom: 1px solid var(--line-strong); }
+  .meta > div { padding: 26px 34px 28px 0; }
+  .meta > div + div { padding-left: 34px; border-left: 1px solid var(--line); }
+  .meta .label { margin-bottom: 10px; }
+  .meta .v { font-size: 32px; font-weight: 600; line-height: 1.3; }
+  .meta .v small { display: block; font-size: 25px; font-weight: 400; color: var(--fg-2); }
+
+  /* ---------- hero ---------- */
+  .hero { display: grid; grid-template-columns: 1000px 1fr; gap: 90px; padding: 80px 0 100px; align-items: center; }
+  .hero-lede { font-size: 76px; font-weight: 900; line-height: 1.04; letter-spacing: -.025em; }
+  .hero-lede span { color: var(--fg-3); }
+  .hero-text { font-size: 32px; color: var(--fg-2); margin-top: 34px; }
+  .hero-text strong { color: var(--fg); }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 46px; border-top: 1px solid var(--line-strong); }
+  .stat { padding: 22px 0 0; }
+  .stat .n { font-size: 82px; font-weight: 900; letter-spacing: -.03em; line-height: 1; }
+  .stat .n sup { font-size: 34px; color: var(--fg-3); vertical-align: top; position: relative; top: 8px; margin-left: 4px; }
+  .stat .t { font-family: var(--mono); font-size: 18px; letter-spacing: .14em; text-transform: uppercase; color: var(--fg-3); margin-top: 10px; line-height: 1.35; }
+  .shots { position: relative; height: 1150px; }
+  .desk { position: absolute; right: 0; top: 0; width: 1680px; border: 1px solid var(--line-strong); box-shadow: 0 40px 90px rgba(0,0,0,.6); background: var(--bg-deep); }
+  .desk .bar { height: 46px; display: flex; align-items: center; gap: 12px; padding: 0 20px; border-bottom: 1px solid var(--line); }
+  .desk .bar i { width: 14px; height: 14px; border-radius: 50%; background: #3a3a3c; }
+  .desk .bar span { font-family: var(--mono); font-size: 17px; color: var(--fg-3); margin-left: 18px; letter-spacing: .06em; }
+  .desk img { display: block; width: 100%; }
+  .phone { position: absolute; left: 200px; bottom: 0; width: 380px; padding: 14px; background: #050506; border: 2px solid #3a3a3c; border-radius: 52px; box-shadow: 0 40px 80px rgba(0,0,0,.75); }
+  .phone img { display: block; width: 100%; border-radius: 40px; }
+  .shot-cap { position: absolute; right: 0; bottom: 0; font-family: var(--mono); font-size: 18px; letter-spacing: .12em; text-transform: uppercase; color: var(--fg-3); }
+
+  /* ---------- fő rács ---------- */
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 140px 70px; }
+  .span2 { grid-column: span 2; }
+  .span3 { grid-column: 1 / -1; }
+
+  /* célok */
+  .goals { list-style: none; counter-reset: g; }
+  .goals li { display: grid; grid-template-columns: 54px 1fr; gap: 0 18px; padding: 18px 0; border-top: 1px solid var(--line); }
+  .goals li:last-child { border-bottom: 1px solid var(--line); }
+  .goals .gn { font-family: var(--mono); font-size: 26px; font-weight: 700; color: var(--fg-3); padding-top: 2px; }
+  .goals b { font-size: 33px; font-weight: 700; display: block; }
+  .goals .gd { color: var(--fg-2); font-size: 29px; line-height: 1.35; }
+  .chip { display: inline-block; font-family: var(--mono); font-size: 16px; font-weight: 700; letter-spacing: .14em; padding: 4px 10px 3px; margin-left: 10px; vertical-align: 4px; }
+  .chip.ok { color: var(--ok); background: rgba(74, 210, 149, .13); }
+  .chip.part { color: var(--warn); background: rgba(232, 163, 61, .14); }
+  .question { margin-top: 30px; padding: 28px 32px; border-left: 6px solid var(--accent); background: rgba(200, 16, 46, .09); font-size: 33px; font-weight: 600; line-height: 1.35; }
+  .question .label { display: block; margin-bottom: 8px; color: var(--accent-soft); }
+
+  /* motor-ábra */
+  .engine { padding: 40px 44px 36px; display: flex; flex-direction: column; justify-content: center; }
+  .flow { display: grid; grid-template-columns: 1fr 70px 1.12fr 70px .95fr; align-items: stretch; margin-top: 8px; }
+  .arrow { display: flex; align-items: center; justify-content: center; color: var(--accent-soft); font-size: 56px; font-weight: 300; }
+  .inputs { display: flex; flex-direction: column; gap: 16px; }
+  .in { border: 1px solid var(--line-strong); padding: 18px 22px; background: var(--bg-deep); }
+  .in .label { color: var(--fg); font-size: 20px; }
+  .in p { font-size: 25px; color: var(--fg-2); margin-top: 6px; line-height: 1.32; }
+  .in p em { font-style: normal; color: var(--fg-3); font-size: 19px; }
+  .weights { display: flex; flex-direction: column; justify-content: center; }
+  .wrow { display: grid; grid-template-columns: 200px 1fr 52px; align-items: center; gap: 14px; padding: 7px 0; font-size: 23px; }
+  .wrow .bar { height: 22px; background: #2a2b30; position: relative; }
+  .wrow .bar i { position: absolute; inset: 0 auto 0 0; background: var(--accent); }
+  .wrow .w { font-family: var(--mono); font-weight: 700; color: var(--fg-2); text-align: right; font-size: 22px; }
+  .wnote { font-size: 23px; color: var(--fg-3); margin-top: 14px; line-height: 1.35; }
+  .out { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+  .ring { position: relative; width: 260px; height: 260px; }
+  .ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .ring .num { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+  .ring .num b { font-size: 104px; font-weight: 900; letter-spacing: -.04em; line-height: .9; }
+  .ring .num span { font-family: var(--mono); font-size: 17px; letter-spacing: .18em; color: var(--fg-3); margin-top: 8px; }
+  .muscles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px 14px; margin-top: 22px; width: 100%; }
+  .m { font-family: var(--mono); font-size: 15px; letter-spacing: .06em; text-transform: uppercase; color: var(--fg-3); text-align: center; }
+  .m b { display: block; font-family: var(--sans); font-size: 27px; font-weight: 800; letter-spacing: 0; color: var(--ok); }
+  .m b.lo { color: var(--fg); }
+  .outnote { font-size: 24px; color: var(--fg-2); margin-top: 16px; line-height: 1.3; }
+
+  /* funkciók */
+  .feats { display: grid; grid-template-columns: 1fr 1fr; gap: 0 34px; }
+  .feat { padding: 16px 0; border-top: 1px solid var(--line); }
+  .feat b { display: block; font-size: 32px; }
+  .feat span { color: var(--fg-2); font-size: 28px; line-height: 1.32; display: block; }
+  .tech { margin-top: 24px; font-size: 27px; color: var(--fg-2); line-height: 1.4; }
+  .tech b { color: var(--fg); }
+
+  /* idővonal */
+  .tl { list-style: none; position: relative; }
+  .tl li { position: relative; padding: 0 0 26px 46px; }
+  .tl li::before { content: ''; position: absolute; left: 0; top: 9px; width: 20px; height: 20px; background: var(--ok); }
+  .tl li::after { content: ''; position: absolute; left: 9px; top: 32px; bottom: -6px; width: 2px; background: var(--line-strong); }
+  .tl li:last-child::after { display: none; }
+  .tl li.plan::before { background: transparent; border: 3px solid var(--accent-soft); }
+  .tl .when { font-family: var(--mono); font-size: 22px; font-weight: 700; letter-spacing: .14em; color: var(--fg-3); text-transform: uppercase; }
+  .tl .what { font-size: 30px; line-height: 1.32; color: var(--fg-2); }
+  .tl .what b { color: var(--fg); }
+  .tl-split { font-family: var(--mono); font-size: 19px; letter-spacing: .18em; font-weight: 700; text-transform: uppercase; margin: 6px 0 16px; display: flex; gap: 26px; }
+  .tl-split .k { color: var(--ok); }
+  .tl-split .p { color: var(--accent-soft); }
+
+  /* újdonság */
+  .exist { display: grid; grid-template-columns: 1fr; gap: 0; }
+  .ex { display: grid; grid-template-columns: 300px 1fr; gap: 18px; padding: 13px 0; border-top: 1px solid var(--line); font-size: 28px; line-height: 1.3; }
+  .ex b { font-size: 28px; }
+  .ex span { color: var(--fg-2); }
+  .ex small { display: block; color: var(--fg-3); font-size: 21px; font-weight: 400; }
+  .newlist { list-style: none; margin-top: 22px; }
+  .newlist li { position: relative; padding: 12px 0 12px 46px; font-size: 30px; line-height: 1.33; }
+  .newlist li::before { content: '+'; position: absolute; left: 0; top: 4px; font-family: var(--mono); font-weight: 700; font-size: 34px; color: var(--accent-soft); }
+  .coachshot { margin-top: 24px; border: 1px solid var(--line-strong); aspect-ratio: 2440 / 900; overflow: hidden; }
+  .coachshot img { display: block; width: 118.03%; margin: -14.75% 0 0 -19.6%; }
+  .cap { font-family: var(--mono); font-size: 16px; letter-spacing: .12em; text-transform: uppercase; color: var(--fg-3); margin-top: 10px; }
+
+  /* hasznosítás, hatás */
+  .uses { list-style: none; }
+  .uses li { padding: 17px 0; border-top: 1px solid var(--line); font-size: 29px; color: var(--fg-2); line-height: 1.35; }
+  .uses li b { color: var(--fg); display: block; font-size: 32px; }
+  .impact { display: flex; flex-direction: column; gap: 14px; }
+  .imp { padding: 20px 24px; background: var(--bg-raised); border: 1px solid var(--line); }
+  .imp .label { color: var(--accent-soft); margin-bottom: 6px; }
+  .imp p { font-size: 29px; color: var(--fg-2); line-height: 1.35; }
+
+  /* következtetés */
+  .hyp { list-style: none; margin-top: 18px; }
+  .hyp li { display: grid; grid-template-columns: 62px 1fr; padding: 13px 0; border-top: 1px solid var(--line); font-size: 29px; line-height: 1.33; color: var(--fg-2); }
+  .hyp li b { font-family: var(--mono); color: var(--accent-soft); font-size: 28px; }
+  .limits { margin-top: 20px; font-size: 25px; color: var(--fg-3); line-height: 1.38; }
+
+  /* irodalom */
+  .refs { columns: 2; column-gap: 60px; font-size: 17.5px; line-height: 1.38; color: var(--fg-3); }
+  .refs p { break-inside: avoid; margin: 0 0 9px; padding-left: 26px; text-indent: -26px; }
+  .refs p + p { margin-top: 0; }
+  .refs i { color: var(--fg-2); }
+
+  .foot { margin-top: auto; padding-top: 26px; border-top: 1px solid var(--line-strong); display: flex; justify-content: space-between; font-family: var(--mono); font-size: 18px; letter-spacing: .14em; text-transform: uppercase; color: var(--fg-3); }
+</style>
+</head>
+<body>
+<div class="poster">
+
+  <!-- ===== FEJLÉC ===== -->
+  <div class="topbar">
+    <span class="mono">OTIO · Projektposzter · 2026</span>
+    <span class="mono cat">Projekt kategóriája: <b>Szoftver</b></span>
+  </div>
+
+  <div class="title-row">
+    <div class="wordmark">Podium<i></i></div>
+    <div class="tagline">Edzés, táplálkozás és regeneráció egy helyen – <em>napi készenléti pontszám okosóra nélkül</em></div>
+  </div>
+
+  <div class="meta">
+    <div><div class="label">Pályázók</div><div class="v">Kovács Valter<br>Dausek Csanád<br>Peresztegi Viktor Zsolt</div></div>
+    <div><div class="label">Iskola</div><div class="v">Kaposvári Informatika Ágazati Képzőközpont<small>7400 Kaposvár, Szent Imre u. 2.</small></div></div>
+    <div><div class="label">Témavezető</div><div class="v">Fogarasi András<small>szakoktató</small></div></div>
+    <div><div class="label">Szak</div><div class="v">Szoftverfejlesztő és -tesztelő technikus</div></div>
+  </div>
+
+  <!-- ===== HERO ===== -->
+  <div class="hero">
+    <div>
+      <div class="hero-lede">Edzel. Eszel. Alszol. <span>Három külön app – és egyik sem mondja meg, hogy ma érdemes-e keményen edzeni.</span></div>
+      <p class="hero-text">A <strong>Podium</strong> böngészőből, telepítés nélkül használható webes alkalmazás. Összeköti az edzés, az étkezés és a pihenés adatait, és minden reggel kiszámolja, <strong>mennyire áll készen a sportoló</strong> egy újabb edzésre – összesítve és 12 izomcsoportra külön is.</p>
+      <div class="stats">
+        <div class="stat"><div class="n">0–100</div><div class="t">napi készenléti<br>pontszám</div></div>
+        <div class="stat"><div class="n">12</div><div class="t">izomcsoport<br>külön követve</div></div>
+        <div class="stat"><div class="n">788</div><div class="t">automatikus teszt,<br>mind sikeres</div></div>
+      </div>
+    </div>
+    <div class="shots">
+      <div class="desk">
+        <div class="bar"><i></i><i></i><i></i><span>Podium · Regeneráció</span></div>
+        <img src="kepek/regeneracio-asztali.png" alt="">
+      </div>
+      <div class="phone"><img src="kepek/attekintes-telefon.png" alt=""></div>
+      <div class="shot-cap">Valódi képernyőképek · próbaadatokkal · asztali gép és telefon</div>
+    </div>
+  </div>
+
+  <!-- ===== FŐ RÁCS ===== -->
+  <div class="grid">
+
+    <!-- 01 Bevezetés -->
+    <section>
+      <div class="sec-head"><span class="sec-num">01</span><h2 class="sec-title">Bevezetés</h2></div>
+      <div class="sec-sub">Honnan jött az ötlet?</div>
+      <p class="muted">Aki rendszeresen edz, gyakran <strong>két-három külön appot</strong> használ az edzésre, az étkezésre és a pihenésre. Ezek nem tudnak egymásról, így a sportoló csak az érzéseire hagyatkozhat: túlterheli magát, vagy feleslegesen visszavesz.</p>
+      <p class="muted">A <strong>személyi edzők</strong> pedig táblázatban, papíron vagy chatben követik a klienseiket. Ötletünk: egy app, amely mindezt egy helyen kezeli, és <strong>össze is kapcsolja</strong>. Új projekt, 2026 júliusában kezdtük.</p>
+      <div class="question"><span class="label">A projekt kérdése</span>Megbecsülhető-e okosóra nélkül, naplóból és egy rövid reggeli kérdőívből, mennyire áll készen a sportoló?</div>
+    </section>
+
+    <!-- 02 Célkitűzés -->
+    <section>
+      <div class="sec-head"><span class="sec-num">02</span><h2 class="sec-title">Célkitűzés</h2></div>
+      <div class="sec-sub">Öt részcél – és ami elkészült</div>
+      <ol class="goals">
+        <li><span class="gn">1</span><div><b>Minden egy helyen <span class="chip ok">TELJESÜLT</span></b><span class="gd">Edzés, étkezés, pihenés egy fiókban, együtt értékelve.</span></div></li>
+        <li><span class="gn">2</span><div><b>A felkészültség becslése <span class="chip ok">TELJESÜLT</span></b><span class="gd">Napi 0–100-as pontszám, izomcsoportonként is.</span></div></li>
+        <li><span class="gn">3</span><div><b>Kapcsolat az edzővel <span class="chip ok">TELJESÜLT</span></b><span class="gd">Az edző csak a sportoló beleegyezésével lát adatot.</span></div></li>
+        <li><span class="gn">4</span><div><b>Biztonság <span class="chip ok">TELJESÜLT</span></b><span class="gd">Idegen adat nem kérhető le – tesztek igazolják.</span></div></li>
+        <li><span class="gn">5</span><div><b>Könnyű használat <span class="chip part">NAGYRÉSZT</span></b><span class="gd">Böngészőből, telefonon és gépen, magyarul.</span></div></li>
+      </ol>
+    </section>
+
+    <!-- Recovery Engine ábra -->
+    <section class="span2 card engine">
+      <div class="sec-head"><span class="sec-num">★</span><h2 class="sec-title">Így születik a napi pontszám</h2></div>
+      <div class="sec-sub">A Recovery Engine – a projekt legfontosabb része</div>
+      <div class="flow">
+        <div class="inputs">
+          <div class="in"><div class="label">Edzésnapló</div><p>súly, ismétlés, érzett nehézség (1–10)<br><em>becsült maximális erő: Epley (1985) · RPE: Zourdos és mtsai (2016) · kardió: Foster és mtsai (2001)</em></p></div>
+          <div class="in"><div class="label">Reggeli check-in</div><p>alvás, energia, stressz, közérzet, izomláz, fájdalom<br><em>Hooper és Mackinnon (1995) kérdőíve alapján</em></p></div>
+          <div class="in"><div class="label">Táplálkozás</div><p>kalória, fehérje, folyadék – a kitűzött célhoz mérve</p></div>
+        </div>
+        <div class="arrow">→</div>
+        <div class="weights">
+          <div class="label" style="margin-bottom:12px">Összetevők alapsúlya</div>
+          <div class="wrow"><span>Alvás</span><div class="bar"><i style="width:100%"></i></div><span class="w">25</span></div>
+          <div class="wrow"><span>Izmok állapota</span><div class="bar"><i style="width:60%"></i></div><span class="w">15</span></div>
+          <div class="wrow"><span>Energiaszint</span><div class="bar"><i style="width:60%"></i></div><span class="w">15</span></div>
+          <div class="wrow"><span>Edzésterhelés</span><div class="bar"><i style="width:60%"></i></div><span class="w">15</span></div>
+          <div class="wrow"><span>Stressz</span><div class="bar"><i style="width:40%"></i></div><span class="w">10</span></div>
+          <div class="wrow"><span>Közérzet</span><div class="bar"><i style="width:40%"></i></div><span class="w">10</span></div>
+          <div class="wrow"><span>Táplálkozás</span><div class="bar"><i style="width:20%"></i></div><span class="w">5</span></div>
+          <p class="wnote">A fáradtság fokozatosan cseng le (Calvert és mtsai, 1976); a terhelést a sportoló saját 28 napos átlagához mérjük.</p>
+        </div>
+        <div class="arrow">→</div>
+        <div class="out">
+          <div class="ring">
+            <svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="52" fill="none" stroke="#2a2b30" stroke-width="9"/><circle cx="60" cy="60" r="52" fill="none" stroke="#c8102e" stroke-width="9" stroke-dasharray="209.1 326.7"/></svg>
+            <div class="num"><b>64</b><span>/ 100 · MA</span></div>
+          </div>
+          <div class="muscles">
+            <div class="m"><b>92</b>mell</div><div class="m"><b>94</b>váll</div><div class="m"><b>98</b>bicepsz</div><div class="m"><b>94</b>tricepsz</div>
+            <div class="m"><b>98</b>hát</div><div class="m"><b>91</b>has</div><div class="m"><b class="lo">66</b>quad</div><div class="m"><b class="lo">72</b>farizom</div>
+          </div>
+          <p class="outnote">+ ajánlott gyakorlatok és súlyok; erős fájdalomnál az érintett gyakorlat kimarad.</p>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- 03 Projekt leírása -->
+    <section>
+      <div class="sec-head"><span class="sec-num">03</span><h2 class="sec-title">A projekt leírása</h2></div>
+      <div class="sec-sub">Mit építettünk, és milyen ütemben</div>
+      <div class="feats">
+        <div class="feat"><b>Edzésnapló, tervek</b><span>sorozat, súly, nehézség</span></div>
+        <div class="feat"><b>Táplálkozás</b><span>437 étel, vonalkód-olvasás</span></div>
+        <div class="feat"><b>Napi check-in</b><span>pár gyors reggeli kérdés</span></div>
+        <div class="feat"><b>Recovery Engine</b><span>pontszám és ajánlások</span></div>
+        <div class="feat"><b>Edzői panel</b><span>tervek, étrend, chat</span></div>
+        <div class="feat"><b>1441 gyakorlat</b><span>izmokkal, képekkel</span></div>
+      </div>
+      <p class="tech"><b>Technika:</b> Node.js + Express, SQLite (22 tábla), böngészős felület. Hárman fejlesztettük, MI-alapú programozási segéd (Claude Code) támogatásával.</p>
+    </section>
+
+    <!-- idővonal -->
+    <section>
+      <div class="sec-head"><span class="sec-num">03</span><h2 class="sec-title">Ütemezés</h2></div>
+      <div class="tl-split"><span class="k">■ elvégezve</span><span class="p">□ tervezett</span></div>
+      <ul class="tl">
+        <li><div class="when">2026. július</div><div class="what"><b>Indulás:</b> edzésnapló, ételek</div></li>
+        <li><div class="when">2026. augusztus</div><div class="what"><b>Recovery Engine</b>, check-in, fiókok</div></li>
+        <li><div class="when">2026. szeptember</div><div class="what">12 izomcsoport, kódellenőrzés</div></li>
+        <li><div class="when">2026. október</div><div class="what"><b>Kódátvizsgálás:</b> 78 probléma rendezve</div></li>
+        <li><div class="when">2026. november</div><div class="what"><b>788 teszt sikeres</b>, TDK-bemutató</div></li>
+        <li class="plan"><div class="when">Következő lépés</div><div class="what"><b>Kipróbálás valódi sportolókkal</b></div></li>
+        <li class="plan"><div class="when">Utána</div><div class="what">okosóra-adatok, nyilvános indulás</div></li>
+      </ul>
+    </section>
+
+    <!-- 04 Újdonság -->
+    <section>
+      <div class="sec-head"><span class="sec-num">04</span><h2 class="sec-title">Újdonság, innováció</h2></div>
+      <div class="sec-sub">Ami eddig külön volt</div>
+      <div class="exist">
+        <div class="ex"><b>Edzésnaplók<small>pl. Strong, Hevy, Fitbod</small></b><span>edzések rögzítése</span></div>
+        <div class="ex"><b>Étrendnaplók<small>pl. MyFitnessPal</small></b><span>kalóriaszámlálás</span></div>
+        <div class="ex"><b>Viselhető eszközök<small>pl. Whoop, Oura, Garmin</small></b><span>felkészültség – külön eszközzel</span></div>
+        <div class="ex" style="border-bottom:1px solid var(--line)"><b>Edzői appok<small>pl. Trainerize</small></b><span>edző–kliens kapcsolat</span></div>
+      </div>
+      <div class="sec-sub" style="margin:26px 0 0">A Podium egyszerre</div>
+      <ul class="newlist">
+        <li><strong>okoseszköz nélkül</strong> számol felkészültséget;</li>
+        <li><strong>izomcsoportonként</strong> is;</li>
+        <li><strong>megmutatja, mi alakította</strong> a pontszámot;</li>
+        <li>az <strong>edző</strong> beleegyezéssel ugyanitt lát mindent;</li>
+        <li><strong>magyar</strong>, telepítés nélkül fut.</li>
+      </ul>
+    </section>
+
+    <!-- 05 Hasznosíthatóság -->
+    <section>
+      <div class="sec-head"><span class="sec-num">05</span><h2 class="sec-title">Hasznosíthatóság</h2></div>
+      <div class="sec-sub">Hol és hogyan használható</div>
+      <ul class="uses">
+        <li><b>Hobbisportolók</b>egy pillantás: ma kemény vagy könnyű edzés?</li>
+        <li><b>Versenyzők</b>izomcsoportonkénti terhelés, kevesebb túlterhelés.</li>
+        <li><b>Személyi edzők</b>minden kliens egy helyen, táblázatok helyett.</li>
+        <li style="border-bottom:1px solid var(--line)"><b>Edzőtermek, egyesületek</b>saját szerveren, egyszerűen futtatható.</li>
+      </ul>
+      <div class="coachshot"><img src="kepek/edzoi-panel.png" alt=""></div>
+      <div class="cap">Edzői panel – a sportoló készenléte és riasztásai</div>
+    </section>
+
+    <!-- 06 Hatás -->
+    <section>
+      <div class="sec-head"><span class="sec-num">06</span><h2 class="sec-title">A projekt hatása</h2></div>
+      <div class="sec-sub">Ha a gyakorlatban is elterjed</div>
+      <div class="impact">
+        <div class="imp"><div class="label">Tudományos</div><p>Kiderülhet, mennyire jó jel egy rövid kérdőív a drága mérőeszközök helyett. A modell nyílt, vizsgálható.</p></div>
+        <div class="imp"><div class="label">Gazdasági</div><p>Nem kell külön eszköz vagy havidíj. Az edzők kevesebbet adminisztrálnak.</p></div>
+        <div class="imp"><div class="label">Társadalmi</div><p>Biztonságosabb edzés, kevesebb sérülés. Magyarul, bárkinek elérhető, az adatokat GDPR szerint védi.</p></div>
+      </div>
+    </section>
+
+    <!-- 07 Következtetés -->
+    <section>
+      <div class="sec-head"><span class="sec-num">07</span><h2 class="sec-title">Következtetés</h2></div>
+      <div class="sec-sub">Összegzés és hipotézisek</div>
+      <p class="muted">A Podium <strong>működő, tesztelt rendszer</strong>: öt célból négy teljesült, egy nagyrészt. Hogy mennyit segít, a valódi sportolókkal végzett kipróbálás mutatja meg.</p>
+      <ul class="hyp">
+        <li><b>H1</b><span>Okosóra nélkül is számolható pontszám, amely követi, hogyan érzi magát a sportoló.</span></li>
+        <li><b>H2</b><span>Az izomcsoportonkénti követés csökkenti a túlterhelést.</span></li>
+        <li style="border-bottom:1px solid var(--line)"><b>H3</b><span>Ha az edző egy helyen látja az adatokat, kevesebbet adminisztrál.</span></li>
+      </ul>
+      <p class="limits"><b style="color:var(--fg-2)">Korlát:</b> a súlyok saját becslések; a pontszám tájékoztató, nem orvosi vélemény.</p>
+    </section>
+
+    <!-- 08 Szakirodalom -->
+    <section class="span2">
+      <div class="sec-head" style="margin-bottom:18px"><span class="sec-num">08</span><h2 class="sec-title" style="font-size:38px">Szakirodalom</h2></div>
+      <div class="refs">
+        <p>Anthropic. (2026). <i>Claude Code</i> (Version 2.1.317) [Large language model]. https://claude.com/product/claude-code</p>
+        <p>Borg, G. A. V. (1982). Psychophysical bases of perceived exertion. <i>Medicine and Science in Sports and Exercise, 14</i>(5), 377–381. https://doi.org/10.1249/00005768-198205000-00012</p>
+        <p>Calvert, T. W., Banister, E. W., Savage, M. V., &amp; Bach, T. (1976). A systems model of the effects of training on physical performance. <i>IEEE Transactions on Systems, Man, and Cybernetics, SMC-6</i>(2), 94–102. https://doi.org/10.1109/TSMC.1976.5409179</p>
+        <p>Epley, B. (1985). Poundage chart. In <i>Boyd Epley workout</i>. Body Enterprises.</p>
+        <p>European Parliament &amp; Council of the European Union. (2016). Regulation (EU) 2016/679 (General Data Protection Regulation). <i>Official Journal of the European Union, L 119</i>, 1–88. https://eur-lex.europa.eu/eli/reg/2016/679/oj</p>
+        <p>Foster, C., Florhaug, J. A., Franklin, J., Gottschall, L., Hrovatin, L. A., Parker, S., Doleshal, P., &amp; Dodge, C. (2001). A new approach to monitoring exercise training. <i>Journal of Strength and Conditioning Research, 15</i>(1), 109–115. https://doi.org/10.1519/00124278-200102000-00019</p>
+        <p>Gym visual. (n.d.). <i>Gym visual</i> [Exercise images and animations]. Retrieved November 4, 2026, from https://gymvisual.com/</p>
+        <p>Hipp, D. R. (2026). <i>SQLite</i> (Version 3.53.0) [Computer software]. https://sqlite.org/</p>
+        <p>Hooper, S. L., &amp; Mackinnon, L. T. (1995). Monitoring overtraining in athletes: Recommendations. <i>Sports Medicine, 20</i>(5), 321–327. https://doi.org/10.2165/00007256-199520050-00003</p>
+        <p>Impellizzeri, F. M., Tenan, M. S., Kempton, T., Novak, A., &amp; Coutts, A. J. (2020). Acute:chronic workload ratio: Conceptual issues and fundamental pitfalls. <i>International Journal of Sports Physiology and Performance, 15</i>(6), 907–913. https://doi.org/10.1123/ijspp.2019-0864</p>
+        <p>Open Food Facts. (2026). <i>Open Food Facts</i> [Data set]. Retrieved November 4, 2026, from https://world.openfoodfacts.org/</p>
+        <p>OpenJS Foundation. (2026a). <i>ESLint</i> (Version 10.10.0) [Computer software]. https://eslint.org/</p>
+        <p>OpenJS Foundation. (2026b). <i>Express</i> (Version 4.22.3) [Computer software]. https://expressjs.com/</p>
+        <p>OpenJS Foundation. (2026c). <i>Node.js</i> (Version 24.16.0) [Computer software]. https://nodejs.org/</p>
+        <p>Prettier. (2026). <i>Prettier</i> (Version 3.9.6) [Computer software]. https://prettier.io/</p>
+        <p>Strength Level. (2026). <i>Strength standards</i> [Data set]. Retrieved November 4, 2026, from https://strengthlevel.com/strength-standards</p>
+        <p>Yıldırım, H. E. (2026). <i>exercises-dataset</i> [Data set]. GitHub. https://github.com/hasaneyldrm/exercises-dataset</p>
+        <p>Zourdos, M. C., Klemp, A., Dolan, C., Quiles, J. M., Schau, K. A., Jo, E., Helms, E., Esgro, B., Duncan, S., Garcia Merino, S., &amp; Blanco, R. (2016). Novel resistance training–specific rating of perceived exertion scale measuring repetitions in reserve. <i>Journal of Strength and Conditioning Research, 30</i>(1), 267–275. https://doi.org/10.1519/JSC.0000000000001049</p>
+        <p>zxing-js. (2024). <i>ZXing library</i> (Version 0.21.3) [Computer software]. https://github.com/zxing-js/library</p>
+      </div>
+    </section>
+  </div>
+
+  <div class="foot"><span>Podium · edző–sportoló edzésmenedzsment</span><span>Kaposvári Informatika Ágazati Képzőközpont · 2026</span></div>
+</div>
+</body>
+</html>
