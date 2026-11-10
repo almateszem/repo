@@ -35,7 +35,10 @@ export async function startServer({ label, extraEnv = {} }) {
 
   const child = spawn(
     process.execPath,
-    ['--disable-warning=ExperimentalWarning', path.join(__dirname, '..', '..', 'server', 'server.js')],
+    [
+      '--disable-warning=ExperimentalWarning',
+      path.join(__dirname, '..', '..', 'server', 'server.js'),
+    ],
     {
       env: {
         ...process.env,

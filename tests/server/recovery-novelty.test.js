@@ -1,7 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { failureWeight, buildNoveltyIndex, computeReadiness, dayKey } from '../../server/recovery.js';
+import {
+  failureWeight,
+  buildNoveltyIndex,
+  computeReadiness,
+  dayKey,
+} from '../../server/recovery.js';
 
 test('failureWeight: konvex a bukás közelsége szerint', () => {
   assert.equal(failureWeight(5, 8), 0.2);

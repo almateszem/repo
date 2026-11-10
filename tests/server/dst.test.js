@@ -15,7 +15,8 @@ import assert from 'node:assert/strict';
 
 process.env.TZ = 'Europe/Budapest';
 const { dayKey, daysBetween, shiftDayKey } = await import('../../server/recovery.js');
-const { adherence, streakFromDates, weekProgress, relativeDay } = await import('../../server/coaching.js');
+const { adherence, streakFromDates, weekProgress, relativeDay } =
+  await import('../../server/coaching.js');
 const { weekFromLegacy } = await import('../../server/plan-week.js');
 
 const pad = (n) => String(n).padStart(2, '0');
