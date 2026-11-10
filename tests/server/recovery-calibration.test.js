@@ -1,7 +1,8 @@
 /**
  * Az izomfáradtság-modell kalibrációs tesztjei. Kitalált, 6 hetes naplók,
  * a „ma" léptetésével mért d1 / d2 / d3 értékek. Tartományt ellenőriznek, nem
- * pontos számot. Háttér: docs/superpowers/specs/2026-10-08-izomfaradtsag-modell-design.md
+ * pontos számot. Háttér: az izomfáradtság-modell tervezési spece
+ * (docs/superpowers/specs/2026-10-08-izomfaradtsag-modell-design.md, a gittörténetben)
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
