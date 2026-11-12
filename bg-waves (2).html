@@ -1,0 +1,262 @@
+/<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wavy red background</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #0b0c0e; color: #fff; font-family: system-ui, sans-serif; }
+  /* A háttér-canvas: tedd az oldalad legmélyére */
+  #bg { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; display: block; }
+  .demo { position: relative; z-index: 1; display: grid; place-items: center; height: 100%;
+          letter-spacing: .2em; font-weight: 700; font-size: 12px; opacity: .8; }
+</style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+
+
+<script>
+/* ============ BEÁLLÍTÁSOK ============ */
+const CONFIG = {
+  // Blobok: x,y = pozíció (0..1), r = sugár (a magasság arányában), s = erősség (0..1)
+  // Blob közelében vékony sötét vonalak, távolodva fokozatosan vastagodnak, a végén teljesen fekete.
+  blobs: [
+    { x: 0.5, y: 0.85, r: 0.56, s: 0.40 },
+    { x: 0.08, y: 0.10, r: 0.45, s: 0.60 },
+    { x: 0.92, y: 0.35, r: 0.40, s: 0.42 },
+  ],
+  speed: 0.1,         // mozgás sebessége (0 = áll, 0.5 = lassú, folyékony)
+  seed: 3.7,          // másik szám = másik minta
+  lines: 50
+  ,          // hány sáv: kevesebb = nagyobb, lágyabb formák
+  scale: 1.40,        // a minta nagysága (kisebb = nagyobb formák)
+  tilt: 1.0,         // kiegyenlíti a sávokat: nagyobb = nincsenek vastag "tengerek", egyenletesebb csíkok
+  warp: 1.6,          // mennyire csavarodjon / folyjon a minta (0 = nyugodt foltok)
+  falloff: 1.15,       // a blob lecsengése (kisebb = lassabb, lágyabb átmenet)
+  thinGap: 0.88,      // legvékonyabb vonal a blobnál (nagyobb = vékonyabb)
+  blackAt: -0.15,     // mennyire záródik be a vonal a sötét részeken
+  peak: 0.7,         // max fényesség (0..1): kisebb = homályosabb, visszafogottabb piros
+  colorDark:  [0.40, 0.03, 0.05],
+  colorBright:[1.00, 0.20, 0.17],
+  bg:         [0.043, 0.047, 0.055],
+  // Keskeny ablakon / telefonon a blobok összetolódnak és telítik a képet, ezért gyengítjük őket.
+  narrowFrom: 1.5,    // képarány (szélesség / magasság), ami alatt elkezd gyengülni (1.5 ≈ normál asztali ablak)
+  narrowTo: 0.5,      // ennél a képaránynál (álló telefon) éri el a minimumot
+  narrowMin: 0.5,     // blob-erősség szorzója a legkeskenyebb esetben (1 = nincs gyengítés)
+  maxDpr: 1.5,       // max pixelsűrűség (2 = élesebb retina-kijelzőn, de kb. 78%-kal több pixel)
+  fps: 30,            // képkocka-limit: ilyen lassú mozgáshoz bőven elég (60/120 Hz helyett)
+  adaptive: true,     // ha a gép nem bírja, automatikusan csökkenti a belső felbontást
+  minScale: 0.5,      // ennél kisebb belső felbontásra nem megy le (az adaptív mód)
+};
+
+/* ============ SHADER ============ */
+const VERT = `#version 300 es
+in vec2 aPos; void main(){ gl_Position = vec4(aPos,0.,1.); }`;
+
+// Ami minden pixelre ugyanaz (blob-középpontok, időfüggő eltolások), azt a CPU számolja
+// képkockánként egyszer, nem a GPU pixelenként.
+const FRAG = `#version 300 es
+precision highp float;
+uniform float uInvH;       // 1 / magasság (pixel)
+uniform vec4  uBlobs[8];   // cx, cy (már animálva), falloff/r² * log2(e), s
+uniform int   uCount;
+uniform vec2  uOff0, uOff1, uOff2;   // seed + időfüggő eltolások a három fbm-hez
+uniform vec2  uTilt;       // tilt * normalize(0.55, 1.0)
+uniform float uLines, uScale, uWarp, uThin, uBlack, uPeak;
+uniform vec3  uDark, uBright, uBg;
+out vec4 o;
+
+float hash(vec2 p){ p = fract(p*vec2(123.34,456.21)); p += dot(p,p+45.32); return fract(p.x*p.y); }
+float vnoise(vec2 p){
+  vec2 i = floor(p), f = fract(p);
+  f = f*f*f*(f*(f*6.0-15.0)+10.0);
+  return mix(mix(hash(i), hash(i+vec2(1,0)), f.x),
+             mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), f.x), f.y);
+}
+float fbm(vec2 p){
+  float v = 0.0, a = 0.5;
+  for (int i = 0; i < 3; i++){ v += a*vnoise(p); p = p*2.03 + vec2(17.1, 9.7); a *= 0.5; }
+  return v;
+}
+
+void main(){
+  vec2 p = vec2(gl_FragCoord.x * uInvH, 1.0 - gl_FragCoord.y * uInvH);
+
+  // 1) fényerő-mező a blobokból  (exp(-d²·fall) == exp2(-|Δ|²·fall/r²·log2e), gyök és osztás nélkül)
+  float I = 0.0;
+  for (int i = 0; i < 8; i++){
+    if (i >= uCount) break;
+    vec4 b = uBlobs[i];
+    vec2 d = p - b.xy;
+    I += b.w * exp2(-dot(d, d) * b.z);
+  }
+  float k = smoothstep(0.0, 1.0, clamp(I, 0.0, 1.0));
+
+  // 2) folyós, csavarodó szintvonal-mező (domain warp)
+  vec2 q = p * uScale;
+  vec2 w = vec2(fbm(q + uOff0), fbm(q + uOff1));
+  float f = fbm(q + uWarp * w + uOff2) + dot(p, uTilt);
+  float c = abs(fract(f * uLines) - 0.5) * 2.0;   // 0 = piros sáv közepe, 1 = sötét vonal közepe
+
+  // 3) piros sáv szélessége: blobnál vékony vonal, távol teljesen bezáródik
+  float g = mix(uBlack, uThin, k);
+  float aa = fwidth(c) * 1.2 + 0.0005;
+  float redMask = 1.0 - smoothstep(g - aa, g + aa, c);
+
+  vec3 red = mix(uDark, uBright, pow(k, 1.6) * uPeak);
+  vec3 col = mix(uBg, red, redMask);
+  o = vec4(col, 1.0);
+}`;
+
+/* ============ SETUP ============ */
+const canvas = document.getElementById('bg');
+const gl = canvas.getContext('webgl2', { antialias: false, alpha: false, depth: false, stencil: false });
+if (!gl) { canvas.style.background = '#0b0c0e'; throw new Error('WebGL2 nem elérhető'); }
+
+// Blob-adatok: a sugár része állandó, az erősséget resize(), a középpontot render() tölti ki.
+const blobs = CONFIG.blobs.slice(0, 8);
+const blobData = new Float32Array(32);
+blobs.forEach((b, i) => { blobData[i*4 + 2] = CONFIG.falloff / (b.r * b.r) * Math.LOG2E; });
+const tiltLen = Math.hypot(0.55, 1.0);
+
+function sh(type, src){
+  const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+  return s;
+}
+
+// Minden GPU-oldali erőforrás itt jön létre, mert context lost után újra kell építeni.
+let u = null;
+function initGL(){
+  const prog = gl.createProgram();
+  gl.attachShader(prog, sh(gl.VERTEX_SHADER, VERT));
+  gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FRAG));
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+  gl.useProgram(prog);
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
+  const loc = gl.getAttribLocation(prog, 'aPos');
+  gl.enableVertexAttribArray(loc);
+  gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+
+  const U = n => gl.getUniformLocation(prog, n);
+  u = { invH:U('uInvH'), blobs:U('uBlobs[0]'), count:U('uCount'),
+    off0:U('uOff0'), off1:U('uOff1'), off2:U('uOff2'), tilt:U('uTilt'),
+    lines:U('uLines'), scale:U('uScale'), warp:U('uWarp'), peak:U('uPeak'), thin:U('uThin'), black:U('uBlack'),
+    dark:U('uDark'), bright:U('uBright'), bg:U('uBg') };
+
+  // statikus uniformok: egyszer
+  gl.uniform1i(u.count, blobs.length);
+  gl.uniform2f(u.tilt, CONFIG.tilt * 0.55 / tiltLen, CONFIG.tilt * 1.0 / tiltLen);
+  gl.uniform1f(u.lines, CONFIG.lines);
+  gl.uniform1f(u.scale, CONFIG.scale);
+  gl.uniform1f(u.warp, CONFIG.warp);
+  gl.uniform1f(u.peak, CONFIG.peak);
+  gl.uniform1f(u.thin, CONFIG.thinGap);
+  gl.uniform1f(u.black, CONFIG.blackAt);
+  gl.uniform3fv(u.dark, CONFIG.colorDark);
+  gl.uniform3fv(u.bright, CONFIG.colorBright);
+  gl.uniform3fv(u.bg, CONFIG.bg);
+}
+initGL();
+
+/* ============ MÉRET ============ */
+let quality = 1;          // adaptív felbontás-szorzó (1 = teljes)
+let aspect = 1;
+let sizeDirty = true;     // csak akkor méretezünk, ha tényleg változott valami
+
+function resize(){
+  sizeDirty = false;
+  const dpr = Math.min(window.devicePixelRatio || 1, CONFIG.maxDpr) * quality;
+  const w = Math.max(1, Math.round(canvas.clientWidth * dpr));
+  const h = Math.max(1, Math.round(canvas.clientHeight * dpr));
+  if (canvas.width !== w || canvas.height !== h){ canvas.width = w; canvas.height = h; }
+  gl.viewport(0, 0, w, h);
+  gl.uniform1f(u.invH, 1 / h);
+  aspect = w / h;
+
+  // keskeny képarány -> gyengébb blobok (lineárisan narrowFrom és narrowTo között)
+  const n = Math.min(1, Math.max(0, (aspect - CONFIG.narrowTo) / (CONFIG.narrowFrom - CONFIG.narrowTo)));
+  const sMul = CONFIG.narrowMin + (1 - CONFIG.narrowMin) * n;
+  blobs.forEach((b, i) => { blobData[i*4 + 3] = b.s * sMul; });
+}
+
+/* ============ RAJZOLÁS ============ */
+let lost = false;          // context lost alatt semmilyen GL-hívás nem megy ki
+
+function render(t){
+  if (lost) return;
+  if (sizeDirty) resize();
+  for (let i = 0; i < blobs.length; i++){
+    blobData[i*4]     = blobs[i].x * aspect + 0.04 * Math.sin(t*0.23 + i*2.1);
+    blobData[i*4 + 1] = blobs[i].y          + 0.04 * Math.cos(t*0.19 + i*1.7);
+  }
+  gl.uniform4fv(u.blobs, blobData);
+  const s = CONFIG.seed;
+  gl.uniform2f(u.off0, s       + 0.35*Math.sin(t*0.31), s + 3.1 + 0.35*Math.cos(t*0.27));
+  gl.uniform2f(u.off1, s + 5.2 + 0.35*Math.cos(t*0.23), s + 1.3 + 0.35*Math.sin(t*0.29));
+  gl.uniform2f(u.off2, s       + 0.15*Math.sin(t*0.17), s       + 0.15*Math.cos(t*0.13));
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+}
+
+const animate = CONFIG.speed > 0 && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+const interval = 1000 / CONFIG.fps;
+const t0 = performance.now();
+const timeAt = now => animate ? (now - t0) / 1000 * CONFIG.speed : 0;
+let raf = 0, last = 0, slow = 0;
+
+// Ha tartósan lassabbak a képkockák a célnál, csökkentjük a belső felbontást.
+function adapt(dt){
+  slow = dt > interval * 1.4 ? slow + 1 : Math.max(0, slow - 1);
+  if (slow >= 15 && quality > CONFIG.minScale){
+    quality = Math.max(CONFIG.minScale, quality * 0.8);
+    slow = 0;
+    sizeDirty = true;
+  }
+}
+
+function frame(now){
+  raf = requestAnimationFrame(frame);
+  const dt = now - last;
+  if (dt < interval - 2) return;                       // fps-limit (2 ms tűrés a vsync-ingadozásra)
+  if (CONFIG.adaptive && last && now - t0 > 2000) adapt(dt); // betöltés alatti akadozást nem számoljuk
+  last = now;
+  render(timeAt(now));
+}
+
+function start(){ if (animate && !raf && !lost){ last = 0; raf = requestAnimationFrame(frame); } }
+function stop(){ cancelAnimationFrame(raf); raf = 0; }
+
+// Átméretezés: csak jelölünk; animáció közben a következő képkocka kezeli,
+// álló módban egyetlen újrarajzolást kérünk. (Soha nem indul második ciklus.)
+let pending = 0;
+addEventListener('resize', () => {
+  sizeDirty = true;
+  if (!animate && !pending) pending = requestAnimationFrame(() => { pending = 0; render(0); });
+});
+document.addEventListener('visibilitychange', () => document.hidden ? stop() : start());
+
+// Context lost (GPU-reset, driverfrissítés, túl sok WebGL-oldal, alvó mód stb.):
+// a preventDefault() jelzi a böngészőnek, hogy vissza akarjuk kapni a kontextust.
+// Amíg nincs meg, a canvas átlátszó, így a body azonos színű háttere látszik.
+canvas.addEventListener('webglcontextlost', e => {
+  e.preventDefault();
+  lost = true;
+  stop();
+});
+canvas.addEventListener('webglcontextrestored', () => {
+  lost = false;
+  initGL();               // program, buffer, uniformok újraépítése (a régiek érvénytelenek)
+  sizeDirty = true;       // viewport + uInvH újra
+  render(timeAt(performance.now()));
+  if (!document.hidden) start();
+});
+
+render(timeAt(performance.now()));
+start();
+</script>
+</body>
+</html>
