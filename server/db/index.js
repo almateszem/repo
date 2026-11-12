@@ -63,6 +63,7 @@ export * from './coaching.js';
 export * from './nutrition.js';
 export * from './body.js';
 export * from './training.js';
+export * from './programs.js';
 /* A rekord-szabály (calculateEpley1RM, bestCompletedSet) a server/records.js
    tiszta moduljában él — a server/coaching.js adatbázis nélkül importálja. Innen
    tovább-exportáljuk, hogy a meglévő hívók változatlanok maradjanak. */

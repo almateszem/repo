@@ -340,7 +340,7 @@ export function recomputeExerciseMaxes(userId) {
 
 /* ---- Tervek (heti bontás: plan-week.js) ---- */
 
-const PLAN_COLUMNS = 'id, name, date, week, active, active_since, assignment_id';
+const PLAN_COLUMNS = 'id, name, date, week, active, active_since, assignment_id, kind, program';
 
 /** Egy terv-sor → a hívók által látott alak. A `days` SZÁMOLT érték (a nem
     pihenő napok); a régi `exercises`/`days` oszlop csak a migráció forrása. */
@@ -355,6 +355,10 @@ const toPlan = (row) => {
     active: row.active === 1,
     activeSince: row.active_since ?? null,
     assignmentId: row.assignment_id ?? null,
+    /* A terv fajtája: 'simple' (heti terv) vagy 'program' (blokkos program,
+       server/program/). A programnál a `week` üres, a `program` a fa. */
+    kind: row.kind ?? 'simple',
+    program: row.kind === 'program' && row.program ? JSON.parse(row.program) : null,
   };
 };
 
@@ -372,7 +376,8 @@ export function getActivePlan(userId) {
     pedig a terv NEVE látszik. */
 export function getUserPlanSchedules(userId) {
   const plan = getActivePlan(userId);
-  return plan
+  // A blokkos program nem naptár szerint forog: nincs heti ütemezése.
+  return plan && plan.kind === 'simple'
     ? [
         {
           id: plan.id,
@@ -862,7 +867,10 @@ export function addPlan(userId, name, date, week, assignmentId = null) {
     ilyen id — MÁS felhasználó tervére is null jön, azt nem lehet átírni. */
 export function updatePlan(userId, id, name, week) {
   const { changes } = db
-    .prepare('UPDATE plans SET name = ?, week = ?, days = ? WHERE id = ? AND user_id = ?')
+    .prepare(
+      `UPDATE plans SET name = ?, week = ?, days = ?
+       WHERE id = ? AND user_id = ? AND kind = 'simple'`,
+    )
     .run(name, JSON.stringify(week), JSON.stringify(workoutDays(week)), id, userId);
   return changes === 0 ? null : getPlan(userId, id);
 }

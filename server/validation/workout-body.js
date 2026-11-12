@@ -133,6 +133,11 @@ export function normalizeExercises(raw) {
               rpe: normalizeRpe(set?.rpe),
               type: normalizeSetType(set?.type, index, sets[index - 1]?.type),
               done: Boolean(set?.done),
+              /* Blokkos program AMRAP-szettje: az előírt minimum ismétlés. A
+                 ciklus végi szabály ebből tudja, melyik szett volt az AMRAP. */
+              ...(Number.isInteger(set?.amrap) && set.amrap >= 1 && set.amrap <= 100
+                ? { amrap: set.amrap }
+                : {}),
             },
       );
     }

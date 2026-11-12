@@ -77,8 +77,11 @@ export const readSchemaVersion = () => db.prepare('PRAGMA user_version').get().u
 export const ENSURED_COLUMNS = [];
 
 export function ensureColumns(schemaVersion) {
-  const ensureColumn = (table, column, ddl) => {
-    const added = schemaVersion < 5 && !hasColumn(table, column);
+  /* A `before` az a séma-verzió, amelyik már biztosan tartalmazza az oszlopot:
+     az 5-ös előtti oszlopok egy 5-ös adatbázisban mind megvannak, a blokkos
+     programokéi (6) csak a 6-osban. */
+  const ensureColumn = (table, column, ddl, before = 5) => {
+    const added = schemaVersion < before && !hasColumn(table, column);
     if (added) db.exec(`ALTER TABLE ${table} ADD COLUMN ${ddl}`);
     ENSURED_COLUMNS.push({ table, column, added });
   };
@@ -159,6 +162,14 @@ export function ensureColumns(schemaVersion) {
      épült újra. */
   ensureColumn('exercise_maxes', 'declared_1rm', 'declared_1rm REAL');
   ensureColumn('exercise_maxes', 'declared_date', 'declared_date TEXT');
+  /* Blokkos programok (6): a terv fajtája és a programfa, valamint az edzés
+     helye a programban és a mentéskori készenlét. A meglévő tervek mind
+     egyszerű (heti) tervek, tehát a 'simple' default helyes rájuk. */
+  ensureColumn('plans', 'kind', "kind TEXT NOT NULL DEFAULT 'simple'", 6);
+  ensureColumn('plans', 'program', 'program TEXT', 6);
+  ensureColumn('workouts', 'program_cycle', 'program_cycle INTEGER', 6);
+  ensureColumn('workouts', 'program_pos', 'program_pos INTEGER', 6);
+  ensureColumn('workouts', 'program_readiness', 'program_readiness INTEGER', 6);
   return { plansHadAssignment, plansHadActive, plansHadActiveSince };
 }
 
@@ -188,6 +199,7 @@ export function runMigrations(
        5 — a bemondott csúcsok átmásolása a declared_1rm / declared_date
            oszlopokba. Ez az ELSŐ lépés, nem az utolsó: a 3-as újraszámolás
            már ezekből az oszlopokból indul, üresen a bemondás elveszne. A másolás idempotens; a verziószámot a sor végén írjuk.
+       6 — a blokkos programok oszlopai (adat-átalakítás nincs).
      (A schemaVersion-t az index.js olvassa ki, az ensureColumns előtt.) */
   if (schemaVersion < 5) {
     db.exec(`
@@ -356,4 +368,6 @@ export function runMigrations(
   }
   // 5 — a másolás fent, a többi migráció előtt futott (ld. a verziólistát).
   if (schemaVersion < 5) db.exec('PRAGMA user_version = 5');
+  // 6 — blokkos programok: csak új oszlopok és táblák (ensureColumns, schema.js).
+  if (schemaVersion < 6) db.exec('PRAGMA user_version = 6');
 }

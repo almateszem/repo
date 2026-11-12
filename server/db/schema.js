@@ -242,7 +242,12 @@ export function createSchema() {
       feedback_mood       INTEGER,
       feedback_note       TEXT,
       feedback_at         TEXT,
-      pr_rule    INTEGER NOT NULL DEFAULT 0  -- 0 = pipák előtti napló, 1 = csak a pipált szett számít
+      pr_rule    INTEGER NOT NULL DEFAULT 0, -- 0 = pipák előtti napló, 1 = csak a pipált szett számít
+      -- Blokkos program: melyik ciklus melyik napja ez az edzés (NULL = nem
+      -- programnap). A pos-ra szűrt UPDATE teszi idempotenssé a léptetést.
+      program_cycle INTEGER,
+      program_pos   INTEGER,
+      program_readiness INTEGER          -- a készenlét a mentéskor (0–100), a szabályokhoz
     );
     CREATE TABLE IF NOT EXISTS plans (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -255,7 +260,33 @@ export function createSchema() {
       assignment_id INTEGER,             -- melyik edzői kiosztásból született (NULL = saját terv)
       week       TEXT,                   -- JSON: a heti bontás (plan-week.js)
       active     INTEGER NOT NULL DEFAULT 0,  -- felhasználónként egy aktív terv
-      active_since TEXT                  -- az aktiválás napja, a ciklus horgonya
+      active_since TEXT,                 -- az aktiválás napja, a ciklus horgonya
+      kind       TEXT NOT NULL DEFAULT 'simple',  -- 'simple' (heti terv) | 'program' (blokkos)
+      program    TEXT                    -- JSON: a blokkos program (server/program/program.js)
+    );
+    -- A blokkos program haladása: a napok sorozatában hol tart, és a ciklus
+    -- végi / ciklus közbeni TM-javaslat, ami jóváhagyásra vár. A haladás az
+    -- elvégzett edzésekhez igazodik, nem a naptárhoz.
+    CREATE TABLE IF NOT EXISTS program_state (
+      plan_id  INTEGER PRIMARY KEY REFERENCES plans(id) ON DELETE CASCADE,
+      user_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      cycle    INTEGER NOT NULL DEFAULT 1,
+      pos      INTEGER NOT NULL DEFAULT 0,
+      cycle_started TEXT NOT NULL,
+      baseline TEXT NOT NULL DEFAULT '{}',  -- JSON {gyakorlat: valódi csúcs} a ciklus indulásakor
+      pending  TEXT,                        -- JSON Suggestion[] (ciklus vége) vagy NULL
+      mid      TEXT                         -- JSON Suggestion[] (ciklus közbeni szabály) vagy NULL
+    );
+    -- Training maxok előzménnyel: gyakorlatonként a legutolsó sor az érvényes.
+    -- A TM-et csak ember írja: kézzel, aktiváláskor vagy egy javaslat
+    -- jóváhagyásával — a szabály maga sosem.
+    CREATE TABLE IF NOT EXISTS training_maxes (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      exercise_name TEXT NOT NULL,
+      tm            REAL NOT NULL,
+      date          TEXT NOT NULL,
+      source        TEXT NOT NULL CHECK (source IN ('manual','from1rm','review','rule'))
     );
     -- Az épp szerkesztett edzés — FELHASZNÁLÓNKÉNT egyetlen sor. (Korábban az
     -- egész adatbázisban volt egy sor, id = 1: két ember felülírta egymást.)
@@ -387,6 +418,8 @@ export function createIndexes() {
     CREATE INDEX IF NOT EXISTS idx_messages_unread ON messages(link_id, sender_id)
       WHERE read_at IS NULL;
     CREATE INDEX IF NOT EXISTS idx_plan_assignments_link ON plan_assignments(link_id, id);
+    CREATE INDEX IF NOT EXISTS idx_training_maxes_user
+      ON training_maxes(user_id, exercise_name, id);
   `);
 }
 

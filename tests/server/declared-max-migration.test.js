@@ -85,8 +85,8 @@ test('a mért sorhoz nem kerül bemondás', () => {
   assert.equal(row.declared_1rm, null);
 });
 
-test('a séma-verzió a legfrissebb (5) lesz', () => {
+test('a séma-verzió a legfrissebb (6) lesz', () => {
   const raw = new DatabaseSync(DB_PATH);
-  assert.equal(raw.prepare('PRAGMA user_version').get().user_version, 5);
+  assert.equal(raw.prepare('PRAGMA user_version').get().user_version, 6);
   raw.close();
 });

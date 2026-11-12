@@ -15,7 +15,7 @@ const MAX_NODES = 32;
 const MAX_NUM = 10000;
 
 /** A szabályfeltételben használható időszak-értékek és a címkéjük. */
-export const STAT_LABELS = {
+const STAT_LABELS = {
   doneEx: 'teljesített (gyak.)',
   totalEx: 'összes (gyak.)',
   doneAll: 'teljesített (mind)',
