@@ -1238,12 +1238,37 @@ function k0warm(name, kg, sets) {
 }
 
 /* ======================================================================
+   4. SZABÓ MÁRTON (edző) — néhány napnyi check-in
+   ----------------------------------------------------------------------
+   Check-in nélkül az app az első belépéskor a check-in varázslóra terelné
+   az edzőt, és a bemutatón nem az edzői panel jönne fel. Az utolsó két hét,
+   a mai nappal együtt.
+   ====================================================================== */
+
+function seedCoach() {
+  for (let i = LAST - 13; i <= LAST; i++) {
+    if (i < LAST && !chance(0.85)) continue;
+    logCheckin(COACH, dateOf(i), {
+      sleepHours: round1(between(6.8, 8)),
+      sleepQuality: intBetween(3, 4),
+      energy: intBetween(3, 5),
+      stress: intBetween(2, 3),
+      mood: intBetween(3, 5),
+      soreness: {},
+      pain: {},
+    });
+  }
+}
+
+/* ======================================================================
    Futtatás és összegzés
    ====================================================================== */
 
 const bencePlan = seedBence();
 seedReka();
 seedDavid();
+// Utoljára: a sportolók adatai így a korábbi véletlensorozatból jönnek
+seedCoach();
 
 const count = (table, where = '') =>
   db.prepare(`SELECT COUNT(*) AS c FROM ${table} ${where}`).get().c;
