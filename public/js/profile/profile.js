@@ -106,7 +106,6 @@ async function setupProfile() {
      A választó alapesetben LISTÁHOZ ad kártyát; a profilnak csak a NÉV kell,
      ezért `onPick`-es célt ad át (lásd exercise-picker.js). A pipa két irányba
      működik: ugyanaz a kattintás le is veszi a csempét. */
-  const RECORD_SLOTS = 12;
   const RECORDS_PREF = 'profileRecords';
   const recordGrid = $('[data-pf-record-grid]', page);
 
@@ -139,7 +138,7 @@ async function setupProfile() {
 
     /* Egyetlen kitöltetlen beállítás az ÖSSZES érmet elnémítja — ezt egy
        kártya-felirat nem tudja elmondani elég hangosan, mert ugyanaz a hiány
-       mind a tizenkettőn ott áll. Ezért a szekció tetején is szólunk, és
+       mindegyik kártyán ott áll. Ezért a szekció tetején is szólunk, és
        odavezetünk, ahol orvosolható. */
     const hiany = pickedNames
       .map((name) => recordsByName.get(name)?.needs)
@@ -195,17 +194,12 @@ async function setupProfile() {
       return card;
     });
 
-    /* Mindig marad legalább egy „+": tele ráccsal különben nem lenne út
-       vissza a választóhoz, tehát levenni sem lehetne semmit. */
-    const slots = Math.max(RECORD_SLOTS - cards.length, 1);
-    recordGrid.replaceChildren(
-      ...cards,
-      ...Array.from({ length: slots }, () => {
-        const slot = cloneTemplate('tpl-pf-record-slot');
-        $('.pf-record-add', slot).addEventListener('click', openRecordPicker);
-        return slot;
-      }),
-    );
+    /* A kártyák után EGYETLEN „+" áll: ez az út a választóhoz (fel- és
+       levételhez is). Korábban a rács 12 kockára töltődött fel üres „+"-okkal
+       — friss fióknál ez telefonon hat sornyi üres plusz volt. */
+    const slot = cloneTemplate('tpl-pf-record-slot');
+    $('.pf-record-add', slot).addEventListener('click', openRecordPicker);
+    recordGrid.replaceChildren(...cards, slot);
   };
 
   /** Egy gyakorlat fel- vagy levétele a rácsról. A választóban a pipa ezt
