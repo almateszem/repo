@@ -23,8 +23,8 @@
 /* A szerkesztő sűrű, apró betűs sorai alatt a mozgó hullámos háttér
    (bg-waves) zavaró: amíg az oldal nyitva van, a háttér tompított — mint egy
    modal mögötti sötétítés. A hullám halványan megmarad, az app hangulata
-   nem vész el. */
-body:has([data-page='program-builder']:not([hidden])) > .bg-waves {
+   nem vész el. A router a body-ra írja az aktuális oldalt. */
+body[data-page='program-builder'] > .bg-waves {
   filter: brightness(0.3);
 }
 
