@@ -254,6 +254,10 @@
   line-height: 0.74;
   letter-spacing: -0.07em;
   font-variant-numeric: tabular-nums;
+  /* Felpörgés közben a doboz a végérték szélességén áll (dashboard.js →
+     lockReadinessWidth); a jobbra igazított szám így a % jelhez tapad, és a
+     szomszédai nem mozdulnak. */
+  text-align: right;
 }
 
 /* A százalékjel és a felirat a szám mellett, függőlegesen szétfeszítve: a jel

@@ -123,6 +123,9 @@ function paintDashboard(dashboardData) {
   if (!readinessKnown) {
     const num = $('.db-percent-num');
     if (num) num.textContent = '—';
+    // A helyőrző a saját szélességén álljon, ne egy korábbi szám rögzített dobozában
+    const box = $('.db-percent');
+    if (box) box.style.width = '';
   }
 
   // A check-in emlékeztető gomb. A check-in mentése renderDashboard-ot hív,
@@ -209,6 +212,25 @@ function paintDashboard(dashboardData) {
     így a sávon látott nap mindig az, amelyikre a szerver ír. */
 function renderChromeDate() {
   paintChromeDate(clientDate());
+}
+
+/** A készenléti szám dobozát a VÉGÉRTÉK szélességére rögzíti, mielőtt a szám
+    0-ról felpörög. Enélkül a doboz minden képkockán más széles volt (egy- és
+    kétjegyű értékek, és a rendszerbetűk számjegyei a tabular-nums ellenére sem
+    egyformák), így a % jel rezgett, asztalon pedig a mellette álló idézet
+    sorról sorra ugrált. A szélesség em-ben áll: a szám mérete a nézet
+    szélességével skálázódik (clamp), elforgatáskor a rögzítés vele nő/fogy.
+    A mérés után még a kirajzolás előtt a 0 kerül vissza — nem villan fel a
+    végérték. */
+function lockReadinessWidth(finalText) {
+  const box = $('.db-percent');
+  const num = $('.db-percent-num');
+  if (!box || !num) return;
+  box.style.width = '';
+  num.textContent = finalText;
+  const fontSize = parseFloat(getComputedStyle(box).fontSize);
+  box.style.width = `${box.getBoundingClientRect().width / fontSize}em`;
+  num.textContent = formatWhole(0);
 }
 
 /** A megjelenített felhasználónév: a saját (localStorage) név, különben a
@@ -318,6 +340,7 @@ function setupDashboard(settingsModal) {
         if (!dashboardData || !hasReadiness(dashboardData.readiness)) return;
         // formatWhole: a lap legnagyobb számánál egyetlen tizedesvessző is
         // megtörné az elrendezést minden képkockán.
+        lockReadinessWidth(formatWhole(dashboardData.readiness));
         animateNumber($('.db-percent-num'), dashboardData.readiness, {
           from: 0,
           duration: 900,
