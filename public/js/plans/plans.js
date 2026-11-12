@@ -26,7 +26,7 @@ import { navigate, onPageShow } from '../app/router.js';
 
 /** A Tervek oldal interakciói. A planBuilder és a workout a megfelelő setup
     függvények vezérlői — hiba esetén (safe-ből null) a gombok nem visznek át. */
-function setupPlans(planBuilder, workout, confirmAction) {
+function setupPlans(planBuilder, workout, confirmAction, programBuilder = null) {
   // A terv-kártyák progress-e a mai pipált szetteket követi — megnyitáskor frissül
   onPageShow('plans', () =>
     renderPlans().catch((err) => console.error('Tervek frissítési hiba:', err)),
@@ -64,6 +64,13 @@ function setupPlans(planBuilder, workout, confirmAction) {
     const editBtn = event.target.closest('.pl-card-edit');
     if (editBtn) {
       const plan = plansData.find((p) => p.id === Number(editBtn.dataset.planId));
+      if (plan?.kind === 'program') {
+        programBuilder
+          ?.open(plan.id)
+          .then(() => navigate('program-builder'))
+          .catch((err) => showToast(err.message || 'Nem sikerült megnyitni a programot', 'error'));
+        return;
+      }
       if (!plan || !planBuilder) return;
       planBuilder.loadPlan(plan);
       navigate('plan-builder');
@@ -151,6 +158,11 @@ function setupPlans(planBuilder, workout, confirmAction) {
     planBuilder?.startNew();
     navigate('plan-builder');
   });
+
+  $('[data-action="new-program"]').addEventListener('click', () => {
+    programBuilder?.startNew();
+    navigate('program-builder');
+  });
 }
 
 /* ======================================================================
@@ -209,7 +221,8 @@ function planCardEl(plan) {
   const card = cloneTemplate('tpl-plan');
   $('.pl-card-name', card).textContent = plan.name;
   $('.pl-card-meta', card).textContent = plan.meta;
-  $('.pl-week', card).replaceChildren(...weekStrip(plan));
+  // A blokkos programnak nincs hete: a helyzete (ciklus, nap) látszik helyette
+  $('.pl-week', card).replaceChildren(...(plan.kind === 'program' ? [] : weekStrip(plan)));
 
   $('.pl-card-active', card).hidden = !plan.active;
   const activateBtn = $('.pl-card-activate', card);

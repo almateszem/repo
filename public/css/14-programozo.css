@@ -1,0 +1,775 @@
+/* ==========================================================================
+   14. Programozó — blokkos programok (pgm-*), képletkészítő (fw-*) és a
+       futtatás kártyái (pr-*)
+   Notion-szerű sorszerkesztő a Podium sötét témájában: minden sor egy blokk
+   ⋮⋮ fogantyúval és monospace fajta-címkével; a beágyazást vékony
+   függőleges segédvonal mutatja. Bal oldalt a blokktár.
+   A színek jelentése: hét kék (szuperszett-kék), nap borostyán, gyakorlat
+   lila, szabály bordó; a képletben a szám szürke, a változó sárga, a
+   teljesítmény/check-in lila, a művelet zöld.
+   ========================================================================== */
+.pgm-page {
+  --pgm-week: var(--c-superset);
+  --pgm-day: var(--c-pain);
+  --pgm-ex: #a98ce8;
+  --pgm-rule: var(--c-accent);
+  --pgm-var: #e8c15a;
+  --pgm-stat: #b78cf0;
+  --pgm-op: var(--c-ok);
+  --pgm-num: #9a9aa2;
+  padding-bottom: 96px;
+}
+
+.pgm-page .pb-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pgm-side-toggle {
+  display: none;
+  margin-left: auto;
+  font: 600 11px/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--c-paper);
+  background: none;
+  border: 1px solid var(--hair);
+  padding: 8px 10px;
+}
+
+.pgm-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: 16px;
+  margin-top: 12px;
+}
+
+/* ---- Blokktár ---- */
+.pgm-side {
+  position: sticky;
+  top: 12px;
+  align-self: start;
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  border: 1px solid var(--hair-soft);
+  background: var(--surface-panel);
+  max-height: calc(100vh - 140px);
+  min-height: 320px;
+}
+
+.pgm-cats {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--hair-soft);
+}
+
+.pgm-cat {
+  position: relative;
+  font: 600 9.5px/1.25 var(--font-mono);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(244, 243, 241, 0.6);
+  background: none;
+  border: 0;
+  border-bottom: 1px solid var(--hair-soft);
+  padding: 12px 4px 12px 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pgm-cat::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--tone, var(--hair));
+}
+
+.pgm-cat.is-on {
+  color: var(--c-paper);
+  background: var(--c-bg-raised);
+}
+
+.c-struct {
+  --tone: var(--pgm-week);
+}
+.c-ex {
+  --tone: var(--pgm-ex);
+}
+.c-val {
+  --tone: var(--pgm-var);
+}
+.c-perf {
+  --tone: var(--pgm-stat);
+}
+.c-ci {
+  --tone: var(--c-pain);
+}
+.c-op {
+  --tone: var(--pgm-op);
+}
+
+.pgm-blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  overflow-y: auto;
+}
+
+.pgm-hint {
+  margin: 0 0 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: rgba(244, 243, 241, 0.62);
+}
+
+.pgm-hint b {
+  color: var(--c-paper);
+}
+
+.pgm-search {
+  width: 100%;
+  padding: 7px 8px;
+  font: inherit;
+  font-size: 13px;
+  color: var(--c-paper);
+  background: var(--c-bg-raised);
+  border: 1px solid var(--hair);
+}
+
+.pgm-block {
+  text-align: left;
+  font-size: 13px;
+  color: var(--c-paper);
+  background: var(--c-bg-raised);
+  border: 1px solid var(--hair-soft);
+  border-left: 3px solid var(--tone, var(--hair));
+  padding: 7px 9px;
+  cursor: grab;
+}
+
+.pgm-block.is-reporter {
+  border-radius: 999px;
+  border-left-width: 1px;
+  border-color: var(--tone);
+  color: var(--tone);
+  align-self: flex-start;
+  padding: 5px 12px;
+  font-weight: 600;
+}
+
+.b-s-week {
+  --tone: var(--pgm-week);
+}
+.b-s-day {
+  --tone: var(--pgm-day);
+}
+.b-s-set {
+  --tone: var(--pgm-num);
+}
+.b-s-rule {
+  --tone: var(--pgm-rule);
+}
+.b-ex {
+  --tone: var(--pgm-ex);
+}
+.b-num {
+  --tone: var(--pgm-num);
+}
+.b-var {
+  --tone: var(--pgm-var);
+}
+.b-new {
+  --tone: var(--c-accent);
+}
+.b-stat {
+  --tone: var(--pgm-stat);
+}
+.b-ci {
+  --tone: var(--c-pain);
+}
+.b-op {
+  --tone: var(--pgm-op);
+}
+
+/* ---- Sorok ---- */
+.pgm-main {
+  min-width: 0;
+}
+
+.pgm-node {
+  min-width: 0;
+}
+
+.pgm-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  min-height: 38px;
+  padding: 4px 6px 4px 0;
+  border-bottom: 1px solid var(--hair-soft);
+}
+
+.pgm-row.is-picked {
+  outline: 1px solid var(--c-accent);
+  background: var(--c-accent-dim);
+}
+
+.pgm-node.is-drop-hover > .pgm-row,
+.pgm-rules.is-drop-hover,
+.pgm-rule-slot.is-drop-hover {
+  background: rgba(90, 169, 230, 0.14);
+  outline: 1px dashed var(--c-superset);
+}
+
+.pgm-children {
+  margin-left: 14px;
+  padding-left: 12px;
+  border-left: 1px solid var(--hair);
+}
+
+.pgm-grip {
+  font: 700 12px/1 var(--font-mono);
+  color: rgba(244, 243, 241, 0.35);
+  background: none;
+  border: 0;
+  padding: 6px 2px;
+  cursor: grab;
+  min-width: 24px;
+  min-height: 30px;
+}
+
+.pgm-grip:hover,
+.pgm-row.is-picked .pgm-grip {
+  color: var(--c-paper);
+}
+
+.pgm-tag {
+  font: 700 10px/1 var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 4px 6px;
+  border: 1px solid currentColor;
+  background: none;
+  white-space: nowrap;
+}
+
+.t-week {
+  color: var(--pgm-week);
+}
+.t-day {
+  color: var(--pgm-day);
+}
+.t-ex {
+  color: var(--pgm-ex);
+  cursor: pointer;
+}
+.t-ex.is-main {
+  color: var(--c-paper);
+  background: var(--pgm-ex);
+  border-color: var(--pgm-ex);
+}
+.t-set {
+  color: var(--pgm-num);
+}
+.t-rule {
+  color: var(--pgm-rule);
+}
+
+.pgm-toggle {
+  background: none;
+  border: 0;
+  color: var(--c-paper);
+  font-size: 13px;
+  width: 22px;
+  cursor: pointer;
+}
+
+.pgm-name {
+  flex: 1 1 140px;
+  min-width: 0;
+  font: inherit;
+  font-size: 14px;
+  color: var(--c-paper);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px dashed transparent;
+  padding: 4px 2px;
+}
+
+.pgm-name:focus,
+.pgm-name:hover {
+  border-bottom-color: var(--hair);
+  outline: none;
+}
+
+.pgm-ex-name {
+  flex: 1 1 120px;
+  font-weight: 600;
+  min-width: 0;
+}
+
+.pgm-summary {
+  font: 12px/1 var(--font-mono);
+  color: rgba(244, 243, 241, 0.6);
+}
+
+.pgm-btn {
+  font: 600 12px/1 var(--font-mono);
+  color: rgba(244, 243, 241, 0.7);
+  background: none;
+  border: 1px solid var(--hair-soft);
+  padding: 6px 8px;
+  min-height: 30px;
+  cursor: pointer;
+}
+
+.pgm-btn:hover {
+  color: var(--c-paper);
+  border-color: var(--hair);
+}
+
+.pgm-num {
+  width: 44px;
+  font: 600 13px/1 var(--font-mono);
+  text-align: center;
+  color: var(--c-paper);
+  background: var(--c-bg-raised);
+  border: 1px solid var(--hair-soft);
+  padding: 6px 2px;
+}
+
+.pgm-x {
+  font: 12px/1 var(--font-mono);
+  color: rgba(244, 243, 241, 0.55);
+}
+
+.pgm-amrap {
+  font: 700 11px/1 var(--font-mono);
+  color: rgba(244, 243, 241, 0.45);
+  background: none;
+  border: 1px dashed var(--hair);
+  padding: 6px 8px;
+  cursor: pointer;
+}
+
+.pgm-amrap.is-on {
+  color: var(--on-accent);
+  background: var(--c-accent);
+  border: 1px solid var(--c-accent);
+}
+
+.pgm-weight {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: 1px solid transparent;
+  padding: 2px;
+  cursor: pointer;
+  max-width: 100%;
+}
+
+.pgm-weight:hover {
+  border-color: var(--hair);
+}
+
+.pgm-free {
+  font-size: 12px;
+  font-style: italic;
+  color: rgba(244, 243, 241, 0.55);
+  border: 1px dashed var(--hair);
+  padding: 5px 8px;
+}
+
+.pgm-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font: 600 12px/1 var(--font-mono);
+  padding: 5px 9px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+
+.pgm-pill.p-op {
+  color: var(--pgm-op);
+  padding: 3px 5px;
+  flex-wrap: wrap;
+}
+
+.pgm-opsign {
+  color: var(--pgm-op);
+  font-weight: 700;
+}
+
+.p-num {
+  color: var(--pgm-num);
+}
+.p-var {
+  color: var(--pgm-var);
+}
+.p-stat {
+  color: var(--pgm-stat);
+}
+.p-new {
+  color: var(--c-accent);
+}
+.p-slot {
+  color: rgba(244, 243, 241, 0.4);
+  border-style: dashed;
+}
+
+.pgm-preview {
+  margin-left: auto;
+  font: 700 13px/1 var(--font-mono);
+  color: var(--c-ok);
+  white-space: nowrap;
+}
+
+.pgm-preview.is-missing {
+  color: var(--c-pain);
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.pgm-empty {
+  margin: 6px 0;
+  font-size: 12px;
+  color: rgba(244, 243, 241, 0.5);
+  border: 1px dashed var(--hair);
+  padding: 10px;
+}
+
+.pgm-add-week {
+  margin: 10px 0;
+  font: 600 12px/1 var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--c-paper);
+  background: none;
+  border: 1px dashed var(--hair);
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+/* ---- Szabályok ---- */
+.pgm-rules {
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid var(--c-accent-line);
+  background: rgba(200, 16, 46, 0.05);
+}
+
+.pgm-rules-title {
+  margin: 0 0 6px;
+}
+
+.pgm-rule {
+  margin-bottom: 10px;
+}
+
+.pgm-select {
+  font: inherit;
+  font-size: 13px;
+  color: var(--c-paper);
+  background: var(--c-bg-raised);
+  border: 1px solid var(--hair);
+  padding: 6px;
+  max-width: 100%;
+}
+
+.pgm-steps {
+  margin-top: 10px;
+}
+
+.pgm-group-label {
+  margin: 0 0 4px;
+  font: 600 10px/1.3 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(244, 243, 241, 0.6);
+}
+
+/* ---- Keskeny képernyő: a blokktár fiók ---- */
+@media (max-width: 720px) {
+  .pgm-side-toggle {
+    display: inline-block;
+  }
+
+  .pgm-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .pgm-side {
+    display: none;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    top: auto;
+    z-index: 60;
+    max-height: 46vh;
+    min-height: 0;
+    border-top: 1px solid var(--hair);
+  }
+
+  .pgm-page.pgm-side-open .pgm-side {
+    display: grid;
+  }
+
+  .pgm-children {
+    margin-left: 6px;
+    padding-left: 8px;
+  }
+
+  .pgm-preview {
+    margin-left: 0;
+  }
+}
+
+/* ==========================================================================
+   Képletkészítő ablak (fw-*) — asztalon középen, telefonon alul teljes
+   szélességben
+   ========================================================================== */
+.fw-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+.fw-box {
+  --pgm-var: #e8c15a;
+  --pgm-stat: #b78cf0;
+  --pgm-op: var(--c-ok);
+  --pgm-num: #9a9aa2;
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  background: var(--c-bg);
+  border: 1px solid var(--hair);
+  padding: 14px;
+  color: var(--c-paper);
+}
+
+.fw-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.fw-title {
+  margin: 0;
+  font: 600 11px/1.3 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.fw-close {
+  background: none;
+  border: 0;
+  color: var(--c-paper);
+  font-size: 16px;
+  min-width: 36px;
+  min-height: 36px;
+  cursor: pointer;
+}
+
+.fw-canvas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-height: 64px;
+  margin: 10px 0 6px;
+  padding: 14px;
+  background: var(--c-bg-deep);
+  border: 1px solid var(--hair-soft);
+}
+
+.fw-slot {
+  min-width: 44px;
+  min-height: 32px;
+  color: rgba(244, 243, 241, 0.45);
+  background: none;
+  border: 1px dashed var(--hair);
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.fw-block {
+  position: relative;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 22px 5px 10px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font: 600 13px/1.2 var(--font-mono);
+  cursor: pointer;
+}
+
+.fw-slot.is-sel,
+.fw-block.is-sel {
+  outline: 2px solid var(--c-paper);
+  outline-offset: 1px;
+}
+
+.fw-block.t-num {
+  color: var(--pgm-num);
+}
+.fw-block.t-var {
+  color: var(--pgm-var);
+}
+.fw-block.t-stat {
+  color: var(--pgm-stat);
+}
+.fw-block.t-new {
+  color: var(--c-accent);
+}
+.fw-block.t-op {
+  color: var(--pgm-op);
+  padding-left: 6px;
+}
+
+.fw-paren {
+  opacity: 0.5;
+}
+
+.fw-remove {
+  position: absolute;
+  right: 3px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: 0;
+  color: inherit;
+  font-size: 13px;
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.fw-num {
+  width: 64px;
+  font: inherit;
+  color: inherit;
+  text-align: center;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px dashed currentColor;
+}
+
+.fw-op,
+.fw-orm {
+  font: inherit;
+  color: inherit;
+  background: var(--c-bg-raised);
+  border: 1px solid var(--hair-soft);
+}
+
+.fw-hint {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: rgba(244, 243, 241, 0.6);
+}
+
+.fw-palette {
+  display: grid;
+  gap: 8px;
+}
+
+.fw-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.fw-group-label {
+  flex: 0 0 100%;
+  margin: 0;
+  font: 600 10px/1 var(--font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(244, 243, 241, 0.55);
+}
+
+.fw-pal {
+  font: 600 12px/1 var(--font-mono);
+  color: var(--tone);
+  background: none;
+  border: 1px solid var(--tone);
+  border-radius: 999px;
+  padding: 7px 11px;
+  cursor: grab;
+}
+
+.fw-pal.t-num {
+  --tone: var(--pgm-num);
+}
+.fw-pal.t-var {
+  --tone: var(--pgm-var);
+}
+.fw-pal.t-stat {
+  --tone: var(--pgm-stat);
+}
+.fw-pal.t-new {
+  --tone: var(--c-accent);
+}
+.fw-pal.t-op {
+  --tone: var(--pgm-op);
+}
+
+.fw-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--hair-soft);
+}
+
+.fw-result {
+  margin-right: auto;
+  font: 700 14px/1.2 var(--font-mono);
+  color: var(--c-ok);
+}
+
+.fw-btn {
+  font: 600 12px/1 var(--font-mono);
+  color: var(--c-paper);
+  background: none;
+  border: 1px solid var(--hair);
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.fw-btn.is-primary {
+  background: var(--c-accent);
+  border-color: var(--c-accent);
+  color: var(--on-accent);
+}
+
+@media (max-width: 720px) {
+  .fw-overlay {
+    align-items: flex-end;
+  }
+
+  .fw-box {
+    width: 100vw;
+    max-height: 78vh;
+    border-width: 1px 0 0;
+  }
+}

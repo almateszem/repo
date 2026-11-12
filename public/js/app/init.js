@@ -35,6 +35,7 @@ import { setupNotifications } from './notifications.js';
 import { setupNutrition } from '../nutrition/nutrition.js';
 import { setupWaterMeter } from '../nutrition/water.js';
 import { setupPlanBuilder } from '../plans/plan-builder.js';
+import { setupProgramBuilder } from '../program/program-builder.js';
 import { renderPlans, setupPlans } from '../plans/plans.js';
 import { setupProfile } from '../profile/profile.js';
 import { setupRecovery } from '../recovery/recovery.js';
@@ -187,7 +188,9 @@ async function init() {
   // csak megnyitáskor kér
   const workoutPicker = await safe(() => setupWorkoutPicker(confirmAction));
   const planBuilder = await safe(() => setupPlanBuilder(picker, workoutPicker, confirmAction));
-  setupPlans(planBuilder, workout, confirmAction);
+  // A blokkos programok szerkesztője (programozó oldal)
+  const programBuilder = await safe(() => setupProgramBuilder(confirmAction));
+  setupPlans(planBuilder, workout, confirmAction, programBuilder);
   setupSummary();
   setupShortcuts();
   setupConnectivity();

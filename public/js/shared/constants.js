@@ -38,12 +38,20 @@ const PAGES = [
   'profile',
   'summary',
   'plan-builder',
+  'program-builder',
   'exercise-picker',
   'workout-picker',
   'checkin',
 ];
 
-const FLOW_PAGES = ['summary', 'plan-builder', 'exercise-picker', 'workout-picker', 'checkin']; // friss megnyitáskor nem állnak vissza
+const FLOW_PAGES = [
+  'summary',
+  'plan-builder',
+  'program-builder',
+  'exercise-picker',
+  'workout-picker',
+  'checkin',
+]; // friss megnyitáskor nem állnak vissza
 
 const DIR_TO_PAGE = {
   up: 'coach',
@@ -65,6 +73,7 @@ const NAV_UP_FALLBACK = 'recovery';
 const PAGE_SECTION = {
   summary: 'workout',
   'plan-builder': 'plans',
+  'program-builder': 'plans',
   'workout-picker': 'plans',
   checkin: 'recovery',
 };

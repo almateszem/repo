@@ -382,6 +382,18 @@ const api = {
   updatePlan: (id, name, week) => putJson(`/api/plans/${id}`, { name, week }),
   // Egyszerre egy aktív terv: csak annak a hete töltődik az Edzés oldalra
   setPlanActive: (id, active) => postJson(`/api/plans/${id}/active`, { active }),
+  // Blokkos programok (server/routes/programs.js)
+  createProgram: (name, program) => postJson('/api/programs', { name, program }),
+  updateProgram: (id, name, program) => putJson(`/api/programs/${id}`, { name, program }),
+  getProgram: (id) => getJson(`/api/programs/${id}`),
+  getProgramActivation: (id) => getJson(`/api/programs/${id}/activation`),
+  activateProgram: (id, trainingMaxes, oneRms) =>
+    postJson(`/api/programs/${id}/activate`, { trainingMaxes, oneRms }),
+  skipProgram: (id, to) => postJson(`/api/programs/${id}/skip`, { to }),
+  approveProgramReview: (id, decisions) => postJson(`/api/programs/${id}/review`, { decisions }),
+  decideProgramMid: (id, decisions) =>
+    postJson(`/api/programs/${id}/mid`, decisions ? { decisions } : { reject: true }),
+  getTrainingMaxes: () => getJson('/api/training-maxes'),
   // Az Edzés oldal induló tartalma: aznapi piszkozat / napra ütemezett terv / null
   getWorkoutTemplate: () => getJson('/api/workout-template'),
   // Teljes adat-pillanatkép a beállítások exportjához
