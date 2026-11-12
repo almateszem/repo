@@ -10,6 +10,8 @@
   "scripts": {
     "start": "node --disable-warning=ExperimentalWarning server/server.js",
     "dev": "node --watch --disable-warning=ExperimentalWarning server/server.js",
+    "seed:demo": "node --disable-warning=ExperimentalWarning scripts/seed-demo.js",
+    "start:demo": "node --disable-warning=ExperimentalWarning scripts/start-demo.js",
     "test": "node --test \"tests/**/*.test.js\"",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
