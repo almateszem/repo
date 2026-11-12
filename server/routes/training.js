@@ -27,6 +27,8 @@ import {
   getExerciseMax,
   getMeasurements,
   getNutritionTotals,
+  getPlan,
+  getProgramState,
   getUserBirthYear,
   getUserPlans,
   getUserSex,
@@ -54,6 +56,8 @@ import { formatDecimal } from '../numbers.js';
 import { allWeekExercises, cycleDay, dayEntry, dayLabel } from '../plan-week.js';
 import { exerciseRecords, firstLoggedMaxes, prEntry } from '../records.js';
 import { planSafetyChecker } from '../session-advice.js';
+import { dayTitle, flattenDays } from '../program/program.js';
+import { onWorkoutSaved } from '../services/program-run.js';
 import { suggestExercises } from '../suggestions.js';
 import { requestDate } from '../http/session.js';
 import {
@@ -444,14 +448,44 @@ export function register(app, { catalogSearch }) {
         )
       : () => null;
 
+    /* A blokkos program kártyája: a helyzet a programban (ciklus, nap), nem
+       a hét napjai. */
+    const programCard = (plan) => {
+      const state = getProgramState(userId, plan.id);
+      const total = flattenDays(plan.program).length;
+      const pos = state ? Math.min(state.pos, total - 1) : 0;
+      return {
+        id: plan.id,
+        name: plan.name,
+        kind: 'program',
+        meta: `Blokkos program · ${plan.program.weeks.length} hét · ${total} edzésnap`,
+        progress: progressFor(plan),
+        active: plan.active,
+        safety: null,
+        program: plan.program,
+        date: plan.date,
+        state: state
+          ? {
+              cycle: state.cycle,
+              pos,
+              total,
+              title: dayTitle(plan.program, pos),
+              review: Boolean(state.pending),
+              mid: Boolean(state.mid),
+            }
+          : null,
+      };
+    };
     res.json(
       plans.map((plan) => {
         const daysLabel = plan.days.length
           ? ` · ${plan.days.map((d) => dayLabel(d)).join(', ')}`
           : '';
+        if (plan.kind === 'program') return programCard(plan);
         return {
           id: plan.id,
           name: plan.name,
+          kind: plan.kind,
           meta: `${plan.assignmentId ? 'Edzői terv' : 'Saját terv'} · ${plan.days.length} edzésnap${daysLabel}`,
           progress: progressFor(plan),
           active: plan.active,
@@ -492,7 +526,15 @@ export function register(app, { catalogSearch }) {
     if (!Number.isInteger(id) || id <= 0) {
       return res.status(400).json({ error: 'Érvénytelen terv-azonosító.' });
     }
-    const plan = setActivePlan(req.user.id, id, req.body?.active !== false, req.today);
+    const active = req.body?.active !== false;
+    /* A blokkos programot az aktiválás indítja (POST /api/programs/:id/activate):
+       az kéri be a TM-eket. Kikapcsolni itt is lehet. */
+    if (active && getPlan(req.user.id, id)?.kind === 'program') {
+      return res.status(409).json({
+        error: 'A blokkos programot az Aktiválás gombbal indítsd — az kéri be a TM-eket.',
+      });
+    }
+    const plan = setActivePlan(req.user.id, id, active, req.today);
     if (!plan) return res.status(404).json({ error: 'Nincs ilyen terved.' });
     res.json(plan);
   });
@@ -743,17 +785,18 @@ export function register(app, { catalogSearch }) {
   app.post('/api/workouts', (req, res) => {
     const workout = parseWorkoutBody(req.body);
     if (workout.error) return res.status(400).json({ error: workout.error });
-    res
-      .status(201)
-      .json(
-        addWorkout(
-          req.user.id,
-          workout.name,
-          req.today,
-          workout.exercises,
-          parseRowId(req.body?.planId),
-        ),
-      );
+    const saved = addWorkout(
+      req.user.id,
+      workout.name,
+      req.today,
+      workout.exercises,
+      parseRowId(req.body?.planId),
+    );
+    /* Blokkos program: az elvégzett programnap léptet (egyszer — a dupla
+       mentés ugyanazt a sort adja vissza, az pedig már jelölve van), és a
+       határon futó szabályok TM-javaslatot adhatnak. */
+    onWorkoutSaved(req.user.id, saved, req.today);
+    res.status(201).json(saved);
   });
 
   /** Az erőfelmérés rögzítése. Törzs: { entries: [{ exercise, weight, reps }] }.

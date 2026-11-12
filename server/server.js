@@ -28,6 +28,7 @@ import { register as registerAuth, registerPublic as registerAuthPublic } from '
 import { register as registerCoach } from './routes/coach.js';
 import { register as registerTraining } from './routes/training.js';
 import { register as registerNutrition } from './routes/nutrition.js';
+import { register as registerPrograms } from './routes/programs.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PUBLIC_DIR = path.join(__dirname, '..', 'public'); // a statikus frontend mappája
@@ -155,6 +156,7 @@ registerAuth(app);
 registerCoach(app, deps);
 registerTraining(app, deps);
 registerNutrition(app, deps);
+registerPrograms(app);
 
 /* Ismeretlen API-útvonal: JSON-hibát adunk, nem az express.static HTML-es
    404-ét — így a kliens hibakezelése (ami JSON `error` mezőt olvas) értelmes
