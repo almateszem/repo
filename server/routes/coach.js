@@ -536,6 +536,13 @@ export function register(app) {
     }
     const plan = getPlan(req.user.id, planId);
     if (!plan) return res.status(404).json({ error: 'Nincs ilyen terved.' });
+    /* A blokkos programnak nincs heti bontása: a kiosztás üres tervet adna.
+       A sportolónkénti TM-mel járó kiosztás egy későbbi szakasz. */
+    if (plan.kind === 'program') {
+      return res.status(400).json({
+        error: 'A blokkos program kiosztása még nem elérhető — egyelőre csak saját használatra.',
+      });
+    }
 
     const note =
       String(req.body?.note ?? '')

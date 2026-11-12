@@ -305,3 +305,32 @@ test('a meglévő egyszerű terv viselkedése változatlan (GET /api/plans kind:
     mid: false,
   });
 });
+
+test('a blokkos program nem osztható ki sportolónak (az első szakaszban csak saját használatra)', async () => {
+  const coach = await register('edzo-p');
+  const athlete = await register('sportolo-p');
+  const invite = await request('POST', '/api/athletes', {
+    cookie: coach,
+    body: { username: 'sportolo-p' },
+  });
+  assert.equal(invite.status, 201);
+  const accept = await request('POST', `/api/coach/invites/${invite.json.linkId}/accept`, {
+    cookie: athlete,
+  });
+  assert.equal(accept.status, 200);
+  const created = await request('POST', '/api/programs', {
+    cookie: coach,
+    body: { name: 'Kiosztandó', program: program() },
+  });
+  const res = await request('POST', `/api/athletes/${invite.json.linkId}/plan`, {
+    cookie: coach,
+    body: { planId: created.json.id },
+  });
+  assert.equal(res.status, 400);
+  assert.equal(
+    res.json.error,
+    'A blokkos program kiosztása még nem elérhető — egyelőre csak saját használatra.',
+  );
+  const offers = await request('GET', '/api/coach', { cookie: athlete });
+  assert.equal(offers.json.planOffers?.length ?? 0, 0);
+});
