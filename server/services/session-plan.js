@@ -23,6 +23,7 @@ import {
 import { cycleDay } from '../plan-week.js';
 import { computeReadiness } from '../recovery.js';
 import { applyAdvice, sessionAdvice } from '../session-advice.js';
+import { programTemplate } from './program-run.js';
 
 /** Egy mentett edzés vagy piszkozat ehhez a tervhez tartozik-e. Azonosító
     szerint párosítunk, névre csak a plan_id oszlop előtt mentett (régi)
@@ -53,6 +54,10 @@ export function workoutTemplate(userId, today) {
   if (draft && draft.date === today) return fromDraft(draft);
 
   const activePlan = getActivePlan(userId);
+  /* Blokkos program: nem a naptár, hanem a haladás dönt — a következő
+     elvégzetlen nap (vagy a jóváhagyásra váró TM-javaslat). Az egyszerű
+     terv ága ilyenkor nem fut. */
+  if (activePlan?.kind === 'program') return programTemplate(userId, activePlan, today);
   const plan = activePlan && getPlanForDay(userId, cycleDay(activePlan, today));
   if (plan) {
     return {
