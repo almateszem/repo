@@ -312,6 +312,8 @@ const readSetRow = (row) => {
   SET_FIELDS.forEach(([selector, key]) => {
     set[key] = $(selector, row).value.trim();
   });
+  // Blokkos program AMRAP-szettje: az előírt minimum visszamegy a mentéssel
+  if (row.dataset.amrap) set.amrap = Number(row.dataset.amrap);
   return set;
 };
 
@@ -321,6 +323,17 @@ function renderSetRow(set, index) {
     $(selector, row).value = numericValue(set[key]);
   });
   $('.wk-set-check', row).setAttribute('aria-pressed', String(set.done));
+  /* AMRAP-szett (blokkos program): „ahány ismétlés csak megy” — a minimum a
+     mező jelvényén látszik, és a sor megőrzi a mentéshez (readSetRow). */
+  const repsWrap = $('.wk-num', row);
+  if (Number.isInteger(set.amrap) && set.amrap > 0) {
+    row.dataset.amrap = String(set.amrap);
+    repsWrap.dataset.amrap = `${set.amrap}+`;
+    $('.wk-set-reps', row).setAttribute('aria-label', `ismétlés — legalább ${set.amrap} (AMRAP)`);
+  } else {
+    delete row.dataset.amrap;
+    delete repsWrap.dataset.amrap;
+  }
   buildSetTypeMenu(row);
   applySetType(row, setTypeOf(set, index));
   // Ideiglenes felirat: a végleges sorszám a drop setektől is függ, azt a

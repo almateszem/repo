@@ -17,8 +17,10 @@ import {
   dayWorkoutName,
   todayIndex,
 } from '../shared/plan-week.js';
+import { hooks } from '../shared/page-hooks.js';
 import { showToast } from '../shared/toast.js';
 import { navigate, onPageShow } from '../app/router.js';
+import { programCardActions, stateLine } from '../program/program-run.js';
 
 /* ======================================================================
    Vezérlő
@@ -27,6 +29,7 @@ import { navigate, onPageShow } from '../app/router.js';
 /** A Tervek oldal interakciói. A planBuilder és a workout a megfelelő setup
     függvények vezérlői — hiba esetén (safe-ből null) a gombok nem visznek át. */
 function setupPlans(planBuilder, workout, confirmAction, programBuilder = null) {
+  programConfirm = confirmAction;
   // A terv-kártyák progress-e a mai pipált szetteket követi — megnyitáskor frissül
   onPageShow('plans', () =>
     renderPlans().catch((err) => console.error('Tervek frissítési hiba:', err)),
@@ -97,6 +100,12 @@ function setupPlans(planBuilder, workout, confirmAction, programBuilder = null) 
 
     const card = event.target.closest('.pl-card');
     const plan = card && plansData[Number(card.dataset.planIndex)];
+    // Blokkos program: a nyíl a mai programnapra visz (ha aktív)
+    if (plan?.kind === 'program' && event.target.closest('.pl-card-open')) {
+      if (plan.active) navigate('workout');
+      else showToast('Előbb aktiváld a programot — az kéri be a TM-eket');
+      return;
+    }
     if (!plan?.week) return;
 
     // A heti sáv egy napja — AZ a nap töltődik be (pl. a keddi csütörtökön)
@@ -226,7 +235,15 @@ function planCardEl(plan) {
 
   $('.pl-card-active', card).hidden = !plan.active;
   const activateBtn = $('.pl-card-activate', card);
-  activateBtn.hidden = plan.active;
+  activateBtn.hidden = plan.active || plan.kind === 'program';
+  /* Blokkos program: a helyzete (ciklus, nap) és a saját gombjai — az
+     aktiválás bekéri a TM-eket, ezért nem a sima aktiváló gomb viszi. */
+  if (plan.kind === 'program') {
+    $('.pl-card-meta', card).textContent = `${plan.meta} · ${stateLine(plan)}`;
+    $('.pl-card-info', card).append(
+      programCardActions(plan, { onChange: afterProgramChange, confirmAction: programConfirm }),
+    );
+  }
   activateBtn.setAttribute('aria-label', `${plan.name} aktiválása`);
   activateBtn.title = 'Ennek a tervnek a hete töltődjön az Edzés oldalra';
 
@@ -288,6 +305,14 @@ function renderPlanList(plans) {
 /** A legutóbb lekért tervlista — a nyíl- és a szerkesztés gomb ebből veszi
     a terv adatait (a kártyák dataset.planIndex-e ide mutat). */
 let plansData = [];
+/** Aktiválás, ugratás vagy kikapcsolás után a lista és a mai edzés is
+    frissül: az Edzés oldal a program új napját (vagy semmit) mutassa. */
+const afterProgramChange = async () => {
+  await renderPlans();
+  await hooks.reloadWorkoutTemplate?.();
+};
+/** A program-kártyák ugratásának megerősítője (a setupPlans kapja). */
+let programConfirm = null;
 
 /** Újrahívható: mentés/szerkesztés után és a Tervek oldal megnyitásakor
     frissen húzza le és építi újra a listát (a progress a mai teljesítést

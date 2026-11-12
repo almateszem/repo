@@ -36,6 +36,7 @@ import { setupNutrition } from '../nutrition/nutrition.js';
 import { setupWaterMeter } from '../nutrition/water.js';
 import { setupPlanBuilder } from '../plans/plan-builder.js';
 import { setupProgramBuilder } from '../program/program-builder.js';
+import { setupProgramRun } from '../program/program-run.js';
 import { renderPlans, setupPlans } from '../plans/plans.js';
 import { setupProfile } from '../profile/profile.js';
 import { setupRecovery } from '../recovery/recovery.js';
@@ -152,6 +153,9 @@ async function init() {
   await safe(setupCheckinWizard);
   // A közös gyakorlat-választó — az edzésnapló és a terv-építő is ezt célozza át
   const picker = await safe(() => setupExercisePicker(confirmAction));
+  // A blokkos program sávja az Edzés oldalon — a setupWorkout ELŐTT, mert az
+  // induló sablon betöltése már kirajzolja
+  setupProgramRun({ reload: () => hooks.reloadWorkoutTemplate?.() });
   const workout = await safe(() => setupWorkout(videoModal, prModal, picker, confirmAction));
   // A javaslat elfogadása a szerveren írja át a piszkozatot — a naplót
   // utána újra kell tölteni, ezért kell a modálnak az edzés vezérlője.

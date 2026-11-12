@@ -13,6 +13,7 @@ import { refreshExerciseList, renderExercise } from './sets-view.js';
 import { WORKOUT_START_KEY } from './summary-data.js';
 import { countDoneSets } from './set-controls.js';
 import { $ } from '../shared/dom.js';
+import { hooks } from '../shared/page-hooks.js';
 
 /* ======================================================================
    Betöltés
@@ -69,11 +70,16 @@ function createContentLoader({
 
   /** A szervertől kapott induló tartalom betöltése a naplóba. */
   const applyTemplate = (template) => {
-    if (!template) return;
+    // A blokkos program sávja vagy jóváhagyó kártyája (js/program/program-run.js)
+    hooks.programTemplate?.(template);
+    editing.source = template?.source ?? null;
+    // A jóváhagyásra váró TM-javaslatnak nincs edzése: a kártya áll helyette
+    if (!template || !Array.isArray(template.exercises)) return;
     editing.planId = template.planId ?? null;
     editing.workoutId = template.workoutId ?? null;
     fillExercises(template.name, template.exercises);
     if (template.source === 'plan') showToast(`Mai terv betöltve: ${template.name}`);
+    if (template.source === 'program') showToast(`Mai programnap: ${template.name}`);
     // Minden template-betöltés után: a napváltáskori csere is ide fut be, és
     // ott a javítás-állapot is megszűnhet (ha a mai terv veszi át a helyét).
     syncEditingState();
@@ -93,6 +99,7 @@ function createContentLoader({
     }
 
     editing.planId = workout.planId ?? null;
+    editing.source = null;
     editing.workoutId = workout.id;
     editing.date = workout.date;
     clearNameError();
@@ -120,6 +127,7 @@ function createContentLoader({
     }
 
     editing.planId = plan.id ?? null;
+    editing.source = null;
     // A terv betöltése ÚJ edzést kezd: ha épp egy régit javítottunk, az a
     // szál itt lezárul — különben a terv tartalma írná felül a mentett edzést.
     editing.workoutId = null;

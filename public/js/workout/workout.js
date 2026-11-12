@@ -71,7 +71,8 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
        date      — a javított edzés napja, a szerkesztés-sáv szövegéhez.
      Azért objektum és nem három `let`: a betöltő modul (workout/loading.js)
      is írja, importált kötésre pedig nem lehet értéket adni. */
-  const editing = { planId: null, workoutId: null, date: '' };
+  // A `source` a betöltött sablon forrása ('program' = blokkos programnap)
+  const editing = { planId: null, workoutId: null, date: '', source: null };
 
   const editingBar = $('[data-editing-workout]');
   const editingText = $('[data-editing-text]', editingBar);
@@ -425,6 +426,10 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
     applyTemplate(template);
     syncEmpty();
   };
+
+  /* A mai sablon újratöltése: a programnap befejezése után a következő nap
+     (vagy a szabály javaslata) jön, a jóváhagyás után pedig az új súlyok. */
+  hooks.reloadWorkoutTemplate = async () => replaceFromServer(await api.getWorkoutTemplate());
 
   return { loadPlan, replaceFromServer };
 }

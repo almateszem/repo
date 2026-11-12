@@ -8,6 +8,7 @@
  */
 import { api } from '../shared/api.js';
 import { $ } from '../shared/dom.js';
+import { hooks } from '../shared/page-hooks.js';
 import { showToast } from '../shared/toast.js';
 import { navigate } from '../app/router.js';
 import { historyEntryEl, syncHistoryEmpty, workoutHistoryEntry } from './history.js';
@@ -95,6 +96,7 @@ export function bindFinish({
 
       // Az összegző értékeit még a kiürítés előtt rögzítjük
       const summary = summarizeWorkout();
+      const fromProgram = editing.source === 'program';
       const saved = await api.saveWorkout(
         titleInput.value.trim(),
         readCurrentWorkout(),
@@ -126,6 +128,9 @@ export function bindFinish({
       await refreshAfterWorkoutChange();
       showToast('Edzés befejezve és naplózva');
       navigate('summary');
+      /* Blokkos program: a haladás az elvégzett edzéshez igazodik — a
+         következő programnap (vagy egy szabály javaslata) azonnal betöltődik. */
+      if (fromProgram) await hooks.reloadWorkoutTemplate?.();
     } catch (err) {
       console.error(err);
       showToast(err.message || 'Nem sikerült menteni az edzést', 'error');

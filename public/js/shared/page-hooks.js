@@ -12,6 +12,14 @@
 
 /** Vezérlők által feltöltött visszahívások. */
 export const hooks = {
+  /** A blokkos program sávja / jóváhagyó kártyája az Edzés oldal tetején —
+      a setupProgramRun állítja be; a mai sablon betöltése hívja. */
+  programTemplate: null,
+
+  /** A mai sablon újratöltése a naplóba — a setupWorkout állítja be; a
+      programnap befejezése és a jóváhagyó kártyák hívják. */
+  reloadWorkoutTemplate: null,
+
   /** Munkamenet-vesztés menet közben (lejárt süti, másik eszközről kiléptetés).
       A setupAuthGate tölti fel; az api réteg hívja 401-re. */
   onSessionLost: null,
