@@ -24,8 +24,35 @@
   align-items: center;
   gap: var(--sp-5);
   padding: var(--sp-5) var(--sp-10);
-  background: var(--c-bg);
-  border-bottom: 1px solid var(--border-card);
+  /* Nincs saját doboza: a hullámos háttér a képernyő tetejéig ér. Mögötte
+     felülről lefelé fekete → átlátszó átmenet (::before), ami alul túlnyúlik
+     a sávon — így nincs éles széle, de görgetéskor az alácsúszó tartalom nem
+     folyik össze a köszönéssel és az ikonokkal. (Asztalon az oldalsáv alján
+     ül, saját panel-háttérrel; ott az átmenet ki van kapcsolva.) */
+  background: transparent;
+}
+
+.app-chrome::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 -32px;
+  z-index: -1;
+  pointer-events: none;
+  /* A sáv magasságáig szinte fedő (az alácsúszó felirat ott már nem
+     olvasható), a túlnyúló részen halványul el. */
+  background: linear-gradient(
+    to bottom,
+    var(--c-bg-deep) 0%,
+    rgb(10 10 11 / 0.95) 55%,
+    rgb(10 10 11 / 0.6) 78%,
+    rgb(10 10 11 / 0) 100%
+  );
+}
+
+/* Köszönés és monogram csak telefonon/tableten (lent kapcsolódik be) */
+.chrome-hello,
+.chrome-initials {
+  display: none;
 }
 
 @media (max-width: 380px) {
@@ -576,6 +603,62 @@
 .db-side-link:hover {
   color: var(--text-primary);
   border-color: var(--fg-40);
+}
+
+/* Telefon/tablet: köszönés a márkajel és a név helyett. A fejléc-szabályok
+   UTÁN áll, különben az azonos erejű .chrome-brand { display: flex } felülírná. */
+@media (max-width: 1024px) {
+  /* A márkajel és a teljes név helyett köszönés: „Szia, Bence" és alatta a
+     nap. A profil-gomb tolja jobbra az ikonpárt. */
+  .chrome-brand,
+  .db-username,
+  .db-avatar-icon {
+    display: none;
+  }
+
+  .db-profile {
+    margin-right: auto;
+    min-width: 0;
+  }
+
+  .db-avatar {
+    width: 36px;
+    height: 36px;
+  }
+
+  .chrome-initials {
+    display: block;
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    color: var(--text-primary);
+  }
+
+  .chrome-hello {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  .chrome-hello-name {
+    font-size: var(--fs-lg);
+    font-weight: 600;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .chrome-hello-day {
+    font-family: var(--font-mono);
+    font-size: var(--fs-2xs);
+    text-transform: uppercase;
+    letter-spacing: var(--ls-label);
+    color: var(--text-muted);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
 }
 
 /* ==========================================================================

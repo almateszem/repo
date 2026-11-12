@@ -556,6 +556,11 @@ body:is([data-page='checkin'], [data-page='plan-builder'], [data-page='exercise-
     border-right: 1px solid var(--hair);
   }
 
+  /* A telefonos fekete → átlátszó átmenet itt nem kell: saját panelje van */
+  .app-chrome::before {
+    display: none;
+  }
+
   /* A márkajel mono nagybetűs, erős ritkítással — a belépő .ds-eyebrow
      márkajelének nagyobb testvére. A .22em-hez nincs token: a fájl minden
      letter-spacingje nyers érték ezen a szinten, és ez az egyetlen hely, ahol

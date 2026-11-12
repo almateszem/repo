@@ -10,6 +10,7 @@ import { api, clientDate } from '../shared/api.js';
 import { $, $$ } from '../shared/dom.js';
 import { animateNumber, formatWhole } from '../shared/format.js';
 import { prefs } from '../shared/prefs.js';
+import { paintChromeDate, paintChromeName } from '../shared/chrome-identity.js';
 import { renderChart } from '../shared/chart.js';
 import { hasReadiness } from '../shared/readiness.js';
 import { navigate, onPageShow } from '../app/router.js';
@@ -207,18 +208,14 @@ function paintDashboard(dashboardData) {
 /** A fejléc-sáv dátuma. Ugyanabból a clientDate()-ből, amit minden kérés visz —
     így a sávon látott nap mindig az, amelyikre a szerver ír. */
 function renderChromeDate() {
-  const el = $('[data-chrome-date]');
-  if (!el) return;
-  const [, month, day] = clientDate().split('.');
-  el.textContent = `${month}.${day}.`;
+  paintChromeDate(clientDate());
 }
 
 /** A megjelenített felhasználónév: a saját (localStorage) név, különben a
-    szerveré (a lekérés lent, a renderUserName-é). */
+    szerveré (a lekérés lent, a renderUserName-é). A telefonos köszönés és a
+    monogram is ebből lesz (chrome-identity.js). */
 function paintUserName(user) {
-  const el = $('.db-username');
-  if (!el) return;
-  el.textContent = prefs.get('displayName', user.name);
+  paintChromeName(prefs.get('displayName', user.name));
 }
 
 /* ======================================================================

@@ -5,6 +5,7 @@ import { NOTIF_CATEGORIES } from '../shared/constants.js';
 import { $, $$, cloneTemplate } from '../shared/dom.js';
 import { hooks } from '../shared/page-hooks.js';
 import { prefs } from '../shared/prefs.js';
+import { paintChromeName } from '../shared/chrome-identity.js';
 import { showToast } from '../shared/toast.js';
 import { createModalController } from '../shared/modals.js';
 
@@ -21,7 +22,6 @@ async function setupSettingsModal({ onNotifCatsChange, confirmAction } = {}) {
   const modal = $('#settingsModal');
   const controller = createModalController(modal);
   const nameInput = $('#st-display-name');
-  const usernameEl = $('.db-username');
   const toggleList = $('[data-list="settings-toggles"]');
   const goalSelect = $('#st-goal');
   const sexSelect = $('#st-sex');
@@ -153,7 +153,7 @@ async function setupSettingsModal({ onNotifCatsChange, confirmAction } = {}) {
     const name = nameInput.value.trim();
     if (name) prefs.set('displayName', name);
     else prefs.set('displayName', undefined);
-    usernameEl.textContent = name || user.name;
+    paintChromeName(name || user.name);
   };
 
   nameInput.addEventListener('input', applyName);
