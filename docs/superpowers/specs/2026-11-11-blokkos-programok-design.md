@@ -46,12 +46,19 @@ jóváhagyott TM-mel számol. Kézi számolás nincs.
 4. **AMRAP-szett** jelölése és az elvégzett ismétlés rögzítése a naplóban.
 5. **TM-kezelés** gyakorlatonként, előzményekkel. Indulóérték-javaslat az
    1RM-ből.
-6. **Szabály-blokkok** (HA / AKKOR / KÜLÖNBEN) a ciklus végére. Ezek
-   TM-*javaslatot* adnak, amit a felhasználó jóváhagy vagy átír.
+6. **Szabály-blokkok** (HA / AKKOR / KÜLÖNBEN), amelyek **minden edzés
+   után, minden hét után vagy a ciklus végén** futnak. Ezek TM-*javaslatot*
+   adnak, amit a felhasználó jóváhagy vagy átír. A feltételekben a
+   teljesítmény (teljesített és összes szett, AMRAP) és a napi check-in
+   (fájdalom, készenlét, alvás) is szerepelhet, így leírható egy
+   sérülés- vagy kiégésszabály is (pl. −30%).
 7. **Haladás az elvégzett edzések szerint**, nem a naptár szerint, kérésre
    ugratással.
 8. A **mai edzés** (Edzés oldal) a program következő napját tölti be kész,
    kerekített kg-okkal.
+9. **Blokktár:** oldalsáv a programozó oldalon, kategóriákba rendezve
+   (szerkezet, gyakorlatok, értékek, teljesítmény, check-in, műveletek),
+   ahonnan minden blokk a helyére húzható.
 
 Az első szakaszban a program csak **saját használatra** készül: az a
 felhasználó futtatja, aki megírta.
@@ -88,9 +95,26 @@ tokenek, bordó kiemelés, monospace nagybetűs címkék).
 - **Minden sor egy blokk.** Bal oldalt `⋮⋮` fogantyú az áthúzáshoz, mellette a
   blokk fajtája monospace címkével és a fajta színével, utána a tartalma.
 - A beágyazást **vékony függőleges segédvonal** és beljebb kezdés mutatja.
-- Új blokk a sor végi **„+”** gombbal vagy a palettából **húzással** adható
+- Új blokk a sor végi **„+”** gombbal vagy a **blokktárból húzással** adható
   hozzá. **Gépelős bevitel nincs.** A „/” blokkmenü és a képletek begépelése
   is kimarad, ezt Viktor kifejezetten kérte.
+- **Blokktár (Viktor kérése a demó után).** Bal oldali sáv függőleges
+  kategóriafülekkel: *Szerkezet* (hét, nap, szett, szabály), *Gyakorlat*
+  (a katalógus, kereséssel), *Értékek* (szám, %, TM, 1RM: gyakorlat,
+  testsúly, új 1RM), *Teljesítmény* (teljesített/összes szett a
+  gyakorlaton és az egész időszakban, AMRAP-ismétlés, előírt ismétlés),
+  *Check-in* (fájdalom, készenlét, alvás) és *Műveletek* (×, +, −). Minden
+  kategória alatt egy rövid tipp mondja meg, hová húzható. A blokk húzással
+  kerül a helyére (gyakorlat a napra = új gyakorlat, meglévő gyakorlatra =
+  csere; szett a gyakorlatra; nap a hétre; érték a szett súlyára vagy egy
+  szabályfeltétel oldalára). **Telefonon** a sor `⋮⋮` fogantyújával
+  kijelölt sorra a blokktárban kattintva kerül a blokk; nyitott
+  képletkészítőnél a kijelölt helyre. Rossz helyre ejtve rövid magyar
+  üzenet mondja meg, hová való. Keskeny képernyőn a sáv egy „Blokktár”
+  gombbal nyílik.
+- **Hol használható egy érték:** a teljesítmény- és check-in értékek csak
+  szabályfeltételben, az „új 1RM” csak a szabály „TM = képlet” akciójában.
+  A szerver ugyanezt validálja.
 - A **becsukott hét** egy sorban összefoglalja a tartalmát (pl.
   `▸ 70 / 80 / 90%`), így egy hosszú program is elfér.
 - Az **AMRAP-szett** bordó kiemelést kap.
@@ -100,7 +124,10 @@ tokenek, bordó kiemelés, monospace nagybetűs címkék).
 
 Vizuális referencia (a brainstorming látványtervei, nincsenek verziókövetve):
 `.superpowers/brainstorm/1569-1794389556/content/stilus-valtozatok-2.html`
-(8-as változat) és `kepletkeszito-demo.html`.
+(8-as változat), `kepletkeszito-demo.html`, és a teljes, kattintható demó:
+`blokkos-program-demo.html` (programozó blokktárral, futtatás, szabályok,
+TM-napló). A demó motorja (képlet, szabályszakaszok, időszak-statisztika)
+a szerveroldali modulok mintája.
 
 ### 4.2 Blokkfajták
 
@@ -119,7 +146,8 @@ nap és egy hét is **duplikálható** (saját döntés).
 **A „napon döntöd el” súly** az 1RM-próbákhoz kell: ilyenkor a program nem
 számol súlyt, a felhasználó edzés közben írja be, amit megpróbál (saját
 döntés).
-| Szabály | ágak | lásd 4.4 |
+
+A **szabály** blokk a hetek után, külön „Szabályok” kártyán áll (lásd 4.4).
 
 ### 4.3 Súlyképlet: blokkok a súly helyén
 
@@ -150,17 +178,54 @@ A végeredmény **2,5 kg-ra kerekedik**.
 
 ### 4.4 Szabály-blokkok
 
-A szabály a ciklus végén fut, és **gyakorlatonként** dönt: minden olyan
-gyakorlatra, amelyiknek van TM-je a programban. Felépítése:
+A szabály **gyakorlatonként** dönt: minden olyan gyakorlatra, amelyiknek van
+TM-je a programban. Felépítése:
 
 ```
-HA [érték] [összehasonlítás] [érték]
+[minden edzés után | minden hét után | a ciklus végén ▾]
+HA [képlet] [összehasonlítás] [képlet]
   AKKOR  javasolj TM-et: [változtatás]
   KÜLÖNBEN  javasolj TM-et: [változtatás]
 ```
 
-A feltétel elemei legördülő menükből rakhatók össze, így nem lehet hibás
-szabályt írni.
+**Mikor fut (Viktor döntése a demó után).** Minden szabálynak van egy
+futási pontja: *minden edzés után* (az épp befejezett edzés adataiból), *minden
+hét után* (az elhagyott hét edzéseiből) vagy *a ciklus végén* (a ciklus összes
+edzéséből). Ugyanazon a ponton a szakaszok láncban futnak: edzés → hét →
+ciklus, és mindegyik az előző javaslatából indul. Ugratásnál csak a hét- és
+ciklusszabályok futnak, mert nincs befejezett edzés.
+
+**A feltétel két oldala képlet**, ugyanazokból a blokkokból, mint a súly,
+kiegészítve a teljesítmény- és check-in értékekkel. Így leírható például:
+
+```
+minden edzés után
+HA teljesített szett (mind) < összes szett (mind) − 10
+  AKKOR  TM − 30%
+```
+
+vagy arányos küszöbbel `teljesített (mind) < 80% × összes (mind)`, illetve
+`fájdalom ≥ 7 → TM − 30%`. Ez Viktor példája volt, nem kész program: a
+felhasználó maga rakja össze.
+
+**Teljesítmény-értékek** az adott időszakra (edzés, hét, ciklus):
+teljesített és összes szett az adott gyakorlaton, teljesített és összes szett
+az időszak minden gyakorlatán, AMRAP-ismétlés és előírt AMRAP-ismétlés. A
+„teljesített” a pipált szett. Az ugratott, nem rögzített nap nem számít bele.
+
+**Check-in értékek** az időszak edzésnapjainak meglévő napi check-injéből
+(`checkins` tábla): **fájdalom** = a legnagyobb megadott fájdalomérték
+(0–10), **alvás** = az alvásórák átlaga, **készenlét** = a legalacsonyabb
+készenlét (0–100), amit az app az edzés mentésekor rögzít. Ha az időszakban
+nincs ilyen adat, a szabály „nincs adat” jelzéssel nem javasol.
+
+**Ciklus közbeni javaslat.** Ha egy edzés- vagy hétszabály változtatna a
+TM-en, a következő edzés helyett egy „Szabály szerinti javaslat” kártya
+jön: gyakorlat, jelenlegi → javasolt TM (átírható), indoklás, és
+*Elfogadom* / *Elvetem*. Elfogadás után **a TM így marad, és a szabályok
+onnan építkeznek tovább** (Viktor döntése): a ciklus végi szabály már a
+csökkentett TM-ből lép. Elvetésnél a TM marad. Ciklus közben csak a
+ténylegesen változó gyakorlatok jelennek meg, a ciklus végén mind.
 
 **Viktor tényleges szabálya.** Ezt az első szakasznak tudnia kell. A 4. hét
 az 1RM-próbák hete, és a végén történik az újraszámolás:
@@ -174,8 +239,7 @@ HA volt új 1RM-rekord a próbán
 Ehhez a szabályokban ezek az elemek kellenek:
 
 - **Feltételek:** „volt új 1RM-rekord a próbán” (lásd 7/6), és általános
-  összehasonlítás (`<`, `≤`, `=`, `≥`, `>`) két érték között. Értékként
-  szóba jön az AMRAP-ismétlés, az előírt ismétlés vagy egy szám.
+  összehasonlítás (`<`, `≤`, `=`, `≥`, `>`) két képlet között (lásd fent).
 - **Változtatások:** `TM + x kg`, `TM − x kg`, `TM ± x%`, valamint
   `TM = képlet`, ahol a képlet ugyanazokból a blokkokból áll, mint a
   súlyképlet, kiegészítve az **„új 1RM”** értékkel.
@@ -196,9 +260,11 @@ emlegetett „AMRAP < 5 → −10%” csak példa volt, nem Viktor programja.
   kg-okkal. A felhasználó **átírhatja a ténylegesen elvégzett súlyt és
   ismétlést**, ahogy most is. A program ettől nem változik.
 - **A ciklus végén** az app gyakorlatonként TM-javaslatot ad, a szabály
-  alapján. A javaslat megmondja az okát is (pl. „AMRAP: 3 ism. < 5 → −10%”).
-  A felhasználó **jóváhagyja vagy átírja**, utána indul a következő ciklus az
-  új TM-mel.
+  alapján. A javaslat megmondja az okát is (pl. „AMRAP-ismétlés = 3 <
+  előírt ismétlés = 5”). A felhasználó **jóváhagyja vagy átírja**, utána
+  indul a következő ciklus az új TM-mel.
+- **Ciklus közben** az edzés- és hétszabályok javaslata ugyanígy
+  jóváhagyásra vár, mielőtt a következő nap betöltődne (lásd 4.4).
 - A szabály mindig a **ténylegesen rögzített** adatokból dolgozik (az
   AMRAP-ismétlésből és az 1RM-próba súlyából), nem az előírtakból.
 
@@ -252,11 +318,14 @@ bármelyik átírható:
 5. **Az AMRAP jelölő a szetten**, a típus marad `work`. Így a PR-követés és a
    meglévő típuslogika érintetlen.
 6. **„Volt új 1RM-rekord a próbán”:** a ciklusban, az adott gyakorlaton
-   rögzített **legnehezebb, ténylegesen 1 ismétléses** szett súlya nagyobb, mint
-   az `exercise_maxes` csúcs a ciklus indulásakor. Ez az **„új 1RM”** értéke.
-   Szándékosan nem az Epley-becslés: egy jól sikerült AMRAP-szett becsült
-   1RM-je nem számít rekordnak, csak a valódi próba. Az **„AMRAP-ismétlés”**
-   a ciklus utolsó elvégzett AMRAP-szettjének ismétlése az adott gyakorlaton.
+   rögzített **legnehezebb, pipált, ténylegesen 1 ismétléses** szett súlya
+   nagyobb, mint a **valódi csúcs** a ciklus indulásakor. Ez az **„új 1RM”**
+   értéke. A valódi csúcs a bemondott 1RM (`exercise_maxes.declared_1rm`) és
+   a valaha pipált 1 ismétléses szettek közül a nagyobb. **Nem** az
+   `exercise_maxes.max_1rm`: azt az AMRAP-szettek Epley-becslése is emeli,
+   és a demóban kiderült, hogy így egy valódi próba-rekord is „nem rekord”
+   lehetne. Az **„AMRAP-ismétlés”** az időszak utolsó elvégzett
+   AMRAP-szettjének ismétlése az adott gyakorlaton.
 7. **A „2,5 vagy 5 kg, gyakorlattól függően” lépésköz** a szabályban
    gyakorlatonként megadható. Az előre kitöltött érték az alsótestes
    gyakorlatoknál 5 kg, a többinél 2,5 kg; a besorolás a katalógus
@@ -288,6 +357,20 @@ bármelyik átírható:
     maradhat számolhatatlan súly.
 17. **A „N szett × ism.” sor** betöltéskor N darab azonos szettre bomlik a
     naplóban.
+18. **Kerekítés lebegőpontos hibája:** a 2,5-re kerekítés egy apró
+    eltolással számol (`Math.round(x / 2,5 + 1e-9) × 2,5`). A demóban a
+    162,5 × 0,7 a gépnek 113,7499… lett, ami 112,5-re kerekedett 115
+    helyett.
+19. **A készenlét pillanatképe:** a programnap mentésekor az app eltárolja az
+    aznapi készenlétet (a mostani készenléti motorból, az épp mentett edzés
+    nélkül). Így a szabály később is ugyanazt az értéket látja.
+20. **A „mind” értékek** (teljesített/összes szett az időszak minden
+    gyakorlatán) minden TM-es gyakorlatra ugyanazt adják. Egy ilyen
+    kiégésszabály tehát minden TM-et egyszerre csökkent, ami szándékos.
+21. **A „szabály ciklus közben” forrás** a TM-előzményben külön jelölést kap
+    (`rule`), a ciklusvégi jóváhagyás `review`.
+22. **Az új program alapból csak Viktor ciklus végi szabályával indul.** A
+    kiégés- és fájdalomszabályokat a felhasználó húzza be, ha kellenek.
 
 ## 8. Az építőre bízva
 
