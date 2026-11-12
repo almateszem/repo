@@ -20,6 +20,14 @@
   padding-bottom: 96px;
 }
 
+/* A szerkesztő sűrű, apró betűs sorai alatt a mozgó hullámos háttér
+   (bg-waves) zavaró: amíg az oldal nyitva van, a háttér tompított — mint egy
+   modal mögötti sötétítés. A hullám halványan megmarad, az app hangulata
+   nem vész el. */
+body:has([data-page='program-builder']:not([hidden])) > .bg-waves {
+  filter: brightness(0.3);
+}
+
 .pgm-page .pb-header {
   display: flex;
   align-items: center;
@@ -197,8 +205,12 @@
 }
 
 /* ---- Sorok ---- */
+/* A sorok panelt kapnak, mint a blokktár: alattuk nem látszik át a háttér. */
 .pgm-main {
   min-width: 0;
+  background: var(--surface-panel);
+  border: 1px solid var(--hair-soft);
+  padding: 6px 12px 12px;
 }
 
 .pgm-node {
@@ -522,6 +534,10 @@
 
   .pgm-page.pgm-side-open .pgm-side {
     display: grid;
+  }
+
+  .pgm-main {
+    padding: 4px 8px 8px;
   }
 
   .pgm-children {
