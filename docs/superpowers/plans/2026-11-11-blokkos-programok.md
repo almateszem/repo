@@ -40,26 +40,26 @@
 
 ## Fájlszerkezet
 
-| Fájl | Felelősség |
-|---|---|
-| `server/program/formula.js` (új) | képletfa validálása, kiértékelése, kerekítés |
-| `server/program/program.js` (új) | programfa validálása, napok kiterítése, napi edzés építése, szükséges értékek |
-| `server/program/rules.js` (új) | ciklusadatok gyűjtése a naplóból, TM-javaslatok |
-| `server/db/programs.js` (új) | programtervek, `program_state`, `training_maxes` SQL |
-| `server/db/schema.js`, `server/db/migrations.js` | új oszlopok és táblák |
-| `server/db/training.js` | `toPlan` kiegészül a `kind`/`program` mezőkkel; a program nem ütemezés az edzői kártyán |
-| `server/validation/workout-body.js` | a szett `amrap` mezőjének átengedése |
-| `server/services/program-run.js` (új) | aktiválás, napi sablon, léptetés, ugratás, ciklusvégi áttekintés |
-| `server/services/session-plan.js` | `workoutTemplate` → program ág |
-| `server/routes/programs.js` (új) + `server/server.js` | API |
-| `server/routes/training.js` | `POST /api/workouts` → léptetés; a program kézi aktiválásának tiltása |
-| `public/js/program/program-model.js` (új) | kliensoldali tiszta függvények: képlet-tükör, fa-műveletek, címkék, `parseKg` |
-| `public/js/program/program-builder.js` (új) | a programozó oldal (sorszerkesztő) |
-| `public/js/program/formula-window.js` (új) | a képletkészítő ablak |
-| `public/js/program/rule-editor.js` (új) | szabálysorok és lépésközök |
-| `public/js/program/program-run.js` (új) | aktiválási párbeszéd, ugratás, ciklusvégi áttekintő kártya |
-| `public/js/plans/plans.js`, `public/js/workout/sets-view.js`, `public/js/workout/loading.js`, `public/js/shared/api.js`, `public/js/app/init.js`, `public/index.html` | bekötés |
-| `public/css/14-programozo.css` (új) | a programozó stílusai |
+| Fájl                                                                                                                                                                  | Felelősség                                                                              |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `server/program/formula.js` (új)                                                                                                                                      | képletfa validálása, kiértékelése, kerekítés                                            |
+| `server/program/program.js` (új)                                                                                                                                      | programfa validálása, napok kiterítése, napi edzés építése, szükséges értékek           |
+| `server/program/rules.js` (új)                                                                                                                                        | ciklusadatok gyűjtése a naplóból, TM-javaslatok                                         |
+| `server/db/programs.js` (új)                                                                                                                                          | programtervek, `program_state`, `training_maxes` SQL                                    |
+| `server/db/schema.js`, `server/db/migrations.js`                                                                                                                      | új oszlopok és táblák                                                                   |
+| `server/db/training.js`                                                                                                                                               | `toPlan` kiegészül a `kind`/`program` mezőkkel; a program nem ütemezés az edzői kártyán |
+| `server/validation/workout-body.js`                                                                                                                                   | a szett `amrap` mezőjének átengedése                                                    |
+| `server/services/program-run.js` (új)                                                                                                                                 | aktiválás, napi sablon, léptetés, ugratás, ciklusvégi áttekintés                        |
+| `server/services/session-plan.js`                                                                                                                                     | `workoutTemplate` → program ág                                                          |
+| `server/routes/programs.js` (új) + `server/server.js`                                                                                                                 | API                                                                                     |
+| `server/routes/training.js`                                                                                                                                           | `POST /api/workouts` → léptetés; a program kézi aktiválásának tiltása                   |
+| `public/js/program/program-model.js` (új)                                                                                                                             | kliensoldali tiszta függvények: képlet-tükör, fa-műveletek, címkék, `parseKg`           |
+| `public/js/program/program-builder.js` (új)                                                                                                                           | a programozó oldal (sorszerkesztő)                                                      |
+| `public/js/program/formula-window.js` (új)                                                                                                                            | a képletkészítő ablak                                                                   |
+| `public/js/program/rule-editor.js` (új)                                                                                                                               | szabálysorok és lépésközök                                                              |
+| `public/js/program/program-run.js` (új)                                                                                                                               | aktiválási párbeszéd, ugratás, ciklusvégi áttekintő kártya                              |
+| `public/js/plans/plans.js`, `public/js/workout/sets-view.js`, `public/js/workout/loading.js`, `public/js/shared/api.js`, `public/js/app/init.js`, `public/index.html` | bekötés                                                                                 |
+| `public/css/14-programozo.css` (új)                                                                                                                                   | a programozó stílusai                                                                   |
 
 ## Adatformák (minden task ezekre hivatkozik)
 
@@ -103,10 +103,12 @@ RuleWorkout = a mentett edzés + { checkin: { pain|null, readiness|null, sleep|n
 ### Task 1: Képlet-modul
 
 **Files:**
+
 - Create: `server/program/formula.js`
 - Test: `tests/server/program-formula.test.js`
 
 **Interfaces:**
+
 - Produces:
   - `normalizeFormula(raw, { allowNewOrm = false, allowStat = false } = {}) → Formula | null` (érvénytelen → null)
   - `evalFormula(node, ctx) → number`. A `ctx` alakja: `{ exercise, trainingMaxes:{[ex]:kg}, oneRms:{[ex]:kg}, bodyweight:number|null, newOrm?:number|null, stats?:Stats }`. Hiányzó érték (vagy `null` stat) esetén `MissingValueError`-t dob.
@@ -164,10 +166,12 @@ git commit -m "Programok: a súlyképlet tiszta modulja (validálás, kiértéke
 ### Task 2: Programszerkezet-modul
 
 **Files:**
+
 - Create: `server/program/program.js`
 - Test: `tests/server/program-structure.test.js`
 
 **Interfaces:**
+
 - Consumes: Task 1 `normalizeFormula`, `evalFormula`, `roundToPlate`, `formulaRefs`, `MissingValueError`
 - Produces:
   - `normalizeProgram(raw) → { program } | { error:string }` (magyar hibaüzenet, pl. `'A programnak legalább egy hete kell legyen.'`)
@@ -204,10 +208,12 @@ test('nextWeekStart: a 0. pozícióból 2, az utolsó hétből a napok száma', 
 ### Task 3: Szabály-modul
 
 **Files:**
+
 - Create: `server/program/rules.js`
 - Test: `tests/server/program-rules.test.js`
 
 **Interfaces:**
+
 - Consumes: Task 1 (`evalFormula`, `roundToPlate`, `formulaText`, `hu`), Task 2 `tmExercises`; `resolveExerciseLoad` a `server/muscles.js`-ből
 - Produces:
   - `isLowerBody(name, catalog) → boolean`: (quads + hamstrings + glutes + calves) terhelés > a többi csoporté együtt
@@ -215,7 +221,7 @@ test('nextWeekStart: a 0. pozícióból 2, az utolsó hétből a napok száma', 
   - `collectCycleData(workouts, exercise) → { amrapReps:number|null, amrapTarget:number|null, bestSingle:number|null }`. Csak a `done:true` szettek számítanak. Az AMRAP-adat az utolsó, `amrap` mezős szettből jön, a `bestSingle` a pontosan 1 ismétléses, pozitív súlyú szettek legnagyobb súlya. A szám-mezők tizedesvesszővel is olvasandók.
   - `periodStats(workouts, exercise) → Stats` (lásd Adatformák). A `totalAll`/`doneAll` az időszak minden szettjét számolja; a check-in a `workout.checkin`-ből: fájdalom max, készenlét min, alvás átlag 1 tizedesre; ha nincs adat, `null`.
   - `suggestTrainingMaxes({ program, rules, trainingMaxes, workouts, baselineMaxes, catalog, ctx }) → Suggestion[]` — minden `tmExercises` gyakorlatra, amelynek van TM-je.
-  - `runStages({ program, stages, trainingMaxes, baselineMaxes, catalog, ctx, isCycleEnd }) → Suggestion[]`. A `stages`: `Array<{ on, workouts }>` sorrendben. Minden szakasz a `program.rules` közül az `on`-jának megfelelőket futtatja, a TM-eket az előző szakasz javaslatából. Visszaad: ciklus végén minden TM-es gyakorlatot, ciklus közben csak a változókat; a `current` a lánc előtti TM, a `reason` a szakaszok indoklása `` `${WHEN[on]}: ${reason}` `` alakban ` · `-tal fűzve (`WHEN`: „minden edzés után”, „minden hét után”, „a ciklus végén”); változás nélkül `'nincs változás'`. A ciklusszabály indoklása változás nélkül is bekerül.
+  - `runStages({ program, stages, trainingMaxes, baselineMaxes, catalog, ctx, isCycleEnd }) → Suggestion[]`. A `stages`: `Array<{ on, workouts }>` sorrendben. Minden szakasz a `program.rules` közül az `on`-jának megfelelőket futtatja, a TM-eket az előző szakasz javaslatából. Visszaad: ciklus végén minden TM-es gyakorlatot, ciklus közben csak a változókat; a `current` a lánc előtti TM, a `reason` a szakaszok indoklása `` `${WHEN[on]}: ${reason}` `` alakban `·`-tal fűzve (`WHEN`: „minden edzés után”, „minden hét után”, „a ciklus végén”); változás nélkül `'nincs változás'`. A ciklusszabály indoklása változás nélkül is bekerül.
 
   Kiértékelési sorrend gyakorlatonként (a demó `suggestTrainingMaxes`-e szerint):
   1. A szabályokat sorban nézi. A `record` feltétel: `bestSingle != null && bestSingle > (baselineMaxes[ex] ?? 0)`.
@@ -262,6 +268,7 @@ test('isLowerBody: Guggolás és Felhúzás igen, Fekvenyomás és Vállból nyo
 ### Task 4: Adatbázis — séma, tárolás, AMRAP a naplóban
 
 **Files:**
+
 - Modify: `server/db/schema.js` (`plans`, `workouts` CREATE TABLE + két új tábla), `server/db/migrations.js` (`ENSURED_COLUMNS`), `server/db/training.js` (`PLAN_COLUMNS`, `toPlan`, `getUserPlanSchedules`, `deletePlan`), `server/db/index.js` (`export * from './programs.js'`), `server/validation/workout-body.js`
 - Create: `server/db/programs.js`
 - Test: `tests/server/program-db.test.js`; a meglévő `tests/server/schema-parity.test.js` és `api.test.js` zöld marad
@@ -298,6 +305,7 @@ CREATE INDEX IF NOT EXISTS idx_training_maxes_user ON training_maxes (user_id, e
 ```
 
 **Interfaces:**
+
 - Produces (`server/db/programs.js`, minden függvény a `userId`-re szűr):
   - `addProgramPlan(userId, name, date, program) → Plan`: `kind='program'`, `week='[]'`, `days='[]'`, `active=0`
   - `updateProgramPlan(userId, id, name, program) → Plan | null` (más fajtájú vagy idegen terv esetén null)
@@ -325,6 +333,7 @@ test('tagProgramWorkout: első hívás true, második false', …);
 test('getTrueMaxes: a bemondott 100 és a pipált 1×105 közül 105; az 5×110 AMRAP nem számít', …);
 test('getUserPlanSchedules: aktív programra üres lista', …);
 ```
+
 Az `api.test.js`-be: `test('a szett amrap mezője megmarad, érvénytelen értéknél eltűnik', …)` (POST /api/workouts → GET /api/workouts).
 
 - [ ] **Step 2: Futtasd, és ellenőrizd, hogy elbukik** — `node --test tests/server/program-db.test.js` → FAIL
@@ -335,11 +344,13 @@ Az `api.test.js`-be: `test('a szett amrap mezője megmarad, érvénytelen érté
 ### Task 5: Futtatás — `program-run` szolgáltatás és a mai edzés
 
 **Files:**
+
 - Create: `server/services/program-run.js`
 - Modify: `server/services/session-plan.js` (`workoutTemplate`)
 - Test: `tests/server/program-run.test.js` (ideiglenes adatbázis, mint a Task 4-ben)
 
 **Interfaces:**
+
 - Consumes: Task 2, 3, 4; `getAllExerciseMaxes`, `setDeclaredMax`, `getWeightLog`, `getActivePlan`, `setActivePlan`, `getCollection('exerciseCatalog')`
 - Produces:
   - `activationNeeds(userId, plan) → { trainingMaxes: Array<{exercise, suggested:number|null}>, oneRms: string[] }`. A `suggested` értéke `roundToPlate(max_1rm × 0.9)`, vagy `null`, ha nincs 1RM.
@@ -378,24 +389,25 @@ test('workoutTemplate: a mai piszkozat elsőbbséget kap a programnappal szemben
 ### Task 6: API
 
 **Files:**
+
 - Create: `server/routes/programs.js`
 - Modify: `server/server.js` (`registerPrograms(app, deps)`), `server/routes/training.js` (`POST /api/workouts` → `onWorkoutSaved`; `POST /api/plans/:id/active` program fajtánál `active:true` → 409; `GET /api/plans` a programhoz `state` összegzést ad: `{ cycle, pos, total, title, review:boolean, mid:boolean }`)
 - Test: `tests/server/programs-api.test.js` (`startServer({ label: 'programs' })`)
 
 **Végpontok** (mind bejelentkezést kér, és idegen vagy ismeretlen id-re 404-et ad):
 
-| Módszer, út | Törzs | Válasz |
-|---|---|---|
-| `POST /api/programs` | `{ name, program }` | 201 `Plan`; 400 `{error}` |
-| `PUT /api/programs/:id` | `{ name, program }` | 200 `Plan` (+`clampAfterEdit`) |
-| `GET /api/programs/:id` | – | `{ plan, state, trainingMaxes, defaultSteps:{ex:kg} }` (`defaultStep` minden `tmExercises` gyakorlatra) |
-| `GET /api/programs/:id/activation` | – | `activationNeeds` |
-| `POST /api/programs/:id/activate` | `{ trainingMaxes:{ex:kg}, oneRms:{ex:kg} }` | 200 `{plan}`; 400 `{error, needs}` |
-| `POST /api/programs/:id/skip` | `{ to }` | 200 `state`; 409 `{error}` |
-| `GET /api/programs/:id/review` | – | `{ suggestions }`, vagy 404, ha nincs áttekintés |
-| `POST /api/programs/:id/review` | `{ decisions:{ex:kg} }` | 200 `state` |
-| `POST /api/programs/:id/mid` | `{ decisions:{ex:kg} }` vagy `{ reject:true }` | 200 `state`; 409 `{error}` |
-| `GET /api/training-maxes` | – | `{[ex]:kg}` |
+| Módszer, út                        | Törzs                                          | Válasz                                                                                                  |
+| ---------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `POST /api/programs`               | `{ name, program }`                            | 201 `Plan`; 400 `{error}`                                                                               |
+| `PUT /api/programs/:id`            | `{ name, program }`                            | 200 `Plan` (+`clampAfterEdit`)                                                                          |
+| `GET /api/programs/:id`            | –                                              | `{ plan, state, trainingMaxes, defaultSteps:{ex:kg} }` (`defaultStep` minden `tmExercises` gyakorlatra) |
+| `GET /api/programs/:id/activation` | –                                              | `activationNeeds`                                                                                       |
+| `POST /api/programs/:id/activate`  | `{ trainingMaxes:{ex:kg}, oneRms:{ex:kg} }`    | 200 `{plan}`; 400 `{error, needs}`                                                                      |
+| `POST /api/programs/:id/skip`      | `{ to }`                                       | 200 `state`; 409 `{error}`                                                                              |
+| `GET /api/programs/:id/review`     | –                                              | `{ suggestions }`, vagy 404, ha nincs áttekintés                                                        |
+| `POST /api/programs/:id/review`    | `{ decisions:{ex:kg} }`                        | 200 `state`                                                                                             |
+| `POST /api/programs/:id/mid`       | `{ decisions:{ex:kg} }` vagy `{ reject:true }` | 200 `state`; 409 `{error}`                                                                              |
+| `GET /api/training-maxes`          | –                                              | `{[ex]:kg}`                                                                                             |
 
 A számmezők (kg) `Number()`-rel olvasandók: véges, 0 < x ≤ 1000, egyébként 400.
 
@@ -422,10 +434,12 @@ test('a meglévő egyszerű terv viselkedése változatlan (GET /api/plans kind:
 ### Task 7: Kliens-modell (tiszta függvények)
 
 **Files:**
+
 - Create: `public/js/program/program-model.js`
 - Test: `tests/public/js/program/program-model.test.js`
 
 **Interfaces:**
+
 - Produces:
   - `evalFormula`, `roundToPlate`, `MissingValueError`: **viselkedésben azonos** a Task 1 szervermoduljával
   - `formulaLabel(node) → string` a sorbeli kijelzéshez: `85% × TM`, `60% × 1RM: Guggolás + 5`, a `-` → `−`, a `*` → `×`, és csak akkor zárójelez, ha a precedencia megkívánja
@@ -457,21 +471,24 @@ test('szerver–kliens paritás: 12 fixture azonos eredménnyel vagy azonos hiba
 ### Task 8: A programozó oldal — sorszerkesztő
 
 **Files:**
+
 - Create: `public/js/program/program-builder.js`, `public/css/14-programozo.css`
 - Create még: `public/js/program/block-library.js`
 - Modify: `public/index.html` (új `<section class="app-page" data-page="program-builder">` és `<link>` a 14-es css-re a 13-as után), `public/js/app/init.js` (`setupProgramBuilder`), `public/js/shared/api.js` (`createProgram`, `updateProgram`, `getProgram`, `getTrainingMaxes`), `public/js/plans/plans.js` (az „+ Új blokkos program” gomb a meglévő „+ Új terv” mellett; a program-kártya „Szerkesztés” gombja ide navigál)
 
 **Interfaces:**
+
 - Consumes: Task 6 API, Task 7 modell
 - Produces: `setupProgramBuilder(confirmAction) → { open(planId|null) }`
 
 **Viselkedés** (a spec 4.1 és 4.2 pontja; vizuális minta a spec szerinti 8-as stílus):
+
 - Sorok fogantyúval (`⋮⋮`). A blokk fajtája monospace címkével és színnel: hét `--c-superset`, nap és gyakorlat lila, a szabály `--c-accent`. A beágyazást vékony segédvonal mutatja.
 - Hozzáadás a sor végi „+” gombbal, mozgatás húzással és „kijelöl → fel/le” gombokkal. Törlés megerősítéssel (`confirmAction`). Nap és hét duplikálása.
 - A hét becsukható. Becsukva a sor a `weekSummary`-t mutatja.
 - Szett-sor: darabszám, ismétlés, AMRAP-kapcsoló (bordó `5+ AMRAP` jelvény), súly-riporterek (`formulaLabel` alapján, színezett „pill”-ek), vagy „a napon döntöd el” felirat. A sor végén élő előnézet a saját TM/1RM-ből, például „85 kg”, vagy a hiány, például „nincs TM: Elöl guggolás”.
 - Gyakorlat választása a meglévő `exercise-picker`-rel, vagy a blokktárból húzva.
-- **Blokktár** (`public/js/program/block-library.js`, új fájl; a demó `CATS`/`sideItems`/`applyDrop` mintája): bal oldali sáv függőleges kategóriafülekkel — *Szerkezet* (hét, nap, szett, szabály), *Gyakorlat* (a katalógus, keresőmezővel), *Értékek* (`50%`, `20`, `TM`, `1RM: gyakorlat ▾`, `testsúly`, `új 1RM`), *Teljesítmény* (a hat teljesítmény-stat), *Check-in* (fájdalom, készenlét, alvás), *Műveletek* (`□ × □`, `□ + □`, `□ − □`). Kategóriánként egy rövid tipp, hová húzható. A ledobási célok `data-dz` attribútumot kapnak: `week`, `day`, `ex`, `setw`, `cond`, `act`, `rules`. A szabályok a demóéval egyeznek: gyakorlat a napra = új gyakorlat (első a fő, a többi kiegészítő), meglévő gyakorlatra = csere; szett csak gyakorlatra; nap hétre vagy napra (utána); hét bárhová (a cél hete után, cél nélkül a végére); szabály a Szabályok kártyára; érték/művelet a szett súlyára (`insertIntoRoot`) vagy a feltétel egyik oldalára, előtte `canUseNode`. Rossz célnál toast a demó hibaszövegeivel. **Kijelölés + kattintás:** a sor `⋮⋮` fogantyúja kijelöli a sort (kiemelés), utána a blokktárban kattintás ugyanazt az `applyDrop`-ot futtatja; nyitott képletkészítőnél a kattintás a kijelölt helyre tesz. 720 px alatt a sáv egy „▦ Blokktár” gombbal nyíló fiók.
+- **Blokktár** (`public/js/program/block-library.js`, új fájl; a demó `CATS`/`sideItems`/`applyDrop` mintája): bal oldali sáv függőleges kategóriafülekkel — _Szerkezet_ (hét, nap, szett, szabály), _Gyakorlat_ (a katalógus, keresőmezővel), _Értékek_ (`50%`, `20`, `TM`, `1RM: gyakorlat ▾`, `testsúly`, `új 1RM`), _Teljesítmény_ (a hat teljesítmény-stat), _Check-in_ (fájdalom, készenlét, alvás), _Műveletek_ (`□ × □`, `□ + □`, `□ − □`). Kategóriánként egy rövid tipp, hová húzható. A ledobási célok `data-dz` attribútumot kapnak: `week`, `day`, `ex`, `setw`, `cond`, `act`, `rules`. A szabályok a demóéval egyeznek: gyakorlat a napra = új gyakorlat (első a fő, a többi kiegészítő), meglévő gyakorlatra = csere; szett csak gyakorlatra; nap hétre vagy napra (utána); hét bárhová (a cél hete után, cél nélkül a végére); szabály a Szabályok kártyára; érték/művelet a szett súlyára (`insertIntoRoot`) vagy a feltétel egyik oldalára, előtte `canUseNode`. Rossz célnál toast a demó hibaszövegeivel. **Kijelölés + kattintás:** a sor `⋮⋮` fogantyúja kijelöli a sort (kiemelés), utána a blokktárban kattintás ugyanazt az `applyDrop`-ot futtatja; nyitott képletkészítőnél a kattintás a kijelölt helyre tesz. 720 px alatt a sáv egy „▦ Blokktár” gombbal nyíló fiók.
 - Produces még: `applyDrop(program, item, target) → { program } | { error }` tiszta függvényként a `block-library.js`-ben, hogy tesztelhető legyen.
 - Mentés: `POST`, illetve `PUT /api/programs`. A szerver hibaüzenete toastban jelenik meg.
 
@@ -484,14 +501,17 @@ test('szerver–kliens paritás: 12 fixture azonos eredménnyel vagy azonos hiba
 ### Task 9: Képletkészítő ablak
 
 **Files:**
+
 - Create: `public/js/program/formula-window.js`
 - Modify: `public/js/program/program-builder.js` (a súly-riporterre kattintva nyílik), `public/css/14-programozo.css`
 
 **Interfaces:**
+
 - Consumes: Task 7 `insertBlock`, `removeAt`, `setAt`, `evalFormula`, `formulaLabel`
 - Produces: `openFormulaWindow({ title, formula, exercise, allowNewOrm, preview(formula) → string, onChange(formula) })`
 
 **Viselkedés** (a demó, `.superpowers/brainstorm/…/kepletkeszito-demo.html`, gépelős rész nélkül):
+
 - **Vászon:** helyek (szaggatott keret) és egymásba ágyazott riporterek. A szám mezőben szerkeszthető, és elfogadja a `%` végződést. Az `1RM` mellett legördülő választja a gyakorlatot (`ez a gyakorlat` + a katalógus). A műveletjel legördülővel váltható. Ráhúzáskor `×` gomb jelenik meg a kivételhez.
 - **Paletta:** „Értékek” (`50%`, `20`, `TM`, `1RM: gyakorlat ▾`, `testsúly`, valamint `új 1RM`, ha `allowNewOrm`, és a teljesítmény-/check-in értékek, ha `allowStat`) és „Műveletek” (`□ × □`, `□ + □`, `□ − □`). Húzással (HTML5 DnD), vagy kijelölt hely és kattintás révén kerülnek a vászonra. A blokktárból is ide húzható, illetve nyitott ablaknál a blokktár kattintása a kijelölt helyre tesz (`canUseNode` szűrővel).
 - Az `openFormulaWindow` paraméterei kiegészülnek: `allowStat:boolean`, `noFree:boolean` (a „Napon döntöd el” gomb elrejtése a szabályokban).
@@ -505,14 +525,17 @@ test('szerver–kliens paritás: 12 fixture azonos eredménnyel vagy azonos hiba
 ### Task 10: Szabályszerkesztő
 
 **Files:**
+
 - Create: `public/js/program/rule-editor.js`
 - Modify: `public/js/program/program-builder.js` (a „Ciklus vége” szakasz a hetek után), `public/css/14-programozo.css`
 
 **Interfaces:**
+
 - Consumes: Task 9 `openFormulaWindow` (`allowNewOrm:true`), Task 7
 - Produces: `renderRules(container, program, onChange)`
 
 **Viselkedés:**
+
 - A szabály fejsora: `[minden edzés után | minden hét után | a ciklus végén ▾]` (az `on`). Alatta: `HA [feltétel ▾]`. A feltétel lehet „volt új 1RM-rekord a próbán”, vagy összehasonlítás `[képlet] [< ≤ = ≥ >] [képlet]`, ahol mindkét oldal `data-dz="cond"` ledobási cél (blokktárból húzható érték, stat vagy művelet), és kattintásra a képletkészítő nyílik `allowStat:true, noFree:true` mellett. Alatta két ágsor: `AKKOR [akció ▾]` és `KÜLÖNBEN [akció ▾ | nincs]`. A `TM = képlet` akció képlete `data-dz="act"` cél.
 - Akciók: `TM + lépésköz`, `TM + x kg`, `TM ± x%`, `TM = képlet`. Ez utóbbi a képletkészítő ablakot nyitja.
 - **Lépésközök** blokk: a program `tmExercises` listája. Gyakorlatonként egy kg-mező, előtöltve 5-tel vagy 2,5-del. Az alapérték a `GET /api/programs/:id` `defaultSteps` mezőjéből jön (Task 6). Mentetlen, új programnál, amíg nincs id, 2,5 az alapérték. Az átírt érték a `program.steps`-be kerül.
@@ -525,14 +548,17 @@ test('szerver–kliens paritás: 12 fixture azonos eredménnyel vagy azonos hiba
 ### Task 11: Futtatás a felületen — aktiválás, mai edzés, ugratás, áttekintés
 
 **Files:**
+
 - Create: `public/js/program/program-run.js`
 - Modify: `public/js/plans/plans.js` (a program-kártya), `public/js/workout/loading.js` (a `program` és a `program-review` forrás), `public/js/workout/sets-view.js` (`amrap`), `public/js/shared/api.js`, `public/css/14-programozo.css`
 
 **Interfaces:**
+
 - Consumes: Task 6 API, Task 7 `parseKg`
 - Produces: `openActivation(planId)`, `renderReviewCard(container, review)`, `renderMidCard(container, mid)`, `programCardActions(plan)`
 
 **Viselkedés:**
+
 - **Program-kártya a Tervek oldalon.** Mutatja a „blokkos program” címkét, a helyzetet (`2. ciklus · 1. hét · Guggolásnap`, ebből a `state.title` és a ciklus jön), valamint a gombokat: Szerkesztés, Aktiválás vagy Kikapcsolás, és egy Ugratás menü (következő nap, következő hét, ciklus vége). Az ugratás `confirmAction`-nel indul.
 - **Aktiválási párbeszéd.** Gyakorlatonként egy TM-mező a javaslattal előtöltve, és a hiányzó 1RM-ek mezői. A beolvasás `parseKg`-gel történik, érvénytelen értéknél mezőszintű hibaüzenet jelenik meg. A párbeszéd a Tervek kártyáról akkor is megnyitható, ha a `workout-template` `missing` listát ad. Ilyenkor az Edzés oldalon egy figyelmeztetés jelenik meg „Hiányzó érték: …” szöveggel és egy gombbal, ami ide vezet.
 - **Edzés oldal, program forrás.** A cím `program.title`. Az AMRAP-szett sorában a `5+` jelvény áll, és az ismétlésmező felirata „legalább 5”. A `renderSetRow` a `set.amrap`-ot a `row.dataset.amrap`-ba írja, a `readSetRow` pedig visszaadja (`amrap: Number(row.dataset.amrap)`, ha van).

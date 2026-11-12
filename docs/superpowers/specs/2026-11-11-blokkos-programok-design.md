@@ -47,7 +47,7 @@ jóváhagyott TM-mel számol. Kézi számolás nincs.
 5. **TM-kezelés** gyakorlatonként, előzményekkel. Indulóérték-javaslat az
    1RM-ből.
 6. **Szabály-blokkok** (HA / AKKOR / KÜLÖNBEN), amelyek **minden edzés
-   után, minden hét után vagy a ciklus végén** futnak. Ezek TM-*javaslatot*
+   után, minden hét után vagy a ciklus végén** futnak. Ezek TM-_javaslatot_
    adnak, amit a felhasználó jóváhagy vagy átír. A feltételekben a
    teljesítmény (teljesített és összes szett, AMRAP) és a napi check-in
    (fájdalom, készenlét, alvás) is szerepelhet, így leírható egy
@@ -99,11 +99,11 @@ tokenek, bordó kiemelés, monospace nagybetűs címkék).
   hozzá. **Gépelős bevitel nincs.** A „/” blokkmenü és a képletek begépelése
   is kimarad, ezt Viktor kifejezetten kérte.
 - **Blokktár (Viktor kérése a demó után).** Bal oldali sáv függőleges
-  kategóriafülekkel: *Szerkezet* (hét, nap, szett, szabály), *Gyakorlat*
-  (a katalógus, kereséssel), *Értékek* (szám, %, TM, 1RM: gyakorlat,
-  testsúly, új 1RM), *Teljesítmény* (teljesített/összes szett a
+  kategóriafülekkel: _Szerkezet_ (hét, nap, szett, szabály), _Gyakorlat_
+  (a katalógus, kereséssel), _Értékek_ (szám, %, TM, 1RM: gyakorlat,
+  testsúly, új 1RM), _Teljesítmény_ (teljesített/összes szett a
   gyakorlaton és az egész időszakban, AMRAP-ismétlés, előírt ismétlés),
-  *Check-in* (fájdalom, készenlét, alvás) és *Műveletek* (×, +, −). Minden
+  _Check-in_ (fájdalom, készenlét, alvás) és _Műveletek_ (×, +, −). Minden
   kategória alatt egy rövid tipp mondja meg, hová húzható. A blokk húzással
   kerül a helyére (gyakorlat a napra = új gyakorlat, meglévő gyakorlatra =
   csere; szett a gyakorlatra; nap a hétre; érték a szett súlyára vagy egy
@@ -131,13 +131,13 @@ a szerveroldali modulok mintája.
 
 ### 4.2 Blokkfajták
 
-| Blokk | Tartalmaz | Beállítások |
-|---|---|---|
-| Ciklus | hetek | név |
-| Hét | napok | címke (pl. „4. hét – saját”) |
-| Nap | gyakorlatok | név (nem kötelező); sorszámot kap, nem hétnapot |
-| Gyakorlat | szettek | a meglévő gyakorlat-katalógusból választva; fő vagy kiegészítő |
-| Szett | – | darabszám (pl. 5 szett), ismétlés, AMRAP-e, **súlyképlet** vagy „a napon döntöd el” |
+| Blokk     | Tartalmaz   | Beállítások                                                                         |
+| --------- | ----------- | ----------------------------------------------------------------------------------- |
+| Ciklus    | hetek       | név                                                                                 |
+| Hét       | napok       | címke (pl. „4. hét – saját”)                                                        |
+| Nap       | gyakorlatok | név (nem kötelező); sorszámot kap, nem hétnapot                                     |
+| Gyakorlat | szettek     | a meglévő gyakorlat-katalógusból választva; fő vagy kiegészítő                      |
+| Szett     | –           | darabszám (pl. 5 szett), ismétlés, AMRAP-e, **súlyképlet** vagy „a napon döntöd el” |
 
 **Minden nap a saját fő és kiegészítő gyakorlatait kapja** (Viktor döntése).
 Nincs hétszintű, közös séma. Hogy ne kelljen ugyanazt négyszer beírni, egy
@@ -167,7 +167,7 @@ egymásba ágyazhatók. Ugyanaz a képlet két nézetben látszik:
 Értékek és műveletek az első szakaszban:
 
 - **szám** (`20`) és **százalék** (`85%`);
-- **TM:** mindig *annak a gyakorlatnak* a TM-je, amelyik sorában a képlet áll;
+- **TM:** mindig _annak a gyakorlatnak_ a TM-je, amelyik sorában a képlet áll;
 - **1RM: [gyakorlat ▾]:** egy választott gyakorlat 1RM-je. Az „ez a
   gyakorlat” is választható. Így számolhat az elöl guggolás a guggolás
   1RM-jéből;
@@ -189,8 +189,8 @@ HA [képlet] [összehasonlítás] [képlet]
 ```
 
 **Mikor fut (Viktor döntése a demó után).** Minden szabálynak van egy
-futási pontja: *minden edzés után* (az épp befejezett edzés adataiból), *minden
-hét után* (az elhagyott hét edzéseiből) vagy *a ciklus végén* (a ciklus összes
+futási pontja: _minden edzés után_ (az épp befejezett edzés adataiból), _minden
+hét után_ (az elhagyott hét edzéseiből) vagy _a ciklus végén_ (a ciklus összes
 edzéséből). Ugyanazon a ponton a szakaszok láncban futnak: edzés → hét →
 ciklus, és mindegyik az előző javaslatából indul. Ugratásnál csak a hét- és
 ciklusszabályok futnak, mert nincs befejezett edzés.
@@ -222,7 +222,7 @@ nincs ilyen adat, a szabály „nincs adat” jelzéssel nem javasol.
 **Ciklus közbeni javaslat.** Ha egy edzés- vagy hétszabály változtatna a
 TM-en, a következő edzés helyett egy „Szabály szerinti javaslat” kártya
 jön: gyakorlat, jelenlegi → javasolt TM (átírható), indoklás, és
-*Elfogadom* / *Elvetem*. Elfogadás után **a TM így marad, és a szabályok
+_Elfogadom_ / _Elvetem_. Elfogadás után **a TM így marad, és a szabályok
 onnan építkeznek tovább** (Viktor döntése): a ciklus végi szabály már a
 csökkentett TM-ből lép. Elvetésnél a TM marad. Ciklus közben csak a
 ténylegesen változó gyakorlatok jelennek meg, a ciklus végén mind.
