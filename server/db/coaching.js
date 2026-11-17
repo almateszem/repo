@@ -181,6 +181,13 @@ export function deleteCoachLink(linkId) {
           link.coach_id,
         );
       }
+      // A gyakorlat-megjegyzései is: az új edző különben a régiét látná a
+      // kártyán, a sportoló pedig nem tudná törölni (csak a szerző törölhet).
+      // A sportoló saját megjegyzései maradnak.
+      db.prepare('DELETE FROM comments WHERE author_id = ? AND subject_id = ?').run(
+        link.coach_id,
+        link.athlete_id,
+      );
     }
     db.exec('COMMIT');
     return changes > 0;
