@@ -14,7 +14,7 @@ A frontend JS már funkciómappákba van rendezve (`public/js/<téma>/`). A back
 
 ## 2. Sikerkritérium
 
-> Egy új funkcióhoz **két mappához + egy CSS-fájlhoz** kell nyúlni: a funkció backend-mappájához (`server/features/<téma>/`), a frontend-mappájához (`public/js/<téma>/`) és a számozott CSS-fájljához.
+> Egy új funkcióhoz **két mappához + egy CSS-fájlhoz** kell nyúlni: a funkció backend-mappájához (`server/features/<téma>/`), a frontend-mappájához (`public/js/<téma>/`) és a számozott CSS-fájljához — **plusz egy sor a funkció-jegyzékben** (`server/features/index.js`; 2026-11-17, T5 módosítás). Egy teszt jelez, ha egy funkciómappa kimarad a jegyzékből.
 
 Ehhez alkalmanként még hozzájöhet:
 
@@ -79,7 +79,7 @@ Ehhez alkalmanként még hozzájöhet:
 | T2 | A `graphify-out/` kikerül a gitből, és bekerül a `.gitignore`-ba | Generált kimenet, `npm run graph` újraépíti. |
 | T3 | Az oldalakat a **szerver fűzi össze** egyetlen HTML-lé; a böngésző ugyanazt kapja, mint most | Nem kell build-lépés, a frontend JS-hez, a CSP-hez és a routerhez sem kell nyúlni. A böngészős fetch villanást és init-átírást hozna, a JS-stringbe tett template olvashatatlan. |
 | T4 | Backend: `server/features/<téma>/` + `server/core/` | A frontend `public/js/<téma>/` mintáját tükrözi. |
-| T5 | A funkciómappákat a **`server/core/db/` betöltése fedezi fel** (top-level `await import`, központi lista nélkül), nem csak a szerverindítás. Így a tesztek, a migrációs al-folyamatok és a `seed-demo` ugyanúgy egy importtal kapnak kész adatbázist, mint ma a `server/db.js`-szel. A `server.js` ugyanazt a felfedezett listát használja a végpontokhoz. | Új funkciónál így a `server.js`-hez nem kell nyúlni (sikerkritérium), és a szerveren kívüli hívók sem maradnak adatbázis nélkül. |
+| T5 | A funkciók egy **kézzel vezetett jegyzékben** állnak (`server/features/index.js`, statikus importok, felső szintű `await` nélkül), és ezt a **`server/core/db/` betöltése** használja, nem csak a szerverindítás. Így a tesztek, a migrációs al-folyamatok és a `seed-demo` ugyanúgy egy importtal kapnak kész adatbázist, mint ma a `server/db.js`-szel. A `server.js` ugyanezt a listát használja a végpontokhoz. **Módosítva 2026-11-17-én:** az eredeti változat dinamikus felfedezést írt elő (top-level `await import`, központi lista nélkül), ami az átmeneti `server/db.js` shimmel körbe importált, és holtpontba vitt (próbán: Node 13-as kilépési kód, „unsettled top-level await”). | Új funkciónál így a `server.js`-hez nem kell nyúlni (sikerkritérium), a szerveren kívüli hívók sem maradnak adatbázis nélkül, és a jegyzékből látszik, mi van bekötve. Ára egy sor a jegyzékben; a kimaradást teszt fogja meg. |
 | T6 | A backend-tesztek a funkciómappába kerülnek (`server/features/<téma>/*.test.js`); a több funkciót átfogó tesztek a `tests/server/` alatt maradnak | A `server/` mappát a böngésző nem éri el, ezért ez biztonságos. |
 | T7 | A frontend-tesztek maradnak a `tests/public/js/<téma>/` alatt | A `public/` alá kerülve a szerver nyilvánosan kiszolgálná őket. |
 | T9 | **Ami ma van, befagy a `core/db/`-ben:** a meglévő `ensureColumns` hívások (verziókapuval, a `plansHad*` visszatérési értékekkel és az `ENSURED_COLUMNS` listával), a sorszámozott migrációk (`user_version` 2…6), a sorrendjük és a funkció-modulokra mutató importjaik. Ez az egyetlen hely, ahol a `core/` statikusan importálhat a `features/`-ből. **Ami ezután jön, a funkcióhoz kerül:** új oszlop a funkció `columns` listájába, új sorszámozott migráció (7-től) a funkció `migrations` listájába. Ezeket a core összegyűjti és globálisan verziószám szerint futtatja. | A történeti lépések sorrendfüggők és összefonódnak, átírásuk kockázat, haszon nélkül. Az új munka viszont már a funkció mappájában marad. |
@@ -92,7 +92,7 @@ Ehhez alkalmanként még hozzájöhet:
 ```
 repo/
 ├─ server/
-│  ├─ server.js              ← Express-alkalmazás: middleware-ek, funkció-felfedezés, statikus kiszolgálás
+│  ├─ server.js              ← Express-alkalmazás: middleware-ek, a jegyzék funkcióinak regisztrálása, statikus kiszolgálás
 │  ├─ core/                  ← közös infrastruktúra, egyik funkcióé sem
 │  │  ├─ db/                 ← connection, alap-séma (users, sessions), migráció-futtató,
 │  │  │                         a befagyasztott sorszámozott migrációk, baseline-őr
@@ -153,7 +153,7 @@ export default {
 - **Felfedezés és sorrend:** a `server/features/*/index.js` fájlok névsorban töltődnek be, az `after` ezt felülírja. A mai sorrendnek kell kijönnie. A pontos megoldás a végrehajtóra van bízva.
 - **A belépés-őr és a publikus auth-végpontok közti sorrend nem sérülhet:** minden `registerPublic`, majd az őr, majd minden `register`, majd az `/api` 404-kezelő, végül a statikus kiszolgálás.
 - A közös függőségek (`deps`, például `catalogSearch`) ugyanúgy átadódnak, mint ma. Egy funkció importálhat egy másik funkció moduljából (például a `catalog` a `nutrition`-ből a `getFoodsForUser`-t), körkörös import nélkül.
-- A `server.js`-ben marad: a middleware-ek, a felfedezett funkciók regisztrálása a fenti sorrendben, a `jobs` időzítése, az `/api` 404-kezelő és a statikus kiszolgálás. A `READ_ENDPOINTS` (ma a `server.js`-ben) a `catalog` funkcióhoz kerül.
+- A `server.js`-ben marad: a middleware-ek, a jegyzékben szereplő funkciók regisztrálása a fenti sorrendben, a `jobs` időzítése, az `/api` 404-kezelő és a statikus kiszolgálás. A `READ_ENDPOINTS` (ma a `server.js`-ben) a `catalog` funkcióhoz kerül.
 
 ### 6.2 Az `index.html` összefűzése
 
@@ -187,7 +187,7 @@ Minden fázis végén: `npm test`, `npm run lint` és `npm run format:check` zö
    - A `graphify-out/` kikerül a gitből (`git rm --cached`), és bekerül a `.gitignore`-ba.
    - A `docs/superpowers/` marad.
 2. **A `server/core/` kialakítása.** Ide kerül a connection, az alap-séma, a migráció-futtató és a befagyasztott migrációk, a `http/`, a headers, a ratelimit, az errors, a dates és a numbers. A shimek megszűnnek (T10).
-3. **Funkció-felfedezés.** A `features/` betöltő megírása és a `server.js` átállítása. Először csak egy funkció költözik át (javaslat: `program`, mert az a legújabb és legjobban körülhatárolt), és az ellenőrzi a szerződést.
+3. **Funkció-jegyzék.** A `features/index.js` jegyzék és az ellenőrző megírása, a `server.js` átállítása. Először csak egy funkció költözik át (javaslat: `program`, mert az a legújabb és legjobban körülhatárolt), és az ellenőrzi a szerződést.
 4. **A többi funkció átköltöztetése**, egyesével, mindegyik külön commit-sorozatban. A `schema.js` és a `migrations.js` témánkénti részei a funkció `schema`-jába kerülnek; a `schema-parity` tesztnek végig zöldnek kell maradnia. A backend-unit-tesztek a funkcióval együtt költöznek (T6).
 5. **A `seed-demo.js` szétbontása szereplőnként** (6.3). A 2–4. fázis importútvonal-változásait a seed már menet közben követi (T12); itt csak a fájl darabolása történik.
 6. **Az `index.html` szétbontása** (6.2): előbb az összefűzés az átvételi teszttel, utána a darabok átköltöztetése a funkciómappákba.
@@ -228,7 +228,7 @@ Ez a kiinduló javaslat. Ahol az importgráf mást mutat, az importgráf dönt, 
 ## 9. Ami a végrehajtóra van bízva
 
 - A funkciók végleges határai az importgráf alapján (7.2 csak kiindulás).
-- A felfedezés és a sorrendezés technikai megoldása (6.1), ha a mai sorrendet visszaadja.
+- A jegyzék ellenőrzésének és a sorrendezésnek a technikai megoldása (6.1), ha a mai sorrendet visszaadja.
 - A beillesztő jelölő pontos szintaxisa, a template-darabok fájlnevei és az összefűzés gyorsítótárazása.
 - A demó-összehasonlító szkript helye és formája.
 - A commitok pontos bontása, a 7.1 szabályán belül.
@@ -238,7 +238,7 @@ Ez a kiinduló javaslat. Ahol az importgráf mást mutat, az importgráf dönt, 
 | Kockázat | Védekezés |
 |---|---|
 | A `blokkos-programok` tovább változik, és ütközik az átrendezéssel | Minden fázis előtt be kell olvasztani; a mozgató commitok kicsik maradnak. |
-| A middleware- vagy route-sorrend elcsúszik a felfedezéssel (például egy végpont kikerül a belépés-őr alól) | A `security`, `hardening` és `api` tesztek; a 6.1 kifejezett szabálya az auth-ra. |
+| A middleware- vagy route-sorrend elcsúszik a jegyzékre átálláskor (például egy végpont kikerül a belépés-őr alól) | A `security`, `hardening` és `api` tesztek; a 6.1 kifejezett szabálya az auth-ra. |
 | Rejtett DOM-sorrend-függés (CSS-szelektorok, `:first-child`, fókuszsorrend) | Az összefűzött HTML azonossági tesztje; a darabok csak utána mozognak. |
 | Egy dokumentum elveszik a gyökér takarításakor | Előbb másolás és ellenőrzés, csak utána `git rm`; a git-történetben amúgy is megmarad. |
 | A demó-adat a szétbontás után eltér (más véletlenszám-sorrend) | A demó-dump összevetése (6.3). |
