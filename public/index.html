@@ -257,7 +257,10 @@
           aria-expanded="false"
         >
           <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-bell" /></svg>
-          <span class="db-badge" data-notif-badge>6</span>
+          <!-- Üresen és rejtve indul: a számot az értesítések betöltése írja
+               (app/notifications.js). Korábban itt beégetett „6” állt, ami belépés
+               előtt is látszott a belépőablak mögött. -->
+          <span class="db-badge" data-notif-badge hidden></span>
         </button>
 
         <button
