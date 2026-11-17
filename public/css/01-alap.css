@@ -371,6 +371,18 @@ button:disabled {
   padding: 0;
 }
 
+/* Szövegközi link (osztály nélküli <a> a fő tartalomban): a szöveg színét
+   örökli, aláhúzással — különben a böngésző alapszíne (kék, látogatás után
+   lila) jelent meg, pl. az Áttekintő idézetében. A :where nulla
+   specificitású, és az osztállyal formázott gomb-linkeket (co-ghost-btn
+   stb.) nem érinti — azoknak megvan a saját kinézetük. */
+:where(.app-main a:not([class])) {
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.16em;
+}
+
 /* Billentyűzetes fókusz — minden interaktív elemre egységesen */
 :focus-visible {
   outline: 2px solid var(--fg-60);
