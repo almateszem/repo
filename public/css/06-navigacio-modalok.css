@@ -657,9 +657,9 @@ body:is([data-page='checkin'], [data-page='plan-builder'], [data-page='exercise-
     max-width: var(--page-max-wide);
   }
 
-  /* Áttekintés desktopon: KÉT HASÁB, nem kártyarács. A bal hasáb a mérőszámoké
-     (készenlét, táplálkozás, statok, trend), a jobb a mai edzésé és a fő
-     műveleteké. A rést nem gap adja, hanem a jobb hasáb bal oldali
+  /* Áttekintés desktopon: KÉT HASÁB, nem kártyarács. A bal hasáb az állapoté és
+     a teendőké (készenlét, check-in, mai edzés + indítás), a jobb a nap
+     számaié (táplálkozás, mérőszámok, trend). A rést nem gap adja, hanem a jobb hasáb bal oldali
      hajszálvonala — a dizájn végig vonalakkal tagol, nem dobozokkal.
 
      A check-in emlékeztető itt NEM vált rácsot: a bal hasáb folyamában marad,

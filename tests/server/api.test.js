@@ -1632,6 +1632,7 @@ test('a dashboard minden számolt mezőt kitölt', async () => {
   assert.equal(db.checkinPresent, true, 'Anna ma töltött check-int');
   assert.equal(typeof db.dailyStats.calories, 'number');
   assert.equal(Number.isInteger(db.dailyStats.calories), true, 'a kalória egész szám');
+  assert.equal(Number.isInteger(db.dailyStats.waterMl), true, 'a napi víz ml-ben, egészként');
 });
 
 test('a dashboard leküldi az ítélethez kellő CNS-t és gyakorlat-ajánlásokat', async () => {

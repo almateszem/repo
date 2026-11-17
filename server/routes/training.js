@@ -250,6 +250,8 @@ export function register(app, { catalogSearch }) {
       carbs: Math.round(totals.carbs),
       fat: Math.round(totals.fat),
       proteinTarget: totals.goal.protein,
+      // Az áttekintő makró-sorának víz-oszlopa és a „+ Víz 250 ml" visszajelzése.
+      waterMl: getWaterDay(userId, req.today).totalMl,
     };
     /* A mai edzés a jobb oldali hasábra: nem csak a neve, hanem a gyakorlatai
        is. A sorozat/ismétlés/súly az ELSŐ szettből jön — a terv sorai egyforma

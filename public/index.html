@@ -312,45 +312,78 @@
         <section class="app-page dashboard" data-page="dashboard" aria-labelledby="title-dashboard">
           <h2 class="sr-only" id="title-dashboard">Áttekintés</h2>
 
-          <!-- BAL HASÁB. A blokkokat hajszálvonal választja el, nem kártya-
-             háttér: a dizájn a vonalakra épül, és a kártyák a nagy
-             mérőszámokat is dobozba zárnák. -->
+          <!-- BAL HASÁB (mobilon felül): állapot és teendők. A DOM-sorrend a
+             mobil sorrend — desktopon ugyanez a két hasáb áll egymás mellett.
+             A blokkokat hajszálvonal választja el, nem kártyaháttér. -->
           <div class="db-main">
-            <!-- Készenlét. Nincs gyűrű: a dizájnban maga a szám a mutató, és
-               egy 200 pixeles számjegy mellett a gyűrű csak ismételné.
-               A körkijelző a Regeneráció oldalon megmarad. A blokk egésze
-               oda visz — mobilon ez a Regeneráció egyetlen belépője, mert a
-               nav gyűrűnek csak négy iránya van. -->
-            <div class="db-readiness-row">
-              <a
-                class="db-readiness"
-                href="#recovery"
-                aria-label="Készenléti állapot — részletek a Regeneráció oldalon"
+            <!-- Készenlét + ítélet egy sorban. A blokk egésze a Regenerációra
+               visz — mobilon ez a Regeneráció egyetlen belépője, mert a nav
+               gyűrűnek csak négy iránya van. Az ítélet a linken belül áll; a
+               linket a saját aria-label-je írja le. -->
+            <a
+              class="db-readiness"
+              href="#recovery"
+              aria-label="Készenléti állapot — részletek a Regeneráció oldalon"
+            >
+              <span class="db-percent"
+                ><span class="db-percent-num">0</span
+                ><span class="db-percent-sign" aria-hidden="true">%</span></span
               >
-                <span class="db-percent"><span class="db-percent-num">0</span></span>
-                <span class="db-percent-side">
-                  <span class="db-percent-sign" aria-hidden="true">%</span>
-                  <span class="db-label">Készenlét</span>
-                </span>
-              </a>
-              <!-- A kontextusfüggő idézet a szám mellett áll, nem a linken
-                 belül: így a felolvasó is megkapja a szövegét (a linket a
-                 saját aria-label-je írja le), és nem lesz belőle kattintható
-                 felület. Mobilon a flex-wrap a szám alá teszi. -->
-              <p class="db-quote" data-db-quote>A folyamatosság veri<br />a tökéletességet.</p>
-            </div>
+              <span class="db-verdict">
+                <span class="db-label">Készenlét</span>
+                <span class="db-quote" data-db-quote>A folyamatosság veri a tökéletességet.</span>
+                <span class="db-verdict-more" aria-hidden="true">Részletek a Regeneráción →</span>
+              </span>
+              <span class="db-verdict-arrow" aria-hidden="true">›</span>
+            </a>
 
-            <!-- Fő művelet: a készenlét után közvetlenül az edzés indítása. A mai
-               edzés előnézete (név, gyakorlatok) a jobb hasábban marad. -->
-            <div class="db-start">
-              <button class="db-cta" type="button" data-action="open-workout">
-                <span data-cta-label>Edzés indítása</span>
-                <span class="db-cta-arrow" aria-hidden="true">→</span>
-              </button>
-            </div>
+            <!-- Napi check-in emlékeztető: mobilon az első teendő. Csak addig
+               látszik, amíg a mai check-in nincs kitöltve (renderDashboard a
+               szerver checkinPresent mezője alapján rejti, éjfél után a
+               napváltás-figyelő visszahozza). Alapból rejtett, hogy a kitöltött
+               napokon se villanjon fel a betöltés előtt. -->
+            <a class="db-checkin-cta" href="#checkin" data-checkin-cta hidden>
+              <span class="db-checkin-cta-text">
+                <span class="db-checkin-cta-title">Töltsd ki a napi check-int</span>
+                <span class="db-checkin-cta-note">Alvás, energia, izomláz — pár koppintás.</span>
+              </span>
+              <span class="db-checkin-cta-arrow" aria-hidden="true">→</span>
+            </a>
 
-            <!-- Táplálkozás: a napi kalória a célhoz mérve, alatta a makrók.
-               A sáv kitöltését a renderDailyStats számolja. -->
+            <!-- Mai edzés és az indítógomb EGY blokk: név, meta, gyakorlatlista,
+               gomb. Mobilon az első három gyakorlat látszik, a többi a
+               „+ N további" gombbal nyílik; desktopon mind. -->
+            <section class="db-today" aria-labelledby="title-db-today">
+              <div class="db-today-head">
+                <h3 class="db-label" id="title-db-today">Mai edzés</h3>
+                <span class="db-today-meta" data-workout-meta hidden></span>
+              </div>
+              <p class="db-today-title" data-workout-name>Kezdj új edzést</p>
+              <ol class="db-today-list" data-list="today-exercises"></ol>
+              <button
+                class="db-today-more"
+                type="button"
+                data-action="toggle-today"
+                aria-expanded="false"
+                hidden
+              ></button>
+              <p class="db-side-empty" data-side-empty hidden>Mára nincs terv ütemezve.</p>
+              <div class="db-today-actions">
+                <button class="db-cta db-cta--primary" type="button" data-action="open-workout">
+                  <span data-cta-label>Edzés indítása</span>
+                  <span class="db-cta-arrow" aria-hidden="true">→</span>
+                </button>
+                <a class="db-side-link db-today-alt" href="#plans">Másik edzés</a>
+              </div>
+            </section>
+          </div>
+
+          <!-- JOBB HASÁB (mobilon alatta): a nap számai. Desktopon önálló
+             hasáb bal oldali hajszálvonallal. -->
+          <aside class="db-side" aria-label="Mai számok">
+            <!-- Táplálkozás: a napi kalória a célhoz mérve, alatta a makrók és
+               a víz egy sorban, majd a gyors naplózás. A sáv kitöltését a
+               renderDailyStats számolja. -->
             <section class="db-nutri" aria-label="Mai táplálkozás">
               <div class="db-nutri-head">
                 <span class="db-label">Kalória</span>
@@ -368,41 +401,39 @@
                 <span class="db-bar-fill" data-daily-fill></span>
               </div>
               <div class="db-macros">
-                <div class="db-macro">
-                  <span class="db-label">Fehérje</span>
-                  <span class="db-macro-value"
-                    ><span data-daily="protein">0</span><span class="db-macro-unit">g</span></span
-                  >
-                </div>
-                <div class="db-macro">
-                  <span class="db-label">Szénh.</span>
-                  <span class="db-macro-value"
-                    ><span data-daily="carbs">0</span><span class="db-macro-unit">g</span></span
-                  >
-                </div>
-                <div class="db-macro">
-                  <span class="db-label">Zsír</span>
-                  <span class="db-macro-value"
-                    ><span data-daily="fat">0</span><span class="db-macro-unit">g</span></span
-                  >
-                </div>
+                <span class="db-macro"
+                  >Feh.
+                  <b
+                    ><span data-daily="protein">0</span><span class="db-macro-unit">g</span></b
+                  ></span
+                >
+                <span class="db-macro"
+                  >Szénh.
+                  <b><span data-daily="carbs">0</span><span class="db-macro-unit">g</span></b></span
+                >
+                <span class="db-macro"
+                  >Zsír
+                  <b><span data-daily="fat">0</span><span class="db-macro-unit">g</span></b></span
+                >
+                <span class="db-macro db-macro--water"
+                  >Víz
+                  <b><span data-daily="water">0</span><span class="db-macro-unit">L</span></b></span
+                >
+              </div>
+              <div class="db-quick">
+                <a class="db-side-link" href="#nutrition">+ Étel</a>
+                <button class="db-side-link" type="button" data-action="quick-water">
+                  + Víz 250 ml
+                </button>
               </div>
             </section>
 
-            <!-- Egyetlen mérőszám-sor. A dizájn négy hasábot mutat; itt öt adat
-               van, mert az app többet tud (izomláz, testsúly-változás), és a
-               felhasználó döntése szerint semmi nem eshet ki. A rács ezért
-               auto-fit: keskenyebb nézetben tördel, nem szorít. -->
+            <!-- Mérőszámok: mobilon is három hasáb. Öt adat — a felhasználó
+               döntése szerint semmi nem eshet ki. -->
             <section class="db-stats" aria-label="Mai mérőszámok">
               <div class="db-stat">
                 <span class="db-label">Alvás</span>
                 <span class="db-stat-value"><span data-recovery="sleep">—</span></span>
-              </div>
-              <div class="db-stat">
-                <span class="db-label">Sorozat</span>
-                <span class="db-stat-value"
-                  ><span data-stat="streak">0</span><span class="db-stat-unit">nap</span></span
-                >
               </div>
               <div class="db-stat">
                 <span class="db-label">Fáradtság</span>
@@ -417,6 +448,12 @@
                 >
               </div>
               <div class="db-stat">
+                <span class="db-label">Sorozat</span>
+                <span class="db-stat-value"
+                  ><span data-stat="streak">0</span><span class="db-stat-unit">nap</span></span
+                >
+              </div>
+              <div class="db-stat">
                 <span class="db-label">Testsúly Δ</span>
                 <span class="db-stat-value"
                   ><span data-stat="weightDelta">0</span><span class="db-stat-unit">kg</span></span
@@ -425,8 +462,7 @@
             </section>
 
             <!-- Terhelés-trend: elmozdított súly naponta. Mobilon az utolsó hét
-               látszik, desktopon mind a tizennégy nap — közös skálán, hogy az
-               oszlopok magassága a két nézetben összevethető maradjon. -->
+               látszik, desktopon mind a tizennégy nap — közös skálán. -->
             <section class="db-trend" aria-labelledby="title-db-trend">
               <h3 class="db-label" id="title-db-trend">Utolsó 14 nap</h3>
               <div
@@ -440,36 +476,6 @@
                 <div class="chart-labels" aria-hidden="true"></div>
               </div>
             </section>
-
-            <!-- Napi check-in emlékeztető. Csak addig látszik, amíg a mai
-               check-in nincs kitöltve: a renderDashboard a szerver
-               checkinPresent mezője alapján rejti el, éjfél után pedig a
-               napváltás-figyelő visszahozza. Alapból rejtett, hogy a már
-               kitöltött napokon se villanjon fel a betöltés előtt. -->
-            <a class="db-checkin-cta" href="#checkin" data-checkin-cta hidden>
-              <span class="db-checkin-cta-text">
-                <span class="db-checkin-cta-title">Töltsd ki a napi check-int</span>
-                <span class="db-checkin-cta-note">Alvás, energia, izomláz — pár koppintás.</span>
-              </span>
-              <span class="db-checkin-cta-arrow" aria-hidden="true">→</span>
-            </a>
-          </div>
-
-          <!-- JOBB HASÁB: a mai edzés előnézete és a fő műveletek. Desktopon
-             önálló hasáb bal oldali hajszálvonallal; mobilon a bal hasáb alá
-             kerül, mert egymás mellett egyik sem lenne olvasható. -->
-          <aside class="db-side" aria-labelledby="title-db-side">
-            <h3 class="db-label" id="title-db-side">Mai edzés</h3>
-            <p class="db-side-title" data-workout-name>Kezdj új edzést</p>
-            <p class="db-side-meta" data-workout-meta hidden></p>
-
-            <ol class="db-side-list" data-list="today-exercises"></ol>
-            <p class="db-side-empty" data-side-empty hidden>Mára nincs terv ütemezve.</p>
-
-            <div class="db-side-actions">
-              <a class="db-side-link" href="#nutrition">Étkezés</a>
-              <a class="db-side-link" href="#recovery">Regeneráció</a>
-            </div>
           </aside>
         </section>
 
@@ -1195,7 +1201,12 @@
 
               <p class="nu-goal-value" data-nu-goal-value></p>
               <p class="nu-goal-source" data-nu-goal-source></p>
-              <button class="nu-goal-revert tap-target" type="button" data-action="revert-goal" hidden>
+              <button
+                class="nu-goal-revert tap-target"
+                type="button"
+                data-action="revert-goal"
+                hidden
+              >
                 Vissza az alapértelmezett célra
               </button>
 

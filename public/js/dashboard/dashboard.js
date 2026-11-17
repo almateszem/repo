@@ -8,13 +8,25 @@
 
 import { api, clientDate } from '../shared/api.js';
 import { $, $$ } from '../shared/dom.js';
-import { animateNumber, formatWhole } from '../shared/format.js';
+import { animateNumber, formatNumber, formatWhole } from '../shared/format.js';
 import { prefs } from '../shared/prefs.js';
 import { paintChromeDate, paintChromeName } from '../shared/chrome-identity.js';
 import { renderChart } from '../shared/chart.js';
 import { hasReadiness } from '../shared/readiness.js';
 import { navigate, onPageShow } from '../app/router.js';
 import { DETAILS_ON_RECOVERY, dashboardQuote } from '../recovery/recovery-map.js';
+import { showToast } from '../shared/toast.js';
+
+/** Mobilon ennyi gyakorlat látszik a mai edzésből; a többit a „+ N további"
+    nyitja. Desktopon a CSS mindet mutatja. */
+const TODAY_PREVIEW = 3;
+
+/** A mai edzés listája le van-e nyitva. A modulban él, hogy egy újrarender
+    (check-in mentése, edzés befejezése) ne csukja vissza. */
+let todayOpen = false;
+
+/** A gyors víz egy koppintása — ugyanannyi, mint a Táplálkozás oldal +250-e. */
+const QUICK_WATER_ML = 250;
 
 /* ======================================================================
    Kirajzolás
@@ -37,19 +49,17 @@ function renderVolumeTrend(charts) {
   if (container && charts?.volumeTrend) renderChart(container, charts.volumeTrend);
 }
 
-/** Az idézet sora, benne a „részletek a Regeneráción" rész a Regenerációra
-    linkelve (csak ez a szövegrész kattintható, nem az egész mondat). */
-function linkDetails(line) {
+/** Az idézet sora a „részletek a Regeneráción" utalás nélkül: az egész
+    készenléti blokk a Regenerációra visz (mobilon nyíl, desktopon „Részletek
+    →" jelzi), a mondatban egy második, beágyazott link nem lehet. A lógó
+    „— ", „, " vagy „: " is lekerül, ami a kivágott rész előtt állt. */
+function withoutDetails(line) {
   const at = line.indexOf(DETAILS_ON_RECOVERY);
-  if (at === -1) return [document.createTextNode(line)];
-  const link = document.createElement('a');
-  link.href = '#recovery';
-  link.textContent = DETAILS_ON_RECOVERY;
-  return [
-    document.createTextNode(line.slice(0, at)),
-    link,
-    document.createTextNode(line.slice(at + DETAILS_ON_RECOVERY.length)),
-  ];
+  if (at === -1) return line;
+  const before = line.slice(0, at).replace(/[\s—–,:;(]+$/u, '');
+  const after = line.slice(at + DETAILS_ON_RECOVERY.length).replace(/^[\s)]+/u, '');
+  if (!before) return after;
+  return /^[.!?]/.test(after) || !after ? before + after : `${before} ${after}`;
 }
 
 /** Az áttekintő napi statjainak (kalória/fehérje) kiírása. */
@@ -63,6 +73,8 @@ function renderDailyStats(dailyStats) {
   setText('[data-daily="protein"]', dailyStats.protein);
   setText('[data-daily="carbs"]', dailyStats.carbs);
   setText('[data-daily="fat"]', dailyStats.fat);
+  // Literben, egy tizedessel (vesszővel) — a Táplálkozás oldal vízmérőjével egyezően.
+  setText('[data-daily="water"]', formatNumber((Number(dailyStats.waterMl) || 0) / 1000));
 
   /* A kalóriasáv. 100 százalékon megáll: a cél felé jóval túl is lehet enni,
      de egy túlcsorduló sáv csak széttörné az elrendezést — a túlevés a
@@ -145,8 +157,11 @@ function paintDashboard(dashboardData) {
     : workoutName || (restDay ? 'Pihenőnap' : 'Kezdj új edzést');
   setText('[data-workout-name]', title);
   setText('[data-cta-label]', todayDone ? 'Új edzés' : 'Edzés indítása');
+  // Kész mai edzés után a gomb nem piros: az „Új edzés" ne sürgessen.
+  const cta = $('[data-action="open-workout"]');
+  if (cta) cta.className = todayDone ? 'db-cta' : 'db-cta db-cta--primary';
 
-  /* A jobb hasáb gyakorlat-előnézete. A lista a szervertől készen jön
+  /* A mai edzés gyakorlat-előnézete. A lista a szervertől készen jön
      (workoutPlan): a sorozat/ismétlés/súly összefűzése ott történik, hogy a
      felület ne kezdjen el a napló belső alakjával számolni. */
   const sideList = $('[data-list="today-exercises"]');
@@ -155,7 +170,8 @@ function paintDashboard(dashboardData) {
     sideList.replaceChildren(
       ...exercises.map((exercise, index) => {
         const li = document.createElement('li');
-        li.className = 'db-side-item';
+        // A 4.-től a mobil csak lenyitva mutatja (CSS: .db-side-item--extra).
+        li.className = index < TODAY_PREVIEW ? 'db-side-item' : 'db-side-item db-side-item--extra';
 
         const no = document.createElement('span');
         no.className = 'db-side-no';
@@ -189,23 +205,34 @@ function paintDashboard(dashboardData) {
     }
     const empty = $('[data-side-empty]');
     if (empty) empty.hidden = exercises.length > 0;
+    paintTodayToggle(exercises.length);
   }
 
-  // Kontextusfüggő idézet. Két sorból épül (a sortörés a tördelés miatt
-  // szándékos) — a szöveget textContent-tel írjuk ki, nem innerHTML-lel,
-  // hogy az adatból származó rész se kerülhessen soha HTML-ként a lapra.
+  // Kontextusfüggő ítélet a készenléti szám mellett. A két sor szóközzel
+  // fut össze (a rövid sorhossz maga tördel) — textContent-tel, nem
+  // innerHTML-lel, hogy az adatból származó rész se kerülhessen HTML-ként a lapra.
   const quoteEl = $('[data-db-quote]');
   if (quoteEl) {
     /* Az ítélet ugyanaz, mint a Regeneráción (verdictText): korábban itt egy
        saját 85/65-ös lánc futott CNS és gyakorlat-ítélet nélkül, és ellentmondott
        neki (92 + CNS 78 → „ma mehet a nehezebb" vs. „korlátozd"). */
     const [first, second] = dashboardQuote(dashboardData);
-    quoteEl.replaceChildren(
-      document.createTextNode(first),
-      document.createElement('br'),
-      ...linkDetails(second),
-    );
+    quoteEl.textContent = [first, withoutDetails(second)].filter(Boolean).join(' ');
   }
+}
+
+/** A mobil „+ N további gyakorlat" / „− Kevesebb" gomb és a lista nyitott
+    állapota. Desktopon a CSS rejti a gombot, és minden sor látszik. */
+function paintTodayToggle(count) {
+  const list = $('[data-list="today-exercises"]');
+  const toggle = $('[data-action="toggle-today"]');
+  if (!list || !toggle) return;
+  const extra = count - TODAY_PREVIEW;
+  toggle.hidden = extra <= 0;
+  const open = todayOpen && extra > 0;
+  list.toggleAttribute('data-open', open);
+  toggle.setAttribute('aria-expanded', String(open));
+  toggle.textContent = open ? '− Kevesebb' : `+ ${extra} további gyakorlat`;
 }
 
 /** A fejléc-sáv dátuma. Ugyanabból a clientDate()-ből, amit minden kérés visz —
@@ -345,6 +372,28 @@ function setupDashboard(settingsModal) {
     btn.addEventListener('click', () => settingsModal?.open());
   });
   $('[data-action="open-workout"]').addEventListener('click', () => navigate('workout'));
+
+  $('[data-action="toggle-today"]')?.addEventListener('click', () => {
+    todayOpen = !todayOpen;
+    paintTodayToggle(dashboardData?.workoutPlan?.exercises?.length ?? 0);
+  });
+
+  /* Gyors víz: ugyanaz a hívás, mint a Táplálkozás oldal +250-e (a szerver a
+     check-in folyadék-mezőjét is frissíti). Utána a napi számok újra. */
+  const waterBtn = $('[data-action="quick-water"]');
+  waterBtn?.addEventListener('click', async () => {
+    waterBtn.disabled = true;
+    try {
+      await api.addWater(QUICK_WATER_ML);
+      showToast(`+${QUICK_WATER_ML} ml víz`);
+      await refreshDailyStats();
+    } catch (err) {
+      console.error('Gyors víz hiba:', err);
+      showToast('Nem sikerült menteni a folyadékot.', 'error');
+    } finally {
+      waterBtn.disabled = false;
+    }
+  });
   // Az avatar+név gomb: korábban az értesítés-panelt nyitotta, most a profil
   // oldalra visz (az értesítéseknek saját harang gombjuk van mellette).
   $('[data-action="profile"]').addEventListener('click', () => navigate('profile'));
