@@ -1,6 +1,6 @@
 # Podium — az ITDK-előadás szövege
 
-16 dia · kb. 12 perc nyugodt tempóban (1227 szó) · a keret 15 perc, így marad tartalék a kérdésekre vagy egy elcsúszásra.
+16 dia · kb. 12 perc nyugodt tempóban (1232 szó) · a keret 15 perc, így marad tartalék a kérdésekre vagy egy elcsúszásra.
 
 Ugyanez a szöveg a diák előadói jegyzeteiben is benne van (PowerPointban: Diavetítés → Előadói nézet).
 
@@ -39,7 +39,7 @@ Ebből fogalmaztuk meg a projekt kérdését: megbecsülhető-e már a meglévő
 
 ## 4. 03 · A megoldás · kb. 0:45 (eddig 2:35)
 
-A válaszunk a Podium. Böngészőből fut, telepítés nélkül, telefonon és gépen is. Összeköti az edzés, az étkezés és a pihenés adatait, és minden reggel ad egy 0 és 100 közötti készenléti pontszámot. Ezt 12 izomcsoportra külön is lebontja, és ehhez semmilyen külön eszköz nem kell. A telefonon egy példa látszik: 64 százalék, vagyis a sportoló fáradt, érdemes visszavennie a terhelésből. És nem áll meg egy számnál: azt is megmondja, mit és mekkora súllyal érdemes ma edzeni.
+A válaszunk a Podium. Böngészőből fut, telepítés nélkül, telefonon és gépen is. Összeköti az edzés, az étkezés és a pihenés adatait, és minden reggel ad egy 0 és 100 közötti készenléti pontszámot. Ezt 12 izomcsoportra külön is lebontja, és ehhez semmilyen külön eszköz nem kell. A telefonon egy példa látszik: 72 százalék, vagyis a sportoló rendben van, de egyes gyakorlatoknál érdemes visszavennie. És nem áll meg egy számnál: azt is megmondja, mit és mekkora súllyal érdemes ma edzeni.
 
 ## 5. 04 · Funkciók · kb. 0:45 (eddig 3:20)
 
@@ -47,7 +47,7 @@ Röviden a funkciók. Az edzésnaplóban 1441 gyakorlat közül lehet választan
 
 ## 6. 05 · Recovery Engine · kb. 1:15 (eddig 4:35)
 
-Ez a projekt legfontosabb része, a Recovery Engine. Három forrásból dolgozik. Az edzésnaplóból a terhelést számolja, ehhez Epley egyismétléses maximum-képletét és Foster terhelésmérési módszerét használjuk. A reggeli check-in Hooper és Mackinnon kérdőívére épül. A táplálkozásnál pedig azt nézi, mennyire teljesült a kalória-, a fehérje- és a vízcél. Ezekből hét összetevő lesz, mindegyik saját súllyal. A legnagyobb az alvásé, 25 százalék; az izmok állapota, az energiaszint és az edzésterhelés 15–15, a stressz és a közérzet 10–10, a táplálkozás 5 százalék. Fontos döntés volt, hogy a hiányzó adat nem nulla: ha valaki nem töltött ki valamit, annak a súlya arányosan szétoszlik a többi összetevő között. Az eredmény egy 0–100-as pontszám, és ugyanez izomcsoportonként. A példában a mell és a hát kipihent, a comb és a farizom viszont még fáradt.
+Ez a projekt legfontosabb része, a Recovery Engine. Három forrásból dolgozik. Az edzésnaplóból a terhelést számolja, ehhez Epley egyismétléses maximum-képletét és Foster terhelésmérési módszerét használjuk. A reggeli check-in Hooper és Mackinnon kérdőívére épül. A táplálkozásnál pedig azt nézi, mennyire teljesült a kalória-, a fehérje- és a vízcél. Ezekből hét összetevő lesz, mindegyik saját súllyal. A legnagyobb az alvásé, 25 százalék; az izmok állapota, az energiaszint és az edzésterhelés 15–15, a stressz és a közérzet 10–10, a táplálkozás 5 százalék. Fontos döntés volt, hogy a hiányzó adat nem nulla: ha valaki nem töltött ki valamit, annak a súlya arányosan szétoszlik a többi összetevő között. Az eredmény egy 0–100-as pontszám, és ugyanez izomcsoportonként. Jobb oldalt az app valódi kártyája látszik: a példában a mai pontszám 72, és leginkább a táplálkozás húzza le.
 
 ## 7. 06 · Regeneráció · kb. 0:45 (eddig 5:20)
 
