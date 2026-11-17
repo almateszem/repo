@@ -383,6 +383,19 @@ button:disabled {
   text-underline-offset: 0.16em;
 }
 
+/* Megnyitott ablak mögött a háttér nem görget (korábban görgethető volt:
+   az étel-részletek mögött az oldal elmozdult). Minden ablak a közös
+   modal-vezérlőn át kapja az is-open osztályt; a program-aktiválás saját
+   overlay-e (.fw-overlay) külön szerepel. A görgetősáv helye megmarad
+   (scrollbar-gutter), így a zár nem rántja oldalra az elrendezést. */
+html {
+  scrollbar-gutter: stable;
+}
+
+html:has(.modal.is-open, .fw-overlay) {
+  overflow: hidden;
+}
+
 /* Billentyűzetes fókusz — minden interaktív elemre egységesen */
 :focus-visible {
   outline: 2px solid var(--fg-60);
@@ -1001,6 +1014,18 @@ input.wk-chip:focus-visible {
 .wk-order-trigger,
 .wk-exercise-remove {
   --tap: 40px;
+}
+
+/* A testsúly- és a mérésnapló sorai 35, ill. 33 px-re vannak egymástól, a ✕
+   bal oldalán 10 px-re az input / az érték. A terület ezért a SORTÁVOLSÁG:
+   44 px-nél a szomszéd sor ✕-ébe lógna (egy koppintás más bejegyzést
+   törölne), és az inputba is belenyúlna. (Élő mérés, 390 px, 2026-11-17.) */
+.rc-weight-del {
+  --tap: 35px;
+}
+
+.rc-body-del {
+  --tap: 33px;
 }
 
 /* ---- Ahol a valódi méret növelhető, ott azt növeljük (chipek, szegmentált

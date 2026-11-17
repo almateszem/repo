@@ -11,7 +11,7 @@ import { relativeTime } from '../shared/format.js';
     A szerver is csak a szerzőnek enged (DELETE /api/comments/:id). */
 export function noteDeleteButton(comment, row) {
   const del = document.createElement('button');
-  del.className = 'co-note-del ds-icon-del ds-icon-del--inline';
+  del.className = 'co-note-del ds-icon-del ds-icon-del--inline tap-target';
   del.type = 'button';
   del.textContent = '✕';
   del.title = 'Megjegyzés törlése';

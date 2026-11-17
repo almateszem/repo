@@ -160,7 +160,7 @@ function renderWeightList() {
       });
 
       const del = document.createElement('button');
-      del.className = 'rc-weight-del ds-icon-del ds-icon-del--inline';
+      del.className = 'rc-weight-del ds-icon-del ds-icon-del--inline tap-target';
       del.type = 'button';
       del.textContent = '✕';
       del.title = 'Bejegyzés törlése';

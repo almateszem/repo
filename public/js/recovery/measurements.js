@@ -92,7 +92,7 @@ function renderMeasurements() {
         diff === null ? '' : `${diff > 0 ? '+' : ''}${formatNumber(diff)} ${site.unit}`;
 
       const del = document.createElement('button');
-      del.className = 'rc-body-del ds-icon-del ds-icon-del--inline';
+      del.className = 'rc-body-del ds-icon-del ds-icon-del--inline tap-target';
       del.type = 'button';
       del.textContent = '✕';
       del.title = 'A legutóbbi mérés törlése';
