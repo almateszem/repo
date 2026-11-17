@@ -16,6 +16,15 @@ import { CONFIDENCE_LABELS, hasReadiness } from '../shared/readiness.js';
    ≥ 85, ezüst ≥ 70, alatta bronz) ebből jön.
    A sor azonosítója a KAPCSOLAT azonosítója: a sportoló belső id-jét a
    szerver nem is adja ki. */
+/** Miért „low" a megbízhatóság: 'no-checkin' (csak a mai check-in
+    hiányzik — a pontszám tájékoztató), 'few-logs' (valóban kevés a napló),
+    vagy null (nem alacsony). Korábban mindkettőre „Még kevés az adat — több
+    naplóval pontosabb lesz" állt, 28 naplózott edzés mellett is. */
+export function lowDataReason(athlete) {
+  if (athlete?.confidence !== 'low') return null;
+  return athlete.checkinToday === false ? 'no-checkin' : 'few-logs';
+}
+
 export const athleteTier = (rating, confidence = null) =>
   rating === null || rating === undefined
     ? // Nincs mérhető jel (se készenlét, se terv-követés) — ez nem „bronz"

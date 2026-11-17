@@ -10,6 +10,7 @@ import {
   TREND_MIN,
   athleteTier,
   kpi,
+  lowDataReason,
   orDash,
   planInfoEl,
   renderStatList,
@@ -68,6 +69,21 @@ function renderClientKpis(el, me, { hasCoachPlan = false } = {}) {
 
 /** Az állapot-sáv: amit az edződ jelzésként lát a panelján — vagy „minden
     rendben". A sportoló így nem a hallgatásból tudja meg, hogy lemaradt. */
+const CLIENT_STATUS = {
+  ok: {
+    title: 'Minden rendben',
+    note: 'Az edződ panelján nincs rólad jelzés — tartsd a tempót.',
+  },
+  'no-checkin': {
+    title: 'Ma még nincs check-in',
+    note: 'Az edződ panelján nincs rólad jelzés — a mai pontszám tájékoztató, amíg ki nem töltöd a check-int.',
+  },
+  'few-logs': {
+    title: 'Még kevés az adat',
+    note: 'Az edződ panelján nincs rólad jelzés — több naplóval pontosabb lesz az értékelés.',
+  },
+};
+
 function renderClientStatus(el, me) {
   const box = document.createElement('div');
   box.className = me.alert ? 'co-modal-alert co-client-alert' : 'co-status';
@@ -80,14 +96,13 @@ function renderClientStatus(el, me) {
     icon.textContent = '✓';
     const text = document.createElement('span');
     text.className = 'co-status-text';
-    // Kevés napló mellett a jelzés hiánya adathiány, nem „minden rendben"
-    const lowData = me.confidence === 'low';
+    /* Alacsony megbízhatóságnál a jelzés hiánya nem „minden rendben" — de
+       az okát pontosan mondjuk: kevés napló, vagy csak a mai check-in. */
+    const reason = lowDataReason(me);
     const strong = document.createElement('strong');
-    strong.textContent = lowData ? 'Még kevés az adat' : 'Minden rendben';
+    strong.textContent = CLIENT_STATUS[reason ?? 'ok'].title;
     const note = document.createElement('span');
-    note.textContent = lowData
-      ? 'Az edződ panelján nincs rólad jelzés — több naplóval pontosabb lesz az értékelés.'
-      : 'Az edződ panelján nincs rólad jelzés — tartsd a tempót.';
+    note.textContent = CLIENT_STATUS[reason ?? 'ok'].note;
     text.append(strong, note);
     box.append(icon, text);
   }

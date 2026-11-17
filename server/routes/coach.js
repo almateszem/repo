@@ -192,6 +192,10 @@ function athleteCard(athlete, today, viewerId, unread = 0) {
     }),
     {
       nutritionGoal,
+      /* Volt-e ma check-in. A „low" megbízhatóságnak két oka lehet — kevés
+         napló, vagy csak a mai check-in hiányzik —, és a felület a kettőt
+         másként mondja ki (ld. coach-shared.js → lowDataReason). */
+      checkinToday: Boolean(readiness.checkin?.present),
       // Az edző által összeállított étrend — a részletnézet ebből rajzol
       // „megette" jelzéssel a mai napra
       meals: getCoachMeals(athlete.userId, today),

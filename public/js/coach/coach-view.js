@@ -2,7 +2,14 @@
 
 import { $, cloneTemplate } from '../shared/dom.js';
 import { hasReadiness } from '../shared/readiness.js';
-import { ATHLETE_CARD_STATS, athleteTier, kpi, orDash, planInfoEl } from './coach-shared.js';
+import {
+  ATHLETE_CARD_STATS,
+  athleteTier,
+  kpi,
+  lowDataReason,
+  orDash,
+  planInfoEl,
+} from './coach-shared.js';
 
 /** Egy üzenet-buborék. A `me` a saját üzeneteket tolja jobbra — a szerver a
     néző szemszögéből jelöli meg őket (ld. messageNote). */
@@ -246,6 +253,22 @@ function renderCoachFilters(athletes, active) {
   );
 }
 
+/** A riasztás nélküli állapot szövege, az alacsony megbízhatóság oka szerint. */
+const COACH_STATUS = {
+  ok: {
+    title: 'Minden rendben',
+    note: 'Egyik sportolódnál sincs riasztás — nincs sürgős teendőd.',
+  },
+  'no-checkin': {
+    title: 'Ma még nincs check-in',
+    note: 'Egyik sportolódnál sincs riasztás; ma még nem töltöttek ki check-int, így a pontszámok tájékoztatók.',
+  },
+  'few-logs': {
+    title: 'Még kevés az adat',
+    note: 'Egyik sportolódnál sincs riasztás, de még kevés napló van az értékeléshez.',
+  },
+};
+
 /** Állapot-blokk: „minden rendben", vagy a riasztások listája. A riasztás-
     sor a sportoló modálját nyitja (data-athlete). */
 function renderCoachStatus(athletes) {
@@ -267,14 +290,19 @@ function renderCoachStatus(athletes) {
     box.className = 'co-status';
     const text = document.createElement('span');
     text.className = 'co-status-text';
-    // Kevés napló mellett a riasztás hiánya adathiány, nem „minden rendben"
-    const lowData = athletes.every((athlete) => athlete.confidence === 'low');
+    /* Ha minden sportoló pontszáma alacsony megbízhatóságú, a riasztás
+       hiánya nem „minden rendben". Az ok: ha bárkinél valóban kevés a napló,
+       az; ha csak a mai check-inek hiányoznak, azt mondjuk ki. */
+    const reasons = athletes.map(lowDataReason);
+    const status = !reasons.every(Boolean)
+      ? 'ok'
+      : reasons.includes('few-logs')
+        ? 'few-logs'
+        : 'no-checkin';
     const strong = document.createElement('strong');
-    strong.textContent = lowData ? 'Még kevés az adat' : 'Minden rendben';
+    strong.textContent = COACH_STATUS[status].title;
     const note = document.createElement('span');
-    note.textContent = lowData
-      ? 'Egyik sportolódnál sincs riasztás, de még kevés napló van az értékeléshez.'
-      : 'Egyik sportolódnál sincs riasztás — nincs sürgős teendőd.';
+    note.textContent = COACH_STATUS[status].note;
     text.append(strong, note);
     box.append(icon('✓'), text);
     banner.replaceChildren(box);
