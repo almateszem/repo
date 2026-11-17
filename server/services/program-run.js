@@ -43,7 +43,7 @@ import {
   oneRmRefs,
   tmExercises,
 } from '../program/program.js';
-import { runStages } from '../program/rules.js';
+import { defaultStep, runStages } from '../program/rules.js';
 import { readinessReport } from './session-plan.js';
 
 const catalog = () => getCollection('exerciseCatalog') || [];
@@ -59,6 +59,20 @@ const evalContext = (userId) => ({
   oneRms: oneRmMap(userId),
   bodyweight: getLatestWeight(userId),
 });
+
+/** A programozó képlet-környezete: ugyanaz, amivel a szerver számol (TM,
+    1RM, legutóbbi testsúly), plusz a megadott gyakorlatok alap lépésköze.
+    A felület előnézete és szabály-szerkesztője ebből dolgozik — korábban a
+    testsúlyt nem ismerte („nincs testsúly"), a lépésközre pedig mindig
+    2,5 kg-ot írt, miközben a szerver alsótestre 5 kg-ot ad. */
+export function formulaContext(userId, names) {
+  return {
+    ...evalContext(userId),
+    defaultSteps: Object.fromEntries(
+      names.map((name) => [name, defaultStep(name, { steps: {} }, catalog())]),
+    ),
+  };
+}
 
 /** Mi hiányzik az aktiváláshoz: TM minden TM-es gyakorlatra (javaslat: az
     1RM 90%-a, 2,5 kg-ra kerekítve), és 1RM a képletekben hivatkozottakra. */

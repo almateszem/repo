@@ -38,7 +38,7 @@ import {
   roundToPlate,
 } from './program-model.js';
 import { acceptExternalDrag, openFormulaWindow, pushToFormulaWindow } from './formula-window.js';
-import { renderRules } from './rule-editor.js';
+import { renderRules, tmExercisesOf } from './rule-editor.js';
 import { fill, h } from './h.js';
 
 /** A programozó oldal vezérlője: { startNew(), open(planId) }. */
@@ -73,12 +73,33 @@ export function setupProgramBuilder(confirmAction) {
   ];
 
   /* ---- adatok ---- */
+  /** A képlet-környezet a szervertől — ugyanaz, amivel a szerver számol: TM,
+      1RM, legutóbbi testsúly (korábban itt mindig null volt, és az előnézet
+      „nincs testsúly"-t írt), és a program TM-es gyakorlatainak alap
+      lépésköze (korábban új programnál mindenhol 2,5 kg-ot mutatott, a
+      szerver viszont alsótestre 5 kg-ot ad). */
   async function loadContext() {
-    const [tms, orms] = await Promise.all([
-      api.getTrainingMaxes().catch(() => ({})),
-      api.getExerciseMaxes().catch(() => ({})),
-    ]);
-    S.ctx = { trainingMaxes: tms, oneRms: orms, bodyweight: null };
+    try {
+      const ctx = await api.getProgramContext(tmExercisesOf(S.program));
+      S.ctx = { trainingMaxes: ctx.trainingMaxes, oneRms: ctx.oneRms, bodyweight: ctx.bodyweight };
+      S.defaultSteps = { ...S.defaultSteps, ...ctx.defaultSteps };
+    } catch {
+      /* az előnézet hiányzó értékként jelzi — a mentés ettől még működik */
+    }
+  }
+
+  /** Az újonnan TM-essé vált gyakorlatok alap lépésköze — a szerkesztés
+      közben felvett gyakorlat is a szerver szerinti értéket mutassa. */
+  async function loadMissingSteps() {
+    const missing = tmExercisesOf(S.program).filter((ex) => !(ex in S.defaultSteps));
+    if (!missing.length) return;
+    try {
+      const ctx = await api.getProgramContext(missing);
+      S.defaultSteps = { ...S.defaultSteps, ...ctx.defaultSteps };
+      render();
+    } catch {
+      /* marad a tartalék érték; a mentett programot nem érinti */
+    }
   }
   async function searchExercises() {
     try {
@@ -93,6 +114,7 @@ export function setupProgramBuilder(confirmAction) {
   const setProgram = (next) => {
     S.program = next;
     render();
+    loadMissingSteps();
   };
 
   /* ---- élő előnézet ---- */

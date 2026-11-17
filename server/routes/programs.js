@@ -16,6 +16,10 @@ import {
   updateProgramPlan,
 } from '../db.js';
 import { normalizeProgram, tmExercises } from '../program/program.js';
+import { EXERCISE_NAME_MAX } from '../limits.js';
+
+/** A képlet-környezet kérésenként ennyi gyakorlat lépésközét adja. */
+const CONTEXT_MAX_NAMES = 50;
 import { defaultStep } from '../program/rules.js';
 import {
   activateProgram,
@@ -23,6 +27,7 @@ import {
   approveReview,
   clampAfterEdit,
   decideMid,
+  formulaContext,
   skipProgram,
   stepBackProgram,
 } from '../services/program-run.js';
@@ -77,6 +82,18 @@ export function register(app) {
     const plan = updateProgramPlan(req.user.id, Number(req.params.id), parsed.name, parsed.program);
     clampAfterEdit(req.user.id, plan);
     res.json(plan);
+  });
+
+  /** A programozó képlet-környezete (ld. formulaContext). A gyakorlatnevek
+      az `ex` paraméterekben; legfeljebb 50, a programok névkorlátján belül.
+      A /:id ELŐTT kell állnia, különben a „context" azonosítónak látszana. */
+  app.get('/api/programs/context', (req, res) => {
+    const raw = req.query.ex;
+    const names = (Array.isArray(raw) ? raw : raw == null ? [] : [raw])
+      .map((name) => String(name).trim())
+      .filter((name) => name && name.length <= EXERCISE_NAME_MAX)
+      .slice(0, CONTEXT_MAX_NAMES);
+    res.json(formulaContext(req.user.id, names));
   });
 
   app.get('/api/programs/:id', (req, res) => {

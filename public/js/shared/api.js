@@ -395,6 +395,12 @@ const api = {
   decideProgramMid: (id, decisions) =>
     postJson(`/api/programs/${id}/mid`, decisions ? { decisions } : { reject: true }),
   getTrainingMaxes: () => getJson('/api/training-maxes'),
+  /** A programozó képlet-környezete: TM, 1RM, testsúly, és a megadott
+      gyakorlatok alap lépésköze (a szerver számolja, ld. formulaContext). */
+  getProgramContext: (names = []) =>
+    getJson(
+      `/api/programs/context?${new URLSearchParams(names.map((name) => ['ex', name])).toString()}`,
+    ),
   // Az Edzés oldal induló tartalma: aznapi piszkozat / napra ütemezett terv / null
   getWorkoutTemplate: () => getJson('/api/workout-template'),
   // Teljes adat-pillanatkép a beállítások exportjához
