@@ -49,6 +49,13 @@ const writeLimiter = createRateLimiter({ limit: 240, windowMs: MINUTE });
     EMBER felületén jelenik meg, nem csak a szerveren okoz terhelést. */
 export const messageLimiter = createRateLimiter({ limit: 20, windowMs: MINUTE });
 
+/** Sikertelen sportoló-meghívás (ismeretlen név) fiókonként. A meghívás
+    szándékosan megmondja, ha nincs ilyen felhasználó — így az elgépelés
+    kiderül —, ezzel viszont a létező nevek végigpróbálhatók lennének. Csak a
+    sikertelen próba számít (a valódi edző nem ütközik bele), de kimerült
+    keretnél MINDEN meghívás megáll (ld. a végpontot). */
+export const inviteMissLimiter = createRateLimiter({ limit: 10, windowMs: 60 * MINUTE });
+
 /** KIMENŐ vonalkód-lekérés fiókonként. A végpont GET, tehát az írás-korlát
     nem fedi — pedig két olyasmit csinál, amit egy GET-től nem várnánk: hívást
     indít az Open Food Facts felé A MI User-Agentünkkel (egy végigsorolt

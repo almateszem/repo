@@ -57,7 +57,7 @@ import { linkFor, pendingOfferFor } from '../http/access.js';
 const INVITE = { as: 'athlete', status: 'pending', notFound: 'Nincs ilyen meghívó.' };
 /** Az üzenet-szál: bármelyik oldalról, ÉLŐ kapcsolat. */
 const THREAD = { notFound: 'Nincs ilyen beszélgetés.' };
-import { messageLimiter, tooManyRequests } from '../http/session.js';
+import { inviteMissLimiter, messageLimiter, tooManyRequests } from '../http/session.js';
 import { nutritionInput } from '../services/session-plan.js';
 
 /* ======================================================================
@@ -357,10 +357,23 @@ export function register(app) {
     if (!USERNAME_RE.test(username)) {
       return res.status(400).json({ error: 'Add meg a sportoló felhasználónevét.' });
     }
+    /* Az „ismeretlen név" külön üzenetet kap, hogy a gépelési hiba azonnal
+       kiderüljön. A végigpróbálás ellen a sikertelen próbák száma korlátos;
+       kimerült keretnél a létező névre is 429 jár — különben a 201/429
+       különbsége ugyanúgy elárulná, ki létezik. */
+    const exhausted = inviteMissLimiter.blocked(req.user.id);
+    if (exhausted.blocked) {
+      return tooManyRequests(
+        res,
+        exhausted.retryAfter,
+        'Túl sok sikertelen meghívás — ellenőrizd a felhasználóneveket, és próbáld újra később.',
+      );
+    }
     const target = findUserByUsername(username);
-    // Az „ismeretlen név" és a „saját név" külön üzenetet kap: itt nincs mit
-    // titkolni (a hívó belépett), viszont a gépelési hiba így azonnal kiderül.
-    if (!target) return res.status(404).json({ error: 'Nincs ilyen felhasználó.' });
+    if (!target) {
+      inviteMissLimiter.hit(req.user.id);
+      return res.status(404).json({ error: 'Nincs ilyen felhasználó.' });
+    }
     if (target.id === req.user.id) {
       return res.status(400).json({ error: 'Magadat nem hívhatod meg sportolónak.' });
     }

@@ -98,3 +98,16 @@ test('a lejárt kulcsok kitakarodnak — a számláló nem szivárog', () => {
   limiter.hit('friss', 5000); // az ablakon túl → söprés
   assert.equal(limiter.size(), 1, 'a lejártak eltűntek, csak a friss maradt');
 });
+
+test('blocked: számolás nélkül megmondja, elfogyott-e a keret', () => {
+  const limiter = createRateLimiter({ limit: 2, windowMs: 1000 });
+  assert.equal(limiter.blocked('a', 0).blocked, false, 'üres számláló');
+  limiter.hit('a', 0);
+  assert.equal(limiter.blocked('a', 10).blocked, false, 'még fér');
+  limiter.hit('a', 20);
+  const full = limiter.blocked('a', 30);
+  assert.equal(full.blocked, true, 'a keret elfogyott');
+  assert.equal(full.retryAfter, 1);
+  assert.equal(limiter.blocked('a', 30).blocked, true, 'a blocked maga nem számol');
+  assert.equal(limiter.blocked('a', 1000).blocked, false, 'az ablak lejártával újra nyitva');
+});

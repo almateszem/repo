@@ -95,6 +95,21 @@ export function createRateLimiter({ limit, windowMs }) {
       return { allowed: false, remaining: 0, retryAfter: Math.max(1, Math.ceil(waitMs / 1000)) };
     },
 
+    /**
+     * Elfogyott-e a kulcs kerete — SZÁMOLÁS NÉLKÜL. Ott kell, ahol csak a
+     * sikertelen kéréseket könyveljük (hit), de a kimerült keret után minden
+     * kérést meg kell állítani (ld. a sportoló-meghívást).
+     * @returns {{blocked: boolean, retryAfter: number}}
+     */
+    blocked(key, now = Date.now()) {
+      const entry = entries.get(key);
+      if (!entry || now - entry.startedAt >= windowMs || entry.count < limit) {
+        return { blocked: false, retryAfter: 0 };
+      }
+      const waitMs = windowMs - (now - entry.startedAt);
+      return { blocked: true, retryAfter: Math.max(1, Math.ceil(waitMs / 1000)) };
+    },
+
     /** Egy kulcs számlálójának nullázása (pl. sikeres belépés után). */
     reset: (key) => entries.delete(key),
 
