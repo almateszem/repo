@@ -75,6 +75,8 @@ const CI_MAP_MODES = {
     title: 'Hol van izomlázad?',
     sub: 'Koppints egy izomra, majd csúsztasd az erősséghez.',
     legend: '1 = alig érezhető · 10 = nagyon erős',
+    // A Tovább gomb felirata, amíg nincs megjelölt izom (ld. renderMap)
+    noneLabel: 'Mégsincs izomlázam',
   },
   painMap: {
     field: 'pain',
@@ -85,6 +87,7 @@ const CI_MAP_MODES = {
     title: 'Hol fáj pontosan?',
     sub: 'Koppints a fájó területre, majd csúsztasd az erősséghez.',
     legend: '1 = enyhe · 10 = nagyon erős · 7-től letiltja az izmot terhelő gyakorlatokat',
+    noneLabel: 'Mégsem fáj sehol',
   },
 };
 

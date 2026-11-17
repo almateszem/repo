@@ -231,12 +231,28 @@ function renderMap(stepName, nav) {
     blockFrom: mode.field === 'pain' ? CI_PAIN_BLOCK : null,
     onChange: () => {
       ci.dirty = true;
+      syncNext();
     },
   });
   $('[data-ci-map]', step).replaceWith(map.el);
 
-  $('[data-action="checkin-next"]', step).addEventListener('click', () => nav.goNext());
+  /* Amíg nincs megjelölt izom, a gomb kimondja, mi lesz a továbblépésből
+     („Mégsincs izomlázam") — korábban a „Tovább" csendben „Nincs"-et írt az
+     összegzőbe annak, aki a „Van, megjelölöm" után végül nem jelölt semmit. */
+  const nextBtn = $('[data-action="checkin-next"]', step);
+  const arrow = $('span', nextBtn);
+  function syncNext() {
+    nextBtn.replaceChildren(`${mapNextLabel(mode, ci.answers[mode.field])} `, arrow);
+  }
+  syncNext();
+  nextBtn.addEventListener('click', () => nav.goNext());
   return step;
+}
+
+/** A térkép-lépés továbblépő gombjának felirata: jelölés nélkül a mód saját
+    „nincs" mondata, egyébként „Tovább". */
+function mapNextLabel(mode, values) {
+  return Object.keys(values ?? {}).length === 0 ? mode.noneLabel : 'Tovább';
 }
 
 /* ======================================================================
@@ -340,5 +356,6 @@ export {
   renderReadiness,
   renderScale,
   renderSummary,
+  mapNextLabel,
   scaleLabel,
 };
