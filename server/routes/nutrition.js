@@ -38,6 +38,7 @@ import {
 } from '../db.js';
 import { MAX_PORTION_GRAMS, parseCustomFood } from '../foods-validate.js';
 import { formatDecimal } from '../numbers.js';
+import { goalConflict } from '../nutrition-goal.js';
 import { fetchProduct, normalizeBarcode } from '../openfoodfacts.js';
 import { hydrationTarget } from '../recovery.js';
 import { barcodeLookupLimiter, tooManyRequests } from '../http/session.js';
@@ -100,6 +101,9 @@ function parseGoalBody(body) {
     }
     goal[key] = Math.round(value);
   }
+  // A kettő együtt sem mondhat ellent egymásnak (saját és edzői célra is)
+  const conflict = goalConflict(goal.calories, goal.protein);
+  if (conflict) return { error: conflict };
   return { goal };
 }
 

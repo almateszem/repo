@@ -35,6 +35,18 @@ class FakeElement {
     delete this.attributes[name];
   }
 
+  toggleAttribute(name, force) {
+    const on = force ?? !(name in this.attributes);
+    if (on) this.attributes[name] = '';
+    else delete this.attributes[name];
+    return on;
+  }
+
+  /** Űrlap-ellenőrzés: a hibaüzenet a validationMessage-be kerül. */
+  setCustomValidity(message) {
+    this.validationMessage = String(message);
+  }
+
   addEventListener(type, listener) {
     (this.listeners[type] ??= []).push(listener);
   }

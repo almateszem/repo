@@ -14,6 +14,7 @@ import { createChatController } from './chat.js';
 import { exerciseNoteRow } from '../workout/exercise-notes.js';
 import { setupClientView } from './client.js';
 import { setupCoachMeals } from './meals.js';
+import { bindGoalConsistency } from '../shared/nutrition-goal.js';
 
 const DETAIL_TABS = ['overview', 'nutrition', 'plan', 'messages'];
 
@@ -40,6 +41,8 @@ function setupAthleteDetail({ confirmAction, onUnlink, onRead, onAssign } = {}) 
   const goalForm = $('[data-form="athlete-nutrition-goal"]', root);
   const goalCaloriesInput = $('#co-goal-calories');
   const goalProteinInput = $('#co-goal-protein');
+  // A fehérje kalóriája nem lépheti túl a kalóriacélt — gépelés közben jelezzük
+  const checkGoalConsistency = bindGoalConsistency(goalCaloriesInput, goalProteinInput);
   const waterStateEl = $('[data-water-goal-state]', root);
   const waterForm = $('[data-form="athlete-water-goal"]', root);
   const waterInput = $('#co-water-liters');
@@ -250,6 +253,7 @@ function setupAthleteDetail({ confirmAction, onUnlink, onRead, onAssign } = {}) 
     if (keepInputs) return;
     goalCaloriesInput.value = Math.round(goal.calories);
     goalProteinInput.value = Math.round(goal.protein);
+    checkGoalConsistency();
   }
 
   /** A víz-cél állapota. Edzői cél nélkül a sportoló testsúlyából számolt

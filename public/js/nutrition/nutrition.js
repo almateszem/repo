@@ -11,6 +11,8 @@ import { onPageShow } from '../app/router.js';
 import { refreshDailyStats } from '../dashboard/dashboard.js';
 import { renderFoodItem } from './nutrition-view.js';
 
+import { bindGoalConsistency } from '../shared/nutrition-goal.js';
+
 async function setupNutrition(foodDetail) {
   const searchInput = $('#food-search');
   const emptyState = $('.nu-empty');
@@ -212,6 +214,8 @@ async function setupNutrition(foodDetail) {
   const goalCaloriesInput = $('#nu-goal-calories');
   const goalProteinInput = $('#nu-goal-protein');
   const goalSaveBtn = $('.nu-goal-save', goalSection);
+  // A fehérje kalóriája nem lépheti túl a kalóriacélt — gépelés közben jelezzük
+  const checkGoalConsistency = bindGoalConsistency(goalCaloriesInput, goalProteinInput);
 
   /** Honnan jön a szám — ezt mindig kiírjuk, mert a puszta érték nem
       mondaná meg, hogy az edződ tűzte-e ki vagy te magad. */
@@ -235,6 +239,7 @@ async function setupNutrition(foodDetail) {
     // A szerkesztő mezői mindig az ÉRVÉNYES célról indulnak.
     goalCaloriesInput.value = Math.round(goal.calories);
     goalProteinInput.value = Math.round(goal.protein);
+    checkGoalConsistency();
   };
 
   const setGoalFormOpen = (open) => {
