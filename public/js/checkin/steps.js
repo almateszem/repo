@@ -140,6 +140,17 @@ function renderGate(stepName, nav) {
    Skálák
    ====================================================================== */
 
+/** Egy skála-gomb képernyőolvasó-címkéje. Csak a két végpontnak van szava
+    (a kérdés saját szövege); a köztes értékek a helyüket mondják. Korábban a
+    2-es és a 4-es is „közepes" volt, a fordított skálán (stressz: 5 =
+    nagyon feszült) ráadásul valótlanul. */
+function scaleLabel(value, low, high) {
+  const place = `${value} az 5-ből`;
+  if (value === 1) return `${place} — ${low}`;
+  if (value === 5) return `${place} — ${high}`;
+  return place;
+}
+
 /** 1–5 skálák (alvásminőség, energia, stressz) — egy renderelő mindháromnak. */
 
 function renderScale(stepName, nav) {
@@ -176,10 +187,7 @@ function renderScale(stepName, nav) {
     btn.dataset.value = String(value);
     btn.textContent = String(value);
     btn.setAttribute('aria-pressed', 'false');
-    btn.setAttribute(
-      'aria-label',
-      `${value} — ${value === 1 ? low : value === 5 ? high : 'közepes'}`,
-    );
+    btn.setAttribute('aria-label', scaleLabel(value, low, high));
     btn.addEventListener('click', (event) => choose(value, { auto: event.detail !== 0 }));
     group.appendChild(btn);
   }
@@ -325,4 +333,12 @@ function renderReadiness(step, overall, { animate }) {
   else num.textContent = String(overall);
 }
 
-export { renderGate, renderIntro, renderMap, renderReadiness, renderScale, renderSummary };
+export {
+  renderGate,
+  renderIntro,
+  renderMap,
+  renderReadiness,
+  renderScale,
+  renderSummary,
+  scaleLabel,
+};
