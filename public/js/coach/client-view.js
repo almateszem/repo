@@ -45,7 +45,7 @@ function renderClientKpis(el, me, { hasCoachPlan = false } = {}) {
       readiness === null ? 'is-empty' : '',
     ),
     kpi(
-      'Terv-követés',
+      'Edzői terv-követés',
       orDash(me.adherence),
       me.adherence === null ? '' : '%',
       adherenceSub(me, hasCoachPlan),

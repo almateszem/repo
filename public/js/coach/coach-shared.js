@@ -51,7 +51,9 @@ const adherenceText = (a) => {
 /** A kártyán megjelenő statok (címke + érték-képző) — a részletnézet bővebb listát mutat. */
 export const ATHLETE_CARD_STATS = [
   ['Készenlét', (a) => (hasReadiness(a.readiness) ? `${a.readiness}%` : '—')],
-  ['Terv-követés', adherenceText],
+  // Csak az EDZŐ által kiosztott tervhez mér (server/coaching.js → adherence) —
+  // a címke ezt mondja ki, különben saját program mellett is „—"-nak látszott
+  ['Edzői terv-követés', adherenceText],
   ['Sorozat', (a) => `${a.streak} nap`],
   ['Utolsó edzés', (a) => orDash(a.lastWorkout)],
 ];
@@ -67,9 +69,12 @@ const percentOrDash = (value) => (value == null ? '—' : `${value}%`);
 export const ATHLETE_DETAIL_STATS = [
   ...ATHLETE_CARD_STATS,
   ['Heti edzések', (a) => a.weekly],
-  ['Aktív terv', (a) => orDash(a.plan)],
-  // Az elmúlt 4 hét edzéseiből hány indult tervből — a többi szabad edzés
-  ['Terv szerinti edzés', (a) => orDash(a.planWorkouts)],
+  // Az aktív HETI terv (saját vagy edzői); a blokkos programnak nincs heti
+  // ütemezése, ezért az itt nem jelenik meg (getUserPlanSchedules)
+  ['Aktív heti terv', (a) => orDash(a.plan)],
+  // Az elmúlt 4 hét edzéseiből hány indult tervből vagy programból — a többi
+  // szabad edzés
+  ['Tervből indult edzés', (a) => orDash(a.planWorkouts)],
   // A terv-követés bontása (csak az edző kiosztott tervére): hány ütemezett
   // napon edzett a kijelölt napon, és azokon mennyi szett / mennyire talált az RPE
   ['Jó napon elvégezve', (a) => orDash(a.adherenceDetail?.onDay)],

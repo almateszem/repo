@@ -18,7 +18,7 @@ function createCoachNote({ meta, text, me = false }) {
     érdemes ránézni a sportolóra. */
 const PERCENT_STATS = {
   Készenlét: (a) => (hasReadiness(a.readiness) ? a.readiness : null),
-  'Terv-követés': (a) => a.adherence ?? null,
+  'Edzői terv-követés': (a) => a.adherence ?? null,
 };
 const LOW_THRESHOLD = 50;
 
