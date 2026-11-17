@@ -1,6 +1,6 @@
 # Podium — az ITDK-előadás szövege
 
-16 dia · kb. 12 perc nyugodt tempóban (1232 szó) · a keret 15 perc, így marad tartalék a kérdésekre vagy egy elcsúszásra.
+16 dia · kb. 12 perc nyugodt tempóban (1239 szó) · a keret 15 perc, így marad tartalék a kérdésekre vagy egy elcsúszásra.
 
 Ugyanez a szöveg a diák előadói jegyzeteiben is benne van (PowerPointban: Diavetítés → Előadói nézet).
 
@@ -39,7 +39,7 @@ Ebből fogalmaztuk meg a projekt kérdését: megbecsülhető-e már a meglévő
 
 ## 4. 03 · A megoldás · kb. 0:45 (eddig 2:35)
 
-A válaszunk a Podium. Böngészőből fut, telepítés nélkül, telefonon és gépen is. Összeköti az edzés, az étkezés és a pihenés adatait, és minden reggel ad egy 0 és 100 közötti készenléti pontszámot. Ezt 12 izomcsoportra külön is lebontja, és ehhez semmilyen külön eszköz nem kell. A telefonon egy példa látszik: 72 százalék, vagyis a sportoló rendben van, de egyes gyakorlatoknál érdemes visszavennie. És nem áll meg egy számnál: azt is megmondja, mit és mekkora súllyal érdemes ma edzeni.
+A válaszunk a Podium. Böngészőből fut, telepítés nélkül, telefonon és gépen is. Összeköti az edzés, az étkezés és a pihenés adatait, és minden reggel ad egy 0 és 100 közötti készenléti pontszámot. Ezt 12 izomcsoportra külön is lebontja, és ehhez nem kötelező semmilyen külön eszköz. Az okosóra később kiegészítheti, de nem feltétel. A telefonon egy példa látszik: 72 százalék, vagyis a sportoló rendben van, de egyes gyakorlatoknál érdemes visszavennie. És nem áll meg egy számnál: azt is megmondja, mit és mekkora súllyal érdemes ma edzeni.
 
 ## 5. 04 · Funkciók · kb. 0:45 (eddig 3:20)
 
