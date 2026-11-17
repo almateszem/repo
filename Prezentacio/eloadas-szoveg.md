@@ -1,6 +1,6 @@
 # Podium — az ITDK-előadás szövege
 
-16 dia · kb. 12 perc nyugodt tempóban (1239 szó) · a keret 15 perc, így marad tartalék a kérdésekre vagy egy elcsúszásra.
+16 dia · kb. 12 perc nyugodt tempóban (1237 szó) · a keret 15 perc, így marad tartalék a kérdésekre vagy egy elcsúszásra.
 
 Ugyanez a szöveg a diák előadói jegyzeteiben is benne van (PowerPointban: Diavetítés → Előadói nézet).
 
@@ -75,7 +75,7 @@ A második felhasználói kör a személyi edzőké. Az edző meghívja a sporto
 
 ## 13. 12 · Technika · kb. 0:45 (eddig 10:10)
 
-Technikailag szándékosan egyszerű rendszert építettünk. A böngészőben HTML, CSS és JavaScript-modulok futnak, a szerver Node.js és Express, 101 végponttal, az adat pedig egyetlen SQLite-fájlban van. Így akár egy edzőterem is futtathatja a saját gépén. A biztonságra külön figyeltünk: a jelszavakat scrypttel, fiókonként külön sóval tároljuk, a munkamenet HttpOnly sütiben van, minden lekérdezés csak a saját fiók adatát adhatja vissza, és kéréskorlát védi a belépést, az írást és az üzeneteket. Mindezt 895 automatikus teszt ellenőrzi, és mind sikeres.
+Technikailag szándékosan egyszerű rendszert építettünk. A böngészőben HTML, CSS és JavaScript-modulok futnak, a szerver Node.js és Express, 101 végponttal, az adat pedig egyetlen SQLite-fájlban van. Így akár egy edzőterem is futtathatja a saját gépén. A biztonságra külön figyeltünk: a jelszavakat scrypttel hash-elve tároljuk, a munkamenet HttpOnly sütiben van, minden lekérdezés csak a saját fiók adatát adhatja vissza, és kéréskorlát védi a belépést, az írást és az üzeneteket. Mindezt 895 automatikus teszt ellenőrzi, és mind sikeres.
 
 ## 14. 13 · Ütemezés · kb. 0:40 (eddig 10:50)
 
