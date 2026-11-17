@@ -726,11 +726,14 @@ export function computeReadiness({
           ? `${formatDecimal(checkin.sleepHours)} óra`
           : '—',
       fatigue: describe(loadComponent, ['Nagyon magas', 'Magas', 'Közepes', 'Alacsony']),
-      /* Az izom-komponens null, ha se edzés-előzmény, se jelzett izomláz nincs.
-         Ha viszont van mai check-in, a felhasználó ott nyilatkozott: nem jelzett
-         izomlázat — ez „Nincs", nem ismeretlen. */
-      soreness:
-        muscleComponent === null && checkin
+      /* Az izomláz a felhasználó bemondása: mai check-in nélkül „—", akkor
+         is, ha az edzésnaplóból van modell-becslés — az Alvás sora mellett a
+         „Nincs" bemondott adatnak hatott (a fáradtság marad: az tényleg a
+         naplóból számolt érték). Check-innel, jelzett izomláz és előzmény
+         nélkül „Nincs": ott a felhasználó nyilatkozott. */
+      soreness: !checkin
+        ? '—'
+        : muscleComponent === null
           ? 'Nincs'
           : describe(muscleComponent, ['Erős', 'Közepes', 'Enyhe', 'Nincs']),
     },

@@ -920,6 +920,17 @@ test('check-in van, edzés és jelzett izomláz nincs: az izomláz sora „Nincs
   assert.equal(run().recovery.soreness, '—', 'check-in nélkül továbbra sem találunk ki semmit');
 });
 
+test('M3: check-in nélkül az izomláz „—" edzés-előzménnyel is (a modell becslése nem bemondott adat)', () => {
+  const workouts = [
+    workout(5, 'Láb', [exercise('Guggolás', [set(5, 100), set(5, 100), set(5, 100)])]),
+  ];
+  assert.equal(run({ workouts }).recovery.soreness, '—');
+  // A fáradtság marad: az tényleg a naplóból számolt érték
+  assert.notEqual(run({ workouts }).recovery.fatigue, '—');
+  // Check-innel a modell-alapú szöveg megmarad
+  assert.notEqual(run({ workouts, checkins: [fullCheckin()] }).recovery.soreness, '—');
+});
+
 /* ======================================================================
    Izomláz skála (0–10)
    ====================================================================== */
