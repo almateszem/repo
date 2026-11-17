@@ -1558,11 +1558,22 @@ test('a megjegyzés validál: üres és túl hosszú szöveg', async () => {
 });
 
 test('a kapcsolat bontása után a volt edző nem éri el a megjegyzéseket', async () => {
+  const sajat = await request('POST', '/api/comments', {
+    cookie: mgClient.cookie,
+    body: { targetId: `${mgWorkoutId}:0`, text: 'Saját jegyzet a bontás előtt' },
+  });
+  assert.equal(sajat.status, 201);
+
   await request('DELETE', `/api/athletes/${mgLink}`, { cookie: mgTrainer.cookie });
   assert.equal(await coachNotesOf(mgTrainer.cookie), null, 'a volt sportoló kikerült a listáról');
 
-  // A sportoló viszont továbbra is látja a SAJÁT adatát.
-  assert.equal((await threadOf(mgClient.cookie)).length, 1);
+  // A sportoló SAJÁT megjegyzése marad; a volt edzőé a bontással ment
+  // (különben a következő edző látná, és a sportoló nem tudná törölni).
+  const szal = await threadOf(mgClient.cookie);
+  assert.deepEqual(
+    szal.map((c) => c.authorName),
+    ['Megj Mária'],
+  );
 });
 
 /* ======================================================================
