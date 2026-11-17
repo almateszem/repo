@@ -20,11 +20,11 @@ npm test           # unit-tesztek (node --test, nulla függőség):
 
 Környezeti változók:
 
-| Változó                | Alapérték            | Mire jó                                                                                                    |
-| ---------------------- | -------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `PORT`                 | `3000`               | A szerver portja                                                                                           |
+| Változó              | Alapérték          | Mire jó                                                                                                    |
+| -------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------- |
+| `PORT`               | `3000`             | A szerver portja                                                                                           |
 | `PODIUM_DB`          | `server/podium.db` | Az adatbázisfájl útvonala — **teszthez érdemes eldobható fájlra állítani**, hogy a valódi adat ne sérüljön |
-| `PODIUM_TRUST_PROXY` | kikapcsolva          | Reverse proxy mögött a megbízható proxy-lépések száma (pl. `1`) — ld. _Élesítés_                           |
+| `PODIUM_TRUST_PROXY` | kikapcsolva        | Reverse proxy mögött a megbízható proxy-lépések száma (pl. `1`) — ld. _Élesítés_                           |
 
 ```bash
 # Kísérletezés külön adatbázison, az éles adat érintése nélkül
@@ -496,7 +496,7 @@ valaki másnak a sportolója:
 - **Edzetteim** — a sportolóid kártyái és a kiküldött meghívóid.
 
 **A sportolói panel** ugyanarra a vázra épül, mint az edzői: KPI-sor
-(készenlét, terv-követés, heti edzések, sorozat), fő oszlop fülekkel és
+(készenlét, heti edzések, sorozat), fő oszlop fülekkel és
 oldalsáv. A számok **ugyanabból a kártyából** jönnek, amit az edző lát: a
 `GET /api/coach` `me` mezőjét ugyanaz az `athleteCard` számolja, mint a
 `GET /api/athletes` kártyáit, így a két oldal sosem mond mást.
@@ -534,18 +534,19 @@ sportoló saját naplójából:
 | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
 | Készenlét                           | a sportolóra lefuttatott Recovery Engine (`overall`)                                                                                       |
 | Terv-követés                        | az edző kiosztott tervének ütemezett napjai az elmúlt 4 hétben: 0, ha nem a kijelölt napon edzett, különben a szett- és RPE-egyezés átlaga |
-| Terv-követés trendje                | az utolsó 2 hét mínusz az előző 2 hét (pont); −25-től az állapot-sávba kerül                                                               |
+| Terv-követés trendje                | az utolsó 2 hét mínusz az előző 2 hét (pont); a felület nem mutatja, nem riaszt                                                            |
 | Terv szerinti edzés                 | az elmúlt 4 hét edzéseiből hány indult tervből (pl. 6/9)                                                                                   |
-| Jó napon / Szett / RPE              | a terv-követés bontása: kijelölt napon végzett edzések (9/12), elvégzett ÷ előírt munkaegység, RPE-egyezés (±0,5 teljes, ±2 már 0)         |
-| Összpontszám                        | a készenlét és a terv-követés átlaga (terv híján a készenlét) → arany/ezüst/bronz szint                                                    |
+| Jó napon / Szett / RPE              | a terv-követés bontása (az API-ban van, a felület nem mutatja): kijelölt napon végzett edzések, munkaegység, RPE-egyezés                   |
+| Összpontszám                        | maga a készenlét (a terv-követés nem számít bele) → arany/ezüst/bronz szint                                                                |
 | Sorozat / utolsó edzés / heti állás | a mentett edzésekből és a tervek hétnapjaiból                                                                                              |
-| Állapot-sáv                         | kihagyott edzés, eső terv-követés, leállás, gyenge készenlét, hiányzó check-in — a két legsúlyosabb ok                                     |
+| Állapot-sáv                         | kihagyott edzés, leállás, gyenge készenlét, hiányzó check-in — a két legsúlyosabb ok                                                       |
 | Legutóbbi aktivitás                 | edzések, PR-ek, check-inek és testsúly-bejegyzések összefésülve                                                                            |
 
 A terv-követés az edző EREDETI (kiosztott) példányához mér: ha a sportoló
 átírja az elfogadott tervet, az nem számít, és a saját terve sem mérce.
-Kiosztott terv nélkül nincs terv-követés: ilyenkor a mező `null`, és a felület `—`-t ír ki,
-nem 0%-ot — az azt hazudná, hogy elmaradt valami. Ugyanez a szabály a
+A terv-követést és a bontását a szerver kiszámolja (`adherence`, `adherenceDetail`), de a felület
+nem mutatja, és sem a pontszámba, sem a riasztásba nem számít bele. Kiosztott terv nélkül
+nincs terv-követés: ilyenkor a mező `null`, nem 0% — az azt hazudná, hogy elmaradt valami. Ugyanez a szabály a
 riasztásoknál: a HIÁNYZÓ adat (nincs check-in, nincs naplózott edzés) csak akkor
 kerül az állapot-sávba, ha már lett volna ideje meglenni — a ma csatlakozott
 sportoló nem „lemaradt". A készenlét mellé a részletmodál kiírja a becslés

@@ -48,6 +48,11 @@
   border-top: 1px solid var(--hair-soft);
 }
 
+/* Három csempe két hasábon: a harmadik a teljes sort kapja, ne lógjon egyedül */
+.co-kpi:nth-child(3):last-child {
+  grid-column: 1 / -1;
+}
+
 .co-kpi-value {
   display: flex;
   align-items: baseline;
@@ -694,12 +699,16 @@
   }
 
   .co-kpis {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     column-gap: var(--sp-13);
   }
 
   .co-kpi:nth-child(n + 3) {
     border-top: 0;
+  }
+
+  .co-kpi:nth-child(3):last-child {
+    grid-column: auto;
   }
 
   .co-kpi-num {
@@ -725,17 +734,17 @@
   }
 
   .co-stats {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
-/* ---- Táblázat: ha a lista szélessége elbírja a hét oszlopot ---- */
+/* ---- Táblázat: ha a lista szélessége elbírja a hat oszlopot ---- */
 @container co-list (min-width: 680px) {
   .co-tbl-head,
   .co-row {
     grid-template-columns:
-      minmax(180px, 2.2fr) minmax(80px, 1.1fr) minmax(80px, 1.1fr) minmax(56px, 0.7fr)
-      minmax(72px, 0.9fr) 60px 16px;
+      minmax(180px, 2.2fr) minmax(80px, 1.1fr) minmax(56px, 0.7fr) minmax(72px, 0.9fr)
+      60px 16px;
     column-gap: var(--sp-7);
   }
 
@@ -756,7 +765,7 @@
     display: none;
   }
 
-  .co-tbl-head span:nth-child(6) {
+  .co-tbl-head span:nth-child(5) {
     text-align: right;
   }
 
@@ -848,7 +857,7 @@
   --tier-border: rgba(205, 149, 105, 0.34);
 }
 
-/* Még nincs pontszám (se készenlét, se terv-követés): semleges, nem bronz */
+/* Még nincs pontszám (nincs készenlét): semleges, nem bronz */
 .co-tier--none {
   --tier: var(--text-muted);
   --tier-soft: transparent;

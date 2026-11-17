@@ -2,7 +2,7 @@
 
 import { api } from '../shared/api.js';
 import { onDayChange, startDayWatcher } from '../shared/day.js';
-import { $, $$ } from '../shared/dom.js';
+import { $, $$, prefersReducedMotion } from '../shared/dom.js';
 import { hooks } from '../shared/page-hooks.js';
 import { prefs } from '../shared/prefs.js';
 import { showToast } from '../shared/toast.js';
@@ -131,7 +131,29 @@ async function init() {
 
   const videoModal = setupVideoModal();
   const prModal = setupPrModal();
-  const notifPanel = await safe(setupNotifications);
+  /* Értesítésre kattintva a forráshoz ugrunk: az Edző oldalon a nézetet, a
+     sportolót és a fület az oldal maga állítja be (reveal), máshol oldalváltás
+     és görgetés a megjelölt szekcióhoz. */
+  const notifPanel = await safe(() =>
+    setupNotifications({
+      onOpen: (target) => {
+        if (target.page === 'coach') {
+          coachPage?.reveal(target);
+          return;
+        }
+        navigate(target.page);
+        if (!target.anchor) return;
+        /* A hashchange után (a setTimeout a sorban mögé kerül): addigra az
+           oldal látszik, és a router tetejére-görgetését ez írja felül. */
+        setTimeout(() =>
+          document.getElementById(target.anchor)?.scrollIntoView({
+            block: 'start',
+            behavior: prefersReducedMotion ? 'auto' : 'smooth',
+          }),
+        );
+      },
+    }),
+  );
   const settingsModal = await safe(() =>
     setupSettingsModal({
       onNotifCatsChange: () => notifPanel?.updateBadge(),

@@ -11,14 +11,14 @@ import { CONFIDENCE_LABELS, hasReadiness } from '../shared/readiness.js';
 
 /* ---- Edzői panel: sportoló-sorok ----
    A sorok VALÓDI sportolók valódi adatából épülnek (GET /api/athletes):
-   az összpontszámot a szerver számolja (server/coaching.js) a készenlét és a
-   terv-követés átlagaként, terv híján magából a készenlétből. A szint (arany
+   az összpontszámot a szerver számolja (server/coaching.js) magából a
+   készenlétből (a terv-követés nem számít bele). A szint (arany
    ≥ 85, ezüst ≥ 70, alatta bronz) ebből jön.
    A sor azonosítója a KAPCSOLAT azonosítója: a sportoló belső id-jét a
    szerver nem is adja ki. */
 export const athleteTier = (rating, confidence = null) =>
   rating === null || rating === undefined
-    ? // Nincs mérhető jel (se készenlét, se terv-követés) — ez nem „bronz"
+    ? // Nincs mérhető jel (nincs készenlét) — ez nem „bronz"
       { key: 'none', label: 'Még nincs pontszám', short: 'Nincs pont' }
     : confidence === 'low'
       ? /* Kevés napló: a motor általános referenciával számol, a magas szám
@@ -32,26 +32,14 @@ export const athleteTier = (rating, confidence = null) =>
           : { key: 'bronze', label: 'Bronz szint', short: 'Bronz' };
 
 /** Hiányzó érték helyén gondolatjel. A „még nincs adat" NEM nulla: terv
-    nélkül nincs terv-követés, edzés nélkül nincs utolsó edzés. */
+    nélkül nincs aktív terv, edzés nélkül nincs utolsó edzés. */
 export const orDash = (value) => (value === null || value === undefined ? '—' : value);
 
-/** A trend csak akkor kerül a szám mellé, ha érdemi: pár pontos ingadozás
-    zaj, attól nem kell nyilat rajzolni. */
-export const TREND_MIN = 10;
-
-/** „75%", érdemi változásnál „75% ↓20" — az irány az utolsó két hét az
-    előző kettőhöz mérve (a szerver számolja). */
-const adherenceText = (a) => {
-  if (a.adherence === null) return '—';
-  const trend = a.adherenceTrend ?? 0;
-  if (Math.abs(trend) < TREND_MIN) return `${a.adherence}%`;
-  return `${a.adherence}% ${trend > 0 ? '↑' : '↓'}${Math.abs(trend)}`;
-};
-
-/** A kártyán megjelenő statok (címke + érték-képző) — a részletnézet bővebb listát mutat. */
+/** A kártyán megjelenő statok (címke + érték-képző) — a részletnézet bővebb
+    listát mutat. A terv-követés (és a bontása: jó nap / szett / RPE) szándékosan
+    nem szerepel a felületen. */
 export const ATHLETE_CARD_STATS = [
   ['Készenlét', (a) => (hasReadiness(a.readiness) ? `${a.readiness}%` : '—')],
-  ['Terv-követés', adherenceText],
   ['Sorozat', (a) => `${a.streak} nap`],
   ['Utolsó edzés', (a) => orDash(a.lastWorkout)],
 ];
@@ -62,19 +50,12 @@ export const ATHLETE_CARD_STATS = [
     A megbízhatóság szándékosan itt van: napló nélküli fiókra a motor 100%
     készenlétet ad (nincs mit levonni), és enélkül az edző „arany szintnek"
     olvasná azt, ami valójában adathiány. */
-const percentOrDash = (value) => (value == null ? '—' : `${value}%`);
-
 export const ATHLETE_DETAIL_STATS = [
   ...ATHLETE_CARD_STATS,
   ['Heti edzések', (a) => a.weekly],
   ['Aktív terv', (a) => orDash(a.plan)],
   // Az elmúlt 4 hét edzéseiből hány indult tervből — a többi szabad edzés
   ['Terv szerinti edzés', (a) => orDash(a.planWorkouts)],
-  // A terv-követés bontása (csak az edző kiosztott tervére): hány ütemezett
-  // napon edzett a kijelölt napon, és azokon mennyi szett / mennyire talált az RPE
-  ['Jó napon elvégezve', (a) => orDash(a.adherenceDetail?.onDay)],
-  ['Szett-teljesítés', (a) => percentOrDash(a.adherenceDetail?.sets)],
-  ['RPE-egyezés', (a) => percentOrDash(a.adherenceDetail?.rpe)],
   ['Készenlét alapja', (a) => CONFIDENCE_LABELS[a.confidence] ?? '—'],
 ];
 

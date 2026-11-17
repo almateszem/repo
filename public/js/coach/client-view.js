@@ -7,7 +7,6 @@ import { $ } from '../shared/dom.js';
 import { formatNumber } from '../shared/format.js';
 import {
   ATHLETE_DETAIL_STATS,
-  TREND_MIN,
   athleteTier,
   kpi,
   orDash,
@@ -16,22 +15,8 @@ import {
 } from './coach-shared.js';
 import { CONFIDENCE_LABELS, hasReadiness } from '../shared/readiness.js';
 
-/** A terv-követés alsora. Érdemi változásnál (legalább TREND_MIN pont) a
-    trendet mondja ki — ugyanaz a küszöb, amitől az edző kártyáján nyíl jelenik
-    meg (coach-shared.js). */
-function adherenceSub(me, hasCoachPlan) {
-  if (me.adherence === null) {
-    // Elfogadott terv mellett a hiány azt jelenti: még nem volt ütemezett nap
-    return hasCoachPlan ? 'még nem volt ütemezett edzésnap' : 'még nincs elfogadott edzői terv';
-  }
-  const trend = me.adherenceTrend ?? 0;
-  if (Math.abs(trend) < TREND_MIN) return 'az edződ tervéhez mérve · 4 hét';
-  return `${trend > 0 ? '↑' : '↓'}${Math.abs(trend)} pont az előző két héthez képest`;
-}
-
-/** A KPI-sor: a négy szám, amire az edződ a legtöbbet néz. A `hasCoachPlan`
-    azt mondja meg, fogadott-e már el tervet az edzőjétől. */
-function renderClientKpis(el, me, { hasCoachPlan = false } = {}) {
+/** A KPI-sor: a három szám, amire az edződ a legtöbbet néz. */
+function renderClientKpis(el, me) {
   const readiness = hasReadiness(me.readiness) ? me.readiness : null;
   const [done, target] = String(me.weekly ?? '').split('/');
   el.replaceChildren(
@@ -43,13 +28,6 @@ function renderClientKpis(el, me, { hasCoachPlan = false } = {}) {
         ? 'még nincs check-in'
         : `alapja: ${(CONFIDENCE_LABELS[me.confidence] ?? '—').toLowerCase()}`,
       readiness === null ? 'is-empty' : '',
-    ),
-    kpi(
-      'Terv-követés',
-      orDash(me.adherence),
-      me.adherence === null ? '' : '%',
-      adherenceSub(me, hasCoachPlan),
-      me.adherence === null ? 'is-empty' : '',
     ),
     kpi(
       'Heti edzések',

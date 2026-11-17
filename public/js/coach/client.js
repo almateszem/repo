@@ -226,9 +226,7 @@ function setupClientView({ page, view, onChange }) {
       .filter(Boolean)
       .join(' · ');
 
-    renderClientKpis(kpisEl, me, {
-      hasCoachPlan: data.planHistory.some((offer) => offer.status === 'accepted'),
-    });
+    renderClientKpis(kpisEl, me);
     renderClientStatus($('[data-client-status]', view), me);
     renderClientScore(scoreBlock, me);
     renderOverview(me);
@@ -244,6 +242,10 @@ function setupClientView({ page, view, onChange }) {
 
   return {
     render,
+    /** Egy fül megnyitása kívülről (az értesítés-panelről érkezve). */
+    showTab(name) {
+      setTab(CLIENT_TABS.includes(name) ? name : 'overview');
+    },
     /** A nézet most lett látható (nézetváltás): a nyitott szálat itt kérjük
         le és nyugtázzuk, nem várva a következő frissítésre. */
     shown() {

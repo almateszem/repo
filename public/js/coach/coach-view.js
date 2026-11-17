@@ -18,7 +18,6 @@ function createCoachNote({ meta, text, me = false }) {
     érdemes ránézni a sportolóra. */
 const PERCENT_STATS = {
   Készenlét: (a) => (hasReadiness(a.readiness) ? a.readiness : null),
-  'Terv-követés': (a) => a.adherence ?? null,
 };
 const LOW_THRESHOLD = 50;
 
@@ -187,11 +186,6 @@ const ATHLETE_FILTERS = [
 function renderCoachKpis(athletes) {
   const unread = athletes.reduce((sum, a) => sum + a.unread, 0);
   const readiness = average(athletes.map((a) => (hasReadiness(a.readiness) ? a.readiness : null)));
-  const adherence = average(athletes.map((a) => a.adherence));
-  /* Van kiosztott terv, csak még nem volt esedékes edzésnap — ez nem „nincs
-     terv”. Az `a.plan` a sportoló BÁRMILYEN aktív terve (a sajátja is), ezért
-     a szerver külön jelzi, van-e tőlünk elfogadott terve. */
-  const hasAssignedPlan = athletes.some((a) => a.hasAssignedPlan);
   const flagged = athletes.filter((a) => a.alert).length;
 
   $('[data-kpis]').replaceChildren(
@@ -207,17 +201,6 @@ function renderCoachKpis(athletes) {
       readiness === null ? '' : '/100',
       readiness === null ? 'még nincs check-in' : 'check-inből és edzésnaplóból',
       readiness === null ? 'is-empty' : '',
-    ),
-    kpi(
-      'Átl. terv-követés',
-      orDash(adherence),
-      adherence === null ? '' : '%',
-      adherence !== null
-        ? 'jó nap · szett · RPE a terv szerint'
-        : hasAssignedPlan
-          ? 'még nem volt ütemezett edzésnap'
-          : 'még nincs kiosztott terv',
-      adherence === null ? 'is-empty' : '',
     ),
     kpi(
       'Figyelmet igényel',
