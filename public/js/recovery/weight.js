@@ -14,9 +14,9 @@ import { refreshDailyStats } from '../dashboard/dashboard.js';
    Regeneráció oldalon és a Δ statot az áttekintőn. Amint van saját
    bejegyzés, a diagram KIZÁRÓLAG azokat mutatja, a skálát pedig a tényleges
    értékekhez igazítjuk — a korábbi 80–86 kg-os fix skálán minden ezen kívüli
-   testsúly a diagram aljára lapult, a tengelyfeliratok pedig hazudtak. A
-   seed-görbe csak addig látszik, amíg nincs egyetlen valódi bejegyzés sem —
-   és ilyenkor a kártya ki is mondja, hogy demo-adatot néz a felhasználó. */
+   testsúly a diagram aljára lapult, a tengelyfeliratok pedig hazudtak.
+   Bejegyzés nélkül a diagram üres, és a kártya kimondja, hogy még nincs
+   mérés (demo-görbe nincs). */
 const WEIGHT_CHART_BARS = 12; // legfeljebb ennyi oszlop látszik
 
 const WEIGHT_CHART_MIN_SPAN = 2; // kg — ekkora sávot mindenképp lefed a skála
@@ -67,8 +67,11 @@ function syncWeightViews({ animateDelta = false } = {}) {
   const deltaUnitEl = deltaEl?.parentElement && $('.db-stat-unit', deltaEl.parentElement);
 
   if (weightLog.length === 0) {
-    // Marad a seed-görbe — de kimondjuk, hogy az nem a felhasználó adata,
-    // és a Δ sem mutat 0-t olyan változásra, amit soha nem mértünk.
+    /* Üres naplónál üres grafikon: korábban itt a kezdő demo-görbe állt, és
+       ha a bejegyzések menet közben fogytak el (törlés), a régi oszlopok
+       maradtak ott újratöltésig. A Δ sem mutat 0-t olyan változásra, amit
+       soha nem mértünk. */
+    if (chart) renderChart(chart, { heights: [], axis: [] });
     if (emptyEl) emptyEl.hidden = false;
     if (lastEl) lastEl.hidden = true;
     if (deltaEl) deltaEl.textContent = '–';

@@ -30,8 +30,8 @@ function paintCharts(charts) {
 
 /** Az Áttekintő „Utolsó 14 nap" diagramja a már lekért chartokból. Edzés
     befejezése, javítása és törlése után ez fut (hooks.refreshVolumeChart) —
-    a teljes renderCharts() NEM: az a seed demo-testsúlygörbét (server/data.js)
-    is újrarajzolná a valódi fölé. */
+    a teljes renderCharts() NEM: annak itt nincs dolga, csak ez az egy
+    diagram változik. */
 function renderVolumeTrend(charts) {
   const container = $('[data-chart="volumeTrend"]');
   if (container && charts?.volumeTrend) renderChart(container, charts.volumeTrend);

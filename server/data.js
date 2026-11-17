@@ -33,10 +33,9 @@ export const data = {
     /* A `benchProgress` görbe is megszűnt a `weeklyCalories` után: egy
        beégetett, mindig ugyanúgy emelkedő fekvenyomás-görbe volt, ráadásul fix
        gyakorlatra. Az edzés oldalon a helyén a naplózott edzések listája áll. */
-    bodyWeight: {
-      heights: [34, 33, 38, 42, 40, 47, 52, 50, 58, 64, 70, 76],
-      axis: ['86 kg', '84 kg', '82 kg', '80 kg'],
-    },
+    /* A `bodyWeight` demo-görbe is megszűnt: a Regeneráció oldal a valódi
+       testsúly-naplóból rajzol (public/js/recovery/weight.js), mérés nélkül
+       pedig üres grafikont mutat — nem egy idegen, beégetett görbét. */
     /* A heti volumen-összehasonlítást (volumeThisWeek/volumeLastWeek) a szerver
        számolja a mentett edzésekből (GET /api/charts) — itt nincs seed-adata. */
   },
