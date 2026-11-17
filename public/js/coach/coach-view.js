@@ -216,7 +216,7 @@ function renderCoachKpis(athletes) {
       readiness === null ? 'is-empty' : '',
     ),
     kpi(
-      'Átl. terv-követés',
+      'Átl. edzői terv-követés',
       orDash(adherence),
       adherence === null ? '' : '%',
       adherence !== null
