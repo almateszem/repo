@@ -330,9 +330,8 @@ async function setupProfile() {
     renderRecords();
     const { stats } = profile;
 
-    // A megjelenített név ugyanaz, mint az áttekintőn: a saját (localStorage)
-    // név elsőbbséget élvez a szerver szerinti névvel szemben.
-    $('[data-pf-name]', page).textContent = prefs.get('displayName', profile.name);
+    // A megjelenített név a szerveré (a Beállításokban átírt is oda mentődik)
+    $('[data-pf-name]', page).textContent = profile.name;
     $('[data-pf-username]', page).textContent = `@${profile.username}`;
 
     const joinedEl = $('[data-pf-joined]', page);

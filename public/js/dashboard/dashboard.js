@@ -233,11 +233,11 @@ function lockReadinessWidth(finalText) {
   num.textContent = formatWhole(0);
 }
 
-/** A megjelenített felhasználónév: a saját (localStorage) név, különben a
-    szerveré (a lekérés lent, a renderUserName-é). A telefonos köszönés és a
-    monogram is ebből lesz (chrome-identity.js). */
+/** A megjelenített felhasználónév — a szerveré (a lekérés lent, a
+    renderUserName-é). A telefonos köszönés és a monogram is ebből lesz
+    (chrome-identity.js). */
 function paintUserName(user) {
-  paintChromeName(prefs.get('displayName', user.name));
+  paintChromeName(user.name);
 }
 
 /* ======================================================================
@@ -308,7 +308,28 @@ function refreshDashboardIfStale() {
     felépítése írta ki — ha az a lépés elhasalt, a név helye üresen maradt. */
 async function renderUserName() {
   if (!$('.db-username')) return;
-  paintUserName(await api.getUser());
+  paintUserName(await migrateLocalName(await api.getUser()));
+}
+
+/** A korábban csak ebben a böngészőben átírt név (prefs → displayName)
+    egyszeri felküldése: utána a szerveré az egyetlen név. Hálózati hibánál
+    a helyi név megmarad a következő próbára; érvénytelen névnél (400)
+    elengedjük, és a szerveré marad. */
+async function migrateLocalName(user) {
+  const local = prefs.get('displayName');
+  if (!local) return user;
+  if (local === user.name) {
+    prefs.set('displayName', undefined);
+    return user;
+  }
+  try {
+    await api.saveDisplayName(local);
+    prefs.set('displayName', undefined);
+    return await api.refreshUser();
+  } catch (err) {
+    if (err.status === 400) prefs.set('displayName', undefined);
+    return user;
+  }
 }
 
 /* ======================================================================

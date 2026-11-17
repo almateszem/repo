@@ -66,6 +66,11 @@ export function getUserGoal(id) {
 
 /** A fiók edzés-céljának beállítása. A null a „nincs megadva" — a hívó
     (server.js) ellenőrzi, hogy a kulcs szerepel-e a goals-listában. */
+/** A megjelenített név átírása (a hívó ellenőrzi a hosszát). */
+export function setUserDisplayName(id, name) {
+  db.prepare('UPDATE users SET display_name = ? WHERE id = ?').run(name, id);
+}
+
 export function setUserGoal(id, goal) {
   db.prepare('UPDATE users SET goal = ? WHERE id = ?').run(goal, id);
   return getUserGoal(id);

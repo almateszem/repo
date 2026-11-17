@@ -144,25 +144,48 @@ async function setupSettingsModal({ onNotifCatsChange, confirmAction } = {}) {
     showToast('Adatok exportálva · demo');
   });
 
-  /* A név — a kapcsolókhoz hasonlóan — azonnal érvényesül gépelés közben,
-     így a „Mentés" gomb nem hazudik olyan műveletet, ami valójában már
-     megtörtént (a kapcsolók eddig is azonnal hatottak). Kiürített mezőnél
-     a szerver szerinti névre esünk vissza, nem a korábbi egyéni névre —
-     korábban ez némán, visszajelzés nélkül maradt a régin. */
-  const applyName = () => {
-    const name = nameInput.value.trim();
-    if (name) prefs.set('displayName', name);
-    else prefs.set('displayName', undefined);
-    paintChromeName(name || user.name);
+  /* A név a szerveren él: az edző, a sportolók, az üzenetek és a többi
+     eszköz is ezt látja (korábban csak ebben a böngészőben élt). Gépelés
+     közben csak a fejléc mutatja előnézetként; a mentés a mező elhagyásakor
+     (change), Enterre vagy a Mentés gombra megy — nem billentyűnként.
+     Kiürített mezőnél a mentett név marad. Egyszerre egy mentés fut. */
+  const previewName = () => paintChromeName(nameInput.value.trim() || user.name);
+  let savingName = null;
+  const saveName = () => {
+    savingName ??= (async () => {
+      const name = nameInput.value.trim();
+      if (!name || name === user.name) {
+        nameInput.value = user.name;
+        paintChromeName(user.name);
+        return;
+      }
+      try {
+        const updated = await api.saveDisplayName(name);
+        user.name = updated.name;
+        await api.refreshUser();
+        showToast('Név mentve');
+      } catch (err) {
+        nameInput.value = user.name;
+        showToast(err.message || 'A nevet nem sikerült menteni', 'error');
+      }
+      paintChromeName(user.name);
+    })().finally(() => {
+      savingName = null;
+    });
+    return savingName;
   };
 
-  nameInput.addEventListener('input', applyName);
+  nameInput.addEventListener('input', previewName);
+  nameInput.addEventListener('change', saveName);
   nameInput.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') controller.close();
+    if (event.key === 'Enter') {
+      saveName();
+      controller.close();
+    }
   });
 
   $('[data-action="save-settings"]').addEventListener('click', () => {
-    applyName();
+    saveName();
     controller.close();
   });
 
@@ -282,7 +305,7 @@ async function setupSettingsModal({ onNotifCatsChange, confirmAction } = {}) {
 
   return {
     open() {
-      nameInput.value = prefs.get('displayName', '') || '';
+      nameInput.value = user.name;
       nameInput.placeholder = user.name;
       $('[data-st-account]').textContent = `Bejelentkezve: ${user.username ?? user.name}`;
       closeAccountForms();

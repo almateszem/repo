@@ -40,6 +40,7 @@ import {
   hasAnyUser,
   purgeExpiredSessions,
   setUserBirthYear,
+  setUserDisplayName,
   setUserGoal,
   setUserSex,
   updateUserPassword,
@@ -68,6 +69,9 @@ import { trainingStreak } from '../services/session-plan.js';
     Azért „soha nem volt check-inje" és nem „most regisztrált": ez utóbbi
     csak a kliens pillanatnyi állapota lenne, ez viszont túléli a frissítést. */
 const withOnboarding = (user) => ({ ...user, onboarding: !hasAnyCheckin(user.id) });
+
+/** A megjelenített név hossza (regisztráció és átnevezés). */
+const DISPLAY_NAME_MAX = 40;
 
 /** A regisztrációs/belépési törzs ellenőrzése. Hibánál { error }-t ad. */
 function parseCredentials(body) {
@@ -132,7 +136,7 @@ export function registerPublic(app) {
     const displayName =
       String(req.body?.displayName ?? '')
         .trim()
-        .slice(0, 40) || parsed.username;
+        .slice(0, DISPLAY_NAME_MAX) || parsed.username;
 
     const created = createUser(parsed.username, displayName, await hashPassword(parsed.password));
     if (!created) return res.status(409).json({ error: 'Ez a felhasználónév már foglalt.' });
@@ -238,6 +242,22 @@ export function register(app) {
       }
     }
 
+    /* A megjelenített név: ugyanaz a 40 karakter, mint a regisztrációnál.
+       Korábban csak a böngészőben élt, így az edző, a sportolók és egy másik
+       eszköz a régi nevet látta. Üres név nincs (a hiányzó kulcs = ne nyúlj
+       hozzá). */
+    let displayName;
+    if (req.body?.displayName !== undefined) {
+      displayName = typeof req.body.displayName === 'string' ? req.body.displayName.trim() : '';
+      if (!displayName || displayName.length > DISPLAY_NAME_MAX) {
+        return res.status(400).json({ error: `A név 1–${DISPLAY_NAME_MAX} karakter lehet.` });
+      }
+    }
+
+    if (displayName !== undefined) {
+      setUserDisplayName(req.user.id, displayName);
+      req.user.displayName = displayName;
+    }
     if (goal !== undefined) setUserGoal(req.user.id, goal);
     if (sex !== undefined) setUserSex(req.user.id, sex);
     if (birthYear !== undefined) setUserBirthYear(req.user.id, birthYear);
