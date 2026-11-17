@@ -94,6 +94,10 @@ function nextSetValues(setList, defaultSet) {
   // (a renderSetRow adja), különben egy bemelegítő sor után a következő is
   // bemelegítő lenne.
   delete values.type;
+  // Az AMRAP-jelző sem: az „5+" szett után hozzáadott levezető szett nem
+  // AMRAP, és ha örökölné, a ciklus-szabály (az utolsó kipipált AMRAP-szett)
+  // a levezető ismétlésével számolna a valódi AMRAP-eredmény helyett.
+  delete values.amrap;
   return values;
 }
 
@@ -283,4 +287,5 @@ export {
   handleAddSetClick,
   handleRemoveSetClick,
   loadIntensityLevels,
+  nextSetValues,
 };
