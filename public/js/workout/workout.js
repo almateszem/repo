@@ -421,16 +421,17 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
   /** A szerver átírta a piszkozatot (a készenlét-javaslat elfogadása): a
       képernyőn álló napló elavult. A függő mentést eldobjuk — különben a
       régi tartalmat írná vissza —, és a szerver változatát töltjük be. */
-  const replaceFromServer = (template) => {
+  const replaceFromServer = (template, options) => {
     cancelAutosave();
     setUndo(null);
-    applyTemplate(template);
+    applyTemplate(template, options);
     syncEmpty();
   };
 
   /* A mai sablon újratöltése: a programnap befejezése után a következő nap
      (vagy a szabály javaslata) jön, a jóváhagyás után pedig az új súlyok. */
-  hooks.reloadWorkoutTemplate = async () => replaceFromServer(await api.getWorkoutTemplate());
+  hooks.reloadWorkoutTemplate = async (options) =>
+    replaceFromServer(await api.getWorkoutTemplate(), options);
 
   return { loadPlan, replaceFromServer };
 }

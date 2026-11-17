@@ -11,6 +11,7 @@
  */
 import {
   addTrainingMax,
+  clearWorkoutDraft,
   getAllExerciseMaxes,
   getCheckin,
   getCollection,
@@ -20,6 +21,7 @@ import {
   getProgramState,
   getTrainingMaxes,
   getTrueMaxes,
+  getWorkoutDraft,
   getWorkouts,
   initProgramState,
   setActivePlan,
@@ -137,6 +139,46 @@ export function programTemplate(userId, plan, today) {
   };
 }
 
+/** A programnap aznapi piszkozatához a program helyzete — vagy null, ha a
+    piszkozat nem az aktív programé. Enélkül a piszkozat újratöltés után sima
+    piszkozatként jött vissza: eltűnt a PROGRAM sáv és a hiányzó-érték
+    figyelmeztetés, a befejezés után pedig nem töltődött be a következő nap.
+    A nyitott javaslat (`mid`) is jön: a felület a piszkozat FÖLÉ teszi. */
+export function programDraftInfo(userId, plan, draft) {
+  if (draft?.planId !== plan.id) return null;
+  const state = getProgramState(userId, plan.id);
+  if (!state || state.pending) return null;
+  const pos = Math.min(state.pos, total(plan) - 1);
+  const day = buildDayWorkout(plan.program, pos, evalContext(userId));
+  return {
+    program: position(plan, { ...state, pos }),
+    missing: day.missing,
+    mid: state.mid ?? null,
+  };
+}
+
+/** Miért nem menthető most programnapként ez az edzés — vagy null. Nyitott
+    javaslatnál a mentés a pozíciót léptette volna, de a határ-szabályok
+    végleg kimaradtak (a ciklus-értékelés sosem jött meg). Ugyanaz a szabály,
+    mint az ugratásnál: előbb a döntés. A programon kívüli edzés mehet. */
+export function programSaveBlock(userId, planId) {
+  const plan = getActivePlan(userId);
+  if (!plan || plan.kind !== 'program' || planId !== plan.id) return null;
+  const state = getProgramState(userId, plan.id);
+  if (state?.mid) return 'Előbb dönts a szabály javaslatáról — utána mentheted a programnapot.';
+  if (state?.pending) {
+    return 'A ciklus lezárult — előbb hagyd jóvá az új TM-eket, utána mentheted a programnapot.';
+  }
+  return null;
+}
+
+/** A program piszkozatának törlése (ugratás, kikapcsolás). A piszkozat a
+    RÉGI napé: ha megmaradna, a szerver azt adná vissza a program új helyzete
+    helyett, és a régi nap befejezhető maradna a program azonosítójával. */
+export function dropProgramDraft(userId, planId) {
+  if (getWorkoutDraft(userId)?.planId === planId) clearWorkoutDraft(userId);
+}
+
 /** A szabályokhoz egy edzés napjának check-inje: a legnagyobb fájdalom, az
     alvásórák, és a mentéskor rögzített készenlét. */
 function withCheckin(userId, workout) {
@@ -190,7 +232,9 @@ export function onWorkoutSaved(userId, workout, today) {
   const plan = getActivePlan(userId);
   if (!plan || plan.kind !== 'program' || !workout || workout.planId !== plan.id) return;
   const state = getProgramState(userId, plan.id);
-  if (!state || state.pending) return;
+  /* Nyitott javaslatnál vagy lezárt ciklusnál nem léptet: a mentést a
+     programSaveBlock már a route-on megfogja, ez csak a védőháló. */
+  if (!state || state.pending || state.mid) return;
   const pos = Math.min(state.pos, total(plan) - 1);
   const readiness =
     readinessReport(
@@ -201,8 +245,6 @@ export function onWorkoutSaved(userId, workout, today) {
   if (!tagProgramWorkout(userId, workout.id, state.cycle, pos, readiness)) return;
   const next = pos + 1;
   setProgramPos(userId, plan.id, next);
-  // Nyitott ciklus közbeni javaslatnál a szabályok a döntés után futnak tovább.
-  if (state.mid) return;
   const leftWeek = weekOf(plan, next) !== weekOf(plan, pos) ? weekOf(plan, pos) : null;
   afterBoundary(userId, plan, { ...state, pos: next }, { workoutId: workout.id, leftWeek });
 }
@@ -221,6 +263,7 @@ export function skipProgram(userId, plan, to) {
   else if (to === 'cycle-end') next = n;
   else return { error: 'Ismeretlen ugratás.' };
   setProgramPos(userId, plan.id, next);
+  dropProgramDraft(userId, plan.id);
   const leftWeek = weekOf(plan, next) !== weekOf(plan, pos) ? weekOf(plan, pos) : null;
   afterBoundary(userId, plan, { ...state, pos: next }, { leftWeek });
   return getProgramState(userId, plan.id);

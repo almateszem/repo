@@ -57,7 +57,7 @@ import { allWeekExercises, cycleDay, dayEntry, dayLabel } from '../plan-week.js'
 import { exerciseRecords, firstLoggedMaxes, prEntry } from '../records.js';
 import { planSafetyChecker } from '../session-advice.js';
 import { dayTitle, flattenDays } from '../program/program.js';
-import { onWorkoutSaved } from '../services/program-run.js';
+import { dropProgramDraft, onWorkoutSaved, programSaveBlock } from '../services/program-run.js';
 import { suggestExercises } from '../suggestions.js';
 import { requestDate } from '../http/session.js';
 import {
@@ -537,6 +537,8 @@ export function register(app, { catalogSearch }) {
     }
     const plan = setActivePlan(req.user.id, id, active, req.today);
     if (!plan) return res.status(404).json({ error: 'Nincs ilyen terved.' });
+    // A kikapcsolt program piszkozata a régi napé — ne maradjon befejezhető
+    if (!active && plan.kind === 'program') dropProgramDraft(req.user.id, id);
     res.json(plan);
   });
 
@@ -786,6 +788,10 @@ export function register(app, { catalogSearch }) {
   app.post('/api/workouts', (req, res) => {
     const workout = parseWorkoutBody(req.body);
     if (workout.error) return res.status(400).json({ error: workout.error });
+    /* Nyitott program-javaslat mellett a programnap nem menthető (a felület a
+       piszkozatot megtartja, és a javaslat-kártyát mutatja) — ld. ott. */
+    const blocked = programSaveBlock(req.user.id, parseRowId(req.body?.planId));
+    if (blocked) return res.status(409).json({ error: blocked });
     const saved = addWorkout(
       req.user.id,
       workout.name,

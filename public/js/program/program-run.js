@@ -329,14 +329,25 @@ export function setupProgramRun({ reload }) {
   hooks.programTemplate = (template) => {
     if (!slot) return;
     const src = template?.source;
-    slot.hidden = !src?.startsWith('program');
+    // A programnap piszkozata a program helyzetével jön (ld. session-plan.js)
+    const programDraft = src === 'draft' && Boolean(template.program);
+    slot.hidden = !(src?.startsWith('program') || programDraft);
     document.body.classList.toggle(
       'has-program-gate',
       src === 'program-review' || src === 'program-mid',
     );
     if (src === 'program-review') return renderReviewCard(slot, template, { onDone });
     if (src === 'program-mid') return renderMidCard(slot, template, { onDone });
-    if (src !== 'program') return fill(slot);
+    /* Nyitott javaslat a piszkozat mellett (pl. egy másik eszközön nyílt
+       meg): a kártya a napló fölé kerül, a mentés a döntésig vár. */
+    if (programDraft && template.mid?.length) {
+      return renderMidCard(
+        slot,
+        { planId: template.planId, suggestions: template.mid },
+        { onDone },
+      );
+    }
+    if (src !== 'program' && !programDraft) return fill(slot);
     const p = template.program;
     const missing = template.missing ?? [];
     const fix = missing.length ? button('Pótlás') : null;

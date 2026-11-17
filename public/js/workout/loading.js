@@ -68,18 +68,37 @@ function createContentLoader({
     titleError.hidden = true;
   };
 
-  /** A szervertől kapott induló tartalom betöltése a naplóba. */
-  const applyTemplate = (template) => {
+  /** A szervertől kapott induló tartalom betöltése a naplóba. Az
+      `afterFinish` a programnap befejezése utáni betöltés: ott a betöltött
+      nap már a KÖVETKEZŐ, nem a mai. */
+  const applyTemplate = (template, { afterFinish = false } = {}) => {
     // A blokkos program sávja vagy jóváhagyó kártyája (js/program/program-run.js)
     hooks.programTemplate?.(template);
-    editing.source = template?.source ?? null;
+    const wasProgramDay = editing.source === 'program';
+    /* A programnap piszkozata (a szerver a program helyzetével adja vissza)
+       ugyanúgy programnap: a befejezés után jön a következő nap. */
+    editing.source =
+      template?.source === 'draft' && template.program ? 'program' : (template?.source ?? null);
     // A jóváhagyásra váró TM-javaslatnak nincs edzése: a kártya áll helyette
-    if (!template || !Array.isArray(template.exercises)) return;
+    if (!template || !Array.isArray(template.exercises)) {
+      /* Ugratás vagy kikapcsolás után a szerkesztőben álló programnap
+         érvényét vesztette (a szerver a piszkozatát is törölte): nem maradhat
+         befejezhető a program azonosítójával. Szabad edzéshez nem nyúlunk. */
+      if (wasProgramDay) {
+        editing.planId = null;
+        editing.workoutId = null;
+        fillExercises('', []);
+        syncEditingState();
+      }
+      return;
+    }
     editing.planId = template.planId ?? null;
     editing.workoutId = template.workoutId ?? null;
     fillExercises(template.name, template.exercises);
     if (template.source === 'plan') showToast(`Mai terv betöltve: ${template.name}`);
-    if (template.source === 'program') showToast(`Mai programnap: ${template.name}`);
+    if (template.source === 'program') {
+      showToast(`${afterFinish ? 'Következő' : 'Mai'} programnap: ${template.name}`);
+    }
     // Minden template-betöltés után: a napváltáskori csere is ide fut be, és
     // ott a javítás-állapot is megszűnhet (ha a mai terv veszi át a helyét).
     syncEditingState();

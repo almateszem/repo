@@ -130,12 +130,21 @@ export function bindFinish({
       navigate('summary');
       /* Blokkos program: a haladás az elvégzett edzéshez igazodik — a
          következő programnap (vagy egy szabály javaslata) azonnal betöltődik. */
-      if (fromProgram) await hooks.reloadWorkoutTemplate?.();
+      if (fromProgram) await hooks.reloadWorkoutTemplate?.({ afterFinish: true });
     } catch (err) {
       console.error(err);
       showToast(err.message || 'Nem sikerült menteni az edzést', 'error');
       // A napló marad — a fent leállított piszkozat-mentés újra induljon
       draft.schedule();
+      /* 409 a programnapra: egy szabály-javaslat vagy a ciklus jóváhagyása
+         vár (pl. egy másik eszközön nyílt meg). A kártya a napló FÖLÉ kerül —
+         a naplóhoz nem nyúlunk, a döntés után a befejezés újra megy. */
+      if (err.status === 409 && editing.planId !== null) {
+        api
+          .getWorkoutTemplate()
+          .then((template) => hooks.programTemplate?.(template))
+          .catch(console.error);
+      }
     } finally {
       finishBtn.disabled = false;
     }
