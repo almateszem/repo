@@ -88,9 +88,16 @@ export function periodStats(workouts, exercise) {
   const pains = ci('pain');
   const ready = ci('readiness');
   const sleep = ci('sleep');
+  /* Ha a gyakorlatból az időszakban nem volt szett, a gyakorlat-szintű érték
+     HIÁNYZIK, nem nulla: különben „0 ≥ 0" igaz, és egy csak-guggolás edzés
+     után a fekvenyomás TM-je is emelkedett. A hiányzó értékre épülő szabály
+     „Nincs adat a szabályhoz" (formula.js → MissingValueError). Az egész
+     edzés számai (doneAll/totalAll) maradnak: a kiégés-szabály szándékosan
+     minden TM-et csökkent. */
+  const exerciseTrained = totalEx > 0;
   return {
-    doneEx,
-    totalEx,
+    doneEx: exerciseTrained ? doneEx : null,
+    totalEx: exerciseTrained ? totalEx : null,
     doneAll,
     totalAll,
     amrapReps,
