@@ -22,8 +22,9 @@
  *     hazudná, hogy elmaradt valami). Mellette a trend (utolsó 2 hét az
  *     előző 2-höz), a bontás (jó nap / szett / RPE) és a tervből indított
  *     edzések aránya.
- *   - ÖSSZPONTSZÁM (rating): a készenlét és a terv-követés átlaga; terv nélkül
- *     maga a készenlét. Ebből jön a kártya szintje (arany/ezüst/bronz).
+ *   - ÖSSZPONTSZÁM (rating): maga a készenlét — a terv-követés és a bontása
+ *     (jó nap / szett / RPE) NEM számít bele. Ebből jön a kártya szintje
+ *     (arany/ezüst/bronz).
  */
 import { dayKey, daysBetween, shiftDayKey, weekdayOf } from './dates.js';
 import { formatDecimal } from './numbers.js';
@@ -43,7 +44,6 @@ const LOW_READINESS = 65; // ez alatt a készenlét már riasztás
 const MISSED_LIMIT = 2; // ennyi kihagyott edzéstől jelzünk a héten
 const STALE_CHECKIN_DAYS = 4; // ennyi napja nincs check-in → jelzés
 const INACTIVE_DAYS = 7; // ennyi napja nem edzett → jelzés
-const TREND_DROP_LIMIT = -25; // ennyi pontos esés két hét alatt → jelzés
 
 /** "ma" / "tegnap" / "N napja" — a jövőbeli dátum is „ma"-ként jelenik meg
     (elgépelt dátumnál ez kevésbé zavaró, mint egy negatív szám). */
@@ -344,27 +344,21 @@ export function planWorkouts({ workouts, today }) {
   return { fromPlan, total: inWindow.length };
 }
 
-/** Az összpontszám: a készenlét és a terv-követés átlaga (terv nélkül maga a
-    készenlét, készenlét nélkül maga a terv-követés). A kártya szintje
+/** Az összpontszám: maga a készenlét (kerekítve). A terv-követés és a bontása
+    (jó nap / szett / RPE) szándékosan NEM számít bele. A kártya szintje
     (arany/ezüst/bronz) ebből jön a felületen.
 
     A készenlét lehet null (a motor nem tud mit mondani: nincs check-in, edzés
     és mérhető táplálkozás). Ez NEM nulla — korábban a Math.round(null) 0-t
     adott, és a kártya „0 pont, bronz" mellé „készenlét 0%" riasztást tett.
-    Ha egyik jel sincs, a pontszám is null. */
-export const athleteRating = (readiness, adherenceValue) => {
-  if (readiness === null || readiness === undefined) {
-    return adherenceValue === null ? null : Math.round(adherenceValue);
-  }
-  return adherenceValue === null
-    ? Math.round(readiness)
-    : Math.round((readiness + adherenceValue) / 2);
-};
+    Ilyenkor a pontszám is null. */
+export const athleteRating = (readiness) =>
+  readiness === null || readiness === undefined ? null : Math.round(readiness);
 
 /**
  * A kártya állapot-sora. Legfeljebb KÉT ok kerül bele, súlyosság szerint:
- * a kihagyott edzés a legbeszédesebb, utána az eső terv-követés, a teljes
- * leállás, a gyenge készenlét, végül a hiányzó check-in. Ha nincs ok, null — ilyenkor a
+ * a kihagyott edzés a legbeszédesebb, utána a teljes leállás, a gyenge
+ * készenlét, végül a hiányzó check-in. A terv-követés szándékosan nem riaszt. Ha nincs ok, null — ilyenkor a
  * felület „minden rendben"-t mutat.
  *
  * A HIÁNYZÓ adat csak akkor riasztás, ha már lett volna ideje meglenni: az
@@ -378,14 +372,9 @@ export function athleteAlert({
   readiness,
   daysSinceCheckin,
   activeDays = 0,
-  adherenceTrend = null,
 }) {
   const reasons = [];
   if (missed >= MISSED_LIMIT) reasons.push(`${missed} kihagyott edzés`);
-  // A lemorzsolódás korai jele: a heti kihagyás még nem, a két hét már látszik
-  if (adherenceTrend !== null && adherenceTrend <= TREND_DROP_LIMIT) {
-    reasons.push(`terv-követés esik (${adherenceTrend})`);
-  }
   if (daysSinceWorkout === null) {
     // Használja az appot (van check-inje), de edzést még egyet sem naplózott
     if (activeDays >= 1) reasons.push('még nincs naplózott edzés');
@@ -546,7 +535,7 @@ export function buildAthleteCard({
     hasAssignedPlan: assignedPlans.length > 0,
     // A terv-követés bontása: { onDay: "9/12", sets: %, rpe: % } vagy null
     adherenceDetail: adherenceBreakdown({ workouts, plans: assignedPlans, today }),
-    rating: athleteRating(readiness, adherenceValue),
+    rating: athleteRating(readiness),
     streak,
     lastWorkout: lastWorkoutDate ? relativeDay(lastWorkoutDate, todayKey) : null,
     // "3/4", terv nélkül "3/–" — a felület egy az egyben kiírja
@@ -560,7 +549,6 @@ export function buildAthleteCard({
       readiness,
       daysSinceCheckin: daysSince(lastCheckin?.date),
       activeDays,
-      adherenceTrend: trend,
     }),
     recent: recentActivity({ workouts, checkins, weightLog, today }),
     /* A szál utolsó üzenete a kártyán idézve. A `mine` a NÉZŐ (az edző)

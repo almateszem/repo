@@ -907,80 +907,205 @@ input.wk-set-rpe:placeholder-shown:not(:focus) {
 }
 
 /* A listából egyszerre csak az 5 legutóbbi edzés látszik, a régebbiekhez
-   görgetni kell. A sor magassága a betűméretből számolódik (nem fix px),
-   így a nagyobb mobil-tipográfiánál is pontosan 5 sor fér ki. */
+   görgetni kell. A sor magassága rögzített (a dátum-csempe adja), így a
+   max-height pontosan 5 sort enged. */
 .wk-history {
-  --wk-history-row: calc(var(--fs-sm) * 1.4 + var(--sp-5) * 2 + 1px);
+  --wk-history-row: 64px;
   margin: var(--sp-7) 0 0;
-  max-height: calc(var(--wk-history-row) * 5);
+  padding: 0;
+  list-style: none;
+  max-height: calc(var(--wk-history-row) * 5 + 2px);
   overflow-y: auto;
   overscroll-behavior: contain; /* a lista végén ne a lap kezdjen görögni */
+  border-top: 1px solid var(--hair-soft);
+  border-bottom: 1px solid var(--hair-soft);
+  scrollbar-width: thin;
+  scrollbar-color: var(--fg-15) transparent;
+}
+
+.wk-history:empty {
+  border: 0;
 }
 
 .wk-history li {
+  position: relative;
   display: flex;
-  justify-content: space-between;
-  gap: var(--sp-4);
+  align-items: center;
+  gap: var(--sp-6);
+  block-size: var(--wk-history-row);
+  padding: 0 var(--sp-3) 0 0;
   font-size: var(--fs-sm);
-  line-height: 1.4; /* a --wk-history-row számítás ezzel a sormagassággal egyezik */
+  line-height: 1.3;
   color: var(--fg-70);
-  padding: var(--sp-5) 0;
   flex-shrink: 0; /* görgethető listában a sorok nem lapulhatnak össze */
+  transition: background var(--t-fast);
+  animation: note-in 0.25s ease backwards;
+  animation-delay: calc(var(--i, 0) * 30ms);
 }
 
 .wk-history li + li {
   border-top: 1px solid var(--hair-soft);
 }
 
+/* Bal oldali akcentus-csík: hoverre / fókuszra jelenik meg */
+.wk-history li::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: var(--c-accent);
+  transform: scaleY(0);
+  transition: transform var(--t-fast);
+}
+
+.wk-history li:hover,
+.wk-history li:focus-within {
+  background: var(--surface-hover);
+}
+
+.wk-history li:hover::before,
+.wk-history li:focus-within::before {
+  transform: scaleY(1);
+}
+
+/* Dátum-csempe: nagy nap, alatta a hónap */
 .wk-history-date {
-  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+  inline-size: 52px;
+  block-size: calc(var(--wk-history-row) - var(--sp-5) * 2);
+  border-right: 1px solid var(--hair-soft);
 }
 
-.wk-history-rpe {
-  color: var(--text-muted);
-  flex-shrink: 0;
+.wk-history-day {
+  font-size: var(--fs-3xl);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
 }
 
-/* A sor műveletei (javítás, törlés). A detail-mező viszi a maradék helyet,
-   így a gombok akkor is a jobb szélen maradnak, ha rövid az edzésnév. */
-.wk-history-detail {
+.wk-history-month {
+  margin-top: 3px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  color: var(--c-accent);
+}
+
+/* Név + haladássáv. A main viszi a maradék helyet, így a gombok akkor is a
+   jobb szélen maradnak, ha rövid az edzésnév. */
+.wk-history-main {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.wk-history-detail {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: var(--fs-base);
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.wk-history-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+}
+
+.wk-history-bar {
+  position: relative;
+  flex: 1;
+  max-inline-size: 140px;
+  block-size: 3px;
+  background: var(--fg-10);
+  overflow: hidden;
+}
+
+.wk-history-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  inline-size: var(--wk-history-pct, 0%);
+  background: var(--c-accent);
+}
+
+.wk-history li.is-complete .wk-history-fill {
+  background: var(--c-ok);
+}
+
+.wk-history-rpe {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-2xs);
+  letter-spacing: var(--ls-label-tight);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .wk-history-actions {
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
+  gap: var(--sp-1);
   flex-shrink: 0;
+  transition: opacity var(--t-fast);
 }
 
 .wk-history-btn {
   padding: 0 var(--sp-3);
-  height: 26px;
-  border: none;
+  height: 28px;
+  border: 1px solid transparent;
   background: none;
   color: var(--text-muted);
+  font-family: var(--font-mono);
   font-size: var(--fs-2xs);
+  font-weight: 700;
+  letter-spacing: var(--ls-label-tight);
+  text-transform: uppercase;
   line-height: 1;
   cursor: pointer;
   transition:
     color var(--t-fast),
+    border-color var(--t-fast),
     background var(--t-fast);
 }
 
 .wk-history-btn:hover {
   color: var(--text-primary);
-  background: var(--surface-hover);
+  border-color: var(--hair);
 }
 
 .wk-history-remove {
-  width: 26px;
+  width: 28px;
   padding: 0;
+}
+
+.wk-history-remove:hover {
+  color: var(--c-alert);
+  border-color: var(--c-alert-line);
+  background: var(--c-alert-dim);
+}
+
+/* Egérrel a műveletek csak a sor fölött jelennek meg — a lista így nyugodt;
+   érintőképernyőn (nincs hover) és billentyűzetes fókusznál mindig látszanak. */
+@media (hover: hover) and (pointer: fine) {
+  .wk-history-actions {
+    opacity: 0;
+  }
+
+  .wk-history li:hover .wk-history-actions,
+  .wk-history li:focus-within .wk-history-actions {
+    opacity: 1;
+  }
 }
 
 /* Visszanyitott edzés sávja. Ugyanaz a hangsúly, mint az autosave-jelzésé:

@@ -1659,7 +1659,7 @@
                     </span>
                     <div class="co-modal-titles">
                       <strong class="co-client-tier" data-client-tier></strong>
-                      <span class="co-modal-tier">Pont = a készenlét és a terv-követés átlaga</span>
+                      <span class="co-modal-tier">Pont = a készenlét</span>
                     </div>
                   </div>
                   <dl class="co-modal-stats" data-client-stats></dl>
@@ -1669,7 +1669,7 @@
                 <section class="co-aside-block co-client-privacy">
                   <p class="ds-eyebrow co-block-head" data-privacy-title>Mit lát rólad az edződ?</p>
                   <ul class="co-client-privacy-list">
-                    <li>Edzéseid összegzése: sorozat, heti állás, terv-követés, új PR-ok</li>
+                    <li>Edzéseid összegzése: sorozat, heti állás, új PR-ok</li>
                     <li>Készenléted a check-inekből és a testsúlyodból</li>
                     <li>
                       A táplálkozási célod, és hogy megetted-e az étkezéseit (a napi összesítőd a
@@ -1709,8 +1709,8 @@
                 </div>
 
                 <div class="co-tbl-head" aria-hidden="true" data-athlete-head>
-                  <span>Sportoló</span><span>Készenlét</span><span>Edzői terv-követés</span
-                  ><span>Sorozat</span><span>Utolsó edzés</span><span>Pont</span><span></span>
+                  <span>Sportoló</span><span>Készenlét</span><span>Sorozat</span
+                  ><span>Utolsó edzés</span><span>Pont</span><span></span>
                 </div>
                 <div class="co-rows" data-list="athletes"></div>
                 <!-- Szűrés/keresés után üres lista (a szöveget a JS adja) -->
@@ -1720,8 +1720,7 @@
                   Még nincs sportolód. Hívj meg valakit a felhasználónevével.
                 </p>
                 <p class="co-legend" data-athlete-legend>
-                  Pont = a készenlét és a terv-követés átlaga · Arany ≥ 85 · Ezüst ≥ 70 · alatta
-                  Bronz
+                  Pont = a készenlét · Arany ≥ 85 · Ezüst ≥ 70 · alatta Bronz
                 </p>
               </section>
 
@@ -3622,9 +3621,21 @@
        edzés lezárása utáni beszúrás — így nem csúszhatnak szét. -->
     <template id="tpl-history-entry">
       <li class="wk-history-item">
-        <span class="wk-history-date"></span>
-        <span class="wk-history-detail"></span>
-        <span class="wk-history-rpe"></span>
+        <!-- Dátum-csempe: nagy nap, alatta a hónap rövidítve. A teljes dátum a
+           title-ben és a gombok aria-label-jében is ott van. -->
+        <span class="wk-history-date">
+          <span class="wk-history-day"></span>
+          <span class="wk-history-month"></span>
+        </span>
+        <span class="wk-history-main">
+          <span class="wk-history-detail"></span>
+          <span class="wk-history-meta">
+            <span class="wk-history-bar" aria-hidden="true"
+              ><span class="wk-history-fill"></span
+            ></span>
+            <span class="wk-history-rpe"></span>
+          </span>
+        </span>
         <span class="wk-history-actions">
           <button class="wk-history-btn tap-target" type="button" data-action="reopen-workout">
             Javítás

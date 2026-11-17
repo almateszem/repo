@@ -6,7 +6,7 @@ import { formatNumber } from '../shared/format.js';
 import { shared } from '../shared/page-hooks.js';
 import { prefs } from '../shared/prefs.js';
 import { showToast } from '../shared/toast.js';
-import { animateCoachRatings, refreshNavRing } from '../app/router.js';
+import { animateCoachRatings, navigate, refreshNavRing } from '../app/router.js';
 import { renderAthleteList, renderCoachPanel } from './coach-view.js';
 import { athleteTier, renderStatList } from './coach-shared.js';
 import { renderPlans } from '../plans/plans.js';
@@ -368,7 +368,9 @@ function setupAthleteDetail({ confirmAction, onUnlink, onRead, onAssign } = {}) 
   }
 
   return {
-    open(athlete, { trigger = null } = {}) {
+    /** A `tab` kényszeríti a fület (az értesítés-panelről érkezve); nélküle
+        az olvasatlan üzenet a szálat, a sportoló-váltás az Áttekintést nyitja. */
+    open(athlete, { trigger = null, tab = null } = {}) {
       const switching = current?.linkId !== athlete.linkId;
       current = athlete;
       if (trigger) returnFocus = trigger;
@@ -381,7 +383,8 @@ function setupAthleteDetail({ confirmAction, onUnlink, onRead, onAssign } = {}) 
       listEl.hidden = true;
       root.hidden = false;
       // Olvasatlan üzenettel a szál nyílik: azért kattintott, mert a jelvény hívta
-      if (switching || athlete.unread > 0) {
+      if (tab && DETAIL_TABS.includes(tab)) setTab(tab);
+      else if (switching || athlete.unread > 0) {
         setTab(athlete.unread > 0 ? 'messages' : 'overview');
       }
       root.focus({ preventScroll: true });
@@ -434,6 +437,9 @@ async function setupCoachPage(athleteDetail, confirmAction) {
   const searchInput = $('[data-athlete-search]', page);
   const headingEl = $('[data-coach-heading]', page);
   const eyebrowEl = $('[data-coach-eyebrow]', page);
+  /* Az értesítés-panelről kért cél (reveal). A következő refresh végén
+     fogyasztjuk el, amikor a friss adat — pl. a sportoló sora — már megvan. */
+  let pendingTarget = null;
 
   /* A sportolói nézet (az edzői panel tükörképe). Olvasás-nyugtázás vagy
      étkezés-naplózás után a jelvények és a számok elavultak — újratöltünk. */
@@ -519,9 +525,36 @@ async function setupCoachPage(athleteDetail, confirmAction) {
     sentLead.hidden = panel.invites.length === 0;
     apply({ animate });
     renderToggleBadges(); // az apply UTÁN: a nézetváltó ekkor áll a helyére
+
+    const target = pendingTarget;
+    pendingTarget = null;
+    if (target?.view === 'client') {
+      /* A fülváltás maga tölti (és nyugtázza) a szálat, ha az Üzenetek fül
+         nyílik — ezért itt a shown() helyett áll, különben kétszer kérne. */
+      client.showTab(target.tab ?? 'overview');
+      views.client.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      return;
+    }
     /* A szálat csak akkor töltjük, ha látszik is (sportolói nézet, Üzenetek
        fül) — a nem látott üzenetet nem nyugtázhatjuk olvasottként. */
     client.shown();
+    if (target?.view === 'manager' && target.linkId !== undefined) {
+      const athlete = panel.athletes.find((item) => item.linkId === target.linkId);
+      // Ha közben levált, az edzői lista marad — ott látszik, hogy már nincs
+      if (athlete) athleteDetail?.open(athlete, { tab: target.tab });
+    }
+  }
+
+  /** Ugrás egy értesítés forrásához: a megfelelő nézet, sportoló és fül. Az
+      oldalra lépés (navigate → onPageShow) futtatja a refresh-t, és annak a
+      végén nyílik meg a cél — azonos oldalon állva is, mert a navigate ilyenkor
+      is lefuttatja az oldal-megnyitás feladatait. */
+  function reveal(target) {
+    if (target.view !== 'client' && target.view !== 'manager') return;
+    pendingTarget = target;
+    prefs.set('coachView', target.view);
+    athleteDetail?.close({ restoreFocus: false });
+    navigate('coach');
   }
 
   toggle.addEventListener('click', (event) => {
@@ -659,7 +692,7 @@ async function setupCoachPage(athleteDetail, confirmAction) {
   });
 
   await refresh();
-  return { refresh };
+  return { refresh, reveal };
 }
 
 export { setupAthleteDetail, setupCoachPage };

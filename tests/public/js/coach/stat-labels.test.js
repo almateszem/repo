@@ -4,7 +4,7 @@
  * A sportolói panelen „Aktív terv —" és „Terv-követés —" állt, miközben a
  * sportolónak aktív saját blokkos programja volt, és ugyanott „Terv szerinti
  * edzés 13/13" látszott. A három érték valójában:
- *   · terv-követés — csak az EDZŐ kiosztott tervéhez mér;
+ *   · terv-követés — azóta szándékosan nem jelenik meg a felületen;
  *   · aktív terv — csak HETI terv (a blokkos programnak nincs heti ütemezése);
  *   · terv szerinti edzés — bármely tervből vagy programból indult edzés.
  * A címkék most ezt mondják ki, és a sáv-statok kulcsa is egyezik velük.
@@ -20,7 +20,7 @@ const { ATHLETE_CARD_STATS, ATHLETE_DETAIL_STATS } =
 const labels = ATHLETE_DETAIL_STATS.map(([label]) => label);
 
 test('a címkék a mért tartalmat nevezik meg', () => {
-  assert.ok(labels.includes('Edzői terv-követés'));
+  assert.ok(!labels.some((l) => /terv-követés/i.test(l)), 'a terv-követés nem jelenik meg');
   assert.ok(labels.includes('Aktív heti terv'));
   assert.ok(labels.includes('Tervből indult edzés'));
   for (const old of ['Terv-követés', 'Aktív terv', 'Terv szerinti edzés']) {

@@ -269,26 +269,26 @@ test('a trend az utolsó két hetet az előző kettőhöz méri', () => {
   for (let back = 15; back <= 28; back += 1) early.push(fromPlan(daysAgo(back)));
   assert.equal(adherenceTrend({ workouts: early, plans, today: TODAY }), -100);
   assert.equal(adherenceTrend({ workouts: early, plans: [], today: TODAY }), null);
+});
 
-  const alert = athleteAlert({
-    missed: 0,
-    daysSinceWorkout: 1,
-    readiness: null,
-    daysSinceCheckin: 0,
-    adherenceTrend: -30,
+test('az eső terv-követés nem riasztás', () => {
+  const plans = [assigned(EVERY_DAY)];
+  const early = [];
+  for (let back = 15; back <= 28; back += 1) early.push(fromPlan(daysAgo(back)));
+  const card = buildAthleteCard({
+    athlete: { linkId: 1, username: 'a', name: 'A' },
+    workouts: early,
+    plans: [],
+    assignedPlans: plans,
+    checkins: [{ date: TODAY }],
+    weightLog: [],
+    readiness: 80,
+    streak: 0,
+    lastMessage: null,
+    today: TODAY,
   });
-  assert.equal(alert, 'terv-követés esik (-30)');
-  assert.equal(
-    athleteAlert({
-      missed: 0,
-      daysSinceWorkout: 1,
-      readiness: null,
-      daysSinceCheckin: 0,
-      adherenceTrend: -10,
-    }),
-    null,
-    'kis ingadozás nem riasztás',
-  );
+  assert.equal(card.adherenceTrend, -100);
+  assert.doesNotMatch(card.alert ?? '', /terv-követés/);
 });
 
 test('a terv szerinti edzések aránya a tervből indultakat számolja', () => {
@@ -344,15 +344,14 @@ test('a ma elfogadott terv: még nincs követés, de VAN edzői terv', () => {
   assert.equal(card.hasAssignedPlan, true, 'a felület ebből tudja: nem „nincs kiosztott terv"');
 });
 
-test('az összpontszám terv nélkül maga a készenlét', () => {
-  assert.equal(athleteRating(80, null), 80);
-  assert.equal(athleteRating(80, 90), 85);
-  assert.equal(athleteRating(81, 90), 86, 'kerekít');
+test('az összpontszám maga a készenlét, a terv-követés nem számít bele', () => {
+  assert.equal(athleteRating(80), 80);
+  assert.equal(athleteRating(80.6), 81, 'kerekít');
 });
 
-test('hiányzó készenlét: nem nulla, nem riaszt, a pontszám a terv-követésből jön', () => {
-  assert.equal(athleteRating(null, null), null, 'se készenlét, se terv: nincs pontszám');
-  assert.equal(athleteRating(null, 75), 75, 'csak terv-követés');
+test('hiányzó készenlét: nem nulla, nem riaszt, nincs pontszám', () => {
+  assert.equal(athleteRating(null), null, 'készenlét nélkül nincs pontszám');
+  assert.equal(athleteRating(undefined), null);
   assert.equal(
     athleteAlert({ missed: 0, daysSinceWorkout: 1, readiness: null, daysSinceCheckin: 0 }),
     null,

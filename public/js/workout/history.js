@@ -103,15 +103,49 @@ function bindHistoryActions({
 
 /** A mentett edzések listája (előzmények). */
 
-/** Egy „Korábbi edzések" sor ({ id, date, detail, rpe }) <li>-vé építve.
-    Az id a sor gombjaira is rákerül: a javítás és a törlés ebből tudja,
-    melyik mentett edzésről van szó. */
+/** A dátum-csempe hónap-rövidítései (a „2026.11.17" alak középső tagjához). */
+const MONTHS = [
+  'JAN',
+  'FEB',
+  'MÁR',
+  'ÁPR',
+  'MÁJ',
+  'JÚN',
+  'JÚL',
+  'AUG',
+  'SZEP',
+  'OKT',
+  'NOV',
+  'DEC',
+];
+
+/** „2026.11.17" → { day: '17', month: 'NOV' }. Ismeretlen alaknál a csempe
+    a teljes szöveget mutatja, hónap nélkül — inkább csúnya, mint üres. */
+function dateParts(date) {
+  const [, month, day] = String(date ?? '').match(/^\d{4}\.(\d{1,2})\.(\d{1,2})/) ?? [];
+  if (!month) return { day: String(date ?? ''), month: '' };
+  return { day: String(Number(day)), month: MONTHS[Number(month) - 1] ?? '' };
+}
+
+/** Egy „Korábbi edzések" sor ({ id, date, detail, rpe, done, total }) <li>-vé
+    építve. Az id a sor gombjaira is rákerül: a javítás és a törlés ebből
+    tudja, melyik mentett edzésről van szó. */
 function historyEntryEl(entry) {
   const li = cloneTemplate('tpl-history-entry');
   li.dataset.workoutId = entry.id;
-  $('.wk-history-date', li).textContent = entry.date;
+  const { day, month } = dateParts(entry.date);
+  $('.wk-history-date', li).title = entry.date;
+  $('.wk-history-day', li).textContent = day;
+  $('.wk-history-month', li).textContent = month;
   $('.wk-history-detail', li).textContent = entry.detail;
   $('.wk-history-rpe', li).textContent = entry.rpe;
+
+  // Haladássáv: a teljesített szettek aránya; a teljes edzés más színt kap
+  const total = entry.total ?? 0;
+  const done = entry.done ?? 0;
+  const ratio = total > 0 ? Math.min(done / total, 1) : 0;
+  li.style.setProperty('--wk-history-pct', `${Math.round(ratio * 100)}%`);
+  li.classList.toggle('is-complete', total > 0 && done >= total);
 
   // A gombok felirata („Javítás", „✕") önmagában nem mondja meg, MELYIK
   // edzésről van szó — képernyőolvasóval a lista csupa azonos gomb lenne.
@@ -131,6 +165,8 @@ function workoutHistoryEntry(workout) {
     date: workout.date,
     detail: workout.name,
     rpe: `${done}/${sets.length} szett`,
+    done,
+    total: sets.length,
   };
 }
 
@@ -146,9 +182,12 @@ const syncHistoryEmpty = () => {
 function paintHistory(savedWorkouts) {
   const history = $('[data-list="history"]');
   history.replaceChildren();
-  savedWorkouts.forEach((workout) =>
-    history.appendChild(historyEntryEl(workoutHistoryEntry(workout))),
-  );
+  savedWorkouts.forEach((workout, index) => {
+    const row = historyEntryEl(workoutHistoryEntry(workout));
+    // Lépcsőzetes beúszás, mint a rekordlistán — csak az első pár sorra
+    row.style.setProperty('--i', Math.min(index, 6));
+    history.appendChild(row);
+  });
   syncHistoryEmpty();
 }
 

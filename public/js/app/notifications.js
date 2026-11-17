@@ -11,13 +11,17 @@ import { relativeTime } from '../shared/format.js';
  * (GET /api/notifications), tehát magától is változik — a panel minden
  * megnyitásakor frisset kérünk.
  *
- * Az „olvasott" állapot egy LÁTOTT-IDŐPONT (prefs → notifSeenAt), nem egy
- * mindent elrejtő kapcsoló. Korábban a „mind olvasott" kiürítette a panelt,
- * és onnantól a valódi tartalom sem látszott volna benne. Most a sorok
- * maradnak, csak az újdonságot jelző pötty tűnik el róluk, és a jelvény
- * ennél frissebb eseményeket számol.
+ * Az „olvasott" állapot IDŐPONT-alapú, nem egy mindent elrejtő kapcsoló:
+ *   · „Összes olvasott" → a látott-időpont (prefs → notifSeenAt) a
+ *     legfrissebb sorra áll, és ami nem frissebb nála, az lekerül a panelről;
+ *   · egy sorra kattintva csak az az egy (prefs → notifSeenIds: id → at).
+ * Mindkettő az esemény IDŐPONTJÁT jegyzi, nem a sort: ha ugyanabban a
+ * szálban új üzenet jön (frissebb `at`), a sor újra megjelenik.
+ *
+ * A sorra kattintás a forráshoz visz (a szerver adja a `target`-et, az
+ * `onOpen` hajtja végre — app/init.js).
  */
-async function setupNotifications() {
+async function setupNotifications({ onOpen } = {}) {
   const button = $('[data-action="notifications"]');
   const panel = $('[data-notif-panel]');
   const badge = $('[data-notif-badge]');
@@ -27,9 +31,22 @@ async function setupNotifications() {
   /* A legutóbbi „mind olvasott" időpontja ISO-8601-ben. Üresen minden
      értesítés újnak számít — ez az első indulás helyes viselkedése. */
   let seenAt = prefs.get('notifSeenAt', '');
+  // Egyenként (kattintással) olvasottnak jelölt sorok: id → az esemény ideje
+  let seenIds = prefs.get('notifSeenIds', {});
   let notifications = [];
 
-  const isNew = (notif) => !seenAt || notif.at > seenAt;
+  const isNew = (notif) =>
+    (!seenAt || notif.at > seenAt) && !(seenIds[notif.id] && seenIds[notif.id] >= notif.at);
+
+  /** A már nem létező sorok kiesnek a mapből, hogy ne nőjön a végtelenségig. */
+  const pruneSeenIds = () => {
+    const live = new Set(notifications.map((notif) => notif.id));
+    const kept = Object.fromEntries(Object.entries(seenIds).filter(([id]) => live.has(id)));
+    if (Object.keys(kept).length !== Object.keys(seenIds).length) {
+      seenIds = kept;
+      prefs.set('notifSeenIds', seenIds);
+    }
+  };
   const visible = () => {
     const mutedCats = prefs.get('notifCats', {}); // a beállítások modal kapcsolói
     return notifications.filter((notif) => !mutedCats[notif.cat]);
@@ -41,6 +58,7 @@ async function setupNotifications() {
   async function load() {
     try {
       notifications = await api.getNotifications();
+      pruneSeenIds();
     } catch (err) {
       console.error('Értesítések betöltési hiba:', err);
     }
@@ -60,24 +78,32 @@ async function setupNotifications() {
   };
 
   /* A némított kategória sorai bent maradnak, csak halványan: a kapcsoló azt
-     mondja ki, hogy „ne szóljon", nem azt, hogy „ne is lássam". A pötty
-     viszont csak a látott-időpontnál frissebb sorokon marad. */
+     mondja ki, hogy „ne szóljon", nem azt, hogy „ne is lássam". Az olvasott
+     sor viszont lekerül. */
   const renderList = () => {
     list.replaceChildren();
     const mutedCats = prefs.get('notifCats', {});
-    emptyState.hidden = notifications.length > 0;
+    const unseen = notifications.filter(isNew);
+    emptyState.hidden = unseen.length > 0;
 
-    notifications.forEach((notif, index) => {
+    unseen.forEach((notif, index) => {
       const li = document.createElement('li');
       li.className = 'notif-item';
       if (mutedCats[notif.cat]) li.classList.add('notif-item--muted');
-      if (!isNew(notif)) li.classList.add('notif-item--seen');
       li.style.setProperty('--i', index);
+
+      /* Az egész sor egy gomb: billentyűzettel is elérhető, és a kattintás a
+         forráshoz visz. Cél nélküli sornál (régi szerver) is olvasottá tesz. */
+      const link = document.createElement('button');
+      link.type = 'button';
+      link.className = 'notif-link';
+      link.addEventListener('click', () => openNotification(notif));
 
       const dot = document.createElement('span');
       dot.className = 'notif-dot';
 
-      const body = document.createElement('div');
+      // span, nem div: gombban csak „phrasing" tartalom állhat (flex-elemként blokk lesz)
+      const body = document.createElement('span');
       const text = document.createElement('span');
       text.textContent = notif.text;
       const time = document.createElement('span');
@@ -86,10 +112,22 @@ async function setupNotifications() {
       time.textContent = relativeTime(notif.at);
       body.append(text, time);
 
-      li.append(dot, body);
+      link.append(dot, body);
+      li.append(link);
       list.appendChild(li);
     });
   };
+
+  /** Egy sor megnyitása: olvasottnak jelöljük, a panel bezárul, és a cél
+      oldal nyílik. A zárás előbb jön, hogy a fókusz ne egy eltűnő sorban
+      ragadjon. */
+  function openNotification(notif) {
+    seenIds = { ...seenIds, [notif.id]: notif.at };
+    prefs.set('notifSeenIds', seenIds);
+    updateBadge();
+    setOpen(false);
+    if (notif.target) onOpen?.(notif.target);
+  }
 
   const setOpen = async (open) => {
     panel.hidden = !open;

@@ -506,7 +506,7 @@ export function getAthleteFeedbackSince(coachId, sinceDate) {
     .prepare(
       `
     SELECT w.id, w.name, w.feedback_difficulty, w.feedback_at,
-           u.display_name AS athlete_name
+           cl.id AS link_id, u.display_name AS athlete_name
     FROM workouts w
     JOIN coach_links cl ON cl.athlete_id = w.user_id AND cl.status = 'active'
     JOIN users u ON u.id = w.user_id
@@ -517,6 +517,7 @@ export function getAthleteFeedbackSince(coachId, sinceDate) {
     .all(coachId, sinceDate)
     .map((row) => ({
       id: row.id,
+      linkId: row.link_id,
       workout: row.name,
       athlete: row.athlete_name,
       difficulty: row.feedback_difficulty,

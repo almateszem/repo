@@ -119,6 +119,52 @@ test('időbélyeg nélküli esemény NEM kerül a listába', () => {
   );
 });
 
+test('minden sor megmondja, hová visz a kattintás', () => {
+  const items = buildNotifications({
+    unreadThreads: [
+      { linkId: 1, role: 'athlete', partner: 'Edző', unread: 1, lastText: 'x', at: iso(1) },
+      { linkId: 2, role: 'coach', partner: 'Sportoló', unread: 1, lastText: 'y', at: iso(2) },
+    ],
+    incomingInvites: [{ linkId: 3, coach: 'C', at: iso(3) }],
+    acceptedLinks: [{ linkId: 4, athlete: 'D', at: iso(4) }],
+    planOffers: [{ id: 10, plan: 'P', coach: 'C', at: iso(5) }],
+    answeredPlans: [{ id: 11, linkId: 5, plan: 'P', athlete: 'D', accepted: true, at: iso(6) }],
+    recentPrs: [{ exercise: 'Guggolás', max1rm: 100, at: iso(7) }],
+    athleteFeedback: [{ id: 12, linkId: 6, workout: 'W', athlete: 'D', difficulty: 3, at: iso(8) }],
+  });
+  const byId = Object.fromEntries(items.map((i) => [i.id, i.target]));
+
+  // Az üzenetnél a NÉZŐ szerepe dönt: sportolóként az „Edződ" nézet nyílik
+  assert.deepEqual(byId['message:1'], { page: 'coach', view: 'client', tab: 'messages' });
+  assert.deepEqual(byId['message:2'], {
+    page: 'coach',
+    view: 'manager',
+    tab: 'messages',
+    linkId: 2,
+  });
+  assert.deepEqual(byId['invite:3'], { page: 'coach', view: 'client' });
+  assert.deepEqual(byId['accepted:4'], {
+    page: 'coach',
+    view: 'manager',
+    tab: 'overview',
+    linkId: 4,
+  });
+  assert.deepEqual(byId['plan-offer:10'], { page: 'coach', view: 'client', tab: 'plan' });
+  assert.deepEqual(byId['plan-answer:11'], {
+    page: 'coach',
+    view: 'manager',
+    tab: 'plan',
+    linkId: 5,
+  });
+  assert.deepEqual(byId['pr:Guggolás'], { page: 'workout', anchor: 'title-prs' });
+  assert.deepEqual(byId['feedback:12'], {
+    page: 'coach',
+    view: 'manager',
+    tab: 'overview',
+    linkId: 6,
+  });
+});
+
 test('a panel nem nő korlátlanul', () => {
   const items = buildNotifications({
     unreadThreads: Array.from({ length: 30 }, (_, i) => ({

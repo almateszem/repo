@@ -48,21 +48,33 @@ function preview(text) {
   return flat.length > PREVIEW_MAX ? `${flat.slice(0, PREVIEW_MAX - 1)}…` : flat;
 }
 
+/** A kattintás célja az Edző oldalon. A `view` a néző szerepe az adott
+    kapcsolatban (client = ő a sportoló, manager = ő az edző), a `tab` a
+    megnyitandó fül, a `linkId` az edzői nézetben a sportoló részletnézete. */
+const coachTarget = (view, tab, linkId) => ({
+  page: 'coach',
+  view,
+  ...(tab ? { tab } : {}),
+  ...(view === 'manager' && linkId !== undefined ? { linkId } : {}),
+});
+
 /**
- * A panel sorai, legfrissebb elöl.
+ * A panel sorai, legfrissebb elöl. Minden sor `target`-et is kap: hová
+ * vigyen a kattintás (a frontend nem találgatja ki az id-ből).
  *
  * A rendezés az `at` időbélyegre megy, ami minden forrásnál valódi UTC
  * időpont. Az azonos időbélyeg (pl. két meghívó egyszerre) stabilan marad: a
  * sort() az egyenlő elemek sorrendjét megtartja, és a forrásokat itt fixen
  * sorra vesszük.
  *
- * @param {object[]} input.unreadThreads  { linkId, partner, unread, lastText, at }
+ * @param {object[]} input.unreadThreads  { linkId, role, partner, unread, lastText, at }
+ *        — a `role` a NÉZŐ szerepe a szálban ('coach' | 'athlete')
  * @param {object[]} input.incomingInvites { linkId, coach, at } — hozzám jött meghívó
  * @param {object[]} input.acceptedLinks  { linkId, athlete, at } — az én meghívóm, elfogadva
  * @param {object[]} input.planOffers     { id, plan, coach, at } — nekem felajánlott terv
- * @param {object[]} input.answeredPlans  { id, plan, athlete, accepted, at } — az én tervem, megválaszolva
+ * @param {object[]} input.answeredPlans  { id, linkId, plan, athlete, accepted, at } — az én tervem, megválaszolva
  * @param {object[]} input.recentPrs      { exercise, max1rm, at }
- * @param {object[]} input.athleteFeedback { id, workout, athlete, difficulty, at }
+ * @param {object[]} input.athleteFeedback { id, linkId, workout, athlete, difficulty, at }
  */
 export function buildNotifications({
   unreadThreads = [],
@@ -86,6 +98,11 @@ export function buildNotifications({
           ? `Új üzenet — ${thread.partner}: „${preview(thread.lastText)}”`
           : `${thread.unread} új üzenet — ${thread.partner}`,
       at: thread.at,
+      target: coachTarget(
+        thread.role === 'coach' ? 'manager' : 'client',
+        'messages',
+        thread.linkId,
+      ),
     });
   }
 
@@ -95,6 +112,8 @@ export function buildNotifications({
       cat: NOTIF_CATEGORY.coach,
       text: `${invite.coach} edzőnek hívott meg`,
       at: invite.at,
+      // A meghívó-lista a sportolói nézet tetején áll, nem fülön
+      target: coachTarget('client'),
     });
   }
 
@@ -104,6 +123,7 @@ export function buildNotifications({
       cat: NOTIF_CATEGORY.coach,
       text: `${link.athlete} elfogadta a meghívódat`,
       at: link.at,
+      target: coachTarget('manager', 'overview', link.linkId),
     });
   }
 
@@ -113,6 +133,7 @@ export function buildNotifications({
       cat: NOTIF_CATEGORY.plan,
       text: `${offer.coach} kiosztotta a „${offer.plan}” tervet`,
       at: offer.at,
+      target: coachTarget('client', 'plan'),
     });
   }
 
@@ -124,6 +145,7 @@ export function buildNotifications({
       cat: NOTIF_CATEGORY.plan,
       text: `${answer.athlete} ${answer.accepted ? 'elfogadta' : 'elutasította'} a „${answer.plan}” tervet`,
       at: answer.at,
+      target: coachTarget('manager', 'plan', answer.linkId),
     });
   }
 
@@ -135,6 +157,8 @@ export function buildNotifications({
       // amit ténylegesen megemelt, és ezt nem mossuk el.
       text: `Új egyéni csúcs: ${pr.exercise} — ${Math.round(pr.max1rm)} kg (becsült 1RM)`,
       at: pr.at,
+      // Az Edzés oldal „Rekordok" szekciója (index.html → #title-prs)
+      target: { page: 'workout', anchor: 'title-prs' },
     });
   }
 
@@ -150,6 +174,8 @@ export function buildNotifications({
       cat: NOTIF_CATEGORY.feedback,
       text: `${feedback.athlete} visszajelzést küldött: „${feedback.workout}"${nehezseg}`,
       at: feedback.at,
+      // A visszajelzés-blokk a részletnézet Áttekintés fülén áll
+      target: coachTarget('manager', 'overview', feedback.linkId),
     });
   }
 

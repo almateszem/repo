@@ -615,6 +615,8 @@ export function register(app) {
       const partner = getUser(link.coachId === userId ? link.athleteId : link.coachId);
       unreadThreads.push({
         linkId,
+        // A néző szerepe a szálban — ebből dől el, melyik nézet nyíljon
+        role: link.coachId === userId ? 'coach' : 'athlete',
         partner: partner?.displayName ?? 'Ismeretlen',
         unread,
         lastText: last.text,
@@ -652,6 +654,7 @@ export function register(app) {
         // Az edző oldala: az általam kiosztott tervekre érkezett válaszok
         answeredPlans: getAnsweredPlanOffers(userId).map((offer) => ({
           id: offer.id,
+          linkId: offer.linkId,
           plan: offer.name,
           athlete: offer.athlete.name,
           accepted: offer.status === 'accepted',

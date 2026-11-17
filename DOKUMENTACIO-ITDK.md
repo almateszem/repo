@@ -469,9 +469,9 @@ Egyféle fiók van, a szerep a kapcsolatból jön (shared/page-hooks.js). Az Edz
 
 * „Edződ" (sportolói): meghívók és felajánlott tervek elfogadása/elutasítása; fülek: Áttekintés, Étrend, Terv, Üzenetek; leválás. Az edzői célt nem módosíthatja.
 
-* „Edzetteim" (edzői): meghívó űrlap, KPI-sor, sportoló-táblázat (készenlét, terv-követés, sorozat, utolsó edzés, pont; szűrő), részlet fülekkel. Itt állítható a kalória/fehérje- és vízcél, kezelhetők az étkezések, kioszthatók tervek, írhatók megjegyzések, megszüntethető a kapcsolat (index.html).
+* „Edzetteim" (edzői): meghívó űrlap, KPI-sor, sportoló-táblázat (készenlét, sorozat, utolsó edzés, pont; szűrő), részlet fülekkel. Itt állítható a kalória/fehérje- és vízcél, kezelhetők az étkezések, kioszthatók tervek, írhatók megjegyzések, megszüntethető a kapcsolat (index.html).
 
-* A sportolói kártya pontszáma a készenlét és a terv-követés átlaga; Arany ≥ 85, Ezüst ≥ 70, alatta Bronz (index.html).
+* A sportolói kártya pontszáma maga a készenlét (a terv-követés nem számít bele); Arany ≥ 85, Ezüst ≥ 70, alatta Bronz (index.html).
 
 * Az edző a meghívás elfogadásáig semmit nem lát (index.html kommentje).
 
@@ -714,7 +714,7 @@ Vanília JavaScript, build-lépés nélkül. Az index.html a public/css/ 13 stí
 
 Egy funkció-mappában az x.js a vezérlő (a setupX() függvény köt), az x-view.js a kirajzolás, ha külön fájlt ér meg; az init() hívja a vezérlőket, a független renderelők Promise.all-lal futnak (app/init.js).
 
-Globális store nincs: a szerver az igazságforrás. A shared/page-hooks.js objektumai (hooks, shared: onboardingLock, hasCoachLink, coachActive) miatt az app/ nem függ a funkció-mappáktól. Beállítások: shared/prefs.js (localStorage podium:prefs:\<felhasználónév\>, fiókonként külön: lastPage, coachView, displayName, notifSeenAt, notifCats). Napváltás-figyelés: shared/day.js.
+Globális store nincs: a szerver az igazságforrás. A shared/page-hooks.js objektumai (hooks, shared: onboardingLock, hasCoachLink, coachActive) miatt az app/ nem függ a funkció-mappáktól. Beállítások: shared/prefs.js (localStorage podium:prefs:\<felhasználónév\>, fiókonként külön: lastPage, coachView, displayName, notifSeenAt, notifSeenIds, notifCats). Napváltás-figyelés: shared/day.js.
 
 ### **4.6.2 Fontosabb funkciók**
 
