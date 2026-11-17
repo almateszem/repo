@@ -4,7 +4,7 @@
 
 Ugyanez a szöveg a diák előadói jegyzeteiben is benne van (PowerPointban: Diavetítés → Előadói nézet).
 
-> **Előadás előtt:** a diák most 15 másodpercenként maguktól lapoznak. Élő előadáshoz ezt ki kell kapcsolni (PowerPoint: Diavetítés → Diavetítés beállítása → Továbblépés: Kézzel), különben a vetítés elszalad a beszéd elől.
+> **Lapozás:** a diák kézzel lapoznak (kattintás, nyíl vagy szóköz), automatikus továbblépés nincs beállítva.
 
 | Dia | Cím | Idő | Eddig |
 |---|---|---|---|
