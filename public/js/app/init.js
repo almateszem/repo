@@ -46,6 +46,7 @@ import { setupSummary, setupWeeklyCompare } from '../workout/summary.js';
 import { refreshWeightLog } from '../recovery/weight.js';
 import { setupWorkout } from '../workout/workout.js';
 import { setupWorkoutPicker } from '../workout/workout-picker.js';
+import { bindPasswordReveal } from '../shared/password-reveal.js';
 
 /* ======================================================================
    8. Init
@@ -238,6 +239,10 @@ function setupAuthGate() {
   const switchBtn = $('[data-au-switch]');
   const switchTextEl = $('[data-au-switch-text]');
   const passwordInput = $('#au-password');
+  const passwordReveal = bindPasswordReveal(
+    passwordInput,
+    $('[data-action="reveal-password"]', form),
+  );
 
   let mode = 'login'; // 'login' | 'register'
   let onSuccess = null; // a sikeres belépés után futtatandó lépés
@@ -307,6 +312,7 @@ function setupAuthGate() {
       setOnboardingLock(Boolean(account?.onboarding));
 
       form.reset();
+      passwordReveal.hide(); // a következő megnyitáskor ne látsszon a jelszó
       screen.hidden = true;
       screen.setAttribute('aria-hidden', 'true');
       onSuccess?.();

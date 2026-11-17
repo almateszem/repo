@@ -90,6 +90,39 @@
   outline: none;
 }
 
+/* A jelszómező és a „Mutasd" gomb egy sorban: a gomb a mező keretén belül
+   ül, így a mező szélessége nem változik. */
+.au-password {
+  position: relative;
+  display: flex;
+}
+
+.au-password .au-input {
+  flex: 1;
+  min-width: 0;
+  padding-right: calc(var(--sp-6) + 5.5em);
+}
+
+.au-reveal {
+  position: absolute;
+  inset: 0 0 0 auto;
+  min-width: var(--tap-min);
+  padding: 0 var(--sp-6);
+  background: none;
+  border: 0;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.au-reveal:hover,
+.au-reveal[aria-pressed='true'] {
+  color: var(--text-primary);
+}
+
 .au-hint {
   margin: 0;
   font-size: var(--fs-xs);

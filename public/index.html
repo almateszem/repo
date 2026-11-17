@@ -157,15 +157,28 @@
 
           <div class="au-field">
             <label class="au-label" for="au-password">Jelszó</label>
-            <input
-              class="au-input"
-              id="au-password"
-              name="password"
-              type="password"
-              autocomplete="current-password"
-              minlength="8"
-              required
-            />
+            <!-- A „Mutasd" teszi ellenőrizhetővé a beírt jelszót: a regisztráción
+                 egyetlen mező van, és jelszó-visszaállítás nincs
+                 (js/shared/password-reveal.js). -->
+            <div class="au-password">
+              <input
+                class="au-input"
+                id="au-password"
+                name="password"
+                type="password"
+                autocomplete="current-password"
+                minlength="8"
+                required
+              />
+              <button
+                class="au-reveal"
+                type="button"
+                data-action="reveal-password"
+                aria-controls="au-password"
+              >
+                Mutasd
+              </button>
+            </div>
             <p class="au-hint" data-au-only="register" hidden>Legalább 8 karakter.</p>
           </div>
 
