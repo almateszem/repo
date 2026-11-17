@@ -31,6 +31,7 @@ import {
   setProgramPos,
   startNextCycle,
   tagProgramWorkout,
+  untagProgramWorkouts,
   getActivePlan,
 } from '../db.js';
 import { roundToPlate } from '../program/formula.js';
@@ -266,6 +267,25 @@ export function skipProgram(userId, plan, to) {
   dropProgramDraft(userId, plan.id);
   const leftWeek = weekOf(plan, next) !== weekOf(plan, pos) ? weekOf(plan, pos) : null;
   afterBoundary(userId, plan, { ...state, pos: next }, { leftWeek });
+  return getProgramState(userId, plan.id);
+}
+
+/** „Előző nap": egy nap vissza a ciklusban (véletlen befejezés vagy ugratás
+    után). A visszalépett naptól kezdve a ciklus edzéseiről lekerül a
+    programjelölés — az edzések a naplóban maradnak, de az újra elvégzett nap
+    nem duplázódik a ciklus statisztikáiban. A közben elfogadott TM-változás
+    marad. Ugyanazok a tiltások, mint az ugratásnál; ciklushatáron át nincs. */
+export function stepBackProgram(userId, plan) {
+  const state = getProgramState(userId, plan.id);
+  if (!state) return { error: 'A program még nincs aktiválva.' };
+  if (state.pending) return { error: 'A ciklus lezárult — előbb hagyd jóvá a TM-eket.' };
+  if (state.mid) return { error: 'Előbb dönts a szabály javaslatáról.' };
+  const pos = Math.min(state.pos, total(plan) - 1);
+  if (pos <= 0) return { error: 'A ciklus első napjáról nem lehet visszalépni.' };
+  const back = pos - 1;
+  untagProgramWorkouts(userId, plan.id, state.cycle, back);
+  setProgramPos(userId, plan.id, back);
+  dropProgramDraft(userId, plan.id);
   return getProgramState(userId, plan.id);
 }
 

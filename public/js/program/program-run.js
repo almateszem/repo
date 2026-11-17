@@ -313,7 +313,34 @@ export function programCardActions(plan, { onChange, confirmAction }) {
     });
     return b;
   });
-  wrap.append(h('span', { class: 'pr-group', text: 'Ugratás:' }), ...skips, off);
+  /* „Előző nap": véletlen befejezés vagy ugratás után. A ciklus első napján
+     nincs hová, nyitott javaslatnál és ciklus végén pedig előbb dönteni kell
+     (a szerver is így szabja). */
+  const st = plan.state;
+  let back = null;
+  if (st && st.pos > 0 && !st.mid && !st.review) {
+    back = button('Előző nap');
+    back.addEventListener('click', async () => {
+      const ok = await confirmAction?.(
+        'Visszalépsz az előző programnapra? Az ott naplózott edzés a naplóban marad, de a ciklusba nem számít bele — a napot újra elvégezheted. A közben elfogadott TM-változás nem vonódik vissza.',
+        { title: 'Előző nap', confirmLabel: 'Visszalépek' },
+      );
+      if (!ok) return;
+      try {
+        await api.stepBackProgram(plan.id);
+        showToast('Visszaléptél az előző napra');
+        await onChange();
+      } catch (err) {
+        showToast(err.message || 'Nem sikerült visszalépni', 'error');
+      }
+    });
+  }
+  wrap.append(
+    h('span', { class: 'pr-group', text: 'Ugratás:' }),
+    ...(back ? [back] : []),
+    ...skips,
+    off,
+  );
   return wrap;
 }
 

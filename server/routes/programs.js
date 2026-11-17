@@ -24,6 +24,7 @@ import {
   clampAfterEdit,
   decideMid,
   skipProgram,
+  stepBackProgram,
 } from '../services/program-run.js';
 
 const NOT_FOUND = 'Nincs ilyen programod — lehet, hogy időközben törölték.';
@@ -119,6 +120,15 @@ export function register(app) {
     const plan = ownProgram(req, res);
     if (!plan) return;
     const result = skipProgram(req.user.id, plan, req.body?.to);
+    if (result.error) return res.status(409).json(result);
+    res.json(result);
+  });
+
+  /** „Előző nap" — ld. stepBackProgram. */
+  app.post('/api/programs/:id/back', (req, res) => {
+    const plan = ownProgram(req, res);
+    if (!plan) return;
+    const result = stepBackProgram(req.user.id, plan);
     if (result.error) return res.status(409).json(result);
     res.json(result);
   });

@@ -390,6 +390,7 @@ const api = {
   activateProgram: (id, trainingMaxes, oneRms) =>
     postJson(`/api/programs/${id}/activate`, { trainingMaxes, oneRms }),
   skipProgram: (id, to) => postJson(`/api/programs/${id}/skip`, { to }),
+  stepBackProgram: (id) => postJson(`/api/programs/${id}/back`, {}),
   approveProgramReview: (id, decisions) => postJson(`/api/programs/${id}/review`, { decisions }),
   decideProgramMid: (id, decisions) =>
     postJson(`/api/programs/${id}/mid`, decisions ? { decisions } : { reject: true }),

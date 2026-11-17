@@ -121,6 +121,18 @@ export function tagProgramWorkout(userId, workoutId, cycle, pos, readiness) {
   );
 }
 
+/** A programjelölés levétele a ciklus `fromPos`-tól kezdődő napjairól
+    (visszalépés). Az edzés a naplóban marad, csak a ciklusba nem számít —
+    különben az újra elvégzett nap mellett a régi is ott lenne. */
+export function untagProgramWorkouts(userId, planId, cycle, fromPos) {
+  return db
+    .prepare(
+      `UPDATE workouts SET program_cycle = NULL, program_pos = NULL, program_readiness = NULL
+       WHERE user_id = ? AND plan_id = ? AND program_cycle = ? AND program_pos >= ?`,
+    )
+    .run(userId, planId, cycle, fromPos).changes;
+}
+
 /** A ciklus programnapként jelölt edzései, rögzítési sorrendben. */
 export function getCycleWorkouts(userId, planId, cycle) {
   return db
