@@ -1,6 +1,6 @@
 # Podium — az ITDK-előadás szövege
 
-16 dia · kb. 12 perc nyugodt tempóban (1185 szó) · a keret 15 perc, így marad tartalék a kérdésekre vagy egy elcsúszásra.
+16 dia · kb. 12 perc nyugodt tempóban (1227 szó) · a keret 15 perc, így marad tartalék a kérdésekre vagy egy elcsúszásra.
 
 Ugyanez a szöveg a diák előadói jegyzeteiben is benne van (PowerPointban: Diavetítés → Előadói nézet).
 
@@ -27,15 +27,15 @@ Ugyanez a szöveg a diák előadói jegyzeteiben is benne van (PowerPointban: Di
 
 ## 1. Címdia · kb. 0:30 (eddig 0:30)
 
-Jó napot kívánunk! Kovács Valter, Dausek Csanád és Peresztegi Viktor vagyunk a Kaposvári Informatika Ágazati Képzőközpontból, a témavezetőnk Fogarasi András. A projektünk a Podium: egy böngészőből használható webalkalmazás, amely egy helyen kezeli az edzést, az étkezést és a pihenést, és minden reggel megbecsüli, mennyire áll készen a sportoló egy újabb edzésre – okosóra nélkül.
+Jó napot kívánunk! Kovács Valter, Dausek Csanád és Peresztegi Viktor vagyunk a Kaposvári Informatika Ágazati Képzőközpontból, a témavezetőnk Fogarasi András. A projektünk a Podium: egy böngészőből használható webalkalmazás, amely egy helyen kezeli az edzést, az étkezést és a pihenést, és minden reggel megbecsüli, mennyire áll készen a sportoló egy újabb edzésre. Ehhez nem kell okosóra, de később az óra adataival még pontosabb lesz.
 
 ## 2. 01 · A probléma · kb. 0:50 (eddig 1:20)
 
-Kezdjük a problémával. Aki rendszeresen edz, általában több külön eszközt használ. Az edzésnapló rögzíti, mit emelt – de nem tudja, hogyan aludt. Az étrendnapló számolja a kalóriát – de nem köti az edzéshez. Az okosóra becsli a felkészültséget, de külön eszköz, és gyakran havidíj kell hozzá. A személyi edző pedig táblázatban, papíron vagy chatben követi a klienseit, máshol, mint ahol azok naplóznak. Ezek az eszközök nem tudnak egymásról. A sportoló végül az érzéseire hagyatkozik: vagy túlterheli magát, vagy feleslegesen visszavesz.
+Kezdjük a problémával. Aki rendszeresen edz, általában több külön eszközt használ. Az edzésnapló rögzíti, mit emelt – de nem tudja, hogyan aludt. Az étrendnapló számolja a kalóriát – de nem köti az edzéshez. Az okosóra becsli a felkészültséget, de nem látja, mit edzettünk és mit ettünk. A személyi edző pedig táblázatban, papíron vagy chatben követi a klienseit, máshol, mint ahol azok naplóznak. Ezek az eszközök nem tudnak egymásról. A sportoló végül az érzéseire hagyatkozik: vagy túlterheli magát, vagy feleslegesen visszavesz.
 
 ## 3. 02 · A projekt kérdése · kb. 0:30 (eddig 1:50)
 
-Ebből fogalmaztuk meg a projekt kérdését: megbecsülhető-e okosóra nélkül, mennyire áll készen a sportoló? Úgy, hogy csak abból dolgozunk, amit amúgy is beír: az edzésnaplóból, az étkezéseiből és egy rövid reggeli kérdőívből. Nem akartunk új mérőeszközt – a meglévő adatokból kellett kihozni a választ.
+Ebből fogalmaztuk meg a projekt kérdését: megbecsülhető-e már a meglévő naplóadatokból, mennyire áll készen a sportoló? Okosóra nélkül, csak abból dolgozunk, amit amúgy is beír: az edzésnaplóból, az étkezéseiből és egy rövid reggeli kérdőívből. Nem akartunk új mérőeszközt előírni – a meglévő adatokból kellett kihozni a választ. Az óra később kiegészítheti a becslést, de nem lehet a feltétele.
 
 ## 4. 03 · A megoldás · kb. 0:45 (eddig 2:35)
 
@@ -79,11 +79,11 @@ Technikailag szándékosan egyszerű rendszert építettünk. A böngészőben H
 
 ## 14. 13 · Ütemezés · kb. 0:40 (eddig 10:50)
 
-Az ütemezés: 2026 júliusában kezdtünk, hárman. Augusztusban elkészült a Recovery Engine, a check-in és a fiókok, szeptemberben a 12 izomcsoportos követés. Októberben egy teljes kódátvizsgálás során 78 problémát javítottunk, novemberben pedig elkészült a blokkos programozó. Az öt célunkból négy teljesült; a könnyű használatot nagyrészt értük el – ezt igazán a valódi felhasználók mutatják majd meg.
+Az ütemezés: 2026 júliusában kezdtünk, hárman. Augusztusban elkészült a Recovery Engine, a check-in és a fiókok, szeptemberben a 12 izomcsoportos követés. Októberben egy teljes kódátvizsgálás során 78 problémát javítottunk, novemberben pedig elkészült a blokkos programozó. Az öt célunkból négy teljesült; a könnyű használatot nagyrészt értük el – ezt igazán a valódi felhasználók mutatják majd meg. Utána jön az okosóra-összekötés: aki órát hord, annak az adatai tovább pontosítják majd a pontszámot.
 
 ## 15. 14 · Következő lépés · kb. 0:45 (eddig 11:35)
 
-És ez a következő lépés. A rendszer működik és tesztelt, de hogy mennyit segít, azt csak valódi sportolókkal lehet megmérni. Három feltevést szeretnénk ellenőrizni: hogy okosóra nélkül is számolható olyan pontszám, amely követi, hogyan érzi magát a sportoló; hogy az izomcsoportonkénti követés csökkenti a túlterhelést; és hogy az edző kevesebbet adminisztrál, ha egy helyen látja az adatokat. A fejlesztésben pedig a blokkos programok kiosztása jön az edzők számára. Fontos kimondani a korlátot is: az összetevők súlyai saját becslések, a pontszám tájékoztató, nem orvosi vélemény.
+És ez a következő lépés. A rendszer működik és tesztelt, de hogy mennyit segít, azt csak valódi sportolókkal lehet megmérni. Három feltevést szeretnénk ellenőrizni: hogy már okosóra nélkül is számolható olyan pontszám, amely követi, hogyan érzi magát a sportoló; hogy az izomcsoportonkénti követés csökkenti a túlterhelést; és hogy az edző kevesebbet adminisztrál, ha egy helyen látja az adatokat. A fejlesztésben pedig a blokkos programok kiosztása jön az edzők számára, utána az okosóra-összekötés. Fontos kimondani a korlátot is: az összetevők súlyai saját becslések, a pontszám tájékoztató, nem orvosi vélemény.
 
 ## 16. Zárás · kb. 0:15 (eddig 11:50)
 
