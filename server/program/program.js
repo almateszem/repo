@@ -16,8 +16,17 @@ import {
   normalizeFormula,
   roundToPlate,
 } from './formula.js';
+import { EXERCISE_NAME_MAX, MAX_SETS_PER_EXERCISE, WORKOUT_NAME_MAX } from '../limits.js';
 
-const LIMITS = { weeks: 12, days: 7, exercises: 20, sets: 20, rules: 10, label: 40, name: 80 };
+const LIMITS = {
+  weeks: 12,
+  days: 7,
+  exercises: 20,
+  sets: 20,
+  rules: 10,
+  label: 40,
+  name: EXERCISE_NAME_MAX,
+};
 const RULE_ON = new Set(['workout', 'week', 'cycle']);
 const CMP_OPS = new Set(['<', '<=', '=', '>=', '>']);
 
@@ -44,12 +53,43 @@ function normalizeSet(raw) {
     weight = normalizeFormula(raw.weight);
     if (!weight) fail('Egy szett súlyképlete érvénytelen.');
   }
+  const amrap = Boolean(raw.amrap);
+  const reps = intIn(raw.reps, 0, 100, 'Az ismétlésszám 0 és 100 között lehet.');
+  /* A „0+ AMRAP" nem értelmes előírás, és a napló a 0-s jelzőt el is dobja
+     (ott az amrap az előírt MINIMUM, legalább 1) — az AMRAP-szabály így
+     sosem kapott volna adatot. */
+  if (amrap && reps < 1) fail('Az AMRAP-szettnél legalább 1 ismétlést írj elő.');
   return {
     count: intIn(raw.count, 1, 20, 'A szettek száma 1 és 20 között lehet.'),
-    reps: intIn(raw.reps, 0, 100, 'Az ismétlésszám 0 és 100 között lehet.'),
-    amrap: Boolean(raw.amrap),
+    reps,
+    amrap,
     weight,
   };
+}
+
+/** A program napjai a napló korlátain belül maradnak-e. A napot a program
+    a napló alakjában generálja (buildDayWorkout), és a mentés a napló
+    korlátait követeli meg — ami itt átcsúszik, az csak az edzés végén, a
+    „Befejezés"-nél bukna el, amikor már nem lehet mit tenni. */
+function checkAgainstLogLimits(program) {
+  flattenDays(program).forEach((f) => {
+    const title = dayTitle(program, f.pos);
+    if (title.length > WORKOUT_NAME_MAX) {
+      fail(
+        `A(z) „${title}” nap címe (hét + nap neve) ${title.length} karakter, ` +
+          `legfeljebb ${WORKOUT_NAME_MAX} lehet — rövidítsd a hét vagy a nap nevét.`,
+      );
+    }
+    for (const e of program.weeks[f.week].days[f.day].exercises) {
+      const total = e.sets.reduce((sum, s) => sum + s.count, 0);
+      if (total > MAX_SETS_PER_EXERCISE) {
+        fail(
+          `„${e.name}” (${title}): ${total} szett — egy gyakorlat egy napon legfeljebb ` +
+            `${MAX_SETS_PER_EXERCISE} szettet adhat.`,
+        );
+      }
+    }
+  });
 }
 
 function normalizeExercise(raw) {
@@ -157,6 +197,7 @@ export function normalizeProgram(raw) {
           program.steps[name] = n;
       }
     }
+    checkAgainstLogLimits(program);
     return { program };
   } catch (err) {
     if (err instanceof ProgramError) return { error: err.message };

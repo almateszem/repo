@@ -74,6 +74,7 @@ import {
   parsePlanBody,
   parseWorkoutBody,
 } from '../validation/workout-body.js';
+import { WORKOUT_NAME_MAX } from '../limits.js';
 
 /** A törzsben érkező, NEM KÖTELEZŐ sor-azonosító (terv- vagy edzés-id) —
     hiányzó/érvénytelen értékre null. A piszkozatnál mindkettő így viselkedik:
@@ -933,7 +934,7 @@ export function register(app, { catalogSearch }) {
   app.put('/api/workout-draft', (req, res) => {
     const name = String(req.body?.name ?? '')
       .trim()
-      .slice(0, 60);
+      .slice(0, WORKOUT_NAME_MAX);
     const raw = req.body?.exercises;
     const tooBig = exerciseLimitError(raw);
     if (tooBig) return res.status(400).json({ error: tooBig });

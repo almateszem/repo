@@ -6,6 +6,7 @@
  */
 import { DEFAULT_LOG_MODE, isLogMode, normalizeDuration, normalizeIntensity } from '../logmode.js';
 import { normalizeWeek, weekFromLegacy } from '../plan-week.js';
+import { EXERCISE_NAME_MAX, MAX_SETS_PER_EXERCISE, WORKOUT_NAME_MAX } from '../limits.js';
 
 /** A beküldött hétnap-lista normalizálása: egyedi, rendezett 0–6 indexek. */
 const normalizeDays = (raw) =>
@@ -107,7 +108,7 @@ function setValueError(sets) {
    felhasználó kérését blokkolva. A számok messze a valódi használat fölött
    vannak: egy edzés jellemzően 4-10 gyakorlat, gyakorlatonként 3-6 szett. */
 const MAX_EXERCISES = 50;
-const MAX_SETS_PER_EXERCISE = 50;
+// A gyakorlatonkénti szettszám a blokkos programmal közös: server/limits.js
 
 /** A méretkorlát és az értékkorlát ellenőrzése a normalizálás ELŐTT, hogy a
     túl nagy törzs vagy érték konkrét hibaüzenetet kapjon — csendes levágás
@@ -133,7 +134,7 @@ export function normalizeExercises(raw) {
   for (const entry of raw) {
     const name = String(entry?.name ?? '')
       .trim()
-      .slice(0, 60);
+      .slice(0, EXERCISE_NAME_MAX);
     // Szett nélküli gyakorlat nem értelmes: a felületen üres kártyaként
     // jelenne meg, és a haladás-számításokból is kilógna.
     if (!name || !Array.isArray(entry?.sets) || entry.sets.length === 0) return null;
@@ -239,8 +240,8 @@ export function parsePlanBody(body) {
     ugyanazt követeli meg. Hibánál { error }-t ad, a parsePlanBody mintájára. */
 export function parseWorkoutBody(body) {
   const name = String(body?.name ?? '').trim();
-  if (!name || name.length > 60) {
-    return { error: 'Az edzés neve kötelező (legfeljebb 60 karakter).' };
+  if (!name || name.length > WORKOUT_NAME_MAX) {
+    return { error: `Az edzés neve kötelező (legfeljebb ${WORKOUT_NAME_MAX} karakter).` };
   }
   const tooBig = exerciseLimitError(body?.exercises);
   if (tooBig) return { error: tooBig };

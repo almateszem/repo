@@ -491,6 +491,9 @@ export function setupProgramBuilder(confirmAction) {
         const next = structuredClone(p);
         const set = next.weeks[w].days[d].exercises[e].sets[s];
         set.amrap = !set.amrap;
+        // AMRAP-nál az előírt ismétlés a minimum — a „0+" nem előírás (a szerver
+        // el is utasítaná), ezért bekapcsoláskor legalább 1 lesz.
+        if (set.amrap && set.reps < 1) set.reps = 1;
         return setProgram(next);
       }
       case 'add-ex':
@@ -558,7 +561,9 @@ export function setupProgramBuilder(confirmAction) {
         );
         return render();
       }
-      next.weeks[w].days[d].exercises[e].sets[s][field] = n;
+      const set = next.weeks[w].days[d].exercises[e].sets[s];
+      // AMRAP-szettnél a 0 ismétlés 1-re igazodik (ld. az amrap gombnál).
+      set[field] = field === 'reps' && set.amrap ? Math.max(n, 1) : n;
     }
     setProgram(next);
   });
