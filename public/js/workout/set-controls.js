@@ -8,7 +8,6 @@
 
 import { api } from '../shared/api.js';
 import { $, $$ } from '../shared/dom.js';
-import { formatInputNumber } from '../shared/format.js';
 import { bindPopupMenu } from '../shared/popup-menu.js';
 import { showToast } from '../shared/toast.js';
 import {
@@ -45,24 +44,42 @@ async function loadIntensityLevels() {
   return levels;
 }
 
-/** Az RPE-mező kézzel beírt értékének 1–10 közé (fél fokozatokra) szorítása.
-    A léptetőgombok betartják a min/max-ot, a billentyűzet viszont bármit
-    beenged („0", „55", „8.3"), a recovery-motor pedig erre a skálára épül.
-    Az üres mező üres marad — az RPE nem kötelező. Csak fókusz elhagyásakor
-    (change) fut, hogy gépelés közben ne írjuk át a félkész számot. Igazzal
-    tér vissza, ha módosított (a hívó ilyenkor ment). */
-function clampRpeInput(target) {
-  const input = target.closest?.('.wk-set-rpe');
-  if (!input || input.value.trim() === '') return false;
+/** A szett szám-mezőinek tartománya. A léptetőgombok betartják a min/max-ot,
+    a billentyűzet viszont bármit beenged („0", „55", „99999"):
+      · RPE: 1–10, fél fokozatokra (a recovery-motor erre a skálára épül);
+      · ismétlés: 0–999, egész;
+      · súly: 0–999, két tizedesig (1,25 kg-os tárcsa is van).
+    A 999 a szerver korlátja is (validation/workout-body.js) — fölötte a
+    mentés hibát kap, ezért a mező előbb visszaigazít, különben az automatikus
+    mentés minden billentyűre hibát dobna. */
+const SET_FIELD_RULES = [
+  ['.wk-set-rpe', { min: 1, max: 10, round: (v) => Math.round(v * 2) / 2 }],
+  ['.wk-set-reps', { min: 0, max: 999, round: Math.round }],
+  ['.wk-set-weight', { min: 0, max: 999, round: (v) => Math.round(v * 100) / 100 }],
+];
 
-  const value = Number(input.value);
-  const clamped = Number.isFinite(value)
-    ? formatInputNumber(Math.min(Math.max(Math.round(value * 2) / 2, 1), 10))
-    : '';
-  if (clamped === input.value) return false;
+/** Egy szett-mező kézzel beírt értékének a tartományba szorítása. Az üres
+    mező üres marad (egyik sem kötelező). Csak fókusz elhagyásakor (change)
+    fut, hogy gépelés közben ne írjuk át a félkész számot. Igazzal tér vissza,
+    ha módosított (a hívó ilyenkor ment). */
+function clampSetInput(target) {
+  for (const [selector, { min, max, round }] of SET_FIELD_RULES) {
+    const input = target.closest?.(selector);
+    if (!input) continue;
+    if (input.value.trim() === '') return false;
 
-  input.value = clamped;
-  return true;
+    const value = Number(input.value);
+    // A kerekítést a szabály végzi: a formatInputNumber egy tizedesre vágna,
+    // és a 1,25 kg-ból 1,3 lenne.
+    const clamped = Number.isFinite(value)
+      ? String(Math.min(Math.max(round(value), min), max))
+      : '';
+    if (clamped === input.value) return false;
+
+    input.value = clamped;
+    return true;
+  }
+  return false;
 }
 
 /** Az új szett értékei: az adott gyakorlat utolsó szettje (így ismétlődő
@@ -256,7 +273,7 @@ async function confirmRemoveExercise(card, name, confirmAction) {
 }
 
 export {
-  clampRpeInput,
+  clampSetInput,
   confirmRemoveExercise,
   countDoneSets,
   enableExtraMenu,

@@ -9,7 +9,7 @@ import { navigate } from '../app/router.js';
 import { renderPlans } from './plans.js';
 import { readSetRow, renderExercise } from '../workout/sets-view.js';
 import {
-  clampRpeInput,
+  clampSetInput,
   enableExtraMenu,
   enableIntensitySelect,
   enableSetTypeSelect,
@@ -266,9 +266,9 @@ async function setupPlanBuilder(picker, workoutPicker, confirmAction) {
     handleRemoveSetClick(event, updateSummary);
   });
 
-  // A tervbe írt RPE ugyanarra az 1–10 skálára szorul, mint a naplóban
+  // A tervbe írt számok ugyanabba a tartományba szorulnak, mint a naplóban
   listsWrap.addEventListener('change', (event) => {
-    clampRpeInput(event.target);
+    clampSetInput(event.target);
   });
 
   // Szett-típus a tervben is: így a terv már megmondja, melyik sor

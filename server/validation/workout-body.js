@@ -66,6 +66,41 @@ function nonNegativeField(value) {
   return parsed < 0 ? '0' : String(parsed);
 }
 
+/** Az ismétlés: ugyanaz, mint a nonNegativeField, de a számként olvasható
+    érték egészre kerekedik — fél ismétlés nincs, és a 2,5 ismétléses sor a
+    tonnatömegben és az 1RM-becslésben is hamis számot adott. */
+function repsField(value) {
+  const field = nonNegativeField(value);
+  const parsed = field.trim() === '' ? NaN : Number(field);
+  return Number.isFinite(parsed) ? String(Math.round(parsed)) : field;
+}
+
+/** A súly és az ismétlés felső korlátja. Ennél nagyobb érték elgépelés
+    (1100 a 110 helyett): egyéni csúccsá vált, és a készenléti pontszámot is
+    levitte. A felület mezői is eddig engednek (max="999"). */
+const MAX_SET_VALUE = 999;
+
+/** A mező számként, tizedesvesszővel is — a Recovery Engine (numbers.js → num)
+    a „1100,5"-öt is számnak olvassa, ezért a korlátnak is annak kell látnia. */
+const asNumber = (value) => {
+  const text = String(value ?? '').trim();
+  if (text === '') return NaN;
+  return Number(text.replace(',', '.'));
+};
+
+/** Az első túl nagy szett-érték hibaüzenete, vagy null. */
+function setValueError(sets) {
+  for (const set of sets) {
+    if (asNumber(set?.weight) > MAX_SET_VALUE) {
+      return `A súly legfeljebb ${MAX_SET_VALUE} kg lehet — ellenőrizd a beírt számot.`;
+    }
+    if (asNumber(set?.reps) > MAX_SET_VALUE) {
+      return `Az ismétlés legfeljebb ${MAX_SET_VALUE} lehet — ellenőrizd a beírt számot.`;
+    }
+  }
+  return null;
+}
+
 /* A mentett szerkezet felső korlátja. Enélkül egy 100 KB-os törzs (üres
    szettekkel) ~3 MB-ként tárolódott, és a getWorkouts minden olvasásnál
    szinkron JSON.parse-szal fejtette vissza — a szinkron SQLite miatt MINDEN
@@ -74,8 +109,9 @@ function nonNegativeField(value) {
 const MAX_EXERCISES = 50;
 const MAX_SETS_PER_EXERCISE = 50;
 
-/** A méretkorlát ellenőrzése a normalizálás ELŐTT, hogy a túl nagy törzs
-    konkrét hibaüzenetet kapjon — csendes levágás adatvesztés lenne. */
+/** A méretkorlát és az értékkorlát ellenőrzése a normalizálás ELŐTT, hogy a
+    túl nagy törzs vagy érték konkrét hibaüzenetet kapjon — csendes levágás
+    adatvesztés lenne. Az edzés, a piszkozat és a terv is ezen megy át. */
 export function exerciseLimitError(raw) {
   if (!Array.isArray(raw)) return null;
   if (raw.length > MAX_EXERCISES) return `Legfeljebb ${MAX_EXERCISES} gyakorlat menthető.`;
@@ -83,6 +119,10 @@ export function exerciseLimitError(raw) {
     raw.some((entry) => Array.isArray(entry?.sets) && entry.sets.length > MAX_SETS_PER_EXERCISE)
   ) {
     return `Gyakorlatonként legfeljebb ${MAX_SETS_PER_EXERCISE} szett menthető.`;
+  }
+  for (const entry of raw) {
+    const error = Array.isArray(entry?.sets) ? setValueError(entry.sets) : null;
+    if (error) return error;
   }
   return null;
 }
@@ -128,7 +168,7 @@ export function normalizeExercises(raw) {
               done: Boolean(set?.done),
             }
           : {
-              reps: nonNegativeField(set?.reps),
+              reps: repsField(set?.reps),
               weight: nonNegativeField(set?.weight),
               rpe: normalizeRpe(set?.rpe),
               type: normalizeSetType(set?.type, index, sets[index - 1]?.type),

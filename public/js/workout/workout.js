@@ -12,7 +12,7 @@ import { renderDashboard } from '../dashboard/dashboard.js';
 import { bindHistoryActions, renderPrs } from './history.js';
 import { readSetRow, refreshExerciseList } from './sets-view.js';
 import {
-  clampRpeInput,
+  clampSetInput,
   confirmRemoveExercise,
   countDoneSets,
   enableExtraMenu,
@@ -224,11 +224,12 @@ async function setupWorkout(videoModal, prModal, picker, confirmAction) {
     }
   });
 
-  // A mező elhagyásakor az RPE visszakerül az 1–10 skálára (gépelés közben
-  // nem nyúlunk hozzá). Az input-figyelő már mentett, ezért csak akkor
-  // mentünk újra, ha a szorítás tényleg átírta az értéket.
+  // A mező elhagyásakor a szám visszakerül a tartományába (RPE 1–10,
+  // ismétlés és súly 0–999; gépelés közben nem nyúlunk hozzá). Az
+  // input-figyelő már mentett, ezért csak akkor mentünk újra, ha a szorítás
+  // tényleg átírta az értéket.
   page.addEventListener('change', (event) => {
-    if (clampRpeInput(event.target)) autosave();
+    if (clampSetInput(event.target)) autosave();
   });
 
   /** Gyakorlat teljes eltávolítása a naplóból. A teljesített szettekre
